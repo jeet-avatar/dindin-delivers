@@ -1,425 +1,462 @@
 # Phase 04: Fix CI + API Contract Tests - Research
 
 **Researched:** 2026-02-21
-**Domain:** API contract testing, pytest infrastructure, CI/CD workflows
+**Domain:** API contract testing, shipped build verification, CI/CD workflow fixes
 **Confidence:** HIGH
 
 ## Summary
 
-The current API contract test file (`test_ios_api_contracts.py`) has **19 test methods** covering only **~15 unique API paths**. The actual shipped iOS and Android apps call **~160 unique API endpoints** across customer, driver, vendor, and rideshare domains. The contract tests are massively outdated -- they cover less than 10% of the real API surface. Additionally, the tests were written before the Phase 02 auth hardening, so many tests that do exist hit auth middleware and return 401 instead of expected responses.
+The contract test file (`test_ios_api_contracts.py`) has 19 test methods covering ~15 unique paths, all of which are wrong or outdated. The actual shipped iOS and Android apps call ~160 unique API endpoints. The tests were written before auth hardening (Phase 02 of v1.1) and use endpoints that don't match what the apps actually call.
 
-The CI infrastructure has two layers: (1) the production deploy workflow (`deploy-dollar-ai.yml`) gates on `tests/unit/` only and is GREEN, (2) the integration test workflow (`integration-tests.yml`) runs the contract tests plus API/e2e tests on push and nightly schedule -- this is FAILING due to auth middleware interception, missing `ENVIRONMENT=testing` env var (causes SSL requirement in CI's PostgreSQL), and stale test assertions.
+**Critical discovery: The shipped TestFlight/Firebase builds are NOT the same as current HEAD.** The TestFlight builds (uploaded Feb 18, 2026) are 78-80 commits behind HEAD. Importantly, the shipped iOS builds still call 6 endpoints with OLD paths that were fixed in Phase 02-02 of v1.2 (Feb 20). The shipped Android builds (built Feb 18) still call 4 endpoints with OLD paths that were fixed in Phase 03-01 of v1.2 (Feb 20). The backend has route aliases for most (but not all) of these old paths, so the shipped apps mostly work, but contract tests must cover BOTH the shipped (old) paths AND the current HEAD (new) paths.
 
-**Primary recommendation:** Rewrite `test_ios_api_contracts.py` from scratch to validate every endpoint that iOS and Android apps actually call, organized by app role (customer, driver, vendor, rideshare). Fix CI workflow env vars so integration tests can run. Keep tests lightweight -- verify endpoint existence, HTTP method, auth requirement, and basic response structure rather than full business logic.
+The CI integration-tests.yml workflow is **consistently failing** because `database.py` defaults `ENVIRONMENT` to `"production"`, which triggers `sslmode=require` on PostgreSQL connections. The CI PostgreSQL service container does not support SSL. This causes `init_db()` to crash before any tests run.
 
-## Endpoint Gap Analysis
+**Primary recommendation:** (1) Fix `database.py` ENVIRONMENT default from `"production"` to `""` so CI doesn't require SSL. (2) Add `ENVIRONMENT=testing` to the CI contract test job's `Start Backend Server` step. (3) Rewrite `test_ios_api_contracts.py` to cover all ~160 endpoint paths that shipped iOS/Android apps actually call, organized by role. (4) Add missing `customer_auth_headers` fixture to conftest.py.
 
-### Current Contract Tests (19 tests, ~15 paths)
+## Part 1: Shipped Build Verification
 
-| Class | Tests | Paths Covered |
-|-------|-------|---------------|
-| `TestAuthAPIContracts` | 4 | `/health`, `/api/auth/login`, `/register` |
-| `TestDriverAPIContracts` | 4 | `/api/auth/driver/register`, `/api/auth/driver/login`, `/api/auth/driver/me`, `/api/auth/driver/location` |
-| `TestVendorAPIContracts` | 3 | `/api/auth/vendor/login`, `/api/vendors/{id}/menu`, `/api/orders` |
-| `TestCustomerAPIContracts` | 3 | `/api/restaurants`, `/api/restaurants/{id}/menu`, `/api/orders` |
-| `TestCommonAPIContracts` | 4 | `/api/nonexistent-endpoint-12345`, `/health` (2x), `/api/restaurants` |
-| `TestPushNotificationContracts` | 1 | `/api/device/register` |
+### iOS TestFlight Builds (VERIFIED via App Store Connect API)
 
-**Critical problems with current tests:**
-1. Tests use **wrong endpoints** (e.g., `/api/restaurants` -- app calls `/api/vendors/published`)
-2. Tests use **nonexistent endpoints** (e.g., `/api/device/register` -- app calls `/api/notifications/register-token`)
-3. No auth headers passed -- all protected endpoints now return 401
-4. No rideshare coverage at all
-5. No cart, payment card, address, favorites, or document endpoints
-6. Tests `/register` which is not the customer register path (should be `/api/auth/customer/register`)
+| App | Bundle ID | Version | Build | Upload Date | Processing State |
+|-----|-----------|---------|-------|-------------|------------------|
+| Dollor - Food & Rides | com.dollorai.customer | 1.0 | **1088** | 2026-02-18T21:01:45-08:00 | VALID |
+| Dollor Delivery | com.dollorai.delivery | 1.0 | **196** | 2026-02-18T21:15:32-08:00 | VALID |
+| Dollor Restaurant | com.dollorai.restaurant | 1.0 | **164** | 2026-02-18T21:15:19-08:00 | VALID |
 
-### Actual iOS App Endpoints (P2PAPIService.swift -- ~120 unique paths)
+**Source commit:** Customer build 1088 was tagged at commit `7b659947`. Driver/Restaurant builds were tagged at commit `1297b663` (2 commits later, same day). Both are from **Feb 18, 2026**.
 
-**Customer Auth & Profile (9 paths):**
-- POST `/api/auth/customer/login`, POST `/api/auth/customer/register`
-- POST `/api/auth/customer/google`, POST `/api/customer/apple-auth`
-- PUT `/api/customer/{customerId}/profile`
-- POST `/api/customer/password-reset/request`, POST `/api/customer/password-reset/confirm`
-- DELETE `/api/customers/{customerId}/delete`
-- GET `/api/customer/orders`
+**Commits since TestFlight upload:** 78-80 commits on HEAD after the shipped builds, including:
+- `ad128e49` - iOS auth headers strengthened from if-let to guard-let
+- `58a1dae2` - iOS vendor delete, order chat paths, duplicate completeRide fixed
+- Auth hardening (170+ endpoints secured)
+- Dead proxy stub deletion (93 stubs removed)
+- API endpoint standardization
 
-**Customer Orders (11 paths):**
-- POST `/api/erp/orders/create`, POST `/api/erp/orders/{orderId}/confirm-payment`
-- GET `/api/customer/orders/{orderId}/track`, GET `/api/customer/{customerId}/active-orders`
-- POST `/api/orders/{orderId}/tip-driver`, POST `/api/orders/{orderId}/cancel`
-- GET `/api/orders/{orderId}/refund-status`, GET `/api/orders/{orderId}/modification`
-- POST `/api/orders/{orderId}/modification/respond`, POST `/api/orders/{orderId}/mark-unavailable`
-- POST `/api/customer/orders/{orderId}/rate-driver`, POST `/api/customer/orders/{orderId}/rate-restaurant`
+### Android Firebase/APK Builds (VERIFIED from build outputs)
 
-**Customer Order Chat (2 paths):**
-- GET `/api/customer/orders/{orderId}/chat`, POST `/api/customer/orders/{orderId}/chat`
+| App | Package ID | Version Name | Version Code | APK Date | APK Size |
+|-----|------------|-------------|-------------|----------|----------|
+| Customer | ai.dollor.customer | 1.0.22 | **23** | 2026-02-18 23:56 | 24.1 MB |
+| Driver | ai.dollor.driver | 1.0.19 | **20** | 2026-02-18 23:53 | 15.6 MB |
+| Partner | ai.dollor.partner | 1.0.15 | **16** | 2026-02-18 23:57 | 15.5 MB |
+
+**Source commit:** APKs built from commit `9c42c21d` (2026-02-18T23:48:26-08:00 "fix: Android driver delivery flow -- match iOS endpoints exactly"). HEAD is 2 commits ahead (`5f816020` + `5e460c1f`, Phase 03 Android fixes from Feb 20).
+
+**Commits since APK build:** 2 commits, both in Phase 03-01:
+- `5f816020` - Corrected 5 Android API paths to match backend routes
+- `5e460c1f` - Corrected staging URL in tests + photo URL resolution
+
+## Part 2: Shipped vs HEAD Endpoint Differences
+
+### iOS: 6 Paths Changed Since TestFlight Upload
+
+| Shipped Path (TestFlight build 1088/196/164) | HEAD Path (current) | Backend Status |
+|----------------------------------------------|---------------------|----------------|
+| `POST /api/customer/favorites` (body has customer_id/vendor_id) | `POST /api/customer/favorites/{customerId}/{vendorId}` (path params) | Only new path exists -- **SHIPPED APP BROKEN for add favorite** |
+| `DELETE /api/vendors/{vendorId}/delete` | `DELETE /api/vendors/{vendorId}` | Only new path exists -- **SHIPPED APP BROKEN for vendor delete** |
+| `GET/POST /api/orders/{orderId}/chat` | `GET/POST /api/customer/orders/{orderId}/chat` | **ALIAS EXISTS** at main_new.py:21570-21571 |
+| `GET/POST /api/chat/messages/{rideRequestId}` | `GET/POST /api/p2p/ride-requests/{rideRequestId}/chat` | **ALIAS EXISTS** at main_new.py:16410-16420, 21552-21553 |
+| `POST /api/erp/rides/{rideId}/cancel` | `POST /api/rides/request/{rideId}/cancel` | **BOTH EXIST** (erp at 15084-15085, rides/request at bid_routes) |
+| `POST /api/erp/orders/{rideId}/complete-delivery` (for ride completion) | Removed (use `POST /api/rides/request/{rideRequestId}/complete`) | **ALIAS EXISTS** at main_new.py:14852-14859 |
+
+**Impact:** 2 of 6 shipped paths are actually BROKEN in the shipped TestFlight build (favorites add, vendor delete). The other 4 work via backend aliases.
+
+### Android: 4 Paths Changed Since APK Build
+
+| Shipped Path (APK build from 9c42c21d) | HEAD Path (current) | Backend Status |
+|-----------------------------------------|---------------------|----------------|
+| `POST orders/create` | `POST erp/orders/create` | **ALIAS EXISTS** at main_new.py:15350 |
+| `GET customer/rides` | `GET customer/rides/history` | **ALIAS EXISTS** at main_new.py:15466 |
+| `POST rides/{rideId}/cancel` | `POST rides/request/{rideId}/cancel` | **BOTH EXIST** (separate routes) |
+| `POST erp/rides/{rideId}/rate` | `POST rides/{rideId}/rate` | **BOTH EXIST** at main_new.py:4399 and 16012 |
+
+**Impact:** All 4 Android shipped old paths work via backend aliases. No broken paths in shipped Android build.
+
+### Android Known Bug (Pre-existing)
+
+| Path | Issue | Status |
+|------|-------|--------|
+| `DELETE /api/rides/recurring/{id}` | Backend expects `/api/rides/recurring-rides/{id}` | **BROKEN** -- silent 404, documented in MEMORY.md |
+
+## Part 3: Complete Endpoint Inventory from Shipped Builds
+
+### iOS Shipped Build: 157 Unique Path Patterns
+
+Extracted from `P2PAPIService.swift` at commit `1297b663` (the TestFlight build commit).
+
+**Customer Auth & Profile (10 paths):**
+- `POST /api/auth/customer/login`
+- `POST /api/auth/customer/register`
+- `POST /api/auth/customer/google`
+- `POST /api/customer/apple-auth`
+- `PUT /api/customer/{customerId}/profile`
+- `POST /api/customer/password-reset/request`
+- `POST /api/customer/password-reset/confirm`
+- `DELETE /api/customers/{customerId}/delete`
+- `GET /api/customer/orders`
+- `GET /api/customer/rides/history`
 
 **Customer Addresses (6 paths):**
-- GET `/api/addresses/{userId}`, GET `/api/addresses/{userId}/default`
-- POST `/api/addresses/{userId}`, PUT `/api/addresses/{userId}/{addressId}`
-- DELETE `/api/addresses/{userId}/{addressId}`, POST `/api/addresses/{userId}/{addressId}/set-default`
+- `GET /api/addresses/{userId}`
+- `GET /api/addresses/{userId}/default`
+- `POST /api/addresses/{userId}`
+- `PUT /api/addresses/{userId}/{addressId}`
+- `DELETE /api/addresses/{userId}/{addressId}`
+- `POST /api/addresses/{userId}/{addressId}/set-default`
 
 **Customer Favorites (4 paths):**
-- GET `/api/customer/favorites/{customerId}`, POST `/api/customer/favorites/{customerId}/{vendorId}`
-- DELETE `/api/customer/favorites/{customerId}/{vendorId}`, GET `/api/customer/favorites/{customerId}/check/{vendorId}`
+- `GET /api/customer/favorites/{customerId}`
+- `POST /api/customer/favorites` **(SHIPPED -- broken, no backend route)**
+- `DELETE /api/customer/favorites/{customerId}/{vendorId}`
+- `GET /api/customer/favorites/{customerId}/check/{vendorId}`
 
 **Customer Payment Cards (4 paths):**
-- GET `/api/customers/{customerId}/cards`, POST `/api/customers/{customerId}/cards`
-- DELETE `/api/customers/{customerId}/cards/{cardId}`, POST `/api/customers/{customerId}/cards/{cardId}/default`
+- `GET /api/customers/{customerId}/cards`
+- `POST /api/customers/{customerId}/cards`
+- `DELETE /api/customers/{customerId}/cards/{cardId}`
+- `POST /api/customers/{customerId}/cards/{cardId}/default`
 
 **Customer Cart (5 paths):**
-- GET `/api/cart`, POST `/api/cart/items`, PUT `/api/cart/items/{itemId}`
-- DELETE `/api/cart/items/{itemId}`, DELETE `/api/cart`
+- `GET /api/cart`
+- `POST /api/cart/items`
+- `PUT /api/cart/items/{itemId}`
+- `DELETE /api/cart/items/{itemId}`
+- `DELETE /api/cart`
 
-**Customer Rideshare (24 paths):**
-- POST `/api/rides/request`, POST `/api/rides/estimate`, GET `/api/customer/rides/history`
-- GET `/api/rides/{rideId}/track` (used by both driver and customer via different paths)
-- POST `/api/rides/request/{requestId}/cancel`, POST `/api/rides/request/{requestId}/bid`
-- GET `/api/rides/request/{requestId}/bids`, GET `/api/rides/customer/{customerId}/requests`
-- POST `/api/rides/bid/{bidId}/respond` (accept/reject/counter)
-- POST `/api/rides/bid/{bidId}/withdraw`, POST `/api/rides/bid/{bidId}/driver-counter`
-- POST `/api/rides/bid/{bidId}/accept-counter`, POST `/api/rides/bid/{bidId}/reject-counter`
-- GET `/api/rides/bid/{bidId}` (single bid detail)
-- POST `/api/rides/request/{rideRequestId}/arrived`, POST `/api/rides/request/{rideRequestId}/start`
-- POST `/api/rides/request/{rideRequestId}/complete`, POST `/api/rides/request/{rideRequestId}/no-show`
-- POST `/api/rides/request/{rideRequestId}/driver-cancel`, POST `/api/rides/request/{rideRequestId}/rate-passenger`
-- POST `/api/rides/{rideId}/rate`, POST `/api/rides/{rideId}/tip`
-- GET `/api/rides/request/{rideId}/receipt`, POST `/api/rides/request/{rideId}/email-receipt`
-- GET `/api/rides/surge`, GET `/api/rides/available`
-- POST `/api/erp/rides/{rideId}/negotiate`, POST `/api/erp/rides/{rideId}/accept-fare`
-- POST `/api/erp/rides/{rideId}/customer-negotiate`, POST `/api/erp/rides/{rideId}/customer-accept-fare`
-- GET `/api/erp/rides/{rideId}/negotiation-status`, GET `/api/erp/rides/{rideId}/track`
-- GET `/api/erp/rides/{rideId}/status`, POST `/api/payments/ride/create-intent`
-- GET `/api/p2p/ride-requests/{rideRequestId}/chat`, POST `/api/p2p/ride-requests/{rideRequestId}/chat`
+**Customer Orders (11 paths):**
+- `GET /api/customer/orders/{orderId}/track`
+- `GET /api/customer/{customerId}/active-orders`
+- `POST /api/erp/orders/create`
+- `POST /api/erp/orders/{orderId}/confirm-payment`
+- `POST /api/orders/{orderId}/tip-driver`
+- `POST /api/orders/{orderId}/cancel`
+- `GET /api/orders/{orderId}/refund-status`
+- `GET /api/orders/{orderId}/modification`
+- `POST /api/orders/{orderId}/modification/respond`
+- `POST /api/orders/{orderId}/mark-unavailable`
+- `POST /api/customer/orders/{orderId}/rate-driver`
+- `POST /api/customer/orders/{orderId}/rate-restaurant`
+
+**Customer Order Chat (2 paths -- SHIPPED uses old paths):**
+- `GET /api/orders/{orderId}/chat` **(SHIPPED -- alias exists)**
+- `POST /api/orders/{orderId}/chat` **(SHIPPED -- alias exists)**
+
+**Customer Rideshare (28 paths):**
+- `POST /api/rides/estimate`
+- `POST /api/rides/request`
+- `POST /api/rides/request/{requestId}/bid`
+- `GET /api/rides/request/{requestId}/bids`
+- `POST /api/rides/bid/{bidId}/respond`
+- `POST /api/rides/bid/{bidId}/withdraw`
+- `POST /api/rides/bid/{bidId}/driver-counter`
+- `POST /api/rides/bid/{bidId}/accept-counter`
+- `POST /api/rides/bid/{bidId}/reject-counter`
+- `GET /api/rides/bid/{bidId}`
+- `GET /api/rides/customer/{customerId}/requests`
+- `POST /api/rides/request/{rideRequestId}/cancel` **(HEAD -- shipped uses erp/rides/{id}/cancel)**
+- `POST /api/rides/request/{rideRequestId}/arrived`
+- `POST /api/rides/request/{rideRequestId}/start`
+- `POST /api/rides/request/{rideRequestId}/complete`
+- `POST /api/rides/request/{rideRequestId}/no-show`
+- `POST /api/rides/request/{rideRequestId}/driver-cancel`
+- `POST /api/rides/request/{rideRequestId}/rate-passenger`
+- `POST /api/rides/{rideId}/rate`
+- `POST /api/rides/{rideId}/tip`
+- `GET /api/rides/request/{rideId}/receipt`
+- `POST /api/rides/request/{rideId}/email-receipt`
+- `GET /api/rides/surge`
+- `GET /api/rides/available`
+- `POST /api/erp/rides/{rideId}/negotiate`
+- `POST /api/erp/rides/{rideId}/accept-fare`
+- `POST /api/erp/rides/{rideId}/customer-negotiate`
+- `POST /api/erp/rides/{rideId}/customer-accept-fare`
+- `GET /api/erp/rides/{rideId}/negotiation-status`
+- `GET /api/erp/rides/{rideId}/track`
+- `GET /api/erp/rides/{rideId}/status`
+- `POST /api/payments/ride/create-intent`
+
+**Customer Ride Chat (2 paths -- SHIPPED uses old paths):**
+- `GET /api/chat/messages/{rideRequestId}` **(SHIPPED -- alias exists)**
+- `POST /api/chat/messages/{rideRequestId}` **(SHIPPED -- alias exists)**
 
 **Customer Disputes & Recurring (5 paths):**
-- POST `/api/rides/dispute`, GET `/api/rides/customer/{customerId}/disputes`
-- GET `/api/rides/dispute/{disputeId}`
-- GET `/api/rides/customer/{customerId}/recurring-rides`, POST `/api/rides/customer/{customerId}/recurring-rides`
-- DELETE `/api/rides/recurring-rides/{recurringRideId}`
-
-**Driver Auth (7 paths):**
-- POST `/api/auth/driver/login`, POST `/api/auth/driver/register`
-- POST `/api/auth/driver/apple-auth`, POST `/api/auth/driver/refresh`
-- POST `/api/driver/password-reset/request`, POST `/api/driver/password-reset/confirm`
-- DELETE `/api/drivers/{driverId}/delete`
-
-**Driver Profile & Status (7 paths):**
-- GET `/api/erp/drivers/{driverId}`, PUT `/api/erp/drivers/{driverId}` (profile update via ERP)
-- GET `/api/drivers/{driverId}` (profile via direct path)
-- GET `/api/drivers/{driverId}/documents`, POST `/api/drivers/{driverId}/documents` (upload)
-- PUT `/api/auth/driver/location?latitude=&longitude=`, PUT `/api/auth/driver/online?is_online=`
-
-**Driver Deliveries (10 paths):**
-- GET `/api/erp/orders/available-for-delivery`, POST `/api/erp/orders/{orderId}/assign-driver`
-- POST `/api/erp/orders/{orderId}/picked-up`, POST `/api/erp/orders/{orderId}/delivered`
-- POST `/api/erp/orders/{orderId}/complete-delivery`, POST `/api/erp/orders/{orderId}/delivery-photo`
-- PUT `/api/erp/orders/{orderId}/unassign-driver`, PUT `/api/erp/orders/{orderId}/driver-location`
-- GET `/api/erp/orders/driver/{driverId}/active`, GET `/api/v5/driver/{driverId}/dashboard`
-
-**Driver Earnings & Payouts (5 paths):**
-- GET `/api/drivers/{driverId}/earnings?period=`, GET `/api/drivers/{driverId}/payout-history?limit=`
-- GET `/api/rides/driver/{driverId}/payout-history?period=`
-- POST `/api/drivers/{driverId}/stripe/connect`, GET `/api/drivers/{driverId}/stripe/onboarding-link`
-- GET `/api/drivers/{driverId}/stripe/status`, POST `/api/drivers/{driverId}/stripe/dashboard-link`
-
-**Driver Rideshare (via iOS shared service, duplicated above):**
-- GET `/api/erp/rides/available`, POST `/api/erp/rides/{rideId}/accept`
-- POST `/api/erp/rides/{rideId}/picked-up`
+- `POST /api/rides/dispute`
+- `GET /api/rides/customer/{customerId}/disputes`
+- `GET /api/rides/dispute/{disputeId}`
+- `GET /api/rides/customer/{customerId}/recurring-rides`
+- `POST /api/rides/customer/{customerId}/recurring-rides`
+- `DELETE /api/rides/recurring-rides/{recurringRideId}`
 
 **Vendor Auth (8 paths):**
-- POST `/api/auth/vendor/login`, POST `/api/auth/vendor/register`
-- POST `/api/auth/vendor/google-auth`, POST `/api/auth/vendor/apple-auth`
-- POST `/api/vendors/public` (public registration)
-- POST `/api/vendor/password-reset/request`, POST `/api/vendor/password-reset/confirm`
-- POST `/api/auth/vendor/demo-login`
+- `POST /api/auth/vendor/login`
+- `POST /api/auth/vendor/register`
+- `POST /api/auth/vendor/google-auth`
+- `POST /api/auth/vendor/apple-auth`
+- `POST /api/vendors/public`
+- `POST /api/vendor/password-reset/request`
+- `POST /api/vendor/password-reset/confirm`
 
-**Vendor Profile & Settings (3 paths):**
-- GET `/api/vendor/profile`, GET `/api/vendors/{vendorId}`, DELETE `/api/vendors/{vendorId}`
+**Vendor Profile & Menu (12 paths):**
+- `GET /api/vendors/{vendorId}/menu`
+- `POST /api/vendors/{vendorId}/menu`
+- `PUT /api/vendors/{vendorId}/menu/{itemId}`
+- `DELETE /api/vendors/{vendorId}/menu/{itemId}`
+- `GET /api/vendors/{vendorId}/menu/categories`
+- `POST /api/vendors/{vendorId}/menu/assign-stock-images`
+- `PUT /api/vendors/{vendorId}/online-status`
+- `DELETE /api/vendors/{vendorId}/delete` **(SHIPPED -- broken, no backend route)**
+- `GET /api/vendors/{vendorId}/documents`
+- `POST /api/vendors/{vendorId}/documents`
+- `DELETE /api/vendors/{vendorId}/documents/{documentId}`
 
-**Vendor Orders & Restaurant Flow (8 paths):**
-- GET `/api/erp/orders/vendor/{vendorId}`, PATCH `/api/erp/orders/{orderId}/status?status=`
-- POST `/api/erp/orders/{orderId}/restaurant-accept`, POST `/api/erp/orders/{orderId}/restaurant-decline`
-- POST `/api/erp/orders/{orderId}/restaurant-accept-delivery`, POST `/api/erp/orders/{orderId}/restaurant-decline-delivery`
-- PUT `/api/vendors/{vendorId}/online-status?is_online=`
+**Vendor Orders (7 paths):**
+- `GET /api/erp/orders/vendor/{vendorId}`
+- `PATCH /api/erp/orders/{orderId}/status`
+- `POST /api/erp/orders/{orderId}/restaurant-accept`
+- `POST /api/erp/orders/{orderId}/restaurant-decline`
+- `POST /api/erp/orders/{orderId}/restaurant-accept-delivery`
+- `POST /api/erp/orders/{orderId}/restaurant-decline-delivery`
+- `POST /api/erp/orders/{orderId}/delivered` (vendor marks ready)
 
-**Vendor Delivery Decision (3 paths):**
-- POST `/api/erp/orders/{orderId}/start-delivery-decision`
-- POST `/api/erp/orders/{orderId}/restaurant-delivery-decision`
-- GET `/api/erp/orders/{orderId}/delivery-decision-status`
-
-**Vendor Menu (7 paths):**
-- GET `/api/vendors/{vendorId}/menu`, POST `/api/vendors/{vendorId}/menu`
-- PUT `/api/vendors/{vendorId}/menu/{itemId}`, DELETE `/api/vendors/{vendorId}/menu/{itemId}`
-- PATCH `/api/vendors/{vendorId}/menu/{itemId}/customizations`
-- GET `/api/vendors/{vendorId}/menu/categories`
-- POST `/api/vendors/{vendorId}/menu/assign-stock-images`
-
-**Vendor Documents (3 paths):**
-- GET `/api/vendors/{vendorId}/documents`, POST `/api/vendors/{vendorId}/documents`
-- DELETE `/api/vendors/{vendorId}/documents/{documentId}`
-
-**Vendor Promotions (7 paths):**
-- GET `/api/promotions/active`, GET `/api/promotions/featured`
-- POST `/api/promotions/create?vendor_id=`, GET `/api/promotions/vendor/{vendorId}`
-- PUT `/api/promotions/{promotionId}`, DELETE `/api/promotions/{promotionId}`
-- GET `/api/promotions/suggestions/{vendorId}`, GET `/api/promotions/analytics/{vendorId}`
-- POST `/api/promotions/apply`, POST `/api/promotions/quick-create/{vendorId}/{promoType}`
+**Vendor Promotions (10 paths):**
+- `GET /api/promotions/active`
+- `GET /api/promotions/featured`
+- `POST /api/promotions/create`
+- `GET /api/promotions/vendor/{vendorId}`
+- `PUT /api/promotions/{promotionId}`
+- `DELETE /api/promotions/{promotionId}`
+- `GET /api/promotions/suggestions/{vendorId}`
+- `GET /api/promotions/analytics/{vendorId}`
+- `POST /api/promotions/apply`
+- `POST /api/promotions/quick-create/{vendorId}/{promoType}`
 
 **Vendor KOT & Analytics (5 paths):**
-- GET `/api/vendor/kot-config`, PUT `/api/vendor/kot-config`
-- POST `/api/vendor/kot-test`, POST `/api/erp/orders/{orderId}/print-kot`
-- GET `/api/vendors/{vendorId}/ai-insights?period=`, GET `/api/menu-verification/status/{vendorId}`
-- POST `/api/menu-verification/approve-all/{vendorId}`
+- `GET /api/vendor/kot-config`
+- `PUT /api/vendor/kot-config`
+- `POST /api/vendor/kot-test`
+- `POST /api/erp/orders/{orderId}/print-kot`
+- `GET /api/vendors/{vendorId}/ai-insights`
+- `GET /api/menu-verification/status/{vendorId}`
+- `POST /api/menu-verification/approve-all/{vendorId}`
+
+**Driver Auth (7 paths):**
+- `POST /api/auth/driver/login`
+- `POST /api/auth/driver/register`
+- `POST /api/auth/driver/apple-auth`
+- `POST /api/auth/driver/refresh`
+- `POST /api/driver/password-reset/request`
+- `POST /api/driver/password-reset/confirm`
+- `DELETE /api/drivers/{driverId}/delete`
+
+**Driver Profile & Status (8 paths):**
+- `GET /api/erp/drivers/{driverId}`
+- `PUT /api/erp/drivers/{driverId}`
+- `GET /api/drivers/{driverId}`
+- `GET /api/drivers/{driverId}/documents`
+- `POST /api/drivers/{driverId}/documents`
+- `PUT /api/auth/driver/location`
+- `PUT /api/auth/driver/online`
+
+**Driver Deliveries (10 paths):**
+- `GET /api/erp/orders/available-for-delivery`
+- `POST /api/erp/orders/{orderId}/assign-driver`
+- `POST /api/erp/orders/{orderId}/picked-up`
+- `POST /api/erp/orders/{orderId}/delivered`
+- `POST /api/erp/orders/{orderId}/complete-delivery`
+- `POST /api/erp/orders/{orderId}/delivery-photo`
+- `PUT /api/erp/orders/{orderId}/unassign-driver`
+- `PUT /api/erp/orders/{orderId}/driver-location`
+- `GET /api/erp/orders/driver/{driverId}/active`
+- `GET /api/v5/driver/{driverId}/dashboard`
+
+**Driver Earnings & Stripe (7 paths):**
+- `GET /api/drivers/{driverId}/earnings`
+- `GET /api/drivers/{driverId}/payout-history`
+- `GET /api/rides/driver/{driverId}/payout-history`
+- `POST /api/drivers/{driverId}/stripe/connect`
+- `GET /api/drivers/{driverId}/stripe/onboarding-link`
+- `GET /api/drivers/{driverId}/stripe/status`
+- `POST /api/drivers/{driverId}/stripe/dashboard-link`
+
+**Driver Rideshare (3 paths):**
+- `GET /api/erp/rides/available`
+- `POST /api/erp/rides/{rideId}/accept`
+- `POST /api/erp/rides/{rideId}/picked-up`
 
 **Shared/Cross-App (9 paths):**
-- GET `/api/vendors/published` (customer browse restaurants)
-- GET `/api/public/restaurants/{vendorId}` (restaurant detail)
-- POST `/api/erp/customers/{customerId}/fcm-token`, POST `/api/erp/drivers/{driverId}/fcm-token`
-- POST `/api/erp/vendors/{vendorId}/fcm-token`
-- PUT `/api/erp/drivers/{driverId}/location`, PUT `/api/erp/drivers/{driverId}/status?is_online=`
-- GET `/api/erp/orders/{orderId}/full-tracking`, GET `/api/erp/orders/{orderId}/driver-location`
-- GET `/api/erp/analytics/realtime`, GET `/api/erp/analytics/ai-employees`
-- POST `/api/payments/create-intent`, POST `/api/erp/payments/refund`
+- `GET /api/vendors/published`
+- `GET /api/public/restaurants/{vendorId}`
+- `POST /api/erp/customers/{customerId}/fcm-token`
+- `POST /api/erp/drivers/{driverId}/fcm-token`
+- `POST /api/erp/vendors/{vendorId}/fcm-token`
+- `PUT /api/erp/drivers/{driverId}/location`
+- `PUT /api/erp/drivers/{driverId}/status`
+- `GET /api/erp/orders/{orderId}/full-tracking`
+- `GET /api/erp/orders/{orderId}/driver-location`
+- `GET /api/erp/analytics/realtime`
+- `GET /api/erp/analytics/ai-employees`
+- `POST /api/payments/create-intent`
+- `POST /api/erp/payments/refund`
+- `POST /api/promotions/apply`
 
-### Android-Only Endpoints (in DollorApiService.kt, not in iOS)
+### Android Shipped Build: ~145 Unique Path Patterns
 
-| Path | Purpose |
-|------|---------|
-| `POST auth/driver/demo-login` | Driver demo login |
-| `POST auth/driver/google` | Driver Google auth (iOS doesn't have this) |
-| `POST customer/demo-login` | Customer demo login |
-| `POST auth/vendor/demo-login` | Vendor demo login |
-| `GET drivers/{driverId}/balance` | Driver balance |
-| `POST drivers/{driverId}/bank-account` | Link bank account |
-| `POST drivers/{driverId}/payouts` | Request payout |
-| `POST drivers/{driverId}/status` | Update driver status (iOS uses ERP path) |
-| `GET drivers/{driverId}/status` | Get driver status |
-| `POST driver/location` | Driver location (iOS uses `auth/driver/location`) |
-| `GET erp/driver/{driverId}/deliveries` | My deliveries |
-| `GET erp/orders/driver/{driverId}/pending` | Pending delivery orders |
-| `GET erp/payouts/vendor/{vendorId}` | Vendor payouts |
-| `POST vendors/{vendorId}/bank-account` | Vendor bank account |
-| `GET vendors/{vendorId}/reviews` | Vendor reviews |
-| `GET legal/tos` | Terms of service |
-| `GET legal/privacy-policy` | Privacy policy |
-| `GET tax/calculate` | Tax calculation |
-| `GET tax/estimate/{state}` | Tax estimate |
-| `POST notifications/register-token` | FCM push token (different path than iOS) |
-| `POST erp/orders/{orderId}/start-delivery-decision` | Delivery decision flow |
-| `POST erp/orders/{orderId}/restaurant-delivery-decision` | Delivery decision |
-| `GET erp/orders/{orderId}/delivery-decision-status` | Delivery decision status |
+Extracted from `DollorApiService.kt` + `CustomerRideshareApiService.kt` at commit `9c42c21d`.
 
-### Android CustomerRideshareApiService (OkHttp-based, ~20 unique paths)
+**Android-Only Endpoints (not in iOS):**
+- `POST auth/customer/apple-auth` (iOS has /api/customer/apple-auth -- different prefix)
+- `POST auth/driver/demo-login`
+- `POST auth/driver/google`
+- `POST customer/demo-login`
+- `POST auth/vendor/demo-login`
+- `GET drivers/{driverId}/balance`
+- `POST drivers/{driverId}/bank-account`
+- `POST drivers/{driverId}/payouts`
+- `POST drivers/{driverId}/status`
+- `GET drivers/{driverId}/status`
+- `POST driver/location`
+- `GET erp/driver/{driverId}/deliveries`
+- `GET erp/orders/driver/{driverId}/pending`
+- `GET erp/payouts/vendor/{vendorId}`
+- `POST vendors/{vendorId}/bank-account`
+- `GET vendors/{vendorId}/reviews`
+- `GET legal/tos`
+- `GET legal/privacy-policy`
+- `GET tax/calculate`
+- `GET tax/estimate/{state}`
+- `POST notifications/register-token`
+- `GET driver/bids`
+- `POST erp/orders/{orderId}/start-delivery-decision`
+- `POST erp/orders/{orderId}/restaurant-delivery-decision`
+- `GET erp/orders/{orderId}/delivery-decision-status`
+- `POST vendors/{vendorId}/stripe/connect`
+- `GET vendors/{vendorId}/stripe/onboarding-link`
+- `GET vendors/{vendorId}/stripe/status`
+- `POST vendors/{vendorId}/stripe/dashboard-link`
 
-These overlap with DollorApiService.kt rideshare section and iOS rideshare paths. Notable unique ones:
-- `GET /api/rides/request/{id}/bids` (get bids for ride)
-- `POST /api/rides/bid/{bidId}/respond` (accept/reject/counter)
-- `GET /api/rides/request/{id}/receipt`, `POST /api/rides/request/{id}/email-receipt`
-- `POST /api/rides/dispute`, `GET /api/rides/customer/{id}/disputes`
-- `GET/POST /api/rides/customer/{id}/recurring-rides`, `DELETE /api/rides/recurring-rides/{id}`
-- `GET /api/erp/rides/{id}/negotiation-status`
+**Android Shipped Wrong Paths (backend has aliases):**
+- `POST orders/create` (should be `erp/orders/create`) -- alias exists
+- `GET customer/rides` (should be `customer/rides/history`) -- alias exists
+- `POST rides/{rideId}/cancel` (should be `rides/request/{rideId}/cancel`) -- both exist
+- `POST erp/rides/{rideId}/rate` (should be `rides/{rideId}/rate`) -- both exist
+- `DELETE rides/recurring/{id}` (should be `rides/recurring-rides/{id}`) -- **NO ALIAS, BROKEN**
+
+## Part 4: Current Contract Test Analysis
+
+### Existing Tests (19 methods, ~15 paths)
+
+| Class | # Tests | Paths Tested | Problems |
+|-------|---------|--------------|----------|
+| `TestAuthAPIContracts` | 4 | `/health`, `/api/auth/login`, `/register` | `/register` is not the customer register path |
+| `TestDriverAPIContracts` | 4 | `/api/auth/driver/register`, `/login`, `/me`, `/location` | `/me` doesn't exist as endpoint |
+| `TestVendorAPIContracts` | 3 | `/api/auth/vendor/login`, vendor menu, `/api/orders` | `/api/orders` is admin endpoint, not vendor |
+| `TestCustomerAPIContracts` | 3 | `/api/restaurants`, restaurant menu, `/api/orders` | `/api/restaurants` -- apps use `/api/vendors/published` |
+| `TestCommonAPIContracts` | 4 | Nonexistent endpoint, health, CORS, pagination | Uses `/api/restaurants` which isn't the app path |
+| `TestPushNotificationContracts` | 1 | `/api/device/register` | **DOES NOT EXIST** -- apps use FCM token endpoints |
+
+**Every single test** uses wrong endpoints, no auth headers, or tests endpoints the apps don't call.
 
 ### Gap Summary
 
-| Category | Current Tests | Real iOS Paths | Real Android Paths | Coverage |
-|----------|--------------|---------------|-------------------|----------|
-| Auth endpoints | 4 (wrong paths) | 24 | 28 | ~0% correct |
-| Customer orders | 1 (wrong path) | 13 | 13 | ~0% |
-| Addresses | 0 | 6 | 6 | 0% |
-| Favorites | 0 | 4 | 4 | 0% |
-| Payment cards | 0 | 4 | 4 | 0% |
-| Cart | 0 | 5 | 5 | 0% |
-| Rideshare | 0 | 28 | 30 | 0% |
-| Driver deliveries | 0 | 10 | 12 | 0% |
-| Driver earnings/payouts | 0 | 7 | 10 | 0% |
-| Vendor menu | 1 (partial) | 7 | 7 | ~5% |
-| Vendor orders | 1 (wrong path) | 8 | 8 | ~0% |
-| Vendor profile | 0 | 3 | 5 | 0% |
-| Vendor documents | 0 | 3 | 3 | 0% |
-| Vendor promotions | 0 | 10 | 8 | 0% |
-| Vendor KOT/analytics | 0 | 5 | 2 | 0% |
-| Push notifications | 1 (wrong path) | 3 | 1 | 0% |
-| Shared/public | 1 (wrong path) | 4 | 4 | 0% |
-| **TOTAL** | **~15 paths** | **~120 unique** | **~141 unique** | **<10%** |
+| Category | Current Tests | Real Shipped Paths | Coverage |
+|----------|--------------|-------------------|----------|
+| Auth (all roles) | 4 (wrong paths) | ~25 | 0% |
+| Customer orders | 1 (wrong path) | ~13 | 0% |
+| Customer addresses | 0 | 6 | 0% |
+| Customer favorites | 0 | 4 | 0% |
+| Customer cards | 0 | 4 | 0% |
+| Customer cart | 0 | 5 | 0% |
+| Rideshare | 0 | ~30 | 0% |
+| Driver deliveries | 0 | ~12 | 0% |
+| Driver earnings/Stripe | 0 | ~10 | 0% |
+| Vendor menu | 1 (partial) | 7 | ~5% |
+| Vendor orders | 1 (wrong path) | ~8 | 0% |
+| Vendor promotions | 0 | ~10 | 0% |
+| Push notifications | 1 (wrong endpoint) | 3 | 0% |
+| Shared/public | 1 (wrong path) | ~9 | 0% |
+| **TOTAL** | **~15 paths** | **~160 unique** | **<1% correct** |
 
-## Standard Stack
+## Part 5: CI Infrastructure Analysis
 
-### Core
-| Library | Version | Purpose | Notes |
-|---------|---------|---------|-------|
-| pytest | 8.3.4 | Test runner | Matches requirements.txt |
-| httpx | 0.27.2 | FastAPI TestClient backend | CI installs from requirements.txt |
-| fastapi | 0.115.0 | Web framework (TestClient) | CI uses this version |
-| sqlalchemy | 2.0.36 | ORM / test DB | Matches |
-| pytest-asyncio | 0.25.0 | Async test support | In requirements.txt |
+### CI Failure Root Cause (VERIFIED from CI logs)
 
-### Test Infrastructure
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| conftest.py | `tests/conftest.py` | Shared fixtures: client, auth_headers, factories |
-| TestClient | FastAPI built-in | HTTP client for testing without server |
-| SQLite in-memory | conftest.py:44 | Test DB for unit/integration tests |
-| PostgreSQL service | integration-tests.yml | CI test DB for integration tests |
-
-## Architecture Patterns
-
-### Recommended Contract Test Structure
-
-The contract test file should be reorganized by **app role** (matching how real apps call the API):
+The `api-contract-tests` job in `integration-tests.yml` fails at the **"Start Backend Server"** step:
 
 ```
-tests/integration/test_ios_api_contracts.py   -- rewrite with all endpoints
-tests/integration/test_android_api_contracts.py  -- optional, Android-specific paths
+python -c "from database import init_db; init_db()"
 ```
 
-Or a single comprehensive file organized by domain:
+**Root cause chain:**
+1. `database.py:18`: `_is_prod = os.getenv("ENVIRONMENT", "production").lower() in ("production", "prod")`
+2. Default `"production"` means `_is_prod = True`
+3. `database.py:27-28`: `if _is_prod and "sslmode" not in DATABASE_URL: _connect_args["sslmode"] = "require"`
+4. CI PostgreSQL service container does NOT support SSL
+5. Connection fails with SSL error, `init_db()` crashes, backend never starts
+
+**Fix:** Change `database.py:18` default from `"production"` to `""`:
+```python
+_is_prod = os.getenv("ENVIRONMENT", "").lower() in ("production", "prod")
+```
+
+AND add `ENVIRONMENT=testing` to the CI workflow `env:` block.
+
+### CI Workflow Missing Environment Variables
+
+| Job | Step | Missing Variables |
+|-----|------|-------------------|
+| `api-contract-tests` | "Start Backend Server" (line 66-71) | Has JWT_SECRET_KEY + TESTING, but **missing ENVIRONMENT=testing** |
+| `api-contract-tests` | "Run API Contract Tests" (line 81-84) | **Missing JWT_SECRET_KEY, TESTING, ENVIRONMENT** -- tests import main_new.py which needs JWT_SECRET_KEY |
+| `backend-api-tests` | "Run Backend API Tests" (line 134-137) | Has JWT_SECRET_KEY + TESTING, but **missing ENVIRONMENT** |
+| `e2e-critical-flows` | "Start Backend Server" (line 270-274) | Has JWT_SECRET_KEY + TESTING, but **missing ENVIRONMENT** |
+| `frontend-integration-tests` | "Start Backend Server" (line 196-199) | Has JWT_SECRET_KEY + TESTING, but **missing ENVIRONMENT** |
+
+### Failure Masking: `|| echo "completed"`
+
+Lines 85, 143, 221, 285 all use `|| echo "... completed"` which prevents test failures from failing the CI job. These should be removed so real failures are surfaced.
+
+### Deploy Workflow (deploy-dollar-ai.yml) -- GREEN
+
+The deploy workflow only runs `pytest tests/unit/ -v` and is GREEN. No changes needed here unless we want to add contract tests to the deploy gate (not recommended initially).
+
+## Part 6: conftest.py Fixture Gaps
+
+### Missing Fixtures
+
+The existing `conftest.py` has:
+- `test_user` + `auth_headers` (generic User with UserRole.USER)
+- `test_admin` + `admin_auth_headers` (User with UserRole.ADMIN)
+- `test_vendor` + `vendor_auth_headers` (Vendor with VendorStatus.APPROVED)
+- `test_driver` + `driver_auth_headers` (Driver with DriverStatus.APPROVED)
+
+**Missing:**
+- `test_customer` (Customer ORM object)
+- `customer_auth_headers` (JWT with `customer_id` claim)
+
+**Why needed:** `require_customer` in `auth_utils.py` (line 77-120) looks for `customer_id` in JWT payload, then falls back to email lookup. Without `customer_id` in the token, it tries email match against the `customers` table, which won't find a User record.
+
+**Customer model fields (from models.py:578):**
+- `first_name` (String), `last_name` (String), `email` (String, unique), `phone` (String)
+- `password_hash` (String), `is_active` (Boolean, default=True)
+
+### conftest.py Fix
 
 ```python
-class TestPublicEndpoints:           # No auth needed (~15 paths)
-class TestCustomerAuthContracts:     # Customer auth + profile (~9 paths)
-class TestCustomerOrderContracts:    # Orders, tracking, rating (~13 paths)
-class TestCustomerAddressContracts:  # Addresses (~6 paths)
-class TestCustomerFavoriteContracts: # Favorites (~4 paths)
-class TestCustomerCardContracts:     # Payment cards (~4 paths)
-class TestCustomerCartContracts:     # Cart (~5 paths)
-class TestRideshareContracts:        # Rideshare (~28 paths)
-class TestDriverAuthContracts:       # Driver auth (~7 paths)
-class TestDriverDeliveryContracts:   # Driver deliveries (~10 paths)
-class TestDriverEarningsContracts:   # Earnings, payouts, Stripe (~7 paths)
-class TestVendorAuthContracts:       # Vendor auth (~8 paths)
-class TestVendorMenuContracts:       # Menu management (~7 paths)
-class TestVendorOrderContracts:      # Vendor orders, accept/decline (~8 paths)
-class TestVendorDocumentContracts:   # Documents (~3 paths)
-class TestVendorPromotionContracts:  # Promotions (~10 paths)
-class TestVendorKOTContracts:        # KOT, analytics (~5 paths)
-class TestSharedEndpointContracts:   # FCM, tracking (~9 paths)
-```
-
-### Auth Fixture Pattern (from conftest.py)
-
-```python
-# Available fixtures (conftest.py):
-auth_headers         # User JWT: {"sub": user.email}
-admin_auth_headers   # Admin JWT: {"sub": admin.email}
-vendor_auth_headers  # Vendor JWT: {"sub": vendor.email, "vendor_id": vendor.id}
-driver_auth_headers  # Driver JWT: {"sub": driver.email, "driver_id": driver.id}
-
-# MISSING -- need to add:
-customer_auth_headers  # Customer JWT: {"sub": customer.email, "customer_id": customer.id}
-test_customer          # Customer ORM object
-```
-
-### Contract Test Design Pattern
-
-Each test should verify:
-1. **Endpoint exists** (not 404/405)
-2. **Auth required or not** (401 without auth, 200/422/etc with auth)
-3. **HTTP method accepted** (GET/POST/PUT/DELETE/PATCH)
-4. **Basic response structure** (has expected fields)
-
-```python
-# Pattern for authenticated endpoint:
-def test_customer_orders(self, client, customer_auth_headers):
-    response = client.get("/api/customer/orders", headers=customer_auth_headers)
-    assert response.status_code in [200, 404], f"Expected 200/404, got {response.status_code}"
-
-# Pattern for public endpoint:
-def test_vendors_published(self, client):
-    response = client.get("/api/vendors/published")
-    assert response.status_code == 200
-
-# Pattern for endpoint existence check:
-def test_ride_request_exists(self, client, customer_auth_headers):
-    response = client.post("/api/rides/request", json={}, headers=customer_auth_headers)
-    # 422 (validation error) means endpoint exists and accepts POST
-    assert response.status_code in [200, 201, 400, 422], f"Endpoint missing: {response.status_code}"
-```
-
-## Don't Hand-Roll
-
-| Problem | Don't Build | Use Instead | Why |
-|---------|-------------|-------------|-----|
-| Auth tokens for tests | Manual JWT per test | conftest.py fixtures + new `customer_auth_headers` | Consistent, DRY |
-| Endpoint path list | Manual enumeration | Extract from iOS/Android source (grep) | Single source of truth |
-| Full response validation | Assert every field | Assert endpoint exists + basic structure | Contract tests, not unit tests |
-| Test DB setup | Custom per-test DB | conftest.py `test_db` + `db_session` fixtures | Already handles SQLite/PostgreSQL |
-
-## Common Pitfalls
-
-### Pitfall 1: Auth Middleware Intercepts Before Route Matching
-**What goes wrong:** Tests expecting 404 for missing endpoints get 401 from auth middleware.
-**Why it happens:** `require_auth_middleware` at `main_new.py:367` runs before FastAPI route matching.
-**How to avoid:** For public endpoints, test without auth. For protected endpoints, always pass auth headers. For "does endpoint exist" tests, always send auth headers and accept 200/400/422.
-**Confidence:** HIGH
-
-### Pitfall 2: database.py Defaults ENVIRONMENT to "production"
-**What goes wrong:** CI PostgreSQL doesn't support SSL, but database.py adds `sslmode=require`.
-**Why it happens:** `database.py:18`: `_is_prod = os.getenv("ENVIRONMENT", "production").lower() in ("production", "prod")`
-**How to avoid:** Set `ENVIRONMENT=testing` in CI workflow env, OR change default to empty string.
-**Confidence:** HIGH
-
-### Pitfall 3: Missing customer_auth_headers Fixture
-**What goes wrong:** Customer-specific endpoints need a JWT with `customer_id` claim, but conftest.py only has `auth_headers` (generic user).
-**Why it happens:** `require_customer` in `auth_utils.py` looks for `customer_id` in JWT payload.
-**How to avoid:** Add `test_customer` and `customer_auth_headers` fixtures to conftest.py.
-**Confidence:** HIGH
-
-### Pitfall 4: iOS Uses Different URL Patterns Than Android
-**What goes wrong:** Contract tests pass for one platform but not the other.
-**Why it happens:** iOS calls `customer/apple-auth`, Android calls `auth/customer/apple-auth` -- backend has route aliases for both.
-**How to avoid:** Test the canonical backend paths. Both platforms' paths should work via aliases.
-**Confidence:** HIGH
-
-### Pitfall 5: Tests Must Not Test Business Logic
-**What goes wrong:** Contract tests become brittle when business logic changes.
-**Why it happens:** Over-asserting on response body content instead of structure.
-**How to avoid:** Assert endpoint existence, auth requirement, and response shape -- not specific values.
-**Confidence:** HIGH
-
-### Pitfall 6: vendor_auth_headers May Not Work for Vendor Endpoints
-**What goes wrong:** Vendor endpoints may require additional data (e.g., vendor record with specific status).
-**Why it happens:** `require_vendor` in `auth_utils.py` looks up vendor by `vendor_id` from JWT.
-**How to avoid:** Use `test_vendor` fixture which creates a vendor with `APPROVED` status, and `vendor_auth_headers` which includes `vendor_id` in the JWT.
-**Confidence:** HIGH
-
-## CI Workflow Fixes Needed
-
-### integration-tests.yml Issues
-
-1. **Missing ENVIRONMENT=testing** in `api-contract-tests` job (line 67-71 has env but no ENVIRONMENT)
-2. **Missing ENVIRONMENT=testing** in `backend-api-tests` job (line 134-137)
-3. **Missing ENVIRONMENT=testing** in `e2e-critical-flows` job (line 270-274)
-4. **Missing ENVIRONMENT=testing** in `frontend-integration-tests` backend start (line 196-199)
-5. **Missing JWT_SECRET_KEY** in `api-contract-tests` job `Run API Contract Tests` step (line 82-84 has API_BASE_URL and DATABASE_URL but not JWT_SECRET_KEY or TESTING)
-6. All jobs use `|| echo "... completed"` which masks failures -- consider removing for actual failure detection
-
-### deploy-dollar-ai.yml Status
-
-Already GREEN. Only runs `pytest tests/unit/ -v --tb=short`. No changes needed unless we want to add contract tests to the deploy gate (not recommended initially).
-
-## Code Examples
-
-### Fix 1: Add customer fixtures to conftest.py
-
-```python
-# Add to conftest.py after test_driver fixture:
-
 @pytest.fixture(scope="function")
 def test_customer(db_session) -> Customer:
     """Create a test customer"""
     customer = Customer(
+        first_name="Test",
+        last_name="Customer",
         email=f"customer_{datetime.now().timestamp()}@test.com",
-        password_hash=get_password_hash("CustomerPassword123!"),
-        name="Test Customer",
         phone="+14155551234",
+        password_hash=get_password_hash("CustomerPassword123!"),
         is_active=True,
     )
     db_session.add(customer)
     db_session.commit()
     db_session.refresh(customer)
     return customer
-
 
 @pytest.fixture(scope="function")
 def customer_auth_headers(test_customer) -> Dict[str, str]:
@@ -431,194 +468,215 @@ def customer_auth_headers(test_customer) -> Dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 ```
 
-### Fix 2: Contract test pattern for public endpoints
+## Part 7: Public vs Auth-Required Path Classification
+
+Based on `_PUBLIC_EXACT_PATHS` (main_new.py:257-333), `_PUBLIC_PREFIXES` (335-352), and `_PUBLIC_PATTERN_PATHS` (354-371):
+
+### Public Endpoints (no auth needed in tests)
+
+| Path | How Public |
+|------|-----------|
+| `/health` | Exact match |
+| `/api/auth/customer/login`, `/register`, `/google`, `/apple-auth` | Exact match |
+| `/api/auth/driver/login`, `/register`, `/google`, `/apple-auth` | Exact match |
+| `/api/auth/vendor/login`, `/register`, `/google-auth`, `/apple-auth`, `/demo-login` | Exact match |
+| `/api/customer/demo-login`, `/api/auth/driver/demo-login` | Exact match |
+| `/api/vendors/published` | Exact match |
+| `/api/promotions/featured`, `/active` | Exact match |
+| `/api/rides/estimate`, `/surge` | Exact match |
+| `/api/promotions/apply` | Exact match |
+| `/api/public/*` | Prefix match |
+| `/api/customer/password-reset/*` | Prefix match |
+| `/api/driver/password-reset/*` | Prefix match |
+| `/api/vendor/password-reset/*` | Prefix match |
+| `/api/restaurants*` | Prefix match |
+| `/api/vendors/public*` | Prefix match |
+| `GET /api/vendors/{id}/menu*` | Pattern match (GET only) |
+| `GET /api/vendors/{id}/reviews` | Pattern match (GET only) |
+| `GET /api/tax/*` | Pattern match |
+| `GET /api/legal/*` | Prefix match |
+
+### Auth-Required (all other paths)
+
+All endpoints not listed above require a valid JWT Bearer token. Contract tests for these MUST pass `customer_auth_headers`, `driver_auth_headers`, `vendor_auth_headers`, or `auth_headers`.
+
+## Architecture Patterns
+
+### Recommended Contract Test Structure
+
+Rewrite `test_ios_api_contracts.py` as a single comprehensive file:
 
 ```python
-class TestPublicEndpointContracts:
-    """Test endpoints that should be accessible without authentication"""
-
-    def test_vendors_published(self, client):
-        """GET /api/vendors/published -- Customer browsing restaurants"""
-        response = client.get("/api/vendors/published")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, (list, dict))
-
-    def test_restaurant_detail(self, client):
-        """GET /api/public/restaurants/{id} -- Restaurant detail"""
-        response = client.get("/api/public/restaurants/1")
-        assert response.status_code in [200, 404]
-
-    def test_promotions_active(self, client):
-        """GET /api/promotions/active -- Active promotions"""
-        response = client.get("/api/promotions/active")
-        assert response.status_code in [200, 404]
-
-    def test_promotions_featured(self, client):
-        """GET /api/promotions/featured -- Featured deals"""
-        response = client.get("/api/promotions/featured")
-        assert response.status_code in [200, 404]
-
-    def test_ride_estimate(self, client):
-        """POST /api/rides/estimate -- Fare estimate (public)"""
-        response = client.post("/api/rides/estimate", json={
-            "pickup_latitude": 37.7749,
-            "pickup_longitude": -122.4194,
-            "dropoff_latitude": 37.7849,
-            "dropoff_longitude": -122.4094,
-            "ride_type": "standard"
-        })
-        assert response.status_code in [200, 422]
-
-    def test_vendor_menu_public(self, client, test_vendor):
-        """GET /api/vendors/{id}/menu -- Public menu view"""
-        response = client.get(f"/api/vendors/{test_vendor.id}/menu")
-        assert response.status_code in [200, 404]
+class TestPublicEndpoints:           # No auth needed (~20 paths)
+class TestCustomerAuthContracts:     # Customer auth/profile (~10 paths)
+class TestCustomerOrderContracts:    # Orders, tracking, rating (~13 paths)
+class TestCustomerAddressContracts:  # Addresses (~6 paths)
+class TestCustomerFavoriteContracts: # Favorites (~4 paths)
+class TestCustomerCardContracts:     # Payment cards (~4 paths)
+class TestCustomerCartContracts:     # Cart (~5 paths)
+class TestRideshareContracts:        # All rideshare (~30 paths)
+class TestDriverAuthContracts:       # Driver auth (~7 paths)
+class TestDriverDeliveryContracts:   # Deliveries (~10 paths)
+class TestDriverEarningsContracts:   # Earnings, Stripe (~7 paths)
+class TestVendorAuthContracts:       # Vendor auth (~8 paths)
+class TestVendorMenuContracts:       # Menu management (~7 paths)
+class TestVendorOrderContracts:      # Vendor orders (~7 paths)
+class TestVendorPromotionContracts:  # Promotions (~10 paths)
+class TestVendorDocumentContracts:   # Documents (~3 paths)
+class TestVendorKOTContracts:        # KOT, analytics (~5 paths)
+class TestShippedPathAliases:        # Old paths that shipped apps still call (~10 paths)
+class TestAndroidOnlyContracts:      # Android-specific paths (~25 paths)
+class TestSharedEndpoints:           # FCM, tracking, payments (~9 paths)
 ```
 
-### Fix 3: Contract test pattern for authenticated endpoints
+### Contract Test Design Pattern
 
 ```python
-class TestCustomerOrderContracts:
-    """Test customer order endpoints"""
+# Public endpoint -- verify returns 200 (or valid response)
+def test_vendors_published(self, client):
+    response = client.get("/api/vendors/published")
+    assert response.status_code == 200
 
-    def test_customer_orders_requires_auth(self, client):
-        """GET /api/customer/orders -- must return 401 without auth"""
-        response = client.get("/api/customer/orders")
-        assert response.status_code == 401
+# Auth-required -- verify 401 without auth
+def test_customer_orders_requires_auth(self, client):
+    response = client.get("/api/customer/orders")
+    assert response.status_code == 401
 
-    def test_customer_orders_with_auth(self, client, customer_auth_headers):
-        """GET /api/customer/orders -- returns orders list with auth"""
-        response = client.get("/api/customer/orders", headers=customer_auth_headers)
-        assert response.status_code in [200, 404]
+# Auth-required -- verify works with auth
+def test_customer_orders_with_auth(self, client, customer_auth_headers):
+    response = client.get("/api/customer/orders", headers=customer_auth_headers)
+    assert response.status_code in [200, 404]
 
-    def test_create_order_accepts_format(self, client, customer_auth_headers):
-        """POST /api/erp/orders/create -- accepts iOS/Android order format"""
-        response = client.post("/api/erp/orders/create", json={
-            "vendor_id": 1,
-            "items": [{"menu_item_id": 1, "quantity": 1}],
-            "delivery_address": "123 Test St"
-        }, headers=customer_auth_headers)
-        assert response.status_code in [200, 201, 400, 422]
+# POST with body -- verify endpoint accepts format (422 = valid, endpoint exists)
+def test_create_order_endpoint_exists(self, client, customer_auth_headers):
+    response = client.post("/api/erp/orders/create", json={}, headers=customer_auth_headers)
+    assert response.status_code in [200, 201, 400, 422]
 
-    def test_order_tracking(self, client, customer_auth_headers):
-        """GET /api/customer/orders/{id}/track -- order tracking"""
-        response = client.get("/api/customer/orders/1/track", headers=customer_auth_headers)
-        assert response.status_code in [200, 404]
+# Shipped old path alias -- verify backend still handles it
+def test_shipped_order_chat_alias(self, client, customer_auth_headers):
+    """Shipped iOS build uses /api/orders/{id}/chat, backend has alias"""
+    response = client.get("/api/orders/1/chat", headers=customer_auth_headers)
+    assert response.status_code in [200, 404]  # Not 401 (auth works), not 405 (method exists)
 ```
 
-### Fix 4: CI workflow ENVIRONMENT fix
+## Common Pitfalls
 
-```yaml
-# integration-tests.yml -- add to ALL job env blocks:
-env:
-  DATABASE_URL: postgresql://test:test@localhost:5432/testdb
-  JWT_SECRET_KEY: test-secret-key-for-ci
-  TESTING: "true"
-  ENVIRONMENT: "testing"  # Prevents SSL requirement in database.py
-```
+### Pitfall 1: database.py SSL Default Crashes CI
+**What goes wrong:** `init_db()` fails before any tests run because `sslmode=require` fails on CI PostgreSQL.
+**Root cause:** `database.py:18` defaults ENVIRONMENT to `"production"`.
+**Fix:** Change default to `""`. Also add `ENVIRONMENT=testing` to all CI env blocks.
+**Confidence:** HIGH (verified from CI failure logs)
 
-### Fix 5: database.py default fix
+### Pitfall 2: Auth Middleware Returns 401 Before Route Matching
+**What goes wrong:** Tests expecting 404 for missing endpoints get 401 from auth middleware.
+**How to avoid:** For protected endpoints, ALWAYS send auth headers. Accept 200/400/422/404 as "endpoint exists."
+**Confidence:** HIGH
 
-```python
-# database.py line 18 -- change default from "production" to empty string:
-# BEFORE:
-_is_prod = os.getenv("ENVIRONMENT", "production").lower() in ("production", "prod")
+### Pitfall 3: Missing customer_auth_headers Fixture
+**What goes wrong:** Customer endpoints return 401 because require_customer needs customer_id in JWT.
+**Fix:** Add test_customer and customer_auth_headers fixtures to conftest.py.
+**Confidence:** HIGH
 
-# AFTER:
-_is_prod = os.getenv("ENVIRONMENT", "").lower() in ("production", "prod")
-```
+### Pitfall 4: Shipped Apps Call Different Paths Than HEAD
+**What goes wrong:** Contract tests pass for HEAD paths but miss the actual paths shipped apps use.
+**How to avoid:** Test BOTH the current (correct) paths AND the shipped (old) alias paths. Add a `TestShippedPathAliases` class.
+**Confidence:** HIGH
 
-## State of the Art
+### Pitfall 5: `|| echo` Masks Real Failures in CI
+**What goes wrong:** CI shows "success" even when tests fail.
+**Fix:** Remove `|| echo "... completed"` from all test run steps.
+**Confidence:** HIGH
 
-| Old State | Current State | When Changed | Impact |
-|-----------|--------------|--------------|--------|
-| No auth middleware | Global auth middleware + per-endpoint Depends() | v1.1 Phase 02 (Feb 2026) | All contract tests need auth headers |
-| 15 contract test paths | 15 contract test paths (unchanged) | Original creation | Tests haven't been updated since auth hardening |
-| Apps called ~50 endpoints | iOS: ~120, Android: ~141 endpoints | Ongoing app development | Massive gap between tested and actual |
-| `test_vendor_endpoints.py` 112 errors | Rewritten, 33/33 pass | v1.1 Phase 01 | Resolved |
-| CI deploy gate: unit tests only | Still unit tests only | Unchanged | Deploy CI is green |
+### Pitfall 6: The `init_db` Step Uses database.py Engine (Not Test Engine)
+**What goes wrong:** The CI "Start Backend Server" step runs `from database import init_db; init_db()` which uses the production database.py engine (with SSL requirement).
+**How to avoid:** The `ENVIRONMENT=testing` env var must be set on the step that runs `init_db`, not just the test step.
+**Confidence:** HIGH
 
-## Previous Research Findings (Still Valid)
+## Don't Hand-Roll
 
-From the Feb 20 research, the following **still apply**:
-
-### 18 Integration Test Failures (3 root causes)
-
-| Category | Count | Root Cause | Fix |
-|----------|-------|-----------|-----|
-| Auth middleware (401s) | 10 | Phase 02 auth hardening | Add auth headers to tests |
-| Missing SQLite tables | 7 | Model imports not triggered before `create_all` | Import `models_extended.py` in conftest |
-| Document count mismatch | 1 | Backend document_type collision | Debug document upload logic |
-
-### CI Workflow Issues
-
-| Issue | Root Cause | Fix |
-|-------|-----------|-----|
-| SSL error in CI PostgreSQL | `database.py` defaults ENVIRONMENT to "production" | Set `ENVIRONMENT=testing` or change default |
-| Missing env vars in test steps | Some CI steps lack `JWT_SECRET_KEY` or `TESTING` | Add to all relevant `env:` blocks |
+| Problem | Don't Build | Use Instead | Why |
+|---------|-------------|-------------|-----|
+| Auth tokens for tests | Manual JWT creation per test | conftest.py fixtures | DRY, consistent |
+| Endpoint path inventory | Manual listing | Extract from iOS/Android source (this research) | Verified against shipped builds |
+| Full response validation | Assert every field | Assert endpoint exists + auth + basic shape | Contract tests, not integration tests |
+| Test DB setup | Custom per-test DB | conftest.py `test_db` + `db_session` fixtures | Already handles SQLite/PostgreSQL |
 
 ## Scope Recommendation
 
-**Plan 1: Rewrite contract tests + fix conftest**
-- Add `test_customer` and `customer_auth_headers` fixtures to conftest.py
-- Import `models_extended.py` in conftest to fix missing table errors
-- Rewrite `test_ios_api_contracts.py` with all ~160 endpoint paths organized by role
-- Each test verifies: endpoint exists, correct auth requirement, basic response structure
-- Expected: ~100-150 individual test methods covering all app-called endpoints
+### Plan 1: Fix CI Infrastructure + Rewrite Contract Tests (~150 test methods)
 
-**Plan 2: Fix CI workflow + database.py**
-- Fix `database.py` ENVIRONMENT default (empty string instead of "production")
-- Add `ENVIRONMENT=testing` to all integration-tests.yml job env blocks
-- Add missing `JWT_SECRET_KEY` and `TESTING` to all CI steps
-- Remove `|| echo "completed"` to surface real failures
-- Verify all tests pass in CI
+**Tasks:**
+1. Fix `database.py:18` -- change default from `"production"` to `""` (1-line fix)
+2. Add `ENVIRONMENT=testing` to ALL env blocks in `integration-tests.yml`
+3. Add missing `JWT_SECRET_KEY` and `TESTING` to "Run API Contract Tests" env block
+4. Remove `|| echo "completed"` from all test run steps
+5. Add `test_customer` and `customer_auth_headers` fixtures to `conftest.py`
+6. Rewrite `test_ios_api_contracts.py` with all ~160 endpoint paths
+7. Include `TestShippedPathAliases` class for old shipped paths that have backend aliases
+8. Run locally to verify all tests pass
+
+### Plan 2: Push + Verify CI Green
+
+**Tasks:**
+1. Commit changes from Plan 1
+2. Push to trigger CI
+3. Monitor integration-tests.yml run
+4. If failures, debug and fix
+5. Verify all 4 CI jobs pass (api-contract-tests, backend-api-tests, e2e-critical-flows, frontend-integration-tests)
+
+**Note:** ios-integration-tests job runs on macos-14 and may have its own issues (CocoaPods, Xcode version). This is out of scope for Phase 04.
 
 ## Open Questions
 
-1. **Should we split iOS vs Android contract tests?**
-   - Most endpoints overlap. Android has ~20 extra endpoints (demo-login, tax, legal, balance).
-   - Recommendation: Single file with all endpoints. Add comments noting which platform(s) call each path.
+1. **Should we add backend route aliases for the 2 broken shipped iOS paths?**
+   - `POST /api/customer/favorites` (no path params) -- shipped app broken
+   - `DELETE /api/vendors/{vendorId}/delete` -- shipped app broken
+   - Recommendation: YES, add aliases in Plan 1 since these are in the SHIPPED TestFlight build. Users hitting these paths get 404s/405s right now.
 
-2. **Should contract tests go in the deploy gate?**
-   - Currently deploy only runs `tests/unit/`. Adding contract tests would slow deploys.
-   - Recommendation: Keep contract tests in integration-tests.yml for now. Consider adding to deploy gate after they're stable.
+2. **Should we add contract tests to the deploy gate?**
+   - Recommendation: NO, not yet. Keep in integration-tests.yml until stable. Add to deploy gate in a future phase.
 
-3. **Document type collision (test_android_restaurant_e2e_workflow)**
-   - 5 documents uploaded, only 4 returned. `business_license` stored as `w9_form`.
-   - May be a real backend bug. Separate from contract test scope.
-   - Recommendation: Note as known issue, don't block on it.
+3. **Should we fix the Android `rides/recurring/{id}` bug?**
+   - This is a pre-existing Android bug (documented in MEMORY.md). Out of scope for Phase 04 unless bundled.
+   - Recommendation: Note as known issue, add to contract test as an expected-failure.
 
-4. **iOS endpoint `erp/orders/pending-restaurant-delivery` does NOT exist in backend**
-   - iOS calls `AppConfig.shared.p2pAPIBaseURL + "/api/erp/orders/pending-restaurant-delivery"`
-   - No backend route found. This is a dead endpoint in iOS code.
-   - Recommendation: Do NOT add to contract tests. Flag as iOS dead code.
+4. **How many of the 157 iOS paths should become individual test methods?**
+   - Not every path needs its own test method. Group related paths (e.g., all 6 address endpoints can be 2-3 tests).
+   - Recommendation: ~100-120 test methods covering all ~160 paths, with grouping where appropriate.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- iOS source: `P2PAPIService.swift` -- all URL patterns extracted via grep
-- Android source: `DollorApiService.kt` -- all Retrofit annotations extracted
-- Android source: `CustomerRideshareApiService.kt` -- all OkHttp URL patterns extracted
-- Backend test: `tests/integration/test_ios_api_contracts.py` -- current state (19 tests)
-- Backend test: `tests/conftest.py` -- fixture definitions
-- CI workflow: `.github/workflows/integration-tests.yml` -- full definition
-- CI workflow: `.github/workflows/deploy-dollar-ai.yml` -- deploy gate
-- Backend source: `database.py:18` -- ENVIRONMENT default behavior
-- Backend source: `auth_utils.py` -- require_customer/driver/vendor/admin functions
+- **App Store Connect API** -- TestFlight build data retrieved live for all 3 iOS apps
+- **Android APK output-metadata.json** -- version/build info read from build artifacts
+- **P2PAPIService.swift at commit 1297b663** -- all URL patterns extracted from shipped iOS build
+- **DollorApiService.kt at commit 9c42c21d** -- all Retrofit annotations extracted from shipped Android build
+- **CustomerRideshareApiService.kt at commit 9c42c21d** -- all OkHttp URL patterns extracted
+- **tests/integration/test_ios_api_contracts.py** -- current test file read in full (19 tests)
+- **tests/conftest.py** -- fixture definitions read in full
+- **.github/workflows/integration-tests.yml** -- CI workflow read in full
+- **.github/workflows/deploy-dollar-ai.yml** -- deploy gate read in full
+- **database.py:18** -- ENVIRONMENT default verified
+- **auth_utils.py** -- require_customer/driver/vendor/admin verified
+- **main_new.py:257-371** -- public path allowlist verified
+- **main_new.py route aliases** -- old path aliases verified for each shipped path
+- **CI run 22249001231** -- failure logs verified (SSL error in init_db)
+- **git diff 1297b663..HEAD** -- iOS path changes since TestFlight upload
+- **git diff 9c42c21d..HEAD** -- Android path changes since APK build
 
 ### Secondary (MEDIUM confidence)
-- Previous research: `04-RESEARCH.md` from 2026-02-20 (CI failure analysis)
-- Error pattern analysis from previous test runs
+- models.py Customer class definition (fields verified)
+- API_REGISTRY.md (552 total backend endpoints)
 
 ## Metadata
 
 **Confidence breakdown:**
-- Endpoint gap analysis: HIGH -- extracted directly from iOS/Android/backend source code
-- Auth middleware impact: HIGH -- verified from source code and previous test runs
-- CI workflow fixes: HIGH -- verified from workflow YAML and previous CI run logs
-- Contract test structure: HIGH -- based on existing conftest.py patterns and FastAPI TestClient docs
-- database.py fix: HIGH -- line 18 verified, root cause confirmed
+- Shipped build verification: HIGH -- retrieved from App Store Connect API and build artifacts
+- Endpoint inventory: HIGH -- extracted from exact shipped git commits
+- CI failure root cause: HIGH -- verified from CI failure logs
+- Contract test structure: HIGH -- based on existing conftest.py patterns
+- Path alias verification: HIGH -- grep against backend source code
+- Fixture requirements: HIGH -- verified against auth_utils.py and models.py
 
 **Research date:** 2026-02-21
-**Valid until:** 2026-03-21 (stable -- test infrastructure doesn't change rapidly)
+**Valid until:** 2026-03-21 (stable -- test infrastructure doesn't change rapidly; rebuild of iOS/Android would change shipped builds)
