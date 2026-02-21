@@ -746,10 +746,11 @@ class DeliveryViewModel: ObservableObject {
     }
 
     /// Complete a ride (drop off passenger)
+    /// Uses canonical POST /api/rides/request/{id}/complete endpoint
     func completeRide(_ ride: P2PRide) {
         isLoading = true
 
-        p2pService.completeRide(rideId: ride.rideId) { [weak self] result in
+        p2pService.completeRideRequest(rideRequestId: ride.rideId) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
