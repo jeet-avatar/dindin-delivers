@@ -256,7 +256,7 @@ For detailed information, see `.claude/docs/`:
 
 ### ⚠️ ALL work goes through GSD — NO exceptions
 
-**EVERY task — trivial or complex — MUST use a GSD command.** No direct code edits, no ad-hoc fixes, no "just this once" shortcuts.
+**EVERY task — trivial or complex, code or deploy — MUST use a GSD command.** No direct code edits, no ad-hoc fixes, no standalone deploys, no "just this once" shortcuts.
 
 #### Quick tasks (bug fixes, small changes, one-off edits)
 ```
@@ -271,7 +271,7 @@ Uses GSD guarantees (atomic commits, state tracking) but skips research/discuss/
 Systematic debugging with persistent state across context resets.
 
 #### Non-trivial tasks (features, multi-file changes, security work)
-Full pipeline end-to-end:
+Full pipeline end-to-end — **deployment is part of the phase, not a separate step:**
 
 | Step | Command | What Happens |
 |------|---------|-------------|
@@ -289,7 +289,11 @@ Full pipeline end-to-end:
 | 12. **Monitor** | `gh run watch <run-id>` | Confirm all jobs pass, tasks HEALTHY |
 | 13. **Complete** | `/gsd:complete-milestone` | Archive phases, update PROJECT.md |
 
-**Skip nothing. NEVER run manual `docker build`, `aws ecs`, `docker push`, or direct ECR/ECS commands.**
+#### ⚠️ Deploy rule: Deploys MUST be a task inside a GSD phase plan
+- **NEVER deploy ad-hoc** — every deploy (staging or production) must be a planned task in a GSD phase
+- Phase plans MUST include deploy tasks as their final wave (e.g., "Wave 3: Push, deploy staging, smoke test, deploy production")
+- If a deploy fails, use `/gsd:debug` to investigate — do NOT retry manually outside GSD
+- **Skip nothing. NEVER run manual `docker build`, `aws ecs`, `docker push`, or direct ECR/ECS commands.**
 
 ### GSD Command Reference
 | Need | Command |
