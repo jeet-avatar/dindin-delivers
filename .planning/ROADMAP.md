@@ -52,7 +52,14 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
   Plans:
   - [x] 04-01-PLAN.md — Rewrite contract tests covering all ~160 app-called endpoints + fix conftest.py fixtures
   - [x] 04-02-PLAN.md — Fix database.py ENVIRONMENT default + CI workflow env vars + remove error masking
-- [ ] Phase 05: Ops Security — DB password rotation, remove .p8 keys from git, CF server header
+- [ ] Phase 05: Ops Security — Keep only production keys for last shipped builds, remove all unused keys/credentials, update CLAUDE.md with current production state, block old references permanently
+  **Goal:** Zero tracked secrets in git, zero wrong staging URLs in code, CLAUDE.md reflects current production state, prevention mechanisms block future credential commits
+  **Requirements:** [OPS-01, OPS-02, OPS-03, OPS-04, OPS-05, OPS-06, OPS-07]
+  **Plans:** 3 plans
+  Plans:
+  - [ ] 05-01-PLAN.md — Remove .p8 keys from git + delete backend/.env + add .gitignore + pre-commit hook
+  - [ ] 05-02-PLAN.md — Fix old staging URL in 35 code/config/test/script files
+  - [ ] 05-03-PLAN.md — Update CLAUDE.md with production state + human checkpoint for key revocation
 
 ### Carried Forward
 - **Phase 00: API Standardization** — merged into v1.2 Phase 02
@@ -65,4 +72,4 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 | 02. API Standardization | 3/3 | Complete   | 2026-02-21 | -- |
 | 03. Android Fixes | 1/1 | Complete    | 2026-02-21 | -- |
 | 04. Fix CI | 2/2 | Complete    | 2026-02-21 | -- |
-| 05. Ops Security | v1.2 | 0/? | Pending | -- |
+| 05. Ops Security | v1.2 | 0/3 | Planned | -- |
