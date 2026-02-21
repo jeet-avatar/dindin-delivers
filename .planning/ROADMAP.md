@@ -45,12 +45,12 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
   **Plans:** 1 plan
   Plans:
   - [ ] 03-01-PLAN.md — Commit 5 path fixes + fix staging URLs + replace hardcoded photo URLs
-- [ ] Phase 04: Fix CI + API Contract Tests — Update API contract tests to match actual shipped iOS/Android builds, fix CI workflow failures
+- [x] Phase 04: Fix CI + API Contract Tests — Update API contract tests to match actual shipped iOS/Android builds, fix CI workflow failures (completed 2026-02-21)
   **Goal:** API contract tests reflect real app API calls from latest TestFlight/Firebase builds; all tests pass in CI
   **Requirements:** [CI-01, CI-02, CI-03, CI-04, CI-05]
   **Plans:** 2 plans
   Plans:
-  - [ ] 04-01-PLAN.md — Rewrite contract tests covering all ~160 app-called endpoints + fix conftest.py fixtures
+  - [x] 04-01-PLAN.md — Rewrite contract tests covering all ~160 app-called endpoints + fix conftest.py fixtures
   - [x] 04-02-PLAN.md — Fix database.py ENVIRONMENT default + CI workflow env vars + remove error masking
 - [ ] Phase 05: Ops Security — DB password rotation, remove .p8 keys from git, CF server header
 
@@ -64,5 +64,5 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 | 01. Finish Endpoint Auth | 3/3 | Complete    | 2026-02-21 | -- |
 | 02. API Standardization | 3/3 | Complete   | 2026-02-21 | -- |
 | 03. Android Fixes | 1/1 | Complete    | 2026-02-21 | -- |
-| 04. Fix CI | v1.2 | 1/2 | In Progress | -- |
+| 04. Fix CI | 2/2 | Complete   | 2026-02-21 | -- |
 | 05. Ops Security | v1.2 | 0/? | Pending | -- |
