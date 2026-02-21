@@ -254,9 +254,24 @@ For detailed information, see `.claude/docs/`:
 
 ## AI EMPLOYEE PROTOCOLS
 
-### ⚠️ ALL work goes through GSD — NO shortcuts
+### ⚠️ ALL work goes through GSD — NO exceptions
 
-Every non-trivial task follows this pipeline end-to-end:
+**EVERY task — trivial or complex — MUST use a GSD command.** No direct code edits, no ad-hoc fixes, no "just this once" shortcuts.
+
+#### Quick tasks (bug fixes, small changes, one-off edits)
+```
+/gsd:quick <description>
+```
+Uses GSD guarantees (atomic commits, state tracking) but skips research/discuss/verify agents.
+
+#### Bug investigation
+```
+/gsd:debug <description>
+```
+Systematic debugging with persistent state across context resets.
+
+#### Non-trivial tasks (features, multi-file changes, security work)
+Full pipeline end-to-end:
 
 | Step | Command | What Happens |
 |------|---------|-------------|
@@ -276,12 +291,13 @@ Every non-trivial task follows this pipeline end-to-end:
 
 **Skip nothing. NEVER run manual `docker build`, `aws ecs`, `docker push`, or direct ECR/ECS commands.**
 
-### Quick GSD Reference
+### GSD Command Reference
 | Need | Command |
 |------|---------|
+| **Any small task** | `/gsd:quick <what to do>` |
+| **Any bug** | `/gsd:debug <what's broken>` |
 | Resume previous session | `/gsd:resume-work` |
 | Check progress | `/gsd:progress` |
-| Fix a bug | `/gsd:debug` |
 | Insert urgent work | `/gsd:insert-phase N` |
 | Pause mid-session | `/gsd:pause-work` |
 | Review todos | `/gsd:check-todos` |
