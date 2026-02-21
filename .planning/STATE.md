@@ -1,16 +1,22 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: Phase 01 COMPLETE — all 3 plans finished
-**Last activity**: 2026-02-20 — Quick-9 completed (CLAUDE.md GSD deploy enforcement committed)
+**Status**: Phase 02 IN PROGRESS — Plan 01 complete (1/3)
+**Last activity**: 2026-02-21 — Plan 02-01 completed (backend route aliases + financial endpoints)
 
 ## Current Position
 
-**Active Phase:** 01-finish-endpoint-auth (COMPLETE)
-**Current Plan:** Not started
-**Progress:** [██████████] 100%
+**Active Phase:** 02-api-endpoint-standardization
+**Current Plan:** Plan 02 of 3
+**Progress:** [███████░░░] 67%
 
-## Active Phase: 01-finish-endpoint-auth (COMPLETE)
+## Active Phase: 02-api-endpoint-standardization
+
+- Plan 01 (COMPLETE): Backend route aliases + financial endpoints — 9 new routes, iOS chat fix, Android demo-login + financial stubs
+- Plan 02: iOS client path fixes
+- Plan 03: Android client path fixes
+
+## Previous Phase: 01-finish-endpoint-auth (COMPLETE)
 
 - Plan 01 (COMPLETE): Per-endpoint Depends() auth + allowlist fix — 23 endpoints secured, 7 manual auth blocks replaced
 - Plan 02 (COMPLETE): Admin/AI endpoint auth — 9 endpoints secured with Depends(require_admin)
@@ -40,6 +46,10 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 - [Phase 01-03]: Kept 4 proxy stubs with iOS callers instead of deleting (added require_any_auth)
 - [Phase 01-03]: Kept real endpoints embedded in proxy section (restaurant detail, payment intent, FCM tokens, AI analytics)
 - [Phase 01-03]: 78 endpoints remain middleware-only (no per-endpoint Depends) — documented for future work
+- [Phase 02-01]: Used app.add_api_route() for chat aliases -- backend-side fix is lower-risk than iOS deploy
+- [Phase 02-01]: Financial endpoints use graceful degradation (zero balances) instead of 500 on Stripe errors
+- [Phase 02-01]: Demo-login endpoints gated by ADMIN_SECRET_KEY, added to public path allowlist
+- [Phase 02]: Used app.add_api_route() for chat aliases; financial endpoints use Depends(require_driver/vendor) + ownership checks
 
 ## Quick Reference
 - Production API: `https://api.dollor.ai`
@@ -57,4 +67,4 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Production deploy succeeded — Phase 01 endpoint auth + staging fix + GSD enforcement live
+Stopped at: Completed 02-01-PLAN.md — backend route aliases + financial endpoints
