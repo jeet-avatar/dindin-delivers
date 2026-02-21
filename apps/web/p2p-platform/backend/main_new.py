@@ -283,6 +283,8 @@ _PUBLIC_EXACT_PATHS = {
     # Auth — vendor
     "/api/auth/vendor/login", "/api/auth/vendor/register",
     "/api/auth/vendor/demo-login",
+    "/api/customer/demo-login",
+    "/api/auth/driver/demo-login",
     "/api/auth/vendor/google-auth", "/api/auth/vendor/apple-auth",
 
     # Auth — admin
@@ -1891,6 +1893,124 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         "vendor_id": user.vendor_id,
         "business_name": business_name,
         "email": user.email
+    }
+
+# Customer Demo Login - for App Store review testing (Android calls POST /api/customer/demo-login)
+@app.post("/api/customer/demo-login")
+def customer_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db), secret_key: Optional[str] = Query(None)):
+    """Demo login for customer - creates or finds demo customer account for App Store review"""
+    _require_admin_secret(secret_key)
+
+    hint = request.email_hint or request.email or ""
+    print(f"Customer demo login attempt with hint: {hint}")
+
+    demo_email = "demo.customer@dollor.ai"
+    demo_password = "DemoCustomer2025!"
+
+    # Check if demo customer exists
+    customer = db.query(Customer).filter(Customer.email == demo_email).first()
+
+    if not customer:
+        # Create demo customer
+        hashed_password = get_password_hash(demo_password)
+        customer = Customer(
+            email=demo_email,
+            password_hash=hashed_password,
+            first_name="Demo",
+            last_name="Customer",
+            phone="+14155550001",
+            is_active=True,
+            created_at=datetime.utcnow()
+        )
+        db.add(customer)
+        db.commit()
+        db.refresh(customer)
+        print(f"Created demo customer: {demo_email}")
+    else:
+        # Update password to ensure it's correct
+        customer.password_hash = get_password_hash(demo_password)
+        customer.is_active = True
+        db.commit()
+        print(f"Updated demo customer credentials: {demo_email}")
+
+    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
+    access_token = create_access_token(data={"sub": customer.email, "role": "customer", "customer_id": customer.id})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": customer.id,
+        "customer_code": customer.customer_id or f"CUST-{customer.id:05d}",
+        "name": full_name,
+        "email": customer.email,
+        "phone": customer.phone
+    }
+
+# Driver Demo Login - for App Store review testing (Android calls POST /api/auth/driver/demo-login)
+@app.post("/api/auth/driver/demo-login")
+def driver_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db), secret_key: Optional[str] = Query(None)):
+    """Demo login for driver - creates or finds demo driver account for App Store review"""
+    _require_admin_secret(secret_key)
+
+    hint = request.email_hint or request.email or ""
+    print(f"Driver demo login attempt with hint: {hint}")
+
+    demo_email = "demo.driver@dollor.ai"
+    demo_password = "DemoDriver2025!"
+
+    # Check if demo driver user exists
+    user = db.query(User).filter(
+        User.email == demo_email,
+        User.role == UserRole.DRIVER
+    ).first()
+
+    if not user:
+        # Create demo driver
+        hashed_password = get_password_hash(demo_password)
+
+        # Create driver record first
+        demo_driver = Driver(
+            first_name="Demo",
+            last_name="Driver",
+            email=demo_email,
+            phone="+14155550002",
+            status=DriverStatus.ACTIVE,
+            created_at=datetime.utcnow()
+        )
+        db.add(demo_driver)
+        db.flush()
+
+        # Create user record
+        user = User(
+            email=demo_email,
+            password_hash=hashed_password,
+            full_name="Demo Driver",
+            role=UserRole.DRIVER,
+            driver_id=demo_driver.id,
+            created_at=datetime.utcnow()
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        print(f"Created demo driver: {demo_email}")
+    else:
+        # Demo user exists - ensure password is correct
+        user.password_hash = get_password_hash(demo_password)
+        db.commit()
+        print(f"Updated demo driver credentials: {demo_email}")
+
+    # Get driver record
+    driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
+    driver_name = f"{driver.first_name} {driver.last_name}" if driver else "Demo Driver"
+
+    access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": user.driver_id})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "driver_id": user.driver_id,
+        "driver_code": driver.driver_id if driver else None,
+        "name": driver_name,
+        "email": user.email,
+        "status": driver.status.value if driver and hasattr(driver.status, 'value') else "active"
     }
 
 # Pydantic models for vendor registration
@@ -21173,6 +21293,10 @@ app.add_api_route("/api/health", health_check, methods=["GET"])
 app.add_api_route("/erp/analytics/realtime", proxy_realtime_dashboard, methods=["GET"])
 app.add_api_route("/api/erp/analytics/realtime", proxy_realtime_dashboard, methods=["GET"])
 app.add_api_route("/erp/analytics/ai-employees", get_ai_employees_analytics, methods=["GET"])
+
+# Order chat aliases (iOS calls /api/orders/{id}/chat, backend has /api/customer/orders/{id}/chat)
+app.add_api_route("/api/orders/{order_id}/chat", get_order_chat_messages, methods=["GET"])
+app.add_api_route("/api/orders/{order_id}/chat", send_order_chat_message, methods=["POST"])
 
 # =============================================================================
 # TAX CALCULATION API
