@@ -2638,7 +2638,7 @@ def driver_refresh_token(driver: Driver = Depends(require_driver), db: Session =
         )
 
     # Generate new token
-    access_token = create_access_token(data={"sub": current_user.email, "role": "driver", "driver_id": driver.id})
+    access_token = create_access_token(data={"sub": driver.email, "role": "driver", "driver_id": driver.id})
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -3983,7 +3983,7 @@ async def request_ride(
     }
 
 @app.get("/api/erp/rides/{ride_id}/status")
-def get_ride_status(ride_id: str, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def get_ride_status(ride_id: str, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """Get current status of a ride from database (checks both rides and ride_requests tables)"""
     from sqlalchemy import text
     from models import RideRequest, RideRequestStatus
@@ -4171,7 +4171,7 @@ def estimate_fare_frontend(
 # Full tracking endpoint for RIDES (rideshare) - frontend polling
 # NOTE: Use /api/erp/rides/ path to avoid conflict with order tracking in order_flow.py
 @app.get("/api/erp/rides/{ride_id}/full-tracking")
-def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """
     Full tracking endpoint for RIDESHARE - queries real data from database
     For FOOD ORDER tracking, use /api/erp/orders/{order_id}/full-tracking (in order_flow.py)
@@ -4237,7 +4237,7 @@ class ERPRideRatingRequest(BaseModel):
     rated_by: str = Field("customer", description="Who is rating")
 
 @app.post("/api/erp/rides/{ride_id}/rate")
-async def rate_ride(ride_id: int, body: ERPRideRatingRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def rate_ride(ride_id: int, body: ERPRideRatingRequest, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """
     Rate a completed ride (ERP endpoint).
     Accepts JSON body: {"rating": 1-5, "feedback": "optional", "rated_by": "customer"}
@@ -4254,10 +4254,9 @@ async def rate_ride(ride_id: int, body: ERPRideRatingRequest, db: Session = Depe
         raise HTTPException(status_code=404, detail="Ride not found")
 
     # SECURITY: Only ride participants (customer or matched driver) can rate
-    user_customer_id = getattr(current_user, 'customer_id', None)
-    user_driver_id = getattr(current_user, 'driver_id', None)
-    is_admin = getattr(current_user, 'role', None) == UserRole.ADMIN
-    if not is_admin and user_customer_id != ride.customer_id and user_driver_id != ride.matched_driver_id:
+    auth_customer_id = _auth.get("customer_id")
+    auth_driver_id = _auth.get("driver_id")
+    if auth_customer_id != ride.customer_id and auth_driver_id != ride.matched_driver_id:
         raise HTTPException(status_code=403, detail="You can only rate rides you participated in")
 
     # Verify ride is completed
@@ -14699,30 +14698,22 @@ async def get_full_order_tracking_ios_alias(order_id: int, token: str = Depends(
 async def get_available_rides_ios_alias(
     driver_lat: Optional[float] = None,
     driver_lng: Optional[float] = None,
-    token: str = Depends(oauth2_scheme),
+    _auth: dict = Depends(require_any_auth),
     db: Session = Depends(get_db)
 ):
     """Alias for iOS Driver app - get available rides
     iOS calls: GET /erp/rides/available
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from bid_routes import get_available_ride_requests as _get_available
     return await _get_available(driver_lat=driver_lat, driver_lng=driver_lng, db=db)
 
 @app.post("/erp/rides/{ride_id}/accept")
 @app.post("/api/erp/rides/{ride_id}/accept")
-async def accept_ride_ios_alias(ride_id: int, request: AssignDriverRequest, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def accept_ride_ios_alias(ride_id: int, request: AssignDriverRequest, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - accept ride (legacy - actual flow uses bid system).
     This sets status to MATCHED directly for backward compatibility.
     iOS calls: POST /api/erp/rides/{rideId}/accept
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from models import RideRequest as RR, RideRequestStatus as RRS
     ride = db.query(RR).filter(RR.id == ride_id).first()
     if not ride:
@@ -14737,28 +14728,20 @@ async def accept_ride_ios_alias(ride_id: int, request: AssignDriverRequest, toke
 
 @app.post("/erp/rides/{ride_id}/picked-up")
 @app.post("/api/erp/rides/{ride_id}/picked-up")
-async def ride_picked_up_ios_alias(ride_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def ride_picked_up_ios_alias(ride_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark ride picked up (transitions to IN_PROGRESS).
     iOS calls: POST /api/erp/rides/{rideId}/picked-up
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from bid_routes import start_ride as _start_ride
     return await _start_ride(ride_id, db)
 
 @app.post("/erp/rides/{ride_id}/start")
 @app.post("/api/erp/rides/{ride_id}/start")
-async def start_ride_alias(ride_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def start_ride_alias(ride_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Start ride alias for Android/iOS driver apps.
     Android calls: POST /api/erp/rides/{rideId}/start
     Accepts MATCHED or IN_PROGRESS status (picked-up may have already set IN_PROGRESS).
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from models import RideRequest as RR, RideRequestStatus as RRS
     ride = db.query(RR).filter(RR.id == ride_id).first()
     if not ride:
@@ -14771,26 +14754,18 @@ async def start_ride_alias(ride_id: int, token: str = Depends(oauth2_scheme), db
 
 @app.get("/erp/rides/{ride_id}/track")
 @app.get("/api/erp/rides/{ride_id}/track")
-async def track_ride_ios_alias(ride_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def track_ride_ios_alias(ride_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Customer app - track ride
     iOS calls: GET /api/erp/rides/{rideId}/track
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await track_ride(ride_id, db)
 
 @app.get("/erp/rides/{ride_id}/status")
 @app.get("/api/erp/rides/{ride_id}/status")
-def get_ride_status_ios_alias(ride_id: str, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_ride_status_ios_alias(ride_id: str, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS apps - get ride status
     iOS calls: GET /api/erp/rides/{rideId}/status
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return get_ride_status(ride_id, db)
 
 @app.post("/erp/rides/{ride_id}/cancel")
@@ -14799,19 +14774,19 @@ async def cancel_ride_ios_alias(
     ride_id: int,
     reason: str = "customer_request",
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth: dict = Depends(require_any_auth)
 ):
     """Alias for iOS apps - cancel ride
     iOS calls: POST /api/erp/rides/{rideId}/cancel
     """
-    return await cancel_ride(ride_id, reason, db, current_user)
+    return await cancel_ride(ride_id, reason, db, _auth)
 
 @app.post("/erp/rides/{ride_id}/negotiate")
 @app.post("/api/erp/rides/{ride_id}/negotiate")
 async def negotiate_ride_ios_alias(
     ride_id: int,
     request: dict,
-    token: str = Depends(oauth2_scheme),
+    _auth: dict = Depends(require_any_auth),
     db: Session = Depends(get_db)
 ):
     """Alias for iOS apps - negotiate fare
@@ -14820,10 +14795,6 @@ async def negotiate_ride_ios_alias(
 
     Returns FareNegotiationResponse format for iOS decode compatibility.
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from models import RideRequest
     ride = db.query(RideRequest).filter(RideRequest.id == ride_id).first()
     if not ride:
@@ -14886,7 +14857,7 @@ async def accept_fare_ios_alias(
     ride_id: int,
     request: dict,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Alias for iOS apps - accept negotiated fare
     iOS calls: POST /api/erp/rides/{rideId}/accept-fare
@@ -14918,7 +14889,7 @@ async def customer_negotiate_ios_alias(
     ride_id: int,
     proposed_fare: float = Query(default=0.0),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Cross-platform fare negotiation endpoint
     iOS calls: POST /erp/rides/{rideId}/customer-negotiate?proposed_fare=10.0
@@ -14957,7 +14928,7 @@ async def customer_accept_fare_ios_alias(
     ride_id: int,
     accepted_fare: float = Query(default=0.0),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Alias for iOS Customer app - accept driver's fare
     iOS calls: POST /erp/rides/{rideId}/customer-accept-fare?accepted_fare=12.0
@@ -14984,7 +14955,7 @@ async def customer_accept_fare_ios_alias(
 async def negotiation_status_ios_alias(
     ride_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Alias for iOS apps - get negotiation status
     iOS calls: GET /erp/rides/{rideId}/negotiation-status
@@ -15358,7 +15329,7 @@ async def get_refund_status(
 async def track_ride(
     ride_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Track a ride's current status and driver location.
@@ -15506,7 +15477,7 @@ async def cancel_ride(
     ride_id: int,
     reason: str = "customer_request",
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth: dict = Depends(require_any_auth)
 ):
     """
     Cancel a ride request.
@@ -15519,14 +15490,12 @@ async def cancel_ride(
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
 
-    # SECURITY: Verify the authenticated user owns this ride (admins can cancel any)
-    if current_user.role != UserRole.ADMIN:
-        # Look up customer by email to match against ride
-        owner = db.query(Customer).filter(Customer.email == current_user.email).first()
-        if not owner:
-            raise HTTPException(status_code=403, detail="Only customers or admins can cancel rides")
-        if owner.id != ride.customer_id:
-            raise HTTPException(status_code=403, detail="You can only cancel your own rides")
+    # SECURITY: Verify the authenticated user is the ride's customer
+    auth_customer_id = _auth.get("customer_id")
+    if not auth_customer_id:
+        raise HTTPException(status_code=403, detail="Only customers can cancel rides")
+    if ride.customer_id != auth_customer_id:
+        raise HTTPException(status_code=403, detail="You can only cancel your own rides")
 
     # Block cancel on completed/cancelled/in_progress rides
     non_cancellable = [RideRequestStatus.COMPLETED, RideRequestStatus.CANCELLED, RideRequestStatus.IN_PROGRESS]
@@ -15721,9 +15690,8 @@ class RideRatingRequest(BaseModel):
 async def rate_ride_customer(
     ride_id: int,
     body: RideRatingRequest,
-    request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth: dict = Depends(require_any_auth)
 ):
     """
     Rate a completed ride (Customer API).
@@ -15741,13 +15709,7 @@ async def rate_ride_customer(
         raise HTTPException(status_code=404, detail="Ride not found")
 
     # SECURITY: Only customers can rate, and only their own rides
-    customer_id = None
-    try:
-        token = request.headers.get("authorization", "").replace("Bearer ", "")
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        customer_id = payload.get("customer_id")
-    except Exception:
-        pass
+    customer_id = _auth.get("customer_id")
     if not customer_id:
         raise HTTPException(status_code=403, detail="Only customers can rate rides")
     if ride.customer_id != customer_id:
@@ -15796,9 +15758,8 @@ class RideTipRequest(BaseModel):
 async def tip_ride_driver(
     ride_id: int,
     body: RideTipRequest,
-    request: Request = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth: dict = Depends(require_any_auth)
 ):
     """
     Add tip to driver for a completed ride.
@@ -15815,13 +15776,7 @@ async def tip_ride_driver(
         raise HTTPException(status_code=404, detail="Ride not found")
 
     # SECURITY: Only customers can tip, and only on their own rides
-    customer_id = None
-    try:
-        token = request.headers.get("authorization", "").replace("Bearer ", "")
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        customer_id = payload.get("customer_id")
-    except Exception:
-        pass
+    customer_id = _auth.get("customer_id")
     if not customer_id:
         raise HTTPException(status_code=403, detail="Only customers can tip on rides")
     if ride.customer_id != customer_id:
@@ -16051,7 +16006,7 @@ class RideChatMessageRequest(BaseModel):
 def get_ride_request_chat(
     ride_request_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Get chat messages for a ride request"""
     from models import RideChatMessage
@@ -16082,16 +16037,16 @@ def send_ride_request_chat(
     ride_request_id: int,
     chat_request: RideChatMessageRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth: dict = Depends(require_any_auth)
 ):
     """Send a chat message for a ride request"""
     from models import RideChatMessage
 
-    # Determine sender_id based on sender_type
+    # Determine sender_id based on sender_type using JWT payload
     if chat_request.sender_type == "customer":
-        sender_id = current_user.customer_id or 0
+        sender_id = _auth.get("customer_id") or 0
     else:
-        sender_id = current_user.driver_id or 0
+        sender_id = _auth.get("driver_id") or 0
 
     chat_msg = RideChatMessage(
         ride_request_id=ride_request_id,
@@ -16114,7 +16069,7 @@ def send_ride_request_chat(
 
 
 @app.get("/api/chat/messages/{ride_id}")
-def get_chat_messages(ride_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def get_chat_messages(ride_id: int, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """Get chat messages for a ride (alias endpoint)"""
     return {
         "ride_id": ride_id,
