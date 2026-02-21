@@ -58,7 +58,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
   **Plans:** 3 plans
   Plans:
   - [x] 05-01-PLAN.md — Remove .p8 keys from git + delete backend/.env + add .gitignore + pre-commit hook
-  - [ ] 05-02-PLAN.md — Fix old staging URL in 35 code/config/test/script files
+  - [x] 05-02-PLAN.md — Fix old staging URL in 61 code/config/test/script/doc files
   - [ ] 05-03-PLAN.md — Update CLAUDE.md with production state + human checkpoint for key revocation
 
 ### Carried Forward
@@ -72,4 +72,4 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 | 02. API Standardization | 3/3 | Complete   | 2026-02-21 | -- |
 | 03. Android Fixes | 1/1 | Complete    | 2026-02-21 | -- |
 | 04. Fix CI | 2/2 | Complete    | 2026-02-21 | -- |
-| 05. Ops Security | v1.2 | 1/3 | In Progress | -- |
+| 05. Ops Security | 2/3 | In Progress|  | -- |
