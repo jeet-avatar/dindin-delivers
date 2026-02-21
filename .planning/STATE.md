@@ -1,19 +1,20 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: Phase 05 IN PROGRESS — Ops security staging URL correction done
-**Last activity**: 2026-02-21 — Plan 05-02 completed (wrong staging URL replaced in 61 files)
+**Status**: Phase 05 COMPLETE — all v1.2 phases done
+**Last activity**: 2026-02-21 — Plan 05-03 completed (CLAUDE.md updated with production security state)
 
 ## Current Position
 
-**Active Phase:** 05-ops-security
-**Current Plan:** Plan 03 of 3
-**Progress:** [█████████░] 92%
+**Active Phase:** none — v1.2 milestone ready for completion
+**Current Plan:** n/a
+**Progress:** [██████████] 100%
 
-## Active Phase: 05-ops-security
+## Completed Phase: 05-ops-security
 
 - Plan 01 (COMPLETE): Credential cleanup -- 3 .p8 keys removed from git, backend/.env deleted, .gitignore + pre-commit hook installed
 - Plan 02 (COMPLETE): Staging URL fix -- replaced wrong staging URL (prod CF d3kuu45w6kl8hr) in 61 files with correct staging CF (d34u5ixl0bulv4)
+- Plan 03 (COMPLETE): CLAUDE.md updated with Secrets Manager docs, credential rules, correct staging URL rule
 
 ## Completed Phase: 04-fix-ci
 
@@ -94,4 +95,4 @@ Archive: `.planning/milestones/v1.1-ROADMAP.md`
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 05-02-PLAN.md -- wrong staging URL replaced in 61 files (zero old references remain)
+Stopped at: Phase 05 complete -- all 3 plans done, v1.2 milestone 100% ready for archival
