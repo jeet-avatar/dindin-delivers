@@ -23,7 +23,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 
 ### v1.2 App Store Ready
 
-- [ ] Phase 01: Finish Endpoint Auth — Add per-endpoint Depends() auth to 42 real endpoints, fix allowlist gaps, delete 93 dead ERP proxy stubs
+- [x] Phase 01: Finish Endpoint Auth — Add per-endpoint Depends() auth to 42 real endpoints, fix allowlist gaps, delete 93 dead ERP proxy stubs (completed 2026-02-21)
   **Goal:** Every non-public endpoint in main_new.py has per-endpoint Depends() auth with role checks; dead proxy code removed
   **Requirements:** [AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06]
   **Plans:** 3 plans
@@ -43,7 +43,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
-| 01. Finish Endpoint Auth | 2/3 | In Progress|  | — |
+| 01. Finish Endpoint Auth | 3/3 | Complete   | 2026-02-21 | — |
 | 02. API Standardization | v1.2 | 0/? | Pending | — |
 | 03. Android Fixes | v1.2 | 0/? | Pending | — |
 | 04. Fix CI | v1.2 | 0/? | Pending | — |
