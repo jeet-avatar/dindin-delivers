@@ -2627,17 +2627,8 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
 
 
 @app.post("/api/auth/driver/refresh")
-def driver_refresh_token(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def driver_refresh_token(driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Refresh driver authentication token"""
-    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a driver account"
-        )
-
-    driver = db.query(Driver).filter(Driver.id == current_user.driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver profile not found")
 
     # Block only SUSPENDED drivers - allow PENDING so they can upload documents
     if driver.status == DriverStatus.SUSPENDED:
@@ -2989,18 +2980,8 @@ def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get
 
 
 @app.get("/api/auth/driver/me")
-def get_driver_profile(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_driver_profile(driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Get current driver's profile"""
-    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a driver account"
-        )
-
-    driver = db.query(Driver).filter(Driver.id == current_user.driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver profile not found")
-
     return {
         "id": driver.id,
         "driver_code": driver.driver_id,
@@ -3026,7 +3007,7 @@ def get_driver_profile(current_user: User = Depends(get_current_user), db: Sessi
 def set_driver_online(
     is_online: Optional[bool] = None,
     request_body: Optional[dict] = Body(None),
-    current_user: User = Depends(get_current_user),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Toggle driver online/offline status"""
@@ -3036,16 +3017,6 @@ def set_driver_online(
         online_status = request_body.get("is_online", request_body.get("online", True))
     if online_status is None:
         online_status = True  # Default to going online
-
-    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a driver account"
-        )
-
-    driver = db.query(Driver).filter(Driver.id == current_user.driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver profile not found")
 
     # Block unapproved drivers from going online
     if online_status:  # Only check when trying to go online
@@ -3082,15 +3053,8 @@ def set_driver_online(
 
 
 @app.put("/api/auth/driver/location")
-def update_driver_location(latitude: float, longitude: float, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_driver_location(latitude: float, longitude: float, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Update driver's current location"""
-    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a driver account"
-        )
-
-    driver = db.query(Driver).filter(Driver.id == current_user.driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver profile not found")
 
@@ -3497,35 +3461,19 @@ def delete_customer_account(
 @app.delete("/api/drivers/{driver_id}/delete")
 def delete_driver_account(
     driver_id: int,
-    token: str = Depends(oauth2_scheme),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Delete driver account - required by Play Store policy"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_driver_id = payload.get("driver_id")
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
-        # Verify the token belongs to the driver being deleted
-        if token_driver_id != driver_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot delete another user's account"
-            )
+    # Delete the driver
+    db.delete(driver)
+    db.commit()
 
-        driver = db.query(Driver).filter(Driver.id == driver_id).first()
-        if not driver:
-            raise HTTPException(status_code=404, detail="Driver not found")
-
-        # Delete the driver
-        db.delete(driver)
-        db.commit()
-
-        return {"success": True, "message": "Driver account deleted successfully"}
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
+    return {"success": True, "message": "Driver account deleted successfully"}
 
 
 # Admin endpoint to delete customer by email (for testing only)
@@ -4359,21 +4307,11 @@ async def rate_ride(ride_id: int, body: ERPRideRatingRequest, db: Session = Depe
 
 
 @app.get("/erp/drivers/{driver_id}")
-def get_driver_profile_by_id(driver_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """Get driver profile by ID (requires valid JWT token)"""
-    # Validate JWT token
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+def get_driver_profile_by_id(driver_id: int, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
+    """Get driver profile by ID (requires valid driver JWT token)"""
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Count completed rides for this driver (defensive: table/column may not exist)
     total_rides = 0
@@ -4508,20 +4446,15 @@ def update_driver_profile_by_id(
     license_number: Optional[str] = None,
     photo_url: Optional[str] = None,
     vehicle_photo_url: Optional[str] = None,
-    token: str = Depends(oauth2_scheme),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Update driver profile by ID (iOS app and web portal compatible endpoint)
     Accepts both JSON body and query parameters for flexibility.
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
-
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Merge body and query params - body takes precedence
     if body:
@@ -4709,23 +4642,13 @@ def get_driver_status(
 def post_driver_status(
     driver_id: int,
     is_online: bool = Query(..., description="Set driver online/offline status"),
-    token: str = Depends(oauth2_scheme),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Update driver online/offline status - Used by Android Driver app"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        # SECURITY: Verify token belongs to this driver or is admin
-        token_driver_id = payload.get("driver_id")
-        token_role = payload.get("role")
-        if token_role != "admin" and token_driver_id != driver_id:
-            raise HTTPException(status_code=403, detail="You can only update your own status")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
-
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     driver.is_online = is_online
     driver.updated_at = datetime.utcnow()
@@ -4751,28 +4674,20 @@ def post_driver_status(
 @app.post("/api/drivers/{driver_id}/stripe/connect")
 def create_driver_stripe_account(
     driver_id: int,
-    token: str = Depends(oauth2_scheme),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """
     Create a Stripe Connect Express account for a driver.
     This is step 1 of driver payout onboarding.
     """
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        # SECURITY: Verify token belongs to this driver or is admin
-        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
-            raise HTTPException(status_code=403, detail="You can only manage your own Stripe account")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own Stripe account")
 
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
 
     # Check if driver already has a Stripe account
     if driver.stripe_account_id:
@@ -4826,20 +4741,16 @@ def get_driver_stripe_onboarding_link(
     driver_id: int,
     return_url: str = Query(default="https://www.dollor.ai/driver/profile"),
     refresh_url: str = Query(default="https://www.dollor.ai/driver/profile"),
-    token: str = Depends(oauth2_scheme),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """
     Generate a Stripe Connect onboarding link for the driver.
     The driver uses this link to complete their payout setup including bank account.
     """
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        # SECURITY: Verify token belongs to this driver or is admin
-        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
-            raise HTTPException(status_code=403, detail="You can only manage your own Stripe account")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own Stripe account")
 
     # Validate redirect URLs against allowed domains to prevent open redirect / phishing
     from urllib.parse import urlparse
@@ -4852,10 +4763,6 @@ def get_driver_stripe_onboarding_link(
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
 
     # Create Stripe account if doesn't exist
     if not driver.stripe_account_id:
@@ -4903,27 +4810,19 @@ def get_driver_stripe_onboarding_link(
 @app.get("/api/drivers/{driver_id}/stripe/status")
 def get_driver_stripe_status(
     driver_id: int,
-    token: str = Depends(oauth2_scheme),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """
     Get the driver's Stripe Connect account status including bank account info.
     """
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        # SECURITY: Verify token belongs to this driver or is admin
-        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
-            raise HTTPException(status_code=403, detail="You can only view your own Stripe status")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="You can only view your own Stripe status")
 
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
 
     if not driver.stripe_account_id:
         return {
@@ -4987,28 +4886,20 @@ def get_driver_stripe_status(
 @app.post("/api/drivers/{driver_id}/stripe/dashboard-link")
 def get_driver_stripe_dashboard_link(
     driver_id: int,
-    token: str = Depends(oauth2_scheme),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """
     Generate a link to the driver's Stripe Express dashboard.
     Drivers can use this to view payouts, update bank info, etc.
     """
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        # SECURITY: Verify token belongs to this driver or is admin
-        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
-            raise HTTPException(status_code=403, detail="You can only access your own Stripe dashboard")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="You can only access your own Stripe dashboard")
 
     import stripe
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
 
     if not driver.stripe_account_id:
         raise HTTPException(status_code=400, detail="Driver has no Stripe account")
@@ -5804,24 +5695,16 @@ async def complete_ride_and_pay_driver(
 async def get_driver_payout_history(
     driver_id: int,
     limit: int = Query(20, le=100),
-    token: str = Depends(oauth2_scheme),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """
     Get driver's payout history from completed rides.
     """
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        # SECURITY: Verify token belongs to this driver or is admin
-        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
-            raise HTTPException(status_code=403, detail="You can only view your own payout history")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="You can only view your own payout history")
     from models import RideRequest as RideRequestDB, RideRequestStatus
-
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
 
     try:
         # Get completed rides with payouts (use matched_driver_id which is the correct field)
@@ -5870,16 +5753,11 @@ async def get_driver_payout_history(
 
 
 @app.get("/drivers/{driver_id}/documents")
-def get_driver_documents_by_id(driver_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_driver_documents_by_id(driver_id: int, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Get driver documents status (iOS app compatible endpoint)"""
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
-
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     documents = []
 
@@ -5932,21 +5810,16 @@ async def upload_driver_document_by_id(
     document_type: str = Form(...),
     file: UploadFile = File(...),
     expiry_date: Optional[str] = Form(None),
-    token: str = Depends(oauth2_scheme),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Upload driver document with Persona verification integration"""
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     from s3_service import get_s3_service
     from document_verification_service import get_verification_service, DocumentType
     import os
-
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
 
     # Validate document type
     valid_types = ['drivers_license', 'license_front', 'license_back', 'insurance', 'insurance_card',
@@ -6050,21 +5923,11 @@ async def upload_driver_document_by_id(
 async def upload_driver_document(
     document_type: str = Form(...),
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Upload a document for a driver (license, insurance, etc.) - supports S3 and local storage"""
     from s3_service import get_s3_service
-
-    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a driver account"
-        )
-
-    driver = db.query(Driver).filter(Driver.id == current_user.driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver profile not found")
 
     # Validate document type
     valid_types = ['drivers_license', 'insurance', 'vehicle_registration']
@@ -6109,17 +5972,8 @@ async def upload_driver_document(
 
 
 @app.get("/api/auth/driver/documents")
-def get_driver_documents(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_driver_documents(driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Get driver's uploaded documents status"""
-    if current_user.role != UserRole.DRIVER or not current_user.driver_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a driver account"
-        )
-
-    driver = db.query(Driver).filter(Driver.id == current_user.driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver profile not found")
 
     return {
         "documents": {
@@ -7388,7 +7242,7 @@ def get_driver_dashboard_v5(
 @app.get("/api/driver/earnings")
 async def get_driver_earnings(
     period: str = "today",  # today, week, month, all
-    driver: Driver = Depends(get_current_driver),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Get driver earnings breakdown - uses actual data from delivered orders"""
@@ -14665,25 +14519,19 @@ app.include_router(order_flow_router)
 # Aliases for iOS Driver app (without /api prefix)
 # iOS baseURL is "https://api.dollor.ai" without /api, so these aliases enable the driver app
 @app.get("/erp/orders/driver/{driver_id}/active")
-async def get_driver_active_orders_alias(driver_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_driver_active_orders_alias(driver_id: int, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - forwards to order_flow.get_driver_active_orders"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
-            raise HTTPException(status_code=403, detail="You can only view your own active orders")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     return await get_driver_active_orders(driver_id, db)
 
 @app.get("/api/drivers/{driver_id}/active-order")
-async def get_driver_active_order_alias(driver_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_driver_active_order_alias(driver_id: int, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - GET /api/drivers/{id}/active-order"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
-            raise HTTPException(status_code=403, detail="You can only view your own active orders")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     return await get_driver_active_orders(driver_id, db)
 
 @app.get("/erp/orders/available-for-delivery")
@@ -16049,15 +15897,13 @@ def _legacy_placeholder():
 def get_driver_bids(
     driver_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    driver: Driver = Depends(require_driver)
 ):
     """Get all bids for a driver - includes pending, countered, accepted bids"""
-    from models import RideBid, BidStatus, RideRequest, Driver
+    from models import RideBid, BidStatus, RideRequest, Driver as DriverModel
 
-    # Get driver ID from current user or query param
-    d_id = driver_id or (current_user.driver_id if hasattr(current_user, 'driver_id') else None)
-    if not d_id:
-        raise HTTPException(status_code=400, detail="Driver ID required")
+    # Use authenticated driver's ID (ignore query param to prevent IDOR)
+    d_id = driver.id
 
     # Query all bids for this driver
     bids = db.query(RideBid).filter(RideBid.driver_id == d_id).order_by(RideBid.created_at.desc()).limit(50).all()
@@ -18049,8 +17895,11 @@ async def proxy_create_refund(request: dict, _auth: dict = Depends(require_any_a
 
 
 @app.put("/api/erp/drivers/{driver_id}/status")
-async def proxy_update_driver_status(driver_id: int, request: dict, _auth: dict = Depends(require_any_auth)):
+async def proxy_update_driver_status(driver_id: int, request: dict, driver: Driver = Depends(require_driver)):
     """Proxy to driver-service: Update driver status (kept: iOS calls this path)"""
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     result = await proxy_request(DRIVER_SERVICE_URL, f"/erp/drivers/{driver_id}/status", method="PATCH", json_data=request)
     if result:
         return result
@@ -18058,8 +17907,11 @@ async def proxy_update_driver_status(driver_id: int, request: dict, _auth: dict 
 
 
 @app.put("/api/erp/drivers/{driver_id}/location")
-async def proxy_update_driver_location(driver_id: int, request: dict, _auth: dict = Depends(require_any_auth)):
+async def proxy_update_driver_location(driver_id: int, request: dict, driver: Driver = Depends(require_driver)):
     """Proxy to driver-service: Update driver location (kept: iOS calls this path)"""
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     result = await proxy_request(DRIVER_SERVICE_URL, "/api/driver/location", method="PUT", json_data=request)
     if result:
         return result
@@ -18109,12 +17961,12 @@ def register_driver_fcm_token(
     driver_id: int,
     token_request: FCMTokenRequest,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    driver: Driver = Depends(require_driver),
 ):
     """Register FCM token for driver push notifications"""
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Update both push_token and fcm_token for driver (driver model has both)
     driver.push_token = token_request.fcm_token
@@ -18176,11 +18028,11 @@ def unregister_customer_fcm_token(customer_id: int, db: Session = Depends(get_db
 
 
 @app.delete("/api/erp/drivers/{driver_id}/fcm-token")
-def unregister_driver_fcm_token(driver_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def unregister_driver_fcm_token(driver_id: int, db: Session = Depends(get_db), driver: Driver = Depends(require_driver)):
     """Unregister FCM token for driver (on logout)"""
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     driver.push_token = None
     driver.fcm_token = None
@@ -19715,18 +19567,15 @@ def get_fare_estimate_erp(request: dict, db: Session = Depends(get_db)):
 
 # Driver location update endpoint
 @app.post("/api/driver/location")
-def update_driver_location_android(request: dict, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def update_driver_location_android(request: dict, db: Session = Depends(get_db), driver: Driver = Depends(require_driver)):
     """Update driver's current location (Android compatible)."""
     driver_id = request.get("driver_id")
     latitude = request.get("latitude")
     longitude = request.get("longitude")
 
-    if not driver_id:
-        raise HTTPException(status_code=400, detail="driver_id is required")
-
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # SECURITY: Verify the authenticated driver owns this driver_id
+    if driver_id and driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     driver.current_latitude = latitude
     driver.current_longitude = longitude
@@ -19734,7 +19583,7 @@ def update_driver_location_android(request: dict, db: Session = Depends(get_db),
 
     return {
         "success": True,
-        "driver_id": driver_id,
+        "driver_id": driver.id,
         "latitude": latitude,
         "longitude": longitude,
         "updated_at": datetime.now().isoformat()
@@ -19743,7 +19592,7 @@ def update_driver_location_android(request: dict, db: Session = Depends(get_db),
 
 # Available deliveries endpoint for driver app
 @app.get("/api/v2/driver/deliveries/available")
-def get_available_deliveries_android(db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def get_available_deliveries_android(db: Session = Depends(get_db), _auth_driver: Driver = Depends(require_driver)):
     """Get available delivery orders for drivers (Android compatible).
 
     Includes Early Driver Notification fields:
@@ -19833,12 +19682,12 @@ def get_driver_deliveries_history(
     limit: int = Query(50, le=100),
     offset: int = 0,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    driver: Driver = Depends(require_driver),
 ):
     """Get driver's delivery history"""
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Query orders assigned to this driver
     query = db.query(Order).filter(Order.driver_id == driver_id)
@@ -20015,7 +19864,7 @@ def get_driver_messages(
 def get_driver_earnings_by_id(
     driver_id: int,
     period: str = Query("week", regex="^(today|week|month|year)$"),
-    token: str = Depends(oauth2_scheme),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """
@@ -20029,16 +19878,9 @@ def get_driver_earnings_by_id(
     - Payout/balance info
     - Payment history
     """
-    # SECURITY: Verify token belongs to this driver or is admin
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("role") != "admin" and payload.get("driver_id") != driver_id:
-            raise HTTPException(status_code=403, detail="You can only view your own earnings")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # SECURITY: Verify the authenticated driver owns this account
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="You can only view your own earnings")
 
     now = datetime.utcnow()
 
