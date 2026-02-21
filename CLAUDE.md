@@ -231,6 +231,35 @@ pytest tests/ -v
 | `ADMIN_SECRET_KEY` | Admin API access | Admin auth fallback disabled |
 | `DATABASE_URL` | PostgreSQL connection | App won't start |
 
+### Production Secret Management
+
+All production and staging secrets are managed via AWS Secrets Manager. No secrets exist in the codebase.
+
+| Secret | Source |
+|--------|--------|
+| `DATABASE_URL` | `dollor/production/database-v2-gd1oKf` |
+| `JWT_SECRET_KEY` | `dollor/production/jwt-secret-kvk9j9` |
+| `STRIPE_SECRET_KEY` | `dollor/production/stripe-vT8WRA` |
+| `STRIPE_PUBLISHABLE_KEY` | `dollor/production/stripe-vT8WRA` |
+| `ADMIN_SECRET_KEY` | `dollor/production/admin-yCDIFY` |
+| `DASHBOARD_SECRET` | `dollor/production/admin-yCDIFY` |
+| `SMTP_USER` | `dollor/production/smtp-credentials-eqAwat` |
+| `SMTP_PASSWORD` | `dollor/production/smtp-credentials-eqAwat` |
+| `PERSONA_API_KEY` | `dollor/production/persona-aqEOSX` |
+| `PERSONA_TEMPLATE_ID` | `dollor/production/persona-aqEOSX` |
+| `FIREBASE_CREDENTIALS_JSON` | `dollor/production/firebase-creds-DG9fC5` |
+
+Staging uses separate ARNs under `dollor/staging/*`. ECS task definitions pull secrets at container start.
+
+### Credential Rules
+
+| Rule | Details |
+|------|---------|
+| **NEVER commit `.p8` files** | App Store Connect keys. `.gitignore` blocks them. Production key `9K626GB728` lives at `~/.appstoreconnect/private_keys/` only. |
+| **NEVER commit `.env` files** | `.gitignore` blocks them. Use `.env.example` for templates. |
+| **Pre-commit hook active** | `.git/hooks/pre-commit` blocks Stripe keys, AWS keys, private key PEM blocks, `.p8` files, and raw `.env` files. |
+| **Staging URL** | `d34u5ixl0bulv4.cloudfront.net` ONLY. The old `d3kuu45w6kl8hr` URL is PRODUCTION, not staging. |
+
 ---
 
 ## DETAILED DOCUMENTATION
@@ -330,5 +359,5 @@ Routes:
 
 ---
 
-*Last Updated: February 20, 2026*
+*Last Updated: February 21, 2026*
 *Token Count: ~800 (down from 33,000)*
