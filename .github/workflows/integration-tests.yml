@@ -69,6 +69,7 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/testdb
           JWT_SECRET_KEY: test-secret-key-for-ci
           TESTING: "true"
+          ENVIRONMENT: "testing"
         run: |
           # Initialize database
           python -c "from database import init_db; init_db()"
@@ -81,8 +82,11 @@ jobs:
         env:
           API_BASE_URL: http://localhost:8000
           DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+          JWT_SECRET_KEY: test-secret-key-for-ci
+          TESTING: "true"
+          ENVIRONMENT: "testing"
         run: |
-          pytest tests/integration/test_ios_api_contracts.py -v --tb=short || echo "Contract tests completed"
+          pytest tests/integration/test_ios_api_contracts.py -v --tb=short
 
       - name: Upload Contract Test Results
         uses: actions/upload-artifact@v4
@@ -135,12 +139,12 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/testdb
           JWT_SECRET_KEY: test-secret-key-for-ci
           TESTING: "true"
+          ENVIRONMENT: "testing"
         run: |
           pytest tests/api/ -v \
             --cov=. \
             --cov-report=xml:coverage-api.xml \
-            --tb=short \
-            || echo "API tests completed"
+            --tb=short
 
       - name: Upload Coverage
         uses: actions/upload-artifact@v4
@@ -197,6 +201,7 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/testdb
           JWT_SECRET_KEY: test-secret-key-for-ci
           TESTING: "true"
+          ENVIRONMENT: "testing"
         run: |
           python -c "from database import init_db; init_db()"
           uvicorn main_new:app --host 0.0.0.0 --port 8000 &
@@ -272,6 +277,7 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/testdb
           JWT_SECRET_KEY: test-secret-key-for-ci
           TESTING: "true"
+          ENVIRONMENT: "testing"
         run: |
           python -c "from database import init_db; init_db()"
           uvicorn main_new:app --host 0.0.0.0 --port 8000 &
@@ -281,8 +287,12 @@ jobs:
         working-directory: apps/web/p2p-platform/backend
         env:
           API_BASE_URL: http://localhost:8000
+          DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+          JWT_SECRET_KEY: test-secret-key-for-ci
+          TESTING: "true"
+          ENVIRONMENT: "testing"
         run: |
-          pytest tests/e2e/ -v --tb=short || echo "E2E tests completed"
+          pytest tests/e2e/ -v --tb=short
 
       - name: Upload E2E Results
         uses: actions/upload-artifact@v4

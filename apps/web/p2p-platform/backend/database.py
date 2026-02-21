@@ -15,7 +15,7 @@ if not DATABASE_URL:
 # 4 workers × 2 ECS tasks = 8 processes → 12 per process = 96 total (under 112)
 # Enforce TLS for RDS connections in production
 _is_sqlite = DATABASE_URL.startswith("sqlite")
-_is_prod = os.getenv("ENVIRONMENT", "production").lower() in ("production", "prod")
+_is_prod = os.getenv("ENVIRONMENT", "").lower() in ("production", "prod")
 
 if _is_sqlite:
     engine = create_engine(
