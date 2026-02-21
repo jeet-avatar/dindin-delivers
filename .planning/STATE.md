@@ -7,7 +7,7 @@
 ## Current Position
 
 **Active Phase:** None — Phase 03 complete
-**Current Plan:** —
+**Current Plan:** Not started
 **Progress:** v1.2: [██████████] 100% (3/3 phases complete: 01, 02, 03)
 
 ## Completed Phase: 03-android-fixes

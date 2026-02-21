@@ -57,6 +57,6 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 |-------|-----------|-------|--------|-----------|
 | 01. Finish Endpoint Auth | 3/3 | Complete    | 2026-02-21 | -- |
 | 02. API Standardization | 3/3 | Complete   | 2026-02-21 | -- |
-| 03. Android Fixes | 1/1 | Complete   | 2026-02-21 | -- |
+| 03. Android Fixes | 1/1 | Complete    | 2026-02-21 | -- |
 | 04. Fix CI | v1.2 | 0/? | Pending | -- |
 | 05. Ops Security | v1.2 | 0/? | Pending | -- |
