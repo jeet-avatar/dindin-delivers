@@ -154,6 +154,7 @@ public struct V3GroupOrderResponse: Codable {
 
 // MARK: - Dollor V3 Service
 
+// TODO: [CRITICAL] API mismatch — No /api/v3/ routes exist in backend. All 4 endpoints will 404.
 /// Service for Dollor V3 API - Viral Investor-Ready Model
 public class DollorV3Service {
     public static let shared = DollorV3Service()

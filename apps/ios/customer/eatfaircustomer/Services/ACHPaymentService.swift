@@ -32,6 +32,7 @@ struct ACHFeeCalculation: Decodable, Sendable {
     }
 }
 
+// TODO: [CRITICAL] API mismatch — No /api/enterprise/ routes exist in backend. All 3 endpoints (fees/calculate, payments/create) will 404.
 /// ACH Payment Service for bank transfer payments
 /// Lower fees than card payments with customer discount
 class ACHPaymentService {

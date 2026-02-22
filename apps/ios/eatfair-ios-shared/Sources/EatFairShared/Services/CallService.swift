@@ -2,6 +2,7 @@ import Foundation
 import Combine
 
 /// Dollor.ai Call Service
+// TODO: [CRITICAL] API mismatch — Double URL prefix (callServiceURL includes /api/call, then paths add /api/call again). Backend routes are at /api/erp/call/*. All 6 endpoints will 404.
 /// Privacy-protected phone calls between independent drivers and customers
 /// MATCHMAKING PLATFORM - Masks real phone numbers for privacy
 public class CallService: ObservableObject {

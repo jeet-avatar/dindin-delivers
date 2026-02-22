@@ -42,6 +42,9 @@ public class AppConfig: ObservableObject {
     }()
 
     // MARK: - Microservice URLs (derived from base URL)
+    // TODO: [CRITICAL] API mismatch — These URLs cause double-prefix when services add /api/... to their paths.
+    // ChatService, NegotiationService, CallService all construct /api/chat/api/chat/..., /api/negotiation/api/negotiations/..., etc.
+    // Fix: Either remove the /api/* suffixes here, or update service files to not include /api/ in their paths.
     /// Negotiation service for real-time price negotiation between drivers and customers
     public var negotiationServiceURL: String {
         return "\(p2pAPIBaseURL)/api/negotiation"
