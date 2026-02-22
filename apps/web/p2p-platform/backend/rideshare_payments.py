@@ -8,8 +8,9 @@ Tiered Fee Model (based on fare):
 - Tier 3 (fare > $70): $3 from customer + $3 from driver = $6 platform
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from auth_utils import require_any_auth
+from cache import check_rate_limit, RateLimiter
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from pydantic import BaseModel
@@ -25,6 +26,8 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")  # SECURITY: No hardcoded fa
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/payments/ride", tags=["Rideshare Payments"])
+
+payment_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 per minute per user
 
 # Demo account emails for App Store review
 DEMO_CUSTOMER_EMAILS = [
@@ -60,12 +63,13 @@ class PaymentResponse(BaseModel):
 
 
 @router.post("/create-intent", response_model=PaymentResponse)
-async def create_payment_intent(data: CreatePaymentIntent, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
+async def create_payment_intent(http_request: Request, data: CreatePaymentIntent, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """Create Stripe payment for completed ride with tiered pricing.
 
     For demo accounts (App Store review), returns a demo payment response
     that bypasses actual Stripe processing.
     """
+    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(_auth.get("user_id", _auth.get("customer_id", _auth.get("driver_id", "unknown")))))
     ride = db.query(RideRequest).filter(RideRequest.id == data.ride_request_id).first()
 
     if not ride:
