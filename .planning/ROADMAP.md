@@ -39,7 +39,7 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
 **Milestone Goal:** Complete per-endpoint auth coverage for all 78 remaining endpoints, expand rate limiting to sensitive operations, fix CloudFront server header leak, and finalize credential revocation.
 
 - [x] **Phase 01: Customer + Driver Endpoint Auth** - Add per-endpoint Depends() auth with ownership checks to all customer and driver endpoints (completed 2026-02-21)
-- [ ] **Phase 02: Vendor + Admin Endpoint Auth** - Add per-endpoint Depends() auth to all vendor and admin endpoints, achieving zero middleware-only endpoints
+- [x] **Phase 02: Vendor + Admin Endpoint Auth** - Add per-endpoint Depends() auth to all vendor and admin endpoints, achieving zero middleware-only endpoints (completed 2026-02-22)
 - [ ] **Phase 03: Rate Limiting Expansion** - Extend Redis-based rate limiting from login to password reset, payment, admin mutations, and registration endpoints
 - [ ] **Phase 04: Infrastructure Security + Final Verification** - Fix CloudFront server header, finalize credential revocation, deploy all changes, verify end-to-end
 
@@ -72,7 +72,7 @@ Plans:
   3. Every admin endpoint rejects requests without an admin JWT or ADMIN_SECRET_KEY (returns 401/403)
   4. Zero endpoints in the codebase rely solely on global middleware for auth -- every endpoint has an explicit Depends() declaration
   5. A grep/audit of the codebase confirms no endpoint handler function lacks an auth dependency parameter
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 02-01-PLAN.md -- Convert all vendor endpoints to Depends(require_vendor) with ownership checks
@@ -110,6 +110,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 01. Customer + Driver Endpoint Auth | 3/3 | Complete    | 2026-02-21 |
-| 02. Vendor + Admin Endpoint Auth | 2/3 | In Progress|  |
+| 02. Vendor + Admin Endpoint Auth | 3/3 | Complete   | 2026-02-22 |
 | 03. Rate Limiting Expansion | 0/TBD | Not started | - |
 | 04. Infrastructure Security + Final Verification | 0/TBD | Not started | - |
