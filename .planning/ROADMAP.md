@@ -47,7 +47,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Verify iOS Customer app API calls (P2PAPIService + TripBoardService + ChatService + NegotiationService + CallService + LegalService + DollorV3Service + ACHPaymentService)
+- [x] 02-01-PLAN.md -- Verify iOS Customer app API calls (P2PAPIService + TripBoardService + ChatService + NegotiationService + CallService + LegalService + DollorV3Service + ACHPaymentService)
 - [ ] 02-02-PLAN.md -- Verify iOS Driver app API calls (P2PAPIService driver functions + direct ViewModel/View API calls)
 - [ ] 02-03-PLAN.md -- Verify iOS Restaurant app API calls (P2PAPIService vendor functions + AIEmployeeService) + consolidated FIX_PLAN.md
 
@@ -144,7 +144,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 01. Infrastructure Cleanup | 1/1 | Complete    | 2026-02-22 |
-| 02. iOS API Verification | 0/3 | Planning complete | - |
+| 02. iOS API Verification | 1/3 | In progress | - |
 | 03. Android API Verification | 0/3 | Not started | - |
 | 04. iOS Distribution | 0/3 | Not started | - |
 | 05. Android Distribution | 0/3 | Not started | - |

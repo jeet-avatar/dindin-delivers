@@ -7,7 +7,7 @@
 
 ### API Verification
 
-- [ ] **API-01**: All iOS Customer app API calls verified against actual backend routes
+- [x] **API-01**: All iOS Customer app API calls verified against actual backend routes
 - [ ] **API-02**: All iOS Driver app API calls verified against actual backend routes
 - [ ] **API-03**: All iOS Restaurant app API calls verified against actual backend routes
 - [ ] **API-04**: All Android Customer app API calls verified against actual backend routes
@@ -53,7 +53,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| API-01 | Phase 02 | Pending |
+| API-01 | Phase 02 | Complete |
 | API-02 | Phase 02 | Pending |
 | API-03 | Phase 02 | Pending |
 | API-04 | Phase 03 | Pending |
@@ -76,4 +76,4 @@
 
 ---
 *Requirements defined: 2026-02-22*
-*Last updated: 2026-02-21 -- phase mappings added*
+*Last updated: 2026-02-22 -- API-01 complete*
