@@ -16,11 +16,11 @@
 
 ### Rate Limiting
 
-- [ ] **RATE-01**: Password reset endpoint rate-limited (prevent abuse)
+- [x] **RATE-01**: Password reset endpoint rate-limited (prevent abuse)
 - [ ] **RATE-02**: Payment/checkout endpoints rate-limited (prevent duplicate charges)
 - [ ] **RATE-03**: Admin mutation endpoints rate-limited (prevent accidental mass operations)
-- [ ] **RATE-04**: Registration endpoints rate-limited (prevent bot signups)
-- [ ] **RATE-05**: Rate limit responses return proper 429 status with Retry-After header
+- [x] **RATE-04**: Registration endpoints rate-limited (prevent bot signups)
+- [x] **RATE-05**: Rate limit responses return proper 429 status with Retry-After header
 
 ### Infrastructure Security
 
@@ -58,11 +58,11 @@
 | AUTH-04 | Phase 02 | Complete |
 | AUTH-05 | Phase 02 | Complete |
 | AUTH-06 | Phase 02 | Complete |
-| RATE-01 | Phase 03 | Pending |
+| RATE-01 | Phase 03 | Complete |
 | RATE-02 | Phase 03 | Pending |
 | RATE-03 | Phase 03 | Pending |
-| RATE-04 | Phase 03 | Pending |
-| RATE-05 | Phase 03 | Pending |
+| RATE-04 | Phase 03 | Complete |
+| RATE-05 | Phase 03 | Complete |
 | INFRA-01 | Phase 04 | Pending |
 | INFRA-02 | Phase 04 | Pending |
 | INFRA-03 | Phase 04 | Pending |

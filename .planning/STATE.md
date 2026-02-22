@@ -1,14 +1,14 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: v1.3 Platform Hardening -- Phase 02 COMPLETE (4/4 plans done)
-**Last activity**: 2026-02-22 -- Plan 02-04 complete (gap closure: 17 endpoint auth + IDOR + test fix)
+**Status**: v1.3 Platform Hardening -- Phase 03 IN PROGRESS (1/2 plans done)
+**Last activity**: 2026-02-22 -- Plan 03-01 complete (rate limiting on password reset + registration endpoints)
 
 ## Current Position
 
-**Active Phase:** Phase 02 of 4 COMPLETE (Vendor + Admin Endpoint Auth)
-**Current Plan:** Not started
-**Progress:** [██████████] 100%
+**Active Phase:** Phase 03 of 4 (Rate Limiting Expansion)
+**Current Plan:** Plan 03-02 (next)
+**Progress:** [█████████░] 89%
 
 ## Wave Status
 
@@ -21,13 +21,14 @@
 | 02-02 | Wave 1 | main_new.py (admin) | COMPLETE | 2b79095f, 12d3bd15 |
 | 02-03 | Wave 2 | main_new.py (admin portal/ERP + AUTH-06) | COMPLETE | 1308ca73, 3dbc3f82 |
 | 02-04 | Wave 1 | main_new.py (gap closure: 17 endpoints + IDOR) | COMPLETE | 9c5f9cb5, 6d0f046f |
+| 03-01 | Wave 1 | cache.py + main_new.py (rate limiting: pwd reset + registration) | COMPLETE | 1f1579cd, 43c2636c |
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** Drivers keep 100% of delivery fees and tips
-**Current focus:** Phase 02 -- Vendor + Admin Endpoint Auth
+**Current focus:** Phase 03 -- Rate Limiting Expansion
 
 ## Completed Milestones
 
@@ -44,9 +45,9 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 15 min
-- Total execution time: 104 min
+- Total plans completed: 8
+- Average duration: 14 min
+- Total execution time: 112 min
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -57,6 +58,7 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 | 02 | 02-02 | 16 min | 2 | 1 |
 | 02 | 02-03 | 13 min | 2 | 2 |
 | 02 | 02-04 | 4 min | 2 | 2 |
+| 03 | 03-01 | 8 min | 2 | 2 |
 
 ## Accumulated Context
 
@@ -88,6 +90,9 @@ Decisions logged in PROJECT.md Key Decisions table.
 - 02-03: Added /privacy, /terms, /api/erp/restaurants/{id} to global middleware public path allowlist
 - 02-04: Kept oauth2_scheme in 4 internal helper functions (not endpoint signatures) -- used by auth_utils.py
 - 02-04: IDOR protection on notification endpoints verifies JWT customer_id/driver_id matches request user_id
+- 03-01: Moved RateLimiter + check_rate_limit to cache.py so bid_routes.py and order_flow.py can import them
+- 03-01: Used IP-based rate limiting for /api/auth/password-reset/confirm (no email in request body)
+- 03-01: Registration window changed from 5 min to 1 hour per user decision from research phase
 
 ### Pending Todos
 
@@ -107,5 +112,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 02-04-PLAN.md (gap closure: 17 endpoint auth + IDOR + test fix). Phase 02 fully complete (4/4 plans).
-Resume: Phase 02 done. Next: Phase 03 (Rate Limiting) or Phase 04 (Infra + Deploy).
+Stopped at: Completed 03-01-PLAN.md (rate limiting on password reset + registration endpoints). Phase 03 in progress (1/2 plans done).
+Resume: Execute 03-02-PLAN.md (payment, admin, and remaining endpoint rate limiting).

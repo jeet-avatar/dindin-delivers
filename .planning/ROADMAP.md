@@ -90,7 +90,7 @@ Plans:
   3. Admin mutation endpoints return 429 after exceeding threshold (e.g., 30 requests/minute per admin)
   4. Registration endpoints return 429 after exceeding threshold (e.g., 5 requests/hour per IP)
   5. All 429 responses include a Retry-After header with seconds until the limit resets
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 03-01-PLAN.md -- Move rate limiting infra to cache.py + rate limit password reset (8) and registration (10) endpoints
@@ -116,5 +116,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 01. Customer + Driver Endpoint Auth | 3/3 | Complete    | 2026-02-21 |
 | 02. Vendor + Admin Endpoint Auth | 4/4 | Complete    | 2026-02-22 |
-| 03. Rate Limiting Expansion | 0/2 | Planned | - |
+| 03. Rate Limiting Expansion | 1/2 | In Progress|  |
 | 04. Infrastructure Security + Final Verification | 0/TBD | Not started | - |
