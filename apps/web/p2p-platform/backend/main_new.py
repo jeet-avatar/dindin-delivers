@@ -505,8 +505,9 @@ async def health_live():
     return {"alive": True, "timestamp": datetime.utcnow().isoformat()}
 
 @app.post("/api/admin/backfill-payouts")
-async def backfill_payouts(secret_key: str = Query(...), db: Session = Depends(get_db)):
+async def backfill_payouts(request: Request, secret_key: str = Query(...), db: Session = Depends(get_db)):
     """Backfill platform_fee and driver_payout for completed rides"""
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
     expected_key = os.getenv("ADMIN_SECRET_KEY")
     if not expected_key or secret_key != expected_key:
         raise HTTPException(status_code=403, detail="Invalid secret key")
@@ -551,12 +552,13 @@ async def backfill_payouts(secret_key: str = Query(...), db: Session = Depends(g
 
 # Database Migration Endpoint (protected with secret key)
 @app.post("/api/admin/migrate")
-async def run_migrations(secret_key: str = Query(...), db: Session = Depends(get_db)):
+async def run_migrations(request: Request, secret_key: str = Query(...), db: Session = Depends(get_db)):
     """
     Run database migrations to add missing columns.
     Protected with ADMIN_SECRET_KEY environment variable.
     Each migration step commits independently to prevent cascade failures.
     """
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
     expected_key = os.getenv("ADMIN_SECRET_KEY")
     if not expected_key:
         raise HTTPException(status_code=500, detail="ADMIN_SECRET_KEY not configured")
@@ -3470,11 +3472,13 @@ def delete_driver_account(
 # Admin endpoint to delete customer by email (for testing only)
 @app.delete("/api/admin/customers/by-email/{email}")
 def admin_delete_customer_by_email(
+    request: Request,
     email: str,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
     """Admin endpoint to delete customer by email - requires admin auth"""
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
 
     customer = db.query(Customer).filter(Customer.email == email).first()
     if not customer:
@@ -11423,6 +11427,7 @@ class AdminDocumentReviewRequest(BaseModel):
 
 @app.post("/api/admin/vendors/{vendor_id}/documents/{document_type}/approve")
 def admin_approve_document(
+    http_request: Request,
     vendor_id: int,
     document_type: str,
     request: AdminDocumentReviewRequest,
@@ -11430,6 +11435,7 @@ def admin_approve_document(
     admin: User = Depends(require_admin)
 ):
     """Admin endpoint to approve a vendor document. Requires admin authentication."""
+    check_rate_limit(http_request, admin_mutation_limiter, "admin_mutation")
 
     from models import Vendor
 
@@ -11469,6 +11475,7 @@ def admin_approve_document(
 
 @app.post("/api/admin/vendors/{vendor_id}/documents/{document_type}/reject")
 def admin_reject_document(
+    http_request: Request,
     vendor_id: int,
     document_type: str,
     request: AdminDocumentReviewRequest,
@@ -11476,6 +11483,7 @@ def admin_reject_document(
     admin: User = Depends(require_admin)
 ):
     """Admin endpoint to reject a vendor document. Requires admin authentication."""
+    check_rate_limit(http_request, admin_mutation_limiter, "admin_mutation")
 
     from models import Vendor
 
@@ -11512,6 +11520,7 @@ def admin_reject_document(
 
 @app.post("/api/admin/vendors/{vendor_id}/documents/upload")
 async def admin_upload_vendor_document(
+    request: Request,
     vendor_id: int,
     file: UploadFile = File(...),
     document_type: str = Form(...),
@@ -11522,6 +11531,7 @@ async def admin_upload_vendor_document(
     Admin endpoint to upload documents on behalf of a vendor.
     Allows admins to complete document requirements when vendor cannot.
     """
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
 
     from models import Vendor
     import uuid
@@ -11608,6 +11618,7 @@ class SetDocumentStatusRequest(BaseModel):
 
 @app.post("/api/admin/set-document-status")
 def admin_set_document_status(
+    http_request: Request,
     request: SetDocumentStatusRequest,
     db: Session = Depends(get_db)
 ):
@@ -11615,6 +11626,7 @@ def admin_set_document_status(
     Admin endpoint to set document status for vendors (for testing/seeding).
     Requires ADMIN_SECRET_KEY for authorization.
     """
+    check_rate_limit(http_request, admin_mutation_limiter, "admin_mutation")
     import os
     from models import Vendor
 
@@ -11863,12 +11875,14 @@ class AdminMenuReviewRequest(BaseModel):
 
 @app.post("/api/admin/menu/{item_id}/approve")
 def admin_approve_menu_item(
+    http_request: Request,
     item_id: int,
     request: AdminMenuReviewRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
     """Admin endpoint to approve a menu item."""
+    check_rate_limit(http_request, admin_mutation_limiter, "admin_mutation")
 
     from models import VendorMenuItem
 
@@ -11894,12 +11908,14 @@ def admin_approve_menu_item(
 
 @app.post("/api/admin/menu/{item_id}/reject")
 def admin_reject_menu_item(
+    http_request: Request,
     item_id: int,
     request: AdminMenuReviewRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
     """Admin endpoint to reject a menu item."""
+    check_rate_limit(http_request, admin_mutation_limiter, "admin_mutation")
 
     from models import VendorMenuItem
 
@@ -11928,12 +11944,14 @@ def admin_reject_menu_item(
 
 @app.post("/api/admin/menu/{item_id}/flag")
 def admin_flag_menu_item(
+    http_request: Request,
     item_id: int,
     request: AdminMenuReviewRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
     """Admin endpoint to flag a menu item for further review."""
+    check_rate_limit(http_request, admin_mutation_limiter, "admin_mutation")
 
     from models import VendorMenuItem
 
@@ -12476,6 +12494,7 @@ class VendorPublishRequest(BaseModel):
 
 @app.post("/api/admin/vendors/{vendor_id}/verify-menu")
 def admin_verify_vendor_menu(
+    http_request: Request,
     vendor_id: int,
     request: AdminMenuReviewRequest,
     db: Session = Depends(get_db),
@@ -12486,6 +12505,7 @@ def admin_verify_vendor_menu(
     This marks the menu as reviewed and ready for go-live.
     Requires admin authentication.
     """
+    check_rate_limit(http_request, admin_mutation_limiter, "admin_mutation")
 
     from models import Vendor, VendorMenuItem
 
@@ -12527,6 +12547,7 @@ def admin_verify_vendor_menu(
 
 @app.post("/api/admin/vendors/{vendor_id}/publish")
 def admin_publish_vendor(
+    http_request: Request,
     vendor_id: int,
     request: VendorPublishRequest,
     db: Session = Depends(get_db),
@@ -12537,6 +12558,7 @@ def admin_publish_vendor(
     Checks prerequisites before publishing.
     Requires admin authentication.
     """
+    check_rate_limit(http_request, admin_mutation_limiter, "admin_mutation")
 
     from models import Vendor, VendorMenuItem, VendorStatus
 
@@ -12688,6 +12710,7 @@ def quick_publish_vendor(
 
 @app.post("/api/admin/vendors/{vendor_id}/unpublish")
 def admin_unpublish_vendor(
+    http_request: Request,
     vendor_id: int,
     request: AdminMenuReviewRequest,
     db: Session = Depends(get_db),
@@ -12698,6 +12721,7 @@ def admin_unpublish_vendor(
     Requires a reason/notes for unpublishing.
     Requires admin authentication.
     """
+    check_rate_limit(http_request, admin_mutation_limiter, "admin_mutation")
 
     from models import Vendor
 
@@ -19044,11 +19068,12 @@ def clear_demo_driver_bids(secret_key: Optional[str] = Query(None), db: Session 
 
 
 @app.post("/api/admin/cleanup-expired-bids")
-def cleanup_expired_bids(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+def cleanup_expired_bids(request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     """
     Clean up all expired bids system-wide.
     Marks bids past their expires_at as EXPIRED and clears stale references.
     """
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
     try:
         from models import RideBid, BidStatus
         from sqlalchemy import and_
@@ -20297,6 +20322,7 @@ def get_admin_drivers(
 
 @app.post("/api/admin/drivers/{driver_id}/set-documents")
 def admin_set_driver_documents(
+    request: Request,
     driver_id: int,
     drivers_license: bool = Query(True, description="Set driver's license as verified"),
     insurance: bool = Query(True, description="Set insurance as verified"),
@@ -20308,6 +20334,7 @@ def admin_set_driver_documents(
     Admin endpoint to directly set driver document verification status.
     Used for testing and manual verification bypass. Requires admin authentication.
     """
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
 
     from models import Driver
 
@@ -20353,6 +20380,7 @@ def admin_set_driver_documents(
 
 @app.post("/api/admin/drivers/{driver_id}/verify")
 def admin_verify_driver(
+    request: Request,
     driver_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin)
@@ -20362,6 +20390,7 @@ def admin_verify_driver(
     Sets documents_verified=True, verification_status='verified', and status='approved'.
     Used for demo accounts and testing. Requires admin authentication.
     """
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
 
     from models import Driver, DriverStatus
 
@@ -20398,6 +20427,7 @@ def admin_verify_driver(
 
 @app.post("/api/admin/cleanup/pending-orders")
 def admin_cleanup_pending_orders(
+    request: Request,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
@@ -20407,6 +20437,7 @@ def admin_cleanup_pending_orders(
     Only cancels: pending_payment, pending_restaurant, pending_delivery_decision
     Keeps: confirmed, preparing, ready_for_pickup, out_for_delivery, delivered, etc.
     """
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
     from models import Order, OrderStatus, RideRequest, RideRequestStatus
 
     # Define which statuses to cancel
@@ -20459,6 +20490,7 @@ def admin_cleanup_pending_orders(
 
 @app.post("/api/admin/cleanup/all-incomplete")
 def admin_cleanup_all_incomplete(
+    request: Request,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
@@ -20471,6 +20503,7 @@ def admin_cleanup_all_incomplete(
     - Rides NOT in: COMPLETED, CANCELLED, EXPIRED
     - Also cancels any bids that are still PENDING
     """
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
     from models import Order, OrderStatus, RideRequest, RideRequestStatus, RideBid, BidStatus
 
     # Cancel all incomplete orders

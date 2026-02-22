@@ -516,8 +516,15 @@ class TestPaymentConfirmation:
         """Test successful payment confirmation - auto sends to restaurant"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order
 
+        from unittest.mock import MagicMock
+        mock_request = MagicMock()
+        mock_request.headers = {}
+        mock_request.client = MagicMock()
+        mock_request.client.host = "127.0.0.1"
+        mock_auth = {"user_id": 1, "role": "customer"}
+
         from order_flow import confirm_payment
-        result = await confirm_payment(1, mock_db_session)
+        result = await confirm_payment(mock_request, 1, mock_db_session, mock_auth)
 
         assert result["success"] is True
         assert result["order_id"] == 1
@@ -535,9 +542,16 @@ class TestPaymentConfirmation:
         """Test payment confirmation for non-existent order"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
+        from unittest.mock import MagicMock
+        mock_request = MagicMock()
+        mock_request.headers = {}
+        mock_request.client = MagicMock()
+        mock_request.client.host = "127.0.0.1"
+        mock_auth = {"user_id": 1, "role": "customer"}
+
         from order_flow import confirm_payment
         with pytest.raises(HTTPException) as exc_info:
-            await confirm_payment(999, mock_db_session)
+            await confirm_payment(mock_request, 999, mock_db_session, mock_auth)
         assert exc_info.value.status_code == 404
 
 
