@@ -1620,12 +1620,9 @@ def setup_production_admin(secret_key: Optional[str] = Query(None), db: Session 
 
 # Delete legacy admin user (admin@invoice.com)
 @app.delete("/api/auth/admin/legacy-cleanup")
-def cleanup_legacy_admin(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def cleanup_legacy_admin(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     """Remove legacy admin@invoice.com account - requires authenticated admin"""
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    if current_user.email == "admin@invoice.com":
+    if admin.email == "admin@invoice.com":
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
 
     legacy_admin = db.query(User).filter(User.email == "admin@invoice.com").first()
@@ -10222,7 +10219,7 @@ async def create_vendor_public_with_menu(
         raise HTTPException(status_code=500, detail=f"Failed to create vendor: {str(e)}")
 
 @app.post("/api/vendors", response_model=VendorResponse)
-def create_vendor(vendor: VendorCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def create_vendor(vendor: VendorCreate, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     from models import Vendor
 
     # vendor_id is auto-computed from id in the database
@@ -10516,12 +10513,9 @@ def get_published_vendors(
 
 
 @app.get("/api/vendors/{vendor_id}", response_model=VendorResponse)
-def get_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    from models import Vendor
-
-    # Verify user has access to this vendor (either admin or owns this vendor)
-    if current_user.role != UserRole.ADMIN and current_user.vendor_id != vendor_id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this vendor")
+def get_vendor(vendor_id: int, db: Session = Depends(get_db), _auth_vendor: Vendor = Depends(require_vendor)):
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
@@ -10530,23 +10524,15 @@ def get_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: User
 
 
 @app.get("/api/vendor/profile", response_model=VendorResponse)
-def get_vendor_profile(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_vendor_profile(db: Session = Depends(get_db), vendor: Vendor = Depends(require_vendor)):
     """Get the current logged-in vendor's profile"""
-    from models import Vendor
-
-    if current_user.role != UserRole.VENDOR or not current_user.vendor_id:
-        raise HTTPException(status_code=403, detail="Not a vendor account")
-
-    vendor = db.query(Vendor).filter(Vendor.id == current_user.vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor profile not found")
     return vendor
 
 
 @app.get("/api/vendor/earnings")
 async def get_vendor_earnings(
     period: str = "today",  # today, week, month, all
-    vendor: Vendor = Depends(get_current_vendor),
+    vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """Get vendor/restaurant earnings breakdown - uses actual data from orders"""
@@ -10627,7 +10613,7 @@ class KOTConfigRequest(BaseModel):
 
 @app.get("/api/vendor/kot-config")
 async def get_vendor_kot_config(
-    vendor: Vendor = Depends(get_current_vendor),
+    vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
@@ -10655,7 +10641,7 @@ async def get_vendor_kot_config(
 @app.put("/api/vendor/kot-config")
 async def update_vendor_kot_config(
     config: KOTConfigRequest,
-    vendor: Vendor = Depends(get_current_vendor),
+    vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
@@ -10724,7 +10710,7 @@ async def update_vendor_kot_config(
 
 @app.post("/api/vendor/kot-test")
 async def test_vendor_kot_integration(
-    vendor: Vendor = Depends(get_current_vendor),
+    vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
@@ -10848,13 +10834,12 @@ def update_vendor(
     vendor_id: int,
     vendor: VendorCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth_vendor: Vendor = Depends(require_vendor)
 ):
     from models import Vendor
 
-    # Verify user has access to this vendor (either admin or owns this vendor)
-    if current_user.role != UserRole.ADMIN and current_user.vendor_id != vendor_id:
-        raise HTTPException(status_code=403, detail="Not authorized to update this vendor")
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
@@ -10899,14 +10884,13 @@ def patch_vendor(
     vendor_id: int,
     update_data: VendorSettingsUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth_vendor: Vendor = Depends(require_vendor)
 ):
     """Partial update of vendor settings"""
     from models import Vendor
 
-    # Verify user has access to this vendor (either admin or owns this vendor)
-    if current_user.role != UserRole.ADMIN and current_user.vendor_id != vendor_id:
-        raise HTTPException(status_code=403, detail="Not authorized to update this vendor")
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
@@ -10943,11 +10927,8 @@ def update_vendor_status(
     status: str,
     skip_document_check: bool = Query(False, description="Skip document verification (admin override)"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
-    # SECURITY: Only admins can change vendor status (approval, suspension, etc.)
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required to change vendor status")
     from models import Vendor, VendorStatus
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -11187,18 +11168,17 @@ def update_vendor_online_status(
     vendor_id: int,
     is_online: bool = Query(..., description="Set vendor online (true) or offline (false)"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth_vendor: Vendor = Depends(require_vendor)
 ):
     """
     Update vendor online/offline status - Called from iOS/Android Restaurant App
     When online, restaurant is accepting orders. When offline, restaurant is not accepting orders.
-    Requires authentication - vendor can change their own status, admin can change any.
+    Requires vendor authentication with ownership check.
     """
     from models import Vendor, VendorStatus
 
-    # Verify user has access to this vendor
-    if current_user.role != UserRole.ADMIN and current_user.vendor_id != vendor_id:
-        raise HTTPException(status_code=403, detail="Not authorized to change this vendor's status")
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
 
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
@@ -11242,11 +11222,9 @@ def create_vendor_account(
     vendor_id: int,
     request: CreateAccountRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """Admin endpoint to create a vendor user account"""
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
     
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
@@ -11296,19 +11274,17 @@ VENDOR_DOC_FIELD_MAP = {
 def get_vendor_documents(
     vendor_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth_vendor: Vendor = Depends(require_vendor)
 ):
     """Get all documents for a vendor"""
     from models import Vendor
 
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
+
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
-
-    # Check authorization - compare against UserRole enum
-    is_admin = current_user.role == UserRole.ADMIN or (hasattr(current_user.role, 'value') and current_user.role.value == "admin")
-    if not is_admin and current_user.vendor_id != vendor_id:
-        raise HTTPException(status_code=403, detail="Not authorized to view these documents")
 
     documents = []
     doc_id = 1
@@ -11347,21 +11323,19 @@ async def upload_vendor_document(
     file: UploadFile = File(...),
     document_type: str = Form(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth_vendor: Vendor = Depends(require_vendor)
 ):
     """Upload a document for a vendor"""
     from models import Vendor
     import os
     import uuid
 
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
+
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
-
-    # Check authorization - compare against UserRole enum
-    is_admin = current_user.role == UserRole.ADMIN or (hasattr(current_user.role, 'value') and current_user.role.value == "admin")
-    if not is_admin and current_user.vendor_id != vendor_id:
-        raise HTTPException(status_code=403, detail="Not authorized to upload documents")
 
     # Create uploads directory if it doesn't exist
     upload_dir = "uploads/vendor_documents"
@@ -11409,19 +11383,17 @@ def delete_vendor_document(
     vendor_id: int,
     document_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth_vendor: Vendor = Depends(require_vendor)
 ):
     """Delete a document for a vendor"""
     from models import Vendor
 
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
+
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
-
-    # Check authorization - compare against UserRole enum
-    is_admin = current_user.role == UserRole.ADMIN or (hasattr(current_user.role, 'value') and current_user.role.value == "admin")
-    if not is_admin and current_user.vendor_id != vendor_id:
-        raise HTTPException(status_code=403, detail="Not authorized to delete documents")
 
     # For now, just mark as deleted by clearing the URL
     # In production, you'd also delete the file and use proper document tracking
@@ -11436,14 +11408,17 @@ def update_vendor_documents(
     vendor_id: int,
     documents: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth_vendor: Vendor = Depends(require_vendor)
 ):
     from models import Vendor
-    
+
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
+
     db_vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not db_vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
-    
+
     # Update document flags
     for doc_type, doc_status in documents.items():
         if hasattr(db_vendor, doc_type):
@@ -11454,10 +11429,7 @@ def update_vendor_documents(
     return {"message": "Documents updated successfully"}
 
 @app.delete("/api/vendors/{vendor_id}")
-def delete_vendor(vendor_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # SECURITY: Only admins can delete vendors
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required to delete vendors")
+def delete_vendor(vendor_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     from models import Vendor
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -11481,12 +11453,9 @@ def admin_approve_document(
     document_type: str,
     request: AdminDocumentReviewRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """Admin endpoint to approve a vendor document. Requires admin authentication."""
-    # Verify admin role
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import Vendor
 
@@ -11530,12 +11499,9 @@ def admin_reject_document(
     document_type: str,
     request: AdminDocumentReviewRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """Admin endpoint to reject a vendor document. Requires admin authentication."""
-    # Verify admin role
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import Vendor
 
@@ -11576,15 +11542,12 @@ async def admin_upload_vendor_document(
     file: UploadFile = File(...),
     document_type: str = Form(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Admin endpoint to upload documents on behalf of a vendor.
     Allows admins to complete document requirements when vendor cannot.
     """
-    # Verify admin role
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import Vendor
     import uuid
@@ -11624,7 +11587,7 @@ async def admin_upload_vendor_document(
         f.write(content)
 
     print(f"📄 Admin uploaded document: {document_type} for vendor {vendor_id}")
-    print(f"   Admin: {current_user.email}")
+    print(f"   Admin: {admin.email}")
     print(f"   File: {unique_filename}")
 
     # Map document type to DB fields
@@ -11654,7 +11617,7 @@ async def admin_upload_vendor_document(
         "message": f"Document '{document_type}' uploaded by admin for vendor {vendor_id}",
         "document_type": document_type,
         "file_path": f"/uploads/vendor_documents/{unique_filename}",
-        "uploaded_by": current_user.email
+        "uploaded_by": admin.email
     }
 
 # ============================================================================
@@ -11725,23 +11688,12 @@ def admin_set_document_status(
 @app.get("/api/vendor/my-documents")
 def get_my_vendor_documents(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    vendor: Vendor = Depends(require_vendor)
 ):
     """
     Get document status for the currently logged-in vendor.
     Vendors can check their document upload status.
     """
-    from models import Vendor
-
-    if current_user.role != UserRole.VENDOR:
-        raise HTTPException(status_code=403, detail="Vendor access required")
-
-    if not current_user.vendor_id:
-        raise HTTPException(status_code=400, detail="No vendor associated with this account")
-
-    vendor = db.query(Vendor).filter(Vendor.id == current_user.vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
 
     return {
         "vendor_id": vendor.id,
@@ -11804,26 +11756,15 @@ async def vendor_upload_document(
     file: UploadFile = File(...),
     document_type: str = Form(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    vendor: Vendor = Depends(require_vendor)
 ):
     """
     Vendor endpoint to upload their own documents.
     Requires vendor authentication.
     Integrates with Persona for document verification.
     """
-    from models import Vendor
     from document_verification_service import get_verification_service, DocumentType
     import uuid
-
-    if current_user.role != UserRole.VENDOR:
-        raise HTTPException(status_code=403, detail="Vendor access required")
-
-    if not current_user.vendor_id:
-        raise HTTPException(status_code=400, detail="No vendor associated with this account")
-
-    vendor = db.query(Vendor).filter(Vendor.id == current_user.vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
 
     # Valid document types
     valid_doc_types = [
@@ -11951,12 +11892,9 @@ def admin_approve_menu_item(
     item_id: int,
     request: AdminMenuReviewRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """Admin endpoint to approve a menu item."""
-    # Verify admin role
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import VendorMenuItem
 
@@ -11985,12 +11923,9 @@ def admin_reject_menu_item(
     item_id: int,
     request: AdminMenuReviewRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """Admin endpoint to reject a menu item."""
-    # Verify admin role
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import VendorMenuItem
 
@@ -12022,12 +11957,9 @@ def admin_flag_menu_item(
     item_id: int,
     request: AdminMenuReviewRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """Admin endpoint to flag a menu item for further review."""
-    # Verify admin role
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import VendorMenuItem
 
@@ -12573,16 +12505,13 @@ def admin_verify_vendor_menu(
     vendor_id: int,
     request: AdminMenuReviewRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Admin endpoint to verify a vendor's menu before publishing.
     This marks the menu as reviewed and ready for go-live.
     Requires admin authentication.
     """
-    # Verify admin role
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import Vendor, VendorMenuItem
 
@@ -12627,16 +12556,13 @@ def admin_publish_vendor(
     vendor_id: int,
     request: VendorPublishRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Admin endpoint to publish a vendor (make them live on platforms).
     Checks prerequisites before publishing.
     Requires admin authentication.
     """
-    # Verify admin role
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import Vendor, VendorMenuItem, VendorStatus
 
@@ -12805,16 +12731,13 @@ def admin_unpublish_vendor(
     vendor_id: int,
     request: AdminMenuReviewRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Admin endpoint to unpublish a vendor (take them offline).
     Requires a reason/notes for unpublishing.
     Requires admin authentication.
     """
-    # Verify admin role
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import Vendor
 
@@ -12849,16 +12772,13 @@ def admin_unpublish_vendor(
 def admin_get_publish_checklist(
     vendor_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Get the publish checklist for a vendor.
     Shows what requirements are met and what's still needed.
     Requires admin authentication.
     """
-    # Verify admin role
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import Vendor, VendorMenuItem, VendorStatus
 
@@ -12921,12 +12841,9 @@ def admin_get_publish_checklist(
 def admin_get_all_vendor_documents(
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """Admin endpoint to get all vendor documents across all vendors. Requires admin authentication."""
-    # Verify admin role
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import Vendor
 
@@ -13595,13 +13512,12 @@ def create_menu_item(
     vendor_id: int,
     menu_item: Optional[dict] = Body(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth_vendor: Vendor = Depends(require_vendor)
 ):
     from models import Vendor, VendorMenuItem
 
-    # Verify user has access to this vendor (either admin or owns this vendor)
-    if current_user.role != UserRole.ADMIN and current_user.vendor_id != vendor_id:
-        raise HTTPException(status_code=403, detail="Not authorized to modify this vendor's menu")
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
@@ -13741,21 +13657,24 @@ def update_menu_item(
     item_id: int,
     menu_item: MenuItemCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth_vendor: Vendor = Depends(require_vendor)
 ):
     from models import VendorMenuItem
-    
+
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
+
     db_menu_item = db.query(VendorMenuItem).filter(
         VendorMenuItem.id == item_id,
         VendorMenuItem.vendor_id == vendor_id
     ).first()
-    
+
     if not db_menu_item:
         raise HTTPException(status_code=404, detail="Menu item not found")
-    
+
     for key, value in menu_item.dict(exclude_unset=True).items():
         setattr(db_menu_item, key, value)
-    
+
     db.commit()
     db.refresh(db_menu_item)
     return db_menu_item
@@ -13797,18 +13716,21 @@ def delete_menu_item(
     vendor_id: int,
     item_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth_vendor: Vendor = Depends(require_vendor)
 ):
     from models import VendorMenuItem
-    
+
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
+
     menu_item = db.query(VendorMenuItem).filter(
         VendorMenuItem.id == item_id,
         VendorMenuItem.vendor_id == vendor_id
     ).first()
-    
+
     if not menu_item:
         raise HTTPException(status_code=404, detail="Menu item not found")
-    
+
     db.delete(menu_item)
     db.commit()
     return {"message": "Menu item deleted successfully"}
@@ -17480,12 +17402,14 @@ async def get_vendor_reviews(
     limit: int = 50,
     offset: int = 0,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth_vendor: Vendor = Depends(require_vendor)
 ):
     """
     Get reviews for a vendor. Used by Android/iOS restaurant apps.
     Returns list of reviews with customer names and order info.
     """
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     from models import RestaurantRating, Vendor, Customer, Order
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -17945,9 +17869,11 @@ def register_vendor_fcm_token(
     vendor_id: int,
     token_request: FCMTokenRequest,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth_vendor: Vendor = Depends(require_vendor),
 ):
     """Register FCM token for vendor/restaurant push notifications"""
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
@@ -20375,13 +20301,11 @@ def get_admin_drivers(
     limit: int = Query(100, le=500),
     offset: int = 0,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Get all drivers for admin management. Requires admin authentication.
     """
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import Driver, DriverStatus
 
@@ -20471,14 +20395,12 @@ def admin_set_driver_documents(
     insurance: bool = Query(True, description="Set insurance as verified"),
     photo: bool = Query(True, description="Set photo as uploaded"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Admin endpoint to directly set driver document verification status.
     Used for testing and manual verification bypass. Requires admin authentication.
     """
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import Driver
 
@@ -20526,15 +20448,13 @@ def admin_set_driver_documents(
 def admin_verify_driver(
     driver_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Admin endpoint to directly mark a driver as verified.
     Sets documents_verified=True, verification_status='verified', and status='approved'.
     Used for demo accounts and testing. Requires admin authentication.
     """
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
 
     from models import Driver, DriverStatus
 
