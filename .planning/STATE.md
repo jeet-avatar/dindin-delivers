@@ -1,57 +1,46 @@
-# GSD Project State
-
-**Project**: Dollor.ai Platform
-**Status**: v1.4 App Release + INFRA -- Defining requirements
-**Last activity**: 2026-02-22 -- Milestone v1.4 started
-
-## Current Position
-
-**Active Phase:** Not started (defining requirements)
-**Current Plan:** —
-**Progress:** [░░░░░░░░░░] 0%
+# Project State
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Drivers keep 100% of delivery fees and tips
-**Current focus:** v1.4 App Release + INFRA
+**Current focus:** v1.4 Phase 01 -- Infrastructure Cleanup
+
+## Current Position
+
+Phase: 1 of 5 (Infrastructure Cleanup)
+Plan: 0 of 1 in current phase
+Status: Ready to plan
+Last activity: 2026-02-21 -- Roadmap created for v1.4
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Completed Milestones
 
 - **v1.0** Production Release -- shipped pre-2026-02-20
-- **v1.1** Security Hardening + Stability -- shipped 2026-02-20 (archive: `milestones/v1.1-ROADMAP.md`)
-- **v1.2** App Store Ready -- shipped 2026-02-21 (archive: `milestones/v1.2-ROADMAP.md`)
-- **v1.3** Platform Hardening -- shipped 2026-02-22 (archive: `milestones/v1.3-ROADMAP.md`)
+- **v1.1** Security Hardening + Stability -- shipped 2026-02-20
+- **v1.2** App Store Ready -- shipped 2026-02-21
+- **v1.3** Platform Hardening -- shipped 2026-02-22
 
-## Quick Reference
-- Production API: `https://api.dollor.ai`
-- Staging API: `https://d34u5ixl0bulv4.cloudfront.net`
+## Performance Metrics
 
-## Performance Metrics (v1.3)
-
-**Velocity:**
+**Velocity (v1.3 baseline):**
 - Total plans completed: 9
 - Average duration: 14 min
 - Total execution time: 127 min
 
-| Phase | Plan | Duration | Tasks | Files |
-|-------|------|----------|-------|-------|
-| 01 | 01-01 | 22 min | 3 | 1 |
-| 01 | 01-03 | 15 min | 2 | 1 |
-| 01 | 01-02 | 18 min | 2 | 1 |
-| 02 | 02-01 | 19 min | 2 | 2 |
-| 02 | 02-02 | 16 min | 2 | 1 |
-| 02 | 02-03 | 13 min | 2 | 2 |
-| 02 | 02-04 | 4 min | 2 | 2 |
-| 03 | 03-01 | 8 min | 2 | 2 |
-| 03 | 03-02 | 15 min | 2 | 6 |
+**v1.4:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
 
 ## Accumulated Context
 
 ### Decisions
 
-All v1.3 decisions archived in PROJECT.md Key Decisions table.
+- Skip Phase 04 INFRA in v1.3, carry to v1.4 as Phase 01 (from PROJECT.md)
 
 ### Pending Todos
 
@@ -61,16 +50,12 @@ None.
 
 - INFRA-02 (key revocation) requires user action in App Store Connect console -- not automatable by Claude
 
-### Quick Tasks Completed
+### Quick Tasks (v1.4)
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 9 | Commit CLAUDE.md deploy-must-be-in-GSD-phase rule | 2026-02-21 | d515a606 | [9-commit-claude-md-deploy-must-be-in-gsd-p](./quick/9-commit-claude-md-deploy-must-be-in-gsd-p/) |
-| 10 | Push and deploy to production via CI/CD | 2026-02-21 | run:22247776514 | [10-push-and-deploy-to-production-via-ci-cd](./quick/10-push-and-deploy-to-production-via-ci-cd/) |
-| 11 | Push and deploy v1.3 to production via CI/CD | 2026-02-22 | run:22271863977 | [11-push-and-deploy-v1-3-to-production-via-c](./quick/11-push-and-deploy-v1-3-to-production-via-c/) |
+None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-22
-Stopped at: v1.3 milestone complete and archived.
-Resume: /gsd:new-milestone to start next version.
+Last session: 2026-02-21
+Stopped at: v1.4 roadmap created, ready to plan Phase 01
+Resume: `/gsd:plan-phase 01`
