@@ -72,7 +72,12 @@ Plans:
   3. Every admin endpoint rejects requests without an admin JWT or ADMIN_SECRET_KEY (returns 401/403)
   4. Zero endpoints in the codebase rely solely on global middleware for auth -- every endpoint has an explicit Depends() declaration
   5. A grep/audit of the codebase confirms no endpoint handler function lacks an auth dependency parameter
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md -- Convert all vendor endpoints to Depends(require_vendor) with ownership checks
+- [ ] 02-02-PLAN.md -- Convert all admin endpoints to Depends(require_admin)
+- [ ] 02-03-PLAN.md -- Convert admin portal/ERP endpoints + final AUTH-06 verification audit
 
 ### Phase 03: Rate Limiting Expansion
 **Goal**: Sensitive operations beyond login are protected by rate limiting, preventing abuse of password reset, payment, admin, and registration endpoints
@@ -105,6 +110,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 01. Customer + Driver Endpoint Auth | 3/3 | Complete    | 2026-02-21 |
-| 02. Vendor + Admin Endpoint Auth | 0/TBD | Not started | - |
+| 02. Vendor + Admin Endpoint Auth | 0/3 | Planned | - |
 | 03. Rate Limiting Expansion | 0/TBD | Not started | - |
 | 04. Infrastructure Security + Final Verification | 0/TBD | Not started | - |
