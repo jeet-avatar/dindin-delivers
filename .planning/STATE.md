@@ -1,14 +1,14 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: v1.3 Platform Hardening -- Phase 02 in progress (2/3 plans complete)
-**Last activity**: 2026-02-21 -- Plan 02-02 complete (admin endpoint auth)
+**Status**: v1.3 Platform Hardening -- Phase 02 COMPLETE (3/3 plans done)
+**Last activity**: 2026-02-22 -- Plan 02-03 complete (admin portal/ERP auth + AUTH-06 audit)
 
 ## Current Position
 
-**Active Phase:** Phase 02 of 4 (Vendor + Admin Endpoint Auth)
-**Current Plan:** Plan 2 of 3 COMPLETE -- next: Plan 02-03
-**Progress:** [██████░░░░] 60%
+**Active Phase:** Phase 02 of 4 COMPLETE (Vendor + Admin Endpoint Auth)
+**Current Plan:** Plan 3 of 3 COMPLETE -- Phase 02 done, next: Phase 03
+**Progress:** [████████░░] 80%
 
 ## Wave Status
 
@@ -19,6 +19,7 @@
 | 01-02 | Wave 2 | main_new.py (driver + shared ride) | COMPLETE | 0683a7c6, 85af5717 |
 | 02-01 | Wave 1 | main_new.py (vendor) | COMPLETE | d4a940d8, 4a535aea |
 | 02-02 | Wave 1 | main_new.py (admin) | COMPLETE | 2b79095f, 12d3bd15 |
+| 02-03 | Wave 2 | main_new.py (admin portal/ERP + AUTH-06) | COMPLETE | 1308ca73, 3dbc3f82 |
 
 ## Project Reference
 
@@ -42,9 +43,9 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 6
 - Average duration: 17 min
-- Total execution time: 87 min
+- Total execution time: 100 min
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -53,6 +54,7 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 | 01 | 01-02 | 18 min | 2 | 1 |
 | 02 | 02-01 | 19 min | 2 | 2 |
 | 02 | 02-02 | 16 min | 2 | 1 |
+| 02 | 02-03 | 13 min | 2 | 2 |
 
 ## Accumulated Context
 
@@ -78,6 +80,10 @@ Decisions logged in PROJECT.md Key Decisions table.
 - 02-02: admin_delete_customer_by_email included for consistency (not in original plan)
 - 02-02: ADMIN_SECRET_KEY endpoints deliberately unchanged (backfill-payouts, migrate, set-document-status)
 - 02-02: Defense-in-depth: admin_auth_middleware + per-endpoint Depends(require_admin) coexist by design
+- 02-03: GET /api/orders uses require_any_auth with JWT payload role check (admin sees all, non-admin sees own)
+- 02-03: Chat endpoints use require_any_auth, delivery decisions use require_vendor, modifications use require_any_auth
+- 02-03: AUTH-06 verified: every non-public endpoint has explicit Depends() auth
+- 02-03: Added /privacy, /terms, /api/erp/restaurants/{id} to global middleware public path allowlist
 
 ### Pending Todos
 
@@ -97,5 +103,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Re-executed 02-01-PLAN.md (vendor endpoint auth, Stripe conversion, test fix). Phase 02 has 2/3 plans complete.
-Resume: Next is Plan 02-03 (admin portal/ERP endpoints + final AUTH-06 verification audit).
+Stopped at: Completed 02-03-PLAN.md (admin portal/ERP auth + AUTH-06 audit). Phase 02 fully complete (3/3 plans).
+Resume: Phase 02 done. Next: Phase 03 (Rate Limiting) or Phase 04 (Infra + Deploy).
