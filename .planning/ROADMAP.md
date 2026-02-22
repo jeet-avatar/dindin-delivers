@@ -30,10 +30,10 @@
   1. HTTP responses from api.dollor.ai no longer expose "uvicorn" in the Server header
   2. App Store Connect key JFVA7628SX is confirmed revoked, non-existent, or documented with rationale for keeping
   3. Every credential item listed under MEMORY.md "Remaining Security Items" has a resolution (fixed, rotated, or deferred with written rationale)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 01-01: CloudFront response headers policy + key/credential audit
+- [ ] 01-01-PLAN.md — CloudFront response headers policy + key revocation + credential resolution
 
 ### Phase 02: iOS API Verification
 **Goal**: Every API call in all 3 iOS apps is verified to hit an existing backend route with correct method, path, and auth
