@@ -17924,8 +17924,10 @@ def unregister_driver_fcm_token(driver_id: int, db: Session = Depends(get_db), d
 
 
 @app.delete("/api/erp/vendors/{vendor_id}/fcm-token")
-def unregister_vendor_fcm_token(vendor_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def unregister_vendor_fcm_token(vendor_id: int, db: Session = Depends(get_db), _auth_vendor: Vendor = Depends(require_vendor)):
     """Unregister FCM token for vendor (on logout)"""
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
@@ -20835,13 +20837,15 @@ def get_vendor_ai_insights(
     vendor_id: int,
     period: str = Query("today", description="today, week, month, year"),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth_vendor: Vendor = Depends(require_vendor),
 ):
     """
     Get AI-powered insights for a vendor's restaurant.
     Analyzes order history to provide demand forecasts, popular items,
     staffing recommendations, and performance metrics.
     """
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     from collections import defaultdict
     import statistics
 
