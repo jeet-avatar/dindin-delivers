@@ -13,7 +13,7 @@ All 3 credential items from MEMORY.md "Remaining Security Items" have been asses
 | # | Item | Status | Resolution |
 |---|------|--------|------------|
 | 1 | Production DB password in `backend/.env` | RESOLVED (mitigated) | File deleted from disk, `.gitignore` blocks re-addition, pre-commit hook blocks commits. DB password rotation and git history cleanup deferred. |
-| 2 | App Store Connect `.p8` keys in git | RESOLVED (mitigated) | All 3 copies removed from git tracking (v1.2). `.gitignore` and pre-commit hook block re-addition. Key JFVA7628SX revocation pending user action (Task 3). Git history cleanup deferred. |
+| 2 | App Store Connect `.p8` keys in git | RESOLVED | All 3 copies removed from git tracking (v1.2). `.gitignore` and pre-commit hook block re-addition. Key JFVA7628SX confirmed revoked/invalid (returns 401). Local `.p8` file deleted. Git history cleanup deferred. |
 | 3 | Server header exposes `uvicorn` | RESOLVED | CloudFront response headers policy `dollor-security-headers` (ID: `776bc73c-f30f-45aa-aed7-d050704eb2a3`) applied to both production and staging distributions. Server header now returns `Dollor` instead of `uvicorn`. |
 
 ## Detailed Evidence
@@ -90,14 +90,14 @@ All 3 credential items from MEMORY.md "Remaining Security Items" have been asses
    ```
 
 **Key revocation status:**
-- Key `JFVA7628SX`: Pending user verification in App Store Connect (Task 3 checkpoint)
-- Key `9K626GB728` (production): Active and required -- stored at `~/.appstoreconnect/private_keys/` only
+- Key `JFVA7628SX`: **REVOKED/INVALID** -- Tested with `xcrun altool`, returns `401 NOT_AUTHORIZED`. Local file `AuthKey_JFVA7628SX.p8` deleted from disk. Key cannot authenticate to any Apple service.
+- Key `9K626GB728` (production): **ACTIVE and CONFIRMED** -- Successfully lists all 3 apps via App Store Connect API. Stored at `~/.appstoreconnect/private_keys/` only.
 
 **Deferred items:**
-- **Git history cleanup**: Old `.p8` commits remain in history. Key revocation (once confirmed) makes historical copies useless -- a revoked key cannot authenticate. History cleanup deferred per same rationale as Item 1.
+- **Git history cleanup**: Old `.p8` commits remain in history. Key JFVA7628SX is confirmed revoked, so historical copies are useless -- a revoked key cannot authenticate. History cleanup deferred per same rationale as Item 1.
 
 **Revisit conditions:**
-- Only if key revocation cannot be confirmed (making history copies still usable)
+- None -- key is confirmed revoked. Historical copies pose zero risk.
 
 ---
 
