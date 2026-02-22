@@ -14,7 +14,7 @@
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 01: Infrastructure Cleanup** - Resolve deferred INFRA items from v1.3 (CloudFront header, key revocation, credentials)
+- [x] **Phase 01: Infrastructure Cleanup** - Resolve deferred INFRA items from v1.3 (CloudFront header, key revocation, credentials)
 - [ ] **Phase 02: iOS API Verification** - Verify every API call in all 3 iOS apps against actual backend routes
 - [ ] **Phase 03: Android API Verification** - Verify every API call in all 3 Android apps against actual backend routes
 - [ ] **Phase 04: iOS Distribution** - Bump versions, build, and upload all 3 iOS apps to TestFlight
@@ -33,7 +33,7 @@
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md — CloudFront response headers policy + key revocation + credential resolution
+- [x] 01-01-PLAN.md -- CloudFront response headers policy + key revocation + credential resolution
 
 ### Phase 02: iOS API Verification
 **Goal**: Every API call in all 3 iOS apps is verified to hit an existing backend route with correct method, path, and auth
@@ -143,7 +143,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 01. Infrastructure Cleanup | 0/1 | Not started | - |
+| 01. Infrastructure Cleanup | 1/1 | Complete | 2026-02-22 |
 | 02. iOS API Verification | 0/3 | Not started | - |
 | 03. Android API Verification | 0/3 | Not started | - |
 | 04. iOS Distribution | 0/3 | Not started | - |
@@ -151,4 +151,4 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 
 ---
 *Roadmap created: 2026-02-21*
-*Last updated: 2026-02-21*
+*Last updated: 2026-02-22*
