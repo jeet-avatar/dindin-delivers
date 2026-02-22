@@ -1,14 +1,14 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: v1.3 Platform Hardening -- Phase 03 IN PROGRESS (1/2 plans done)
-**Last activity**: 2026-02-22 -- Plan 03-01 complete (rate limiting on password reset + registration endpoints)
+**Status**: v1.3 Platform Hardening -- Phase 03 COMPLETE (2/2 plans done)
+**Last activity**: 2026-02-22 -- Plan 03-02 complete (rate limiting on payment + admin mutation endpoints)
 
 ## Current Position
 
-**Active Phase:** Phase 03 of 4 (Rate Limiting Expansion)
-**Current Plan:** Plan 03-02 (next)
-**Progress:** [█████████░] 89%
+**Active Phase:** Phase 04 of 4 (Infrastructure Security + Final Verification)
+**Current Plan:** Plan 04-01 (next)
+**Progress:** [█████████░] 93%
 
 ## Wave Status
 
@@ -22,13 +22,14 @@
 | 02-03 | Wave 2 | main_new.py (admin portal/ERP + AUTH-06) | COMPLETE | 1308ca73, 3dbc3f82 |
 | 02-04 | Wave 1 | main_new.py (gap closure: 17 endpoints + IDOR) | COMPLETE | 9c5f9cb5, 6d0f046f |
 | 03-01 | Wave 1 | cache.py + main_new.py (rate limiting: pwd reset + registration) | COMPLETE | 1f1579cd, 43c2636c |
+| 03-02 | Wave 2 | 5 files (rate limiting: payment + admin mutation) | COMPLETE | f920bcdb, a53d03cd |
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** Drivers keep 100% of delivery fees and tips
-**Current focus:** Phase 03 -- Rate Limiting Expansion
+**Current focus:** Phase 04 -- Infrastructure Security + Final Verification
 
 ## Completed Milestones
 
@@ -45,9 +46,9 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
+- Total plans completed: 9
 - Average duration: 14 min
-- Total execution time: 112 min
+- Total execution time: 127 min
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -59,6 +60,7 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 | 02 | 02-03 | 13 min | 2 | 2 |
 | 02 | 02-04 | 4 min | 2 | 2 |
 | 03 | 03-01 | 8 min | 2 | 2 |
+| 03 | 03-02 | 15 min | 2 | 6 |
 
 ## Accumulated Context
 
@@ -93,6 +95,9 @@ Decisions logged in PROJECT.md Key Decisions table.
 - 03-01: Moved RateLimiter + check_rate_limit to cache.py so bid_routes.py and order_flow.py can import them
 - 03-01: Used IP-based rate limiting for /api/auth/password-reset/confirm (no email in request body)
 - 03-01: Registration window changed from 5 min to 1 hour per user decision from research phase
+- 03-02: Used http_request: Request param name when endpoint already uses request for body data (avoiding naming conflict)
+- 03-02: Payment endpoints use user-ID-based rate limiting, admin mutations use IP-based
+- 03-02: Fixed test_order_flow.py confirm_payment tests to pass mock Request/auth after signature change
 
 ### Pending Todos
 
@@ -112,5 +117,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 03-01-PLAN.md (rate limiting on password reset + registration endpoints). Phase 03 in progress (1/2 plans done).
-Resume: Execute 03-02-PLAN.md (payment, admin, and remaining endpoint rate limiting).
+Stopped at: Completed 03-02-PLAN.md (rate limiting on payment + admin mutation endpoints). Phase 03 complete (2/2 plans done).
+Resume: Plan Phase 04 (Infrastructure Security + Final Verification).
