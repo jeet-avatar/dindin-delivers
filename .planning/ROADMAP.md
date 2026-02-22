@@ -116,5 +116,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 01. Customer + Driver Endpoint Auth | 3/3 | Complete    | 2026-02-21 |
 | 02. Vendor + Admin Endpoint Auth | 4/4 | Complete    | 2026-02-22 |
-| 03. Rate Limiting Expansion | 2/2 | Complete   | 2026-02-22 |
+| 03. Rate Limiting Expansion | 2/2 | Complete    | 2026-02-22 |
 | 04. Infrastructure Security + Final Verification | 0/TBD | Not started | - |
