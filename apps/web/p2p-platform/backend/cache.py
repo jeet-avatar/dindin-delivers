@@ -11,6 +11,7 @@ import time
 from typing import Optional
 
 import redis
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,41 @@ def rate_limit_check(key: str, max_requests: int, window_seconds: int) -> tuple[
     except Exception as e:
         logger.warning(f"Rate limit Redis error: {e}")
         return True, 0
+
+
+# ── Rate Limiter (high-level) ────────────────────────────────────────────────
+
+class RateLimiter:
+    """Redis-backed rate limiter config (shared across all workers and ECS tasks)"""
+    def __init__(self, max_requests: int = 10, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+
+
+def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = "", identifier: str = None):
+    """Check rate limit and raise HTTPException(429) if exceeded.
+
+    Args:
+        request: FastAPI Request object
+        limiter: RateLimiter config (max_requests, window_seconds)
+        key_prefix: Redis key prefix (e.g., "password_reset", "payment")
+        identifier: Optional override for key suffix (email, user_id).
+                    If None, uses client IP from X-Forwarded-For or direct connection.
+    """
+    if identifier:
+        key = f"ratelimit:{key_prefix}:{identifier}"
+    else:
+        forwarded = request.headers.get("X-Forwarded-For")
+        client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
+        key = f"ratelimit:{key_prefix}:{client_ip}"
+
+    is_allowed, retry_after = rate_limit_check(key, limiter.max_requests, limiter.window_seconds)
+    if not is_allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many requests. Please try again in {retry_after} seconds.",
+            headers={"Retry-After": str(retry_after)}
+        )
 
 
 # ── Password Reset Codes (Redis with TTL) ─────────────────────────────────────
