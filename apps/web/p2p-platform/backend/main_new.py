@@ -3477,19 +3477,10 @@ def delete_driver_account(
 @app.delete("/api/admin/customers/by-email/{email}")
 def admin_delete_customer_by_email(
     email: str,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
 ):
     """Admin endpoint to delete customer by email - requires admin auth"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        # Only allow admin users (from User table, not customer/driver)
-        admin_email = payload.get("sub")
-        admin_user = db.query(User).filter(User.email == admin_email).first()
-        if not admin_user or admin_user.role != UserRole.ADMIN:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
 
     customer = db.query(Customer).filter(Customer.email == email).first()
     if not customer:
@@ -5000,22 +4991,15 @@ async def stripe_connect_webhook(
 @app.post("/api/vendors/{vendor_id}/stripe/connect")
 def create_vendor_stripe_account(
     vendor_id: int,
-    token: str = Depends(oauth2_scheme),
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
     Create a Stripe Connect Express account for a vendor/restaurant.
     This is step 1 of vendor payout onboarding.
     """
-    # SECURITY: Verify token belongs to this vendor or is admin
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_vendor_id = payload.get("vendor_id")
-        token_role = payload.get("role")
-        if token_role != "admin" and token_vendor_id != vendor_id:
-            raise HTTPException(status_code=403, detail="You can only manage your own Stripe account")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
 
     import stripe
     import os
@@ -5080,22 +5064,15 @@ def get_vendor_stripe_onboarding_link(
     vendor_id: int,
     return_url: str = Query(default="https://www.dollor.ai/partner/settings"),
     refresh_url: str = Query(default="https://www.dollor.ai/partner/settings"),
-    token: str = Depends(oauth2_scheme),
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
     Generate a Stripe Connect onboarding link for the vendor.
     The vendor uses this link to complete their payout setup including bank account.
     """
-    # SECURITY: Verify token belongs to this vendor or is admin
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_vendor_id = payload.get("vendor_id")
-        token_role = payload.get("role")
-        if token_role != "admin" and token_vendor_id != vendor_id:
-            raise HTTPException(status_code=403, detail="You can only manage your own Stripe account")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
 
     import stripe
     import os
@@ -5156,21 +5133,14 @@ def get_vendor_stripe_onboarding_link(
 @app.get("/api/vendors/{vendor_id}/stripe/status")
 def get_vendor_stripe_status(
     vendor_id: int,
-    token: str = Depends(oauth2_scheme),
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
     Get the vendor's Stripe Connect account status including bank account info.
     """
-    # SECURITY: Verify token belongs to this vendor or is admin
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_vendor_id = payload.get("vendor_id")
-        token_role = payload.get("role")
-        if token_role != "admin" and token_vendor_id != vendor_id:
-            raise HTTPException(status_code=403, detail="You can only view your own Stripe status")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
 
     import stripe
     import os
@@ -5242,22 +5212,15 @@ def get_vendor_stripe_status(
 @app.post("/api/vendors/{vendor_id}/stripe/dashboard-link")
 def get_vendor_stripe_dashboard_link(
     vendor_id: int,
-    token: str = Depends(oauth2_scheme),
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
     Generate a link to the vendor's Stripe Express dashboard.
     Vendors can use this to view payouts, update bank info, etc.
     """
-    # SECURITY: Verify token belongs to this vendor or is admin
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_vendor_id = payload.get("vendor_id")
-        token_role = payload.get("role")
-        if token_role != "admin" and token_vendor_id != vendor_id:
-            raise HTTPException(status_code=403, detail="You can only access your own Stripe dashboard")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
 
     import stripe
     import os
@@ -12637,21 +12600,14 @@ def update_vendor_location(
     vendor_id: int,
     latitude: float = Query(..., description="Latitude coordinate"),
     longitude: float = Query(..., description="Longitude coordinate"),
-    token: str = Depends(oauth2_scheme),
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
     """
     Update vendor GPS coordinates.
     """
-    # SECURITY: Verify token belongs to this vendor or is admin
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_vendor_id = payload.get("vendor_id")
-        token_role = payload.get("role")
-        if token_role != "admin" and token_vendor_id != vendor_id:
-            raise HTTPException(status_code=403, detail="You can only update your own location")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     from models import Vendor
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -12674,20 +12630,13 @@ def update_vendor_location(
 def quick_publish_vendor(
     vendor_id: int,
     platforms: str = Query("ios,android,web", description="Comma-separated platforms"),
-    token: str = Depends(oauth2_scheme),
+    admin: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """
     Quick publish endpoint for development/testing.
     Approves and publishes a vendor to specified platforms.
     """
-    # SECURITY: Only admins can quick-publish vendors
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("role") != "admin":
-            raise HTTPException(status_code=403, detail="Admin access required to publish vendors")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     from models import Vendor, VendorMenuItem, VendorStatus
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -13750,18 +13699,11 @@ def get_menu_categories(vendor_id: int, db: Session = Depends(get_db)):
 def register_mobile_app(
     vendor_id: int,
     app_data: dict,
-    token: str = Depends(oauth2_scheme),
+    _auth_vendor: Vendor = Depends(require_vendor),
     db: Session = Depends(get_db)
 ):
-    # SECURITY: Verify token belongs to this vendor or is admin
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_vendor_id = payload.get("vendor_id")
-        token_role = payload.get("role")
-        if token_role != "admin" and token_vendor_id != vendor_id:
-            raise HTTPException(status_code=403, detail="You can only register your own app")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     from models import Vendor
 
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
@@ -19139,7 +19081,7 @@ def clear_demo_driver_bids(secret_key: Optional[str] = Query(None), db: Session 
 
 
 @app.post("/api/admin/cleanup-expired-bids")
-def cleanup_expired_bids(db: Session = Depends(get_db)):
+def cleanup_expired_bids(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     """
     Clean up all expired bids system-wide.
     Marks bids past their expires_at as EXPIRED and clears stale references.
@@ -20109,11 +20051,11 @@ def complete_delivery(
 
 @app.get("/api/admin/rideshare/requests")
 def get_admin_rideshare_requests(
-    token: str = Depends(oauth2_scheme),
     status: Optional[str] = None,
     limit: int = Query(100, le=500),
     offset: int = 0,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
 ):
     """
     Get all ride requests for admin dashboard.
@@ -20206,7 +20148,7 @@ def get_admin_rideshare_requests(
 
 
 @app.get("/api/admin/rideshare/active")
-def get_admin_active_rides(db: Session = Depends(get_db)):
+def get_admin_active_rides(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     """
     Get currently active rides for real-time monitoring.
     """
@@ -20493,17 +20435,9 @@ def admin_verify_driver(
 
 @app.post("/api/admin/cleanup/pending-orders")
 def admin_cleanup_pending_orders(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
 ):
-    # Require admin auth
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        admin_user = db.query(User).filter(User.email == payload.get("sub")).first()
-        if not admin_user or admin_user.role != UserRole.ADMIN:
-            raise HTTPException(status_code=403, detail="Admin access required")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
     """
     Admin endpoint to cancel all old pending orders and ride requests.
     This cleans up stale data that clutters the Restaurant and Driver apps.
@@ -20562,17 +20496,9 @@ def admin_cleanup_pending_orders(
 
 @app.post("/api/admin/cleanup/all-incomplete")
 def admin_cleanup_all_incomplete(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
 ):
-    # Require admin auth
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        admin_user = db.query(User).filter(User.email == payload.get("sub")).first()
-        if not admin_user or admin_user.role != UserRole.ADMIN:
-            raise HTTPException(status_code=403, detail="Admin access required")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
     """
     Admin endpoint to cancel ALL incomplete orders and ride requests.
     This is more aggressive than /cleanup/pending-orders.
@@ -20648,15 +20574,8 @@ def admin_cleanup_all_incomplete(
 # ============================================================
 
 @app.get("/api/admin/database/schema")
-def get_database_schema(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_database_schema(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     """Get complete database schema - all tables and columns (admin only)"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        admin_user = db.query(User).filter(User.email == payload.get("sub")).first()
-        if not admin_user or admin_user.role != UserRole.ADMIN:
-            raise HTTPException(status_code=403, detail="Admin access required")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
     from sqlalchemy import text
 
     try:
@@ -20702,12 +20621,8 @@ def get_database_schema(token: str = Depends(oauth2_scheme), db: Session = Depen
 
 
 @app.get("/api/admin/api/routes")
-def get_all_api_routes(token: str = Depends(oauth2_scheme)):
+def get_all_api_routes(admin: User = Depends(require_admin)):
     """Get all API routes with methods and paths (admin only)"""
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
     routes = []
     route_set = set()  # For duplicate detection
 
@@ -20748,7 +20663,7 @@ def get_all_api_routes(token: str = Depends(oauth2_scheme)):
 
 
 @app.get("/api/admin/api/duplicates")
-def get_duplicate_routes():
+def get_duplicate_routes(admin: User = Depends(require_admin)):
     """Find duplicate API routes and schemas"""
     from collections import defaultdict
 
