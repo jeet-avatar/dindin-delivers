@@ -17,8 +17,9 @@ This model is designed to operate outside TNC regulations by:
 FIRST LAUNCH STATE: Wyoming (LOW regulatory risk)
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from auth_utils import require_any_auth
+from cache import check_rate_limit, RateLimiter
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from pydantic import BaseModel, Field
@@ -42,6 +43,8 @@ from state_config import (
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")  # SECURITY: No hardcoded fallback
 
 router = APIRouter(prefix="/api/matchmaking", tags=["Matchmaking (Wyoming)"])
+
+payment_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 per minute per user
 
 
 # =============================================================================
@@ -375,7 +378,7 @@ async def get_bids_for_request(request_id: str, db: Session = Depends(get_db), _
 
 
 @router.post("/accept-bid")
-async def accept_driver_bid(request: AcceptBidRequest, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
+async def accept_driver_bid(http_request: Request, request: AcceptBidRequest, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """
     Customer accepts a driver's bid.
 
@@ -384,6 +387,7 @@ async def accept_driver_bid(request: AcceptBidRequest, db: Session = Depends(get
     2. Match confirmation
     3. Driver payment info provided to customer for direct fare payment
     """
+    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(_auth.get("user_id", _auth.get("customer_id", _auth.get("driver_id", "unknown")))))
     bid = db.query(RideBid).filter(RideBid.id == request.bid_id).first()
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")

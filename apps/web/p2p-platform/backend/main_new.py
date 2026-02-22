@@ -5519,6 +5519,7 @@ def get_vendor_payouts(
 
 @app.post("/api/rides/{ride_id}/complete-and-pay")
 async def complete_ride_and_pay_driver(
+    request: Request,
     ride_id: int,
     _auth_driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
@@ -5533,6 +5534,7 @@ async def complete_ride_and_pay_driver(
 
     Used after customer payment is captured.
     """
+    check_rate_limit(request, payment_limiter, "payment", identifier=str(_auth_driver.id))
     import stripe
     import os
 
@@ -7566,8 +7568,9 @@ def delete_invoice(invoice_id: int, db: Session = Depends(get_db), admin: User =
 
 # Payment endpoints
 @app.post("/api/invoices/{invoice_id}/payments", response_model=PaymentResponse)
-def create_payment(invoice_id: int, payment_data: PaymentCreate, 
+def create_payment(request: Request, invoice_id: int, payment_data: PaymentCreate,
                   db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    check_rate_limit(request, payment_limiter, "payment", identifier=str(admin.id))
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -15033,6 +15036,7 @@ async def get_customer_rides(
 
 @app.post("/api/orders/{order_id}/tip-driver")
 async def tip_driver(
+    request: Request,
     order_id: int,
     tip_amount: float = 0.0,
     db: Session = Depends(get_db),
@@ -15042,6 +15046,7 @@ async def tip_driver(
     Add tip to driver for an order.
     Used by Android/iOS customer apps.
     """
+    check_rate_limit(request, payment_limiter, "payment", identifier=str(customer.id))
     if tip_amount < 0 or tip_amount > 500:
         raise HTTPException(status_code=400, detail="Tip must be between $0 and $500")
 
@@ -15567,6 +15572,7 @@ class RideTipRequest(BaseModel):
 
 @app.post("/api/rides/{ride_id}/tip")
 async def tip_ride_driver(
+    request: Request,
     ride_id: int,
     body: RideTipRequest,
     db: Session = Depends(get_db),
@@ -15578,6 +15584,7 @@ async def tip_ride_driver(
     Used by Android/iOS customer apps.
     Accepts JSON body: {"tip_amount": 3.00}
     """
+    check_rate_limit(request, payment_limiter, "payment", identifier=str(_auth.get("customer_id", _auth.get("user_id", "unknown"))))
     from models import RideRequest
 
     actual_tip = body.tip_amount
@@ -17531,6 +17538,7 @@ STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
 
 @app.post("/api/erp/payments/intent")
 async def proxy_create_payment_intent(
+    http_request: Request,
     request: dict,
     authorization: str = Header(None),
     db: Session = Depends(get_db),
@@ -17544,6 +17552,7 @@ async def proxy_create_payment_intent(
     For demo accounts (App Store review), returns a demo payment response
     that bypasses actual Stripe processing.
     """
+    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(_auth.get("user_id", _auth.get("customer_id", _auth.get("driver_id", "unknown")))))
     # Check for demo account - bypass Stripe for App Store review
     DEMO_CUSTOMER_EMAILS = [
         "demo.customer@dollor.ai",
@@ -17654,8 +17663,9 @@ async def proxy_create_payment_intent(
 
 
 @app.post("/api/erp/payments/refund")
-async def proxy_create_refund(request: dict, _auth: dict = Depends(require_any_auth)):
+async def proxy_create_refund(http_request: Request, request: dict, _auth: dict = Depends(require_any_auth)):
     """Proxy to payment-service: Create refund (kept: iOS calls this path)"""
+    check_rate_limit(http_request, payment_limiter, "payment_refund", identifier=str(_auth.get("user_id", _auth.get("customer_id", _auth.get("driver_id", "unknown")))))
     result = await proxy_request(PAYMENT_SERVICE_URL, "/api/payments/refund", method="POST", json_data=request)
     if result:
         return result

@@ -17,8 +17,9 @@ AI Employees:
 - QualityBot Epsilon (AI_EMP_005): Quality monitoring
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Request
 from auth_utils import require_any_auth
+from cache import check_rate_limit, RateLimiter
 from sqlalchemy.orm import Session
 from sqlalchemy import text, or_, and_, func
 from datetime import datetime, timedelta
@@ -369,6 +370,8 @@ from models import (
 )
 
 router = APIRouter(prefix="/api/erp", tags=["erp"])
+
+payment_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 per minute per user
 
 # AI Employees
 AI_EMPLOYEES = {
@@ -1403,6 +1406,7 @@ async def create_order(
 
 @router.post("/orders/{order_id}/confirm-payment")
 async def confirm_payment(
+    http_request: Request,
     order_id: int,
     db: Session = Depends(get_db),
     _auth: dict = Depends(require_any_auth),
@@ -1412,6 +1416,7 @@ async def confirm_payment(
     Automatically sends order to restaurant for acceptance (3-min window)
     AI Employee: OrderBot Alpha
     """
+    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(_auth.get("user_id", _auth.get("customer_id", _auth.get("driver_id", "unknown")))))
     ai_employee = AI_EMPLOYEES["ORDER_PROCESSOR"]
 
     order = db.query(Order).filter(Order.id == order_id).first()

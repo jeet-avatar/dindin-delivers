@@ -5,6 +5,7 @@ Handles payment intents, webhooks, and invoice generation
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from auth_utils import require_any_auth
+from cache import check_rate_limit, RateLimiter
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -30,6 +31,8 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")  # SECURITY: No hardcoded fa
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")  # SECURITY: No hardcoded fallback
 
 router = APIRouter(prefix="/api", tags=["payments"])
+
+payment_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 per minute per user
 
 # Pydantic Models
 class OrderItem(BaseModel):
@@ -110,7 +113,7 @@ class SimplePaymentIntentResponse(BaseModel):
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_your_key_here")
 
 @router.post("/payments/create-intent", response_model=SimplePaymentIntentResponse)
-async def create_simple_payment_intent(request: SimplePaymentIntentRequest, _auth: dict = Depends(require_any_auth)):
+async def create_simple_payment_intent(http_request: Request, request: SimplePaymentIntentRequest, _auth: dict = Depends(require_any_auth)):
     """
     Create a simple Stripe PaymentIntent for Apple Pay, Google Pay, or Card payments.
 
@@ -122,6 +125,7 @@ async def create_simple_payment_intent(request: SimplePaymentIntentRequest, _aut
     - Google Pay
     - Card payments via PaymentSheet
     """
+    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(_auth.get("user_id", _auth.get("customer_id", _auth.get("driver_id", "unknown")))))
     # Validate amount
     if request.amount < 50:  # Stripe minimum is $0.50
         raise HTTPException(status_code=400, detail="Amount must be at least 50 cents")
