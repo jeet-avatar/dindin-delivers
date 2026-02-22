@@ -3876,6 +3876,7 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // TODO: [CRITICAL] API mismatch — backend alias at main_new.py:21033 maps POST /api/drivers/{id}/documents to wrong handler (get_driver_documents instead of upload_driver_document_by_id); upload silently fails
     /// Upload driver document (driver's license, insurance, etc.)
     public func uploadDriverDocument(
         driverId: Int,
@@ -6779,6 +6780,7 @@ public class P2PAPIService: ObservableObject {
 
     // MARK: - Rideshare Chat APIs (REST - matches Android)
 
+    // TODO: [CRITICAL] API mismatch — uses customerToken instead of driverToken; Driver app will send nil token, causing 401
     /// Fetch chat messages for a ride request
     /// Endpoint: GET /api/p2p/ride-requests/{ride_id}/chat
     /// Uses production URL (api.dollor.ai)
@@ -6826,6 +6828,7 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // TODO: [CRITICAL] API mismatch — uses customerToken instead of driverToken; Driver app will send nil token, causing 401
     /// Send a chat message for a ride request
     /// Endpoint: POST /api/p2p/ride-requests/{ride_id}/chat
     /// Uses production URL (api.dollor.ai)
@@ -10797,6 +10800,7 @@ extension P2PAPIService {
         }.resume()
     }
 
+    // TODO: [MEDIUM] API mismatch — uses PUT method but backend only accepts POST at /api/erp/drivers/{id}/fcm-token; results in 405 Method Not Allowed
     /// Save FCM token for push notifications
     public func saveDriverFCMToken(
         driverId: Int,
