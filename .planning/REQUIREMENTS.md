@@ -10,7 +10,7 @@
 - [x] **AUTH-01**: All customer endpoints have per-endpoint Depends(require_customer) with ownership checks
 - [x] **AUTH-02**: All driver endpoints have per-endpoint Depends(require_driver) with ownership checks
 - [ ] **AUTH-03**: All vendor endpoints have per-endpoint Depends(require_vendor) with ownership checks
-- [ ] **AUTH-04**: All admin endpoints have per-endpoint Depends(require_admin) role checks
+- [x] **AUTH-04**: All admin endpoints have per-endpoint Depends(require_admin) role checks
 - [ ] **AUTH-05**: All remaining middleware-only endpoints converted to per-endpoint Depends()
 - [ ] **AUTH-06**: Zero endpoints rely solely on global middleware for auth (all have explicit Depends)
 
@@ -55,7 +55,7 @@
 | AUTH-01 | Phase 01 | Complete |
 | AUTH-02 | Phase 01 | Complete |
 | AUTH-03 | Phase 02 | Pending |
-| AUTH-04 | Phase 02 | Pending |
+| AUTH-04 | Phase 02 | Complete |
 | AUTH-05 | Phase 02 | Pending |
 | AUTH-06 | Phase 02 | Pending |
 | RATE-01 | Phase 03 | Pending |
