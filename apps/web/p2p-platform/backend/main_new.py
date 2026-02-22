@@ -14407,163 +14407,103 @@ async def get_driver_active_order_alias(driver_id: int, driver: Driver = Depends
     return await get_driver_active_orders(driver_id, db)
 
 @app.get("/erp/orders/available-for-delivery")
-async def get_available_orders_alias(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_available_orders_alias(_auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - get orders available for delivery"""
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await get_available_orders(db)
 
 @app.post("/erp/orders/{order_id}/assign-driver")
-async def assign_driver_alias(order_id: int, request: AssignDriverRequest, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def assign_driver_alias(order_id: int, request: AssignDriverRequest, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - assign driver to order"""
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await assign_driver(order_id, request, db)
 
 @app.post("/erp/orders/{order_id}/picked-up")
-async def picked_up_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def picked_up_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark order as picked up"""
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await order_picked_up(order_id, db)
 
 @app.put("/erp/orders/{order_id}/complete-delivery")
-async def complete_delivery_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def complete_delivery_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark delivery as complete"""
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await complete_delivery(order_id, db)
 
 @app.put("/erp/orders/{order_id}/unassign-driver")
-async def unassign_driver_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def unassign_driver_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - unassign driver from order"""
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await unassign_driver(order_id, db)
 
 @app.put("/erp/orders/{order_id}/status")
-async def update_order_status_alias(order_id: int, status: str, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def update_order_status_alias(order_id: int, status: str, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - update order status
     iOS calls: PUT /erp/orders/{orderId}/status?status={status}
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await update_order_status(order_id, status, db)
 
 @app.post("/erp/orders/{order_id}/delivered")
-async def order_delivered_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def order_delivered_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant/Driver app - mark order as delivered
     iOS calls: POST /erp/orders/{orderId}/delivered
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await order_delivered(order_id, db)
 
 @app.post("/erp/orders/{order_id}/restaurant-accept")
-async def restaurant_accept_alias(order_id: int, request: Optional[RestaurantAcceptRequest] = None, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def restaurant_accept_alias(order_id: int, request: Optional[RestaurantAcceptRequest] = None, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - accept order
     iOS calls: POST /erp/orders/{orderId}/restaurant-accept
     Body: {"estimated_prep_minutes": 15}
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await restaurant_accept(order_id, request, db)
 
 @app.post("/erp/orders/{order_id}/restaurant-decline")
-async def restaurant_decline_alias(order_id: int, request: Optional[RestaurantDeclineRequest] = None, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def restaurant_decline_alias(order_id: int, request: Optional[RestaurantDeclineRequest] = None, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - decline order
     iOS calls: POST /erp/orders/{orderId}/restaurant-decline
     Body: {"reason": "optional reason"}
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await restaurant_decline(order_id, request, db)
 
 @app.post("/erp/orders/{order_id}/restaurant-accept-delivery")
-async def restaurant_accept_delivery_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def restaurant_accept_delivery_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - accept self-delivery
     iOS calls: POST /erp/orders/{orderId}/restaurant-accept-delivery
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await restaurant_accept_delivery(order_id, db)
 
 @app.post("/erp/orders/{order_id}/restaurant-decline-delivery")
-async def restaurant_decline_delivery_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def restaurant_decline_delivery_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - decline self-delivery (send to driver pool)
     iOS calls: POST /erp/orders/{orderId}/restaurant-decline-delivery
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await restaurant_decline_delivery(order_id, db)
 
 # ==================== ADDITIONAL iOS ALIASES ====================
 # These enable iOS apps to call /erp/* paths without /api prefix
 
 @app.post("/erp/orders/create")
-async def create_order_ios_alias(order_data: CreateOrderRequest, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def create_order_ios_alias(order_data: CreateOrderRequest, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Customer app - create order
     iOS calls: POST /erp/orders/create
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await erp_create_order(order_data, db)
 
 @app.post("/erp/orders/{order_id}/confirm-payment")
-async def confirm_payment_ios_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def confirm_payment_ios_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Customer app - confirm payment
     iOS calls: POST /erp/orders/{orderId}/confirm-payment
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await confirm_payment(order_id, db)
 
 @app.get("/erp/orders/{order_id}/driver-location")
-async def get_driver_location_ios_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_driver_location_ios_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Customer app - get driver location for order tracking
     iOS calls: GET /erp/orders/{orderId}/driver-location
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await get_driver_location(order_id, db)
 
 @app.get("/erp/orders/{order_id}/full-tracking")
-async def get_full_order_tracking_ios_alias(order_id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_full_order_tracking_ios_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Customer app - get full order tracking with driver, restaurant, and ETA
     iOS calls: GET /erp/orders/{orderId}/full-tracking
     """
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     return await get_full_order_tracking(order_id, db)
 
 @app.get("/erp/rides/available")
@@ -18054,14 +17994,17 @@ def register_push_token(
     platform: str = Form(...),  # ios or android
     user_type: str = Form(...),  # customer, driver, restaurant
     user_id: int = Form(...),
-    token: str = Depends(oauth2_scheme),
+    _auth: dict = Depends(require_any_auth),
     db: Session = Depends(get_db)
 ):
     """Register a device token for push notifications."""
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    # SECURITY: Verify the authenticated user matches the user_id parameter
+    auth_customer_id = _auth.get("customer_id")
+    auth_driver_id = _auth.get("driver_id")
+    if user_type == "customer" and auth_customer_id and int(auth_customer_id) != user_id:
+        raise HTTPException(status_code=403, detail="Access denied - user_id mismatch")
+    if user_type == "driver" and auth_driver_id and int(auth_driver_id) != user_id:
+        raise HTTPException(status_code=403, detail="Access denied - user_id mismatch")
     # Store token in database (update existing or create new)
     if user_type == "customer":
         customer = db.query(Customer).filter(Customer.id == user_id).first()
@@ -18083,14 +18026,17 @@ def register_push_token(
 def unregister_push_token(
     user_type: str = Query(...),
     user_id: int = Query(...),
-    token: str = Depends(oauth2_scheme),
+    _auth: dict = Depends(require_any_auth),
     db: Session = Depends(get_db)
 ):
     """Unregister a device token (on logout)."""
-    try:
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    # SECURITY: Verify the authenticated user matches the user_id parameter
+    auth_customer_id = _auth.get("customer_id")
+    auth_driver_id = _auth.get("driver_id")
+    if user_type == "customer" and auth_customer_id and int(auth_customer_id) != user_id:
+        raise HTTPException(status_code=403, detail="Access denied - user_id mismatch")
+    if user_type == "driver" and auth_driver_id and int(auth_driver_id) != user_id:
+        raise HTTPException(status_code=403, detail="Access denied - user_id mismatch")
     if user_type == "customer":
         customer = db.query(Customer).filter(Customer.id == user_id).first()
         if customer:
