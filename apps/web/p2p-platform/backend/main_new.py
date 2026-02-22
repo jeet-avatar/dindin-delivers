@@ -1551,7 +1551,8 @@ def get_app_config():
 
 
 @app.post("/register", response_model=UserResponse)
-def register(user: UserCreate, db: Session = Depends(get_db)):
+def register(http_request: Request, user: UserCreate, db: Session = Depends(get_db)):
+    check_rate_limit(http_request, registration_rate_limiter, "register")
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -2020,7 +2021,8 @@ class PasswordResetConfirm(BaseModel):
 
 # Vendor Registration
 @app.post("/api/auth/vendor/register")
-def vendor_register(request: VendorRegisterRequest, db: Session = Depends(get_db)):
+def vendor_register(http_request: Request, request: VendorRegisterRequest, db: Session = Depends(get_db)):
+    check_rate_limit(http_request, registration_rate_limiter, "register")
     print(f"Vendor registration attempt for: {request.email}")
 
     try:
@@ -2177,8 +2179,9 @@ def decode_google_jwt(token: str) -> dict:
         return {}
 
 @app.post("/api/auth/vendor/google-auth", response_model=Token)
-def vendor_google_auth(request: VendorGoogleAuthRequest, db: Session = Depends(get_db)):
+def vendor_google_auth(http_request: Request, request: VendorGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for vendors - handles both login and registration"""
+    check_rate_limit(http_request, registration_rate_limiter, "register")
     try:
         from models import VendorStatus
 
@@ -2314,8 +2317,9 @@ class VendorAppleAuthRequest(BaseModel):
     identity_token: Optional[str] = None  # JWT token containing real email for returning users
 
 @app.post("/api/auth/vendor/apple-auth", response_model=Token)
-def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get_db)):
+def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for vendors - handles both login and registration"""
+    check_rate_limit(http_request, registration_rate_limiter, "register")
     try:
         from models import VendorStatus
 
@@ -2438,7 +2442,8 @@ def vendor_apple_auth(request: VendorAppleAuthRequest, db: Session = Depends(get
 
 # Password Reset Request
 @app.post("/api/auth/password-reset/request")
-def request_password_reset(request: PasswordResetRequest, db: Session = Depends(get_db)):
+def request_password_reset(http_request: Request, request: PasswordResetRequest, db: Session = Depends(get_db)):
+    check_rate_limit(http_request, password_reset_limiter, "pwd_reset", identifier=request.email.lower())
     print(f"Password reset requested for: {request.email}")
 
     user = db.query(User).filter(User.email == request.email).first()
@@ -2463,7 +2468,8 @@ def request_password_reset(request: PasswordResetRequest, db: Session = Depends(
 
 # Password Reset Confirm
 @app.post("/api/auth/password-reset/confirm")
-def confirm_password_reset(request: PasswordResetConfirm, db: Session = Depends(get_db)):
+def confirm_password_reset(http_request: Request, request: PasswordResetConfirm, db: Session = Depends(get_db)):
+    check_rate_limit(http_request, password_reset_limiter, "pwd_reset_confirm")
     try:
         payload = jwt.decode(request.token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get("sub")
@@ -2634,8 +2640,9 @@ def driver_refresh_token(driver: Driver = Depends(require_driver), db: Session =
 
 
 @app.post("/api/auth/driver/register")
-def driver_register(request: DriverRegisterRequest, db: Session = Depends(get_db)):
+def driver_register(http_request: Request, request: DriverRegisterRequest, db: Session = Depends(get_db)):
     """Register a new driver account"""
+    check_rate_limit(http_request, registration_rate_limiter, "register")
     print(f"Driver registration attempt for: {request.email}")
 
     try:
@@ -2744,8 +2751,9 @@ class DriverGoogleAuthRequest(BaseModel):
     credential: Optional[str] = None  # Alternative field name
 
 @app.post("/api/auth/driver/google")
-def driver_google_auth(request: DriverGoogleAuthRequest, db: Session = Depends(get_db)):
+def driver_google_auth(http_request: Request, request: DriverGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for drivers - handles both login and registration"""
+    check_rate_limit(http_request, registration_rate_limiter, "register")
 
     # Get token from either field
     token = request.id_token or request.credential
@@ -2883,8 +2891,9 @@ class DriverAppleAuthRequest(BaseModel):
     apple_id: str
 
 @app.post("/api/auth/driver/apple-auth")
-def driver_apple_auth(request: DriverAppleAuthRequest, db: Session = Depends(get_db)):
+def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for drivers - handles both login and registration"""
+    check_rate_limit(http_request, registration_rate_limiter, "register")
     print(f"Driver Apple auth for: {request.email}")
 
     # Check if user exists with DRIVER role
@@ -3282,8 +3291,9 @@ class CustomerGoogleAuthRequest(BaseModel):
     id_token: Optional[str] = None  # Web sends this JWT credential
 
 @app.post("/api/auth/customer/google")
-def customer_google_auth(request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
+def customer_google_auth(http_request: Request, request: CustomerGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for customers - handles both login and registration"""
+    check_rate_limit(http_request, registration_rate_limiter, "register")
 
     # Decode id_token if provided (web sends this)
     if request.id_token:
@@ -5942,8 +5952,9 @@ def get_driver_documents(driver: Driver = Depends(require_driver), db: Session =
 # Note: CustomerRegisterRequest is already defined above for rideshare
 
 @app.post("/api/customer/register")
-def customer_food_register(request: CustomerRegisterRequest, db: Session = Depends(get_db)):
+def customer_food_register(http_request: Request, request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """Register a new customer account"""
+    check_rate_limit(http_request, registration_rate_limiter, "register")
     print(f"Customer registration attempt for: {request.email}")
 
     try:
@@ -6201,8 +6212,9 @@ class CustomerPasswordResetConfirm(BaseModel):
     new_password: str
 
 @app.post("/api/customer/password-reset/request")
-def customer_request_password_reset(request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
+def customer_request_password_reset(http_request: Request, request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
     """Request a password reset - sends code to email"""
+    check_rate_limit(http_request, password_reset_limiter, "pwd_reset", identifier=request.email.lower())
     import random
 
     # Check if user exists
@@ -6235,8 +6247,9 @@ def customer_request_password_reset(request: CustomerPasswordResetRequest, db: S
     return {"success": True, "message": "Reset code sent to your email."}
 
 @app.post("/api/customer/password-reset/confirm")
-def customer_confirm_password_reset(request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
+def customer_confirm_password_reset(http_request: Request, request: CustomerPasswordResetConfirm, db: Session = Depends(get_db)):
     """Confirm password reset with code and set new password"""
+    check_rate_limit(http_request, password_reset_limiter, "pwd_reset_confirm", identifier=request.email.lower())
     from datetime import datetime
 
     # Check Redis first, fall back to in-memory
@@ -6285,8 +6298,9 @@ class DriverPasswordResetConfirm(BaseModel):
     new_password: str
 
 @app.post("/api/driver/password-reset/request")
-def driver_request_password_reset(request: DriverPasswordResetRequest, db: Session = Depends(get_db)):
+def driver_request_password_reset(http_request: Request, request: DriverPasswordResetRequest, db: Session = Depends(get_db)):
     """Request a driver password reset - sends code to email"""
+    check_rate_limit(http_request, password_reset_limiter, "pwd_reset", identifier=request.email.lower())
     import random
 
     # Check if user exists with driver role (must match role used by login)
@@ -6318,8 +6332,9 @@ def driver_request_password_reset(request: DriverPasswordResetRequest, db: Sessi
     return {"success": True, "message": "Reset code sent to your email."}
 
 @app.post("/api/driver/password-reset/confirm")
-def driver_confirm_password_reset(request: DriverPasswordResetConfirm, db: Session = Depends(get_db)):
+def driver_confirm_password_reset(http_request: Request, request: DriverPasswordResetConfirm, db: Session = Depends(get_db)):
     """Confirm driver password reset with code and set new password"""
+    check_rate_limit(http_request, password_reset_limiter, "pwd_reset_confirm", identifier=request.email.lower())
     from datetime import datetime
 
     # Check Redis first, fall back to in-memory
@@ -6365,8 +6380,9 @@ class VendorPasswordResetConfirm(BaseModel):
     new_password: str
 
 @app.post("/api/vendor/password-reset/request")
-def vendor_request_password_reset(request: VendorPasswordResetRequest, db: Session = Depends(get_db)):
+def vendor_request_password_reset(http_request: Request, request: VendorPasswordResetRequest, db: Session = Depends(get_db)):
     """Request a vendor password reset - sends code to email"""
+    check_rate_limit(http_request, password_reset_limiter, "pwd_reset", identifier=request.email.lower())
     import random
 
     user = db.query(User).filter(User.email == request.email).first()
@@ -6394,8 +6410,9 @@ def vendor_request_password_reset(request: VendorPasswordResetRequest, db: Sessi
     return {"success": True, "message": "Reset code sent to your email."}
 
 @app.post("/api/vendor/password-reset/confirm")
-def vendor_confirm_password_reset(request: VendorPasswordResetConfirm, db: Session = Depends(get_db)):
+def vendor_confirm_password_reset(http_request: Request, request: VendorPasswordResetConfirm, db: Session = Depends(get_db)):
     """Confirm vendor password reset with code and set new password"""
+    check_rate_limit(http_request, password_reset_limiter, "pwd_reset_confirm", identifier=request.email.lower())
     from datetime import datetime
 
     # Check Redis first, fall back to in-memory
