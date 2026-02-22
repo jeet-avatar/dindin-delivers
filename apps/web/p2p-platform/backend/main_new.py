@@ -349,6 +349,7 @@ _PUBLIC_PREFIXES = [
     "/ws/",                   # WebSocket connections
     "/docs", "/openapi",      # Swagger UI / OpenAPI docs
     "/redoc",                 # ReDoc
+    "/privacy", "/terms",     # Legal pages (HTML)
 ]
 
 _PUBLIC_PATTERN_PATHS = [
@@ -368,6 +369,8 @@ _PUBLIC_PATTERN_PATHS = [
     (_re.compile(r"^/api/onboarding/confirm/.*$"), {"POST"}),
     (_re.compile(r"^/api/onboarding/status/.*$"), {"GET"}),
     (_re.compile(r"^/api/onboarding/upload-menu/.*$"), {"POST"}),
+    # ERP restaurant detail (public browsing, only published/approved vendors)
+    (_re.compile(r"^/api/erp/restaurants/\d+$"), {"GET"}),
 ]
 
 

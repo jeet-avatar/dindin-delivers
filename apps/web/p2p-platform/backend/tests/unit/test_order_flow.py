@@ -1586,7 +1586,7 @@ class TestFCMTokens:
         )
 
         from main_new import register_driver_fcm_token
-        result = register_driver_fcm_token(1, request, mock_db_session)
+        result = register_driver_fcm_token(1, request, mock_db_session, driver=mock_driver)
 
         assert result["success"] is True
         assert mock_driver.push_token == "new_fcm_token_1234567890"
