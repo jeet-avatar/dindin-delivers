@@ -1601,7 +1601,7 @@ class TestFCMTokens:
         )
 
         from main_new import register_vendor_fcm_token
-        result = register_vendor_fcm_token(1, request, mock_db_session)
+        result = register_vendor_fcm_token(1, request, mock_db_session, _auth_vendor=mock_vendor)
 
         assert result["success"] is True
         assert mock_vendor.push_token == "vendor_fcm_token_1234567890"
