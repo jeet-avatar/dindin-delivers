@@ -17,7 +17,7 @@
 | 01-01 | Wave 1 | main_new.py (customer) | COMPLETE | 88fe4f96, e61d0eba, 776c6714 |
 | 01-03 | Wave 1 | bid_routes.py | COMPLETE | 17613d66, 78f9015d |
 | 01-02 | Wave 2 | main_new.py (driver + shared ride) | COMPLETE | 0683a7c6, 85af5717 |
-| 02-01 | Wave 1 | main_new.py (vendor) | COMPLETE | d4a940d8 |
+| 02-01 | Wave 1 | main_new.py (vendor) | COMPLETE | d4a940d8, 4a535aea |
 | 02-02 | Wave 1 | main_new.py (admin) | COMPLETE | 2b79095f, 12d3bd15 |
 
 ## Project Reference
@@ -51,7 +51,7 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 | 01 | 01-01 | 22 min | 3 | 1 |
 | 01 | 01-03 | 15 min | 2 | 1 |
 | 01 | 01-02 | 18 min | 2 | 1 |
-| 02 | 02-01 | 16 min | 2 | 1 |
+| 02 | 02-01 | 19 min | 2 | 2 |
 | 02 | 02-02 | 16 min | 2 | 1 |
 
 ## Accumulated Context
@@ -71,7 +71,9 @@ Decisions logged in PROJECT.md Key Decisions table.
 - 01-02: Converted ERP driver proxy endpoints from require_any_auth to require_driver with ownership checks
 - 01-02: Used JWT payload customer_id/driver_id for ride participant verification instead of manual JWT decode
 - 01-02: Ignored client-provided driver_id query param in /api/driver/bids to prevent IDOR -- always uses authenticated driver.id
-- 02-01: Converted 25 vendor endpoints to Depends(require_vendor) with ownership checks
+- 02-01: Converted 31 vendor endpoints to Depends(require_vendor) with ownership checks + 5 admin-only to require_admin
+- 02-01: Converted 7 vendor Stripe/location/register endpoints from manual JWT decode to Depends(require_vendor)
+- 02-01: Fixed test_save_vendor_fcm_token to pass _auth_vendor parameter after auth conversion
 - 02-02: Converted 24 admin endpoints to Depends(require_admin), removed manual JWT decode blocks
 - 02-02: admin_delete_customer_by_email included for consistency (not in original plan)
 - 02-02: ADMIN_SECRET_KEY endpoints deliberately unchanged (backfill-payouts, migrate, set-document-status)
@@ -94,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-21
-Stopped at: Completed 02-02-PLAN.md (admin endpoint auth). Phase 02 has 2/3 plans complete.
-Resume: Next is Plan 02-03 (deploy/verification) or continue with remaining Phase 02 plans.
+Last session: 2026-02-22
+Stopped at: Re-executed 02-01-PLAN.md (vendor endpoint auth, Stripe conversion, test fix). Phase 02 has 2/3 plans complete.
+Resume: Next is Plan 02-03 (admin portal/ERP endpoints + final AUTH-06 verification audit).
