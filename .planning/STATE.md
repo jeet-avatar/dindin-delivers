@@ -60,5 +60,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Phase 02 context gathered, ready to plan
-Resume: `/gsd:plan-phase 02`
+Stopped at: Phase 02 plans created but checker found 2 blockers + 1 warning — needs revision before execution
+Resume: `/gsd:plan-phase 02` (will detect existing plans, revision needed)
