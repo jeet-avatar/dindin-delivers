@@ -428,33 +428,14 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ===================== RATE LIMITING =====================
 # SECURITY: Protect auth endpoints from brute force attacks (Redis-backed, shared across workers/tasks)
-from cache import rate_limit_check
-
-class RateLimiter:
-    """Redis-backed rate limiter with sliding window (shared across all workers and ECS tasks)"""
-
-    def __init__(self, max_requests: int = 10, window_seconds: int = 60):
-        self.max_requests = max_requests
-        self.window_seconds = window_seconds
+from cache import rate_limit_check, RateLimiter, check_rate_limit
 
 # Rate limiters for different endpoints
 auth_rate_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 attempts per minute
-registration_rate_limiter = RateLimiter(max_requests=5, window_seconds=300)  # 5 registrations per 5 minutes
-
-def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = ""):
-    """Check rate limit and raise HTTPException if exceeded"""
-    # Get client IP from X-Forwarded-For header (for load balancers) or direct connection
-    forwarded = request.headers.get("X-Forwarded-For")
-    client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
-    key = f"ratelimit:{key_prefix}:{client_ip}"
-
-    is_allowed, retry_after = rate_limit_check(key, limiter.max_requests, limiter.window_seconds)
-    if not is_allowed:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Too many requests. Please try again in {retry_after} seconds.",
-            headers={"Retry-After": str(retry_after)}
-        )
+registration_rate_limiter = RateLimiter(max_requests=5, window_seconds=3600)  # 5 registrations per hour
+password_reset_limiter = RateLimiter(max_requests=5, window_seconds=3600)  # 5 per hour per email
+payment_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 per minute per user
+admin_mutation_limiter = RateLimiter(max_requests=30, window_seconds=60)  # 30 per minute per admin IP
 
 # ===================== INPUT SANITIZATION =====================
 # SECURITY: Strip HTML/script tags from user-supplied text to prevent stored XSS
