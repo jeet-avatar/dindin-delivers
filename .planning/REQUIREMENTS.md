@@ -44,36 +44,36 @@
 
 | Feature | Reason |
 |---------|--------|
-| Play Store publishing | Separate milestone — different scope (store listing, screenshots, review) |
+| Play Store publishing | Separate milestone -- different scope (store listing, screenshots, review) |
 | New feature development | v1.4 is verification + distribution only |
-| Production DB password rotation | Requires coordinated ECS+RDS downtime — deferred |
-| App UI redesign | No UI changes — verify + bump + distribute |
+| Production DB password rotation | Requires coordinated ECS+RDS downtime -- deferred |
+| App UI redesign | No UI changes -- verify + bump + distribute |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| API-01 | TBD | Pending |
-| API-02 | TBD | Pending |
-| API-03 | TBD | Pending |
-| API-04 | TBD | Pending |
-| API-05 | TBD | Pending |
-| API-06 | TBD | Pending |
-| DIST-01 | TBD | Pending |
-| DIST-02 | TBD | Pending |
-| DIST-03 | TBD | Pending |
-| DIST-04 | TBD | Pending |
-| DIST-05 | TBD | Pending |
-| DIST-06 | TBD | Pending |
-| INFRA-01 | TBD | Pending |
-| INFRA-02 | TBD | Pending |
-| INFRA-03 | TBD | Pending |
+| API-01 | Phase 02 | Pending |
+| API-02 | Phase 02 | Pending |
+| API-03 | Phase 02 | Pending |
+| API-04 | Phase 03 | Pending |
+| API-05 | Phase 03 | Pending |
+| API-06 | Phase 03 | Pending |
+| DIST-01 | Phase 04 | Pending |
+| DIST-02 | Phase 04 | Pending |
+| DIST-03 | Phase 04 | Pending |
+| DIST-04 | Phase 05 | Pending |
+| DIST-05 | Phase 05 | Pending |
+| DIST-06 | Phase 05 | Pending |
+| INFRA-01 | Phase 01 | Pending |
+| INFRA-02 | Phase 01 | Pending |
+| INFRA-03 | Phase 01 | Pending |
 
 **Coverage:**
 - v1.4 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15
+- Mapped to phases: 15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-22*
-*Last updated: 2026-02-22 after initial definition*
+*Last updated: 2026-02-21 -- phase mappings added*
