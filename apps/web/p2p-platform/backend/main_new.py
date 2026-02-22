@@ -7256,7 +7256,7 @@ async def get_driver_earnings(
 
 # Client endpoints
 @app.post("/api/clients", response_model=ClientResponse)
-def create_client(client: ClientCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def create_client(client: ClientCreate, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     db_client = Client(**client.dict())
     db.add(db_client)
     db.commit()
@@ -7265,7 +7265,7 @@ def create_client(client: ClientCreate, db: Session = Depends(get_db), current_u
 
 @app.get("/api/clients", response_model=List[ClientResponse])
 def get_clients(skip: int = 0, limit: int = 100, search: Optional[str] = None, 
-                db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+                db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     query = db.query(Client)
     
     if search:
@@ -7281,7 +7281,7 @@ def get_clients(skip: int = 0, limit: int = 100, search: Optional[str] = None,
     return clients
 
 @app.get("/api/clients/{client_id}", response_model=ClientResponse)
-def get_client(client_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_client(client_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -7289,7 +7289,7 @@ def get_client(client_id: int, db: Session = Depends(get_db), current_user: User
 
 @app.put("/api/clients/{client_id}", response_model=ClientResponse)
 def update_client(client_id: int, client_update: ClientCreate, 
-                 db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+                 db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     db_client = db.query(Client).filter(Client.id == client_id).first()
     if not db_client:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -7303,7 +7303,7 @@ def update_client(client_id: int, client_update: ClientCreate,
     return db_client
 
 @app.delete("/api/clients/{client_id}")
-def delete_client(client_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def delete_client(client_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     db_client = db.query(Client).filter(Client.id == client_id).first()
     if not db_client:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -7320,7 +7320,7 @@ def delete_client(client_id: int, db: Session = Depends(get_db), current_user: U
 # Invoice endpoints
 @app.post("/api/invoices", response_model=InvoiceResponse)
 def create_invoice(invoice_data: InvoiceCreate, db: Session = Depends(get_db), 
-                  current_user: User = Depends(get_current_user)):
+                  admin: User = Depends(require_admin)):
     # Calculate amounts
     subtotal = sum(item.quantity * item.unit_price for item in invoice_data.items)
     tax_amount = subtotal * (invoice_data.tax_rate / 100)
@@ -7329,7 +7329,7 @@ def create_invoice(invoice_data: InvoiceCreate, db: Session = Depends(get_db),
     # Create invoice
     db_invoice = Invoice(
         invoice_number=generate_invoice_number(db),
-        user_id=current_user.id,
+        user_id=admin.id,
         client_id=invoice_data.client_id,
         issue_date=invoice_data.issue_date,
         due_date=invoice_data.due_date,
@@ -7375,7 +7375,7 @@ def get_invoices(
     client_id: Optional[int] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db), 
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     query = db.query(Invoice).join(Client)
     
@@ -7423,7 +7423,7 @@ def get_invoices(
 @app.get("/api/invoices/stats")
 def get_invoice_stats(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Get invoice statistics for dashboard widgets.
@@ -7523,7 +7523,7 @@ def get_invoice_stats(
     }
 
 @app.get("/api/invoices/{invoice_id}", response_model=InvoiceResponse)
-def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_invoice(invoice_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -7537,7 +7537,7 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: Us
 
 @app.put("/api/invoices/{invoice_id}/status")
 def update_invoice_status(invoice_id: int, status: str, db: Session = Depends(get_db), 
-                         current_user: User = Depends(get_current_user)):
+                         admin: User = Depends(require_admin)):
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -7551,7 +7551,7 @@ def update_invoice_status(invoice_id: int, status: str, db: Session = Depends(ge
     return {"message": "Status updated successfully"}
 
 @app.delete("/api/invoices/{invoice_id}")
-def delete_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def delete_invoice(invoice_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -7566,7 +7566,7 @@ def delete_invoice(invoice_id: int, db: Session = Depends(get_db), current_user:
 # Payment endpoints
 @app.post("/api/invoices/{invoice_id}/payments", response_model=PaymentResponse)
 def create_payment(invoice_id: int, payment_data: PaymentCreate, 
-                  db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+                  db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -7591,7 +7591,7 @@ def create_payment(invoice_id: int, payment_data: PaymentCreate,
 
 @app.get("/api/invoices/{invoice_id}/payments", response_model=List[PaymentResponse])
 def get_invoice_payments(invoice_id: int, db: Session = Depends(get_db),
-                        current_user: User = Depends(get_current_user)):
+                        admin: User = Depends(require_admin)):
     payments = db.query(Payment).filter(Payment.invoice_id == invoice_id).all()
     return payments
 
@@ -7605,7 +7605,7 @@ def update_invoice(
     invoice_id: int,
     invoice_data: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Full update of an invoice. Can update client, dates, items, amounts.
@@ -7709,7 +7709,7 @@ def update_invoice(
 def send_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Send invoice to client via email. Updates status to SENT.
@@ -7758,7 +7758,7 @@ def mark_invoice_paid(
     invoice_id: int,
     payment_data: Optional[dict] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Mark invoice as fully paid with optional payment details.
@@ -7810,7 +7810,7 @@ def add_invoice_item(
     invoice_id: int,
     item_data: InvoiceItemCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Add a new line item to an invoice.
@@ -7860,7 +7860,7 @@ def update_invoice_item(
     item_id: int,
     item_data: InvoiceItemCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Update a line item on an invoice.
@@ -7913,7 +7913,7 @@ def delete_invoice_item(
     invoice_id: int,
     item_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Remove a line item from an invoice.
@@ -7959,7 +7959,7 @@ def delete_invoice_item(
 def duplicate_invoice(
     invoice_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Create a duplicate of an existing invoice with new invoice number.
@@ -7972,7 +7972,7 @@ def duplicate_invoice(
     # Create new invoice
     new_invoice = Invoice(
         invoice_number=generate_invoice_number(db),
-        user_id=current_user.id,
+        user_id=admin.id,
         client_id=original.client_id,
         issue_date=datetime.utcnow(),
         due_date=datetime.utcnow() + timedelta(days=30),
@@ -8019,7 +8019,7 @@ def void_invoice(
     invoice_id: int,
     reason: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Void/cancel an invoice. Cannot be undone.
@@ -8053,7 +8053,7 @@ def void_invoice(
 
 # Dashboard endpoints
 @app.get("/api/dashboard/stats")
-def get_dashboard_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_dashboard_stats(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     # Total invoices
     total_invoices = db.query(Invoice).count()
     
@@ -8133,7 +8133,7 @@ def get_dashboard_stats(db: Session = Depends(get_db), current_user: User = Depe
     }
 
 @app.get("/api/dashboard/recent-activity")
-def get_recent_activity(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_recent_activity(db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     # Recent invoices
     recent_invoices = db.query(Invoice).order_by(Invoice.created_at.desc()).limit(5).all()
     
@@ -8288,7 +8288,7 @@ def get_consolidated_dashboard(
 def get_coupa_dashboard_counts(
     days_back: int = Query(30, description="Number of days to look back"),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _user = Depends(require_admin),
 ):
     """
     Get Coupa dashboard main metrics.
@@ -8333,7 +8333,7 @@ def get_coupa_dashboard_counts(
 def get_coupa_budget_overview(
     days_back: int = Query(30, description="Number of days to look back"),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _user = Depends(require_admin),
 ):
     """
     Get monthly spend trends for Coupa dashboard.
@@ -8382,7 +8382,7 @@ def get_coupa_budget_overview(
 def get_coupa_status_distribution(
     days_back: int = Query(30, description="Number of days to look back"),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _user = Depends(require_admin),
 ):
     """
     Get PO status distribution for Coupa dashboard.
@@ -8421,7 +8421,7 @@ def get_coupa_status_distribution(
 def get_coupa_cost_center_distribution(
     days_back: int = Query(30, description="Number of days to look back"),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _user = Depends(require_admin),
 ):
     """
     Get spend by cost center for Coupa dashboard.
@@ -8469,7 +8469,7 @@ def get_coupa_cost_center_distribution(
 def get_coupa_spend_by_department(
     days_back: int = Query(30, description="Number of days to look back"),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _user = Depends(require_admin),
 ):
     """
     Get spend by department for Coupa dashboard.
@@ -8518,7 +8518,7 @@ def get_coupa_spend_by_department(
 def get_coupa_commodity_distribution(
     days_back: int = Query(30, description="Number of days to look back"),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _user = Depends(require_admin),
 ):
     """
     Get spend by commodity/category for Coupa dashboard.
@@ -8563,7 +8563,7 @@ def get_coupa_commodity_distribution(
 
 
 @app.get("/api/system-dashboard/coupa")
-def get_coupa_system_dashboard(db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def get_coupa_system_dashboard(db: Session = Depends(get_db), _user = Depends(require_admin)):
     """
     Get Coupa data for the system dashboard tab.
     Returns top categories and invoice approval cycle time.
@@ -8598,7 +8598,7 @@ def get_coupa_system_dashboard(db: Session = Depends(get_db), _user = Depends(ge
 
 
 @app.get("/api/dashboard/coupa/filters/suppliers")
-def get_coupa_suppliers_filter(db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def get_coupa_suppliers_filter(db: Session = Depends(get_db), _user = Depends(require_admin)):
     """
     Get list of suppliers for filter dropdown.
     """
@@ -8617,7 +8617,7 @@ def get_coupa_suppliers_filter(db: Session = Depends(get_db), _user = Depends(ge
 
 
 @app.get("/api/dashboard/coupa/filters/cost-centers")
-def get_coupa_cost_centers_filter(db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def get_coupa_cost_centers_filter(db: Session = Depends(get_db), _user = Depends(require_admin)):
     """
     Get list of cost centers for filter dropdown.
     """
@@ -8636,7 +8636,7 @@ def get_coupa_cost_centers_filter(db: Session = Depends(get_db), _user = Depends
 
 
 @app.get("/api/dashboard/coupa/filters/departments")
-def get_coupa_departments_filter(db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def get_coupa_departments_filter(db: Session = Depends(get_db), _user = Depends(require_admin)):
     """
     Get list of departments for filter dropdown.
     """
@@ -8655,7 +8655,7 @@ def get_coupa_departments_filter(db: Session = Depends(get_db), _user = Depends(
 
 
 @app.get("/api/dashboard/coupa/filters/statuses")
-def get_coupa_statuses_filter(_user = Depends(get_current_user)):
+def get_coupa_statuses_filter(_user = Depends(require_admin)):
     """
     Get list of PO statuses for filter dropdown.
     """
@@ -8681,7 +8681,7 @@ def get_orders(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth: dict = Depends(require_any_auth)
 ):
     """
     Get all orders with optional filtering.
@@ -8694,9 +8694,12 @@ def get_orders(
     query = db.query(Order)
 
     # SECURITY: Non-admin users can only see their own orders
-    if current_user.role != UserRole.ADMIN:
+    auth_role = _auth.get("role", "")
+    if auth_role != "admin":
+        auth_email = _auth.get("sub", "")
+        auth_vendor_id = _auth.get("vendor_id")
         query = query.filter(
-            or_(Order.customer_email == current_user.email, Order.vendor_id == current_user.vendor_id)
+            or_(Order.customer_email == auth_email, Order.vendor_id == auth_vendor_id)
         )
 
     # Apply filters
@@ -8872,7 +8875,7 @@ def update_order_status(
     status: Optional[str] = None,  # Query param for Android/iOS apps
     status_update: Optional[OrderStatusUpdate] = None,  # Body for web/integration tests
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    _auth: dict = Depends(require_any_auth)
 ):
     """Update order status. Accepts status as query param OR in request body."""
     # Support both query param and body for cross-platform compatibility
@@ -8887,10 +8890,14 @@ def update_order_status(
         raise HTTPException(status_code=404, detail="Order not found")
 
     # SECURITY: Verify current user is a participant in this order
-    if current_user.role != UserRole.ADMIN:
-        is_customer = order.customer_email and order.customer_email == current_user.email
-        is_vendor = current_user.vendor_id and order.vendor_id == current_user.vendor_id
-        is_driver = current_user.driver_id and order.driver_id == current_user.driver_id
+    auth_role = _auth.get("role", "")
+    if auth_role != "admin":
+        auth_email = _auth.get("sub", "")
+        auth_vendor_id = _auth.get("vendor_id")
+        auth_driver_id = _auth.get("driver_id")
+        is_customer = order.customer_email and order.customer_email == auth_email
+        is_vendor = auth_vendor_id and order.vendor_id == auth_vendor_id
+        is_driver = auth_driver_id and order.driver_id == auth_driver_id
         if not (is_customer or is_vendor or is_driver):
             raise HTTPException(status_code=403, detail="You can only update orders you are involved in")
 
@@ -8962,7 +8969,7 @@ def update_order_status(
 def get_platform_revenue(
     period: str = Query("month", description="week, month, quarter, year"),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _user = Depends(require_admin),
 ):
     """
     Get platform revenue statistics.
@@ -9100,7 +9107,7 @@ def get_vendor_payouts_list(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _user = Depends(require_admin),
 ):
     """
     Get vendor payout records.
@@ -9207,7 +9214,7 @@ def get_tickets(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _user = Depends(require_admin),
 ):
     """Get all support tickets with optional filtering."""
     from models import SupportTicket, TicketStatus, TicketPriority, TicketType
@@ -9271,7 +9278,7 @@ def get_tickets(
 def get_ticket_metrics(
     period: str = Query("month", description="week, month, quarter, year"),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _user = Depends(require_admin),
 ):
     """Get ticket metrics for JIRA Dashboard."""
     from models import SupportTicket, TicketStatus, TicketPriority, TicketType
@@ -9323,7 +9330,7 @@ def get_ticket_metrics(
 def get_ticket_trends(
     period: str = Query("month", description="week, month, quarter, year"),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _user = Depends(require_admin),
 ):
     """Get ticket creation and resolution trends."""
     from models import SupportTicket, TicketStatus
@@ -9376,7 +9383,7 @@ def get_ticket_trends(
 
 
 @app.get("/api/tickets/priority-distribution")
-def get_priority_distribution(db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def get_priority_distribution(db: Session = Depends(get_db), _user = Depends(require_admin)):
     """Get ticket priority distribution."""
     from models import SupportTicket, TicketPriority, TicketStatus
 
@@ -9408,7 +9415,7 @@ def get_priority_distribution(db: Session = Depends(get_db), _user = Depends(get
 
 
 @app.get("/api/tickets/resolution-by-type")
-def get_resolution_by_type(db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def get_resolution_by_type(db: Session = Depends(get_db), _user = Depends(require_admin)):
     """Get average resolution time by ticket type."""
     from models import SupportTicket, TicketType, TicketStatus
     from collections import defaultdict
@@ -9443,7 +9450,7 @@ def get_resolution_by_type(db: Session = Depends(get_db), _user = Depends(get_cu
 
 
 @app.get("/api/tickets/team-performance")
-def get_team_performance(db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def get_team_performance(db: Session = Depends(get_db), _user = Depends(require_admin)):
     """Get ticket distribution by team."""
     from models import SupportTicket, TicketStatus
     from collections import defaultdict
@@ -9478,7 +9485,7 @@ def get_team_performance(db: Session = Depends(get_db), _user = Depends(get_curr
 
 
 @app.post("/api/tickets")
-def create_ticket(ticket_data: TicketCreate, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def create_ticket(ticket_data: TicketCreate, db: Session = Depends(get_db), _user = Depends(require_admin)):
     """Create a new support ticket."""
     from models import SupportTicket, TicketPriority, TicketType, TicketStatus
 
@@ -9539,7 +9546,7 @@ def create_ticket(ticket_data: TicketCreate, db: Session = Depends(get_db), _use
 
 
 @app.patch("/api/tickets/{ticket_id}")
-def update_ticket(ticket_id: str, ticket_data: TicketUpdate, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def update_ticket(ticket_id: str, ticket_data: TicketUpdate, db: Session = Depends(get_db), _user = Depends(require_admin)):
     """Update a support ticket."""
     from models import SupportTicket, TicketPriority, TicketType, TicketStatus
 
@@ -12848,7 +12855,7 @@ class WebhookPayload(BaseModel):
 async def start_verification(
     request: VerificationRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Start document verification process with third-party provider.
@@ -13326,14 +13333,13 @@ def submit_manual_review(
     action: str = Query(..., description="approve or reject"),
     notes: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin: User = Depends(require_admin)
 ):
     """
     Admin endpoint to manually approve or reject document verification.
     Used when documents need human review in the ZIP dashboard.
     """
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    # require_admin already enforces admin role -- redundant check removed
 
     if action not in ["approve", "reject"]:
         raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
@@ -15947,7 +15953,7 @@ def send_chat_message(
     ride_id: int,
     message: str = Form(...),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Send a chat message (alias endpoint)"""
     message_id = ride_id * 1000 + 1
@@ -15970,7 +15976,7 @@ class DeliveryDecisionRequest(BaseModel):
 
 
 @app.post("/api/erp/orders/{order_id}/start-delivery-decision")
-async def start_delivery_decision(order_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+async def start_delivery_decision(order_id: int, db: Session = Depends(get_db), _auth_vendor: Vendor = Depends(require_vendor)):
     """
     Start the delivery decision window for an order.
     Alias for /api/erp/orders/{order_id}/request-delivery-decision
@@ -16012,7 +16018,7 @@ async def restaurant_delivery_decision(
     order_id: int,
     decision_request: DeliveryDecisionRequest,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth_vendor: Vendor = Depends(require_vendor),
 ):
     """
     Restaurant makes a delivery decision (self-deliver or pass to driver).
@@ -16108,7 +16114,7 @@ async def restaurant_delivery_decision(
 
 
 @app.get("/api/erp/orders/{order_id}/delivery-decision-status")
-async def get_delivery_decision_status(order_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+async def get_delivery_decision_status(order_id: int, db: Session = Depends(get_db), _auth_vendor: Vendor = Depends(require_vendor)):
     """
     Get the delivery decision status for an order.
     Used by iOS restaurant app.
@@ -16630,7 +16636,7 @@ async def send_order_chat_message(
 async def web_send_chat_message(
     request: dict,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Send a chat message - Production Web Frontend endpoint"""
     from models import ChatConversation, ChatMessage, MessageSenderType, Order
@@ -16698,7 +16704,7 @@ async def web_get_chat_messages(
     limit: int = 50,
     offset: int = 0,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Get chat messages for an order - Production Web Frontend endpoint"""
     from models import ChatConversation, ChatMessage
@@ -16741,7 +16747,7 @@ async def web_mark_messages_read(
     reader_type: str = Query(...),
     reader_id: int = Query(...),
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """Mark messages as read - Production Web Frontend endpoint"""
     from models import ChatConversation, ChatMessage
@@ -16916,7 +16922,7 @@ async def web_get_customer_conversations(
 async def get_order_modification(
     order_id: int,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get order modification details (e.g., when items are unavailable).
@@ -16962,7 +16968,7 @@ async def respond_to_order_modification(
     order_id: int,
     request: dict,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Respond to order modification (accept/reject).
@@ -17004,7 +17010,7 @@ async def mark_items_unavailable(
     order_id: int,
     request: dict,
     db: Session = Depends(get_db),
-    _user = Depends(get_current_user),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Mark items as unavailable (vendor/restaurant use).
@@ -18994,7 +19000,7 @@ def setup_support_customer(secret_key: Optional[str] = Query(None), db: Session 
 
 
 @app.get("/api/debug/order/{order_id}")
-def debug_order(order_id: int, db: Session = Depends(get_db), _user = Depends(get_current_user)):
+def debug_order(order_id: int, db: Session = Depends(get_db), _user = Depends(require_admin)):
     """Debug endpoint to check raw order data - disabled in production."""
     if _is_production:
         raise HTTPException(status_code=404, detail="Not found")
