@@ -1714,6 +1714,7 @@ public class P2PAPIService: ObservableObject {
         name: String,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
+        // TODO: [MEDIUM] API mismatch — path /api/customer/{id}/profile does not exist. Backend expects PUT /api/auth/customer/profile (no customerId in path, uses JWT)
         guard let url = URL(string: "\(baseURL)/customer/\(customerId)/profile") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
@@ -6886,6 +6887,7 @@ public class P2PAPIService: ObservableObject {
         proposedFare: Double,
         completion: @escaping (Result<FareNegotiationResponse, Error>) -> Void
     ) {
+        // TODO: [LOW] API mismatch — uses GET with query param for mutation; POST with JSON body is conventional
         // Backend expects proposed_fare as query parameter
         guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/customer-negotiate?proposed_fare=\(proposedFare)") else {
             completion(.failure(P2PAPIError.invalidURL))
@@ -6931,6 +6933,7 @@ public class P2PAPIService: ObservableObject {
         acceptedFare: Double,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
+        // TODO: [LOW] API mismatch — uses GET with query param for mutation; POST with JSON body is conventional
         // Backend expects accepted_fare as query parameter, not POST body
         guard let url = URL(string: "\(baseURL)/erp/rides/\(rideId)/customer-accept-fare?accepted_fare=\(acceptedFare)") else {
             completion(.failure(P2PAPIError.invalidURL))

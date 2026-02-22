@@ -5,6 +5,7 @@ import os
 private let logger = Logger(subsystem: "com.dollorai.shared", category: "ChatService")
 
 /// Dollor.ai Chat Service
+// TODO: [CRITICAL] API mismatch — Double URL prefix (chatServiceURL includes /api/chat, then paths add /api/chat again). Also path structure differs from backend (/api/chat/send vs /api/chat/conversations/{id}/messages). All 6 endpoints will 404.
 /// Real-time messaging between independent drivers and customers
 /// MATCHMAKING PLATFORM - Facilitates communication, does not monitor content
 public class ChatService: ObservableObject {

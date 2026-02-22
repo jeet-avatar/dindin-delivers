@@ -5,6 +5,7 @@ private let logger = Logger(subsystem: "com.dollorai.shared", category: "Negotia
 import Combine
 
 /// Dollor.ai Negotiation Service
+// TODO: [CRITICAL] API mismatch — Double URL prefix AND no /api/negotiations routes in backend. Backend uses /api/erp/negotiate/* paths. All 5 endpoints will 404.
 /// Real-time price negotiation between independent drivers and customers
 /// MATCHMAKING PLATFORM - Platform suggests prices, parties negotiate freely
 public class NegotiationService: ObservableObject {

@@ -4,6 +4,7 @@ import os
 private let logger = Logger(subsystem: "com.dollorai.shared", category: "TripBoardService")
 
 // MARK: - Trip Board Service
+// TODO: [CRITICAL] API mismatch — ALL 22 /api/trip-board/* endpoints have NO backend routes. Every call will 404.
 /// Craigslist-style rideshare bulletin board service
 /// LEGALLY SAFE: User-generated content, no fare calculation, no payment processing
 

@@ -323,6 +323,7 @@ public class LegalService {
         fetchLegalDocument(endpoint: "/api/legal/privacy-policy", completion: completion)
     }
 
+    // TODO: [MEDIUM] API mismatch — /api/legal/tiered-pricing does not exist in backend
     public func getTieredPricingDisclosure(completion: @escaping (Result<[String: Any], Error>) -> Void) {
         guard let url = URL(string: "\(baseURL)/api/legal/tiered-pricing") else {
             completion(.failure(NSError(domain: "LegalService", code: -3, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
@@ -364,6 +365,7 @@ public class LegalService {
         }.resume()
     }
 
+    // TODO: [MEDIUM] API mismatch — /api/platform-legal/summary does not exist in backend
     public func getLegalSummary(completion: @escaping (Result<LegalSummary, Error>) -> Void) {
         guard let url = URL(string: "\(baseURL)/api/platform-legal/summary") else {
             completion(.failure(NSError(domain: "LegalService", code: -3, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
@@ -491,6 +493,7 @@ public class LegalService {
 
     // MARK: - Zero Liability Order API
 
+    // TODO: [MEDIUM] API mismatch — /api/orders/v2/legal/zero-liability-model does not exist. No /api/orders/v2/ routes in backend.
     public func getZeroLiabilityModel(completion: @escaping (Result<[String: Any], Error>) -> Void) {
         guard let url = URL(string: "\(baseURL)/api/orders/v2/legal/zero-liability-model") else {
             completion(.failure(NSError(domain: "LegalService", code: -3, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
@@ -534,6 +537,7 @@ public class LegalService {
 
     // MARK: - Order Confirmations
     
+    // TODO: [MEDIUM] API mismatch — /api/orders/v2/restaurant/confirm-payment does not exist in backend
     public func confirmRestaurantPayment(orderId: String, restaurantEmail: String, amount: Double, paymentMethod: String, completion: @escaping (Result<[String: Any], Error>) -> Void) {
         guard let url = URL(string: "\(baseURL)/api/orders/v2/restaurant/confirm-payment") else {
             completion(.failure(NSError(domain: "LegalService", code: -3, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
@@ -556,6 +560,7 @@ public class LegalService {
         performRequest(request, completion: completion)
     }
     
+    // TODO: [MEDIUM] API mismatch — /api/orders/v2/customer/confirm-delivery does not exist in backend
     public func confirmCustomerDelivery(orderId: String, customerEmail: String, rating: Int? = nil, feedback: String? = nil, completion: @escaping (Result<[String: Any], Error>) -> Void) {
         guard let url = URL(string: "\(baseURL)/api/orders/v2/customer/confirm-delivery") else {
             completion(.failure(NSError(domain: "LegalService", code: -3, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
@@ -578,6 +583,7 @@ public class LegalService {
         performRequest(request, completion: completion)
     }
     
+    // TODO: [MEDIUM] API mismatch — /api/orders/v2/driver/confirm-payment does not exist in backend
     public func confirmDriverPayment(orderId: String, driverEmail: String, amount: Double, paymentMethod: String, completion: @escaping (Result<[String: Any], Error>) -> Void) {
         guard let url = URL(string: "\(baseURL)/api/orders/v2/driver/confirm-payment") else {
             completion(.failure(NSError(domain: "LegalService", code: -3, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
