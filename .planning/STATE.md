@@ -1,21 +1,21 @@
 # GSD Project State
 
 **Project**: Dollor.ai Platform
-**Status**: v1.3 Platform Hardening -- MILESTONE COMPLETE (shipped 2026-02-22)
-**Last activity**: 2026-02-22 -- v1.3 milestone archived
+**Status**: v1.4 App Release + INFRA -- Defining requirements
+**Last activity**: 2026-02-22 -- Milestone v1.4 started
 
 ## Current Position
 
-**Active Phase:** None -- between milestones
-**Current Plan:** N/A
-**Progress:** [██████████] 100%
+**Active Phase:** Not started (defining requirements)
+**Current Plan:** —
+**Progress:** [░░░░░░░░░░] 0%
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Drivers keep 100% of delivery fees and tips
-**Current focus:** Planning next milestone
+**Current focus:** v1.4 App Release + INFRA
 
 ## Completed Milestones
 

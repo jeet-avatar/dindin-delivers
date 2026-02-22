@@ -93,5 +93,18 @@ Dollor.ai is a **matchmaking platform** connecting customers with restaurants an
 | Identifier-based rate limit keys (v1.3) | Per-email/user/IP scoping for different endpoint types | ✓ Good |
 | Skip Phase 04 INFRA (v1.3) | INFRA items are ops tasks not code — defer to v1.4 | — Pending |
 
+## Current Milestone: v1.4 App Release + INFRA
+
+**Goal:** Verify all iOS and Android apps call correct backend APIs (no assumptions), bump version numbers for all 6 apps, push iOS builds to TestFlight and Android builds to Firebase, and resolve deferred INFRA items (CloudFront header, key revocation, credentials).
+
+**Target features:**
+- Verify every API call in all 3 iOS apps and 3 Android apps against actual backend routes
+- Bump build/version numbers for Customer, Driver, and Restaurant apps (iOS + Android)
+- Push iOS builds to TestFlight
+- Push Android builds to Firebase App Distribution
+- Fix CloudFront server header leak (INFRA-01)
+- Confirm App Store Connect key revocation status (INFRA-02)
+- Address remaining credential items (INFRA-03)
+
 ---
-*Last updated: 2026-02-22 after v1.3 milestone*
+*Last updated: 2026-02-22 after v1.4 milestone start*
