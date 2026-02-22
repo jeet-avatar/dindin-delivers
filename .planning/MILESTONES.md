@@ -1,5 +1,25 @@
 # Milestones
 
+## v1.3 Platform Hardening (Shipped: 2026-02-22)
+
+**Phases completed:** 3 phases (01-03), 9 plans, 18 tasks
+**Files modified:** 196 | **Lines:** +23,993 / -4,495
+
+**Key accomplishments:**
+- Secured 276 endpoints with role-specific Depends(require_*) auth — zero endpoints rely solely on middleware
+- Created auth_utils.py with 5 reusable auth functions replacing all manual JWT decode patterns
+- Added global auth middleware as defense-in-depth safety net for unauthenticated requests
+- Added IDOR protection across all role-specific endpoints — ownership checks, ID spoofing prevention
+- Rate-limited 50 sensitive endpoints via Redis (password reset 5/hr, registration 5/hr, payment 10/min, admin 30/min)
+- Centralized RateLimiter in cache.py with IP/email/user-ID-based key support and Retry-After headers
+
+**Known gaps:**
+- INFRA-01: CloudFront server header suppression not implemented (deferred to v1.4)
+- INFRA-02: App Store Connect key revocation pending user action in console
+- INFRA-03: Remaining credential items from MEMORY.md not formally addressed
+
+---
+
 ## v1.2 App Store Ready (Shipped: 2026-02-21)
 
 **Phases completed:** 5 phases (01-05), 12 plans, 66 commits
