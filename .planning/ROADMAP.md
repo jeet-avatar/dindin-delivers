@@ -40,7 +40,7 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 - [x] **Phase 01: Customer + Driver Endpoint Auth** - Add per-endpoint Depends() auth with ownership checks to all customer and driver endpoints (completed 2026-02-21)
 - [x] **Phase 02: Vendor + Admin Endpoint Auth** - Add per-endpoint Depends() auth to all vendor and admin endpoints, achieving zero middleware-only endpoints (completed 2026-02-22)
-- [ ] **Phase 03: Rate Limiting Expansion** - Extend Redis-based rate limiting from login to password reset, payment, admin mutations, and registration endpoints
+- [x] **Phase 03: Rate Limiting Expansion** - Extend Redis-based rate limiting from login to password reset, payment, admin mutations, and registration endpoints (completed 2026-02-22)
 - [ ] **Phase 04: Infrastructure Security + Final Verification** - Fix CloudFront server header, finalize credential revocation, deploy all changes, verify end-to-end
 
 ## Phase Details
@@ -90,11 +90,11 @@ Plans:
   3. Admin mutation endpoints return 429 after exceeding threshold (e.g., 30 requests/minute per admin)
   4. Registration endpoints return 429 after exceeding threshold (e.g., 5 requests/hour per IP)
   5. All 429 responses include a Retry-After header with seconds until the limit resets
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 03-01-PLAN.md -- Move rate limiting infra to cache.py + rate limit password reset (8) and registration (10) endpoints
-- [ ] 03-02-PLAN.md -- Rate limit payment/checkout (10) and admin mutation (18) endpoints across 5 files
+- [x] 03-01-PLAN.md -- Move rate limiting infra to cache.py + rate limit password reset (8) and registration (10) endpoints
+- [x] 03-02-PLAN.md -- Rate limit payment/checkout (10) and admin mutation (18) endpoints across 5 files
 
 ### Phase 04: Infrastructure Security + Final Verification
 **Goal**: CloudFront stops leaking the uvicorn server header, all credential items are resolved, and the full v1.3 changeset is deployed and verified on staging then production
@@ -116,5 +116,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 01. Customer + Driver Endpoint Auth | 3/3 | Complete    | 2026-02-21 |
 | 02. Vendor + Admin Endpoint Auth | 4/4 | Complete    | 2026-02-22 |
-| 03. Rate Limiting Expansion | 1/2 | In Progress|  |
+| 03. Rate Limiting Expansion | 2/2 | Complete   | 2026-02-22 |
 | 04. Infrastructure Security + Final Verification | 0/TBD | Not started | - |
