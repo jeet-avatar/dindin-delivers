@@ -25,9 +25,9 @@
 
 ### Infrastructure Security
 
-- [ ] **INFRA-01**: CloudFront response headers policy suppresses uvicorn server header
-- [ ] **INFRA-02**: App Store Connect key JFVA7628SX confirmed revoked or non-existent
-- [ ] **INFRA-03**: All credential items from MEMORY.md "Remaining Security Items" addressed or deferred with rationale
+- [x] **INFRA-01**: CloudFront response headers policy suppresses uvicorn server header
+- [x] **INFRA-02**: App Store Connect key JFVA7628SX confirmed revoked or non-existent
+- [x] **INFRA-03**: All credential items from MEMORY.md "Remaining Security Items" addressed or deferred with rationale
 
 ## Future Requirements
 
@@ -65,9 +65,9 @@
 | DIST-04 | Phase 05 | Pending |
 | DIST-05 | Phase 05 | Pending |
 | DIST-06 | Phase 05 | Pending |
-| INFRA-01 | Phase 01 | Pending |
-| INFRA-02 | Phase 01 | Pending |
-| INFRA-03 | Phase 01 | Pending |
+| INFRA-01 | Phase 01 | Complete |
+| INFRA-02 | Phase 01 | Complete |
+| INFRA-03 | Phase 01 | Complete |
 
 **Coverage:**
 - v1.4 requirements: 15 total

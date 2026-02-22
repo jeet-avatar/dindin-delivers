@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Drivers keep 100% of delivery fees and tips
-**Current focus:** v1.4 Phase 01 -- Infrastructure Cleanup
+**Current focus:** v1.4 Phase 02 -- iOS API Verification
 
 ## Current Position
 
-Phase: 1 of 5 (Infrastructure Cleanup)
-Plan: 0 of 1 in current phase
+Phase: 2 of 5 (iOS API Verification)
+Plan: 0 of 3 in current phase
 Status: Ready to plan
-Last activity: 2026-02-21 -- Roadmap created for v1.4
+Last activity: 2026-02-22 -- Phase 01 complete (infrastructure cleanup)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [##░░░░░░░░] 8%
 
 ## Completed Milestones
 
@@ -34,13 +34,16 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| Phase 01 | 1 | 15min | 15min |
 
 ## Accumulated Context
 
 ### Decisions
 
 - Skip Phase 04 INFRA in v1.3, carry to v1.4 as Phase 01 (from PROJECT.md)
+- Used CloudFront response headers policy (not Lambda@Edge) for server header override -- simpler, no code, no cost
+- Deferred git history cleanup for .env and .p8 files -- force-push too destructive
+- Deferred DB password rotation -- already in AWS Secrets Manager, rotation requires coordinated downtime
 
 ### Pending Todos
 
@@ -48,7 +51,7 @@ None.
 
 ### Blockers/Concerns
 
-- INFRA-02 (key revocation) requires user action in App Store Connect console -- not automatable by Claude
+None.
 
 ### Quick Tasks (v1.4)
 
@@ -57,5 +60,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Phase 01 context gathered, ready to plan
-Resume: `/gsd:plan-phase 01`
+Stopped at: Completed 01-01-PLAN.md (Phase 01 complete)
+Resume: `/gsd:plan-phase 02`
