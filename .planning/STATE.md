@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-23 -- Quick task 12: Built all 3 iOS apps (Customer 1089, Driver 197, Restaurant 165)
+Last activity: 2026-02-23 -- Quick task 13: Uploaded all 3 iOS apps to TestFlight (Customer 1089, Driver 197, Restaurant 165)
 
 Progress: [####░░░░░░] 40%
 
@@ -49,6 +49,7 @@ Progress: [####░░░░░░] 40%
 - 5 service files classified as dead code: TripBoardService, DollorV3Service, ACHPaymentService, NegotiationService, most of LegalService
 - Double URL prefix bug in AppConfig.swift affects ChatService, NegotiationService, CallService
 - [Phase 02]: Driver app API audit: 53 calls verified, 4 mismatches (broken doc upload alias, wrong chat auth token, PUT vs POST FCM)
+- iOS TestFlight upload: use xcodebuild -exportArchive with -authenticationKey* flags (not separate altool step) -- ExportOptions.plist destination:upload handles export+upload in one step
 
 ### Pending Todos
 
@@ -63,9 +64,10 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 12 | Bump build numbers and build all 3 iOS apps for Production | 2026-02-23 | 44962019 | [12-bump-build-numbers-and-build-all-3-ios-a](./quick/12-bump-build-numbers-and-build-all-3-ios-a/) |
+| 13 | Archive and upload all 3 iOS apps to TestFlight | 2026-02-23 | (no commit) | [13-archive-and-upload-all-3-ios-apps-to-tes](./quick/13-archive-and-upload-all-3-ios-apps-to-tes/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Phase 02 complete + built all 3 iOS apps (Customer 1089, Driver 197, Restaurant 165)
+Stopped at: Quick task 13 complete -- all 3 iOS apps uploaded to TestFlight
 Resume: `/gsd:plan-phase 03` (Android API Verification)

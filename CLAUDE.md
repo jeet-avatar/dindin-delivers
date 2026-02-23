@@ -143,12 +143,23 @@ cd /Users/jeet/StudioProjects/eatfair-android
 ./gradlew :driver:assembleDebug    # Driver
 ./gradlew :partner:assembleDebug   # Restaurant
 
-# Release (Play Store)
+# Release APKs (for distribution)
 ./gradlew :app:assembleRelease      # Customer APK
-./gradlew :app:bundleRelease        # Customer AAB
 ./gradlew :driver:assembleRelease   # Driver APK
 ./gradlew :partner:assembleRelease  # Restaurant APK
+./gradlew :app:bundleRelease        # Customer AAB (Play Store)
+
+# All release at once
+./gradlew assembleRelease
+
+# Tests
+./gradlew :app:testDebugUnitTest :driver:testDebugUnitTest :partner:testDebugUnitTest
 ```
+
+Android packages: `ai.dollor.customer`, `ai.dollor.driver`, `ai.dollor.partner`
+Signing: `local.properties` → `RELEASE_KEYSTORE_PATH`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`
+APK output: `{module}/build/outputs/apk/release/{module}-release.apk`
+**Firebase App Distribution: NOT YET CONFIGURED** — needs Gradle plugin setup
 
 ### Build iOS Apps
 ```bash
@@ -174,6 +185,42 @@ xcodebuild -workspace apps/ios/EatFair.xcworkspace \
 Configs: `apps/ios/Config/` (Development, Staging, Production)
 Bundle IDs: `com.dollorai.customer`, `com.dollorai.delivery`, `com.dollorai.restaurant`
 
+### Upload iOS to TestFlight
+```bash
+cd /Users/jeet/doordash-p2p
+
+# Archive (per app — replace {workspace}, {scheme}, {name})
+xcodebuild archive \
+  -workspace apps/ios/{app}/{workspace}.xcworkspace \
+  -scheme {scheme} -configuration Release \
+  -archivePath /tmp/dollor-archives/{name}.xcarchive \
+  -destination 'generic/platform=iOS' -allowProvisioningUpdates
+
+# Export + Upload (ExportOptions.plist has destination:upload — does BOTH)
+xcodebuild -exportArchive \
+  -archivePath /tmp/dollor-archives/{name}.xcarchive \
+  -exportOptionsPlist apps/ios/{app}/ExportOptions.plist \
+  -exportPath /tmp/dollor-ipas/{name} \
+  -allowProvisioningUpdates \
+  -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_9K626GB728.p8 \
+  -authenticationKeyID 9K626GB728 \
+  -authenticationKeyIssuerID 80d10e49-f379-462f-9668-5ea53016812e
+```
+
+**App values:**
+| App | Workspace Dir | Workspace | Scheme |
+|-----|---------------|-----------|--------|
+| Customer | `customer` | `eatfaircustomer` | `eatfaircustomer` |
+| Driver | `delivery` | `eatffairdelivery` | `eatffairdelivery` |
+| Restaurant | `restaurant` | `eatffairrestaurant` | `eatffairrestaurant` |
+
+**Key facts:**
+- Team ID: `PRKZ4UVCD7`
+- API Key: `9K626GB728`, Issuer: `80d10e49-f379-462f-9668-5ea53016812e`
+- Key path: `~/.appstoreconnect/private_keys/AuthKey_9K626GB728.p8`
+- Fastlane is configured but needs `MATCH_PASSWORD` — use xcodebuild automatic signing as workaround
+- Do NOT use separate `xcrun altool --upload-app` — the `-exportArchive` step handles upload when ExportOptions has `destination: upload`
+
 ### Anti-Hallucination Check
 ```bash
 # Before ANY code changes, verify with zero-hallucination lookup:
@@ -198,6 +245,31 @@ pytest tests/ -v
 # Android staging tests
 ./gradlew :app:testDebugUnitTest
 ```
+
+### Current Build Versions (Feb 23, 2026)
+
+| Platform | App | Build | Version | Bundle/Package | TestFlight/Firebase |
+|----------|-----|-------|---------|----------------|---------------------|
+| iOS | Customer | 1089 | 1.0 | `com.dollorai.customer` | Uploaded 2026-02-23 |
+| iOS | Driver | 197 | 1.0 | `com.dollorai.delivery` | Uploaded 2026-02-23 |
+| iOS | Restaurant | 165 | 1.0 | `com.dollorai.restaurant` | Uploaded 2026-02-23 |
+| Android | Customer | vC=23 | 1.0.22 | `ai.dollor.customer` | Not yet uploaded |
+| Android | Driver | vC=20 | 1.0.19 | `ai.dollor.driver` | Not yet uploaded |
+| Android | Partner | vC=16 | 1.0.15 | `ai.dollor.partner` | Not yet uploaded |
+
+### iOS API Verification (Phase 02 — Feb 23, 2026)
+- **256 total API calls** audited across 3 apps: 205 OK, 51 mismatches
+- **40 of 51** are dead code (aspirational services never wired to backend)
+- **11 actionable fixes** needed (~40 min): 3 critical (driver), 8 medium
+- FIX_PLAN: `.planning/phases/02-ios-api-verification/FIX_PLAN.md`
+- **Phase 04 (iOS Distribution) BLOCKED** until critical fixes applied
+
+### Firebase App IDs (Android)
+| App | Firebase App ID |
+|-----|-----------------|
+| Customer | `1:65740760476:android:535885ca28086e6242d459` |
+| Driver | `1:65740760476:android:7d9bed1ee685434c42d459` |
+| Partner | `1:65740760476:android:8591cc17fa4f8d4c42d459` |
 
 ---
 
@@ -359,5 +431,5 @@ Routes:
 
 ---
 
-*Last Updated: February 21, 2026*
-*Token Count: ~800 (down from 33,000)*
+*Last Updated: February 23, 2026*
+*Token Count: ~1000*
