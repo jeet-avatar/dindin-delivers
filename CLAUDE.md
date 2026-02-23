@@ -270,6 +270,14 @@ pytest tests/ -v
 - **Critical methods fixed**: FCM token save (all 3 apps), driver location updates, driver online status, order tracking, delivery decisions, KOT print, menu verification, analytics.
 - **Pattern rule**: After adding global auth middleware, audit ALL client API methods for missing auth headers — not just the ones flagged in API verification.
 
+### iOS VAPT Audit (Feb 23, 2026 — FULLY RESOLVED)
+- **16 findings** across OWASP Mobile Top 10: 0 CRITICAL, 2 HIGH, 5 MEDIUM, 4 LOW, 5 INFO
+- **SSL certificate pinning** (HIGH → FIXED): Real SHA-256 pins for `dollor.ai` + `api.dollor.ai` in `NetworkSecurity.swift`. P2PAPIService migrated from `URLSession.shared` → `secureSession` (182 calls). Commit `420d9f7f`.
+- **Production print() leak** (HIGH → FIXED): 10 bare `print()` statements wrapped in `#if DEBUG` blocks across customer app views. Commit `25fb8c1c`.
+- **Jailbreak detection** (MEDIUM → FIXED): Wired `shouldRestrictFeatures()` into all 3 app root structs with SwiftUI `.alert`. Commit `6d6cdc33`.
+- **VAPT report**: `.planning/quick/22-vapt-security-audit-on-all-3-ios-apps-ow/VAPT_REPORT.md`
+- **Positive findings**: Keychain with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, no hardcoded secrets, HTTPS everywhere in xcconfig, Apple Sign-In uses nonce, CryptoKit only
+
 ### Firebase App IDs (Android)
 | App | Firebase App ID |
 |-----|-----------------|
