@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-23 -- Quick task 22: VAPT security audit on all 3 iOS apps -- 16 findings, 3 fixed
+Last activity: 2026-02-23 -- Quick task 26: Network security audit -- 27 findings, 10 CRITICAL/HIGH fixed
 
 Progress: [####░░░░░░] 40%
 
@@ -54,6 +54,7 @@ Progress: [####░░░░░░] 40%
 - [Quick-22] SSL pinning: CloudFront staging domain NOT pinned (cert rotation), production dollor.ai/api.dollor.ai pinned with leaf+intermediate+root CA
 - [Quick-22] VAPT: 16 findings (0 CRITICAL, 2 HIGH fixed, 5 MEDIUM). URLSession.shared migration deferred (158 API methods)
 - [Phase quick-25]: Backend pentest: 18 findings (1 CRITICAL, 4 HIGH, 5 MEDIUM, 3 LOW, 4 INFO), all CRITICAL/HIGH fixed
+- [Quick-26] Network security audit: 27 findings (3 CRITICAL, 7 HIGH, 8 MEDIUM, 5 LOW, 4 INFO), all CRITICAL/HIGH fixed. WebSocket JWT auth, Swagger lockdown, X-Forwarded-For fix, in-memory rate limiter, bid abuse controls, password policy
 
 ### Pending Todos
 
@@ -82,9 +83,10 @@ None.
 | 23 | VAPT security audit on all 3 Android apps | 2026-02-23 | 90eae697 | [23-vapt-security-audit-on-all-3-android-app](./quick/23-vapt-security-audit-on-all-3-android-app/) |
 | 24 | Build and distribute security-fixed Android APKs | 2026-02-23 | 70dfda61 | [24-build-and-distribute-security-fixed-andr](./quick/24-build-and-distribute-security-fixed-andr/) |
 | 25 | Backend pentest — 18 findings, 8 fixed (incl. verifier gaps) | 2026-02-23 | 48fc43f5 | [25-penetration-test-break-dollor-ai-backend](./quick/25-penetration-test-break-dollor-ai-backend/) |
+| 26 | Network security audit — 27 findings, 10 CRITICAL/HIGH fixed | 2026-02-23 | 432ab49f | [26-network-security-and-bot-attack-audit-fi](./quick/26-network-security-and-bot-attack-audit-fi/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 25 complete -- Backend pentest: 18 findings, all CRITICAL/HIGH fixed
-Resume: Deploy security fixes to staging, then production. 12 MEDIUM/LOW findings deferred.
+Stopped at: Quick task 26 complete -- Network security audit: 27 findings, 10 CRITICAL/HIGH fixed
+Resume: Deploy security fixes (quick-25 + quick-26) to staging, then production. 17 MEDIUM/LOW findings deferred.
