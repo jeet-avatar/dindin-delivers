@@ -79,6 +79,17 @@ def override_get_db():
         db.close()
 
 
+@pytest.fixture(autouse=True)
+def _clear_rate_limits():
+    """Clear in-memory rate limits before each test to prevent cross-test pollution.
+    The in-memory rate limiter (NSA-004 fallback) persists across tests when Redis
+    is unavailable, causing spurious 429 failures."""
+    from cache import reset_memory_rate_limits
+    reset_memory_rate_limits()
+    yield
+    reset_memory_rate_limits()
+
+
 @pytest.fixture(scope="session")
 def test_db():
     """Create test database tables"""

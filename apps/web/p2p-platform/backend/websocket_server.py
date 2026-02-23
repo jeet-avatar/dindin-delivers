@@ -641,9 +641,21 @@ def _verify_ws_token(token: str, client_id: str) -> bool:
         jwt_email = payload.get("sub")
         if jwt_customer_id and str(jwt_customer_id) == entity_id_str:
             return True
-        # Accept if sub (email) matches -- fallback
+        # Fallback: look up customer by email and verify ID matches channel
         if jwt_email:
-            return True  # Email-based matching handled at app level
+            try:
+                from database import SessionLocal
+                from models import Customer
+                db = SessionLocal()
+                try:
+                    customer = db.query(Customer).filter(Customer.email == jwt_email).first()
+                    if customer and str(customer.id) == entity_id_str:
+                        return True
+                finally:
+                    db.close()
+            except Exception as e:
+                logger.warning(f"WebSocket email fallback DB lookup failed: {e}")
+            return False
         return False
 
     elif client_type == "driver":

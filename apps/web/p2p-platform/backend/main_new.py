@@ -354,10 +354,13 @@ _PUBLIC_PREFIXES = [
     "/api/admin/",            # Handled by admin_auth_middleware (don't double-check)
     "/api/demo/",             # Demo endpoints have own _require_admin_secret check
     "/ws/",                   # WebSocket connections (auth handled in websocket_route)
-    # SECURITY (NSA-002): Removed /docs, /openapi, /redoc from public prefixes
-    # In non-production, FastAPI serves them natively. In production, they're disabled at FastAPI level.
     "/privacy", "/terms",     # Legal pages (HTML)
 ]
+
+# SECURITY (NSA-002): Only allow docs prefixes in non-production environments.
+# In production, FastAPI docs are disabled at app level (docs_url=None, etc.).
+if not _is_production:
+    _PUBLIC_PREFIXES.extend(["/docs", "/openapi", "/redoc"])
 
 _PUBLIC_PATTERN_PATHS = [
     # Vendor browsing (GET only): menu, reviews, categories
@@ -1688,8 +1691,6 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email or username is required"
         )
-    print(f"Admin JSON login attempt for: {login_email}")
-
     # Find user with ADMIN role
     user = db.query(User).filter(
         User.email == login_email,
@@ -1697,7 +1698,6 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
     ).first()
 
     if not user:
-        print(f"Admin user not found: {login_email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -1705,14 +1705,11 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
         )
 
     if not verify_password(request.password, user.password_hash):
-        print(f"Password verification failed for admin")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    print(f"Admin login successful for: {user.email}")
 
     access_token = create_access_token(data={"sub": user.email, "role": "admin"})
 
@@ -1731,26 +1728,20 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # SECURITY: Rate limit login attempts to prevent brute force
     check_rate_limit(request, auth_rate_limiter, "admin_login")
-    print(f"Login attempt for: {form_data.username}")  # Debug log
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
-        print(f"User not found: {form_data.username}")  # Debug log
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    print(f"User found, verifying password...")  # Debug log
+
     if not verify_password(form_data.password, user.password_hash):
-        print(f"Password verification failed")  # Debug log
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    print(f"Login successful for: {user.email}")  # Debug log
     access_token = create_access_token(data={"sub": user.email})
     return {
         "access_token": access_token,
@@ -1763,8 +1754,7 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
 def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # SECURITY: Rate limit login attempts to prevent brute force
     check_rate_limit(request, auth_rate_limiter, "vendor_login")
-    print(f"Vendor login attempt for: {form_data.username}")
-    
+
     # Find user with VENDOR role
     user = db.query(User).filter(
         User.email == form_data.username,
@@ -1772,21 +1762,19 @@ def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     ).first()
     
     if not user:
-        print(f"Vendor user not found: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if not verify_password(form_data.password, user.password_hash):
-        print(f"Password verification failed for vendor")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Check if vendor account is active
     if user.vendor_id:
         vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
@@ -1796,8 +1784,6 @@ def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
                 detail=f"Vendor account is not approved. Status: {vendor.onboarding_status}"
             )
     
-    print(f"Vendor login successful for: {user.email}")
-
     # Get vendor business name for Android compatibility
     business_name = None
     if user.vendor_id:
@@ -2368,7 +2354,6 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
         if request.identity_token:
             try:
                 decoded = decode_google_jwt(request.identity_token)  # Same JWT decode works for Apple
-                print(f"Decoded Apple token for vendor: {decoded.keys()}")
                 # Token email takes priority over request.email
                 token_email = decoded.get('email')
                 if token_email:
@@ -2376,14 +2361,12 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
                 if not name and email:
                     name = email.split('@')[0]
             except Exception as e:
-                print(f"Error decoding Apple identity token for vendor: {e}")
+                logger.debug(f"Apple identity token decode failed for vendor auth")
 
         if not name and email:
             name = email.split('@')[0]
         elif not name:
             name = 'Restaurant Owner'
-
-        print(f"Vendor Apple auth for: {email}")
 
         # If still no email, we can't proceed
         if not email:
@@ -2593,7 +2576,6 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     """Driver login - authenticates driver and returns token"""
     # SECURITY: Rate limit login attempts to prevent brute force
     check_rate_limit(request, auth_rate_limiter, "driver_login")
-    print(f"Driver login attempt for: {form_data.username}")
 
     # Find user with DRIVER role first
     user = db.query(User).filter(
@@ -2607,23 +2589,18 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         any_user = db.query(User).filter(User.email == form_data.username).first()
         if any_user and any_user.driver_id:
             user = any_user
-            print(f"User {form_data.username} has role={any_user.role.value} but has driver_id={any_user.driver_id}, allowing driver login")
         elif any_user:
-            print(f"User exists but no driver account linked: role={any_user.role}, id={any_user.id}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         else:
-            print(f"No user found with email: {form_data.username}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-
-    print(f"Found user id={user.id}, role={user.role}, driver_id={user.driver_id}")
 
     if not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
@@ -2646,8 +2623,6 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Driver account is suspended. Please contact support@dollor.ai"
         )
-
-    print(f"Driver login successful for: {user.email} (status: {driver.status.value})")
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id})
     return {
         "access_token": access_token,
@@ -3176,7 +3151,6 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
         )
 
     if not customer.password_hash or not verify_password(form_data.password, customer.password_hash):
-        print(f"Password verification failed for customer")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -3190,7 +3164,6 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
         )
 
     full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
-    print(f"Customer login successful for: {customer.email}")
     access_token = create_access_token(data={"sub": customer.email, "role": "customer", "customer_id": customer.id})
     return {
         "access_token": access_token,
@@ -6111,7 +6084,6 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
     if request.identity_token:
         try:
             decoded = decode_google_jwt(request.identity_token)  # Same JWT decode works for Apple
-            print(f"Decoded Apple token: {decoded.keys()}")
             # Token email takes priority over request.email
             token_email = decoded.get('email')
             if token_email:
@@ -6119,7 +6091,7 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
             if not name and email:
                 name = email.split('@')[0]
         except Exception as e:
-            print(f"Error decoding Apple identity token: {e}")
+            logger.debug("Apple identity token decode failed for customer auth")
 
     if not name and email:
         name = email.split('@')[0]
@@ -6134,7 +6106,6 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
     # First: Try to find existing customer by apple_id (works for returning users without email)
     customer = db.query(Customer).filter(Customer.apple_id == request.apple_id).first()
     if customer:
-        print(f"Found existing customer by apple_id: {customer.email}")
         email = customer.email
         user = db.query(User).filter(User.email == email).first()
 
@@ -11019,7 +10990,7 @@ def update_vendor_status(
                 vendor_id=db_vendor.id
             )
             db.add(vendor_user)
-            print(f"Vendor user created: {db_vendor.contact_email} (temp password generated)")
+            logger.info("Vendor user account created for approval")
 
         # Send approval email with login instructions
         try:
@@ -11028,15 +10999,14 @@ def update_vendor_status(
                 restaurant_name=db_vendor.restaurant_name or db_vendor.company_name or "Your Restaurant",
                 contact_name=db_vendor.contact_name or "Partner"
             )
-            print(f"Approval email sent to: {db_vendor.contact_email}")
         except Exception as e:
-            print(f"Failed to send approval email: {str(e)}")
+            logger.error(f"Failed to send approval email: {str(e)}")
 
     # If vendor is being rejected or suspended, unpublish from platforms
     if status.upper() in ["REJECTED", "SUSPENDED", "INACTIVE"]:
         db_vendor.is_published = False
         db_vendor.published_platforms = None
-        print(f"⚠️ Vendor {vendor_id} ({db_vendor.restaurant_name}) unpublished from all platforms")
+        logger.info(f"Vendor {vendor_id} unpublished from all platforms")
 
     db.commit()
     db.refresh(db_vendor)

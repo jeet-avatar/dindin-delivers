@@ -132,6 +132,12 @@ def _memory_rate_limit_check(key: str, max_requests: int, window_seconds: int) -
     return True, 0
 
 
+def reset_memory_rate_limits():
+    """Clear all in-memory rate limit state. Used in tests to prevent cross-test pollution."""
+    global _memory_rate_limits
+    _memory_rate_limits = {}
+
+
 def rate_limit_check(key: str, max_requests: int, window_seconds: int) -> tuple[bool, int]:
     """
     Check rate limit using Redis sorted sets (sliding window).
