@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-23 -- Quick task 24: Build and distribute security-fixed Android APKs
+Last activity: 2026-02-23 -- Quick task 22: VAPT security audit on all 3 iOS apps -- 16 findings, 3 fixed
 
 Progress: [####░░░░░░] 40%
 
@@ -51,6 +51,8 @@ Progress: [####░░░░░░] 40%
 - [Phase 02]: Driver app API audit: 53 calls verified, 4 mismatches (broken doc upload alias, wrong chat auth token, PUT vs POST FCM)
 - iOS TestFlight upload: use xcodebuild -exportArchive with -authenticationKey* flags (not separate altool step) -- ExportOptions.plist destination:upload handles export+upload in one step
 - Post-security regression: requestRide() was the only ride method missing auth header in P2PAPIService.swift -- after global auth middleware, must audit ALL client API calls for auth headers
+- [Quick-22] SSL pinning: CloudFront staging domain NOT pinned (cert rotation), production dollor.ai/api.dollor.ai pinned with leaf+intermediate+root CA
+- [Quick-22] VAPT: 16 findings (0 CRITICAL, 2 HIGH fixed, 5 MEDIUM). URLSession.shared migration deferred (158 API methods)
 
 ### Pending Todos
 
@@ -75,10 +77,12 @@ None.
 | 20 | Bump build numbers + upload all 3 iOS apps to TestFlight | 2026-02-23 | 3a857fa5 | [20-bump-build-numbers-archive-and-upload-al](./quick/20-bump-build-numbers-archive-and-upload-al/) |
 | 21 | Build + upload all 3 Android APKs to Firebase App Distribution | 2026-02-23 | fb8a2f38 | [21-build-upload-to-firebase-and-distribute-](./quick/21-build-upload-to-firebase-and-distribute-/) |
 | 23 | VAPT security audit on all 3 Android apps | 2026-02-23 | 90eae697 | [23-vapt-security-audit-on-all-3-android-app](./quick/23-vapt-security-audit-on-all-3-android-app/) |
+| 22 | VAPT security audit on all 3 iOS apps (OWASP M1-M10) | 2026-02-23 | 25fb8c1c | [22-vapt-security-audit-on-all-3-ios-apps-ow](./quick/22-vapt-security-audit-on-all-3-ios-apps-ow/) |
+| 23 | VAPT security audit on all 3 Android apps | 2026-02-23 | 90eae697 | [23-vapt-security-audit-on-all-3-android-app](./quick/23-vapt-security-audit-on-all-3-android-app/) |
 | 24 | Build and distribute security-fixed Android APKs | 2026-02-23 | 70dfda61 | [24-build-and-distribute-security-fixed-andr](./quick/24-build-and-distribute-security-fixed-andr/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 24 complete -- Built and distributed 3 security-hardened Android APKs to Firebase App Distribution
+Stopped at: Quick task 22 complete -- VAPT audit on 3 iOS apps, 16 findings, SSL pinning + print() + jailbreak fixes
 Resume: Continue with next task
