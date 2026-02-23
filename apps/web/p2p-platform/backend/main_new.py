@@ -81,7 +81,20 @@ def sanitize_document_type(doc_type: str, valid_types: list[str]) -> str:
     return sanitized if sanitized else "document"
 
 
-app = FastAPI(title="Invoice Management System")
+# Determine environment - production is the default (fail-safe)
+# Options: production, staging, development, local, dev
+# NOTE: Must be before FastAPI() creation to conditionally disable docs in production
+_env = os.getenv("ENVIRONMENT", "production").lower()
+_is_production = _env in ("production", "prod")
+_is_staging = _env in ("staging", "stage")
+
+app = FastAPI(
+    title="Invoice Management System",
+    # SECURITY (NSA-002): Disable API docs in production to prevent reconnaissance
+    docs_url="/docs" if not _is_production else None,
+    redoc_url="/redoc" if not _is_production else None,
+    openapi_url="/openapi.json" if not _is_production else None,
+)
 
 # CORS Configuration - SOC 2 Compliant
 # Production-safe origins list - NEVER add localhost here
@@ -123,12 +136,6 @@ DEVELOPMENT_ORIGINS = [
     "http://127.0.0.1:5174",
     "http://127.0.0.1:8080",
 ]
-
-# Determine environment - production is the default (fail-safe)
-# Options: production, staging, development, local, dev
-_env = os.getenv("ENVIRONMENT", "production").lower()
-_is_production = _env in ("production", "prod")
-_is_staging = _env in ("staging", "stage")
 
 # Build allowed origins based on environment
 ALLOWED_ORIGINS = PRODUCTION_ORIGINS.copy()
@@ -346,9 +353,9 @@ _PUBLIC_PREFIXES = [
     "/uploads/",              # Static files
     "/api/admin/",            # Handled by admin_auth_middleware (don't double-check)
     "/api/demo/",             # Demo endpoints have own _require_admin_secret check
-    "/ws/",                   # WebSocket connections
-    "/docs", "/openapi",      # Swagger UI / OpenAPI docs
-    "/redoc",                 # ReDoc
+    "/ws/",                   # WebSocket connections (auth handled in websocket_route)
+    # SECURITY (NSA-002): Removed /docs, /openapi, /redoc from public prefixes
+    # In non-production, FastAPI serves them natively. In production, they're disabled at FastAPI level.
     "/privacy", "/terms",     # Legal pages (HTML)
 ]
 
@@ -447,6 +454,39 @@ def sanitize_text(text: Optional[str]) -> Optional[str]:
     if not text or not isinstance(text, str):
         return text
     return _HTML_TAG_RE.sub('', text).strip()
+
+
+def _validate_password(password: str) -> None:
+    """
+    SECURITY (NSA-009/NSA-010): Enforce password policy on ALL registration endpoints.
+    Raises HTTPException(400) if password does not meet requirements.
+    Requirements: 8+ chars, at least one uppercase, one lowercase, one digit.
+    """
+    if not password or len(password.strip()) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password is required and cannot be empty"
+        )
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long"
+        )
+    if not any(c.isupper() for c in password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must contain at least one uppercase letter"
+        )
+    if not any(c.islower() for c in password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must contain at least one lowercase letter"
+        )
+    if not any(c.isdigit() for c in password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must contain at least one number"
+        )
 
 
 def _require_admin_secret(secret_key: Optional[str] = None):
@@ -1557,7 +1597,7 @@ def register(http_request: Request, user: UserCreate, db: Session = Depends(get_
     check_rate_limit(http_request, registration_rate_limiter, "register")
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=400, detail="Registration failed. If you already have an account, please log in.")
 
     hashed_password = get_password_hash(user.password)
     # SECURITY: Never allow admin role via public registration
@@ -2060,19 +2100,15 @@ def vendor_register(http_request: Request, request: VendorRegisterRequest, db: S
                 detail="Restaurant name must be 255 characters or less"
             )
 
-        # Validate password is not empty
-        if not request.password or len(request.password.strip()) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password is required and cannot be empty"
-            )
+        # SECURITY (NSA-009): Enforce password policy for vendor registration
+        _validate_password(request.password)
 
         # Check if email already exists
         existing_user = db.query(User).filter(User.email == request.email).first()
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Registration failed. If you already have an account, please log in."
             )
 
         # Create vendor record first
@@ -2446,7 +2482,6 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
 @app.post("/api/auth/password-reset/request")
 def request_password_reset(http_request: Request, request: PasswordResetRequest, db: Session = Depends(get_db)):
     check_rate_limit(http_request, password_reset_limiter, "pwd_reset", identifier=request.email.lower())
-    print(f"Password reset requested for: {request.email}")
 
     user = db.query(User).filter(User.email == request.email).first()
     if not user:
@@ -2458,10 +2493,6 @@ def request_password_reset(http_request: Request, request: PasswordResetRequest,
         data={"sub": user.email, "type": "password_reset"},
         expires_delta=timedelta(hours=1)
     )
-
-    # In production, send email with reset link
-    # For now, just log it
-    print(f"Password reset token for {user.email}: {reset_token[:50]}...")
 
     # TODO: Integrate with email service (SendGrid, SES, etc.)
     # send_password_reset_email(user.email, reset_token)
@@ -2480,6 +2511,18 @@ def confirm_password_reset(http_request: Request, request: PasswordResetConfirm,
         if token_type != "password_reset":
             raise HTTPException(status_code=400, detail="Invalid reset token")
 
+        # SECURITY: Prevent token reuse -- check if this token has already been used
+        import hashlib
+        token_hash = hashlib.sha256(request.token.encode()).hexdigest()
+        used_key = f"pwd_reset_used:{token_hash}"
+        try:
+            from cache import redis_client, REDIS_AVAILABLE
+            if REDIS_AVAILABLE and redis_client:
+                if redis_client.get(used_key):
+                    raise HTTPException(status_code=400, detail="Reset token has already been used")
+        except ImportError:
+            pass  # Redis not available, skip check (defense in depth)
+
         user = db.query(User).filter(User.email == email).first()
         if not user:
             raise HTTPException(status_code=400, detail="Invalid reset token")
@@ -2488,7 +2531,13 @@ def confirm_password_reset(http_request: Request, request: PasswordResetConfirm,
         user.password_hash = get_password_hash(request.new_password)
         db.commit()
 
-        print(f"Password reset successful for: {email}")
+        # SECURITY: Mark token as used in Redis (1 hour TTL matches token lifetime)
+        try:
+            if REDIS_AVAILABLE and redis_client:
+                redis_client.setex(used_key, 3600, "1")
+        except Exception:
+            pass  # Best effort -- token expiry is the backup protection
+
         return {"message": "Password has been reset successfully"}
 
     except JWTError:
@@ -2577,8 +2626,6 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     print(f"Found user id={user.id}, role={user.role}, driver_id={user.driver_id}")
 
     if not verify_password(form_data.password, user.password_hash):
-        print(f"Password verification failed for driver user {user.id}")
-        print(f"Hash length: {len(user.password_hash) if user.password_hash else 0}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -2648,12 +2695,15 @@ def driver_register(http_request: Request, request: DriverRegisterRequest, db: S
     print(f"Driver registration attempt for: {request.email}")
 
     try:
+        # SECURITY (NSA-009): Enforce password policy for driver registration
+        _validate_password(request.password)
+
         # Check if email already exists
         existing_user = db.query(User).filter(User.email == request.email).first()
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Registration failed. If you already have an account, please log in."
             )
 
         # Check if driver email already exists
@@ -2661,7 +2711,7 @@ def driver_register(http_request: Request, request: DriverRegisterRequest, db: S
         if existing_driver:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Driver email already registered"
+                detail="Registration failed. If you already have an account, please log in."
             )
 
         # Create driver record
@@ -3170,38 +3220,11 @@ def customer_auth_register(http_request: Request, request: CustomerRegisterReque
         if existing_customer:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Registration failed. If you already have an account, please log in."
             )
 
-        # Validate password is not empty and meets security requirements
-        if not request.password or len(request.password.strip()) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password is required and cannot be empty"
-            )
-
-        # SECURITY: Enforce password policy
-        password = request.password
-        if len(password) < 8:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must be at least 8 characters long"
-            )
-        if not any(c.isupper() for c in password):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one uppercase letter"
-            )
-        if not any(c.islower() for c in password):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one lowercase letter"
-            )
-        if not any(c.isdigit() for c in password):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one number"
-            )
+        # SECURITY: Enforce password policy (shared with all registration endpoints)
+        _validate_password(request.password)
 
         # Split name (accepts both 'name' and 'full_name' fields)
         customer_name = request.get_name()
@@ -3270,7 +3293,7 @@ def customer_auth_register(http_request: Request, request: CustomerRegisterReque
         if "unique" in error_msg or "duplicate" in error_msg:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Registration failed. If you already have an account, please log in."
             )
         elif "encoding" in error_msg or "unicode" in error_msg:
             raise HTTPException(
@@ -5969,7 +5992,7 @@ def customer_food_register(http_request: Request, request: CustomerRegisterReque
         if existing_customer:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Registration failed. If you already have an account, please log in."
             )
 
         # Also check Users table
@@ -5977,15 +6000,11 @@ def customer_food_register(http_request: Request, request: CustomerRegisterReque
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Registration failed. If you already have an account, please log in."
             )
 
-        # Validate password is not empty
-        if not request.password or len(request.password.strip()) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password is required and cannot be empty"
-            )
+        # SECURITY (NSA-010): Enforce password policy for food customer registration
+        _validate_password(request.password)
 
         # Split name into first and last name (accepts both 'name' and 'full_name')
         customer_name = request.get_name()
@@ -6056,7 +6075,7 @@ def customer_food_register(http_request: Request, request: CustomerRegisterReque
         if "unique" in error_msg or "duplicate" in error_msg:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Registration failed. If you already have an account, please log in."
             )
         elif "encoding" in error_msg or "unicode" in error_msg:
             raise HTTPException(
@@ -6246,9 +6265,7 @@ def customer_request_password_reset(http_request: Request, request: CustomerPass
         customer_name = f"{customer.first_name}" if customer else "Customer"
         send_password_reset_email(request.email, customer_name, code)
     except Exception as e:
-        print(f"Failed to send customer password reset email: {str(e)}")
-
-    print(f"Password reset code for {request.email}: {code}")
+        logger.error(f"Failed to send customer password reset email: {str(e)}")
 
     return {"success": True, "message": "Reset code sent to your email."}
 
@@ -6332,9 +6349,8 @@ def driver_request_password_reset(http_request: Request, request: DriverPassword
         driver_name = f"{driver.first_name}" if driver else "Driver"
         send_password_reset_email(request.email, driver_name, code)
     except Exception as e:
-        print(f"Failed to send driver password reset email: {str(e)}")
+        logger.error(f"Failed to send driver password reset email: {str(e)}")
 
-    print(f"Driver password reset code for {request.email}: {code}")
     return {"success": True, "message": "Reset code sent to your email."}
 
 @app.post("/api/driver/password-reset/confirm")
@@ -6410,9 +6426,8 @@ def vendor_request_password_reset(http_request: Request, request: VendorPassword
         vendor_name = vendor.business_name if vendor else "Partner"
         send_password_reset_email(request.email, vendor_name, code)
     except Exception as e:
-        print(f"Failed to send vendor password reset email: {str(e)}")
+        logger.error(f"Failed to send vendor password reset email: {str(e)}")
 
-    print(f"Vendor password reset code for {request.email}: {code}")
     return {"success": True, "message": "Reset code sent to your email."}
 
 @app.post("/api/vendor/password-reset/confirm")
@@ -9782,19 +9797,12 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
     """Public endpoint for restaurant applications - no auth required"""
     from models import Vendor, VendorMenuItem
 
-    print("=" * 60)
-    print("🍽️  RESTAURANT APPLICATION RECEIVED")
-    print(f"Restaurant: {vendor.restaurant_name}")
-    print(f"Contact: {vendor.contact_email}")
-    print(f"Password provided: {'Yes' if vendor.password else 'No'}")
-    print(f"Menu items: {len(vendor.menu_items) if vendor.menu_items else 0}")
-    print("=" * 60)
+    logger.info(f"Restaurant application received: {vendor.restaurant_name}")
 
     # Check if email already exists (vendor or user)
     if vendor.contact_email:
         existing_vendor = db.query(Vendor).filter(Vendor.contact_email == vendor.contact_email).first()
         if existing_vendor:
-            print(f"⚠️ Email already registered: {vendor.contact_email}")
             raise HTTPException(
                 status_code=409,
                 detail=f"A business with email '{vendor.contact_email}' is already registered. Please login using your credentials at /vendor/login"
@@ -17998,15 +18006,55 @@ try:
     )
 
     @app.websocket("/ws/{client_id}")
-    async def websocket_route(websocket: WebSocket, client_id: str):
+    async def websocket_route(websocket: WebSocket, client_id: str, token: Optional[str] = Query(None)):
         """
         WebSocket endpoint for real-time updates.
+        SECURITY: Requires JWT token as query parameter for authentication.
 
         Client ID format:
         - customer_{id} - Customer app connections
         - driver_{id} - Driver app connections
         - restaurant_{id} - Restaurant app connections
+
+        Usage: ws://host/ws/customer_123?token=JWT_TOKEN_HERE
         """
+        # SECURITY (NSA-001): Validate JWT token before accepting WebSocket connection
+        if not token:
+            await websocket.close(code=4001, reason="Authentication required: provide ?token=JWT")
+            return
+
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        except (JWTError, Exception):
+            await websocket.close(code=4001, reason="Invalid or expired token")
+            return
+
+        # SECURITY: Validate client_id matches JWT claims
+        # client_id format: "customer_123", "driver_456", "restaurant_789"
+        parts = client_id.split("_", 1)
+        client_type = parts[0] if len(parts) > 0 else ""
+        entity_id = parts[1] if len(parts) > 1 else ""
+
+        jwt_customer_id = str(payload.get("customer_id", ""))
+        jwt_driver_id = str(payload.get("driver_id", ""))
+        jwt_vendor_id = str(payload.get("vendor_id", ""))
+        jwt_role = payload.get("role", "")
+
+        # Admin can connect as any client_id
+        is_authorized = jwt_role == "admin"
+
+        if not is_authorized:
+            if client_type == "customer" and entity_id and jwt_customer_id == entity_id:
+                is_authorized = True
+            elif client_type == "driver" and entity_id and jwt_driver_id == entity_id:
+                is_authorized = True
+            elif client_type == "restaurant" and entity_id and jwt_vendor_id == entity_id:
+                is_authorized = True
+
+        if not is_authorized:
+            await websocket.close(code=4003, reason="client_id does not match authenticated user")
+            return
+
         await websocket_endpoint(websocket, client_id)
 
     @app.get("/api/websocket/stats")
