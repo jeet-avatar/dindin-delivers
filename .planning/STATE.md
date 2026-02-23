@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-23 -- Quick task 14: Bumped Android build numbers and built release APKs (Customer 24, Driver 21, Partner 17)
+Last activity: 2026-02-23 -- Quick task 16: Uploaded all 3 Android APKs to Firebase App Distribution
 
 Progress: [####░░░░░░] 40%
 
@@ -67,9 +67,10 @@ None.
 | 13 | Archive and upload all 3 iOS apps to TestFlight | 2026-02-23 | (no commit) | [13-archive-and-upload-all-3-ios-apps-to-tes](./quick/13-archive-and-upload-all-3-ios-apps-to-tes/) |
 | 14 | Bump build numbers and build all 3 Android apps | 2026-02-23 | 2bbc424a | [14-bump-build-numbers-and-build-all-3-andro](./quick/14-bump-build-numbers-and-build-all-3-andro/) |
 | 15 | Update CLAUDE.md + MEMORY.md with session learnings | 2026-02-23 | 8a126254 | [15-update-claude-md-and-memory-md-with-sess](./quick/15-update-claude-md-and-memory-md-with-sess/) |
+| 16 | Upload all 3 Android APKs to Firebase App Distribution | 2026-02-23 | (no commit) | [16-set-up-firebase-app-distribution-and-upl](./quick/16-set-up-firebase-app-distribution-and-upl/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 14 complete -- all 3 Android release APKs built
-Resume: Upload Android APKs to Play Store or Firebase App Distribution
+Stopped at: Quick task 16 complete -- all 3 Android APKs uploaded to Firebase App Distribution
+Resume: Add testers in Firebase console, or upload to Google Play Store
