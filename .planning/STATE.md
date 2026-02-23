@@ -77,12 +77,12 @@ None.
 | 20 | Bump build numbers + upload all 3 iOS apps to TestFlight | 2026-02-23 | 3a857fa5 | [20-bump-build-numbers-archive-and-upload-al](./quick/20-bump-build-numbers-archive-and-upload-al/) |
 | 21 | Build + upload all 3 Android APKs to Firebase App Distribution | 2026-02-23 | fb8a2f38 | [21-build-upload-to-firebase-and-distribute-](./quick/21-build-upload-to-firebase-and-distribute-/) |
 | 23 | VAPT security audit on all 3 Android apps | 2026-02-23 | 90eae697 | [23-vapt-security-audit-on-all-3-android-app](./quick/23-vapt-security-audit-on-all-3-android-app/) |
-| 22 | VAPT security audit on all 3 iOS apps (OWASP M1-M10) | 2026-02-23 | 25fb8c1c | [22-vapt-security-audit-on-all-3-ios-apps-ow](./quick/22-vapt-security-audit-on-all-3-ios-apps-ow/) |
+| 22 | VAPT security audit on all 3 iOS apps (OWASP M1-M10) + gap fixes | 2026-02-23 | 420d9f7f | [22-vapt-security-audit-on-all-3-ios-apps-ow](./quick/22-vapt-security-audit-on-all-3-ios-apps-ow/) |
 | 23 | VAPT security audit on all 3 Android apps | 2026-02-23 | 90eae697 | [23-vapt-security-audit-on-all-3-android-app](./quick/23-vapt-security-audit-on-all-3-android-app/) |
 | 24 | Build and distribute security-fixed Android APKs | 2026-02-23 | 70dfda61 | [24-build-and-distribute-security-fixed-andr](./quick/24-build-and-distribute-security-fixed-andr/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 22 complete -- VAPT audit on 3 iOS apps, 16 findings, SSL pinning + print() + jailbreak fixes
-Resume: Continue with next task
+Stopped at: Quick task 22 fully verified -- VAPT gaps fixed (jailbreak wired + SSL pinning active)
+Resume: New TestFlight build needed to ship VAPT fixes, or continue with next task
