@@ -171,6 +171,8 @@ public enum NotificationType: String {
     case bidAccepted = "bid_accepted"
     case bidRejected = "bid_rejected"
     case counterOffer = "counter_offer"
+    case driverCounter = "driver_counter"
+    case counterAccepted = "counter_accepted"
     case driverEnRoute = "driver_en_route"
     case paymentProcessed = "payment_processed"
 
@@ -184,7 +186,7 @@ public enum NotificationType: String {
             return "success.wav"
         case .driverArrived, .rideStarted, .newRideRequest, .driverEnRoute:
             return "new_order.wav"
-        case .newBid, .bidAccepted, .counterOffer:
+        case .newBid, .bidAccepted, .counterOffer, .driverCounter, .counterAccepted:
             return "new_order.wav"
         case .paymentProcessed:
             return "success.wav"
