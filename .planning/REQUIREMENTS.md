@@ -9,7 +9,7 @@
 
 - [x] **API-01**: All iOS Customer app API calls verified against actual backend routes
 - [x] **API-02**: All iOS Driver app API calls verified against actual backend routes
-- [ ] **API-03**: All iOS Restaurant app API calls verified against actual backend routes
+- [x] **API-03**: All iOS Restaurant app API calls verified against actual backend routes
 - [ ] **API-04**: All Android Customer app API calls verified against actual backend routes
 - [ ] **API-05**: All Android Driver app API calls verified against actual backend routes
 - [ ] **API-06**: All Android Restaurant app API calls verified against actual backend routes
@@ -55,7 +55,7 @@
 |-------------|-------|--------|
 | API-01 | Phase 02 | Complete |
 | API-02 | Phase 02 | Complete |
-| API-03 | Phase 02 | Pending |
+| API-03 | Phase 02 | Complete |
 | API-04 | Phase 03 | Pending |
 | API-05 | Phase 03 | Pending |
 | API-06 | Phase 03 | Pending |
@@ -76,4 +76,4 @@
 
 ---
 *Requirements defined: 2026-02-22*
-*Last updated: 2026-02-22 -- API-01 complete*
+*Last updated: 2026-02-22 -- API-01, API-02, API-03 complete*
