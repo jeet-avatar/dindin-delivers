@@ -2383,7 +2383,7 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
                 # Email already registered with different role
                 raise HTTPException(
                     status_code=400,
-                    detail=f"This email is already registered as a {existing_user.role.value}. Please login using the {existing_user.role.value} app or use a different email."
+                    detail="Registration failed. If you already have an account, please log in."
                 )
         else:
             # Create new vendor and user
@@ -9776,7 +9776,7 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
         if existing_vendor:
             raise HTTPException(
                 status_code=409,
-                detail=f"A business with email '{vendor.contact_email}' is already registered. Please login using your credentials at /vendor/login"
+                detail="Registration failed. If you already have an account, please log in."
             )
 
         existing_user = db.query(User).filter(User.email == vendor.contact_email).first()
@@ -10065,7 +10065,7 @@ async def create_vendor_public_with_menu(
             if existing_vendor:
                 raise HTTPException(
                     status_code=409,
-                    detail=f"A business with email '{vendor_data['contact_email']}' is already registered. Please login using your credentials at /vendor/login"
+                    detail="Registration failed. If you already have an account, please log in."
                 )
 
             existing_user = db.query(User).filter(User.email == vendor_data['contact_email']).first()
