@@ -241,6 +241,7 @@ struct EatfaircustomerApp: App {
 
     @StateObject var addressViewModel = AddressViewModel()
     @StateObject var multiCartViewModel = MultiRestaurantCartViewModel()
+    @State private var showJailbreakWarning = false
 
     var body: some Scene {
         WindowGroup {
@@ -250,10 +251,20 @@ struct EatfaircustomerApp: App {
                 .onAppear {
                     // Clear badge on app launch
                     NotificationManager.shared.clearBadge()
+
+                    // Check for jailbroken device and warn user
+                    if NetworkSecurity.shared.shouldRestrictFeatures() {
+                        showJailbreakWarning = true
+                    }
                 }
                 .onOpenURL { url in
                     // Handle Google Sign-In URL callback
                     GIDSignIn.sharedInstance.handle(url)
+                }
+                .alert("Security Warning", isPresented: $showJailbreakWarning) {
+                    Button("I Understand", role: .cancel) { }
+                } message: {
+                    Text(NetworkSecurity.shared.jailbreakWarningMessage())
                 }
         }
     }
