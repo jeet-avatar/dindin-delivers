@@ -229,6 +229,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 struct EatffairdeliveryApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var authManager = AuthManager()
+    @State private var showJailbreakWarning = false
 
     var body: some Scene {
         WindowGroup {
@@ -246,6 +247,16 @@ struct EatffairdeliveryApp: App {
             .onAppear {
                 // Clear badge on app launch
                 NotificationManager.shared.clearBadge()
+
+                // Check for jailbroken device and warn user
+                if NetworkSecurity.shared.shouldRestrictFeatures() {
+                    showJailbreakWarning = true
+                }
+            }
+            .alert("Security Warning", isPresented: $showJailbreakWarning) {
+                Button("I Understand", role: .cancel) { }
+            } message: {
+                Text(NetworkSecurity.shared.jailbreakWarningMessage())
             }
         }
     }
