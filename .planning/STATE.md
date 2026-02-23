@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-22 -- Debug: Fixed requestRide() missing auth header (commit f867a81a)
+Last activity: 2026-02-23 -- Quick task 17: Audited + fixed 12 Android rideshare API mismatches (verified)
 
 Progress: [####░░░░░░] 40%
 
