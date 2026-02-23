@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-23 -- Quick task 16: Uploaded all 3 Android APKs to Firebase App Distribution
+Last activity: 2026-02-22 -- Debug: Fixed requestRide() missing auth header (commit f867a81a)
 
 Progress: [####░░░░░░] 40%
 
@@ -50,6 +50,7 @@ Progress: [####░░░░░░] 40%
 - Double URL prefix bug in AppConfig.swift affects ChatService, NegotiationService, CallService
 - [Phase 02]: Driver app API audit: 53 calls verified, 4 mismatches (broken doc upload alias, wrong chat auth token, PUT vs POST FCM)
 - iOS TestFlight upload: use xcodebuild -exportArchive with -authenticationKey* flags (not separate altool step) -- ExportOptions.plist destination:upload handles export+upload in one step
+- Post-security regression: requestRide() was the only ride method missing auth header in P2PAPIService.swift -- after global auth middleware, must audit ALL client API calls for auth headers
 
 ### Pending Todos
 
@@ -68,9 +69,10 @@ None.
 | 14 | Bump build numbers and build all 3 Android apps | 2026-02-23 | 2bbc424a | [14-bump-build-numbers-and-build-all-3-andro](./quick/14-bump-build-numbers-and-build-all-3-andro/) |
 | 15 | Update CLAUDE.md + MEMORY.md with session learnings | 2026-02-23 | 8a126254 | [15-update-claude-md-and-memory-md-with-sess](./quick/15-update-claude-md-and-memory-md-with-sess/) |
 | 16 | Upload all 3 Android APKs to Firebase App Distribution | 2026-02-23 | 89366675 | [16-set-up-firebase-app-distribution-and-upl](./quick/16-set-up-firebase-app-distribution-and-upl/) |
+| 17 | Audit and fix Android customer rideshare APIs | 2026-02-23 | a9d2f42d | [17-audit-and-fix-android-customer-rideshare](./quick/17-audit-and-fix-android-customer-rideshare/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 16 complete -- all 3 Android APKs uploaded to Firebase App Distribution
-Resume: Add testers in Firebase console, or upload to Google Play Store
+Stopped at: Quick task 17 complete -- 12 Android Retrofit rideshare API mismatches fixed, all modules compile
+Resume: Build and distribute updated Android APKs, or continue with quick task 18 (iOS auth header audit)
