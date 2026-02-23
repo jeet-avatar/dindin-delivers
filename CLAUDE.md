@@ -264,6 +264,12 @@ pytest tests/ -v
 - FIX_PLAN: `.planning/phases/02-ios-api-verification/FIX_PLAN.md`
 - **Phase 04 (iOS Distribution) BLOCKED** until critical fixes applied
 
+### Post-Security Auth Regression (Feb 22-23, 2026 — FULLY RESOLVED)
+- **`requestRide()` missing auth header** (FIXED): `P2PAPIService.swift:5039` was the ONLY ride method without `Authorization: Bearer` header. After Phase 02 global auth middleware deployed, `/api/rides/request` returned 401 → app showed "Unable to request ride". Fixed in commit `f867a81a`.
+- **Full audit completed** (Quick Task 18): Found **18 additional methods** missing auth headers across all 3 iOS apps. Fixed in commit `b27315f7`. Breakdown: 10 vendorToken, 4 driverToken, 3 customerToken, 2 mixed. Auth header count: 140 → 158.
+- **Critical methods fixed**: FCM token save (all 3 apps), driver location updates, driver online status, order tracking, delivery decisions, KOT print, menu verification, analytics.
+- **Pattern rule**: After adding global auth middleware, audit ALL client API methods for missing auth headers — not just the ones flagged in API verification.
+
 ### Firebase App IDs (Android)
 | App | Firebase App ID |
 |-----|-----------------|
