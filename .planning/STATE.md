@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-23 -- Quick task 27: Deployed all pentest/network security fixes to staging + production via CI/CD
+Last activity: 2026-02-23 -- Quick task 28: Rebuilt and redistributed all 6 apps (3 iOS to TestFlight, 3 Android to Firebase)
 
 Progress: [####░░░░░░] 40%
 
@@ -86,9 +86,10 @@ None.
 | 25 | Backend pentest — 18 findings, 8 fixed (incl. verifier gaps) | 2026-02-23 | 48fc43f5 | [25-penetration-test-break-dollor-ai-backend](./quick/25-penetration-test-break-dollor-ai-backend/) |
 | 26 | Network security audit — 27 findings, 10 CRITICAL/HIGH fixed | 2026-02-23 | 432ab49f | [26-network-security-and-bot-attack-audit-fi](./quick/26-network-security-and-bot-attack-audit-fi/) |
 | 27 | Deploy pentest security fixes to staging + production | 2026-02-23 | (deploy only) | [27-deploy-pentest-security-fixes-to-staging](./quick/27-deploy-pentest-security-fixes-to-staging/) |
+| 28 | Rebuild and redistribute all 6 apps (iOS+Android) | 2026-02-23 | bd2c1bea | [28-rebuild-and-redistribute-all-6-apps-ios-](./quick/28-rebuild-and-redistribute-all-6-apps-ios-/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 27 complete -- all pentest/network security fixes deployed to staging + production
+Stopped at: Quick task 28 complete -- all 6 apps redistributed with security hardening (iOS 1091/199/167, Android vC 24/21/17)
 Resume: 17 MEDIUM/LOW security findings deferred. Ready for next task.
