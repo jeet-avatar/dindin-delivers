@@ -53,6 +53,7 @@ Progress: [####░░░░░░] 40%
 - Post-security regression: requestRide() was the only ride method missing auth header in P2PAPIService.swift -- after global auth middleware, must audit ALL client API calls for auth headers
 - [Quick-22] SSL pinning: CloudFront staging domain NOT pinned (cert rotation), production dollor.ai/api.dollor.ai pinned with leaf+intermediate+root CA
 - [Quick-22] VAPT: 16 findings (0 CRITICAL, 2 HIGH fixed, 5 MEDIUM). URLSession.shared migration deferred (158 API methods)
+- [Phase quick-25]: Backend pentest: 18 findings (1 CRITICAL, 4 HIGH, 5 MEDIUM, 3 LOW, 4 INFO), all CRITICAL/HIGH fixed
 
 ### Pending Todos
 
@@ -80,9 +81,10 @@ None.
 | 22 | VAPT security audit on all 3 iOS apps (OWASP M1-M10) + gap fixes | 2026-02-23 | 420d9f7f | [22-vapt-security-audit-on-all-3-ios-apps-ow](./quick/22-vapt-security-audit-on-all-3-ios-apps-ow/) |
 | 23 | VAPT security audit on all 3 Android apps | 2026-02-23 | 90eae697 | [23-vapt-security-audit-on-all-3-android-app](./quick/23-vapt-security-audit-on-all-3-android-app/) |
 | 24 | Build and distribute security-fixed Android APKs | 2026-02-23 | 70dfda61 | [24-build-and-distribute-security-fixed-andr](./quick/24-build-and-distribute-security-fixed-andr/) |
+| 25 | Backend penetration test — 18 findings, 6 fixed | 2026-02-23 | df8069fb | [25-penetration-test-break-dollor-ai-backend](./quick/25-penetration-test-break-dollor-ai-backend/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 22 fully verified -- VAPT gaps fixed (jailbreak wired + SSL pinning active)
-Resume: New TestFlight build needed to ship VAPT fixes, or continue with next task
+Stopped at: Quick task 25 complete -- Backend pentest: 18 findings, all CRITICAL/HIGH fixed
+Resume: Deploy security fixes to staging, then production. 12 MEDIUM/LOW findings deferred.
