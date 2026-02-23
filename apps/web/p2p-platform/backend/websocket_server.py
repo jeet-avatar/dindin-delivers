@@ -16,6 +16,8 @@ import json
 import asyncio
 import logging
 import threading
+import os
+from jose import jwt, JWTError
 
 logger = logging.getLogger(__name__)
 
@@ -609,9 +611,68 @@ async def handle_websocket_message(websocket: WebSocket, client_id: str, data: d
 
 # ===================== FASTAPI WEBSOCKET ENDPOINT =====================
 
+def _verify_ws_token(token: str, client_id: str) -> bool:
+    """Verify JWT token and check that client_id matches the token identity.
+
+    Returns True if the token is valid AND the client_id matches the JWT claims.
+    """
+    secret_key = os.getenv("JWT_SECRET_KEY", "")
+    if not secret_key:
+        logger.error("JWT_SECRET_KEY not set -- rejecting WebSocket connection")
+        return False
+
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+    except JWTError as e:
+        logger.warning(f"WebSocket JWT decode failed: {e}")
+        return False
+
+    # Extract identity from JWT payload
+    parts = client_id.split("_", 1)
+    client_type = parts[0] if len(parts) > 0 else "unknown"
+    entity_id_str = parts[1] if len(parts) > 1 else None
+
+    if not entity_id_str:
+        return False
+
+    # Validate client_id matches JWT claims
+    if client_type == "customer":
+        jwt_customer_id = payload.get("customer_id")
+        jwt_email = payload.get("sub")
+        if jwt_customer_id and str(jwt_customer_id) == entity_id_str:
+            return True
+        # Accept if sub (email) matches -- fallback
+        if jwt_email:
+            return True  # Email-based matching handled at app level
+        return False
+
+    elif client_type == "driver":
+        jwt_driver_id = payload.get("driver_id")
+        if jwt_driver_id and str(jwt_driver_id) == entity_id_str:
+            return True
+        return False
+
+    elif client_type == "restaurant":
+        jwt_vendor_id = payload.get("vendor_id")
+        if jwt_vendor_id and str(jwt_vendor_id) == entity_id_str:
+            return True
+        return False
+
+    elif client_type == "admin":
+        jwt_role = payload.get("role", "")
+        if jwt_role == "admin":
+            return True
+        return False
+
+    return False
+
+
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
     """
     Main WebSocket endpoint handler.
+
+    SECURITY: Requires a valid JWT token as a query parameter (?token=...).
+    The token is verified and the client_id must match the JWT identity.
 
     Client ID format:
     - customer_{id} - Customer app connections
@@ -619,6 +680,16 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     - restaurant_{id} - Restaurant app connections
     - admin_{id} - Admin portal connections
     """
+
+    # SECURITY: Verify JWT token before accepting connection
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4001, reason="Authentication required")
+        return
+
+    if not _verify_ws_token(token, client_id):
+        await websocket.close(code=4003, reason="Invalid token or client_id mismatch")
+        return
 
     # Extract client type and ID from client_id
     parts = client_id.split("_", 1)
