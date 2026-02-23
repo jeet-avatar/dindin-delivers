@@ -60,6 +60,11 @@ public class P2PAPIService: ObservableObject {
         SecureStorage.shared.migrateFromUserDefaults()
     }
 
+    // MARK: - Secure URLSession (SSL Pinning)
+    // Uses NetworkSecurity's pinning delegate instead of URLSession.shared
+    // This ensures all API calls go through SSL certificate pinning validation
+    private lazy var secureSession: URLSession = NetworkSecurity.shared.createSecureSession()
+
     // MARK: - Public Restaurant APIs (Customer App)
 
     /// Fetch all published/approved restaurants for customer apps
@@ -95,7 +100,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        secureSession.dataTask(with: url) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -164,7 +169,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        secureSession.dataTask(with: url) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -213,7 +218,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        secureSession.dataTask(with: url) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -256,7 +261,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        secureSession.dataTask(with: url) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -318,7 +323,7 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -381,7 +386,7 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -427,7 +432,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -474,7 +479,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -543,7 +548,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -584,7 +589,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     #if DEBUG
@@ -655,7 +660,7 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -705,7 +710,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -750,7 +755,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: updates)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -791,7 +796,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -824,7 +829,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -865,7 +870,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -917,7 +922,7 @@ public class P2PAPIService: ObservableObject {
         logger.info("Fetching AI Insights for vendor \(vendorId), period: \(period)")
         #endif
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     #if DEBUG
@@ -973,7 +978,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -1013,7 +1018,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -1055,7 +1060,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -1095,7 +1100,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -1147,7 +1152,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -1233,7 +1238,7 @@ public class P2PAPIService: ObservableObject {
         isLoading = true
         error = nil
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -1300,7 +1305,7 @@ public class P2PAPIService: ObservableObject {
         isLoading = true
         self.error = nil
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -1371,7 +1376,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -1465,7 +1470,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -1544,7 +1549,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -1610,7 +1615,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -1681,7 +1686,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -1744,7 +1749,7 @@ public class P2PAPIService: ObservableObject {
         let body: [String: Any] = ["full_name": name]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -1784,7 +1789,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -1844,7 +1849,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -1900,7 +1905,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -1960,7 +1965,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -2016,7 +2021,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -2076,7 +2081,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -2139,7 +2144,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -2215,7 +2220,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -2259,7 +2264,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -2348,7 +2353,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -2440,7 +2445,7 @@ public class P2PAPIService: ObservableObject {
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -2491,7 +2496,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -2532,7 +2537,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -2584,7 +2589,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -2628,7 +2633,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -2671,7 +2676,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -2714,7 +2719,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -2760,7 +2765,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -2813,7 +2818,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -2859,7 +2864,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -2941,7 +2946,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -3000,7 +3005,7 @@ public class P2PAPIService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -3051,7 +3056,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -3108,7 +3113,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -3165,7 +3170,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -3199,7 +3204,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -3245,7 +3250,7 @@ public class P2PAPIService: ObservableObject {
         let body: [String: Any] = ["estimated_prep_minutes": estimatedPrepMinutes]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -3285,7 +3290,7 @@ public class P2PAPIService: ObservableObject {
         let body: [String: Any] = ["reason": reason ?? "Restaurant unavailable"]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -3321,7 +3326,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -3355,7 +3360,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -3389,7 +3394,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -3435,7 +3440,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -3538,7 +3543,7 @@ public class P2PAPIService: ObservableObject {
         isLoading = true
         error = nil
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -3657,7 +3662,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -3721,7 +3726,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -3816,7 +3821,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -3867,7 +3872,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -3964,7 +3969,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -4031,7 +4036,7 @@ public class P2PAPIService: ObservableObject {
 
         isLoading = true
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
@@ -4136,7 +4141,7 @@ public class P2PAPIService: ObservableObject {
         logger.info("acceptDeliveryOrder request body: \(body)")
         #endif
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 #if DEBUG
                 let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? -1
@@ -4209,7 +4214,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 #if DEBUG
                 let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? -1
@@ -4268,7 +4273,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -4307,7 +4312,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 DispatchQueue.main.async {
                     completion(.failure(error))
@@ -4377,7 +4382,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "PUT"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             if let error = error {
                 DispatchQueue.main.async {
                     self?.error = error.localizedDescription
@@ -4453,7 +4458,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "PUT"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -4484,7 +4489,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -4570,7 +4575,7 @@ public class P2PAPIService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     #if DEBUG
@@ -4656,7 +4661,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "PUT"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -4716,7 +4721,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = body
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -4760,7 +4765,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "PUT"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -4805,7 +4810,7 @@ public class P2PAPIService: ObservableObject {
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { _, _, _ in
+        secureSession.dataTask(with: request) { _, _, _ in
             DispatchQueue.main.async {
                 completion(.success(true))
             }
@@ -4828,7 +4833,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     #if DEBUG
@@ -4899,7 +4904,7 @@ public class P2PAPIService: ObservableObject {
         let body: [String: Any] = ["driver_id": driverId]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -4941,7 +4946,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -4995,7 +5000,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5078,7 +5083,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5126,7 +5131,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5180,7 +5185,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5247,7 +5252,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5298,7 +5303,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5340,7 +5345,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5375,7 +5380,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     logger.error("fetchRideRequestBids network error: \(error)")
@@ -5428,7 +5433,7 @@ public class P2PAPIService: ObservableObject {
         let body: [String: Any] = ["action": "accept"]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     logger.error("acceptDriverBid network error: \(error)")
@@ -5490,7 +5495,7 @@ public class P2PAPIService: ObservableObject {
         let body: [String: Any] = ["action": "reject"]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5536,7 +5541,7 @@ public class P2PAPIService: ObservableObject {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     logger.error("counterDriverBid network error: \(error)")
@@ -5594,7 +5599,7 @@ public class P2PAPIService: ObservableObject {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     logger.error("driverSubmitCounter network error: \(error)")
@@ -5642,7 +5647,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5681,7 +5686,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5724,7 +5729,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5763,7 +5768,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5796,7 +5801,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5829,7 +5834,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5883,7 +5888,7 @@ public class P2PAPIService: ObservableObject {
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5928,7 +5933,7 @@ public class P2PAPIService: ObservableObject {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -5965,7 +5970,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -6011,7 +6016,7 @@ public class P2PAPIService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -6062,7 +6067,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -6114,7 +6119,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -6163,7 +6168,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -6214,7 +6219,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -6268,7 +6273,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -6318,7 +6323,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -6365,7 +6370,7 @@ public class P2PAPIService: ObservableObject {
         let body: [String: Any] = ["ride_request_id": rideId]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -6411,7 +6416,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -6468,7 +6473,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 DispatchQueue.main.async { completion(.failure(error)) }
                 return
@@ -6524,7 +6529,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 DispatchQueue.main.async { completion(.failure(error)) }
                 return
@@ -6580,7 +6585,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 DispatchQueue.main.async { completion(.failure(error)) }
                 return
@@ -6614,7 +6619,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 DispatchQueue.main.async { completion(.failure(error)) }
                 return
@@ -6650,7 +6655,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 DispatchQueue.main.async { completion(.failure(error)) }
                 return
@@ -6686,7 +6691,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 DispatchQueue.main.async { completion(.failure(error)) }
                 return
@@ -6722,7 +6727,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 DispatchQueue.main.async { completion(.failure(error)) }
                 return
@@ -6773,7 +6778,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -6818,7 +6823,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 DispatchQueue.main.async {
                     completion(.failure(error))
@@ -6875,7 +6880,7 @@ public class P2PAPIService: ObservableObject {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 DispatchQueue.main.async {
                     completion(.failure(error))
@@ -6925,7 +6930,7 @@ public class P2PAPIService: ObservableObject {
 
         // No body needed - fare is in query param
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -6971,7 +6976,7 @@ public class P2PAPIService: ObservableObject {
 
         // No body needed - fare is passed as query parameter
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -7004,7 +7009,7 @@ public class P2PAPIService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -7822,7 +7827,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -7891,7 +7896,7 @@ extension P2PAPIService {
 
         request.httpBody = body
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -7949,7 +7954,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10688,7 +10693,7 @@ extension P2PAPIService {
         let body = ["fcm_token": token, "platform": "ios"]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10721,7 +10726,7 @@ extension P2PAPIService {
         let body = ["fcm_token": token, "platform": "ios"]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10754,7 +10759,7 @@ extension P2PAPIService {
         let body = ["fcm_token": token, "platform": "ios"]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10793,7 +10798,7 @@ extension P2PAPIService {
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10821,7 +10826,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10853,7 +10858,7 @@ extension P2PAPIService {
         let body: [String: Any] = ["fcm_token": fcmToken]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10882,7 +10887,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10920,7 +10925,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10959,7 +10964,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10996,7 +11001,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -11059,7 +11064,7 @@ extension P2PAPIService {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -11129,7 +11134,7 @@ extension P2PAPIService {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -11193,7 +11198,7 @@ extension P2PAPIService {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -11254,7 +11259,7 @@ extension P2PAPIService {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -11317,7 +11322,7 @@ extension P2PAPIService {
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -11374,7 +11379,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error { completion(.failure(error)); return }
                 guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
@@ -11408,7 +11413,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { _, response, error in
+        secureSession.dataTask(with: request) { _, response, error in
             DispatchQueue.main.async {
                 if let error = error { completion(.failure(error)); return }
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode < 400 {
@@ -11440,7 +11445,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error { completion(.failure(error)); return }
                 guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
@@ -11485,7 +11490,7 @@ extension P2PAPIService {
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error { completion(.failure(error)); return }
                 guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
@@ -11523,7 +11528,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error { completion(.failure(error)); return }
                 guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
@@ -11558,7 +11563,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error { completion(.failure(error)); return }
                 guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
@@ -11620,7 +11625,7 @@ extension P2PAPIService {
         if let driverId = preferredDriverId { body["preferred_driver_id"] = driverId }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error { completion(.failure(error)); return }
                 guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
@@ -11658,7 +11663,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error { completion(.failure(error)); return }
                 guard let data = data else { completion(.failure(P2PAPIError.noData)); return }
@@ -11692,7 +11697,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { _, response, error in
+        secureSession.dataTask(with: request) { _, response, error in
             DispatchQueue.main.async {
                 if let error = error { completion(.failure(error)); return }
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode < 400 {
@@ -11733,7 +11738,7 @@ extension P2PAPIService {
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -11781,7 +11786,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -11848,7 +11853,7 @@ extension P2PAPIService {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -11899,7 +11904,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -11952,7 +11957,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12009,7 +12014,7 @@ extension P2PAPIService {
         let body: [String: Any] = ["response": response]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12070,7 +12075,7 @@ extension P2PAPIService {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12125,7 +12130,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12183,7 +12188,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12227,7 +12232,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12268,7 +12273,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12314,7 +12319,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12356,7 +12361,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12405,7 +12410,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12472,7 +12477,7 @@ extension P2PAPIService {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12539,7 +12544,7 @@ extension P2PAPIService {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12592,7 +12597,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12642,7 +12647,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12704,7 +12709,7 @@ extension P2PAPIService {
         let body: [String: Any] = ["driver_id": driverId]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -12776,7 +12781,7 @@ extension P2PAPIService {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -13455,7 +13460,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -13506,7 +13511,7 @@ extension P2PAPIService {
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -13545,7 +13550,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -13589,7 +13594,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -13633,7 +13638,7 @@ extension P2PAPIService {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -13704,7 +13709,7 @@ extension P2PAPIService {
             return
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -13745,7 +13750,7 @@ extension P2PAPIService {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -13789,7 +13794,7 @@ extension P2PAPIService {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        secureSession.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
