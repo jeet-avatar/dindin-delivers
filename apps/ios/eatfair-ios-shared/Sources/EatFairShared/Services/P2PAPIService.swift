@@ -354,6 +354,7 @@ public class P2PAPIService: ObservableObject {
     }
 
     /// Update a menu item (Restaurant App)
+    // TODO: [MEDIUM] API mismatch — iOS sends PATCH but backend only accepts PUT for /api/vendors/{id}/menu/{id}. Returns 405.
     public func updateMenuItem(
         vendorId: Int,
         itemId: Int,
@@ -997,6 +998,7 @@ public class P2PAPIService: ObservableObject {
     }
 
     /// Assign stock images to menu items without images
+    // TODO: [MEDIUM] API mismatch — missing vendorToken auth header. Backend requires require_vendor. Returns 401.
     public func assignStockImages(
         vendorId: Int,
         completion: @escaping (Result<Int, Error>) -> Void
@@ -10930,6 +10932,7 @@ extension P2PAPIService {
     }
 
     /// Get AI employee stats
+    // TODO: [MEDIUM] API mismatch — missing auth header. Backend requires require_any_auth. Returns 401.
     public func getAIEmployeeStats(
         completion: @escaping (Result<P2PAIEmployeeStats, Error>) -> Void
     ) {
