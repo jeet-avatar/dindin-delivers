@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-23 -- Quick task 30: Live E2E rideshare test (Android customer ↔ iOS driver, 12 steps PASS, negotiation verified)
+Last activity: 2026-02-23 -- Quick task 31: Fix Android notification type case mismatch + add 5 missing handlers
 
 Progress: [####░░░░░░] 40%
 
@@ -91,9 +91,10 @@ None.
 | 28 | Rebuild and redistribute all 6 apps (iOS+Android) | 2026-02-23 | bd2c1bea | [28-rebuild-and-redistribute-all-6-apps-ios-](./quick/28-rebuild-and-redistribute-all-6-apps-ios-/) |
 | 29 | E2E rideshare verification (31 endpoints, push matrix, payment audit) | 2026-02-23 | ee7b279c | [29-verify-e2e-rideshare-flow-and-push-notif](./quick/29-verify-e2e-rideshare-flow-and-push-notif/) |
 | 30 | Live E2E rideshare test — Android customer ↔ iOS driver, 12 steps all PASS | 2026-02-23 | (test only) | [30-live-e2e-rideshare-test-android-customer](./quick/30-live-e2e-rideshare-test-android-customer/) |
+| 31 | Fix Android notification type case mismatch + add 5 missing handlers | 2026-02-23 | 378987c8 | [31-fix-android-notification-type-case-misma](./quick/31-fix-android-notification-type-case-misma/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 30 complete -- Live E2E test passed (ride 253, negotiation $30→$22→$26, 10 push notifications verified)
-Resume: Fix Android notification type case mismatch (MEDIUM). Add missing iOS notification types (LOW). 17 MEDIUM/LOW security findings still deferred.
+Stopped at: Quick task 31 complete -- Android notification types fixed (UPPERCASE→lowercase, 5 new handlers, DRIVER_ARRIVING split)
+Resume: Add missing iOS notification types (driver_counter, counter_accepted) (LOW). Build + distribute updated Android APKs. 17 MEDIUM/LOW security findings still deferred.
