@@ -98,14 +98,48 @@ def cache_delete(key: str) -> bool:
 
 # ── Rate Limiting (Redis sorted sets) ─────────────────────────────────────────
 
+# SECURITY (NSA-004): In-memory fallback rate limiter when Redis is unavailable.
+# Per-worker only (not shared across ECS tasks), but still prevents abuse on each worker.
+_memory_rate_limits: dict = {}  # key -> list of timestamps
+_MEMORY_RL_MAX_KEYS = 10000  # Prevent unbounded memory growth
+
+
+def _memory_rate_limit_check(key: str, max_requests: int, window_seconds: int) -> tuple[bool, int]:
+    """In-memory sliding window rate limiter (fallback when Redis unavailable)."""
+    global _memory_rate_limits
+    now = time.time()
+
+    # Evict stale keys periodically (when dict grows too large)
+    if len(_memory_rate_limits) > _MEMORY_RL_MAX_KEYS:
+        cutoff = now - 3600  # Keep only last hour
+        _memory_rate_limits = {
+            k: [t for t in v if t > cutoff]
+            for k, v in _memory_rate_limits.items()
+            if any(t > cutoff for t in v)
+        }
+
+    if key not in _memory_rate_limits:
+        _memory_rate_limits[key] = []
+
+    # Remove timestamps outside the window
+    _memory_rate_limits[key] = [t for t in _memory_rate_limits[key] if t > now - window_seconds]
+
+    if len(_memory_rate_limits[key]) >= max_requests:
+        retry_after = max(0, int(window_seconds - (now - _memory_rate_limits[key][0])))
+        return False, retry_after
+
+    _memory_rate_limits[key].append(now)
+    return True, 0
+
+
 def rate_limit_check(key: str, max_requests: int, window_seconds: int) -> tuple[bool, int]:
     """
     Check rate limit using Redis sorted sets (sliding window).
     Returns (is_allowed, retry_after_seconds).
-    Falls back to always-allow if Redis unavailable.
+    Falls back to in-memory rate limiter if Redis unavailable.
     """
     if not redis_client:
-        return True, 0
+        return _memory_rate_limit_check(key, max_requests, window_seconds)
 
     try:
         now = time.time()
@@ -157,8 +191,18 @@ def check_rate_limit(request, limiter: RateLimiter, key_prefix: str = "", identi
     if identifier:
         key = f"ratelimit:{key_prefix}:{identifier}"
     else:
+        # SECURITY (NSA-003): Use the second-to-last IP in X-Forwarded-For chain.
+        # CloudFront appends the real client IP, so the first value may be attacker-injected.
+        # Chain: [attacker-injected, ..., real_client_ip (added by CloudFront), ALB_ip]
+        # We want the second-to-last (CloudFront's addition). If only one entry, use it.
         forwarded = request.headers.get("X-Forwarded-For")
-        client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
+        if forwarded:
+            ips = [ip.strip() for ip in forwarded.split(",")]
+            # Use second-to-last IP (real client as seen by CloudFront)
+            # If only 1 IP, use it (direct connection or single proxy)
+            client_ip = ips[-2] if len(ips) >= 2 else ips[0]
+        else:
+            client_ip = request.client.host
         key = f"ratelimit:{key_prefix}:{client_ip}"
 
     is_allowed, retry_after = rate_limit_check(key, limiter.max_requests, limiter.window_seconds)

@@ -306,6 +306,23 @@ async def create_ride_request(data: CreateRideRequestInput, request: Request, cu
     # Prevent customer_id spoofing -- always use authenticated customer's ID
     data.customer_id = customer.id
 
+    # SECURITY (NSA-005): Cap bidding duration to prevent abuse
+    if data.bidding_duration_minutes < 1 or data.bidding_duration_minutes > 30:
+        raise HTTPException(status_code=400, detail="Bidding duration must be between 1 and 30 minutes")
+
+    # SECURITY (NSA-006): Limit concurrent open ride requests per customer
+    open_requests = db.query(RideRequest).filter(
+        and_(
+            RideRequest.customer_id == customer.id,
+            RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
+        )
+    ).count()
+    if open_requests >= 3:
+        raise HTTPException(
+            status_code=429,
+            detail="You already have 3 open ride requests. Please wait or cancel existing ones."
+        )
+
     # Calculate distance and duration
     distance_km = calculate_distance_km(
         data.pickup_latitude, data.pickup_longitude,
@@ -1046,6 +1063,13 @@ async def submit_bid(request_id: int, data: SubmitBidInput, request: Request, dr
     ride_request = db.query(RideRequest).filter(RideRequest.id == request_id).first()
     if not ride_request:
         raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # SECURITY (NSA-008): Prevent self-bidding (driver bidding on own ride request)
+    if ride_request.customer_id and driver.id:
+        customer_check = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        if customer_check and customer_check.email and driver.email:
+            if driver.email.lower() == customer_check.email.lower():
+                raise HTTPException(status_code=403, detail="Cannot bid on your own ride request")
 
     # Allow bidding when status is OPEN or BIDDING (status becomes BIDDING after first bid)
     if ride_request.status not in [RideRequestStatus.OPEN, RideRequestStatus.BIDDING]:
