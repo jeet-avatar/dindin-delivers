@@ -278,6 +278,17 @@ pytest tests/ -v
 - **VAPT report**: `.planning/quick/22-vapt-security-audit-on-all-3-ios-apps-ow/VAPT_REPORT.md`
 - **Positive findings**: Keychain with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, no hardcoded secrets, HTTPS everywhere in xcconfig, Apple Sign-In uses nonce, CryptoKit only
 
+### Network Security & Bot Attack Audit (Feb 23, 2026 — FULLY RESOLVED)
+- **27 findings** across 6 categories: 3 CRITICAL, 7 HIGH, 8 MEDIUM, 5 LOW, 4 INFO
+- **WebSocket auth** (CRITICAL → FIXED): `/ws/{client_id}` now requires JWT via `?token=` query param, validates client_id against claims. `main_new.py:17979`.
+- **Swagger lockdown** (CRITICAL → FIXED): `/docs` and `/redoc` disabled in production via `_is_production` check. `main_new.py:86`.
+- **X-Forwarded-For spoofing** (CRITICAL → FIXED): Rate limiter now uses `ips[-2]` (CloudFront's real client IP) instead of `ips[0]` (attacker-injectable). `cache.py:209`.
+- **Bot protections** (HIGH → FIXED): Bidding duration capped 1-30 min, concurrent ride limit of 3, self-bidding prevented via email cross-check, in-memory rate limiter fallback with 10K key bound.
+- **Account enumeration** (HIGH → FIXED): All 12 registration paths now return generic "Registration failed" message. No email/role leak.
+- **Password policy** (HIGH → FIXED): `_validate_password()` enforced on all 4 registration endpoints (min 8 chars, upper+lower+digit).
+- **Report**: `.planning/quick/26-network-security-and-bot-attack-audit-fi/NETWORK_SECURITY_REPORT.md`
+- **Test suite**: 1278 passed, zero regressions from security fixes
+
 ### Firebase App IDs (Android)
 | App | Firebase App ID |
 |-----|-----------------|
