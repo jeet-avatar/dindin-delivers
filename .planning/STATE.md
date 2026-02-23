@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-23 -- Quick task 29: E2E rideshare verification (31 endpoints, push notification matrix, payment flow audit)
+Last activity: 2026-02-23 -- Quick task 30: Live E2E rideshare test (Android customer ↔ iOS driver, 12 steps PASS, negotiation verified)
 
 Progress: [####░░░░░░] 40%
 
@@ -57,6 +57,7 @@ Progress: [####░░░░░░] 40%
 - [Quick-26] Network security audit: 27 findings (3 CRITICAL, 7 HIGH, 8 MEDIUM, 5 LOW, 4 INFO), all CRITICAL/HIGH fixed. WebSocket JWT auth, Swagger lockdown, X-Forwarded-For fix, in-memory rate limiter, bid abuse controls, password policy
 - [Quick-27] Deployed quick-25 + quick-26 security fixes to staging then production via CI/CD. Staging run 22293682154, production run 22293827652. All smoke tests pass: health 200, auth 401, Swagger 401
 - [Quick-29] E2E rideshare verification: 31 endpoints verified, 22 matches, 4 mismatches (2 MEDIUM: Android notification case mismatch, 2 LOW: missing iOS notification types), 5 missing client calls (INFO). Payment flow correct. Push covers 11/12 steps.
+- [Quick-30] Live E2E test: Ride 253 (NYC 5th Ave→WTC), 2-round negotiation ($30→$22→$26), all 12 lifecycle steps PASS, payment $26 fare + $1 fee + $5 tip = $32. 10 push notifications fired correctly. 5 notification handler issues confirmed (2 MEDIUM, 3 LOW).
 
 ### Pending Todos
 
@@ -89,9 +90,10 @@ None.
 | 27 | Deploy pentest security fixes to staging + production | 2026-02-23 | (deploy only) | [27-deploy-pentest-security-fixes-to-staging](./quick/27-deploy-pentest-security-fixes-to-staging/) |
 | 28 | Rebuild and redistribute all 6 apps (iOS+Android) | 2026-02-23 | bd2c1bea | [28-rebuild-and-redistribute-all-6-apps-ios-](./quick/28-rebuild-and-redistribute-all-6-apps-ios-/) |
 | 29 | E2E rideshare verification (31 endpoints, push matrix, payment audit) | 2026-02-23 | ee7b279c | [29-verify-e2e-rideshare-flow-and-push-notif](./quick/29-verify-e2e-rideshare-flow-and-push-notif/) |
+| 30 | Live E2E rideshare test — Android customer ↔ iOS driver, 12 steps all PASS | 2026-02-23 | (test only) | [30-live-e2e-rideshare-test-android-customer](./quick/30-live-e2e-rideshare-test-android-customer/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 29 complete -- E2E rideshare verification report produced (487 lines, 31 endpoints, 22 matches, 4 mismatches)
+Stopped at: Quick task 30 complete -- Live E2E test passed (ride 253, negotiation $30→$22→$26, 10 push notifications verified)
 Resume: Fix Android notification type case mismatch (MEDIUM). Add missing iOS notification types (LOW). 17 MEDIUM/LOW security findings still deferred.
