@@ -5040,6 +5040,10 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
         // Build flat structure matching production API schema
         var body: [String: Any] = [
             "customer_id": customerId,
