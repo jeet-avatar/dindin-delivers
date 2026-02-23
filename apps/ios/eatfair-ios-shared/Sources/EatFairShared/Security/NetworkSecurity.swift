@@ -17,17 +17,27 @@ public final class NetworkSecurity: NSObject {
     // Update these when certificates are renewed
     private let pinnedDomains: [String: Set<String>] = [
         "dollor.ai": [
-            // Certificate pinning disabled - using ATS for security
-            // Enable pinning in future by generating pins with:
-            // openssl x509 -in cert.pem -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64
+            // Leaf certificate (CN=dollor.ai) - renewed by AWS Certificate Manager
+            "WggyjbYa6k0khD7aafEMGmJ/GO1ltJ6KpFx+zHLoCQQ=",
+            // Intermediate CA (Amazon RSA 2048 M04) - stable across renewals
+            "G9LNNAql897egYsabashkzUCTEJkWBzgoEtk8X/678c=",
+            // Root CA (Amazon Root CA 1) - very stable, rarely changes
+            "++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=",
         ],
         "api.dollor.ai": [
-            // Certificate pinning disabled - using ATS for security
+            // Same certificate chain as dollor.ai (ACM wildcard/SAN cert)
+            "WggyjbYa6k0khD7aafEMGmJ/GO1ltJ6KpFx+zHLoCQQ=",
+            "G9LNNAql897egYsabashkzUCTEJkWBzgoEtk8X/678c=",
+            "++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=",
         ],
         "api.stripe.com": [
             // Stripe certificate pins - these are public and stable
             "JbQbUG5JMJUoI6brnx0x3vZF6jilxsapbXGVfjhN8Fg=",
         ],
+        // NOTE: CloudFront staging domain (d34u5ixl0bulv4.cloudfront.net) is intentionally
+        // NOT pinned. CloudFront rotates TLS certificates frequently and uses a shared
+        // certificate pool across AWS infrastructure. Pinning would cause app breakage.
+        // Staging is not used by end users, so this is acceptable risk.
     ]
 
     // Domains that require SSL pinning
@@ -332,14 +342,26 @@ public extension NetworkSecurity {
         #endif
     }
 
-    /// Show jailbreak warning if detected
-    func checkJailbreakStatus() {
-        if isDeviceJailbroken() {
-            networkSecurityLogger.warning("Jailbreak detected!")
-            // In production, you might want to:
-            // 1. Show a warning to the user
-            // 2. Disable certain sensitive features
-            // 3. Log to your analytics
+    /// Check jailbreak status and log warning if detected
+    /// - Returns: True if device is jailbroken
+    @discardableResult
+    func checkJailbreakStatus() -> Bool {
+        let jailbroken = isDeviceJailbroken()
+        if jailbroken {
+            networkSecurityLogger.warning("Jailbreak detected! Sensitive features may be restricted.")
         }
+        return jailbroken
+    }
+
+    /// Whether sensitive features (payments, token storage) should be restricted.
+    /// Returns true on jailbroken devices. Call on app launch and before sensitive operations.
+    func shouldRestrictFeatures() -> Bool {
+        return isDeviceJailbroken()
+    }
+
+    /// User-facing warning message for jailbroken devices.
+    /// Display this in a UIAlertController on app launch when shouldRestrictFeatures() returns true.
+    func jailbreakWarningMessage() -> String {
+        return "This device appears to be jailbroken. For your security, some features such as payments and account management may be restricted. We recommend using a non-jailbroken device for the best experience."
     }
 }

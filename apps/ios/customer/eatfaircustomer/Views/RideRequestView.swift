@@ -2478,7 +2478,9 @@ struct RideStatusCard: View {
                     ratingSubmitted = true
                 case .failure(let error):
                     // Log error but still allow dismissing
+                    #if DEBUG
                     print("Rating submission failed: \(error.localizedDescription)")
+                    #endif
                     ratingSubmitted = true // Allow user to proceed
                 }
             }
@@ -2507,7 +2509,9 @@ struct RideStatusCard: View {
                     tipSubmitted = true
                 case .failure(let error):
                     // Log error but still allow dismissing
+                    #if DEBUG
                     print("Tip submission failed: \(error.localizedDescription)")
+                    #endif
                     tipSubmitted = true // Allow user to proceed
                 }
             }

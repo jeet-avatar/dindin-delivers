@@ -978,17 +978,23 @@ struct MultiRestaurantCheckoutView: View {
     }
 
     private func placeOrder() {
-        print("🛒 [PlaceOrder] Starting order placement...")
+        #if DEBUG
+        print("[PlaceOrder] Starting order placement...")
+        #endif
 
         guard let address = addressViewModel.selectedAddress else {
-            print("❌ [PlaceOrder] No address selected!")
+            #if DEBUG
+            print("[PlaceOrder] No address selected!")
+            #endif
             errorMessage = "Please select a delivery address"
             showError = true
             isProcessing = false
             return
         }
 
-        print("✅ [PlaceOrder] Address found: \(address.street)")
+        #if DEBUG
+        print("[PlaceOrder] Address found: \(address.street)")
+        #endif
 
         #if DEBUG
         // DUMMY MODE: Simulate order placement without requiring login or Firestore (DEBUG only)
@@ -1022,7 +1028,9 @@ struct MultiRestaurantCheckoutView: View {
             landmark: deliveryInstructions.isEmpty ? address.instructions : deliveryInstructions
         )
 
-        print("📤 [PlaceOrder] Calling cartVM.placeOrder()...")
+        #if DEBUG
+        print("[PlaceOrder] Calling cartVM.placeOrder()...")
+        #endif
 
         cartVM.placeOrder(
             deliveryAddress: deliveryAddress,
@@ -1037,14 +1045,16 @@ struct MultiRestaurantCheckoutView: View {
 
                 switch result {
                 case .success(let orderNumber):
-                    print("✅ [PlaceOrder] Order placed successfully! Order #\(orderNumber)")
-                    print("🎉 [PlaceOrder] Setting orderPlaced = true")
+                    #if DEBUG
+                    print("[PlaceOrder] Order placed successfully! Order #\(orderNumber)")
+                    #endif
                     // Signal order placed - MainAppView will show success screen
                     cartVM.orderPlaced = true
-                    print("🎉 [PlaceOrder] orderPlaced is now: \(cartVM.orderPlaced)")
                     dismiss()  // Dismiss checkout sheet so fullScreenCover can show
                 case .failure(let error):
-                    print("❌ [PlaceOrder] Order failed: \(error.localizedDescription)")
+                    #if DEBUG
+                    print("[PlaceOrder] Order failed: \(error.localizedDescription)")
+                    #endif
                     errorMessage = error.localizedDescription
                     showError = true
                 }
