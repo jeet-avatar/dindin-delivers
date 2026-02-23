@@ -18,7 +18,8 @@
 | INFO     | 4     | -     | -        |
 | **Total** | **27** | **10** | **13** |
 
-**Test Suite:** 889+ tests passing post-fix (no regressions)
+**Test Suite:** 1278 passed, 22 failed (all pre-existing), 10 skipped -- zero regressions from security fixes
+**Baseline (before fixes):** 1245 passed, 36 failed, 19 errors -- security fixes actually improved results (+33 passing, -14 failures, -19 errors)
 
 ---
 
