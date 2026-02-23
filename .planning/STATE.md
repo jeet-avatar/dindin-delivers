@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-23 -- Quick task 26: Network security + bot audit fully verified -- 27 findings, 10 CRITICAL/HIGH fixed + 3 enumeration gaps closed
+Last activity: 2026-02-23 -- Quick task 27: Deployed all pentest/network security fixes to staging + production via CI/CD
 
 Progress: [####░░░░░░] 40%
 
@@ -55,6 +55,7 @@ Progress: [####░░░░░░] 40%
 - [Quick-22] VAPT: 16 findings (0 CRITICAL, 2 HIGH fixed, 5 MEDIUM). URLSession.shared migration deferred (158 API methods)
 - [Phase quick-25]: Backend pentest: 18 findings (1 CRITICAL, 4 HIGH, 5 MEDIUM, 3 LOW, 4 INFO), all CRITICAL/HIGH fixed
 - [Quick-26] Network security audit: 27 findings (3 CRITICAL, 7 HIGH, 8 MEDIUM, 5 LOW, 4 INFO), all CRITICAL/HIGH fixed. WebSocket JWT auth, Swagger lockdown, X-Forwarded-For fix, in-memory rate limiter, bid abuse controls, password policy
+- [Quick-27] Deployed quick-25 + quick-26 security fixes to staging then production via CI/CD. Staging run 22293682154, production run 22293827652. All smoke tests pass: health 200, auth 401, Swagger 401
 
 ### Pending Todos
 
@@ -84,9 +85,10 @@ None.
 | 24 | Build and distribute security-fixed Android APKs | 2026-02-23 | 70dfda61 | [24-build-and-distribute-security-fixed-andr](./quick/24-build-and-distribute-security-fixed-andr/) |
 | 25 | Backend pentest — 18 findings, 8 fixed (incl. verifier gaps) | 2026-02-23 | 48fc43f5 | [25-penetration-test-break-dollor-ai-backend](./quick/25-penetration-test-break-dollor-ai-backend/) |
 | 26 | Network security audit — 27 findings, 10 CRITICAL/HIGH fixed | 2026-02-23 | 432ab49f | [26-network-security-and-bot-attack-audit-fi](./quick/26-network-security-and-bot-attack-audit-fi/) |
+| 27 | Deploy pentest security fixes to staging + production | 2026-02-23 | (deploy only) | [27-deploy-pentest-security-fixes-to-staging](./quick/27-deploy-pentest-security-fixes-to-staging/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 26 fully verified -- 3 enumeration gaps closed (ba280893), all 10/10 must-haves pass
-Resume: Deploy security fixes (quick-25 + quick-26) to staging then production. 17 MEDIUM/LOW findings deferred.
+Stopped at: Quick task 27 complete -- all pentest/network security fixes deployed to staging + production
+Resume: 17 MEDIUM/LOW security findings deferred. Ready for next task.
