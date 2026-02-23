@@ -998,7 +998,6 @@ public class P2PAPIService: ObservableObject {
     }
 
     /// Assign stock images to menu items without images
-    // TODO: [MEDIUM] API mismatch — missing vendorToken auth header. Backend requires require_vendor. Returns 401.
     public func assignStockImages(
         vendorId: Int,
         completion: @escaping (Result<Int, Error>) -> Void
@@ -1010,6 +1009,9 @@ public class P2PAPIService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
@@ -1047,7 +1049,13 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self?.error = error.localizedDescription
@@ -1083,6 +1091,9 @@ public class P2PAPIService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
@@ -10669,6 +10680,9 @@ extension P2PAPIService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         // Backend expects fcm_token and platform fields
         let body = ["fcm_token": token, "platform": "ios"]
@@ -10699,6 +10713,9 @@ extension P2PAPIService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         // Backend expects fcm_token and platform fields
         let body = ["fcm_token": token, "platform": "ios"]
@@ -10729,6 +10746,9 @@ extension P2PAPIService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         // Backend expects fcm_token and platform fields
         let body = ["fcm_token": token, "platform": "ios"]
@@ -10762,6 +10782,9 @@ extension P2PAPIService {
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         let body: [String: Any] = [
             "latitude": latitude,
@@ -10794,6 +10817,9 @@ extension P2PAPIService {
 
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
@@ -10806,7 +10832,6 @@ extension P2PAPIService {
         }.resume()
     }
 
-    // TODO: [MEDIUM] API mismatch — uses PUT method but backend only accepts POST at /api/erp/drivers/{id}/fcm-token; results in 405 Method Not Allowed
     /// Save FCM token for push notifications
     public func saveDriverFCMToken(
         driverId: Int,
@@ -10821,6 +10846,9 @@ extension P2PAPIService {
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         let body: [String: Any] = ["fcm_token": fcmToken]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -10848,7 +10876,13 @@ extension P2PAPIService {
             return
         }
 
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10880,7 +10914,13 @@ extension P2PAPIService {
             return
         }
 
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10913,7 +10953,13 @@ extension P2PAPIService {
             return
         }
 
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = vendorToken ?? customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -10936,7 +10982,6 @@ extension P2PAPIService {
     }
 
     /// Get AI employee stats
-    // TODO: [MEDIUM] API mismatch — missing auth header. Backend requires require_any_auth. Returns 401.
     public func getAIEmployeeStats(
         completion: @escaping (Result<P2PAIEmployeeStats, Error>) -> Void
     ) {
@@ -10945,7 +10990,13 @@ extension P2PAPIService {
             return
         }
 
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = vendorToken ?? customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     completion(.failure(error))
@@ -13400,6 +13451,9 @@ extension P2PAPIService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
@@ -13442,6 +13496,9 @@ extension P2PAPIService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         var body: [String: Any] = ["will_deliver": willDeliver]
         if let name = delivererName {
@@ -13484,6 +13541,9 @@ extension P2PAPIService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
@@ -13525,6 +13585,9 @@ extension P2PAPIService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
@@ -13722,6 +13785,9 @@ extension P2PAPIService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
