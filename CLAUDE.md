@@ -253,9 +253,9 @@ pytest tests/ -v
 | iOS | Customer | 1090 | 1.0 | `com.dollorai.customer` | Uploaded 2026-02-23 |
 | iOS | Driver | 198 | 1.0 | `com.dollorai.delivery` | Uploaded 2026-02-23 |
 | iOS | Restaurant | 166 | 1.0 | `com.dollorai.restaurant` | Uploaded 2026-02-23 |
-| Android | Customer | vC=23 | 1.0.22 | `ai.dollor.customer` | Not yet uploaded |
-| Android | Driver | vC=20 | 1.0.19 | `ai.dollor.driver` | Not yet uploaded |
-| Android | Partner | vC=16 | 1.0.15 | `ai.dollor.partner` | Not yet uploaded |
+| Android | Customer | vC=24 | 1.0.23 | `ai.dollor.customer` | Firebase 2026-02-23 |
+| Android | Driver | vC=21 | 1.0.20 | `ai.dollor.driver` | Firebase 2026-02-23 |
+| Android | Partner | vC=17 | 1.0.16 | `ai.dollor.partner` | Firebase 2026-02-23 |
 
 ### iOS API Verification (Phase 02 — Feb 23, 2026)
 - **256 total API calls** audited across 3 apps: 205 OK, 51 mismatches

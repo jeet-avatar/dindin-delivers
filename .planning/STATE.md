@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-23 -- Quick task 20: Uploaded all 3 iOS apps to TestFlight (Customer 1090, Driver 198, Restaurant 166)
+Last activity: 2026-02-23 -- Quick task 21: Built and uploaded all 3 Android APKs to Firebase App Distribution with rideshare fixes
 
 Progress: [####░░░░░░] 40%
 
@@ -73,10 +73,10 @@ None.
 | 18 | Add auth headers to 18 iOS P2PAPIService methods | 2026-02-23 | b27315f7 | [18-audit-all-ios-p2papiservice-swift-method](./quick/18-audit-all-ios-p2papiservice-swift-method/) |
 | 19 | Recheck Android customer rideshare API fixes (14/14 PASS) | 2026-02-23 | 521f5ea4 | [19-recheck-android-customer-rideshare-api-f](./quick/19-recheck-android-customer-rideshare-api-f/) |
 | 20 | Bump build numbers + upload all 3 iOS apps to TestFlight | 2026-02-23 | 3a857fa5 | [20-bump-build-numbers-archive-and-upload-al](./quick/20-bump-build-numbers-archive-and-upload-al/) |
+| 21 | Build + upload all 3 Android APKs to Firebase App Distribution | 2026-02-23 | fb8a2f38 | [21-build-upload-to-firebase-and-distribute-](./quick/21-build-upload-to-firebase-and-distribute-/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 20 complete -- Customer 1090, Driver 198, Restaurant 166 uploaded to TestFlight
-Resume: Wait for TestFlight processing, then test ride request fix on device
+Stopped at: Quick task 21 complete -- 3 Android APKs built and distributed via Firebase App Distribution
 Resume: Continue with next task
