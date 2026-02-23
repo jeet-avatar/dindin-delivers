@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-23 -- Quick task 19: Recheck all 12 Android rideshare API fixes (14/14 PASS)
+Last activity: 2026-02-23 -- Quick task 20: Uploaded all 3 iOS apps to TestFlight (Customer 1090, Driver 198, Restaurant 166)
 
 Progress: [####░░░░░░] 40%
 
@@ -72,9 +72,11 @@ None.
 | 17 | Audit and fix Android customer rideshare APIs | 2026-02-23 | a9d2f42d | [17-audit-and-fix-android-customer-rideshare](./quick/17-audit-and-fix-android-customer-rideshare/) |
 | 18 | Add auth headers to 18 iOS P2PAPIService methods | 2026-02-23 | b27315f7 | [18-audit-all-ios-p2papiservice-swift-method](./quick/18-audit-all-ios-p2papiservice-swift-method/) |
 | 19 | Recheck Android customer rideshare API fixes (14/14 PASS) | 2026-02-23 | 521f5ea4 | [19-recheck-android-customer-rideshare-api-f](./quick/19-recheck-android-customer-rideshare-api-f/) |
+| 20 | Bump build numbers + upload all 3 iOS apps to TestFlight | 2026-02-23 | 3a857fa5 | [20-bump-build-numbers-archive-and-upload-al](./quick/20-bump-build-numbers-archive-and-upload-al/) |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Quick task 19 complete -- 14/14 cross-reference checks PASS, no fixes needed
+Stopped at: Quick task 20 complete -- Customer 1090, Driver 198, Restaurant 166 uploaded to TestFlight
+Resume: Wait for TestFlight processing, then test ride request fix on device
 Resume: Continue with next task

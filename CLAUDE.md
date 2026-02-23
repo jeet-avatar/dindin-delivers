@@ -250,9 +250,9 @@ pytest tests/ -v
 
 | Platform | App | Build | Version | Bundle/Package | TestFlight/Firebase |
 |----------|-----|-------|---------|----------------|---------------------|
-| iOS | Customer | 1089 | 1.0 | `com.dollorai.customer` | Uploaded 2026-02-23 |
-| iOS | Driver | 197 | 1.0 | `com.dollorai.delivery` | Uploaded 2026-02-23 |
-| iOS | Restaurant | 165 | 1.0 | `com.dollorai.restaurant` | Uploaded 2026-02-23 |
+| iOS | Customer | 1090 | 1.0 | `com.dollorai.customer` | Uploaded 2026-02-23 |
+| iOS | Driver | 198 | 1.0 | `com.dollorai.delivery` | Uploaded 2026-02-23 |
+| iOS | Restaurant | 166 | 1.0 | `com.dollorai.restaurant` | Uploaded 2026-02-23 |
 | Android | Customer | vC=23 | 1.0.22 | `ai.dollor.customer` | Not yet uploaded |
 | Android | Driver | vC=20 | 1.0.19 | `ai.dollor.driver` | Not yet uploaded |
 | Android | Partner | vC=16 | 1.0.15 | `ai.dollor.partner` | Not yet uploaded |
