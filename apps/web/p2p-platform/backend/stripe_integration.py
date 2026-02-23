@@ -13,8 +13,17 @@ from pydantic import BaseModel, field_validator
 import stripe
 import json
 import os
+import re
 import uuid
 from dotenv import load_dotenv
+
+# SECURITY: HTML tag stripping for stored XSS prevention (same pattern as main_new.py:sanitize_text)
+_HTML_TAG_RE = re.compile(r'<[^>]+>')
+def _sanitize_text(text):
+    """Strip HTML tags from user input to prevent stored XSS attacks."""
+    if not text or not isinstance(text, str):
+        return text
+    return _HTML_TAG_RE.sub('', text).strip()
 
 from database import get_db
 from models import Order, OrderStatus, StripePaymentLog, Vendor, VendorMenuItem, VendorPayout, Customer, RideRequest
@@ -263,7 +272,7 @@ async def create_order(
     new_order = Order(
         order_number=order_number,
         customer_id=customer_id,
-        customer_name=order_data.customer_name,
+        customer_name=_sanitize_text(order_data.customer_name),
         customer_email=order_data.customer_email,
         customer_phone=order_data.customer_phone,
         vendor_id=order_data.vendor_id,
@@ -275,7 +284,7 @@ async def create_order(
         platform_fee=platform_fee,  # $1 customer service fee
         total_amount=total_amount,
         delivery_address=json.dumps(order_data.delivery_address) if order_data.delivery_address else None,
-        delivery_instructions=order_data.delivery_instructions,
+        delivery_instructions=_sanitize_text(order_data.delivery_instructions),
         delivery_latitude=order_data.delivery_latitude,
         delivery_longitude=order_data.delivery_longitude,
         status=OrderStatus.PENDING_PAYMENT,

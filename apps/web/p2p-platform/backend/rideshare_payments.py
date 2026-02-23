@@ -9,7 +9,7 @@ Tiered Fee Model (based on fare):
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
-from auth_utils import require_any_auth
+from auth_utils import require_any_auth, require_driver, require_customer
 from cache import check_rate_limit, RateLimiter
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -63,17 +63,23 @@ class PaymentResponse(BaseModel):
 
 
 @router.post("/create-intent", response_model=PaymentResponse)
-async def create_payment_intent(http_request: Request, data: CreatePaymentIntent, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
+async def create_payment_intent(http_request: Request, data: CreatePaymentIntent, db: Session = Depends(get_db), customer: Customer = Depends(require_customer)):
     """Create Stripe payment for completed ride with tiered pricing.
+
+    SECURITY: Requires customer authentication and verifies ride ownership.
 
     For demo accounts (App Store review), returns a demo payment response
     that bypasses actual Stripe processing.
     """
-    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(_auth.get("user_id", _auth.get("customer_id", _auth.get("driver_id", "unknown")))))
+    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(customer.id))
     ride = db.query(RideRequest).filter(RideRequest.id == data.ride_request_id).first()
 
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
+
+    # SECURITY: Verify the requesting customer owns this ride
+    if ride.customer_id != customer.id:
+        raise HTTPException(status_code=403, detail="You can only pay for your own rides")
 
     if ride.status not in [RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS, RideRequestStatus.COMPLETED]:
         raise HTTPException(status_code=400, detail=f"Invalid status: {ride.status.value}")
@@ -155,11 +161,14 @@ async def create_payment_intent(http_request: Request, data: CreatePaymentIntent
 
 
 @router.get("/driver/{driver_id}/earnings")
-async def get_driver_earnings(driver_id: int, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
-    """Get driver earnings summary with tiered fees."""
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+async def get_driver_earnings(driver_id: int, db: Session = Depends(get_db), driver: Driver = Depends(require_driver)):
+    """Get driver earnings summary with tiered fees.
+
+    SECURITY: Requires driver authentication and verifies ownership.
+    """
+    # SECURITY: Driver can only view their own earnings
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     rides = db.query(RideRequest).filter(
         and_(
