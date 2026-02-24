@@ -26,11 +26,29 @@ class DollorTestCase: XCTestCase {
 
     // MARK: - Navigation Helpers
 
-    /// Waits for the login screen to appear.
+    /// Ensures the app is on the login screen.
+    /// If already logged in (tab bar visible), logs out first via Profile > Log Out.
     /// The app goes directly to LoginView when not authenticated (no WelcomeView in flow).
     func navigateToLogin() {
-        // App shows LoginView directly when unauthenticated (MainAppView.swift:152)
-        // Wait for login screen identifiers
+        // Check if we're already logged in (tab bar present = authenticated)
+        let tabBar = app.tabBars.firstMatch
+        if tabBar.waitForExistence(timeout: 3) {
+            // Logged in -- navigate to Profile tab and log out
+            let profileTab = app.tabBars.buttons["Profile"]
+            if profileTab.exists {
+                profileTab.tap()
+                // Scroll down to find Log Out button
+                let scrollView = app.scrollViews.firstMatch
+                if scrollView.waitForExistence(timeout: 3) {
+                    scrollView.swipeUp()
+                }
+                let logOutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Log Out'")).firstMatch
+                if logOutButton.waitForExistence(timeout: 5) {
+                    logOutButton.tap()
+                }
+            }
+        }
+        // Wait for login screen identifiers (MainAppView.swift:152)
         let welcomeBackText = app.staticTexts["Welcome back"]
         let dollorText = app.staticTexts["Dollor.ai"]
         _ = welcomeBackText.waitForExistence(timeout: 5) || dollorText.waitForExistence(timeout: 3)
