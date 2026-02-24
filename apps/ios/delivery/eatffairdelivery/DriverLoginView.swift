@@ -117,6 +117,8 @@ struct DriverLoginView: View {
     @State private var agreedToTerms = false
     @State private var currentNonce: String?
     @State private var showForgotPassword = false
+    @State private var showRegistrationAlert = false
+    @State private var registrationURL: String = ""
     @Binding var isLoggedIn: Bool
 
     private let p2pService = P2PAPIService.shared
@@ -440,6 +442,16 @@ struct DriverLoginView: View {
         .sheet(isPresented: $showForgotPassword) {
             DriverForgotPasswordView(isPresented: $showForgotPassword)
         }
+        .alert("Registration Required", isPresented: $showRegistrationAlert) {
+            Button("Register Now") {
+                if let url = URL(string: registrationURL) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You need to register as a driver first. Tap 'Register Now' to apply on our website.")
+        }
     }
 
     // MARK: - Apple Sign-In Helper Functions
@@ -535,13 +547,18 @@ struct DriverLoginView: View {
                     case .success:
                         self.isLoggedIn = true
                     case .failure(let error):
-                        let errMsg = error.localizedDescription.lowercased()
-                        if errMsg.contains("not found") || errMsg.contains("no account") {
-                            self.errorMessage = "No driver account found. Please register first."
-                        } else if errMsg.contains("not approved") || errMsg.contains("pending") {
-                            self.errorMessage = "Your driver account is pending approval."
+                        if case P2PAPIError.registrationRequired(_, let url) = error {
+                            self.registrationURL = url
+                            self.showRegistrationAlert = true
                         } else {
-                            self.errorMessage = "Unable to sign in with Apple. Please try again."
+                            let errMsg = error.localizedDescription.lowercased()
+                            if errMsg.contains("not found") || errMsg.contains("no account") {
+                                self.errorMessage = "No driver account found. Please register first."
+                            } else if errMsg.contains("not approved") || errMsg.contains("pending") {
+                                self.errorMessage = "Your driver account is pending approval."
+                            } else {
+                                self.errorMessage = "Unable to sign in with Apple. Please try again."
+                            }
                         }
                     }
                 }
@@ -640,13 +657,18 @@ struct DriverLoginView: View {
                     case .success:
                         self.isLoggedIn = true
                     case .failure(let error):
-                        let errMsg = error.localizedDescription.lowercased()
-                        if errMsg.contains("suspended") || errMsg.contains("deactivated") {
-                            self.errorMessage = "Your driver account has been suspended. Please contact support."
-                        } else if errMsg.contains("not approved") || errMsg.contains("pending") {
-                            self.errorMessage = "Your driver account is pending approval."
+                        if case P2PAPIError.registrationRequired(_, let url) = error {
+                            self.registrationURL = url
+                            self.showRegistrationAlert = true
                         } else {
-                            self.errorMessage = "Google Sign-In failed. Please try again."
+                            let errMsg = error.localizedDescription.lowercased()
+                            if errMsg.contains("suspended") || errMsg.contains("deactivated") {
+                                self.errorMessage = "Your driver account has been suspended. Please contact support."
+                            } else if errMsg.contains("not approved") || errMsg.contains("pending") {
+                                self.errorMessage = "Your driver account is pending approval."
+                            } else {
+                                self.errorMessage = "Google Sign-In failed. Please try again."
+                            }
                         }
                     }
                 }

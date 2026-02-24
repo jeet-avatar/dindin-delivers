@@ -106,6 +106,8 @@ struct LoginView: View {
     @State private var showForgotPassword = false
     @State private var showSignUp = false
     @State private var emailValidationError: String?
+    @State private var showRegistrationAlert = false
+    @State private var registrationURL: String = ""
     @Binding var isLoggedIn: Bool
 
     private let p2pAPI = P2PAPIService.shared
@@ -332,6 +334,16 @@ struct LoginView: View {
             .sheet(isPresented: $showSignUp) {
                 RestaurantRegistrationView(isPresented: $showSignUp, isLoggedIn: $isLoggedIn)
             }
+            .alert("Registration Required", isPresented: $showRegistrationAlert) {
+                Button("Register Now") {
+                    if let url = URL(string: registrationURL) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("You need to register as a restaurant partner first. Tap 'Register Now' to apply on our website.")
+            }
         }
     }
 
@@ -467,13 +479,18 @@ struct LoginView: View {
                                     logger.debug("DEBUG APPLE: API Error type: \(apiError)")
                                 }
                                 #endif
-                                let errMsg = error.localizedDescription.lowercased()
-                                if errMsg.contains("not found") || errMsg.contains("no account") {
-                                    self.errorMessage = "No restaurant account found. Please register first."
-                                } else if errMsg.contains("not approved") || errMsg.contains("pending") {
-                                    self.errorMessage = "Your restaurant account is pending approval."
+                                if case P2PAPIError.registrationRequired(_, let url) = error {
+                                    self.registrationURL = url
+                                    self.showRegistrationAlert = true
                                 } else {
-                                    self.errorMessage = "Unable to sign in with Apple. Please try again."
+                                    let errMsg = error.localizedDescription.lowercased()
+                                    if errMsg.contains("not found") || errMsg.contains("no account") {
+                                        self.errorMessage = "No restaurant account found. Please register first."
+                                    } else if errMsg.contains("not approved") || errMsg.contains("pending") {
+                                        self.errorMessage = "Your restaurant account is pending approval."
+                                    } else {
+                                        self.errorMessage = "Unable to sign in with Apple. Please try again."
+                                    }
                                 }
                             }
                         }
@@ -530,6 +547,9 @@ struct LoginView: View {
                     // Show user-friendly error message
                     if let apiError = error as? P2PAPIError {
                         switch apiError {
+                        case .registrationRequired(_, let url):
+                            self.registrationURL = url
+                            self.showRegistrationAlert = true
                         case .serverError(let message):
                             errorMessage = message
                         case .invalidURL:
@@ -691,6 +711,9 @@ struct LoginView: View {
                         #endif
                         if let apiError = error as? P2PAPIError {
                             switch apiError {
+                            case .registrationRequired(_, let url):
+                                self.registrationURL = url
+                                self.showRegistrationAlert = true
                             case .serverError(let message):
                                 #if DEBUG
                                 logger.debug("DEBUG GOOGLE: Server error message: \(message)")

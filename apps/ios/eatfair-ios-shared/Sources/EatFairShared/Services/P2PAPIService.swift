@@ -1402,6 +1402,14 @@ public class P2PAPIService: ObservableObject {
                     logger.debug("API vendorGoogleAuth: HTTP status = \(httpResponse.statusCode)")
 
                     if httpResponse.statusCode >= 400 {
+                        // Check for registration-required response (403 with registration_url)
+                        if httpResponse.statusCode == 403,
+                           let regResponse = try? JSONDecoder().decode(P2PRegistrationRequiredResponse.self, from: data),
+                           let regURL = regResponse.registrationUrl {
+                            logger.debug("API vendorGoogleAuth: Registration required - \(regURL)")
+                            completion(.failure(P2PAPIError.registrationRequired(regResponse.detail, regURL)))
+                            return
+                        }
                         if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                             logger.debug("API vendorGoogleAuth: Server error = \(errorResponse.detail)")
                             completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
@@ -1496,6 +1504,14 @@ public class P2PAPIService: ObservableObject {
                     logger.debug("API vendorAppleAuth: HTTP status = \(httpResponse.statusCode)")
 
                     if httpResponse.statusCode >= 400 {
+                        // Check for registration-required response (403 with registration_url)
+                        if httpResponse.statusCode == 403,
+                           let regResponse = try? JSONDecoder().decode(P2PRegistrationRequiredResponse.self, from: data),
+                           let regURL = regResponse.registrationUrl {
+                            logger.debug("API vendorAppleAuth: Registration required - \(regURL)")
+                            completion(.failure(P2PAPIError.registrationRequired(regResponse.detail, regURL)))
+                            return
+                        }
                         if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                             logger.debug("API vendorAppleAuth: Server error = \(errorResponse.detail)")
                             completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
@@ -3703,6 +3719,13 @@ public class P2PAPIService: ObservableObject {
                 }
 
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    // Check for registration-required response (403 with registration_url)
+                    if httpResponse.statusCode == 403,
+                       let regResponse = try? JSONDecoder().decode(P2PRegistrationRequiredResponse.self, from: data),
+                       let regURL = regResponse.registrationUrl {
+                        completion(.failure(P2PAPIError.registrationRequired(regResponse.detail, regURL)))
+                        return
+                    }
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                     } else {
@@ -3779,6 +3802,13 @@ public class P2PAPIService: ObservableObject {
                 }
 
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    // Check for registration-required response (403 with registration_url)
+                    if httpResponse.statusCode == 403,
+                       let regResponse = try? JSONDecoder().decode(P2PRegistrationRequiredResponse.self, from: data),
+                       let regURL = regResponse.registrationUrl {
+                        completion(.failure(P2PAPIError.registrationRequired(regResponse.detail, regURL)))
+                        return
+                    }
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                     } else {
@@ -7574,6 +7604,18 @@ public struct P2PErrorResponse: Codable {
     public let detail: String
 }
 
+public struct P2PRegistrationRequiredResponse: Codable {
+    public let detail: String
+    public let registrationUrl: String?
+    public let requiresRegistration: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case detail
+        case registrationUrl = "registration_url"
+        case requiresRegistration = "requires_registration"
+    }
+}
+
 /// Response from /api/vendors/public registration endpoint
 /// Matches Android VendorRegistrationResponse and backend VendorResponse
 public struct P2PVendorRegistrationResponse: Codable {
@@ -7603,6 +7645,7 @@ public enum P2PAPIError: Error, LocalizedError {
     case encodingFailed
     case serverError(String)
     case httpError(Int)
+    case registrationRequired(String, String) // (message, registrationURL)
 
     public var errorDescription: String? {
         switch self {
@@ -7618,6 +7661,8 @@ public enum P2PAPIError: Error, LocalizedError {
             return message
         case .httpError(let statusCode):
             return "HTTP error: \(statusCode)"
+        case .registrationRequired(let message, _):
+            return message
         }
     }
 }
