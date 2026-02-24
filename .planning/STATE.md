@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-24 -- Quick task 36: Fix all failing CI/CD tests across full stack (backend 32/32, Android 0 failures, partner lint green)
+Last activity: 2026-02-24 -- Quick task 36: Fix all CI/CD tests — backend 32/32, E2E 13/13, Android unit tests green, partner lint green
 
 Progress: [####░░░░░░] 40%
 
@@ -96,7 +96,7 @@ None.
 | 33 | Comprehensive UI interaction audit across all 6 apps (1,844 elements) | 2026-02-24 | d5fa29c7 | [33-comprehensive-ui-interaction-audit-acros](./quick/33-comprehensive-ui-interaction-audit-acros/) |
 | 34 | Automated UI testing for all 6 apps (223 tests: 110 iOS + 113 Android) | 2026-02-24 | 5504c288 | [34-set-up-automated-ui-testing-for-all-6-ap](./quick/34-set-up-automated-ui-testing-for-all-6-ap/) |
 | 35 | Fix 16 failing iOS customer UI tests (12 identifier corrections, test isolation) | 2026-02-24 | e888bf9e | [35-investigate-and-fix-16-failing-ios-custo](./quick/35-investigate-and-fix-16-failing-ios-custo/) |
-| 36 | Fix all failing CI/CD tests (backend 32/32, Android @Ignore, partner lint) | 2026-02-24 | 27c28fe3 | [36-fix-all-failing-cicd-tests-across-full-s](./quick/36-fix-all-failing-cicd-tests-across-full-s/) |
+| 36 | Fix all failing CI/CD tests — backend, Android, E2E (0 failures across all pipelines) | 2026-02-24 | 05f26b8b | [36-fix-all-failing-cicd-tests-across-full-s](./quick/36-fix-all-failing-cicd-tests-across-full-s/) |
 | 37 | Wire demo credentials into iOS UI test helpers (88 flow tests auto-login) | 2026-02-24 | 2d4dc919 | [37-wire-demo-credentials-into-ios-ui-test-h](./quick/37-wire-demo-credentials-into-ios-ui-test-h/) |
 
 ## Session Continuity
