@@ -97,9 +97,10 @@ None.
 | 34 | Automated UI testing for all 6 apps (223 tests: 110 iOS + 113 Android) | 2026-02-24 | 5504c288 | [34-set-up-automated-ui-testing-for-all-6-ap](./quick/34-set-up-automated-ui-testing-for-all-6-ap/) |
 | 35 | Fix 16 failing iOS customer UI tests (12 identifier corrections, test isolation) | 2026-02-24 | e888bf9e | [35-investigate-and-fix-16-failing-ios-custo](./quick/35-investigate-and-fix-16-failing-ios-custo/) |
 | 36 | Fix all failing CI/CD tests (backend 32/32, Android @Ignore, partner lint) | 2026-02-24 | 27c28fe3 | [36-fix-all-failing-cicd-tests-across-full-s](./quick/36-fix-all-failing-cicd-tests-across-full-s/) |
+| 37 | Wire demo credentials into iOS UI test helpers (88 flow tests auto-login) | 2026-02-24 | 2d4dc919 | [37-wire-demo-credentials-into-ios-ui-test-h](./quick/37-wire-demo-credentials-into-ios-ui-test-h/) |
 
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Quick task 36 complete -- Fixed all failing CI/CD tests: backend test_endpoints.py 32/32 pass, Android 6 auth-dependent tests @Ignored, partner lint K2/FIR crash fixed.
-Resume: Wire demo credentials into all 3 iOS app UI test helpers for login-dependent tests (30 skipped customer tests need auth). Then fix Driver + Restaurant UI tests similarly. Then run Android Espresso tests. Fix 21 pre-existing backend integration test failures in test_android_restaurant_e2e_workflow.py, test_document_save_flow.py, test_cross_platform.py. 7 cross-platform parity gaps still open. 17 MEDIUM/LOW security findings still deferred.
+Stopped at: Quick task 37 complete -- Wired demo credentials into all 3 iOS app UI test helpers. 88 flow tests now auto-login with ensureLoggedIn() instead of skipping. Customer/Restaurant UI tests compile; Driver has pre-existing unit test errors (EarningsBreakdown/DailyEarning missing).
+Resume: Fix pre-existing driver unit test compilation errors (EarningsBreakdown/DailyEarning types). Then run full UI test suite on simulator to validate auto-login works against staging. Fix 21 pre-existing backend integration test failures. Run Android Espresso tests. 7 cross-platform parity gaps still open. 17 MEDIUM/LOW security findings still deferred.
