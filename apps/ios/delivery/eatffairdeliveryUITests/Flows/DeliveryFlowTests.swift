@@ -16,11 +16,11 @@ final class DriverDeliveryFlowTests: DollorTestCase {
     func testDashboard_tabBar_hasCorrectTabs() throws {
         try ensureLoggedIn()
 
-        let ordersTab = app.tabBars.buttons["Orders"]
+        let deliveryTab = app.tabBars.buttons["Delivery"]
         let activeTab = app.tabBars.buttons["Active"]
         let profileTab = app.tabBars.buttons["Profile"]
 
-        XCTAssertTrue(ordersTab.waitForExistence(timeout: 5), "Orders tab should exist")
+        XCTAssertTrue(deliveryTab.waitForExistence(timeout: 5), "Delivery tab should exist")
         XCTAssertTrue(activeTab.exists || app.tabBars.buttons["History"].exists, "Active/History tab should exist")
         XCTAssertTrue(profileTab.exists, "Profile tab should exist")
     }
