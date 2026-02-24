@@ -6,7 +6,7 @@
 //
 
 import Testing
-@testable import eatffairrestaurant
+// Module import not needed - tests use standalone test models
 
 struct eatffairrestaurantTests {
 
