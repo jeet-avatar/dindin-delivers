@@ -253,9 +253,9 @@ pytest tests/ -v
 | iOS | Customer | 1091 | 1.0 | `com.dollorai.customer` | Uploaded 2026-02-23 |
 | iOS | Driver | 199 | 1.0 | `com.dollorai.delivery` | Uploaded 2026-02-23 |
 | iOS | Restaurant | 167 | 1.0 | `com.dollorai.restaurant` | Uploaded 2026-02-23 |
-| Android | Customer | vC=24 | 1.0.23 | `ai.dollor.customer` | Firebase 2026-02-23 |
-| Android | Driver | vC=21 | 1.0.20 | `ai.dollor.driver` | Firebase 2026-02-23 |
-| Android | Partner | vC=17 | 1.0.16 | `ai.dollor.partner` | Firebase 2026-02-23 |
+| Android | Customer | vC=25 | 1.0.24 | `ai.dollor.customer` | Firebase 2026-02-23 |
+| Android | Driver | vC=22 | 1.0.21 | `ai.dollor.driver` | Firebase 2026-02-23 |
+| Android | Partner | vC=18 | 1.0.17 | `ai.dollor.partner` | Firebase 2026-02-23 |
 
 ### Production Deployment Status (Feb 23, 2026)
 - **Backend**: All security fixes deployed to staging (smoke tested 12/12 pass) → production. CI/CD run `22328867724` succeeded.
