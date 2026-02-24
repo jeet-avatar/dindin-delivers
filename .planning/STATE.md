@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-24 -- Quick task 34: Set up automated UI testing for all 6 apps (223 tests)
+Last activity: 2026-02-24 -- Quick task 35: Fix 16 failing iOS customer UI tests (0 failures, 12 identifier corrections)
 
 Progress: [####░░░░░░] 40%
 
@@ -95,9 +95,10 @@ None.
 | 32 | Add iOS notification enums + build/distribute Android APKs | 2026-02-23 | d46a4c0a | [32-add-missing-ios-notification-enums-and-b](./quick/32-add-missing-ios-notification-enums-and-b/) |
 | 33 | Comprehensive UI interaction audit across all 6 apps (1,844 elements) | 2026-02-24 | d5fa29c7 | [33-comprehensive-ui-interaction-audit-acros](./quick/33-comprehensive-ui-interaction-audit-acros/) |
 | 34 | Automated UI testing for all 6 apps (223 tests: 110 iOS + 113 Android) | 2026-02-24 | 5504c288 | [34-set-up-automated-ui-testing-for-all-6-ap](./quick/34-set-up-automated-ui-testing-for-all-6-ap/) |
+| 35 | Fix 16 failing iOS customer UI tests (12 identifier corrections, test isolation) | 2026-02-24 | e888bf9e | [35-investigate-and-fix-16-failing-ios-custo](./quick/35-investigate-and-fix-16-failing-ios-custo/) |
 
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Quick task 34 complete -- 223 flow-organized UI tests across all 6 apps (110 iOS XCUITest + 113 Android Compose) with cross-platform runner script.
-Resume: Tests ready for execution on devices/simulators. Runner: scripts/run-ui-tests.sh. 7 cross-platform parity gaps still open. 17 MEDIUM/LOW security findings still deferred.
+Stopped at: Quick task 35 complete -- Fixed 16 failing iOS customer UI tests. 12 accessibility identifier corrections, 1 test isolation fix (auto-logout in navigateToLogin).
+Resume: All 46 iOS customer UI tests pass (16 passed, 30 skipped as expected). 30 skipped tests require logged-in state. 7 cross-platform parity gaps still open. 17 MEDIUM/LOW security findings still deferred.
