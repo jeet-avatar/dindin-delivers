@@ -3002,11 +3002,11 @@ def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db
     driver = db.query(Driver).filter(Driver.apple_id == request.apple_id).first()
     if driver:
         email = driver.email
-        user = db.query(User).filter(User.email == email, User.role == UserRole.DRIVER).first()
+        user = db.query(User).filter(User.email == email).first()
 
     # Second: Try to find by email if we have one
     if not user and email:
-        user = db.query(User).filter(User.email == email, User.role == UserRole.DRIVER).first()
+        user = db.query(User).filter(User.email == email).first()
         if user and user.driver_id:
             driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
 
@@ -3015,8 +3015,8 @@ def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db
         raise HTTPException(status_code=400, detail="Email is required for first-time Apple Sign-In. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove Dollor Driver, and try again.")
 
     if user:
-        # Existing driver - block only SUSPENDED drivers
         if user.driver_id:
+            # User already has a driver account
             if not driver:
                 driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
             if driver and driver.status == DriverStatus.SUSPENDED:
@@ -3028,8 +3028,44 @@ def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db
             if driver and not driver.apple_id:
                 driver.apple_id = request.apple_id
                 db.commit()
+            print(f"Existing user {email} (role={user.role.value}) logging in as driver via Apple")
+        else:
+            # User exists but has no driver account — create one and link it
+            name_parts = name.split(" ", 1)
+            first_name = name_parts[0]
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+            driver_count = db.query(Driver).count()
+            driver_code = f"DRV-{driver_count + 1:05d}"
+
+            new_driver = Driver(
+                driver_id=driver_code,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                apple_id=request.apple_id,
+                status=DriverStatus.PENDING
+            )
+            db.add(new_driver)
+            db.commit()
+            db.refresh(new_driver)
+            driver = new_driver
+
+            user.driver_id = new_driver.id
+            db.commit()
+            db.refresh(user)
+            print(f"Added driver role to existing {user.role.value} user via Apple: {email}")
+
+            try:
+                send_driver_registration_confirmation(
+                    to_email=email,
+                    driver_name=name,
+                    driver_code=driver_code
+                )
+            except Exception as e:
+                print(f"Failed to send driver registration email: {str(e)}")
     else:
-        # Create new driver and user
+        # Brand new user — create driver + user
         name_parts = name.split(" ", 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
