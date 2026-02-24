@@ -53,7 +53,7 @@ class DollorTestCase: XCTestCase {
             passwordField.typeText(password)
         }
 
-        let loginButton = app.buttons["Log In"]
+        let loginButton = app.buttons["Log in to your account"]
         if loginButton.waitForExistence(timeout: 3) {
             loginButton.tap()
         }
@@ -77,7 +77,7 @@ class DollorTestCase: XCTestCase {
     /// If login fails, throws XCTSkip.
     func ensureLoggedIn() throws {
         // Check if already on login screen
-        let loginButton = app.buttons["Log In"]
+        let loginButton = app.buttons["Log in to your account"]
         let brandTitle = app.staticTexts["Dollor AI Restaurant"]
         let onLoginScreen = loginButton.waitForExistence(timeout: 3) || brandTitle.waitForExistence(timeout: 1)
 
@@ -98,7 +98,7 @@ class DollorTestCase: XCTestCase {
 
     /// Throws `XCTSkip` if the login screen is still visible (user not logged in).
     func skipIfNotLoggedIn() throws {
-        let loginButton = app.buttons["Log In"]
+        let loginButton = app.buttons["Log in to your account"]
         let brandTitle = app.staticTexts["Dollor AI Restaurant"]
         if loginButton.waitForExistence(timeout: 2) || brandTitle.waitForExistence(timeout: 1) {
             throw XCTSkip("Test requires logged-in state")
