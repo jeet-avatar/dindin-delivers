@@ -78,6 +78,7 @@ struct ProfileView: View {
                                                 .font(.title)
                                                 .background(Color.white.clipShape(Circle()))
                                         }
+                                        .accessibilityLabel("Edit profile")
                                     }
                                 }
                                 .frame(width: 100, height: 100)

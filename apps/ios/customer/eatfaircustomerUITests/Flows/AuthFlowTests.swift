@@ -16,7 +16,7 @@ final class CustomerAuthFlowTests: DollorTestCase {
     func testLogin_validCredentials_navigatesToHome() throws {
         navigateToLogin()
 
-        let emailField = app.textFields["Email"]
+        let emailField = app.textFields["Email address"]
         XCTAssertTrue(emailField.waitForExistence(timeout: 5), "Email field should exist")
         emailField.tap()
         emailField.typeText("demo.customer@dollor.ai")
@@ -26,7 +26,7 @@ final class CustomerAuthFlowTests: DollorTestCase {
         passwordField.tap()
         passwordField.typeText("DemoCustomer2025!")
 
-        let loginButton = app.buttons["Login"]
+        let loginButton = app.buttons["Continue to sign in"]
         XCTAssertTrue(loginButton.waitForExistence(timeout: 3), "Login button should exist")
         loginButton.tap()
 
@@ -39,13 +39,13 @@ final class CustomerAuthFlowTests: DollorTestCase {
     func testLogin_emptyFields_showsError() throws {
         navigateToLogin()
 
-        let loginButton = app.buttons["Login"]
+        let loginButton = app.buttons["Continue to sign in"]
         XCTAssertTrue(loginButton.waitForExistence(timeout: 5), "Login button should exist")
         loginButton.tap()
 
-        // Verify error alert or validation message appears
+        // LoginView uses EmailValidator -- empty email shows inline error text
         let errorAlert = app.alerts.firstMatch
-        let errorText = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'error' OR label CONTAINS[c] 'required' OR label CONTAINS[c] 'enter'")).firstMatch
+        let errorText = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'error' OR label CONTAINS[c] 'required' OR label CONTAINS[c] 'enter' OR label CONTAINS[c] 'email' OR label CONTAINS[c] 'valid'")).firstMatch
         let hasError = errorAlert.waitForExistence(timeout: 5) || errorText.waitForExistence(timeout: 3)
         XCTAssertTrue(hasError, "Error should appear when submitting with empty fields")
     }
@@ -54,7 +54,7 @@ final class CustomerAuthFlowTests: DollorTestCase {
     func testLogin_invalidEmail_showsValidation() throws {
         navigateToLogin()
 
-        let emailField = app.textFields["Email"]
+        let emailField = app.textFields["Email address"]
         XCTAssertTrue(emailField.waitForExistence(timeout: 5))
         emailField.tap()
         emailField.typeText("not-an-email")
@@ -63,10 +63,10 @@ final class CustomerAuthFlowTests: DollorTestCase {
         passwordField.tap()
         passwordField.typeText("SomePassword1!")
 
-        let loginButton = app.buttons["Login"]
+        let loginButton = app.buttons["Continue to sign in"]
         loginButton.tap()
 
-        // Verify validation message
+        // Verify validation message (EmailValidator shows inline error)
         let validationText = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'valid' OR label CONTAINS[c] 'email' OR label CONTAINS[c] 'error'")).firstMatch
         let errorAlert = app.alerts.firstMatch
         let hasValidation = validationText.waitForExistence(timeout: 5) || errorAlert.waitForExistence(timeout: 3)
@@ -79,17 +79,17 @@ final class CustomerAuthFlowTests: DollorTestCase {
     func testSignUp_allFieldsVisible() throws {
         navigateToLogin()
 
-        let signUpToggle = app.buttons["Sign Up"]
+        let signUpToggle = app.buttons["Switch to sign up"]
         XCTAssertTrue(signUpToggle.waitForExistence(timeout: 5), "Sign Up toggle should exist")
         signUpToggle.tap()
 
-        let fullNameField = app.textFields["Full Name"]
-        XCTAssertTrue(fullNameField.waitForExistence(timeout: 3), "Full Name field should appear in sign up mode")
+        let fullNameField = app.textFields["Full name"]
+        XCTAssertTrue(fullNameField.waitForExistence(timeout: 3), "Full name field should appear in sign up mode")
 
-        let phoneField = app.textFields["Phone Number"]
-        XCTAssertTrue(phoneField.waitForExistence(timeout: 3), "Phone Number field should appear in sign up mode")
+        let phoneField = app.textFields["Phone number"]
+        XCTAssertTrue(phoneField.waitForExistence(timeout: 3), "Phone number field should appear in sign up mode")
 
-        let emailField = app.textFields["Email"]
+        let emailField = app.textFields["Email address"]
         XCTAssertTrue(emailField.exists, "Email field should exist in sign up mode")
 
         let passwordField = app.secureTextFields["Password"]
@@ -101,20 +101,20 @@ final class CustomerAuthFlowTests: DollorTestCase {
         navigateToLogin()
 
         // Toggle to Sign Up
-        let signUpToggle = app.buttons["Sign Up"]
+        let signUpToggle = app.buttons["Switch to sign up"]
         XCTAssertTrue(signUpToggle.waitForExistence(timeout: 5))
         signUpToggle.tap()
 
-        let fullNameField = app.textFields["Full Name"]
-        XCTAssertTrue(fullNameField.waitForExistence(timeout: 3), "Full Name should be visible in sign up mode")
+        let fullNameField = app.textFields["Full name"]
+        XCTAssertTrue(fullNameField.waitForExistence(timeout: 3), "Full name should be visible in sign up mode")
 
         // Toggle back to Login
-        let loginToggle = app.buttons["Login"]
+        let loginToggle = app.buttons["Switch to log in"]
         XCTAssertTrue(loginToggle.waitForExistence(timeout: 3))
         loginToggle.tap()
 
-        // Full Name field should be hidden
-        XCTAssertFalse(app.textFields["Full Name"].exists, "Full Name should be hidden in login mode")
+        // Full name field should be hidden
+        XCTAssertFalse(app.textFields["Full name"].exists, "Full name should be hidden in login mode")
     }
 
     // MARK: - Forgot Password Tests
@@ -123,7 +123,7 @@ final class CustomerAuthFlowTests: DollorTestCase {
     func testForgotPassword_opensSheet() throws {
         navigateToLogin()
 
-        let forgotPasswordButton = app.buttons["Forgot Password?"]
+        let forgotPasswordButton = app.buttons["Forgot password"]
         XCTAssertTrue(forgotPasswordButton.waitForExistence(timeout: 5), "Forgot Password button should exist")
 
         forgotPasswordButton.tap()
@@ -158,17 +158,13 @@ final class CustomerAuthFlowTests: DollorTestCase {
     func testLegalAcceptance_allDocumentsPresent() throws {
         navigateToLogin()
 
-        // Toggle to Sign Up mode where legal acceptance is shown
-        let signUpToggle = app.buttons["Sign Up"]
-        if signUpToggle.waitForExistence(timeout: 3) {
-            signUpToggle.tap()
-        }
-
-        // Check for terms/privacy elements
+        // Footer links are always visible on LoginView (not just sign-up mode)
+        // They are SwiftUI Link views which appear as links/buttons in accessibility tree
+        let termsLink = app.links.containing(NSPredicate(format: "label CONTAINS[c] 'terms'")).firstMatch
+        let termsButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'terms'")).firstMatch
         let termsText = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'terms'")).firstMatch
-        let privacyText = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'privacy'")).firstMatch
 
-        let hasLegal = termsText.waitForExistence(timeout: 5) || privacyText.waitForExistence(timeout: 3)
-        XCTAssertTrue(hasLegal, "Terms and/or Privacy links should be present in sign up mode")
+        let hasLegal = termsLink.waitForExistence(timeout: 5) || termsButton.exists || termsText.exists
+        XCTAssertTrue(hasLegal, "Terms and/or Privacy links should be present on login screen")
     }
 }
