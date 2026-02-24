@@ -50,10 +50,10 @@ final class RestaurantOrderManagementTests: DollorTestCase {
         navigateToTab("Orders")
 
         let allTab = app.buttons["All"]
-        let pendingTab = app.buttons["Pending"]
+        let newTab = app.buttons["New"]
         let preparingTab = app.buttons["Preparing"]
 
-        let hasFilterTabs = allTab.waitForExistence(timeout: 5) || pendingTab.waitForExistence(timeout: 3)
+        let hasFilterTabs = allTab.waitForExistence(timeout: 5) || newTab.waitForExistence(timeout: 3)
         XCTAssertTrue(hasFilterTabs, "Order filter tabs should exist")
     }
 

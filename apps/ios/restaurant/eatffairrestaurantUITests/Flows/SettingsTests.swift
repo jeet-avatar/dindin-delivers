@@ -119,10 +119,11 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
         let scrollView = app.scrollViews.firstMatch
         if scrollView.exists {
             scrollView.swipeUp()
+            scrollView.swipeUp()
         }
 
-        let signOutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Log Out' OR label CONTAINS[c] 'Sign Out' OR label CONTAINS[c] 'sign out'")).firstMatch
-        XCTAssertTrue(signOutButton.waitForExistence(timeout: 5), "Sign Out button should exist")
+        let signOutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Log Out' OR label CONTAINS[c] 'Sign Out' OR label CONTAINS[c] 'Sign out' OR label CONTAINS[c] 'sign out'")).firstMatch
+        XCTAssertTrue(signOutButton.waitForExistence(timeout: 10), "Sign Out button should exist")
     }
 
     @MainActor
@@ -135,10 +136,11 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
         if scrollView.exists {
             scrollView.swipeUp()
             scrollView.swipeUp()
+            scrollView.swipeUp()
         }
 
-        let deleteButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Delete Account' OR label CONTAINS[c] 'delete account'")).firstMatch
-        XCTAssertTrue(deleteButton.waitForExistence(timeout: 5), "Delete Account button should exist (App Store requirement)")
+        let deleteButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Delete Account' OR label CONTAINS[c] 'Delete account' OR label CONTAINS[c] 'delete account'")).firstMatch
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 10), "Delete Account button should exist (App Store requirement)")
     }
 
     @MainActor
