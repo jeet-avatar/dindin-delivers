@@ -102,9 +102,10 @@ None.
 | 39 | Enterprise iOS Customer UI Test Report (45 tests, 42 identifiers, 17 screens) | 2026-02-24 | (docs only) | [39-enterprise-ios-customer-ui-test-report-w](./quick/39-enterprise-ios-customer-ui-test-report-w/) |
 | 41 | Fix Android staging tests — wire demo credentials + auth headers through all stages | 2026-02-24 | 8d8703de | [41-fix-android-staging-tests-wire-demo-cred](./quick/41-fix-android-staging-tests-wire-demo-cred/) |
 | 42 | Fix iOS Google + Apple Sign-In 4 bugs (URL scheme, OAuth endpoint, apple_id lookup) | 2026-02-24 | 56c991ae | [42-fix-ios-google-and-apple-sign-in-4-bugs-](./quick/42-fix-ios-google-and-apple-sign-in-4-bugs-/) |
+| 40 | Fix Driver + Restaurant iOS UI tests -- 42 tests recovered, enterprise reports | 2026-02-24 | 97906f06 | [40-fix-driver-restaurant-ios-ui-tests-and-g](./quick/40-fix-driver-restaurant-ios-ui-tests-and-g/) |
 
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Quick task 42 complete -- Fixed 4 iOS auth bugs: driver Google Sign-In URL scheme + OAuth endpoint, driver + vendor Apple Sign-In apple_id lookup for returning users.
-Resume: Deploy backend for apple_id migration. Build + distribute iOS apps with auth fixes. Run Driver + Restaurant iOS UI tests. 7 cross-platform parity gaps still open.
+Stopped at: Quick task 40 complete -- Fixed driver unit test compilation (EarningsBreakdown/DailyEarning structs) and 20 restaurant UI test identifier mismatches (accessibilityLabel overrides). Restaurant: 118/125 pass (94.4%), Driver: 41/46 pass (89.1%). Enterprise reports generated.
+Resume: Fix 5 pre-existing driver UI test failures (profile edit/logout/delete, dashboard tabs, sign-up checkbox). Fix 3 pre-existing restaurant failures (settings scroll, order filter tabs). Deploy backend for apple_id migration. 7 cross-platform parity gaps still open.
