@@ -30,21 +30,20 @@ public final class NetworkSecurity: NSObject {
             "G9LNNAql897egYsabashkzUCTEJkWBzgoEtk8X/678c=",
             "++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=",
         ],
-        "api.stripe.com": [
-            // Stripe certificate pins - these are public and stable
-            "JbQbUG5JMJUoI6brnx0x3vZF6jilxsapbXGVfjhN8Fg=",
-        ],
+        // NOTE: api.stripe.com is NOT pinned. Stripe SDK handles its own certificate
+        // validation and rotates certificates frequently. Pinning third-party certs is
+        // fragile and caused a stale pin issue (old hash: JbQbUG5J... no longer valid).
+        //
         // NOTE: CloudFront staging domain (d34u5ixl0bulv4.cloudfront.net) is intentionally
         // NOT pinned. CloudFront rotates TLS certificates frequently and uses a shared
         // certificate pool across AWS infrastructure. Pinning would cause app breakage.
         // Staging is not used by end users, so this is acceptable risk.
     ]
 
-    // Domains that require SSL pinning
+    // Domains that require SSL pinning (only our own domains)
     private let securedDomains: Set<String> = [
         "dollor.ai",
         "api.dollor.ai",
-        "api.stripe.com",
     ]
 
     private override init() {
@@ -106,16 +105,21 @@ public final class NetworkSecurity: NSObject {
         }
 
         // Check each certificate in the chain against our pins
+        var observedHashes: [String] = []
         for certificate in certificateChain {
             if let publicKeyHash = getPublicKeyHash(from: certificate) {
+                observedHashes.append(publicKeyHash)
                 if pins.contains(publicKeyHash) {
                     return true
                 }
             }
         }
 
-        networkSecurityLogger.error("Certificate pinning FAILED for: \(domain)")
-        networkSecurityLogger.error("Expected pins: \(pins)")
+        // Log detailed diagnostic info for pin failures (always, not just DEBUG)
+        networkSecurityLogger.error("SSL pinning FAILED for: \(domain)")
+        networkSecurityLogger.error("Expected one of: \(pins.sorted().joined(separator: ", "))")
+        networkSecurityLogger.error("Observed hashes: \(observedHashes.joined(separator: ", "))")
+        networkSecurityLogger.error("Certificate chain length: \(certificateChain.count)")
 
         return false
     }
