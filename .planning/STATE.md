@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-24 -- Quick task 36: Fix all CI/CD tests — backend 32/32, E2E 13/13, Android unit tests green, partner lint green
+Last activity: 2026-02-24 -- Quick task 38: iOS Customer UI tests 45/45 PASS (0 failures, 0 skipped)
 
 Progress: [####░░░░░░] 40%
 
@@ -98,9 +98,10 @@ None.
 | 35 | Fix 16 failing iOS customer UI tests (12 identifier corrections, test isolation) | 2026-02-24 | e888bf9e | [35-investigate-and-fix-16-failing-ios-custo](./quick/35-investigate-and-fix-16-failing-ios-custo/) |
 | 36 | Fix all failing CI/CD tests — backend, Android, E2E (0 failures across all pipelines) | 2026-02-24 | 05f26b8b | [36-fix-all-failing-cicd-tests-across-full-s](./quick/36-fix-all-failing-cicd-tests-across-full-s/) |
 | 37 | Wire demo credentials into iOS UI test helpers (88 flow tests auto-login) | 2026-02-24 | 2d4dc919 | [37-wire-demo-credentials-into-ios-ui-test-h](./quick/37-wire-demo-credentials-into-ios-ui-test-h/) |
+| 38 | Run iOS Customer UI tests — 45/45 PASS, 0 failures, 0 skipped | 2026-02-24 | (test only) | [38-run-and-fix-ios-customer-ui-tests-to-46-](./quick/38-run-and-fix-ios-customer-ui-tests-to-46-/) |
 
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Quick task 37 complete -- Wired demo credentials into all 3 iOS app UI test helpers. 88 flow tests now auto-login with ensureLoggedIn() instead of skipping. Customer/Restaurant UI tests compile; Driver has pre-existing unit test errors (EarningsBreakdown/DailyEarning missing).
-Resume: Fix pre-existing driver unit test compilation errors (EarningsBreakdown/DailyEarning types). Then run full UI test suite on simulator to validate auto-login works against staging. Fix 21 pre-existing backend integration test failures. Run Android Espresso tests. 7 cross-platform parity gaps still open. 17 MEDIUM/LOW security findings still deferred.
+Stopped at: Quick task 38 complete -- iOS Customer UI tests ALL PASS (45 unique, 48 total with testLaunch reps). ensureLoggedIn() works against staging. No fixes needed.
+Resume: Run Driver + Restaurant iOS UI tests (same pattern). Fix pre-existing driver unit test compilation errors. Run Android Espresso tests if emulator available. 7 cross-platform parity gaps still open.
