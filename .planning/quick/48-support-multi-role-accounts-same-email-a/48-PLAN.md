@@ -247,21 +247,52 @@ Grep verify: `grep -n "user.driver_id" apps/web/p2p-platform/backend/main_new.py
   <name>Task 3: Add multi-role Apple auth tests and run full test suite</name>
   <files>apps/web/p2p-platform/backend/tests/unit/test_auth_endpoints.py</files>
   <action>
-Add a new test class `TestMultiRoleAppleAuth` to `tests/unit/test_auth_endpoints.py` with tests verifying multi-role sign-in works:
+**Step 1: Verify customer endpoints are already multi-role safe (requirement coverage)**
+
+Before writing tests, verify that `customer_apple_auth` (main_new.py:6143) and `customer_google_auth` (main_new.py:3359) do NOT have the same role-filter bug:
+
+```bash
+# customer_apple_auth should query User.email WITHOUT role filter (confirmed at lines 6177, 6181)
+grep -n "User.role" apps/web/p2p-platform/backend/main_new.py | grep -A2 -B2 "6177\|6181"
+# Expected: NO hits -- customer_apple_auth uses `User.email == email` only
+
+# customer_google_auth doesn't even query the User table -- it only uses Customer table
+grep -n "User\." apps/web/p2p-platform/backend/main_new.py | awk -F: '$2 >= 3359 && $2 <= 3436'
+# Expected: NO User table queries in customer_google_auth range
+```
+
+If either check shows a role filter, fix it the same way as Tasks 1-2. (Based on code review: both are already correct -- customer_apple_auth queries `User.email == email` without role filter at lines 6177/6181, and customer_google_auth doesn't query the User table at all.)
+
+**Step 2: Add test class with proper fixture setup**
+
+Add a new test class `TestMultiRoleAppleAuth` to `tests/unit/test_auth_endpoints.py`. IMPORTANT: The `test_driver` and `test_vendor` fixtures do NOT create linked User rows, so each test must create the proper User row in its setup to exercise the cross-role code path.
 
 ```python
 class TestMultiRoleAppleAuth:
     """Tests that Apple Sign-In supports multi-role accounts (same email across customer/driver/vendor)"""
 
-    def test_vendor_apple_auth_existing_driver_user(self, client: TestClient, test_driver):
-        """Vendor Apple auth should work when email is already registered as a driver"""
+    def test_vendor_apple_auth_existing_driver_user(self, client: TestClient, db_session, test_driver):
+        """Vendor Apple auth should work when email is already registered as a driver user"""
+        # Create a User row linked to this driver (test_driver fixture doesn't create one)
+        from models import User, UserRole
+        from main_new import get_password_hash
+        user = User(
+            email=test_driver.email,
+            password_hash=get_password_hash("TestPassword123!"),
+            full_name=f"{test_driver.first_name} {test_driver.last_name}",
+            role=UserRole.USER,
+            driver_id=test_driver.id,
+        )
+        db_session.add(user)
+        db_session.commit()
+
         response = client.post("/api/auth/vendor/apple-auth", json={
             "apple_id": f"apple_vendor_test_{test_driver.email}",
             "email": test_driver.email,
             "name": f"{test_driver.first_name} {test_driver.last_name}",
         })
-        # Should succeed (200) or handle gracefully -- must NOT return 400 "Registration failed"
-        assert response.status_code in [200, 201, 500], f"Expected multi-role support, got {response.status_code}: {response.text}"
+        # Must NOT return 400 "Registration failed" or 500 IntegrityError
+        assert response.status_code in [200, 201], f"Expected multi-role support, got {response.status_code}: {response.text}"
         if response.status_code == 200:
             data = response.json()
             assert "access_token" in data
@@ -269,37 +300,58 @@ class TestMultiRoleAppleAuth:
 
     def test_driver_apple_auth_existing_customer_user(self, client: TestClient, test_user):
         """Driver Apple auth should work when email is already registered as a customer/user"""
+        # test_user fixture already creates a real User row with role=USER -- perfect for cross-role test
         response = client.post("/api/auth/driver/apple-auth", json={
             "apple_id": f"apple_driver_test_{test_user.email}",
             "email": test_user.email,
             "name": test_user.full_name,
         })
-        # Should succeed (200) or handle gracefully -- must NOT cause IntegrityError (500)
+        # Must NOT cause IntegrityError (500) -- should create driver and link to existing user
         assert response.status_code in [200, 201], f"Expected multi-role support, got {response.status_code}: {response.text}"
         if response.status_code == 200:
             data = response.json()
             assert "access_token" in data
             assert data.get("driver_id") is not None
 
-    def test_vendor_apple_auth_still_works_for_existing_vendor(self, client: TestClient, test_vendor):
+    def test_vendor_apple_auth_still_works_for_existing_vendor(self, client: TestClient, db_session, test_vendor):
         """Existing vendor Apple auth should still work after multi-role fix"""
+        # Create a User row linked to this vendor (test_vendor fixture doesn't create one)
+        from models import User, UserRole
+        from main_new import get_password_hash
+        user = User(
+            email=test_vendor.contact_email,
+            password_hash=get_password_hash("TestPassword123!"),
+            full_name=test_vendor.contact_name or "Test Vendor",
+            role=UserRole.USER,
+            vendor_id=test_vendor.id,
+        )
+        db_session.add(user)
+        db_session.commit()
+
         response = client.post("/api/auth/vendor/apple-auth", json={
             "apple_id": f"apple_existing_vendor_{test_vendor.contact_email}",
             "email": test_vendor.contact_email,
             "name": test_vendor.contact_name or "Test Vendor",
         })
-        # Should succeed for existing vendor
-        assert response.status_code in [200, 201, 500]
+        # Must succeed for existing vendor login path
+        assert response.status_code in [200, 201], f"Expected existing vendor login, got {response.status_code}: {response.text}"
+        if response.status_code == 200:
+            data = response.json()
+            assert "access_token" in data
+            assert data.get("vendor_id") is not None
 ```
 
-Then run the full backend test suite:
+**Step 3: Run the full backend test suite**
 ```bash
 cd /Users/jeet/doordash-p2p/apps/web/p2p-platform/backend
 python -m pytest tests/unit/test_auth_endpoints.py -v --tb=short 2>&1 | tail -30
 python -m pytest tests/ -v --tb=short 2>&1 | tail -50
 ```
 
-Fix any regressions. The key assertion is that the multi-role tests do NOT get 400 "Registration failed" or 500 IntegrityError.
+Fix any regressions. The key assertions:
+- `test_vendor_apple_auth_existing_driver_user` must NOT get 400 or 500 (exercises cross-role User with driver_id, no vendor_id)
+- `test_driver_apple_auth_existing_customer_user` must NOT get 500 IntegrityError (exercises cross-role User with no driver_id)
+- `test_vendor_apple_auth_still_works_for_existing_vendor` must NOT get 500 (exercises existing User with vendor_id -- the happy-path login)
   </action>
   <verify>
 Run: `cd /Users/jeet/doordash-p2p/apps/web/p2p-platform/backend && python -m pytest tests/unit/test_auth_endpoints.py -v --tb=short`
@@ -317,8 +369,10 @@ No regressions in full test suite.
 2. `grep -n "User.role == UserRole.DRIVER" apps/web/p2p-platform/backend/main_new.py` -- should NOT appear in driver_apple_auth (were lines 2976, 2980)
 3. `grep -n "user.vendor_id" apps/web/p2p-platform/backend/main_new.py` -- should appear in BOTH vendor_google_auth AND vendor_apple_auth
 4. `grep -n "user.driver_id" apps/web/p2p-platform/backend/main_new.py` -- should appear in BOTH driver_google_auth AND driver_apple_auth
-5. `python -m pytest tests/unit/test_auth_endpoints.py -v` -- all tests pass including multi-role
-6. `python -m pytest tests/ -v` -- no regressions
+5. **customer_apple_auth (line 6143)**: `grep -n "User.role" main_new.py` should NOT appear in lines 6143-6262 (customer_apple_auth already queries User by email without role filter)
+6. **customer_google_auth (line 3359)**: Confirm it does NOT query the User table at all (only Customer table) -- no role filter possible
+7. `python -m pytest tests/unit/test_auth_endpoints.py -v` -- all tests pass including multi-role
+8. `python -m pytest tests/ -v` -- no regressions
 </verification>
 
 <success_criteria>
