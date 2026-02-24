@@ -18,7 +18,7 @@ final class DriverProfileFlowTests: DollorTestCase {
 
         navigateToTab("Profile")
 
-        let editButton = app.buttons["Edit"]
+        let editButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Edit'")).firstMatch
         XCTAssertTrue(editButton.waitForExistence(timeout: 5), "Edit toggle should exist")
     }
 
@@ -59,7 +59,7 @@ final class DriverProfileFlowTests: DollorTestCase {
         }
 
         // Enable edit mode
-        let editButton = app.buttons["Edit"]
+        let editButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Edit'")).firstMatch
         if editButton.waitForExistence(timeout: 3) {
             editButton.tap()
         }
@@ -115,7 +115,7 @@ final class DriverProfileFlowTests: DollorTestCase {
             settingsTab.tap()
         }
 
-        let logoutButton = app.buttons["Logout"]
+        let logoutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Logout' OR label CONTAINS[c] 'Log Out' OR label CONTAINS[c] 'Sign Out'")).firstMatch
         XCTAssertTrue(logoutButton.waitForExistence(timeout: 5), "Logout button should exist in Settings")
     }
 
@@ -130,7 +130,7 @@ final class DriverProfileFlowTests: DollorTestCase {
             settingsTab.tap()
         }
 
-        let deleteButton = app.buttons["Delete Account"]
+        let deleteButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Delete Account' OR label CONTAINS[c] 'delete account'")).firstMatch
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 5), "Delete Account button should exist (App Store requirement)")
     }
 

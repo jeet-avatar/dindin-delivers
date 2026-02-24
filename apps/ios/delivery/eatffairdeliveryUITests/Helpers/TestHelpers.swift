@@ -31,9 +31,32 @@ class DollorTestCase: XCTestCase {
 
     // MARK: - Navigation Helpers
 
-    /// Navigates to the login screen. Driver app opens directly to login (no welcome screen).
+    /// Navigates to the login screen. If already logged in, logs out first via Profile > Settings > Logout.
     func navigateToLogin() {
-        // Driver app opens directly to login screen
+        // Check if we're already logged in (tab bar present = authenticated)
+        let tabBar = app.tabBars.firstMatch
+        if tabBar.waitForExistence(timeout: 3) {
+            // Logged in -- navigate to Profile tab and log out
+            let profileTab = app.tabBars.buttons["Profile"]
+            if profileTab.exists {
+                profileTab.tap()
+                // Tap Settings sub-tab within Profile
+                let settingsTab = app.buttons["Settings"]
+                if settingsTab.waitForExistence(timeout: 3) {
+                    settingsTab.tap()
+                }
+                let logoutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Logout' OR label CONTAINS[c] 'Log Out' OR label CONTAINS[c] 'Sign Out'")).firstMatch
+                if logoutButton.waitForExistence(timeout: 5) {
+                    logoutButton.tap()
+                    // Handle confirmation alert
+                    let confirmButton = app.alerts.buttons["Logout"]
+                    if confirmButton.waitForExistence(timeout: 3) {
+                        confirmButton.tap()
+                    }
+                }
+            }
+        }
+        // Wait for login screen
         _ = app.staticTexts["Driver Login"].waitForExistence(timeout: 5)
     }
 

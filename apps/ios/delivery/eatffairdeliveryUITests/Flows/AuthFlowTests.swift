@@ -53,7 +53,7 @@ final class DriverAuthFlowTests: DollorTestCase {
         XCTAssertTrue(signUpToggle.waitForExistence(timeout: 5))
         signUpToggle.tap()
 
-        let termsText = app.staticTexts["Terms & Conditions"]
+        let termsText = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'Terms'")).firstMatch
         XCTAssertTrue(termsText.waitForExistence(timeout: 3), "Terms & Conditions text should be displayed in sign up mode")
     }
 
