@@ -51,18 +51,20 @@ final class eatfaircustomerUITests: XCTestCase {
 
     @MainActor
     func testWelcomeScreen_getStartedButton_isDisplayed() throws {
-        let getStartedButton = app.buttons["Get Started"]
-        XCTAssertTrue(getStartedButton.waitForExistence(timeout: 5), "Get Started button should be displayed")
-        XCTAssertTrue(getStartedButton.isEnabled, "Get Started button should be enabled")
+        // App now goes directly to LoginView (no WelcomeView in current flow)
+        // Verify the login screen is displayed with its primary action button
+        let continueButton = app.buttons["Continue to sign in"]
+        XCTAssertTrue(continueButton.waitForExistence(timeout: 5), "Login continue button should be displayed")
+        XCTAssertTrue(continueButton.isEnabled, "Login continue button should be enabled")
     }
 
     @MainActor
     func testWelcomeScreen_getStartedClick_navigatesToLogin() throws {
-        let getStartedButton = app.buttons["Get Started"]
-        XCTAssertTrue(getStartedButton.waitForExistence(timeout: 5), "Get Started button should exist")
-        getStartedButton.tap()
+        // App goes directly to LoginView -- verify login screen has key elements
+        let dollorText = app.staticTexts["Dollor.ai"]
+        XCTAssertTrue(dollorText.waitForExistence(timeout: 5), "Dollor.ai title should be on login screen")
 
-        let dollorAIServiceText = app.staticTexts["Dollor AI Service"]
-        XCTAssertTrue(dollorAIServiceText.waitForExistence(timeout: 5), "Should navigate to login screen")
+        let welcomeBack = app.staticTexts["Welcome back"]
+        XCTAssertTrue(welcomeBack.exists, "Welcome back text should be displayed")
     }
 }

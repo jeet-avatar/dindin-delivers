@@ -26,27 +26,21 @@ class DollorTestCase: XCTestCase {
 
     // MARK: - Navigation Helpers
 
-    /// Navigates past the welcome screen to the login screen if needed.
+    /// Waits for the login screen to appear.
+    /// The app goes directly to LoginView when not authenticated (no WelcomeView in flow).
     func navigateToLogin() {
-        let getStartedButton = app.buttons["Get Started"]
-        if getStartedButton.waitForExistence(timeout: 3) {
-            getStartedButton.tap()
-        } else {
-            // Try "I already have an account" link
-            let loginLink = app.buttons["I already have an account"]
-            if loginLink.waitForExistence(timeout: 2) {
-                loginLink.tap()
-            }
-        }
-        // Wait for login screen to appear
-        _ = app.staticTexts["Dollor AI Service"].waitForExistence(timeout: 5)
+        // App shows LoginView directly when unauthenticated (MainAppView.swift:152)
+        // Wait for login screen identifiers
+        let welcomeBackText = app.staticTexts["Welcome back"]
+        let dollorText = app.staticTexts["Dollor.ai"]
+        _ = welcomeBackText.waitForExistence(timeout: 5) || dollorText.waitForExistence(timeout: 3)
     }
 
-    /// Enters email and password credentials and taps the Login button.
+    /// Enters email and password credentials and taps the Continue button.
     func loginWithCredentials(email: String, password: String) {
         navigateToLogin()
 
-        let emailField = app.textFields["Email"]
+        let emailField = app.textFields["Email address"]
         if emailField.waitForExistence(timeout: 5) {
             emailField.tap()
             emailField.typeText(email)
@@ -58,7 +52,7 @@ class DollorTestCase: XCTestCase {
             passwordField.typeText(password)
         }
 
-        let loginButton = app.buttons["Login"]
+        let loginButton = app.buttons["Continue to sign in"]
         if loginButton.waitForExistence(timeout: 3) {
             loginButton.tap()
         }
@@ -79,9 +73,11 @@ class DollorTestCase: XCTestCase {
     /// Throws `XCTSkip` if the login screen is still visible (user not logged in).
     /// Use at the top of tests that require authenticated state.
     func skipIfNotLoggedIn() throws {
-        let loginButton = app.buttons["Login"]
-        let getStartedButton = app.buttons["Get Started"]
-        if loginButton.waitForExistence(timeout: 2) || getStartedButton.waitForExistence(timeout: 1) {
+        // LoginView shows "Welcome back" or "Create your account" or "Dollor.ai" when unauthenticated
+        let welcomeBack = app.staticTexts["Welcome back"]
+        let createAccount = app.staticTexts["Create your account"]
+        let dollorLogo = app.staticTexts["Dollor.ai"]
+        if welcomeBack.waitForExistence(timeout: 3) || createAccount.exists || dollorLogo.exists {
             throw XCTSkip("Test requires logged-in state")
         }
     }
