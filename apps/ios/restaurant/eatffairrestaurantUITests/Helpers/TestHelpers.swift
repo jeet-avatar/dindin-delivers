@@ -25,6 +25,11 @@ class DollorTestCase: XCTestCase {
         app = nil
     }
 
+    // MARK: - Demo Credentials
+
+    private static let demoEmail = "demo.restaurant@dollor.ai"
+    private static let demoPassword = "DemoRestaurant2025!"
+
     // MARK: - Navigation Helpers
 
     /// Navigates to the login screen. Restaurant app opens directly to login.
@@ -64,6 +69,31 @@ class DollorTestCase: XCTestCase {
     /// Asserts that an element exists, with a descriptive message.
     func assertElementExists(_ element: XCUIElement, _ message: String) {
         XCTAssertTrue(element.waitForExistence(timeout: 10), message)
+    }
+
+    /// Ensures the app is in a logged-in state using demo credentials.
+    /// If already logged in (no login screen visible), does nothing.
+    /// If on login screen, logs in with demo restaurant credentials.
+    /// If login fails, throws XCTSkip.
+    func ensureLoggedIn() throws {
+        // Check if already on login screen
+        let loginButton = app.buttons["Log In"]
+        let brandTitle = app.staticTexts["Dollor AI Restaurant"]
+        let onLoginScreen = loginButton.waitForExistence(timeout: 3) || brandTitle.waitForExistence(timeout: 1)
+
+        if !onLoginScreen {
+            return // Already logged in
+        }
+
+        // On login screen -- attempt login with demo credentials
+        loginWithCredentials(email: Self.demoEmail, password: Self.demoPassword)
+
+        // Verify login succeeded -- login screen elements should disappear
+        let tabBar = app.tabBars.firstMatch
+        let stillOnLogin = brandTitle.waitForExistence(timeout: 15)
+        if stillOnLogin && !tabBar.exists {
+            throw XCTSkip("Demo login failed -- staging may be unreachable (demo.restaurant@dollor.ai)")
+        }
     }
 
     /// Throws `XCTSkip` if the login screen is still visible (user not logged in).
