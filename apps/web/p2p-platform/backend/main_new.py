@@ -1338,6 +1338,9 @@ def _run_startup_migrations():
         ("orders", "delivery_photo_uploaded_at", "TIMESTAMP"),
         # Vendor payout Stripe transfer tracking
         ("vendor_payouts", "stripe_transfer_id", "VARCHAR(255)"),
+        # Apple Sign-In user ID for returning user lookup
+        ("drivers", "apple_id", "VARCHAR(255)"),
+        ("vendors", "apple_id", "VARCHAR(255)"),
     ]
 
     # Tables to create if they don't exist
@@ -2368,17 +2371,33 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
         elif not name:
             name = 'Restaurant Owner'
 
-        # If still no email, we can't proceed
+        # For returning users, look up by apple_id first (most reliable)
+        existing_user = None
+        vendor = None
+        if request.apple_id:
+            vendor = db.query(Vendor).filter(Vendor.apple_id == request.apple_id).first()
+            if vendor:
+                email = vendor.contact_email
+                existing_user = db.query(User).filter(User.email == email).first()
+
+        # If still no email after apple_id lookup, we can't proceed
         if not email:
             raise HTTPException(status_code=400, detail="Email is required for Apple Sign-In. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove Dollor Business, and try again.")
 
-        # Check if user exists with this email (any role)
-        existing_user = db.query(User).filter(User.email == email).first()
+        # Fall back to email lookup if apple_id lookup didn't find user
+        if not existing_user and email:
+            existing_user = db.query(User).filter(User.email == email).first()
 
         if existing_user:
             if existing_user.role == UserRole.VENDOR:
                 # Existing vendor - allow login
                 user = existing_user
+                # Store apple_id on vendor if not already set
+                if not vendor and user.vendor_id:
+                    vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
+                if vendor and not vendor.apple_id:
+                    vendor.apple_id = request.apple_id
+                    db.commit()
             else:
                 # Email already registered with different role
                 raise HTTPException(
@@ -2393,6 +2412,7 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
                 company_name=name,
                 contact_name=name,
                 contact_email=email,
+                apple_id=request.apple_id,
                 onboarding_status=VendorStatus.APPROVED,  # Approved for login (is_published defaults to False)
                 street="",
                 city="",
@@ -2403,6 +2423,7 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
             db.add(new_vendor)
             db.commit()
             db.refresh(new_vendor)
+            vendor = new_vendor
 
             hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
             user = User(
@@ -2429,8 +2450,9 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
             except Exception as e:
                 print(f"Failed to send vendor registration email to Apple signup: {str(e)}")
 
-        # Get vendor info
-        vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
+        # Get vendor info (may already be loaded)
+        if not vendor and user.vendor_id:
+            vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
         business_name = vendor.restaurant_name or vendor.company_name if vendor else name
 
         print(f"Vendor Apple auth successful for: {user.email}")
@@ -2913,31 +2935,73 @@ def driver_google_auth(http_request: Request, request: DriverGoogleAuthRequest, 
 
 # Driver Apple OAuth
 class DriverAppleAuthRequest(BaseModel):
-    email: EmailStr
-    name: str
+    email: Optional[str] = ""  # Apple only provides on first sign-in
+    name: Optional[str] = None
     apple_id: str
+    identity_token: Optional[str] = None  # JWT from Apple containing email for returning users
 
 @app.post("/api/auth/driver/apple-auth")
 def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db: Session = Depends(get_db)):
     """Apple OAuth authentication for drivers - handles both login and registration"""
     check_rate_limit(http_request, registration_rate_limiter, "register")
-    print(f"Driver Apple auth for: {request.email}")
 
-    # Check if user exists with DRIVER role
-    user = db.query(User).filter(User.email == request.email, User.role == UserRole.DRIVER).first()
+    email = request.email or ""
+    name = request.name
+
+    # Try to decode identity_token first (Apple JWT contains email for returning users)
+    if request.identity_token:
+        try:
+            decoded = decode_google_jwt(request.identity_token)  # Same JWT decode works for Apple
+            token_email = decoded.get('email')
+            if token_email:
+                email = token_email
+            if not name and email:
+                name = email.split('@')[0]
+        except Exception as e:
+            logger.debug(f"Apple identity token decode failed for driver auth")
+
+    if not name and email:
+        name = email.split('@')[0]
+    elif not name:
+        name = 'Driver'
+
+    # For returning users, look up by apple_id first (most reliable)
+    driver = None
+    user = None
+
+    # First: Try to find existing driver by apple_id
+    driver = db.query(Driver).filter(Driver.apple_id == request.apple_id).first()
+    if driver:
+        email = driver.email
+        user = db.query(User).filter(User.email == email, User.role == UserRole.DRIVER).first()
+
+    # Second: Try to find by email if we have one
+    if not user and email:
+        user = db.query(User).filter(User.email == email, User.role == UserRole.DRIVER).first()
+        if user and user.driver_id:
+            driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
+
+    # If still no user and no email, we can't proceed
+    if not user and not email:
+        raise HTTPException(status_code=400, detail="Email is required for first-time Apple Sign-In. Please go to Settings > Apple ID > Sign-In & Security > Apps Using Apple ID, remove Dollor Driver, and try again.")
 
     if user:
         # Existing driver - block only SUSPENDED drivers
         if user.driver_id:
-            driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
+            if not driver:
+                driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
             if driver and driver.status == DriverStatus.SUSPENDED:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Driver account is suspended. Please contact support@dollor.ai"
                 )
+            # Store apple_id on driver if not already set
+            if driver and not driver.apple_id:
+                driver.apple_id = request.apple_id
+                db.commit()
     else:
         # Create new driver and user
-        name_parts = request.name.split(" ", 1)
+        name_parts = name.split(" ", 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ""
 
@@ -2948,38 +3012,41 @@ def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db
             driver_id=driver_code,
             first_name=first_name,
             last_name=last_name,
-            email=request.email,
+            email=email,
+            apple_id=request.apple_id,
             status=DriverStatus.PENDING
         )
         db.add(new_driver)
         db.commit()
         db.refresh(new_driver)
+        driver = new_driver
 
         hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
         user = User(
-            email=request.email,
+            email=email,
             password_hash=hashed_password,
-            full_name=request.name,
+            full_name=name,
             role=UserRole.DRIVER,
             driver_id=new_driver.id
         )
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"Created new driver via Apple auth: {request.email}")
+        print(f"Created new driver via Apple auth: {email}")
 
         # Send registration confirmation
         try:
             send_driver_registration_confirmation(
-                to_email=request.email,
-                driver_name=request.name,
+                to_email=email,
+                driver_name=name,
                 driver_code=driver_code
             )
         except Exception as e:
             print(f"Failed to send driver registration email: {str(e)}")
 
-    # Get driver info
-    driver = db.query(Driver).filter(Driver.id == user.driver_id).first() if user.driver_id else None
+    # Get driver info (may already be loaded)
+    if not driver and user and user.driver_id:
+        driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
 
     print(f"Driver Apple auth successful for: {user.email} (status: {driver.status.value if driver else 'unknown'})")
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id if driver else None})
@@ -2988,7 +3055,7 @@ def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db
         "token_type": "bearer",
         "driver_id": driver.id if driver else None,
         "driver_code": driver.driver_id if driver else None,
-        "name": f"{driver.first_name} {driver.last_name}" if driver else request.name,
+        "name": f"{driver.first_name} {driver.last_name}" if driver else name,
         "email": user.email,
         "status": driver.status.value if driver and hasattr(driver.status, 'value') else "pending",
         "is_approved": driver.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED] if driver else False,

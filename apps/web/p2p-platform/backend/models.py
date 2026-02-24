@@ -170,6 +170,7 @@ class Vendor(Base):
     contact_email = Column(String(255))
     contact_phone = Column(String(50))
     contact_title = Column(String(100))
+    apple_id = Column(String(255), unique=True, nullable=True, index=True)  # Apple Sign In user ID
     
     # Address
     street = Column(Text)
@@ -722,6 +723,7 @@ class Driver(Base):
     password_hash = Column(String(255))  # For driver app authentication
     date_of_birth = Column(String(20))  # YYYY-MM-DD format
     license_number = Column(String(50))  # Driver's license number
+    apple_id = Column(String(255), unique=True, nullable=True, index=True)  # Apple Sign In user ID
 
     # Address (NOTE: Currently unused - reserved for future address-based features)
     street = Column(Text)
