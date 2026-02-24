@@ -16,11 +16,18 @@ Test Matrix:
 API Base URL (Staging): https://d34u5ixl0bulv4.cloudfront.net
 """
 
+import os
 import pytest
 import requests
 from datetime import datetime
 from typing import Optional, Dict, Any
 import json
+
+# Skip all tests in this module when running in CI (they hit external staging API)
+pytestmark = pytest.mark.skipif(
+    os.getenv("CI") == "true" or os.getenv("TESTING") == "true",
+    reason="Cross-platform tests require live staging API — skip in CI"
+)
 
 
 # =========================================================================
