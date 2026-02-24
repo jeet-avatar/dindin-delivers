@@ -32,8 +32,32 @@ class DollorTestCase: XCTestCase {
 
     // MARK: - Navigation Helpers
 
-    /// Navigates to the login screen. Restaurant app opens directly to login.
+    /// Navigates to the login screen. If already logged in, logs out first via Settings > Sign Out.
     func navigateToLogin() {
+        // Check if we're already logged in (tab bar present = authenticated)
+        let tabBar = app.tabBars.firstMatch
+        if tabBar.waitForExistence(timeout: 3) {
+            // Logged in -- navigate to Settings tab and sign out
+            let settingsTab = app.tabBars.buttons["Settings"]
+            if settingsTab.exists {
+                settingsTab.tap()
+                // Scroll down to find Sign Out button
+                let scrollView = app.scrollViews.firstMatch
+                if scrollView.waitForExistence(timeout: 3) {
+                    scrollView.swipeUp()
+                }
+                let signOutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Sign out' OR label CONTAINS[c] 'Sign Out' OR label CONTAINS[c] 'Log Out'")).firstMatch
+                if signOutButton.waitForExistence(timeout: 5) {
+                    signOutButton.tap()
+                    // Handle "Sign Out?" confirmation alert
+                    let confirmButton = app.alerts.buttons["Sign Out"]
+                    if confirmButton.waitForExistence(timeout: 3) {
+                        confirmButton.tap()
+                    }
+                }
+            }
+        }
+        // Wait for login screen identifiers
         _ = app.staticTexts["Dollor AI Restaurant"].waitForExistence(timeout: 5)
     }
 

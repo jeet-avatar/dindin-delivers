@@ -12,12 +12,14 @@ final class RestaurantAuthFlowTests: DollorTestCase {
 
     @MainActor
     func testLogin_brandTitle_isDisplayed() throws {
+        navigateToLogin()
         let brandTitle = app.staticTexts["Dollor AI Restaurant"]
         XCTAssertTrue(brandTitle.waitForExistence(timeout: 5), "Should show 'Dollor AI Restaurant' brand title")
     }
 
     @MainActor
     func testLogin_emailPasswordFields_exist() throws {
+        navigateToLogin()
         let emailField = app.textFields["Enter your email"]
         XCTAssertTrue(emailField.waitForExistence(timeout: 5), "Email field should exist with 'Enter your email' placeholder")
 
@@ -27,12 +29,14 @@ final class RestaurantAuthFlowTests: DollorTestCase {
 
     @MainActor
     func testLogin_loginButton_exists() throws {
+        navigateToLogin()
         let loginButton = app.buttons["Log in to your account"]
         XCTAssertTrue(loginButton.waitForExistence(timeout: 5), "Log In button should exist")
     }
 
     @MainActor
     func testLogin_forgotPassword_opensSheet() throws {
+        navigateToLogin()
         let forgotButton = app.buttons["Forgot password"]
         XCTAssertTrue(forgotButton.waitForExistence(timeout: 5), "Forgot Password button should exist")
 
@@ -44,6 +48,7 @@ final class RestaurantAuthFlowTests: DollorTestCase {
 
     @MainActor
     func testLogin_signUp_opensRegistration() throws {
+        navigateToLogin()
         let signUpButton = app.buttons["Sign up for a new account"]
         XCTAssertTrue(signUpButton.waitForExistence(timeout: 5), "Sign Up button should exist")
 
@@ -57,6 +62,7 @@ final class RestaurantAuthFlowTests: DollorTestCase {
 
     @MainActor
     func testLogin_googleAppleButtons_exist() throws {
+        navigateToLogin()
         let googleButton = app.buttons["Sign in with Google"]
         XCTAssertTrue(googleButton.waitForExistence(timeout: 5), "Google Sign-In button should exist")
 
@@ -66,6 +72,7 @@ final class RestaurantAuthFlowTests: DollorTestCase {
 
     @MainActor
     func testRegistration_multiStep_navigation() throws {
+        navigateToLogin()
         let signUpButton = app.buttons["Sign up for a new account"]
         XCTAssertTrue(signUpButton.waitForExistence(timeout: 5))
         signUpButton.tap()
