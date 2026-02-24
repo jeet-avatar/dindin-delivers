@@ -3636,15 +3636,15 @@ public class P2PAPIService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.driverRequiresDocuments)
     }
 
-    /// Apple OAuth login/registration for drivers
+    /// Google OAuth login/registration for drivers
     /// This endpoint handles both login and registration - if user exists, logs them in; if not, registers them
-    public func driverAppleAuth(
+    public func driverGoogleAuth(
         email: String,
         name: String,
-        appleId: String,
+        googleId: String,
         completion: @escaping (Result<P2PDriverLoginResponse, Error>) -> Void
     ) {
-        guard let url = URL(string: "\(baseURL)/auth/driver/apple-auth") else {
+        guard let url = URL(string: "\(baseURL)/auth/driver/google") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -3656,8 +3656,84 @@ public class P2PAPIService: ObservableObject {
         let body: [String: Any] = [
             "email": email,
             "name": name,
+            "google_id": googleId
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        isLoading = true
+
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Google auth failed")))
+                    }
+                    return
+                }
+
+                do {
+                    let loginResponse = try JSONDecoder().decode(P2PDriverLoginResponse.self, from: data)
+                    // Store the token and driver info
+                    SecureStorage.shared.driverAccessToken = loginResponse.accessToken
+                    UserDefaults.standard.set(loginResponse.driverId, forKey: UserDefaultsKey.driverId)
+                    UserDefaults.standard.set(loginResponse.driverCode, forKey: UserDefaultsKey.driverCode)
+                    UserDefaults.standard.set(loginResponse.name, forKey: UserDefaultsKey.driverName)
+                    UserDefaults.standard.set(loginResponse.email, forKey: UserDefaultsKey.driverEmail)
+                    // Store driver status info for UI
+                    UserDefaults.standard.set(loginResponse.status ?? "pending", forKey: UserDefaultsKey.driverStatus)
+                    UserDefaults.standard.set(loginResponse.isApproved ?? false, forKey: UserDefaultsKey.driverIsApproved)
+                    UserDefaults.standard.set(loginResponse.requiresDocuments ?? true, forKey: UserDefaultsKey.driverRequiresDocuments)
+                    completion(.success(loginResponse))
+                } catch {
+                    self?.error = "Failed to decode Google auth response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// Apple OAuth login/registration for drivers
+    /// This endpoint handles both login and registration - if user exists, logs them in; if not, registers them
+    public func driverAppleAuth(
+        email: String,
+        name: String,
+        appleId: String,
+        identityToken: String? = nil,
+        completion: @escaping (Result<P2PDriverLoginResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/auth/driver/apple-auth") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        var body: [String: Any] = [
+            "email": email,
+            "name": name,
             "apple_id": appleId
         ]
+        // Include identity_token if available - backend can decode JWT to get real email
+        if let token = identityToken {
+            body["identity_token"] = token
+        }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         isLoading = true
