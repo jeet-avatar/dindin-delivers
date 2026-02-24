@@ -41,12 +41,13 @@ class DollorTestCase: XCTestCase {
             let settingsTab = app.tabBars.buttons["Settings"]
             if settingsTab.exists {
                 settingsTab.tap()
-                // Scroll down to find Sign Out button
-                let scrollView = app.scrollViews.firstMatch
-                if scrollView.waitForExistence(timeout: 3) {
-                    scrollView.swipeUp()
-                }
+                // Sign Out button is near the bottom; scroll aggressively to find it
                 let signOutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Sign out' OR label CONTAINS[c] 'Sign Out' OR label CONTAINS[c] 'Log Out'")).firstMatch
+                for _ in 0..<8 {
+                    if signOutButton.exists { break }
+                    app.swipeUp()
+                    Thread.sleep(forTimeInterval: 0.3)
+                }
                 if signOutButton.waitForExistence(timeout: 5) {
                     signOutButton.tap()
                     // Handle "Sign Out?" confirmation alert

@@ -31,7 +31,7 @@ final class DriverProfileFlowTests: DollorTestCase {
         let personalTab = app.buttons["Personal"]
         let documentsTab = app.buttons["Documents"]
         let earningsTab = app.buttons["Earnings"]
-        let settingsTab = app.buttons["Settings"]
+        let settingsTab = app.buttons["Settings tab"]
 
         if personalTab.waitForExistence(timeout: 5) {
             XCTAssertTrue(personalTab.exists, "Personal tab should exist")
@@ -110,12 +110,22 @@ final class DriverProfileFlowTests: DollorTestCase {
 
         navigateToTab("Profile")
 
-        let settingsTab = app.buttons["Settings"]
+        // ProfileTabSelector uses .accessibilityLabel("Settings tab")
+        let settingsTab = app.buttons["Settings tab"]
         if settingsTab.waitForExistence(timeout: 5) {
             settingsTab.tap()
         }
 
-        let logoutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Logout' OR label CONTAINS[c] 'Log Out' OR label CONTAINS[c] 'Sign Out'")).firstMatch
+        // The Logout button has .accessibilityLabel("Logout from account").
+        let logoutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Logout'")).firstMatch
+
+        // Scroll to find the logout button at the bottom of SettingsSection
+        for _ in 0..<10 {
+            if logoutButton.exists { break }
+            app.swipeUp()
+            Thread.sleep(forTimeInterval: 0.3)
+        }
+
         XCTAssertTrue(logoutButton.waitForExistence(timeout: 5), "Logout button should exist in Settings")
     }
 
@@ -125,12 +135,21 @@ final class DriverProfileFlowTests: DollorTestCase {
 
         navigateToTab("Profile")
 
-        let settingsTab = app.buttons["Settings"]
+        // ProfileTabSelector uses .accessibilityLabel("Settings tab")
+        let settingsTab = app.buttons["Settings tab"]
         if settingsTab.waitForExistence(timeout: 5) {
             settingsTab.tap()
         }
 
-        let deleteButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Delete Account' OR label CONTAINS[c] 'delete account'")).firstMatch
+        // The Delete Account button has .accessibilityLabel("Delete account permanently").
+        let deleteButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Delete'")).firstMatch
+
+        for _ in 0..<12 {
+            if deleteButton.exists { break }
+            app.swipeUp()
+            Thread.sleep(forTimeInterval: 0.3)
+        }
+
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 5), "Delete Account button should exist (App Store requirement)")
     }
 
@@ -140,7 +159,7 @@ final class DriverProfileFlowTests: DollorTestCase {
 
         navigateToTab("Profile")
 
-        let settingsTab = app.buttons["Settings"]
+        let settingsTab = app.buttons["Settings tab"]
         if settingsTab.waitForExistence(timeout: 5) {
             settingsTab.tap()
         }

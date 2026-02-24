@@ -49,9 +49,9 @@ final class RestaurantOrderManagementTests: DollorTestCase {
 
         navigateToTab("Orders")
 
-        let allTab = app.buttons["All"]
-        let newTab = app.buttons["New"]
-        let preparingTab = app.buttons["Preparing"]
+        // FilterTab uses .accessibilityLabel("Filter by \(title), \(count) orders")
+        let allTab = app.buttons.containing(NSPredicate(format: "label BEGINSWITH[c] 'Filter by All'")).firstMatch
+        let newTab = app.buttons.containing(NSPredicate(format: "label BEGINSWITH[c] 'Filter by New'")).firstMatch
 
         let hasFilterTabs = allTab.waitForExistence(timeout: 5) || newTab.waitForExistence(timeout: 3)
         XCTAssertTrue(hasFilterTabs, "Order filter tabs should exist")
