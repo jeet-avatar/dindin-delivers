@@ -2389,9 +2389,10 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
             existing_user = db.query(User).filter(User.email == email).first()
 
         if existing_user:
-            if existing_user.role == UserRole.VENDOR:
-                # Existing vendor - allow login
-                user = existing_user
+            user = existing_user
+            if user.vendor_id:
+                # User already has a vendor account — allow login
+                print(f"Existing user {email} (role={user.role.value}) logging in as vendor via Apple")
                 # Store apple_id on vendor if not already set
                 if not vendor and user.vendor_id:
                     vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
@@ -2399,11 +2400,39 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
                     vendor.apple_id = request.apple_id
                     db.commit()
             else:
-                # Email already registered with different role
-                raise HTTPException(
-                    status_code=400,
-                    detail="Registration failed. If you already have an account, please log in."
+                # User exists but has no vendor account — create one and link it
+                new_vendor = Vendor(
+                    company_name=name,
+                    contact_name=name,
+                    contact_email=email,
+                    apple_id=request.apple_id,
+                    onboarding_status=VendorStatus.APPROVED,
+                    street="",
+                    city="",
+                    state="",
+                    zip_code="",
+                    country="US"
                 )
+                db.add(new_vendor)
+                db.commit()
+                db.refresh(new_vendor)
+                vendor = new_vendor
+
+                user.vendor_id = new_vendor.id
+                db.commit()
+                db.refresh(user)
+                print(f"Added vendor role to existing {user.role.value} user via Apple: {email}")
+
+                # Send registration confirmation for new vendor
+                try:
+                    send_vendor_registration_confirmation(
+                        to_email=email,
+                        restaurant_name=name,
+                        contact_name=name,
+                        vendor_id=new_vendor.vendor_id
+                    )
+                except Exception as e:
+                    print(f"Failed to send vendor registration email: {str(e)}")
         else:
             # Create new vendor and user
             # Auto-approve for login access, but keep is_published=False
