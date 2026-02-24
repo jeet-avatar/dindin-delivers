@@ -27,13 +27,13 @@ final class RestaurantAuthFlowTests: DollorTestCase {
 
     @MainActor
     func testLogin_loginButton_exists() throws {
-        let loginButton = app.buttons["Log In"]
+        let loginButton = app.buttons["Log in to your account"]
         XCTAssertTrue(loginButton.waitForExistence(timeout: 5), "Log In button should exist")
     }
 
     @MainActor
     func testLogin_forgotPassword_opensSheet() throws {
-        let forgotButton = app.buttons["Forgot Password?"]
+        let forgotButton = app.buttons["Forgot password"]
         XCTAssertTrue(forgotButton.waitForExistence(timeout: 5), "Forgot Password button should exist")
 
         forgotButton.tap()
@@ -44,7 +44,7 @@ final class RestaurantAuthFlowTests: DollorTestCase {
 
     @MainActor
     func testLogin_signUp_opensRegistration() throws {
-        let signUpButton = app.buttons["Sign Up"]
+        let signUpButton = app.buttons["Sign up for a new account"]
         XCTAssertTrue(signUpButton.waitForExistence(timeout: 5), "Sign Up button should exist")
 
         signUpButton.tap()
@@ -64,7 +64,7 @@ final class RestaurantAuthFlowTests: DollorTestCase {
 
     @MainActor
     func testRegistration_multiStep_navigation() throws {
-        let signUpButton = app.buttons["Sign Up"]
+        let signUpButton = app.buttons["Sign up for a new account"]
         XCTAssertTrue(signUpButton.waitForExistence(timeout: 5))
         signUpButton.tap()
 
