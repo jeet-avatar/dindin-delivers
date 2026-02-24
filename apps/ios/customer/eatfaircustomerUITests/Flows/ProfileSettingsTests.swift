@@ -14,7 +14,7 @@ final class CustomerProfileSettingsTests: DollorTestCase {
 
     @MainActor
     func testProfile_editProfileButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -24,7 +24,7 @@ final class CustomerProfileSettingsTests: DollorTestCase {
 
     @MainActor
     func testProfile_navigationLinks_allPresent() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -39,7 +39,7 @@ final class CustomerProfileSettingsTests: DollorTestCase {
 
     @MainActor
     func testProfile_signOutButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -55,7 +55,7 @@ final class CustomerProfileSettingsTests: DollorTestCase {
 
     @MainActor
     func testProfile_deleteAccountButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -74,7 +74,7 @@ final class CustomerProfileSettingsTests: DollorTestCase {
 
     @MainActor
     func testSettings_languageButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -91,7 +91,7 @@ final class CustomerProfileSettingsTests: DollorTestCase {
 
     @MainActor
     func testSettings_privacyTermsLinks_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -115,7 +115,7 @@ final class CustomerProfileSettingsTests: DollorTestCase {
 
     @MainActor
     func testPaymentMethods_addCardButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -134,7 +134,7 @@ final class CustomerProfileSettingsTests: DollorTestCase {
 
     @MainActor
     func testAddresses_addAddressButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 

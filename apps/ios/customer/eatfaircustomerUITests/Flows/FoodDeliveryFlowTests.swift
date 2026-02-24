@@ -14,7 +14,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testHome_categoryButtons_areDisplayed() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         // Category filter buttons on HomeView
         let foodDeliveryText = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'food' OR label CONTAINS[c] 'restaurant'")).firstMatch
@@ -23,7 +23,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testHome_orderFoodButton_navigatesToSearch() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let orderFoodButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Order Food' OR label CONTAINS[c] 'order'")).firstMatch
         if orderFoodButton.waitForExistence(timeout: 5) {
@@ -39,7 +39,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testHome_bookRideButton_navigatesToRideRequest() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let bookRideButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Book Ride' OR label CONTAINS[c] 'ride'")).firstMatch
         if bookRideButton.waitForExistence(timeout: 5) {
@@ -55,7 +55,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testBrowse_restaurantCards_areTappable() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         // Navigate to restaurant list
         let orderFoodButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Order Food'")).firstMatch
@@ -72,7 +72,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testBrowse_sortMenu_isAccessible() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let orderFoodButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Order Food'")).firstMatch
         if orderFoodButton.waitForExistence(timeout: 5) {
@@ -90,7 +90,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testRestaurantDetail_menuItems_areDisplayed() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         // Navigate to a restaurant
         let orderFoodButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Order Food'")).firstMatch
@@ -110,7 +110,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testRestaurantDetail_addToCart_works() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let orderFoodButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Order Food'")).firstMatch
         if orderFoodButton.waitForExistence(timeout: 5) {
@@ -133,7 +133,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testCart_itemQuantity_canBeChanged() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         // Navigate to cart (if items exist)
         let cartButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'cart'")).firstMatch
@@ -154,7 +154,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testCart_checkoutButton_navigatesToCheckout() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let cartButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'cart'")).firstMatch
         if cartButton.waitForExistence(timeout: 5) {
@@ -171,7 +171,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testCheckout_placeOrderButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let cartButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'cart'")).firstMatch
         if cartButton.waitForExistence(timeout: 5) {
@@ -191,7 +191,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testCheckout_addressSection_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let cartButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'cart'")).firstMatch
         if cartButton.waitForExistence(timeout: 5) {
@@ -211,7 +211,7 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testCheckout_paymentSection_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let cartButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'cart'")).firstMatch
         if cartButton.waitForExistence(timeout: 5) {

@@ -14,7 +14,7 @@ final class DriverProfileFlowTests: DollorTestCase {
 
     @MainActor
     func testProfile_editButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -24,7 +24,7 @@ final class DriverProfileFlowTests: DollorTestCase {
 
     @MainActor
     func testProfile_tabSelector_personalDocumentsEarningsSettings() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -49,7 +49,7 @@ final class DriverProfileFlowTests: DollorTestCase {
 
     @MainActor
     func testProfile_personalTab_saveButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -72,7 +72,7 @@ final class DriverProfileFlowTests: DollorTestCase {
 
     @MainActor
     func testProfile_documentsTab_verifyIdentity_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -89,7 +89,7 @@ final class DriverProfileFlowTests: DollorTestCase {
 
     @MainActor
     func testProfile_earningsTab_payoutHistory_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -106,7 +106,7 @@ final class DriverProfileFlowTests: DollorTestCase {
 
     @MainActor
     func testProfile_settingsTab_logoutButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -121,7 +121,7 @@ final class DriverProfileFlowTests: DollorTestCase {
 
     @MainActor
     func testProfile_settingsTab_deleteAccount_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 
@@ -136,7 +136,7 @@ final class DriverProfileFlowTests: DollorTestCase {
 
     @MainActor
     func testProfile_settingsTab_toggles_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Profile")
 

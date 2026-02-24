@@ -14,7 +14,7 @@ final class CustomerRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testRideRequest_pickupDropoff_fieldsExist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         // Navigate to rideshare
         let rideTab = app.tabBars.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'ride'")).firstMatch
@@ -38,7 +38,7 @@ final class CustomerRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testRideRequest_tipAmounts_areSelectable() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let rideTab = app.tabBars.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'ride'")).firstMatch
         if rideTab.waitForExistence(timeout: 3) {
@@ -54,7 +54,7 @@ final class CustomerRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testRideRequest_requestRideButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let rideTab = app.tabBars.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'ride'")).firstMatch
         if rideTab.waitForExistence(timeout: 3) {
@@ -69,7 +69,7 @@ final class CustomerRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testRideRequest_negotiateFareButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let rideTab = app.tabBars.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'ride'")).firstMatch
         if rideTab.waitForExistence(timeout: 3) {
@@ -86,7 +86,7 @@ final class CustomerRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveRide_cancelButton_showsConfirmation() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let cancelButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Cancel'")).firstMatch
         if cancelButton.waitForExistence(timeout: 5) {
@@ -102,7 +102,7 @@ final class CustomerRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveRide_chatButton_opensSheet() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let chatButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'chat' OR label CONTAINS[c] 'message'")).firstMatch
         if chatButton.waitForExistence(timeout: 5) {
@@ -117,7 +117,7 @@ final class CustomerRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveRide_sosButton_showsAlert() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let sosButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'SOS' OR label CONTAINS[c] 'emergency' OR label CONTAINS[c] 'Emergency'")).firstMatch
         if sosButton.waitForExistence(timeout: 5) {
@@ -132,7 +132,7 @@ final class CustomerRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveRide_shareLocationButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let shareButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'share' OR label CONTAINS[c] 'Share'")).firstMatch
         if shareButton.waitForExistence(timeout: 5) {
@@ -144,7 +144,7 @@ final class CustomerRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testCompletedRide_ratingStars_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         // Star rating buttons (1-5)
         let starButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'star' OR label CONTAINS[c] 'rating'")).firstMatch
@@ -155,7 +155,7 @@ final class CustomerRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testCompletedRide_tipSelection_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let tipButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'tip' OR label CONTAINS[c] '$'")).firstMatch
         if tipButton.waitForExistence(timeout: 5) {
@@ -167,7 +167,7 @@ final class CustomerRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testRecurringRides_addButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let recurringButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'recurring' OR label CONTAINS[c] 'Recurring' OR label CONTAINS[c] 'schedule'")).firstMatch
         if recurringButton.waitForExistence(timeout: 5) {

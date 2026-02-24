@@ -14,7 +14,7 @@ final class DriverDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testDashboard_tabBar_hasCorrectTabs() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let ordersTab = app.tabBars.buttons["Orders"]
         let activeTab = app.tabBars.buttons["Active"]
@@ -29,7 +29,7 @@ final class DriverDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testAvailableOrders_onlineToggle_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let onlineToggle = app.switches.firstMatch
         let onlineButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'online' OR label CONTAINS[c] 'Online'")).firstMatch
@@ -40,7 +40,7 @@ final class DriverDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testAvailableOrders_refreshButton_works() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let refreshButton = app.navigationBars.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'refresh' OR label CONTAINS[c] 'clockwise'")).firstMatch
         if refreshButton.waitForExistence(timeout: 5) {
@@ -50,7 +50,7 @@ final class DriverDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testAvailableOrders_listMapToggle_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let listButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'list'")).firstMatch
         let mapButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'map'")).firstMatch
@@ -61,7 +61,7 @@ final class DriverDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testAvailableOrders_acceptOrderButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let acceptButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'accept' OR label CONTAINS[c] 'Accept'")).firstMatch
         if acceptButton.waitForExistence(timeout: 10) {
@@ -73,7 +73,7 @@ final class DriverDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testMyDeliveries_activeDeliveryCard_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Active")
 
@@ -87,7 +87,7 @@ final class DriverDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveDelivery_navigateButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Active")
 
@@ -99,7 +99,7 @@ final class DriverDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveDelivery_callCustomerButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Active")
 
@@ -111,7 +111,7 @@ final class DriverDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveDelivery_completeDeliveryFlow() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Active")
 
@@ -125,7 +125,7 @@ final class DriverDeliveryFlowTests: DollorTestCase {
 
     @MainActor
     func testDeliveryProof_photoOptions_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Active")
 
