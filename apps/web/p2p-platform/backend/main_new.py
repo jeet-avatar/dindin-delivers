@@ -2242,67 +2242,25 @@ def vendor_google_auth(http_request: Request, request: VendorGoogleAuthRequest, 
                 # User already has a vendor account — allow login
                 print(f"Existing user {email} (role={user.role.value}) logging in as vendor")
             else:
-                # User exists but has no vendor account — create one and link it
-                new_vendor = Vendor(
-                    company_name=name,
-                    contact_name=name,
-                    contact_email=email,
-                    onboarding_status=VendorStatus.APPROVED,
-                    street="",
-                    city="",
-                    state="",
-                    zip_code="",
-                    country="US"
+                # User exists but has no vendor account — direct them to register
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": "No restaurant account found. Please register as a restaurant partner first.",
+                        "registration_url": "https://dollor.ai/restaurant/apply",
+                        "requires_registration": True
+                    }
                 )
-                db.add(new_vendor)
-                db.commit()
-                db.refresh(new_vendor)
-
-                user.vendor_id = new_vendor.id
-                db.commit()
-                db.refresh(user)
-                print(f"Added vendor role to existing {user.role.value} user: {email}")
         else:
-            # Brand new user — create vendor + user
-            new_vendor = Vendor(
-                company_name=name,
-                contact_name=name,
-                contact_email=email,
-                onboarding_status=VendorStatus.APPROVED,
-                street="",
-                city="",
-                state="",
-                zip_code="",
-                country="US"
+            # Brand new user — direct them to register
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "No restaurant account found. Please register as a restaurant partner first.",
+                    "registration_url": "https://dollor.ai/restaurant/apply",
+                    "requires_registration": True
+                }
             )
-            db.add(new_vendor)
-            db.commit()
-            db.refresh(new_vendor)
-
-            hashed_password = get_password_hash(f"google_oauth_{google_id or email}")
-            user = User(
-                email=email,
-                password_hash=hashed_password,
-                full_name=name,
-                role=UserRole.VENDOR,
-                vendor_id=new_vendor.id
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-            print(f"Created new vendor via Google auth: {email}")
-
-            # Send registration confirmation for new vendor
-            try:
-                send_vendor_registration_confirmation(
-                    to_email=email,
-                    restaurant_name=name,
-                    contact_name=name,
-                    vendor_id=new_vendor.vendor_id
-                )
-                print(f"Vendor registration email sent to Google signup: {email}")
-            except Exception as e:
-                print(f"Failed to send vendor registration email to Google signup: {str(e)}")
 
         # Get vendor info
         vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
@@ -2400,84 +2358,25 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
                     vendor.apple_id = request.apple_id
                     db.commit()
             else:
-                # User exists but has no vendor account — create one and link it
-                new_vendor = Vendor(
-                    company_name=name,
-                    contact_name=name,
-                    contact_email=email,
-                    apple_id=request.apple_id,
-                    onboarding_status=VendorStatus.APPROVED,
-                    street="",
-                    city="",
-                    state="",
-                    zip_code="",
-                    country="US"
+                # User exists but has no vendor account — direct them to register
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": "No restaurant account found. Please register as a restaurant partner first.",
+                        "registration_url": "https://dollor.ai/restaurant/apply",
+                        "requires_registration": True
+                    }
                 )
-                db.add(new_vendor)
-                db.commit()
-                db.refresh(new_vendor)
-                vendor = new_vendor
-
-                user.vendor_id = new_vendor.id
-                db.commit()
-                db.refresh(user)
-                print(f"Added vendor role to existing {user.role.value} user via Apple: {email}")
-
-                # Send registration confirmation for new vendor
-                try:
-                    send_vendor_registration_confirmation(
-                        to_email=email,
-                        restaurant_name=name,
-                        contact_name=name,
-                        vendor_id=new_vendor.vendor_id
-                    )
-                except Exception as e:
-                    print(f"Failed to send vendor registration email: {str(e)}")
         else:
-            # Create new vendor and user
-            # Auto-approve for login access, but keep is_published=False
-            # Restaurant goes live only after admin approval
-            new_vendor = Vendor(
-                company_name=name,
-                contact_name=name,
-                contact_email=email,
-                apple_id=request.apple_id,
-                onboarding_status=VendorStatus.APPROVED,  # Approved for login (is_published defaults to False)
-                street="",
-                city="",
-                state="",
-                zip_code="",
-                country="US"
+            # Brand new user — direct them to register
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "No restaurant account found. Please register as a restaurant partner first.",
+                    "registration_url": "https://dollor.ai/restaurant/apply",
+                    "requires_registration": True
+                }
             )
-            db.add(new_vendor)
-            db.commit()
-            db.refresh(new_vendor)
-            vendor = new_vendor
-
-            hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
-            user = User(
-                email=email,
-                password_hash=hashed_password,
-                full_name=name,
-                role=UserRole.VENDOR,
-                vendor_id=new_vendor.id
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-            print(f"Created new vendor via Apple auth: {email}")
-
-            # Send registration confirmation for new vendor
-            try:
-                send_vendor_registration_confirmation(
-                    to_email=email,
-                    restaurant_name=name,
-                    contact_name=name,
-                    vendor_id=new_vendor.vendor_id
-                )
-                print(f"Vendor registration email sent to Apple signup: {email}")
-            except Exception as e:
-                print(f"Failed to send vendor registration email to Apple signup: {str(e)}")
 
         # Get vendor info (may already be loaded)
         if not vendor and user.vendor_id:
@@ -2869,80 +2768,25 @@ def driver_google_auth(http_request: Request, request: DriverGoogleAuthRequest, 
                 )
             print(f"Existing user {email} (role={user.role.value}) logging in as driver")
         else:
-            # User exists but has no driver account — create one and link it
-            name_parts = name.split(" ", 1)
-            first_name = name_parts[0]
-            last_name = name_parts[1] if len(name_parts) > 1 else ""
-
-            driver_count = db.query(Driver).count()
-            driver_code = f"DRV-{driver_count + 1:05d}"
-
-            new_driver = Driver(
-                driver_id=driver_code,
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                status=DriverStatus.PENDING
+            # User exists but has no driver account — direct them to register
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "No driver account found. Please register as a driver first.",
+                    "registration_url": "https://dollor.ai/driver/apply",
+                    "requires_registration": True
+                }
             )
-            db.add(new_driver)
-            db.commit()
-            db.refresh(new_driver)
-
-            # Link driver to existing user
-            user.driver_id = new_driver.id
-            db.commit()
-            db.refresh(user)
-            print(f"Added driver role to existing {user.role.value} user: {email}")
-
-            try:
-                send_driver_registration_confirmation(
-                    to_email=email,
-                    driver_name=name,
-                    driver_code=driver_code
-                )
-            except Exception as e:
-                print(f"Failed to send driver registration email: {str(e)}")
     else:
-        # Brand new user — create driver + user
-        name_parts = name.split(" ", 1)
-        first_name = name_parts[0]
-        last_name = name_parts[1] if len(name_parts) > 1 else ""
-
-        driver_count = db.query(Driver).count()
-        driver_code = f"DRV-{driver_count + 1:05d}"
-
-        new_driver = Driver(
-            driver_id=driver_code,
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            status=DriverStatus.PENDING
+        # Brand new user — direct them to register
+        return JSONResponse(
+            status_code=403,
+            content={
+                "detail": "No driver account found. Please register as a driver first.",
+                "registration_url": "https://dollor.ai/driver/apply",
+                "requires_registration": True
+            }
         )
-        db.add(new_driver)
-        db.commit()
-        db.refresh(new_driver)
-
-        hashed_password = get_password_hash(f"google_oauth_{google_id or email}")
-        user = User(
-            email=email,
-            password_hash=hashed_password,
-            full_name=name,
-            role=UserRole.DRIVER,
-            driver_id=new_driver.id
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        print(f"Created new driver via Google auth: {email}")
-
-        try:
-            send_driver_registration_confirmation(
-                to_email=email,
-                driver_name=name,
-                driver_code=driver_code
-            )
-        except Exception as e:
-            print(f"Failed to send driver registration email: {str(e)}")
 
     # Get driver info
     driver = db.query(Driver).filter(Driver.id == user.driver_id).first() if user.driver_id else None
@@ -3030,84 +2874,25 @@ def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db
                 db.commit()
             print(f"Existing user {email} (role={user.role.value}) logging in as driver via Apple")
         else:
-            # User exists but has no driver account — create one and link it
-            name_parts = name.split(" ", 1)
-            first_name = name_parts[0]
-            last_name = name_parts[1] if len(name_parts) > 1 else ""
-
-            driver_count = db.query(Driver).count()
-            driver_code = f"DRV-{driver_count + 1:05d}"
-
-            new_driver = Driver(
-                driver_id=driver_code,
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                apple_id=request.apple_id,
-                status=DriverStatus.PENDING
+            # User exists but has no driver account — direct them to register
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "No driver account found. Please register as a driver first.",
+                    "registration_url": "https://dollor.ai/driver/apply",
+                    "requires_registration": True
+                }
             )
-            db.add(new_driver)
-            db.commit()
-            db.refresh(new_driver)
-            driver = new_driver
-
-            user.driver_id = new_driver.id
-            db.commit()
-            db.refresh(user)
-            print(f"Added driver role to existing {user.role.value} user via Apple: {email}")
-
-            try:
-                send_driver_registration_confirmation(
-                    to_email=email,
-                    driver_name=name,
-                    driver_code=driver_code
-                )
-            except Exception as e:
-                print(f"Failed to send driver registration email: {str(e)}")
     else:
-        # Brand new user — create driver + user
-        name_parts = name.split(" ", 1)
-        first_name = name_parts[0]
-        last_name = name_parts[1] if len(name_parts) > 1 else ""
-
-        driver_count = db.query(Driver).count()
-        driver_code = f"DRV-{driver_count + 1:05d}"
-
-        new_driver = Driver(
-            driver_id=driver_code,
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            apple_id=request.apple_id,
-            status=DriverStatus.PENDING
+        # Brand new user — direct them to register
+        return JSONResponse(
+            status_code=403,
+            content={
+                "detail": "No driver account found. Please register as a driver first.",
+                "registration_url": "https://dollor.ai/driver/apply",
+                "requires_registration": True
+            }
         )
-        db.add(new_driver)
-        db.commit()
-        db.refresh(new_driver)
-        driver = new_driver
-
-        hashed_password = get_password_hash(f"apple_oauth_{request.apple_id}")
-        user = User(
-            email=email,
-            password_hash=hashed_password,
-            full_name=name,
-            role=UserRole.DRIVER,
-            driver_id=new_driver.id
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        print(f"Created new driver via Apple auth: {email}")
-
-        # Send registration confirmation
-        try:
-            send_driver_registration_confirmation(
-                to_email=email,
-                driver_name=name,
-                driver_code=driver_code
-            )
-        except Exception as e:
-            print(f"Failed to send driver registration email: {str(e)}")
 
     # Get driver info (may already be loaded)
     if not driver and user and user.driver_id:
