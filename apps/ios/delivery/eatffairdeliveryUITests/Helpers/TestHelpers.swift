@@ -36,14 +36,22 @@ class DollorTestCase: XCTestCase {
         // Check if we're already logged in (tab bar present = authenticated)
         let tabBar = app.tabBars.firstMatch
         if tabBar.waitForExistence(timeout: 3) {
+            // Dismiss Terms sheet if it's blocking
+            dismissTermsSheetIfPresent()
+
             // Logged in -- navigate to Profile tab and log out
             let profileTab = app.tabBars.buttons["Profile"]
             if profileTab.exists {
                 profileTab.tap()
-                // Tap Settings sub-tab within Profile
-                let settingsTab = app.buttons["Settings"]
+                // Tap Settings sub-tab within Profile (accessibilityLabel is "Settings tab")
+                let settingsTab = app.buttons["Settings tab"]
                 if settingsTab.waitForExistence(timeout: 3) {
                     settingsTab.tap()
+                }
+                // Scroll down to find Logout button
+                for _ in 0..<5 {
+                    app.swipeUp()
+                    Thread.sleep(forTimeInterval: 0.3)
                 }
                 let logoutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Logout' OR label CONTAINS[c] 'Log Out' OR label CONTAINS[c] 'Sign Out'")).firstMatch
                 if logoutButton.waitForExistence(timeout: 5) {
@@ -97,6 +105,7 @@ class DollorTestCase: XCTestCase {
     /// Ensures the app is in a logged-in state using demo credentials.
     /// If already logged in (no login screen visible), does nothing.
     /// If on login screen, logs in with demo driver credentials.
+    /// After login, dismisses Terms & Conditions sheet if it appears.
     /// If login fails, throws XCTSkip.
     func ensureLoggedIn() throws {
         // Check if already on login screen
@@ -105,7 +114,9 @@ class DollorTestCase: XCTestCase {
         let onLoginScreen = loginButton.waitForExistence(timeout: 3) || driverLoginText.waitForExistence(timeout: 1)
 
         if !onLoginScreen {
-            return // Already logged in
+            // Already logged in -- but check if Terms sheet is blocking
+            dismissTermsSheetIfPresent()
+            return
         }
 
         // On login screen -- attempt login with demo credentials
@@ -117,6 +128,36 @@ class DollorTestCase: XCTestCase {
         let stillOnLogin = driverLoginText.waitForExistence(timeout: 15)
         if stillOnLogin && !tabBar.exists {
             throw XCTSkip("Demo login failed -- staging may be unreachable (demo.driver@dollor.ai)")
+        }
+
+        // After login, the DriverDashboardView may show Terms & Conditions sheet
+        dismissTermsSheetIfPresent()
+    }
+
+    /// Dismisses the Terms & Conditions sheet if it appears after login.
+    /// The sheet shows when driverTermsAccepted is not set in UserDefaults.
+    private func dismissTermsSheetIfPresent() {
+        // Check if Terms sheet is showing (it appears ~0.5s after dashboard loads)
+        let termsTitle = app.staticTexts["Driver Terms & Conditions"]
+        if termsTitle.waitForExistence(timeout: 2) {
+            // Toggle "I accept the Terms & Conditions"
+            let acceptToggle = app.switches.firstMatch
+            if acceptToggle.waitForExistence(timeout: 3) {
+                acceptToggle.tap()
+            }
+            // Tap "Accept & Continue"
+            let acceptButton = app.buttons["Accept & Continue"]
+            if acceptButton.waitForExistence(timeout: 3) {
+                acceptButton.tap()
+            } else {
+                // Fallback: dismiss via Cancel button in toolbar
+                let cancelButton = app.buttons["Cancel"]
+                if cancelButton.waitForExistence(timeout: 2) {
+                    cancelButton.tap()
+                }
+            }
+            // Wait for sheet to dismiss
+            _ = app.tabBars.firstMatch.waitForExistence(timeout: 3)
         }
     }
 

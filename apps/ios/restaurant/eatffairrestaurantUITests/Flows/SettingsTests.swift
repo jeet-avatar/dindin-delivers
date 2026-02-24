@@ -116,13 +116,15 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
         navigateToTab("Settings")
 
-        let scrollView = app.scrollViews.firstMatch
-        if scrollView.exists {
-            scrollView.swipeUp()
-            scrollView.swipeUp()
+        // Sign Out has .accessibilityLabel("Sign out") — at the bottom of a long List
+        let signOutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Sign out' OR label CONTAINS[c] 'Sign Out' OR label CONTAINS[c] 'Log Out'")).firstMatch
+
+        for _ in 0..<8 {
+            if signOutButton.exists { break }
+            app.swipeUp()
+            Thread.sleep(forTimeInterval: 0.3)
         }
 
-        let signOutButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Log Out' OR label CONTAINS[c] 'Sign Out' OR label CONTAINS[c] 'Sign out' OR label CONTAINS[c] 'sign out'")).firstMatch
         XCTAssertTrue(signOutButton.waitForExistence(timeout: 10), "Sign Out button should exist")
     }
 
@@ -132,14 +134,15 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
         navigateToTab("Settings")
 
-        let scrollView = app.scrollViews.firstMatch
-        if scrollView.exists {
-            scrollView.swipeUp()
-            scrollView.swipeUp()
-            scrollView.swipeUp()
+        // Delete Account has .accessibilityLabel("Delete account") — at the very bottom
+        let deleteButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Delete account' OR label CONTAINS[c] 'Delete Account'")).firstMatch
+
+        for _ in 0..<10 {
+            if deleteButton.exists { break }
+            app.swipeUp()
+            Thread.sleep(forTimeInterval: 0.3)
         }
 
-        let deleteButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Delete Account' OR label CONTAINS[c] 'Delete account' OR label CONTAINS[c] 'delete account'")).firstMatch
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 10), "Delete Account button should exist (App Store requirement)")
     }
 
