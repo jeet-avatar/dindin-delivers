@@ -300,8 +300,8 @@ class TestGoogleAuth:
             "email": "test@gmail.com",
             "name": "Test User",
         })
-        # Should handle gracefully - may create account or reject
-        assert response.status_code in [200, 201, 400, 401, 422, 500]
+        # Should handle gracefully - 403 for new users (no auto-create), or other error codes
+        assert response.status_code in [200, 201, 400, 401, 403, 422, 500]
 
     def test_customer_google_auth_invalid_token(self, client: TestClient):
         """Should reject invalid Google token for customer"""
@@ -331,7 +331,7 @@ class TestMultiRoleAppleAuth:
     """Tests that Apple Sign-In supports multi-role accounts (same email across customer/driver/vendor)"""
 
     def test_vendor_apple_auth_existing_driver_user(self, client: TestClient, db_session, test_driver):
-        """Vendor Apple auth should work when email is already registered as a driver user"""
+        """Vendor Apple auth should return 403 with registration_url when user has no vendor account"""
         # Create a User row linked to this driver (test_driver fixture doesn't create one)
         from models import User, UserRole
         from main_new import get_password_hash
@@ -350,27 +350,27 @@ class TestMultiRoleAppleAuth:
             "email": test_driver.email,
             "name": f"{test_driver.first_name} {test_driver.last_name}",
         })
-        # Must NOT return 400 "Registration failed" or 500 IntegrityError
-        assert response.status_code in [200, 201], f"Expected multi-role support, got {response.status_code}: {response.text}"
-        if response.status_code == 200:
-            data = response.json()
-            assert "access_token" in data
-            assert data.get("vendor_id") is not None
+        # No vendor account — should return 403 with registration URL
+        assert response.status_code == 403, f"Expected 403, got {response.status_code}: {response.text}"
+        data = response.json()
+        assert "registration_url" in data
+        assert data["registration_url"] == "https://dollor.ai/restaurant/apply"
+        assert data["requires_registration"] is True
 
     def test_driver_apple_auth_existing_customer_user(self, client: TestClient, test_user):
-        """Driver Apple auth should work when email is already registered as a customer/user"""
+        """Driver Apple auth should return 403 with registration_url when user has no driver account"""
         # test_user fixture already creates a real User row with role=USER -- perfect for cross-role test
         response = client.post("/api/auth/driver/apple-auth", json={
             "apple_id": f"apple_driver_test_{test_user.email}",
             "email": test_user.email,
             "name": test_user.full_name,
         })
-        # Must NOT cause IntegrityError (500) -- should create driver and link to existing user
-        assert response.status_code in [200, 201], f"Expected multi-role support, got {response.status_code}: {response.text}"
-        if response.status_code == 200:
-            data = response.json()
-            assert "access_token" in data
-            assert data.get("driver_id") is not None
+        # No driver account — should return 403 with registration URL
+        assert response.status_code == 403, f"Expected 403, got {response.status_code}: {response.text}"
+        data = response.json()
+        assert "registration_url" in data
+        assert data["registration_url"] == "https://dollor.ai/driver/apply"
+        assert data["requires_registration"] is True
 
     def test_vendor_apple_auth_still_works_for_existing_vendor(self, client: TestClient, db_session, test_vendor):
         """Existing vendor Apple auth should still work after multi-role fix"""
@@ -398,6 +398,59 @@ class TestMultiRoleAppleAuth:
             data = response.json()
             assert "access_token" in data
             assert data.get("vendor_id") is not None
+
+
+    def test_vendor_google_auth_no_vendor_returns_403(self, client: TestClient, test_user):
+        """Vendor Google auth should return 403 with registration_url when user has no vendor account"""
+        response = client.post("/api/auth/vendor/google-auth", json={
+            "email": test_user.email,
+            "name": test_user.full_name,
+            "google_id": f"google_vendor_test_{test_user.email}",
+        })
+        assert response.status_code == 403, f"Expected 403, got {response.status_code}: {response.text}"
+        data = response.json()
+        assert "registration_url" in data
+        assert data["registration_url"] == "https://dollor.ai/restaurant/apply"
+        assert data["requires_registration"] is True
+
+    def test_driver_google_auth_no_driver_returns_403(self, client: TestClient, test_user):
+        """Driver Google auth should return 403 with registration_url when user has no driver account"""
+        response = client.post("/api/auth/driver/google", json={
+            "email": test_user.email,
+            "name": test_user.full_name,
+            "google_id": f"google_driver_test_{test_user.email}",
+        })
+        assert response.status_code == 403, f"Expected 403, got {response.status_code}: {response.text}"
+        data = response.json()
+        assert "registration_url" in data
+        assert data["registration_url"] == "https://dollor.ai/driver/apply"
+        assert data["requires_registration"] is True
+
+    def test_vendor_apple_auth_brand_new_user_returns_403(self, client: TestClient):
+        """Vendor Apple auth should return 403 for a completely new email/apple_id"""
+        response = client.post("/api/auth/vendor/apple-auth", json={
+            "apple_id": "apple_brand_new_vendor_test_12345",
+            "email": "brand.new.vendor.test@example.com",
+            "name": "Brand New Vendor",
+        })
+        assert response.status_code == 403, f"Expected 403, got {response.status_code}: {response.text}"
+        data = response.json()
+        assert "registration_url" in data
+        assert data["registration_url"] == "https://dollor.ai/restaurant/apply"
+        assert data["requires_registration"] is True
+
+    def test_driver_apple_auth_brand_new_user_returns_403(self, client: TestClient):
+        """Driver Apple auth should return 403 for a completely new email/apple_id"""
+        response = client.post("/api/auth/driver/apple-auth", json={
+            "apple_id": "apple_brand_new_driver_test_12345",
+            "email": "brand.new.driver.test@example.com",
+            "name": "Brand New Driver",
+        })
+        assert response.status_code == 403, f"Expected 403, got {response.status_code}: {response.text}"
+        data = response.json()
+        assert "registration_url" in data
+        assert data["registration_url"] == "https://dollor.ai/driver/apply"
+        assert data["requires_registration"] is True
 
 
 if __name__ == "__main__":
