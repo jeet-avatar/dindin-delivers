@@ -1544,7 +1544,12 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
-        let bodyString = "username=\(email)&password=\(password)"
+        // Properly URL-encode form values (special chars like ! @ # in passwords)
+        var allowedCharacters = CharacterSet.alphanumerics
+        allowedCharacters.insert(charactersIn: "-._~")
+        let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? email
+        let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? password
+        let bodyString = "username=\(encodedEmail)&password=\(encodedPassword)"
         request.httpBody = bodyString.data(using: .utf8)
 
         isLoading = true
@@ -1554,17 +1559,20 @@ public class P2PAPIService: ObservableObject {
                 self?.isLoading = false
 
                 if let error = error {
+                    logger.error("customerLogin network error: \(error.localizedDescription)")
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 guard let data = data else {
+                    logger.error("customerLogin: no data in response")
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
 
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    logger.error("customerLogin HTTP error: \(httpResponse.statusCode)")
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                     } else {
@@ -1582,6 +1590,7 @@ public class P2PAPIService: ObservableObject {
                     UserDefaults.standard.set(loginResponse.email, forKey: "p2p_customer_email")
                     completion(.success(loginResponse))
                 } catch {
+                    logger.error("customerLogin decode error: \(error.localizedDescription)")
                     self?.error = "Failed to decode login response: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
@@ -1620,17 +1629,20 @@ public class P2PAPIService: ObservableObject {
                 self?.isLoading = false
 
                 if let error = error {
+                    logger.error("customerGoogleAuth network error: \(error.localizedDescription)")
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 guard let data = data else {
+                    logger.error("customerGoogleAuth: no data in response")
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
 
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    logger.error("customerGoogleAuth HTTP error: \(httpResponse.statusCode)")
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                     } else {
@@ -1648,6 +1660,7 @@ public class P2PAPIService: ObservableObject {
                     UserDefaults.standard.set(loginResponse.email, forKey: UserDefaultsKey.customerEmail)
                     completion(.success(loginResponse))
                 } catch {
+                    logger.error("customerGoogleAuth decode error: \(error.localizedDescription)")
                     self?.error = "Failed to decode Google auth response: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
@@ -1691,17 +1704,20 @@ public class P2PAPIService: ObservableObject {
                 self?.isLoading = false
 
                 if let error = error {
+                    logger.error("customerAppleAuth network error: \(error.localizedDescription)")
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 guard let data = data else {
+                    logger.error("customerAppleAuth: no data in response")
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
 
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    logger.error("customerAppleAuth HTTP error: \(httpResponse.statusCode)")
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                     } else {
@@ -1719,6 +1735,7 @@ public class P2PAPIService: ObservableObject {
                     UserDefaults.standard.set(loginResponse.email, forKey: "p2p_customer_email")
                     completion(.success(loginResponse))
                 } catch {
+                    logger.error("customerAppleAuth decode error: \(error.localizedDescription)")
                     self?.error = "Failed to decode Apple auth response: \(error.localizedDescription)"
                     completion(.failure(error))
                 }
@@ -3435,7 +3452,12 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
-        let bodyString = "username=\(email)&password=\(password)"
+        // Properly URL-encode form values (special chars like ! @ # in passwords)
+        var allowedCharacters = CharacterSet.alphanumerics
+        allowedCharacters.insert(charactersIn: "-._~")
+        let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? email
+        let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? password
+        let bodyString = "username=\(encodedEmail)&password=\(encodedPassword)"
         request.httpBody = bodyString.data(using: .utf8)
 
         isLoading = true
@@ -3445,18 +3467,21 @@ public class P2PAPIService: ObservableObject {
                 self?.isLoading = false
 
                 if let error = error {
+                    logger.error("driverLogin network error: \(error.localizedDescription)")
                     self?.error = error.localizedDescription
                     completion(.failure(error))
                     return
                 }
 
                 guard let data = data else {
+                    logger.error("driverLogin: no data in response")
                     completion(.failure(P2PAPIError.noData))
                     return
                 }
 
                 // Check for error response
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                    logger.error("driverLogin HTTP error: \(httpResponse.statusCode)")
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                     } else {
