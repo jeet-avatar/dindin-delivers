@@ -4,24 +4,20 @@
 //
 //  Created by Jithesh Manoharan on 11/25/25.
 //
+//  Flow-organized tests are in the Flows/ subdirectory:
+//  - Flows/AuthFlowTests.swift           (RestaurantAuthFlowTests)
+//  - Flows/OrderManagementTests.swift    (RestaurantOrderManagementTests)
+//  - Flows/MenuManagementTests.swift     (RestaurantMenuManagementTests)
+//  - Flows/SettingsTests.swift           (RestaurantSettingsFlowTests)
+//
+//  Shared helpers: Helpers/TestHelpers.swift (DollorTestCase base class)
+//
 
 import XCTest
 
-/// Comprehensive UI tests for iOS Restaurant Partner app.
-///
-/// Tests cover:
-/// - LoginView: Authentication, form validation, error states
-/// - Dashboard: Stats, orders overview, navigation
-/// - Menu Management: Add/edit items, categories
-/// - Orders: Accept/reject, status updates
-/// - Settings: Profile, documents, notifications
-/// - Analytics: Charts, metrics display
-/// - AI Features: Insights, employees
-///
-/// Platform Parity: 100% match with Android Partner app (FULL PARITY ACHIEVED)
-/// - NotificationsView: Added to match Android NotificationsScreen
-/// - OrderDetailsView: Added to match Android OrderDetailsScreen
-/// - Brand colors: Fixed to match Android (#FF6D00 orange, #4CAF50 green)
+/// Root UI test class for iOS Restaurant Partner app.
+/// The original comprehensive tests are retained below for backwards compatibility.
+/// New flow-organized tests live in the Flows/ subdirectory.
 final class eatffairrestaurantUITests: XCTestCase {
 
     var app: XCUIApplication!
