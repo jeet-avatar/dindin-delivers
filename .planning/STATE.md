@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-24 -- Quick task 42: Fix iOS Google + Apple Sign-In (4 bugs)
+Last activity: 2026-02-24 - Completed quick task 44: Set up Android CI/CD for all 3 apps via GitHub Actions + Firebase App Distribution
 
 Progress: [####░░░░░░] 40%
 
@@ -103,9 +103,10 @@ None.
 | 41 | Fix Android staging tests — wire demo credentials + auth headers through all stages | 2026-02-24 | 8d8703de | [41-fix-android-staging-tests-wire-demo-cred](./quick/41-fix-android-staging-tests-wire-demo-cred/) |
 | 42 | Fix iOS Google + Apple Sign-In 4 bugs (URL scheme, OAuth endpoint, apple_id lookup) | 2026-02-24 | 56c991ae | [42-fix-ios-google-and-apple-sign-in-4-bugs-](./quick/42-fix-ios-google-and-apple-sign-in-4-bugs-/) |
 | 40 | Fix Driver + Restaurant iOS UI tests -- 42 tests recovered, enterprise reports | 2026-02-24 | 97906f06 | [40-fix-driver-restaurant-ios-ui-tests-and-g](./quick/40-fix-driver-restaurant-ios-ui-tests-and-g/) |
+| 44 | Set up Android CI/CD for all 3 apps via GitHub Actions + Firebase App Distribution | 2026-02-24 | bf20ab90 | [44-set-up-android-ci-cd-for-all-3-apps-via-](./quick/44-set-up-android-ci-cd-for-all-3-apps-via-/) |
 
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Quick task 42 complete -- Fixed 4 iOS Google/Apple Sign-In bugs: driver URL scheme mismatch, missing driverGoogleAuth OAuth endpoint, driver/vendor Apple returning-user email requirement, apple_id lookup for returning users.
-Resume: Push and deploy backend for apple_id column migration. Build/distribute iOS apps with sign-in fixes. Test Google + Apple sign-in on real devices. 7 cross-platform parity gaps still open.
+Stopped at: Quick task 44 complete -- Android CI/CD fully configured. 4 keystore secrets added, workflows pushed, both CI auto-run (22340318381) and manual deploy test (22340322049) triggered and running.
+Resume: Monitor CI runs for success. Deploy backend (apple_id columns). Rebuild + distribute iOS apps to TestFlight. Test Google + Apple sign-in on real devices. 7 cross-platform parity gaps still open.
