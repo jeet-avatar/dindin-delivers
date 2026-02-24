@@ -100,5 +100,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Quick task 35 complete -- Fixed 16 failing iOS customer UI tests. 12 accessibility identifier corrections, 1 test isolation fix (auto-logout in navigateToLogin).
-Resume: All 46 iOS customer UI tests pass (16 passed, 30 skipped as expected). 30 skipped tests require logged-in state. 7 cross-platform parity gaps still open. 17 MEDIUM/LOW security findings still deferred.
+Stopped at: Quick task 35 complete -- Fixed 16 failing iOS customer UI tests. UI test infrastructure proven working (33→46 pass). TEST_HOST fixed, @testable imports removed, accessibility identifiers corrected.
+Resume: Wire demo credentials into all 3 iOS app UI test helpers for login-dependent tests (30 skipped customer tests need auth). Then fix Driver + Restaurant UI tests similarly. Then run Android Espresso tests. Demo creds: Customer demo.customer@dollor.ai/DemoCustomer2025!, Driver demo.driver@dollor.ai/DemoDriver2025!, Restaurant demo.restaurant@dollor.ai/DemoRestaurant2025!. Builds on TestFlight: Customer 1092, Driver 200, Restaurant 168. 7 cross-platform parity gaps still open. 17 MEDIUM/LOW security findings still deferred.
