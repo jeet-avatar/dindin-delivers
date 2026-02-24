@@ -7,7 +7,7 @@
 
 import Testing
 import Foundation
-@testable import eatffairdelivery
+// Module import not needed - tests use standalone test models
 
 // MARK: - Earnings Calculation Tests
 
@@ -336,5 +336,17 @@ struct TestDriverStats {
 
 struct TestTip {
     let id = UUID()
+    let amount: Double
+}
+
+struct EarningsBreakdown {
+    var deliveryFees: Double = 0.0
+    var tips: Double = 0.0
+    var bonuses: Double = 0.0
+    var total: Double = 0.0
+}
+
+struct DailyEarning {
+    let day: String
     let amount: Double
 }
