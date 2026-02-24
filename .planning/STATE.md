@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-24 -- Quick task 33: Comprehensive UI interaction audit across all 6 apps
+Last activity: 2026-02-24 -- Quick task 34: Set up automated UI testing for all 6 apps (223 tests)
 
 Progress: [####░░░░░░] 40%
 
@@ -94,9 +94,10 @@ None.
 | 31 | Fix Android notification type case mismatch + add 5 missing handlers | 2026-02-23 | 378987c8 | [31-fix-android-notification-type-case-misma](./quick/31-fix-android-notification-type-case-misma/) |
 | 32 | Add iOS notification enums + build/distribute Android APKs | 2026-02-23 | d46a4c0a | [32-add-missing-ios-notification-enums-and-b](./quick/32-add-missing-ios-notification-enums-and-b/) |
 | 33 | Comprehensive UI interaction audit across all 6 apps (1,844 elements) | 2026-02-24 | d5fa29c7 | [33-comprehensive-ui-interaction-audit-acros](./quick/33-comprehensive-ui-interaction-audit-acros/) |
+| 34 | Automated UI testing for all 6 apps (223 tests: 110 iOS + 113 Android) | 2026-02-24 | 5504c288 | [34-set-up-automated-ui-testing-for-all-6-ap](./quick/34-set-up-automated-ui-testing-for-all-6-ap/) |
 
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Quick task 33 complete -- UI interaction audit: 1,844 elements catalogued across all 6 apps with cross-platform parity analysis.
-Resume: 7 cross-platform parity gaps identified (Trip Board iOS-only, Voice Assistant iOS-only, Deals/Promotions/Reviews/Compliance/DeliveryMap Android-only). 17 MEDIUM/LOW security findings still deferred.
+Stopped at: Quick task 34 complete -- 223 flow-organized UI tests across all 6 apps (110 iOS XCUITest + 113 Android Compose) with cross-platform runner script.
+Resume: Tests ready for execution on devices/simulators. Runner: scripts/run-ui-tests.sh. 7 cross-platform parity gaps still open. 17 MEDIUM/LOW security findings still deferred.
