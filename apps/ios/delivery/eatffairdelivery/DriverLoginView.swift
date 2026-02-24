@@ -505,6 +505,9 @@ struct DriverLoginView: View {
                 .compactMap { $0 }
                 .joined(separator: " ")
 
+            // Extract identity token (contains email for returning users)
+            let identityTokenString = appleIDCredential.identityToken.flatMap { String(data: $0, encoding: .utf8) }
+
             // IMPORTANT: Apple only provides name on FIRST sign-in
             // Save name locally if provided, or retrieve saved name for subsequent logins
             if !fullName.isEmpty {
@@ -519,11 +522,12 @@ struct DriverLoginView: View {
                 }
             }
 
-            // Call P2P backend for Apple auth
+            // Call P2P backend for Apple auth (include identity_token for returning user email lookup)
             p2pService.driverAppleAuth(
                 email: appleEmail,
                 name: fullName,
-                appleId: appleUserId
+                appleId: appleUserId,
+                identityToken: identityTokenString
             ) { [self] result in
                 DispatchQueue.main.async {
                     self.isLoading = false
@@ -613,113 +617,38 @@ struct DriverLoginView: View {
 
             let googleFirstName = user.profile?.givenName ?? "Driver"
             let googleLastName = user.profile?.familyName ?? ""
+            let googleName = "\(googleFirstName) \(googleLastName)".trimmingCharacters(in: .whitespaces)
+            let googleId = user.userID ?? ""
 
-            // Issue #4 Fixed: Safe password generation with fallback
-            let googlePassword = self.generateSecureGooglePassword(userID: user.userID)
-
-            // Store userID for potential re-login
-            let googleUserID = user.userID
-
-            self.p2pService.driverRegister(
-                email: googleEmail,
-                password: googlePassword,
-                firstName: googleFirstName,
-                lastName: googleLastName,
-                phone: ""
-            ) { regResult in
-                switch regResult {
-                case .success:
-                    // Store the generated password securely in Keychain for future logins
-                    let saveResult = KeychainHelper.save(password: googlePassword, for: googleEmail)
-                    if case .failure(let keychainError) = saveResult {
-                        #if DEBUG
-                        logger.info("[DriverLoginView] Keychain save warning: \(keychainError)")
-                        #endif
-                        // Continue anyway - user can still login, just won't have seamless re-auth
-                    }
-                    DispatchQueue.main.async {
-                        self.isLoading = false
-                        self.isLoggedIn = true
-                    }
-                case .failure:
-                    // Registration failed (user exists), try login with deterministic password
-                    self.attemptGoogleReLogin(email: googleEmail, googleUserID: googleUserID)
-                }
-            }
-        }
-    }
-
-    /// Generate deterministic password for Google OAuth users
-    /// Uses a consistent algorithm based on userID so the same password is generated each time
-    private func generateSecureGooglePassword(userID: String?) -> String {
-        // Use a deterministic approach - same userID always generates same password
-        // This ensures re-login works even if Keychain is cleared
-        let userIDComponent = userID ?? "default_google_user"
-        let salt = "dollor_driver_oauth_v1"  // Version salt for future changes
-
-        let secureBase = "\(userIDComponent)_\(salt)"
-
-        // Create a deterministic hash-like password
-        if let data = secureBase.data(using: .utf8) {
-            let base64 = data.base64EncodedString()
-            // Add special char and number to meet password requirements
-            return "\(base64)!1Aa"
-        } else {
-            // Fallback with deterministic component
-            return "GoogleUser_\(userIDComponent.prefix(20))!1Aa"
-        }
-    }
-
-    /// Helper function for Google re-login attempt
-    /// Uses stored password from Keychain, or regenerates deterministic password
-    private func attemptGoogleReLogin(email: String, googleUserID: String? = nil) {
-        // First try Keychain stored password
-        if let storedPassword = KeychainHelper.getPassword(for: email) {
-            self.p2pService.driverLogin(email: email, password: storedPassword) { loginResult in
+            guard !googleId.isEmpty else {
                 DispatchQueue.main.async {
-                    switch loginResult {
+                    self.errorMessage = "Failed to get Google user ID. Please try again."
+                    self.isLoading = false
+                }
+                return
+            }
+
+            // Use proper Google OAuth endpoint (handles both login and registration)
+            self.p2pService.driverGoogleAuth(
+                email: googleEmail,
+                name: googleName,
+                googleId: googleId
+            ) { result in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    switch result {
                     case .success:
-                        self.isLoading = false
                         self.isLoggedIn = true
-                    case .failure:
-                        // Keychain password didn't work, try deterministic password
-                        if let userID = googleUserID {
-                            self.attemptDeterministicLogin(email: email, googleUserID: userID)
+                    case .failure(let error):
+                        let errMsg = error.localizedDescription.lowercased()
+                        if errMsg.contains("suspended") || errMsg.contains("deactivated") {
+                            self.errorMessage = "Your driver account has been suspended. Please contact support."
+                        } else if errMsg.contains("not approved") || errMsg.contains("pending") {
+                            self.errorMessage = "Your driver account is pending approval."
                         } else {
-                            self.isLoading = false
-                            self.email = email
-                            self.errorMessage = "Account exists with this email. Please login with your password."
+                            self.errorMessage = "Google Sign-In failed. Please try again."
                         }
                     }
-                }
-            }
-        } else if let userID = googleUserID {
-            // No Keychain password, try deterministic password
-            attemptDeterministicLogin(email: email, googleUserID: userID)
-        } else {
-            // No stored password and no userID, ask user to login manually
-            DispatchQueue.main.async {
-                self.isLoading = false
-                self.email = email
-                self.errorMessage = "Account exists with this email. Please login with your password."
-            }
-        }
-    }
-
-    /// Attempt login with deterministic Google password
-    private func attemptDeterministicLogin(email: String, googleUserID: String) {
-        let deterministicPassword = generateSecureGooglePassword(userID: googleUserID)
-        self.p2pService.driverLogin(email: email, password: deterministicPassword) { loginResult in
-            DispatchQueue.main.async {
-                self.isLoading = false
-                switch loginResult {
-                case .success:
-                    // Save password to Keychain for future use
-                    KeychainHelper.save(password: deterministicPassword, for: email)
-                    self.isLoggedIn = true
-                case .failure:
-                    self.email = email
-                    self.errorMessage = "Account exists with this email. Please login with your password."
                 }
             }
         }
