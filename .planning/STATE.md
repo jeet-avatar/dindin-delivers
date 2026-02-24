@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 2 of 5 (iOS API Verification) -- COMPLETE
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-02-24 -- Quick task 41: Fix Android staging tests - wire auth headers
+Last activity: 2026-02-24 -- Quick task 42: Fix iOS Google + Apple Sign-In (4 bugs)
 
 Progress: [####░░░░░░] 40%
 
@@ -107,5 +107,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Quick task 40 complete -- Fixed driver unit test compilation (EarningsBreakdown/DailyEarning structs) and 20 restaurant UI test identifier mismatches (accessibilityLabel overrides). Restaurant: 118/125 pass (94.4%), Driver: 41/46 pass (89.1%). Enterprise reports generated.
-Resume: Fix 5 pre-existing driver UI test failures (profile edit/logout/delete, dashboard tabs, sign-up checkbox). Fix 3 pre-existing restaurant failures (settings scroll, order filter tabs). Deploy backend for apple_id migration. 7 cross-platform parity gaps still open.
+Stopped at: Quick task 42 complete -- Fixed 4 iOS Google/Apple Sign-In bugs: driver URL scheme mismatch, missing driverGoogleAuth OAuth endpoint, driver/vendor Apple returning-user email requirement, apple_id lookup for returning users.
+Resume: Push and deploy backend for apple_id column migration. Build/distribute iOS apps with sign-in fixes. Test Google + Apple sign-in on real devices. 7 cross-platform parity gaps still open.
