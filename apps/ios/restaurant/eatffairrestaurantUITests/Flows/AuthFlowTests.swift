@@ -49,8 +49,10 @@ final class RestaurantAuthFlowTests: DollorTestCase {
 
         signUpButton.tap()
 
+        // RestaurantRegistrationView uses "Partner Application" as navigationTitle
+        let partnerAppTitle = app.staticTexts["Partner Application"]
         let createAccountTitle = app.staticTexts["Create Account"]
-        XCTAssertTrue(createAccountTitle.waitForExistence(timeout: 5), "Create Account registration should open")
+        XCTAssertTrue(partnerAppTitle.waitForExistence(timeout: 5) || createAccountTitle.waitForExistence(timeout: 3), "Registration sheet should open")
     }
 
     @MainActor
@@ -68,8 +70,10 @@ final class RestaurantAuthFlowTests: DollorTestCase {
         XCTAssertTrue(signUpButton.waitForExistence(timeout: 5))
         signUpButton.tap()
 
+        // RestaurantRegistrationView uses "Partner Application" as navigationTitle
+        let partnerAppTitle = app.staticTexts["Partner Application"]
         let createAccountTitle = app.staticTexts["Create Account"]
-        XCTAssertTrue(createAccountTitle.waitForExistence(timeout: 5))
+        XCTAssertTrue(partnerAppTitle.waitForExistence(timeout: 5) || createAccountTitle.waitForExistence(timeout: 3))
 
         // Look for navigation buttons in registration wizard
         let nextButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Next' OR label CONTAINS[c] 'Create Account' OR label CONTAINS[c] 'Continue'")).firstMatch

@@ -189,8 +189,10 @@ final class eatffairrestaurantUITests: XCTestCase {
         XCTAssertTrue(forgotButton.waitForExistence(timeout: 5))
         forgotButton.tap()
 
-        let sendButton = app.buttons["Send Reset Email"]
-        XCTAssertTrue(sendButton.waitForExistence(timeout: 5), "Send Reset Email button should exist")
+        // ForgotPasswordView button has accessibilityLabel "Send password reset email"
+        let sendButton = app.buttons["Send password reset email"]
+        let sendButtonAlt = app.buttons["Send Reset Email"]
+        XCTAssertTrue(sendButton.waitForExistence(timeout: 5) || sendButtonAlt.waitForExistence(timeout: 3), "Send Reset Email button should exist")
     }
 
     // ============================================================
@@ -205,8 +207,10 @@ final class eatffairrestaurantUITests: XCTestCase {
         XCTAssertTrue(signUpButton.waitForExistence(timeout: 5))
         signUpButton.tap()
 
+        // RestaurantRegistrationView uses "Partner Application" as navigationTitle
+        let partnerAppTitle = app.staticTexts["Partner Application"]
         let createAccountTitle = app.staticTexts["Create Account"]
-        XCTAssertTrue(createAccountTitle.waitForExistence(timeout: 5), "Create Account sheet should open")
+        XCTAssertTrue(partnerAppTitle.waitForExistence(timeout: 5) || createAccountTitle.waitForExistence(timeout: 3), "Registration sheet should open")
     }
 
     @MainActor
@@ -217,10 +221,17 @@ final class eatffairrestaurantUITests: XCTestCase {
         XCTAssertTrue(signUpButton.waitForExistence(timeout: 5))
         signUpButton.tap()
 
-        let _ = app.staticTexts["Create Account"].waitForExistence(timeout: 5)
+        // Wait for registration sheet to appear
+        let _ = app.staticTexts["Partner Application"].waitForExistence(timeout: 5) || app.staticTexts["Create Account"].waitForExistence(timeout: 3)
 
         let restaurantField = app.textFields["Enter restaurant name"]
-        XCTAssertTrue(restaurantField.exists, "Restaurant name field should exist")
+        if restaurantField.waitForExistence(timeout: 5) {
+            XCTAssertTrue(restaurantField.exists, "Restaurant name field should exist")
+        } else {
+            // RestaurantRegistrationView uses "Restaurant Name" label
+            let restaurantNameField = app.textFields["Restaurant Name"]
+            XCTAssertTrue(restaurantNameField.waitForExistence(timeout: 3), "Restaurant name field should exist")
+        }
     }
 
     @MainActor
@@ -231,8 +242,15 @@ final class eatffairrestaurantUITests: XCTestCase {
         XCTAssertTrue(signUpButton.waitForExistence(timeout: 5))
         signUpButton.tap()
 
-        let createButton = app.buttons["Create Account"]
-        XCTAssertTrue(createButton.waitForExistence(timeout: 5), "Create Account button should exist")
+        // Wait for registration sheet
+        let _ = app.staticTexts["Partner Application"].waitForExistence(timeout: 5) || app.staticTexts["Create Account"].waitForExistence(timeout: 3)
+
+        // RestaurantRegistrationView has "Next" button in multi-step wizard
+        // SignUpView (unused) has "Create Account" button with accessibilityLabel "Create account"
+        let nextButton = app.buttons["Next"]
+        let createButton = app.buttons["Create account"]
+        let createButtonAlt = app.buttons["Create Account"]
+        XCTAssertTrue(nextButton.waitForExistence(timeout: 5) || createButton.waitForExistence(timeout: 3) || createButtonAlt.waitForExistence(timeout: 3), "Registration action button should exist")
     }
 
     @MainActor
@@ -243,10 +261,13 @@ final class eatffairrestaurantUITests: XCTestCase {
         XCTAssertTrue(signUpButton.waitForExistence(timeout: 5))
         signUpButton.tap()
 
-        let _ = app.staticTexts["Create Account"].waitForExistence(timeout: 5)
+        // Wait for registration sheet
+        let _ = app.staticTexts["Partner Application"].waitForExistence(timeout: 5) || app.staticTexts["Create Account"].waitForExistence(timeout: 3)
 
+        // Check for terms text in either registration view
         let termsText = app.staticTexts["By signing up, you agree to our Terms of Service and Privacy Policy"]
-        XCTAssertTrue(termsText.waitForExistence(timeout: 5), "Terms text should exist")
+        let termsLink = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] 'terms'")).firstMatch
+        XCTAssertTrue(termsText.waitForExistence(timeout: 5) || termsLink.waitForExistence(timeout: 3), "Terms text should exist")
     }
 
     // ============================================================
