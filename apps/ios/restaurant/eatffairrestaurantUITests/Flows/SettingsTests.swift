@@ -12,7 +12,7 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
     @MainActor
     func testSettings_editProfile_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Settings")
 
@@ -24,7 +24,7 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
     @MainActor
     func testSettings_onlineStatusToggle_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Settings")
 
@@ -36,7 +36,7 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
     @MainActor
     func testSettings_deliveryPickupToggles_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Settings")
 
@@ -53,7 +53,7 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
     @MainActor
     func testSettings_operatingHours_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Settings")
 
@@ -65,7 +65,7 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
     @MainActor
     func testSettings_kotSettings_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Settings")
 
@@ -77,7 +77,7 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
     @MainActor
     func testSettings_aiFeatures_toggles_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Settings")
 
@@ -95,7 +95,7 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
     @MainActor
     func testSettings_aiEmployees_link_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Settings")
 
@@ -112,7 +112,7 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
     @MainActor
     func testSettings_signOutButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Settings")
 
@@ -127,7 +127,7 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
     @MainActor
     func testSettings_deleteAccountButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Settings")
 
@@ -143,7 +143,7 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
 
     @MainActor
     func testSettings_termsPrivacy_links_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Settings")
 

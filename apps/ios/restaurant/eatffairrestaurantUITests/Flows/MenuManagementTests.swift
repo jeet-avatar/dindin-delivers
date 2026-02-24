@@ -14,7 +14,7 @@ final class RestaurantMenuManagementTests: DollorTestCase {
 
     @MainActor
     func testMenu_addItemButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Menu")
 
@@ -26,7 +26,7 @@ final class RestaurantMenuManagementTests: DollorTestCase {
 
     @MainActor
     func testMenu_searchBar_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Menu")
 
@@ -38,7 +38,7 @@ final class RestaurantMenuManagementTests: DollorTestCase {
 
     @MainActor
     func testMenu_itemAvailabilityToggle_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Menu")
 
@@ -50,7 +50,7 @@ final class RestaurantMenuManagementTests: DollorTestCase {
 
     @MainActor
     func testMenu_editDeleteActions_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Menu")
 
@@ -68,7 +68,7 @@ final class RestaurantMenuManagementTests: DollorTestCase {
 
     @MainActor
     func testMenu_addItemDialog_hasRequiredFields() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Menu")
 
@@ -93,7 +93,7 @@ final class RestaurantMenuManagementTests: DollorTestCase {
 
     @MainActor
     func testMenu_addItemDialog_saveCancel_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Menu")
 

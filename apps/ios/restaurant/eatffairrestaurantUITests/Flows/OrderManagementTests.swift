@@ -14,7 +14,7 @@ final class RestaurantOrderManagementTests: DollorTestCase {
 
     @MainActor
     func testDashboard_statsCards_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let revenueCard = app.staticTexts["Today's Revenue"]
         let ordersCard = app.staticTexts["Today's Orders"]
@@ -33,7 +33,7 @@ final class RestaurantOrderManagementTests: DollorTestCase {
 
     @MainActor
     func testDashboard_onlineToggle_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let storeToggle = app.switches.firstMatch
         if storeToggle.waitForExistence(timeout: 5) {
@@ -45,7 +45,7 @@ final class RestaurantOrderManagementTests: DollorTestCase {
 
     @MainActor
     func testOrders_filterTabs_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Orders")
 
@@ -59,7 +59,7 @@ final class RestaurantOrderManagementTests: DollorTestCase {
 
     @MainActor
     func testOrders_acceptOrderButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Orders")
 
@@ -71,7 +71,7 @@ final class RestaurantOrderManagementTests: DollorTestCase {
 
     @MainActor
     func testOrders_startPreparingButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Orders")
 
@@ -83,7 +83,7 @@ final class RestaurantOrderManagementTests: DollorTestCase {
 
     @MainActor
     func testOrders_markReadyButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Orders")
 
@@ -95,7 +95,7 @@ final class RestaurantOrderManagementTests: DollorTestCase {
 
     @MainActor
     func testOrders_printKOTButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Orders")
 
@@ -107,7 +107,7 @@ final class RestaurantOrderManagementTests: DollorTestCase {
 
     @MainActor
     func testOrders_cancelOrderButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Orders")
 
@@ -119,7 +119,7 @@ final class RestaurantOrderManagementTests: DollorTestCase {
 
     @MainActor
     func testOrders_contactCustomerDriver_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         navigateToTab("Orders")
 

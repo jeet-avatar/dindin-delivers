@@ -14,7 +14,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testRideshareDashboard_onlineToggle_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         // Navigate to rideshare mode
         let rideshareButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Rideshare'")).firstMatch
@@ -31,7 +31,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testRideshareDashboard_availableMyBidsTabs_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let rideshareButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Rideshare'")).firstMatch
         if rideshareButton.waitForExistence(timeout: 5) {
@@ -51,7 +51,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testRideshareDashboard_payoutButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let rideshareButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Rideshare'")).firstMatch
         if rideshareButton.waitForExistence(timeout: 5) {
@@ -68,7 +68,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testBidOnRide_bidSheet_opens() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let rideshareButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Rideshare'")).firstMatch
         if rideshareButton.waitForExistence(timeout: 5) {
@@ -86,7 +86,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testBidOnRide_quickBidAmounts_exist() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let rideshareButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Rideshare'")).firstMatch
         if rideshareButton.waitForExistence(timeout: 5) {
@@ -107,7 +107,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testBidOnRide_submitBidButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let rideshareButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Rideshare'")).firstMatch
         if rideshareButton.waitForExistence(timeout: 5) {
@@ -129,7 +129,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveRide_arriveAtPickup_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let arriveButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Arrive' OR label CONTAINS[c] 'arrive' OR label CONTAINS[c] 'Arrived'")).firstMatch
         if arriveButton.waitForExistence(timeout: 5) {
@@ -139,7 +139,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveRide_startRideButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let startButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Start Ride' OR label CONTAINS[c] 'start ride'")).firstMatch
         if startButton.waitForExistence(timeout: 5) {
@@ -149,7 +149,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveRide_completeRideButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let completeButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Complete' OR label CONTAINS[c] 'complete'")).firstMatch
         if completeButton.waitForExistence(timeout: 5) {
@@ -159,7 +159,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveRide_noShowButton_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let noShowButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'No-Show' OR label CONTAINS[c] 'No Show' OR label CONTAINS[c] 'no show'")).firstMatch
         if noShowButton.waitForExistence(timeout: 5) {
@@ -169,7 +169,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveRide_sosAlert_exists() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let sosButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'SOS' OR label CONTAINS[c] 'emergency' OR label CONTAINS[c] 'Emergency'")).firstMatch
         if sosButton.waitForExistence(timeout: 5) {
@@ -179,7 +179,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testActiveRide_chatWithRider_opens() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let chatButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'chat' OR label CONTAINS[c] 'Chat' OR label CONTAINS[c] 'message'")).firstMatch
         if chatButton.waitForExistence(timeout: 5) {
@@ -196,7 +196,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testCompletedRide_ratePassenger_works() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let starButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'star' OR label CONTAINS[c] 'rating' OR label CONTAINS[c] 'rate'")).firstMatch
         if starButton.waitForExistence(timeout: 5) {
@@ -208,7 +208,7 @@ final class DriverRideshareFlowTests: DollorTestCase {
 
     @MainActor
     func testCounterOffer_acceptRejectCounter_buttons() throws {
-        try skipIfNotLoggedIn()
+        try ensureLoggedIn()
 
         let acceptButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Accept'")).firstMatch
         let rejectButton = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Reject' OR label CONTAINS[c] 'Decline'")).firstMatch
