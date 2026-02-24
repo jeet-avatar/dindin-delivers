@@ -253,7 +253,7 @@ class TestRideshareE2EFlow:
         assert "message_id" in data
 
         # ── Step 10: Chat – Get Messages ─────────────────────────────────
-        resp = client.get(f"/api/p2p/ride-requests/{ride_id}/chat")
+        resp = client.get(f"/api/p2p/ride-requests/{ride_id}/chat", headers=auth_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert "messages" in data
@@ -263,7 +263,7 @@ class TestRideshareE2EFlow:
             "driver_id": driver.id,
             "latitude": 37.775,
             "longitude": -122.418,
-        })
+        }, headers=driver_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -305,7 +305,7 @@ class TestRideshareE2EFlow:
         # ── Step 15: Payment – Create Payment Intent ─────────────────────
         resp = client.post("/api/payments/ride/create-intent", json={
             "ride_request_id": ride_id,
-        })
+        }, headers=customer_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is True
@@ -323,8 +323,8 @@ class TestRideshareE2EFlow:
         # ── Step 16: Customer Rates Driver ───────────────────────────────
         resp = client.post(
             f"/api/rides/{ride_id}/rate",
-            params={"rating": 5, "comment": "Great ride!"},
-            headers=auth_headers,
+            json={"rating": 5, "comment": "Great ride!"},
+            headers=customer_headers,
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -334,8 +334,8 @@ class TestRideshareE2EFlow:
         # ── Step 17: Customer Tips Driver ────────────────────────────────
         resp = client.post(
             f"/api/rides/{ride_id}/tip",
-            params={"tip_amount": 5.00, "tip_type": "post_ride"},
-            headers=auth_headers,
+            json={"tip_amount": 5.00},
+            headers=customer_headers,
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -606,7 +606,7 @@ class TestRideshareEdgeCases:
 
             resp = client.post("/api/payments/ride/create-intent", json={
                 "ride_request_id": rid,
-            })
+            }, headers=customer_headers)
             assert resp.status_code == 200
             data = resp.json()
             assert data["tier_fee"] == expected_fee, (

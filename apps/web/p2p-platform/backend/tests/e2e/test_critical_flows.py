@@ -217,8 +217,8 @@ class TestVendorOnboardingFlow:
         }
         response = client.post("/api/restaurant/apply", json=application_data)
 
-        # Application endpoint should exist
-        assert response.status_code in [200, 201, 400, 404, 422]
+        # Application endpoint should exist (401 = auth middleware blocks unauthenticated)
+        assert response.status_code in [200, 201, 400, 401, 404, 422]
 
     def test_vendor_menu_management_flow(self, client, db_session):
         """Test vendor can manage their menu"""
