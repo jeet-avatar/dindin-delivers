@@ -101,9 +101,10 @@ None.
 | 38 | Run iOS Customer UI tests — 45/45 PASS, 0 failures, 0 skipped | 2026-02-24 | (test only) | [38-run-and-fix-ios-customer-ui-tests-to-46-](./quick/38-run-and-fix-ios-customer-ui-tests-to-46-/) |
 | 39 | Enterprise iOS Customer UI Test Report (45 tests, 42 identifiers, 17 screens) | 2026-02-24 | (docs only) | [39-enterprise-ios-customer-ui-test-report-w](./quick/39-enterprise-ios-customer-ui-test-report-w/) |
 | 41 | Fix Android staging tests — wire demo credentials + auth headers through all stages | 2026-02-24 | 8d8703de | [41-fix-android-staging-tests-wire-demo-cred](./quick/41-fix-android-staging-tests-wire-demo-cred/) |
+| 42 | Fix iOS Google + Apple Sign-In 4 bugs (URL scheme, OAuth endpoint, apple_id lookup) | 2026-02-24 | 56c991ae | [42-fix-ios-google-and-apple-sign-in-4-bugs-](./quick/42-fix-ios-google-and-apple-sign-in-4-bugs-/) |
 
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Quick task 41 complete -- Fixed 5 Android staging tests (OrderCreationFieldMappingTest 06-10) missing auth headers after global auth middleware deployment. All 11 tests now send Bearer tokens.
-Resume: Run Driver + Restaurant iOS UI tests (same pattern). Fix pre-existing driver unit test compilation errors. Run Android Espresso tests if emulator available. 7 cross-platform parity gaps still open. Investigate pre-existing test_15_01_createPaymentIntent_works failure.
+Stopped at: Quick task 42 complete -- Fixed 4 iOS auth bugs: driver Google Sign-In URL scheme + OAuth endpoint, driver + vendor Apple Sign-In apple_id lookup for returning users.
+Resume: Deploy backend for apple_id migration. Build + distribute iOS apps with auth fixes. Run Driver + Restaurant iOS UI tests. 7 cross-platform parity gaps still open.
