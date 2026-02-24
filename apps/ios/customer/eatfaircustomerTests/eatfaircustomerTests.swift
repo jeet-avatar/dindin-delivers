@@ -7,7 +7,7 @@
 
 import Testing
 import Foundation
-@testable import eatfaircustomer
+import SwiftUI  // For IndexSet.remove(atOffsets:)
 
 // MARK: - Cart Calculation Tests
 
