@@ -257,6 +257,11 @@ pytest tests/ -v
 | Android | Driver | vC=21 | 1.0.20 | `ai.dollor.driver` | Firebase 2026-02-23 |
 | Android | Partner | vC=17 | 1.0.16 | `ai.dollor.partner` | Firebase 2026-02-23 |
 
+### Production Deployment Status (Feb 23, 2026)
+- **Backend**: All security fixes deployed to staging (smoke tested 12/12 pass) → production. CI/CD run `22328867724` succeeded.
+- **iOS**: Builds 1091/199/167 on TestFlight include auth header fixes (19 methods), SSL pinning, jailbreak detection, print() wrapping.
+- **Android**: Builds vC=24/21/17 on Firebase include VAPT fixes and rideshare API audit fixes.
+
 ### iOS API Verification (Phase 02 — Feb 23, 2026)
 - **256 total API calls** audited across 3 apps: 205 OK, 51 mismatches
 - **40 of 51** are dead code (aspirational services never wired to backend)
