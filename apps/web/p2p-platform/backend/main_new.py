@@ -3382,6 +3382,27 @@ def delete_driver_account(
     return {"success": True, "message": "Driver account deleted successfully"}
 
 
+# ==================== VENDOR ACCOUNT DELETION ====================
+# Required by Google Play Store policy for account deletion
+
+@app.delete("/api/vendors/{vendor_id}/delete")
+def delete_vendor_account(
+    vendor_id: int,
+    vendor: Vendor = Depends(require_vendor),
+    db: Session = Depends(get_db)
+):
+    """Delete vendor account - required by Play Store policy"""
+    # SECURITY: Verify the authenticated vendor owns this account
+    if vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Delete the vendor
+    db.delete(vendor)
+    db.commit()
+
+    return {"success": True, "message": "Vendor account deleted successfully"}
+
+
 # Admin endpoint to delete customer by email (for testing only)
 @app.delete("/api/admin/customers/by-email/{email}")
 def admin_delete_customer_by_email(
@@ -20965,10 +20986,11 @@ app.add_api_route("/api/erp/drivers/{driver_id}", update_driver_profile_by_id, m
 app.add_api_route("/drivers/{driver_id}/status", get_driver_status, methods=["GET"])
 app.add_api_route("/drivers/{driver_id}/status", post_driver_status, methods=["POST"])
 app.add_api_route("/api/drivers/{driver_id}/documents", get_driver_documents_by_id, methods=["GET"])
-app.add_api_route("/api/drivers/{driver_id}/documents", get_driver_documents, methods=["POST"])
+app.add_api_route("/api/drivers/{driver_id}/documents", upload_driver_document_by_id, methods=["POST"])
 app.add_api_route("/api/auth/customer/apple-auth", customer_apple_auth, methods=["POST"])
 app.add_api_route("/auth/customer/apple-auth", customer_apple_auth, methods=["POST"])
 app.add_api_route("/customer/apple-auth", customer_apple_auth, methods=["POST"])
+app.add_api_route("/vendors/{vendor_id}/delete", delete_vendor_account, methods=["DELETE"])
 app.add_api_route("/vendors/{vendor_id}/documents", get_vendor_documents, methods=["GET"])
 app.add_api_route("/vendors/{vendor_id}/documents", delete_vendor_document, methods=["POST"])
 app.add_api_route("/vendors/{vendor_id}/documents/{document_id}", delete_vendor_document, methods=["DELETE"])

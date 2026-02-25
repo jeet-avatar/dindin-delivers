@@ -359,7 +359,6 @@ public class P2PAPIService: ObservableObject {
     }
 
     /// Update a menu item (Restaurant App)
-    // TODO: [MEDIUM] API mismatch — iOS sends PATCH but backend only accepts PUT for /api/vendors/{id}/menu/{id}. Returns 405.
     public func updateMenuItem(
         vendorId: Int,
         itemId: Int,
@@ -372,7 +371,7 @@ public class P2PAPIService: ObservableObject {
         }
 
         var request = URLRequest(url: url)
-        request.httpMethod = "PATCH"
+        request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         if let token = vendorToken {
@@ -1765,8 +1764,7 @@ public class P2PAPIService: ObservableObject {
         name: String,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        // TODO: [MEDIUM] API mismatch — path /api/customer/{id}/profile does not exist. Backend expects PUT /api/auth/customer/profile (no customerId in path, uses JWT)
-        guard let url = URL(string: "\(baseURL)/customer/\(customerId)/profile") else {
+        guard let url = URL(string: "\(baseURL)/auth/customer/profile") else {
             completion(.failure(P2PAPIError.invalidURL))
             return
         }
@@ -6933,7 +6931,6 @@ public class P2PAPIService: ObservableObject {
 
     // MARK: - Rideshare Chat APIs (REST - matches Android)
 
-    // TODO: [CRITICAL] API mismatch — uses customerToken instead of driverToken; Driver app will send nil token, causing 401
     /// Fetch chat messages for a ride request
     /// Endpoint: GET /api/p2p/ride-requests/{ride_id}/chat
     /// Uses production URL (api.dollor.ai)
@@ -6950,7 +6947,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if let token = customerToken {
+        if let token = driverToken ?? customerToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -6981,7 +6978,6 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
-    // TODO: [CRITICAL] API mismatch — uses customerToken instead of driverToken; Driver app will send nil token, causing 401
     /// Send a chat message for a ride request
     /// Endpoint: POST /api/p2p/ride-requests/{ride_id}/chat
     /// Uses production URL (api.dollor.ai)
@@ -7000,7 +6996,7 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if let token = customerToken {
+        if let token = driverToken ?? customerToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -10995,13 +10991,13 @@ extension P2PAPIService {
         }
 
         var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token = driverToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        let body: [String: Any] = ["fcm_token": fcmToken]
+        let body: [String: Any] = ["fcm_token": fcmToken, "platform": "ios"]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         secureSession.dataTask(with: request) { data, response, error in
