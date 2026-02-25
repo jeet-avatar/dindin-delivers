@@ -11,8 +11,8 @@
 
 - **Total endpoint rows verified: 83** (59 Retrofit + 24 OkHttp)
 - **Unique endpoints (after removing 7 duplicates): 76**
-- **OK: 74**
-- **Mismatches: 2** (0 critical, 0 medium, 2 low)
+- **OK: 76**
+- **Mismatches: 0** (0 critical, 0 medium, 0 low)
 - **Dead code: 0**
 
 ## Verification Results
@@ -155,8 +155,8 @@ All endpoints use `$BASE_URL/api/...` pattern where `BASE_URL = AppConfig.apiBas
 | 63 | POST | `/api/rides/bid/{bidId}/respond` (accept) | `@router.post("/bid/{bid_id}/respond")` bid_routes.py:551 (prefix `/api/rides`) | OK | Body: `{"action":"accept"}` |
 | 64 | POST | `/api/rides/bid/{bidId}/respond` (reject) | `@router.post("/bid/{bid_id}/respond")` bid_routes.py:551 (prefix `/api/rides`) | OK | Body: `{"action":"reject"}` |
 | 65 | POST | `/api/rides/bid/{bidId}/respond` (counter) | `@router.post("/bid/{bid_id}/respond")` bid_routes.py:551 (prefix `/api/rides`) | OK | Body: `{"action":"counter","counter_amount":...}` |
-| 66 | POST | `/api/erp/rides/{rideId}/customer-negotiate?proposed_fare=...` | `@app.post("/api/erp/rides/{ride_id}/customer-negotiate")` main_new.py:14618 | LOW | Query param `proposed_fare` -- backend may expect body. See Mismatches #1. |
-| 67 | POST | `/api/erp/rides/{rideId}/customer-accept-fare?accepted_fare=...` | `@app.post("/api/erp/rides/{ride_id}/customer-accept-fare")` main_new.py:14659 | LOW | Query param `accepted_fare` -- backend may expect body. See Mismatches #2. |
+| 66 | POST | `/api/erp/rides/{rideId}/customer-negotiate?proposed_fare=...` | `@app.post("/api/erp/rides/{ride_id}/customer-negotiate")` main_new.py:14618 | OK | Backend uses `Query(default=0.0)` -- query param is correct interface |
+| 67 | POST | `/api/erp/rides/{rideId}/customer-accept-fare?accepted_fare=...` | `@app.post("/api/erp/rides/{ride_id}/customer-accept-fare")` main_new.py:14659 | OK | Backend uses `Query(default=0.0)` -- query param is correct interface |
 | 68 | GET | `/api/erp/rides/{rideId}/negotiation-status` | `@app.get("/api/erp/rides/{ride_id}/negotiation-status")` main_new.py:14687 | OK | |
 | 69 | POST | `/api/rides/request/{rideRequestId}/cancel` | `@router.post("/request/{request_id}/cancel")` bid_routes.py:898 (prefix `/api/rides`) | OK | |
 | 70 | GET | `/api/rides/{rideRequestId}/track` | `@app.get("/api/rides/{ride_id}/track")` main_new.py:15063 | OK | |
@@ -194,21 +194,9 @@ The following endpoints exist in **both** files. Both files point to the same ba
 
 ## Mismatches Detail
 
-### Mismatch #1: customer-negotiate query param vs body (LOW)
+None -- all 76 unique endpoints match backend routes exactly.
 
-- **Severity:** LOW
-- **Android:** `POST /api/erp/rides/{rideId}/customer-negotiate?proposed_fare=$proposedFare` with empty body
-- **Backend:** `@app.post("/api/erp/rides/{ride_id}/customer-negotiate")` main_new.py:14618
-- **Impact:** Works today -- FastAPI reads `proposed_fare` from query params. The route uses `Query()` parameter, not `Body()`.
-- **Fix approach:** No fix needed. Backend accepts query params. Both Retrofit version (uses `@Query`) and OkHttp version (appends to URL) work correctly.
-
-### Mismatch #2: customer-accept-fare query param vs body (LOW)
-
-- **Severity:** LOW
-- **Android:** `POST /api/erp/rides/{rideId}/customer-accept-fare?accepted_fare=$acceptedFare` with empty body
-- **Backend:** `@app.post("/api/erp/rides/{ride_id}/customer-accept-fare")` main_new.py:14659
-- **Impact:** Works today -- FastAPI reads `accepted_fare` from query params. The route uses `Query()` parameter, not `Body()`.
-- **Fix approach:** No fix needed. Backend accepts query params. Both versions work correctly.
+**Note on negotiation endpoints:** `customer-negotiate` and `customer-accept-fare` use query params (`?proposed_fare=...`, `?accepted_fare=...`). This was initially flagged as a potential mismatch, but verification of the backend code (main_new.py:14618, 14659) confirms the endpoints use `Query(default=0.0)` -- query params are the correct and expected interface.
 
 ---
 
