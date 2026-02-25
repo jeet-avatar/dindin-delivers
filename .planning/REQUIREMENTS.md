@@ -11,7 +11,7 @@
 - [x] **API-02**: All iOS Driver app API calls verified against actual backend routes
 - [x] **API-03**: All iOS Restaurant app API calls verified against actual backend routes
 - [x] **API-04**: All Android Customer app API calls verified against actual backend routes
-- [ ] **API-05**: All Android Driver app API calls verified against actual backend routes
+- [x] **API-05**: All Android Driver app API calls verified against actual backend routes
 - [ ] **API-06**: All Android Restaurant app API calls verified against actual backend routes
 
 ### App Distribution
@@ -57,7 +57,7 @@
 | API-02 | Phase 02 | Complete |
 | API-03 | Phase 02 | Complete |
 | API-04 | Phase 03 | Complete |
-| API-05 | Phase 03 | Pending |
+| API-05 | Phase 03 | Complete |
 | API-06 | Phase 03 | Pending |
 | DIST-01 | Phase 04 | Pending |
 | DIST-02 | Phase 04 | Pending |
