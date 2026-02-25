@@ -63,9 +63,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Verify Android Customer app API calls (DollorApiService customer sections + CustomerRideshareApiService OkHttp)
-- [ ] 03-02-PLAN.md -- Verify Android Driver app API calls (DollorApiService driver sections + DocumentsViewModel direct calls)
-- [ ] 03-03-PLAN.md -- Verify Android Partner (Restaurant) app API calls + consolidated FIX_PLAN.md
+- [x] 03-01-PLAN.md -- Verify Android Customer app API calls (DollorApiService customer sections + CustomerRideshareApiService OkHttp)
+- [x] 03-02-PLAN.md -- Verify Android Driver app API calls (DollorApiService driver sections + DocumentsViewModel direct calls)
+- [x] 03-03-PLAN.md -- Verify Android Partner (Restaurant) app API calls + consolidated FIX_PLAN.md
 
 ### Phase 04: iOS Distribution
 **Goal**: All 3 iOS apps have bumped version/build numbers and are uploaded to TestFlight for testing
@@ -79,7 +79,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Apply iOS API fixes (8 P2PAPIService fixes) + backend fixes (driver doc alias, vendor self-delete)
+- [x] 04-01-PLAN.md -- Apply iOS API fixes (8 P2PAPIService fixes) + backend fixes (driver doc alias, vendor self-delete)
 - [ ] 04-02-PLAN.md -- Bump build numbers (Customer 1096, Driver 204, Restaurant 173), deploy backend, archive + upload to TestFlight
 
 ### Phase 05: Android Distribution
@@ -145,9 +145,9 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 | 01. Infrastructure Cleanup | 1/1 | Complete    | 2026-02-22 |
 | 02. iOS API Verification | 3/3 | Complete   | 2026-02-23 |
 | 03. Android API Verification | 3/3 | Complete    | 2026-02-25 |
-| 04. iOS Distribution | 0/3 | Not started | - |
+| 04. iOS Distribution | 1/2 | In progress | - |
 | 05. Android Distribution | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-21*
-*Last updated: 2026-02-22*
+*Last updated: 2026-02-25*

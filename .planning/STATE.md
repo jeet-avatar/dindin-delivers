@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Drivers keep 100% of delivery fees and tips
-**Current focus:** v1.4 Phase 03 in progress -- Android API Verification
+**Current focus:** v1.4 Phase 04 in progress -- iOS Distribution
 
 ## Current Position
 
-Phase: 3 of 5 (Android API Verification) -- COMPLETE
-Plan: 3 of 3 in current phase -- COMPLETE
-Status: Phase 03 Complete
-Last activity: 2026-02-25 - Completed 03-03: Android Partner App API Verification (53 endpoints, 1 MEDIUM mismatch) + Consolidated FIX_PLAN (189 total, 2 fixes)
+Phase: 4 of 5 (iOS Distribution)
+Plan: 1 of 2 in current phase -- COMPLETE
+Status: Phase 04 Plan 01 Complete
+Last activity: 2026-02-25 - Completed 04-01: iOS API fixes (5 P2PAPIService.swift fixes) + backend fixes (driver doc alias, vendor self-delete)
 
-Progress: [######░░░░] 60%
+Progress: [#######░░░] 70%
 
 ## Completed Milestones
 
@@ -39,11 +39,13 @@ Progress: [######░░░░] 60%
 | Phase 03 P01 | 5min | 2 tasks | 1 files |
 | Phase 03 P02 | 9min | 2 tasks | 1 files |
 | Phase 03 P03 | 12min | 2 tasks | 2 files |
+| Phase 04 P01 | 5min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
 ### Decisions
 
+- [Phase 04-01]: Applied 5 iOS API fixes (chat auth driverToken fallback x2, FCM POST, customer profile path, menu PUT) + 2 backend fixes (driver doc upload alias, vendor self-delete endpoint). All from Phase 02/03 FIX_PLANs. Commit bd40371.
 - [Phase 03-03]: Android Partner API verification: 53 endpoints, 52 OK, 1 MEDIUM mismatch (vendor self-delete requires admin auth, not vendor auth). Consolidated FIX_PLAN: 189 total across 3 apps, 2 backend-only fixes (~20 min). Phase 05 UNBLOCKED.
 - [Phase 03-02]: Android Driver API verification: 60 endpoints, 59 OK, 1 MEDIUM mismatch (doc upload POST /api/drivers/{id}/documents alias wired to get_driver_documents instead of upload_driver_document_by_id), 8 dead code
 - Skip Phase 04 INFRA in v1.3, carry to v1.4 as Phase 01 (from PROJECT.md)
