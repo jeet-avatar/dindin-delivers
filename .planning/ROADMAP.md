@@ -76,12 +76,11 @@ Plans:
   2. Driver app build number is incremented and the build is visible in TestFlight
   3. Restaurant app build number is incremented and the build is visible in TestFlight
   4. All 3 builds point to production API URL (api.dollor.ai)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: Bump, build, and upload iOS Customer app
-- [ ] 04-02: Bump, build, and upload iOS Driver app
-- [ ] 04-03: Bump, build, and upload iOS Restaurant app
+- [ ] 04-01-PLAN.md -- Apply iOS API fixes (8 P2PAPIService fixes) + backend fixes (driver doc alias, vendor self-delete)
+- [ ] 04-02-PLAN.md -- Bump build numbers (Customer 1096, Driver 204, Restaurant 173), deploy backend, archive + upload to TestFlight
 
 ### Phase 05: Android Distribution
 **Goal**: All 3 Android apps have bumped version/build numbers and are uploaded to Firebase App Distribution
