@@ -145,7 +145,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 |-------|----------------|--------|-----------|
 | 01. Infrastructure Cleanup | 1/1 | Complete    | 2026-02-22 |
 | 02. iOS API Verification | 3/3 | Complete   | 2026-02-23 |
-| 03. Android API Verification | 1/3 | In Progress|  |
+| 03. Android API Verification | 2/3 | In Progress|  |
 | 04. iOS Distribution | 0/3 | Not started | - |
 | 05. Android Distribution | 0/3 | Not started | - |
 
