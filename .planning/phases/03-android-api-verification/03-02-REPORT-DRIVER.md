@@ -7,10 +7,10 @@
 - Retrofit base path: `/api/` (prepended to all paths below)
 
 ## Summary
-- **Total endpoints verified: 63**
-- **OK: 61**
+- **Total endpoints verified: 60**
+- **OK: 59** (routes exist and match expected method/path)
 - **Mismatches: 1** (MEDIUM: document upload POST alias wired to wrong handler)
-- **Dead code: 8** (endpoints in DollorApiService not called by any driver ViewModel)
+- **Dead code: 8** (subset of OK -- routes exist but not called by any driver ViewModel)
 
 ## Driver App ViewModel-to-API Mapping
 
@@ -232,13 +232,6 @@
 |---|--------|-------------|---------------|--------|-------|
 | 59 | GET | `customer/orders/{orderId}/chat` | `main_new.py:16369` | OK | Driver uses customer-prefixed chat endpoint; backend accepts any authenticated user |
 | 60 | POST | `customer/orders/{orderId}/chat` | `main_new.py:16414` | OK | Driver passes `sender_type: "driver"` in request body |
-
-### Delivery Decision (order_flow router, additional)
-| # | Method | Android Path | Backend Route | Status | Notes |
-|---|--------|-------------|---------------|--------|-------|
-| 61 | POST | `erp/orders/{orderId}/start-delivery-decision` | `order_flow.py:1810` (prefix `/api/erp`) | OK | Also in main_new.py:15845 |
-| 62 | POST | `erp/orders/{orderId}/restaurant-delivery-decision` | `order_flow.py:1949` (prefix `/api/erp`) | OK | Also in main_new.py:15883 |
-| 63 | GET | `erp/orders/{orderId}/delivery-decision-status` | `order_flow.py:2000` (prefix `/api/erp`) | OK | Also in main_new.py:15983 |
 
 ## Mismatches Detail
 
