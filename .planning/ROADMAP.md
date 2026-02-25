@@ -60,12 +60,12 @@ Plans:
   2. Every Retrofit endpoint in the Driver app's API service matches a registered backend route
   3. Every Retrofit endpoint in the Partner (Restaurant) app's API service matches a registered backend route
   4. Any mismatches found are documented with fix plan (backend alias or client fix)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Verify Android Customer app API calls
-- [ ] 03-02: Verify Android Driver app API calls
-- [ ] 03-03: Verify Android Restaurant (Partner) app API calls
+- [ ] 03-01-PLAN.md -- Verify Android Customer app API calls (DollorApiService customer sections + CustomerRideshareApiService OkHttp)
+- [ ] 03-02-PLAN.md -- Verify Android Driver app API calls (DollorApiService driver sections + DocumentsViewModel direct calls)
+- [ ] 03-03-PLAN.md -- Verify Android Partner (Restaurant) app API calls + consolidated FIX_PLAN.md
 
 ### Phase 04: iOS Distribution
 **Goal**: All 3 iOS apps have bumped version/build numbers and are uploaded to TestFlight for testing
