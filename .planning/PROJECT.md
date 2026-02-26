@@ -37,17 +37,23 @@ Dollor.ai is a **matchmaking platform** connecting customers with restaurants an
 - ✓ Rate limiting on 50 sensitive endpoints (password reset, registration, payment, admin) — v1.3
 - ✓ RateLimiter centralized in cache.py with multi-key support and Retry-After headers — v1.3
 
+- ✓ iOS API verification — 256 calls audited, 11 mismatches fixed across 3 apps — v1.4
+- ✓ Android API verification — all 3 apps verified, Retrofit/Gson fixes applied — v1.4
+- ✓ CloudFront server header suppression (INFRA-01) — v1.4
+- ✓ App Store Connect key JFVA7628SX audit (INFRA-02) — v1.4
+- ✓ Remaining credential items finalized (INFRA-03) — v1.4
+- ✓ iOS TestFlight distribution (Customer 1095, Driver 203, Restaurant 172) — v1.4
+- ✓ Android Firebase distribution (Customer vC=27, Driver vC=24, Partner vC=20) — v1.4
+
 ### Active
-- [ ] CloudFront server header suppression (deferred from v1.3 INFRA-01)
-- [ ] App Store Connect key JFVA7628SX revocation (deferred from v1.3 INFRA-02)
-- [ ] Remaining credential items finalization (deferred from v1.3 INFRA-03)
 - [ ] Android Play Store publishing
 - [ ] Production DB password rotation
+- [ ] SSL certificate pinning rotation strategy
+- [ ] Rideshare E2E flow testing with real devices
 
 ### Out of Scope
 - **Commission-based pricing** — We use flat fees only, this is legally critical
 - **Operating as TNC/delivery company** — We are matchmaking service only
-- **Rideshare E2E testing** — Deferred to future milestone
 - **AI employee automation** — Deferred to future milestone
 - **Investor portal** — Deferred to future milestone
 
@@ -58,9 +64,10 @@ Dollor.ai is a **matchmaking platform** connecting customers with restaurants an
   - Food: $1 platform fee from customer + $1 from restaurant
   - Rideshare: $1 (≤$35), $2 ($35-70), $3 (>$70)
 - **Drivers keep**: 100% of delivery fees + 100% of tips
-- **Security**: 276 endpoints with role-specific Depends() auth, global middleware safety net, 50 endpoints rate-limited via Redis (ElastiCache), all secrets in AWS Secrets Manager, pre-commit hook blocking credential commits
-- **Production**: Deployed v1.3 2026-02-22, staging verified before production
-- **Codebase**: 196 files changed in v1.3, +23,993/-4,495 lines
+- **Security**: 276 endpoints with role-specific Depends() auth, global middleware safety net, 50 endpoints rate-limited via Redis, SSL pinning (iOS), jailbreak detection (iOS), VAPT audited (iOS + Android), WebSocket auth, Swagger lockdown, bot protections
+- **Production**: v1.4 shipped 2026-02-26, all 6 apps distributed (TestFlight + Firebase)
+- **Testing**: 1289 backend tests, 223 UI tests (110 iOS + 113 Android), 208 API contract tests
+- **Performance**: 6 DB bottlenecks fixed (indexes, geo-filter, async push, batch queries)
 
 ## Constraints
 
@@ -91,20 +98,17 @@ Dollor.ai is a **matchmaking platform** connecting customers with restaurants an
 | Role-specific Depends() over generic auth (v1.3) | Prevents cross-role access, enforces ownership | ✓ Good |
 | RateLimiter in cache.py (v1.3) | Avoids circular imports, importable by all router files | ✓ Good |
 | Identifier-based rate limit keys (v1.3) | Per-email/user/IP scoping for different endpoint types | ✓ Good |
-| Skip Phase 04 INFRA (v1.3) | INFRA items are ops tasks not code — defer to v1.4 | — Pending |
+| Skip Phase 04 INFRA (v1.3) | INFRA items are ops tasks not code — defer to v1.4 | ✓ Resolved in v1.4 |
+| iOS API verification before distribution (v1.4) | Never ship apps without verifying API calls match backend | ✓ Good |
+| Parallel Android distribution (v1.4) | All 3 apps independent — build and upload simultaneously | ✓ Good |
+| db.flush() over double-commit (v1.4) | Single commit per operation, get auto-increment ID via flush | ✓ Good |
+| Geo-filtered push notifications (v1.4) | 25km bounding box + haversine reduces driver table scan | ✓ Good |
 
-## Current Milestone: v1.4 App Release + INFRA
+## Current State
 
-**Goal:** Verify all iOS and Android apps call correct backend APIs (no assumptions), bump version numbers for all 6 apps, push iOS builds to TestFlight and Android builds to Firebase, and resolve deferred INFRA items (CloudFront header, key revocation, credentials).
+**v1.4 App Store Distribution shipped 2026-02-26.** All 6 apps (3 iOS + 3 Android) verified, built, and distributed. 53 quick tasks completed covering security audits, UI tests, OAuth, and DB performance.
 
-**Target features:**
-- Verify every API call in all 3 iOS apps and 3 Android apps against actual backend routes
-- Bump build/version numbers for Customer, Driver, and Restaurant apps (iOS + Android)
-- Push iOS builds to TestFlight
-- Push Android builds to Firebase App Distribution
-- Fix CloudFront server header leak (INFRA-01)
-- Confirm App Store Connect key revocation status (INFRA-02)
-- Address remaining credential items (INFRA-03)
+**Next milestone:** Not yet planned. Run `/gsd:new-milestone` to start.
 
 ---
-*Last updated: 2026-02-22 after v1.4 milestone start*
+*Last updated: 2026-02-26 after v1.4 milestone completion*
