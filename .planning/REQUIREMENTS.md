@@ -20,7 +20,7 @@
 - [x] **DIST-02**: iOS Driver app version bumped, built, and uploaded to TestFlight
 - [x] **DIST-03**: iOS Restaurant app version bumped, built, and uploaded to TestFlight
 - [ ] **DIST-04**: Android Customer app version bumped, built, and uploaded to Firebase App Distribution
-- [ ] **DIST-05**: Android Driver app version bumped, built, and uploaded to Firebase App Distribution
+- [x] **DIST-05**: Android Driver app version bumped, built, and uploaded to Firebase App Distribution
 - [ ] **DIST-06**: Android Restaurant app version bumped, built, and uploaded to Firebase App Distribution
 
 ### Infrastructure Security
@@ -63,7 +63,7 @@
 | DIST-02 | Phase 04 | Complete |
 | DIST-03 | Phase 04 | Complete |
 | DIST-04 | Phase 05 | Pending |
-| DIST-05 | Phase 05 | Pending |
+| DIST-05 | Phase 05 | Complete |
 | DIST-06 | Phase 05 | Pending |
 | INFRA-01 | Phase 01 | Complete |
 | INFRA-02 | Phase 01 | Complete |
