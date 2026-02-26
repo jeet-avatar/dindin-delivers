@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 4 of 5 (iOS Distribution)
 Plan: 2 of 2 in current phase -- COMPLETE (awaiting TestFlight verification)
 Status: Phase 04 Plan 02 Complete -- 3 iOS apps uploaded to TestFlight, backend deployed
-Last activity: 2026-02-26 - Completed quick task 51: Test database behaviour staging vs production
+Last activity: 2026-02-26 - Completed quick task 53: Fix all 6 ride request database bottlenecks
 
 Progress: [########░░] 80%
 
@@ -56492,9 +56492,10 @@ None.
 | 48 | Fix multi-role Apple Sign-In for vendor + driver endpoints | 2026-02-24 | bfb0f42c, 192aaca8, ac137c0c | [48-support-multi-role-accounts-same-email-a](./quick/48-support-multi-role-accounts-same-email-a/) |
 | 51 | Test database behaviour staging vs production | 2026-02-26 | 3486a032 | [51-test-database-behaviour-staging-vs-produ](./quick/51-test-database-behaviour-staging-vs-produ/) |
 | 52 | Investigate ride request database flow with 20 nearby drivers | 2026-02-26 | bc23f985 | [52-investigate-ride-request-database-flow-w](./quick/52-investigate-ride-request-database-flow-w/) |
+| 53 | Fix all 6 ride request database bottlenecks | 2026-02-26 | a10f2b8f | [53-fix-all-6-ride-request-database-bottlene](./quick/53-fix-all-6-ride-request-database-bottlene/) |
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Quick task 52 complete — ride request DB flow investigation (965-line report, 8 missing indexes, 286 queries per ride with 20 bidders)
+Stopped at: Quick task 53 complete — all 6 ride request DB bottlenecks fixed (indexes, geo-filter, async push, flush pattern, dedup query, batch N+1)
 Resume: Phase 04 TestFlight checkpoint approved. Decide on Phase 05 or complete milestone v1.4.
