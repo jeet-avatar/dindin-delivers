@@ -757,7 +757,7 @@ class Driver(Base):
     # Real-time tracking
     current_latitude = Column(Float)
     current_longitude = Column(Float)
-    is_online = Column(Boolean, default=False)
+    is_online = Column(Boolean, default=False, index=True)
     location_updated_at = Column(DateTime)   # Primary field for GPS updates
     went_online_at = Column(DateTime)  # When driver came online
     went_offline_at = Column(DateTime)  # When driver went offline
@@ -1314,11 +1314,11 @@ class RideRequest(Base):
 
     # Matched Bid (after acceptance)
     matched_bid_id = Column(Integer, ForeignKey("ride_bids.id"), nullable=True)
-    matched_driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=True)
+    matched_driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=True, index=True)
     final_price = Column(Float)  # Agreed price after negotiation
 
     # Status
-    status = Column(SQLEnum(RideRequestStatus), default=RideRequestStatus.OPEN)
+    status = Column(SQLEnum(RideRequestStatus), default=RideRequestStatus.OPEN, index=True)
 
     # Bidding Window
     bidding_expires_at = Column(DateTime)  # When bidding closes
@@ -1398,7 +1398,7 @@ class RideBid(Base):
     round_counter = Column(Integer, default=0)  # Total back-and-forth count
 
     # Status
-    status = Column(SQLEnum(BidStatus), default=BidStatus.PENDING)
+    status = Column(SQLEnum(BidStatus), default=BidStatus.PENDING, index=True)
 
     # Expiration
     expires_at = Column(DateTime)  # Bid expires if not responded
