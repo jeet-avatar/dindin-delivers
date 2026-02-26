@@ -159,7 +159,28 @@ cd /Users/jeet/StudioProjects/eatfair-android
 Android packages: `ai.dollor.customer`, `ai.dollor.driver`, `ai.dollor.partner`
 Signing: `local.properties` → `RELEASE_KEYSTORE_PATH`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`
 APK output: `{module}/build/outputs/apk/release/{module}-release.apk`
-**Firebase App Distribution: NOT YET CONFIGURED** — needs Gradle plugin setup
+
+### Upload Android to Firebase App Distribution
+```bash
+cd /Users/jeet/StudioProjects/eatfair-android
+
+# Upload all 3 APKs and send to tester
+firebase appdistribution:distribute app/build/outputs/apk/release/app-release.apk \
+  --app "1:65740760476:android:535885ca28086e6242d459" \
+  --testers "jeetnair.in@gmail.com" \
+  --release-notes "Customer vX.Y.Z" --project dollorai-production
+
+firebase appdistribution:distribute driver/build/outputs/apk/release/driver-release.apk \
+  --app "1:65740760476:android:7d9bed1ee685434c42d459" \
+  --testers "jeetnair.in@gmail.com" \
+  --release-notes "Driver vX.Y.Z" --project dollorai-production
+
+firebase appdistribution:distribute partner/build/outputs/apk/release/partner-release.apk \
+  --app "1:65740760476:android:8591cc17fa4f8d4c42d459" \
+  --testers "jeetnair.in@gmail.com" \
+  --release-notes "Partner vX.Y.Z" --project dollorai-production
+```
+**Post-build rule:** After every Android release build, distribute to `jeetnair.in@gmail.com` via Firebase App Distribution using the commands above.
 
 ### Build iOS Apps
 ```bash
@@ -220,6 +241,7 @@ xcodebuild -exportArchive \
 - Key path: `~/.appstoreconnect/private_keys/AuthKey_9K626GB728.p8`
 - Fastlane is configured but needs `MATCH_PASSWORD` — use xcodebuild automatic signing as workaround
 - Do NOT use separate `xcrun altool --upload-app` — the `-exportArchive` step handles upload when ExportOptions has `destination: upload`
+- **Post-build rule:** After every iOS archive+upload to TestFlight, notify `jeetnair.in@gmail.com` as an internal tester in App Store Connect
 
 ### Anti-Hallucination Check
 ```bash
