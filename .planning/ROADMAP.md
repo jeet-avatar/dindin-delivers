@@ -146,7 +146,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 | 02. iOS API Verification | 3/3 | Complete   | 2026-02-23 |
 | 03. Android API Verification | 3/3 | Complete    | 2026-02-25 |
 | 04. iOS Distribution | 2/2 | Complete   | 2026-02-26 |
-| 05. Android Distribution | 3/3 | Complete   | 2026-02-26 |
+| 05. Android Distribution | 3/3 | Complete    | 2026-02-26 |
 
 ---
 *Roadmap created: 2026-02-21*
