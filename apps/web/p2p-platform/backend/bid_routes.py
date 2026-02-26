@@ -586,17 +586,15 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
 
-    # Verify caller is the ride's customer
+    # Verify ride exists and caller is the ride's customer (single query)
     ride_request = db.query(RideRequest).filter(RideRequest.id == bid.ride_request_id).first()
-    if ride_request and customer.id != ride_request.customer_id:
+    if not ride_request:
+        raise HTTPException(status_code=404, detail="Ride request not found")
+    if customer.id != ride_request.customer_id:
         raise HTTPException(status_code=403, detail="Only the ride's customer can respond to bids")
 
     if bid.status != BidStatus.PENDING:
         raise HTTPException(status_code=400, detail=f"Bid is already {bid.status.value}")
-
-    ride_request = db.query(RideRequest).filter(RideRequest.id == bid.ride_request_id).first()
-    if not ride_request:
-        raise HTTPException(status_code=404, detail="Ride request not found")
 
     if ride_request.status == RideRequestStatus.MATCHED:
         raise HTTPException(status_code=400, detail="Ride already matched with a driver")
@@ -1032,6 +1030,20 @@ async def get_available_ride_requests(
         )
     ).all()
 
+    # Batch check: which of these rides does the driver already have an active bid on?
+    request_ids = [r.id for r in open_requests]
+    driver_existing_bids = {}
+    if driver_id is not None and request_ids:
+        existing_bids = db.query(RideBid).filter(
+            and_(
+                RideBid.ride_request_id.in_(request_ids),
+                RideBid.driver_id == driver_id,
+                RideBid.status.in_([BidStatus.PENDING, BidStatus.COUNTERED])
+            )
+        ).all()
+        for eb in existing_bids:
+            driver_existing_bids[eb.ride_request_id] = eb
+
     nearby_requests = []
     for request in open_requests:
         # Calculate distance if driver location provided
@@ -1044,16 +1056,7 @@ async def get_available_ride_requests(
             if distance > radius_km:
                 continue
 
-        # Check if driver already bid on this request
-        existing_bid = None
-        if driver_id is not None:
-            existing_bid = db.query(RideBid).filter(
-                and_(
-                    RideBid.ride_request_id == request.id,
-                    RideBid.driver_id == driver_id,
-                    RideBid.status.in_([BidStatus.PENDING, BidStatus.COUNTERED])
-                )
-            ).first()
+        existing_bid = driver_existing_bids.get(request.id)
 
         request_data = serialize_ride_request(request)
         request_data["distance_to_pickup_km"] = round(distance, 2) if distance is not None else None
