@@ -19,9 +19,9 @@
 - [x] **DIST-01**: iOS Customer app version bumped, built, and uploaded to TestFlight
 - [x] **DIST-02**: iOS Driver app version bumped, built, and uploaded to TestFlight
 - [x] **DIST-03**: iOS Restaurant app version bumped, built, and uploaded to TestFlight
-- [ ] **DIST-04**: Android Customer app version bumped, built, and uploaded to Firebase App Distribution
+- [x] **DIST-04**: Android Customer app version bumped, built, and uploaded to Firebase App Distribution
 - [x] **DIST-05**: Android Driver app version bumped, built, and uploaded to Firebase App Distribution
-- [ ] **DIST-06**: Android Restaurant app version bumped, built, and uploaded to Firebase App Distribution
+- [x] **DIST-06**: Android Restaurant app version bumped, built, and uploaded to Firebase App Distribution
 
 ### Infrastructure Security
 
@@ -62,9 +62,9 @@
 | DIST-01 | Phase 04 | Complete |
 | DIST-02 | Phase 04 | Complete |
 | DIST-03 | Phase 04 | Complete |
-| DIST-04 | Phase 05 | Pending |
+| DIST-04 | Phase 05 | Complete |
 | DIST-05 | Phase 05 | Complete |
-| DIST-06 | Phase 05 | Pending |
+| DIST-06 | Phase 05 | Complete |
 | INFRA-01 | Phase 01 | Complete |
 | INFRA-02 | Phase 01 | Complete |
 | INFRA-03 | Phase 01 | Complete |
@@ -76,4 +76,4 @@
 
 ---
 *Requirements defined: 2026-02-22*
-*Last updated: 2026-02-22 -- API-01, API-02, API-03 complete*
+*Last updated: 2026-02-26 -- All 15 requirements complete (DIST-06 marked complete)*
