@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: 4 of 5 (iOS Distribution)
 Plan: 2 of 2 in current phase -- COMPLETE (awaiting TestFlight verification)
 Status: Phase 04 Plan 02 Complete -- 3 iOS apps uploaded to TestFlight, backend deployed
-Last activity: 2026-02-25 - Completed 04-02: iOS builds uploaded to TestFlight (Customer 1096, Driver 204, Restaurant 173) + backend deployed to production
+Last activity: 2026-02-26 - Completed quick task 51: Test database behaviour staging vs production
 
 Progress: [########░░] 80%
 
@@ -56490,6 +56490,7 @@ None.
 | 46 | Complete Android UI testing — 339 tests inventoried, 0 unit failures, enterprise report | 2026-02-24 | 78378baf | [46-complete-android-ui-testing-for-all-3-ap](./quick/46-complete-android-ui-testing-for-all-3-ap/) |
 | 49 | Write 88 Android UI tests for 34 uncovered screens — 100% coverage (86/86) | 2026-02-24 | 5bb52ff4, 87471ae5 | [49-write-android-ui-tests-for-all-34-uncove](./quick/49-write-android-ui-tests-for-all-34-uncove/) |
 | 48 | Fix multi-role Apple Sign-In for vendor + driver endpoints | 2026-02-24 | bfb0f42c, 192aaca8, ac137c0c | [48-support-multi-role-accounts-same-email-a](./quick/48-support-multi-role-accounts-same-email-a/) |
+| 51 | Test database behaviour staging vs production | 2026-02-26 | 3486a032 | [51-test-database-behaviour-staging-vs-produ](./quick/51-test-database-behaviour-staging-vs-produ/) |
 
 ## Session Continuity
 
