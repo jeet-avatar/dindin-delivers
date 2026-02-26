@@ -91,12 +91,12 @@ Plans:
   2. Driver app versionCode is incremented and the APK/AAB is uploaded to Firebase App Distribution
   3. Restaurant (Partner) app versionCode is incremented and the APK/AAB is uploaded to Firebase App Distribution
   4. All 3 builds point to production API URL (api.dollor.ai)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 05-01: Bump, build, and upload Android Customer app
-- [ ] 05-02: Bump, build, and upload Android Driver app
-- [ ] 05-03: Bump, build, and upload Android Restaurant (Partner) app
+- [ ] 05-01-PLAN.md -- Bump Customer app to vC=27/1.0.26, build release APK, upload to Firebase App Distribution
+- [ ] 05-02-PLAN.md -- Bump Driver app to vC=24/1.0.23, build release APK, upload to Firebase App Distribution
+- [ ] 05-03-PLAN.md -- Bump Partner app to vC=20/1.0.19, build release APK, upload to Firebase App Distribution
 
 <details>
 <summary>v1.3 Platform Hardening (Phases 01-03) -- SHIPPED 2026-02-22</summary>
@@ -146,8 +146,8 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 | 02. iOS API Verification | 3/3 | Complete   | 2026-02-23 |
 | 03. Android API Verification | 3/3 | Complete    | 2026-02-25 |
 | 04. iOS Distribution | 2/2 | Complete   | 2026-02-26 |
-| 05. Android Distribution | 0/3 | Not started | - |
+| 05. Android Distribution | 0/3 | Planned | - |
 
 ---
 *Roadmap created: 2026-02-21*
-*Last updated: 2026-02-25*
+*Last updated: 2026-02-26*
