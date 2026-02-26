@@ -1,5 +1,23 @@
 # Milestones
 
+## v1.4 App Store Distribution (Shipped: 2026-02-26)
+
+**Phases completed:** 5 phases (01-05), 12 plans, 53 quick tasks
+**Timeline:** 2026-02-22 → 2026-02-26 (5 days)
+
+**Key accomplishments:**
+- Audited 256 iOS API calls across 3 apps — fixed 11 actionable mismatches (dead code, wrong paths, missing auth headers)
+- Audited all Android API calls across 3 apps — fixed Retrofit endpoint divergences and Gson serialization issues
+- CloudFront security headers configured, App Store Connect key audit completed, credential cleanup finalized
+- All 3 iOS apps built, signed, and uploaded to TestFlight (Customer 1095, Driver 203, Restaurant 172)
+- All 3 Android apps built and uploaded to Firebase App Distribution (Customer vC=27, Driver vC=24, Partner vC=20)
+- 53 quick tasks: VAPT audits (iOS + Android), SSL pinning, jailbreak detection, network security hardening, OAuth multi-role, 1289 backend tests, 223 UI tests, DB performance (6 bottleneck fixes)
+
+**Known gaps:**
+- None — all 15/15 requirements satisfied (API-01 through INFRA-03)
+
+---
+
 ## v1.3 Platform Hardening (Shipped: 2026-02-22)
 
 **Phases completed:** 3 phases (01-03), 9 plans, 18 tasks
@@ -69,3 +87,4 @@
 - Staging infrastructure built and verified
 
 ---
+
