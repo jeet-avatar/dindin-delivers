@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-22)
 
 **Core value:** Drivers keep 100% of delivery fees and tips
-**Current focus:** v1.4 Phase 04 in progress -- iOS Distribution
+**Current focus:** v1.4 Phase 05 complete -- Android Distribution
 
 ## Current Position
 
-Phase: 4 of 5 (iOS Distribution)
-Plan: 2 of 2 in current phase -- COMPLETE (awaiting TestFlight verification)
-Status: Phase 04 Plan 02 Complete -- 3 iOS apps uploaded to TestFlight, backend deployed
-Last activity: 2026-02-26 - Completed quick task 53: Fix all 6 ride request database bottlenecks
+Phase: 5 of 5 (Android Distribution)
+Plan: 3 of 3 in current phase -- COMPLETE
+Status: Phase 05 Plan 03 Complete -- All 3 Android apps uploaded to Firebase App Distribution
+Last activity: 2026-02-26 - Completed 05-03: Partner app v1.0.19 (vC=20) uploaded to Firebase
 
-Progress: [########░░] 80%
+Progress: [##########] 100%
 
 ## Completed Milestones
 
@@ -41,11 +41,13 @@ Progress: [########░░] 80%
 | Phase 03 P03 | 12min | 2 tasks | 2 files |
 | Phase 04 P01 | 5min | 2 tasks | 2 files |
 | Phase 04 P02 | 29min | 3 tasks | 3 files |
+| Phase 05 P03 | 2min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
 ### Decisions
 
+- [Phase 05-03]: Partner app vC=20/1.0.19 uploaded to Firebase App Distribution for jeetnair.in@gmail.com. All 3 Android apps now distributed. Phase 05 complete.
 - [Phase 04-02]: Bumped iOS builds (Customer 1096, Driver 204, Restaurant 173), deployed backend to staging+production via CI/CD, archived and uploaded all 3 apps to TestFlight. Used Release config. All uploads succeeded. Commit d44a3b7e.
 - [Phase 04-01]: Applied 5 iOS API fixes (chat auth driverToken fallback x2, FCM POST, customer profile path, menu PUT) + 2 backend fixes (driver doc upload alias, vendor self-delete endpoint). All from Phase 02/03 FIX_PLANs. Commit bd40371.
 - [Phase 03-03]: Android Partner API verification: 53 endpoints, 52 OK, 1 MEDIUM mismatch (vendor self-delete requires admin auth, not vendor auth). Consolidated FIX_PLAN: 189 total across 3 apps, 2 backend-only fixes (~20 min). Phase 05 UNBLOCKED.
@@ -56497,5 +56499,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Quick task 53 complete — all 6 ride request DB bottlenecks fixed (indexes, geo-filter, async push, flush pattern, dedup query, batch N+1)
-Resume: Phase 04 TestFlight checkpoint approved. Decide on Phase 05 or complete milestone v1.4.
+Stopped at: Completed 05-03-PLAN.md -- All Phase 05 plans complete. v1.4 milestone 100%.
+Resume: All 5 phases complete (15/15 requirements). Ready to complete milestone v1.4.

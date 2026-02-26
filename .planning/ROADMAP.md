@@ -18,7 +18,7 @@
 - [x] **Phase 02: iOS API Verification** - Verify every API call in all 3 iOS apps against actual backend routes (completed 2026-02-23)
 - [x] **Phase 03: Android API Verification** - Verify every API call in all 3 Android apps against actual backend routes (completed 2026-02-25)
 - [x] **Phase 04: iOS Distribution** - Bump versions, build, and upload all 3 iOS apps to TestFlight (completed 2026-02-26)
-- [ ] **Phase 05: Android Distribution** - Bump versions, build, and upload all 3 Android apps to Firebase App Distribution
+- [x] **Phase 05: Android Distribution** - Bump versions, build, and upload all 3 Android apps to Firebase App Distribution (completed 2026-02-26)
 
 ## Phase Details
 
@@ -94,9 +94,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 05-01-PLAN.md -- Bump Customer app to vC=27/1.0.26, build release APK, upload to Firebase App Distribution
-- [ ] 05-02-PLAN.md -- Bump Driver app to vC=24/1.0.23, build release APK, upload to Firebase App Distribution
-- [ ] 05-03-PLAN.md -- Bump Partner app to vC=20/1.0.19, build release APK, upload to Firebase App Distribution
+- [x] 05-01-PLAN.md -- Bump Customer app to vC=27/1.0.26, build release APK, upload to Firebase App Distribution
+- [x] 05-02-PLAN.md -- Bump Driver app to vC=24/1.0.23, build release APK, upload to Firebase App Distribution
+- [x] 05-03-PLAN.md -- Bump Partner app to vC=20/1.0.19, build release APK, upload to Firebase App Distribution
 
 <details>
 <summary>v1.3 Platform Hardening (Phases 01-03) -- SHIPPED 2026-02-22</summary>
@@ -146,7 +146,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 | 02. iOS API Verification | 3/3 | Complete   | 2026-02-23 |
 | 03. Android API Verification | 3/3 | Complete    | 2026-02-25 |
 | 04. iOS Distribution | 2/2 | Complete   | 2026-02-26 |
-| 05. Android Distribution | 0/3 | Planned | - |
+| 05. Android Distribution | 3/3 | Complete   | 2026-02-26 |
 
 ---
 *Roadmap created: 2026-02-21*
