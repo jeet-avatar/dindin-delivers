@@ -208,6 +208,36 @@ def estimate_duration_minutes(distance_km: float) -> int:
     return max(5, int(distance_km * 2))  # ~30 km/h = 2 min per km
 
 
+async def _send_push_batch(drivers_to_notify, ride_req, dist_miles, price):
+    """Send push notifications concurrently to nearby drivers."""
+    async def _send_one(drv):
+        try:
+            await asyncio.to_thread(
+                send_push_notification,
+                user_type="driver",
+                user_id=drv.id,
+                title="New Ride Request!",
+                body=f"Pickup: {ride_req.pickup_address[:50]} — ~{dist_miles} mi, est. ${price:.0f}",
+                data={
+                    "type": "new_ride_request",
+                    "ride_request_id": str(ride_req.id),
+                    "request_id": ride_req.request_id,
+                    "pickup_address": ride_req.pickup_address,
+                    "dropoff_address": ride_req.dropoff_address,
+                    "fare_estimate": str(round(price, 2))
+                },
+                db=None  # Don't pass db across threads -- let fallback create its own session
+            )
+            return True
+        except Exception as err:
+            logger.warning(f"Failed to push to driver {drv.id}: {err}")
+            return False
+
+    results = await asyncio.gather(*[_send_one(d) for d in drivers_to_notify], return_exceptions=True)
+    sent = sum(1 for r in results if r is True)
+    logger.info(f"Push sent to {sent}/{len(drivers_to_notify)} nearby drivers for ride {ride_req.request_id}")
+
+
 def serialize_ride_request(request: RideRequest, include_bids: bool = False) -> dict:
     """Serialize ride request to dict"""
     data = {
@@ -366,12 +396,10 @@ async def create_ride_request(data: CreateRideRequestInput, request: Request, cu
     )
 
     db.add(ride_request)
-    db.commit()
-    db.refresh(ride_request)
-
-    # Update request_id with clean format: RIDE{year}{6-digit-id}
+    db.flush()  # Gets auto-incremented id without committing
     ride_request.request_id = generate_clean_request_id(ride_request.id)
     db.commit()
+    db.refresh(ride_request)
 
     # Broadcast to nearby drivers via WebSocket
     try:
@@ -384,33 +412,33 @@ async def create_ride_request(data: CreateRideRequestInput, request: Request, cu
 
     distance_miles = round(distance_km * 0.621371, 1)
 
-    # Send push notification to online drivers with FCM tokens
+    # Send push notification to nearby online drivers with FCM tokens (geo-filtered)
     try:
+        NOTIFY_RADIUS_KM = 25  # ~15 miles + buffer
+        pickup_lat = data.pickup_latitude
+        pickup_lon = data.pickup_longitude
+        lat_delta = NOTIFY_RADIUS_KM / 111.0
+        lon_delta = NOTIFY_RADIUS_KM / (111.0 * max(math.cos(math.radians(pickup_lat)), 0.01))
+
         online_drivers = db.query(Driver).filter(
             Driver.is_online == True,
-            Driver.fcm_token.isnot(None)
+            Driver.fcm_token.isnot(None),
+            Driver.current_latitude.isnot(None),
+            Driver.current_longitude.isnot(None),
+            Driver.current_latitude.between(pickup_lat - lat_delta, pickup_lat + lat_delta),
+            Driver.current_longitude.between(pickup_lon - lon_delta, pickup_lon + lon_delta)
         ).all()
 
-        for driver in online_drivers:
-            try:
-                send_push_notification(
-                    user_type="driver",
-                    user_id=driver.id,
-                    title="New Ride Request!",
-                    body=f"Pickup: {data.pickup_address[:50]} — ~{distance_miles} mi, est. ${suggested_price:.0f}",
-                    data={
-                        "type": "new_ride_request",
-                        "ride_request_id": str(ride_request.id),
-                        "request_id": ride_request.request_id,
-                        "pickup_address": data.pickup_address,
-                        "dropoff_address": data.dropoff_address,
-                        "fare_estimate": str(round(suggested_price, 2))
-                    },
-                    db=db
-                )
-            except Exception as driver_err:
-                logger.warning(f"Failed to push to driver {driver.id}: {driver_err}")
-        logger.info(f"Push sent to {len(online_drivers)} online drivers for ride {ride_request.request_id}")
+        # Haversine post-filter for precision (bounding box is a rough rectangle)
+        online_drivers = [
+            d for d in online_drivers
+            if calculate_distance_km(pickup_lat, pickup_lon, d.current_latitude, d.current_longitude) <= NOTIFY_RADIUS_KM
+        ]
+
+        ride_request.drivers_notified = len(online_drivers)
+
+        # Send push notifications concurrently via background task
+        asyncio.create_task(_send_push_batch(online_drivers, ride_request, distance_miles, suggested_price))
     except Exception as e:
         logger.error(f"Failed to send ride request push to drivers: {e}")
 
@@ -1206,12 +1234,10 @@ async def submit_bid(request_id: int, data: SubmitBidInput, request: Request, dr
     if ride_request.status == RideRequestStatus.OPEN:
         ride_request.status = RideRequestStatus.BIDDING
 
-    db.commit()
-    db.refresh(bid)
-
-    # Update bid_id with clean format: BID{year}{6-digit-id}
+    db.flush()  # Gets auto-incremented id without committing
     bid.bid_id = generate_clean_bid_id(bid.id)
     db.commit()
+    db.refresh(bid)
 
     # Send WebSocket update to customer about new bid
     try:
