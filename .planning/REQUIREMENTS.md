@@ -16,9 +16,9 @@
 
 ### App Distribution
 
-- [ ] **DIST-01**: iOS Customer app version bumped, built, and uploaded to TestFlight
-- [ ] **DIST-02**: iOS Driver app version bumped, built, and uploaded to TestFlight
-- [ ] **DIST-03**: iOS Restaurant app version bumped, built, and uploaded to TestFlight
+- [x] **DIST-01**: iOS Customer app version bumped, built, and uploaded to TestFlight
+- [x] **DIST-02**: iOS Driver app version bumped, built, and uploaded to TestFlight
+- [x] **DIST-03**: iOS Restaurant app version bumped, built, and uploaded to TestFlight
 - [ ] **DIST-04**: Android Customer app version bumped, built, and uploaded to Firebase App Distribution
 - [ ] **DIST-05**: Android Driver app version bumped, built, and uploaded to Firebase App Distribution
 - [ ] **DIST-06**: Android Restaurant app version bumped, built, and uploaded to Firebase App Distribution
@@ -59,9 +59,9 @@
 | API-04 | Phase 03 | Complete |
 | API-05 | Phase 03 | Complete |
 | API-06 | Phase 03 | Complete |
-| DIST-01 | Phase 04 | Pending |
-| DIST-02 | Phase 04 | Pending |
-| DIST-03 | Phase 04 | Pending |
+| DIST-01 | Phase 04 | Complete |
+| DIST-02 | Phase 04 | Complete |
+| DIST-03 | Phase 04 | Complete |
 | DIST-04 | Phase 05 | Pending |
 | DIST-05 | Phase 05 | Pending |
 | DIST-06 | Phase 05 | Pending |

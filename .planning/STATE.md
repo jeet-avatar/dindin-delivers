@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 Phase: 4 of 5 (iOS Distribution)
-Plan: 1 of 2 in current phase -- COMPLETE
-Status: Phase 04 Plan 01 Complete
-Last activity: 2026-02-25 - Completed 04-01: iOS API fixes (5 P2PAPIService.swift fixes) + backend fixes (driver doc alias, vendor self-delete)
+Plan: 2 of 2 in current phase -- COMPLETE (awaiting TestFlight verification)
+Status: Phase 04 Plan 02 Complete -- 3 iOS apps uploaded to TestFlight, backend deployed
+Last activity: 2026-02-25 - Completed 04-02: iOS builds uploaded to TestFlight (Customer 1096, Driver 204, Restaurant 173) + backend deployed to production
 
-Progress: [#######░░░] 70%
+Progress: [########░░] 80%
 
 ## Completed Milestones
 
@@ -40,11 +40,13 @@ Progress: [#######░░░] 70%
 | Phase 03 P02 | 9min | 2 tasks | 1 files |
 | Phase 03 P03 | 12min | 2 tasks | 2 files |
 | Phase 04 P01 | 5min | 2 tasks | 2 files |
+| Phase 04 P02 | 29min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
 ### Decisions
 
+- [Phase 04-02]: Bumped iOS builds (Customer 1096, Driver 204, Restaurant 173), deployed backend to staging+production via CI/CD, archived and uploaded all 3 apps to TestFlight. Used Release config. All uploads succeeded. Commit d44a3b7e.
 - [Phase 04-01]: Applied 5 iOS API fixes (chat auth driverToken fallback x2, FCM POST, customer profile path, menu PUT) + 2 backend fixes (driver doc upload alias, vendor self-delete endpoint). All from Phase 02/03 FIX_PLANs. Commit bd40371.
 - [Phase 03-03]: Android Partner API verification: 53 endpoints, 52 OK, 1 MEDIUM mismatch (vendor self-delete requires admin auth, not vendor auth). Consolidated FIX_PLAN: 189 total across 3 apps, 2 backend-only fixes (~20 min). Phase 05 UNBLOCKED.
 - [Phase 03-02]: Android Driver API verification: 60 endpoints, 59 OK, 1 MEDIUM mismatch (doc upload POST /api/drivers/{id}/documents alias wired to get_driver_documents instead of upload_driver_document_by_id), 8 dead code
