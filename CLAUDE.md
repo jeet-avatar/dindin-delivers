@@ -316,6 +316,15 @@ pytest tests/ -v
 - **Report**: `.planning/quick/26-network-security-and-bot-attack-audit-fi/NETWORK_SECURITY_REPORT.md`
 - **Test suite**: 1278 passed, zero regressions from security fixes
 
+### SSL Pinning Rotation (Phase 06 -- Feb 2026)
+- **Root CA pins ONLY** -- leaf and intermediate pins removed; root CAs never change
+- **5 pins per domain**: Amazon Root CA 1-4 + Starfield Services Root CA G2
+- **File**: `apps/ios/eatfair-ios-shared/Sources/EatFairShared/Security/NetworkSecurity.swift`
+- **CloudWatch alarms**: 30-day warning + 7-day critical on ACM `DaysToExpiry` metric
+- **ACM cert expires**: Dec 31, 2026; auto-renewal ~Nov 1, 2026 -- root CA pins survive renewal
+- **Full runbook**: `.planning/runbooks/ssl-pinning-rotation.md`
+- **Key fact**: With root-only pinning, ACM renewals do NOT require app updates
+
 ### Firebase App IDs (Android)
 | App | Firebase App ID |
 |-----|-----------------|
