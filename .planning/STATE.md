@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Drivers keep 100% of delivery fees and tips
-**Current focus:** v1.5 Production Readiness -- Phase 07 next
+**Current focus:** v1.5 Production Readiness -- Phase 07 in progress
 
 ## Current Position
 
-Phase: 06 of 09 (SSL Pinning Rotation Fix)
-Plan: 2 of 2 in current phase
-Status: Phase 06 complete
-Last activity: 2026-02-27 -- Phase 06 Plan 01 complete (both plans done)
+Phase: 07 of 09 (Play Store Publishing)
+Plan: 1 of 3 in current phase
+Status: Phase 07 Plan 01 complete
+Last activity: 2026-02-27 -- Phase 07 Plan 01 complete (AABs built, store assets prepared)
 
-Progress: [##░░░░░░░░] 25% (2/8 plans)
+Progress: [###░░░░░░░] 37% (3/8 plans)
 
 ## Completed Milestones
 
@@ -33,7 +33,7 @@ Progress: [##░░░░░░░░] 25% (2/8 plans)
 
 **v1.5 Execution:**
 - Total plans: 8 (across 4 phases)
-- Completed: 2
+- Completed: 3
 
 ## Accumulated Context
 
@@ -50,6 +50,10 @@ Progress: [##░░░░░░░░] 25% (2/8 plans)
 - Client-side secret caching rejected -- ECS force-redeployment sufficient for 30-day rotation
 - Pin all 5 Amazon Trust Services root CAs (not just the one in chain) for resilience against AWS chain changes
 - Root CA keys are permanent -- leaf/intermediate pins removed entirely to prevent ACM renewal breakage
+- ImageMagick for alpha stripping (sips fails with error 13 on hasAlpha property)
+- Proceed with AAB build despite pk_test_ Stripe key -- user must update to pk_live_ before Play Store submission
+- No ACCESS_BACKGROUND_LOCATION in any Android app -- foreground-only location simplifies Data Safety
+- Firebase Analytics/Crashlytics not included despite being in version catalog -- accurately reported as absent
 
 ### Blockers
 
@@ -59,5 +63,5 @@ Progress: [##░░░░░░░░] 25% (2/8 plans)
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 06-01-PLAN.md (SSL pin migration + TestFlight builds 1097/205/174)
+Stopped at: Completed 07-01-PLAN.md (AABs built, store listings + Data Safety created)
 Resume file: None

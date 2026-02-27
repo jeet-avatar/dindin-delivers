@@ -17,11 +17,11 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 ### Play Store Publishing
 
 - [ ] **PLAY-01**: Google Play Developer account created and verified (organization type)
-- [ ] **PLAY-02**: AAB release bundles built and signed for all 3 Android apps
+- [x] **PLAY-02**: AAB release bundles built and signed for all 3 Android apps
 - [ ] **PLAY-03**: Play App Signing configured with existing keystore as upload key
-- [ ] **PLAY-04**: Data Safety forms completed for all 3 apps (SDK data audit included)
+- [x] **PLAY-04**: Data Safety forms completed for all 3 apps (SDK data audit included)
 - [ ] **PLAY-05**: Content rating (IARC) and CSAE compliance questionnaires completed for all 3 apps
-- [ ] **PLAY-06**: Store listing assets created (screenshots, feature graphics, descriptions) for all 3 apps
+- [x] **PLAY-06**: Store listing assets created (screenshots, feature graphics, descriptions) for all 3 apps
 - [ ] **PLAY-07**: All 3 apps submitted for review and published on Google Play Store
 
 ### DB Password Rotation
@@ -69,11 +69,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SSL-03 | — | Complete |
 | SSL-04 | — | Complete |
 | PLAY-01 | — | Pending |
-| PLAY-02 | — | Pending |
+| PLAY-02 | — | Complete |
 | PLAY-03 | — | Pending |
-| PLAY-04 | — | Pending |
+| PLAY-04 | — | Complete |
 | PLAY-05 | — | Pending |
-| PLAY-06 | — | Pending |
+| PLAY-06 | — | Complete |
 | PLAY-07 | — | Pending |
 | DBROT-01 | — | Pending |
 | DBROT-02 | — | Pending |
