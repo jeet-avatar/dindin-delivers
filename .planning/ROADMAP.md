@@ -66,7 +66,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 
 **Milestone Goal:** Graduate Android apps to Google Play, harden production infrastructure (DB rotation, SSL strategy), and validate rideshare E2E with real devices.
 
-- [ ] **Phase 06: SSL Pinning Rotation Fix** - Migrate iOS from leaf pins to Amazon Root CA pins and ship updated builds
+- [x] **Phase 06: SSL Pinning Rotation Fix** - Migrate iOS from leaf pins to Amazon Root CA pins and ship updated builds (completed 2026-02-27)
 - [ ] **Phase 07: Play Store Publishing** - Set up Google Play Console and publish all 3 Android apps
 - [ ] **Phase 08: DB Password Rotation** - Enable automated Secrets Manager rotation for RDS credentials
 - [ ] **Phase 09: Rideshare E2E Validation** - Automated backend test covering full 12-step rideshare lifecycle
@@ -142,7 +142,7 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 06. SSL Pinning Rotation Fix | 1/2 | In Progress|  | - |
+| 06. SSL Pinning Rotation Fix | 2/2 | Complete   | 2026-02-27 | - |
 | 07. Play Store Publishing | v1.5 | 0/3 | Not started | - |
 | 08. DB Password Rotation | v1.5 | 0/2 | Not started | - |
 | 09. Rideshare E2E Validation | v1.5 | 0/1 | Not started | - |
