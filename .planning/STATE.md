@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 06 of 09 (SSL Pinning Rotation Fix)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-02-26 -- v1.5 roadmap created
+Plan: 2 of 2 in current phase
+Status: Phase 06 complete
+Last activity: 2026-02-27 -- Phase 06 Plan 02 complete
 
-Progress: [░░░░░░░░░░] 0% (0/8 plans)
+Progress: [##░░░░░░░░] 25% (2/8 plans)
 
 ## Completed Milestones
 
@@ -33,12 +33,16 @@ Progress: [░░░░░░░░░░] 0% (0/8 plans)
 
 **v1.5 Execution:**
 - Total plans: 8 (across 4 phases)
-- Completed: 0
+- Completed: 2
 
 ## Accumulated Context
 
 ### Decisions
 
+- Use existing SNS topic for ACM cert expiry alarms (same channel as EKS/RDS alerts)
+- Conditional CloudWatch alarm creation via count so module does not break environments without ACM ARN
+- ok_actions on critical alarm only to confirm renewal recovery
+- Runbook stored in .planning/runbooks/ for operational procedures
 - SSL leaf pin is a ticking time bomb -- ACM now renews every 198 days, next renewal breaks all 182 iOS API calls
 - Play Store and DB rotation are independent domains -- can parallel if needed
 - E2E testing comes last to validate infrastructure changes from earlier phases
@@ -52,6 +56,6 @@ Progress: [░░░░░░░░░░] 0% (0/8 plans)
 
 ## Session Continuity
 
-Last session: 2026-02-26
-Stopped at: v1.5 roadmap created, ready to plan Phase 06
+Last session: 2026-02-27
+Stopped at: Completed 06-02-PLAN.md (CloudWatch alarms + rotation runbook)
 Resume file: None

@@ -11,8 +11,8 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 
 - [ ] **SSL-01**: iOS NetworkSecurity.swift migrated from leaf+intermediate pins to Amazon Root CA SPKI pins
 - [ ] **SSL-02**: New iOS builds uploaded to TestFlight with corrected SSL pins
-- [ ] **SSL-03**: CloudWatch alarm configured for ACM certificate DaysToExpiry metric on dollor.ai
-- [ ] **SSL-04**: SSL pinning rotation runbook documented with step-by-step procedures
+- [x] **SSL-03**: CloudWatch alarm configured for ACM certificate DaysToExpiry metric on dollor.ai
+- [x] **SSL-04**: SSL pinning rotation runbook documented with step-by-step procedures
 
 ### Play Store Publishing
 
@@ -66,8 +66,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | SSL-01 | — | Pending |
 | SSL-02 | — | Pending |
-| SSL-03 | — | Pending |
-| SSL-04 | — | Pending |
+| SSL-03 | — | Complete |
+| SSL-04 | — | Complete |
 | PLAY-01 | — | Pending |
 | PLAY-02 | — | Pending |
 | PLAY-03 | — | Pending |
