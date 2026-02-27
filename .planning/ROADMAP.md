@@ -143,7 +143,7 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 06. SSL Pinning Rotation Fix | 2/2 | Complete    | 2026-02-27 | - |
-| 07. Play Store Publishing | v1.5 | 0/3 | Not started | - |
+| 07. Play Store Publishing | 1/3 | In Progress|  | - |
 | 08. DB Password Rotation | v1.5 | 0/2 | Not started | - |
 | 09. Rideshare E2E Validation | v1.5 | 0/1 | Not started | - |
 
