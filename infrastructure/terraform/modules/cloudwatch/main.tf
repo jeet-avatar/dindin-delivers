@@ -121,6 +121,55 @@ resource "aws_cloudwatch_metric_alarm" "rds_storage" {
 }
 
 # =============================================================================
+# CLOUDWATCH ALARMS - ACM Certificate Expiry
+# =============================================================================
+
+resource "aws_cloudwatch_metric_alarm" "acm_expiry_warning" {
+  count = var.acm_certificate_arn != "" ? 1 : 0
+
+  alarm_name          = "dollor-${var.environment}-acm-cert-expiry-warning"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "DaysToExpiry"
+  namespace           = "AWS/CertificateManager"
+  period              = 86400
+  statistic           = "Minimum"
+  threshold           = 30
+  alarm_description   = "ACM certificate for dollor.ai expires in less than 30 days"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    CertificateArn = var.acm_certificate_arn
+  }
+
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "acm_expiry_critical" {
+  count = var.acm_certificate_arn != "" ? 1 : 0
+
+  alarm_name          = "dollor-${var.environment}-acm-cert-expiry-critical"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "DaysToExpiry"
+  namespace           = "AWS/CertificateManager"
+  period              = 86400
+  statistic           = "Minimum"
+  threshold           = 7
+  alarm_description   = "CRITICAL: ACM certificate for dollor.ai expires in less than 7 days"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+  ok_actions          = [aws_sns_topic.alarms.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    CertificateArn = var.acm_certificate_arn
+  }
+
+  tags = var.tags
+}
+
+# =============================================================================
 # DASHBOARD
 # =============================================================================
 
