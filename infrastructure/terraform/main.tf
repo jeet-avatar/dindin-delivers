@@ -261,6 +261,8 @@ module "cloudwatch" {
   eks_cluster_name = module.eks.cluster_name
   rds_identifier   = module.rds.identifier
 
+  acm_certificate_arn = "arn:aws:acm:us-east-1:134607809447:certificate/936e9b80-245b-4832-9e90-90404bfd1033"
+
   tags = local.common_tags
 
   depends_on = [module.eks, module.rds]
