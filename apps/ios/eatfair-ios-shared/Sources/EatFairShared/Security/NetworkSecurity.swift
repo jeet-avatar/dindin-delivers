@@ -13,31 +13,35 @@ public final class NetworkSecurity: NSObject {
     public static let shared = NetworkSecurity()
 
     // MARK: - SSL Certificate Pins
-    // These are SHA-256 hashes of the public keys for dollor.ai certificates
-    // Update these when certificates are renewed
+    // Pin Amazon Trust Services ROOT CAs only (not leaf/intermediate).
+    // Root CA keys are permanent -- they never change because changing a root key
+    // would break the entire PKI chain of trust. Leaf/intermediate keys change
+    // on every ACM renewal, so pinning them causes app breakage.
+    //
+    // All 5 root CAs pinned for resilience against AWS chain changes.
+    // Source: https://www.amazontrust.com/repository/ (verified 2026-02-26)
+    // Hash method: openssl x509 -in {cert}.pem -pubkey -noout | openssl pkey -pubin -outform DER | openssl dgst -sha256 -binary | base64
     private let pinnedDomains: [String: Set<String>] = [
         "dollor.ai": [
-            // Leaf certificate (CN=dollor.ai) - renewed by AWS Certificate Manager
-            "WggyjbYa6k0khD7aafEMGmJ/GO1ltJ6KpFx+zHLoCQQ=",
-            // Intermediate CA (Amazon RSA 2048 M04) - stable across renewals
-            "G9LNNAql897egYsabashkzUCTEJkWBzgoEtk8X/678c=",
-            // Root CA (Amazon Root CA 1) - very stable, rarely changes
-            "++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=",
+            "++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=", // Amazon Root CA 1 (RSA 2048) - currently in chain
+            "f0KW/FtqTjs108NpYj42SrGvOB2PpxIVM8nWxjPqJGE=", // Amazon Root CA 2 (RSA 4096)
+            "NqvDJlas/GRcYbcWE8S/IceH9cq77kg0jVhZeAPXq8k=", // Amazon Root CA 3 (EC P-256)
+            "9+ze1cZgR9KO1kZrVDxA4HQ6voHRCSVNz4RdTCx4U8U=", // Amazon Root CA 4 (EC P-384)
+            "KwccWaCgrnaw6tsrrSO61FgLacNgG2MMLq8GE6+oP5I=", // Starfield Services Root CA G2 (RSA 2048)
         ],
         "api.dollor.ai": [
-            // Same certificate chain as dollor.ai (ACM wildcard/SAN cert)
-            "WggyjbYa6k0khD7aafEMGmJ/GO1ltJ6KpFx+zHLoCQQ=",
-            "G9LNNAql897egYsabashkzUCTEJkWBzgoEtk8X/678c=",
-            "++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=",
+            // Same ACM certificate covers both domains (SAN cert)
+            "++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=", // Amazon Root CA 1 (RSA 2048)
+            "f0KW/FtqTjs108NpYj42SrGvOB2PpxIVM8nWxjPqJGE=", // Amazon Root CA 2 (RSA 4096)
+            "NqvDJlas/GRcYbcWE8S/IceH9cq77kg0jVhZeAPXq8k=", // Amazon Root CA 3 (EC P-256)
+            "9+ze1cZgR9KO1kZrVDxA4HQ6voHRCSVNz4RdTCx4U8U=", // Amazon Root CA 4 (EC P-384)
+            "KwccWaCgrnaw6tsrrSO61FgLacNgG2MMLq8GE6+oP5I=", // Starfield Services Root CA G2 (RSA 2048)
         ],
         // NOTE: api.stripe.com is NOT pinned. Stripe SDK handles its own certificate
-        // validation and rotates certificates frequently. Pinning third-party certs is
-        // fragile and caused a stale pin issue (old hash: JbQbUG5J... no longer valid).
+        // validation and rotates certificates frequently.
         //
         // NOTE: CloudFront staging domain (d34u5ixl0bulv4.cloudfront.net) is intentionally
-        // NOT pinned. CloudFront rotates TLS certificates frequently and uses a shared
-        // certificate pool across AWS infrastructure. Pinning would cause app breakage.
-        // Staging is not used by end users, so this is acceptable risk.
+        // NOT pinned. CloudFront rotates TLS certificates frequently.
     ]
 
     // Domains that require SSL pinning (only our own domains)
