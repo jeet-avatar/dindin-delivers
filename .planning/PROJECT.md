@@ -104,11 +104,19 @@ Dollor.ai is a **matchmaking platform** connecting customers with restaurants an
 | db.flush() over double-commit (v1.4) | Single commit per operation, get auto-increment ID via flush | ✓ Good |
 | Geo-filtered push notifications (v1.4) | 25km bounding box + haversine reduces driver table scan | ✓ Good |
 
+## Current Milestone: v1.5 Production Readiness
+
+**Goal:** Graduate Android apps to Google Play, harden production infrastructure (DB rotation, SSL strategy), and validate rideshare E2E with real devices.
+
+**Target features:**
+- Android Play Store publishing (all 3 apps)
+- Production DB password rotation
+- SSL certificate pinning rotation strategy
+- Rideshare E2E flow testing with real devices
+
 ## Current State
 
 **v1.4 App Store Distribution shipped 2026-02-26.** All 6 apps (3 iOS + 3 Android) verified, built, and distributed. 53 quick tasks completed covering security audits, UI tests, OAuth, and DB performance.
 
-**Next milestone:** Not yet planned. Run `/gsd:new-milestone` to start.
-
 ---
-*Last updated: 2026-02-26 after v1.4 milestone completion*
+*Last updated: 2026-02-26 after v1.5 milestone start*
