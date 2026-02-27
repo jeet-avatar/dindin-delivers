@@ -1,79 +1,92 @@
-# Requirements: Dollor.ai v1.4 App Release + INFRA
+# Requirements: Dollor.ai v1.5 Production Readiness
 
-**Defined:** 2026-02-22
+**Defined:** 2026-02-26
 **Core Value:** Drivers keep 100% of delivery fees and tips
 
-## v1.4 Requirements
+## v1.5 Requirements
 
-### API Verification
+Requirements for production readiness milestone. Each maps to roadmap phases.
 
-- [x] **API-01**: All iOS Customer app API calls verified against actual backend routes
-- [x] **API-02**: All iOS Driver app API calls verified against actual backend routes
-- [x] **API-03**: All iOS Restaurant app API calls verified against actual backend routes
-- [x] **API-04**: All Android Customer app API calls verified against actual backend routes
-- [x] **API-05**: All Android Driver app API calls verified against actual backend routes
-- [x] **API-06**: All Android Restaurant app API calls verified against actual backend routes
+### SSL Pinning Rotation
 
-### App Distribution
+- [ ] **SSL-01**: iOS NetworkSecurity.swift migrated from leaf+intermediate pins to Amazon Root CA SPKI pins
+- [ ] **SSL-02**: New iOS builds uploaded to TestFlight with corrected SSL pins
+- [ ] **SSL-03**: CloudWatch alarm configured for ACM certificate DaysToExpiry metric on dollor.ai
+- [ ] **SSL-04**: SSL pinning rotation runbook documented with step-by-step procedures
 
-- [x] **DIST-01**: iOS Customer app version bumped, built, and uploaded to TestFlight
-- [x] **DIST-02**: iOS Driver app version bumped, built, and uploaded to TestFlight
-- [x] **DIST-03**: iOS Restaurant app version bumped, built, and uploaded to TestFlight
-- [x] **DIST-04**: Android Customer app version bumped, built, and uploaded to Firebase App Distribution
-- [x] **DIST-05**: Android Driver app version bumped, built, and uploaded to Firebase App Distribution
-- [x] **DIST-06**: Android Restaurant app version bumped, built, and uploaded to Firebase App Distribution
+### Play Store Publishing
 
-### Infrastructure Security
+- [ ] **PLAY-01**: Google Play Developer account created and verified (organization type)
+- [ ] **PLAY-02**: AAB release bundles built and signed for all 3 Android apps
+- [ ] **PLAY-03**: Play App Signing configured with existing keystore as upload key
+- [ ] **PLAY-04**: Data Safety forms completed for all 3 apps (SDK data audit included)
+- [ ] **PLAY-05**: Content rating (IARC) and CSAE compliance questionnaires completed for all 3 apps
+- [ ] **PLAY-06**: Store listing assets created (screenshots, feature graphics, descriptions) for all 3 apps
+- [ ] **PLAY-07**: All 3 apps submitted for review and published on Google Play Store
 
-- [x] **INFRA-01**: CloudFront response headers policy suppresses uvicorn server header
-- [x] **INFRA-02**: App Store Connect key JFVA7628SX confirmed revoked or non-existent
-- [x] **INFRA-03**: All credential items from MEMORY.md "Remaining Security Items" addressed or deferred with rationale
+### DB Password Rotation
+
+- [ ] **DBROT-01**: AWS Secrets Manager rotation Lambda enabled for RDS PostgreSQL (30-day cycle)
+- [ ] **DBROT-02**: ECS force-redeployment triggered after each rotation to refresh credentials
+- [ ] **DBROT-03**: Full rotation cycle validated on staging environment before production
+- [ ] **DBROT-04**: Production rotation enabled after staging validation passes
+- [ ] **DBROT-05**: Rotation runbook documented with monitoring and rollback procedures
+
+### Rideshare E2E Testing
+
+- [ ] **E2E-01**: Automated backend API test covering 12-step rideshare lifecycle (request, bid, accept, pickup, dropoff, payment, rating) against staging
 
 ## Future Requirements
 
-### Play Store Publishing
-- **PLAY-01**: Android customer app published to Play Store
-- **PLAY-02**: Android driver app published to Play Store
-- **PLAY-03**: Android restaurant app published to Play Store
+Deferred to future release. Tracked but not in current roadmap.
 
-### Revenue Features
-- **REV-01**: Investor portal with financial dashboard
-- **REV-02**: AI employee automation system
+### Real-Device Testing
+
+- **RDEV-01**: Manual real-device testing protocol for 2-device rideshare E2E (customer + driver on cellular)
+- **RDEV-02**: Push notification delivery verification for all 12 rideshare notification types on real devices
+- **RDEV-03**: GPS tracking accuracy verification during active rides on real devices
 
 ## Out of Scope
 
+Explicitly excluded. Documented to prevent scope creep.
+
 | Feature | Reason |
 |---------|--------|
-| Play Store publishing | Separate milestone -- different scope (store listing, screenshots, review) |
-| New feature development | v1.4 is verification + distribution only |
-| Production DB password rotation | Requires coordinated ECS+RDS downtime -- deferred |
-| App UI redesign | No UI changes -- verify + bump + distribute |
+| Client-side secret caching in database.py | ECS force-redeployment sufficient for 30-day rotation cycle; adds unnecessary code complexity |
+| iOS App Store submission | TestFlight distribution for SSL pin fix; full App Store submission in future milestone |
+| Alternating-user DB rotation strategy | Overkill for current scale (db.t3.micro, 2 ECS tasks); single-user rotation sufficient |
+| Play Store paid app pricing | All apps are free; monetization is through platform matchmaking fees |
+| Real-device manual testing | Deferred to future — backend API E2E test covers business logic validation |
 
 ## Traceability
 
+Which phases cover which requirements. Updated during roadmap creation.
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| API-01 | Phase 02 | Complete |
-| API-02 | Phase 02 | Complete |
-| API-03 | Phase 02 | Complete |
-| API-04 | Phase 03 | Complete |
-| API-05 | Phase 03 | Complete |
-| API-06 | Phase 03 | Complete |
-| DIST-01 | Phase 04 | Complete |
-| DIST-02 | Phase 04 | Complete |
-| DIST-03 | Phase 04 | Complete |
-| DIST-04 | Phase 05 | Complete |
-| DIST-05 | Phase 05 | Complete |
-| DIST-06 | Phase 05 | Complete |
-| INFRA-01 | Phase 01 | Complete |
-| INFRA-02 | Phase 01 | Complete |
-| INFRA-03 | Phase 01 | Complete |
+| SSL-01 | — | Pending |
+| SSL-02 | — | Pending |
+| SSL-03 | — | Pending |
+| SSL-04 | — | Pending |
+| PLAY-01 | — | Pending |
+| PLAY-02 | — | Pending |
+| PLAY-03 | — | Pending |
+| PLAY-04 | — | Pending |
+| PLAY-05 | — | Pending |
+| PLAY-06 | — | Pending |
+| PLAY-07 | — | Pending |
+| DBROT-01 | — | Pending |
+| DBROT-02 | — | Pending |
+| DBROT-03 | — | Pending |
+| DBROT-04 | — | Pending |
+| DBROT-05 | — | Pending |
+| E2E-01 | — | Pending |
 
 **Coverage:**
-- v1.4 requirements: 15 total
-- Mapped to phases: 15
-- Unmapped: 0
+- v1.5 requirements: 17 total
+- Mapped to phases: 0
+- Unmapped: 17 (pending roadmap creation)
 
 ---
-*Requirements defined: 2026-02-22*
-*Last updated: 2026-02-26 -- All 15 requirements complete (DIST-06 marked complete)*
+*Requirements defined: 2026-02-26*
+*Last updated: 2026-02-26 after initial definition*
