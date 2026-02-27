@@ -98,12 +98,12 @@ Plans:
   3. Data Safety forms accurately declare all SDK data collection for each app
   4. Content rating and CSAE compliance are approved for all 3 apps
   5. All 3 apps are published and installable from the Google Play Store
-**Plans**: TBD
+**Plans**: 3 plans (Wave 1 parallel: 07-01 + 07-02, Wave 2: 07-03)
 
 Plans:
-- [ ] 07-01: Google Play Console setup and account verification
-- [ ] 07-02: AAB builds, Play App Signing, Data Safety forms, content ratings
-- [ ] 07-03: Store listing assets and app submission for all 3 apps
+- [ ] 07-01-PLAN.md -- Build AAB bundles, fix feature graphic, create store listing descriptions and Data Safety audit
+- [ ] 07-02-PLAN.md -- Verify/create Play Console account, create 3 apps with Play App Signing, complete IARC content ratings
+- [ ] 07-03-PLAN.md -- Upload store listings and Data Safety to Play Console, upload AABs, submit all 3 apps for review
 
 ### Phase 08: DB Password Rotation
 **Goal**: Production database credentials rotate automatically every 30 days with zero downtime
@@ -149,4 +149,4 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 
 ---
 *Roadmap created: 2026-02-21*
-*Last updated: 2026-02-26 -- v1.5 roadmap created*
+*Last updated: 2026-02-27 -- Phase 07 plans created*
