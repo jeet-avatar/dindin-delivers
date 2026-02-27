@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Drivers keep 100% of delivery fees and tips
-**Current focus:** v1.5 Production Readiness -- Phase 06: SSL Pinning Rotation Fix
+**Current focus:** v1.5 Production Readiness -- Phase 07 next
 
 ## Current Position
 
 Phase: 06 of 09 (SSL Pinning Rotation Fix)
 Plan: 2 of 2 in current phase
 Status: Phase 06 complete
-Last activity: 2026-02-27 -- Phase 06 Plan 02 complete
+Last activity: 2026-02-27 -- Phase 06 Plan 01 complete (both plans done)
 
 Progress: [##░░░░░░░░] 25% (2/8 plans)
 
@@ -48,6 +48,8 @@ Progress: [##░░░░░░░░] 25% (2/8 plans)
 - E2E testing comes last to validate infrastructure changes from earlier phases
 - Real-device testing deferred to future milestone -- backend API E2E covers business logic
 - Client-side secret caching rejected -- ECS force-redeployment sufficient for 30-day rotation
+- Pin all 5 Amazon Trust Services root CAs (not just the one in chain) for resilience against AWS chain changes
+- Root CA keys are permanent -- leaf/intermediate pins removed entirely to prevent ACM renewal breakage
 
 ### Blockers
 
@@ -57,5 +59,5 @@ Progress: [##░░░░░░░░] 25% (2/8 plans)
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 06-02-PLAN.md (CloudWatch alarms + rotation runbook)
+Stopped at: Completed 06-01-PLAN.md (SSL pin migration + TestFlight builds 1097/205/174)
 Resume file: None
