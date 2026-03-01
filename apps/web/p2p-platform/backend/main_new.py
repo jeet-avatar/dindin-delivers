@@ -3695,7 +3695,7 @@ async def request_ride(
     from datetime import datetime
 
     # Get customer info from authenticated customer object
-    customer_name = request.customer_name or f"{customer.first_name or ''} {customer.last_name or ''}".strip() or customer.name or "Guest"
+    customer_name = request.customer_name or f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Guest"
     customer_email = request.customer_email or customer.email or "guest@dollor.ai"
 
     # SECURITY: Sanitize user-supplied text to prevent stored XSS
@@ -3765,15 +3765,8 @@ async def request_ride(
     # Customer total = ride fare + fare-tiered platform fee + tip
     total_fare = round(ride_fare + customer_platform_fee + tip, 2)
 
-    # Get or create customer ID from token
-    customer_id_val = 1  # Default for demo
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            customer_id_val = payload.get("customer_id", 1)
-        except JWTError:
-            pass
+    # Get customer ID from authenticated customer object
+    customer_id_val = customer.id
 
     # Generate unique request_id (will be updated after DB insert with actual ID)
     from datetime import datetime as dt
