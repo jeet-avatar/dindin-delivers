@@ -1580,8 +1580,8 @@ def get_app_config():
         "additionalPrepTimePerOrder": 3,
 
         # Support
-        "supportUrl": "https://support.dollor.ai",
-        "supportPhone": "+1-800-DOLLOR",
+        "supportUrl": "https://www.dollor.ai/support",
+        "supportPhone": "+1-800-365-5671",
         "supportEmail": "support@dollor.ai",
 
         # Feature Flags
