@@ -54,6 +54,8 @@ Progress: [###░░░░░░░] 37% (3/8 plans)
 - Proceed with AAB build despite pk_test_ Stripe key -- user must update to pk_live_ before Play Store submission
 - No ACCESS_BACKGROUND_LOCATION in any Android app -- foreground-only location simplifies Data Safety
 - Firebase Analytics/Crashlytics not included despite being in version catalog -- accurately reported as absent
+- [Phase quick-55]: Use www.dollor.ai canonical domain for all user-facing URLs (avoids 301 redirect from bare domain)
+- [Phase quick-55]: Convert vanity phone +1-800-DOLLOR to numeric +1-800-365-5671 for iOS tel: scheme compatibility
 
 ### Blockers
 
