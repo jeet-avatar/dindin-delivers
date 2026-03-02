@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 07 of 09 (Play Store Publishing)
 Plan: 1 of 3 in current phase
 Status: Phase 07 Plan 01 complete
-Last activity: 2026-02-27 -- Phase 07 Plan 01 complete (AABs built, store assets prepared)
+Last activity: 2026-03-02 - Completed quick task 55: Fix broken links in Restaurant iOS app
 
 Progress: [###░░░░░░░] 37% (3/8 plans)
 
@@ -61,6 +61,12 @@ Progress: [###░░░░░░░] 37% (3/8 plans)
 
 - ACM certificate expiry date unknown -- need to check AWS Console to determine SSL fix urgency
 - Google Play Developer account status unknown -- org account creation may require D-U-N-S number (up to 30 days)
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 55 | Fix broken links in Restaurant iOS app — Help Center, Contact Support, Go to Admin Portal | 2026-03-02 | 1682b609 | [55-fix-broken-links-in-restaurant-ios-app-h](./quick/55-fix-broken-links-in-restaurant-ios-app-h/) |
 
 ## Session Continuity
 
