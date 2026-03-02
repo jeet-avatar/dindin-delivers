@@ -10237,6 +10237,42 @@ async def get_vendor_earnings(
     # Calculate tips received (if any go to restaurant)
     tips_received = 0  # Tips go to drivers, not restaurants
 
+    # All-time orders for monthly breakdown (independent of period filter)
+    from collections import defaultdict
+    try:
+        all_orders = db.query(Order).filter(
+            Order.vendor_id == vendor.id,
+            Order.status.in_([OrderStatus.DELIVERED, OrderStatus.COMPLETED])
+        ).all()
+    except Exception:
+        all_orders = []
+
+    # Build year/month breakdown
+    monthly_data = defaultdict(lambda: {"order_count": 0, "gross_sales": 0.0})
+    for o in all_orders:
+        if o.created_at:
+            key = f"{o.created_at.year}-{o.created_at.month:02d}"
+            monthly_data[key]["order_count"] += 1
+            monthly_data[key]["gross_sales"] += float(o.subtotal or 0)
+
+    monthly_breakdown = []
+    for key in sorted(monthly_data.keys(), reverse=True):
+        data = monthly_data[key]
+        year, month = key.split("-")
+        m_platform_fee = data["order_count"] * 1.0
+        monthly_breakdown.append({
+            "year": int(year),
+            "month": int(month),
+            "order_count": data["order_count"],
+            "gross_sales": round(data["gross_sales"], 2),
+            "platform_fee": round(m_platform_fee, 2),
+            "net_earnings": round(data["gross_sales"] - m_platform_fee, 2)
+        })
+
+    all_time_gross = sum(float(o.subtotal or 0) for o in all_orders)
+    all_time_fees = len(all_orders) * 1.0
+    all_time_net = all_time_gross - all_time_fees
+
     return {
         "period": period,
         "vendor_id": vendor.id,
@@ -10252,7 +10288,11 @@ async def get_vendor_earnings(
         "today": round(net_earnings, 2) if period == "today" else 0,
         "week": round(net_earnings, 2) if period == "week" else 0,
         "month": round(net_earnings, 2) if period == "month" else 0,
-        "pending_payout": 0.0  # Pending payout amount
+        "pending_payout": 0.0,  # Pending payout amount
+        # All-time earnings and monthly breakdown
+        "all_time_order_count": len(all_orders),
+        "all_time_net_earnings": round(all_time_net, 2),
+        "monthly_breakdown": monthly_breakdown
     }
 
 
@@ -14233,6 +14273,14 @@ async def get_vendor_orders_alias(vendor_id: int, vendor: Vendor = Depends(requi
     if vendor.id != vendor_id:
         raise HTTPException(status_code=403, detail="Access denied")
     return await get_vendor_orders(vendor_id, db, _auth={})
+
+@app.get("/erp/vendor/earnings")
+async def get_vendor_earnings_alias(period: str = "today", vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
+    """Alias for iOS Restaurant app - vendor earnings
+    iOS calls: GET /erp/vendor/earnings
+    Original: /api/vendor/earnings
+    """
+    return await get_vendor_earnings(period=period, vendor=vendor, db=db)
 
 @app.get("/erp/rides/available")
 @app.get("/api/erp/rides/available")
