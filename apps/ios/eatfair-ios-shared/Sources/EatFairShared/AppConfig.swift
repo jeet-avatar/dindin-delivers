@@ -335,7 +335,7 @@ public class AppConfig: ObservableObject {
     }
 
     // Support - Using Production API
-    @Published public var supportUrl: String = "https://api.dollor.ai/support"
+    @Published public var supportUrl: String = "https://www.dollor.ai/support"
     @Published public var supportPhone: String = "+1-800-365-5671"
     @Published public var supportEmail: String = "support@dollor.ai"
 
@@ -588,7 +588,7 @@ public struct AppConstants {
     // Company Information - Matches Android AppConfig.Legal
     public static let companyName = "Zietra Technologies Inc"
     public static let contactEmail = "support@dollor.ai"
-    public static let supportURL = "https://dollor.ai/support"
+    public static let supportURL = "https://www.dollor.ai/support"
 
     // Legal URLs (Required for App Store - Apple Guideline 5.1.1)
     // PRODUCTION ENVIRONMENT - api.dollor.ai
@@ -597,7 +597,7 @@ public struct AppConstants {
     public static let driverTermsURL = "https://dollor.ai/driver-terms"
     public static let restaurantTermsURL = "https://dollor.ai/restaurant-terms"
     public static let driverApplicationURL = "https://dollor.ai/driver-application"
-    public static let adminPanelURL = "https://admin.dollor.ai"
+    public static let adminPanelURL = "https://www.dollor.ai/admin"
     public static let appDownloadURL = "https://dollor.ai/app"
 }
 
