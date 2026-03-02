@@ -14101,6 +14101,7 @@ from order_flow import (
     create_order as erp_create_order,
     CreateOrderRequest,
     get_full_order_tracking,  # iOS customer app tracking
+    get_vendor_orders,  # iOS restaurant app vendor orders
 )
 app.include_router(order_flow_router)
 
@@ -14221,6 +14222,17 @@ async def get_full_order_tracking_ios_alias(order_id: int, _auth: dict = Depends
     iOS calls: GET /erp/orders/{orderId}/full-tracking
     """
     return await get_full_order_tracking(order_id, db)
+
+@app.get("/erp/orders/vendor/{vendor_id}")
+async def get_vendor_orders_alias(vendor_id: int, vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
+    """Alias for iOS Restaurant app - get vendor orders
+    iOS calls: GET /erp/orders/vendor/{vendorId}
+    Original: /api/erp/orders/vendor/{vendor_id}
+    """
+    # SECURITY: Verify the authenticated vendor owns this account
+    if vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return await get_vendor_orders(vendor_id, db, _auth={})
 
 @app.get("/erp/rides/available")
 @app.get("/api/erp/rides/available")
