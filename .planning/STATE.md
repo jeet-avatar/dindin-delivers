@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 07 of 09 (Play Store Publishing)
 Plan: 1 of 3 in current phase
 Status: Phase 07 Plan 01 complete
-Last activity: 2026-03-02 - Completed quick task 56: Audit and fix route collisions, duplicate routes, dead endpoint constants
+Last activity: 2026-03-02 - Completed quick task 57: Fix restaurant orders 404, extend history, earnings breakdown
 
 Progress: [###░░░░░░░] 37% (3/8 plans)
 
@@ -58,6 +58,7 @@ Progress: [###░░░░░░░] 37% (3/8 plans)
 - [Phase quick-55]: Convert vanity phone +1-800-DOLLOR to numeric +1-800-365-5671 for iOS tel: scheme compatibility
 - [Phase quick-56]: Path aliases use multi-decorator on original handler, not separate alias functions
 - [Phase quick-56]: Removed vendorAuth AppConfig constant (pointed to non-existent /api/vendors/google-auth; actual route is /api/auth/vendor/google-auth)
+- [Phase quick-57]: Vendor alias uses require_vendor + ownership check pattern; monthly_breakdown queries all-time orders independent of period filter
 
 ### Blockers
 
@@ -70,9 +71,10 @@ Progress: [###░░░░░░░] 37% (3/8 plans)
 |---|-------------|------|--------|-----------|
 | 55 | Fix broken links in Restaurant iOS app — Help Center, Contact Support, Go to Admin Portal | 2026-03-02 | 1682b609 | [55-fix-broken-links-in-restaurant-ios-app-h](./quick/55-fix-broken-links-in-restaurant-ios-app-h/) |
 | 56 | Audit and fix route collisions, duplicate routes, dead endpoint constants | 2026-03-02 | 020fcae5 | [56-audit-fix-route-collisions-duplicate-rou](./quick/56-audit-fix-route-collisions-duplicate-rou/) |
+| 57 | Fix restaurant orders 404, extend history to 90 days, add earnings breakdown | 2026-03-02 | e132ec30 | [57-fix-restaurant-orders-404-extend-history](./quick/57-fix-restaurant-orders-404-extend-history/) |
 
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed quick task 56 (route collision audit and fix)
+Stopped at: Completed quick task 57 (fix restaurant orders 404, extend history, earnings breakdown)
 Resume file: None
