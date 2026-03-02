@@ -3676,6 +3676,7 @@ def estimate_fare(request: FareEstimateRequest):
         "message": f"You pay ${total_fare} (includes ${customer_platform_fee:.0f} platform fee for {fee_tier}). Driver earns ${driver_earnings} (after ${driver_platform_fee:.0f} platform fee)."
     }
 
+@app.get("/erp/rides/{ride_id}/status")
 @app.get("/api/erp/rides/{ride_id}/status")
 def get_ride_status(ride_id: str, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """Get current status of a ride from database (checks both rides and ride_requests tables)"""
@@ -14287,14 +14288,6 @@ async def track_ride_ios_alias(ride_id: int, _auth: dict = Depends(require_any_a
     iOS calls: GET /api/erp/rides/{rideId}/track
     """
     return await track_ride(ride_id, db)
-
-@app.get("/erp/rides/{ride_id}/status")
-@app.get("/api/erp/rides/{ride_id}/status")
-def get_ride_status_ios_alias(ride_id: str, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
-    """Alias for iOS apps - get ride status
-    iOS calls: GET /api/erp/rides/{rideId}/status
-    """
-    return get_ride_status(ride_id, db)
 
 @app.post("/erp/rides/{ride_id}/cancel")
 @app.post("/api/erp/rides/{ride_id}/cancel")

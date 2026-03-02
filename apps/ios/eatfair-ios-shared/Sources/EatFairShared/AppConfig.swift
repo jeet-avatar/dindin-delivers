@@ -503,11 +503,6 @@ public struct APIEndpoints {
     public static let restaurants = "/api/erp/restaurants"
     public static let restaurantMenu = "/api/erp/restaurants"  // + /{id}/menu
 
-    // Vendor endpoints
-    public static let vendorAuth = "/api/vendors/google-auth"
-    public static let vendorOrders = "/api/vendors/orders"
-    public static let vendorMenu = "/api/vendors/menu"
-
     // Driver endpoints
     public static let driverAuth = "/api/erp/drivers/login"
     public static let driverRegister = "/api/erp/drivers/register"
