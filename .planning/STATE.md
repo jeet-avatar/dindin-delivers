@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 07 of 09 (Play Store Publishing)
 Plan: 1 of 3 in current phase
 Status: Phase 07 Plan 01 complete
-Last activity: 2026-03-02 - Completed quick task 55: Fix broken links in Restaurant iOS app
+Last activity: 2026-03-02 - Completed quick task 56: Audit and fix route collisions, duplicate routes, dead endpoint constants
 
 Progress: [###░░░░░░░] 37% (3/8 plans)
 
@@ -56,6 +56,8 @@ Progress: [###░░░░░░░] 37% (3/8 plans)
 - Firebase Analytics/Crashlytics not included despite being in version catalog -- accurately reported as absent
 - [Phase quick-55]: Use www.dollor.ai canonical domain for all user-facing URLs (avoids 301 redirect from bare domain)
 - [Phase quick-55]: Convert vanity phone +1-800-DOLLOR to numeric +1-800-365-5671 for iOS tel: scheme compatibility
+- [Phase quick-56]: Path aliases use multi-decorator on original handler, not separate alias functions
+- [Phase quick-56]: Removed vendorAuth AppConfig constant (pointed to non-existent /api/vendors/google-auth; actual route is /api/auth/vendor/google-auth)
 
 ### Blockers
 
@@ -67,9 +69,10 @@ Progress: [###░░░░░░░] 37% (3/8 plans)
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 55 | Fix broken links in Restaurant iOS app — Help Center, Contact Support, Go to Admin Portal | 2026-03-02 | 1682b609 | [55-fix-broken-links-in-restaurant-ios-app-h](./quick/55-fix-broken-links-in-restaurant-ios-app-h/) |
+| 56 | Audit and fix route collisions, duplicate routes, dead endpoint constants | 2026-03-02 | 020fcae5 | [56-audit-fix-route-collisions-duplicate-rou](./quick/56-audit-fix-route-collisions-duplicate-rou/) |
 
 ## Session Continuity
 
-Last session: 2026-02-27
-Stopped at: Completed 07-01-PLAN.md (AABs built, store listings + Data Safety created)
+Last session: 2026-03-02
+Stopped at: Completed quick task 56 (route collision audit and fix)
 Resume file: None
