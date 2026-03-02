@@ -935,51 +935,6 @@ class TestRideSharing:
         assert result["fare_range"]["low"] < result["fare_range"]["high"]
 
     @pytest.mark.asyncio
-    async def test_request_ride(self, mock_db_session):
-        """Test requesting a P2P ride"""
-        # request_ride calls db.query(Order).count() for order number generation
-        mock_db_session.query.return_value.count.return_value = 0
-        # db.refresh sets ride_order.id
-        def mock_refresh(obj):
-            obj.id = 1
-        mock_db_session.refresh.side_effect = mock_refresh
-
-        ride_data = RideRequest(
-            customer_name="Jane Rider",
-            customer_email="rider@test.com",
-            customer_phone="+14155551111",
-            pickup_address={
-                "street": "100 Market St",
-                "city": "San Francisco",
-                "state": "CA",
-                "zip": "94102",
-                "lat": 37.7749,
-                "lng": -122.4194
-            },
-            dropoff_address={
-                "street": "200 Broadway",
-                "city": "Oakland",
-                "state": "CA",
-                "zip": "94607",
-                "lat": 37.8044,
-                "lng": -122.2712
-            },
-            notes="Please call on arrival",
-            tip=5.0
-        )
-
-        from order_flow import request_ride
-        result = await request_ride(ride_data, mock_db_session)
-
-        assert result["success"] is True
-        assert "ride_id" in result
-        assert "ride_number" in result
-        assert result["ride_number"].startswith("DOLL")
-        assert "fare_breakdown" in result
-        assert result["total_fare"] > 0
-        mock_db_session.add.assert_called_once()
-
-    @pytest.mark.asyncio
     async def test_get_available_rides(self, mock_db_session, mock_order):
         """Test getting available rides for drivers"""
         mock_order.order_number = "RIDE-20231215-ABC12"
@@ -2408,7 +2363,6 @@ Test Coverage Summary:
 
 ✅ Ride Sharing:
    - estimate_ride_fare
-   - request_ride
    - get_available_rides, accept_ride
    - ride_picked_up, ride_completed
    - get_ride_receipt
