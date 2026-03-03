@@ -7136,6 +7136,59 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - AI Support Chat
+
+    /// Send a message to the AI support chat agent
+    /// Endpoint: POST /api/support/chat
+    /// Public endpoint (no auth required), but includes customer token if available for context
+    public func sendSupportChatMessage(
+        message: String,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/support/chat") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Include customer token if available for user context
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = ["message": message]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        secureSession.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            guard let data = data else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.noData))
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let success = json["success"] as? Bool, success,
+                   let aiResponse = json["response"] as? String {
+                    completion(.success(aiResponse))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("AI support is temporarily unavailable")))
+                }
+            }
+        }.resume()
+    }
+
     /// Customer fare negotiation - submit counter offer
     public func customerSubmitFareOffer(
         rideId: Int,
