@@ -3,6 +3,8 @@ import Combine
 import FirebaseFirestore
 import EatFairShared
 
+#if ENABLE_AI_EMPLOYEES
+
 // MARK: - AI Employees Management View
 
 struct AIEmployeesView: View {
@@ -1150,3 +1152,5 @@ extension Color {
 #Preview {
     AIEmployeesView()
 }
+
+#endif // ENABLE_AI_EMPLOYEES
