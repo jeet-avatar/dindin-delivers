@@ -334,6 +334,7 @@ struct RestaurantSettingsView: View {
                     }
                 }
 
+                #if ENABLE_AI_EMPLOYEES
                 // AI Features Section
                 Section("AI Features") {
                     Toggle(isOn: $viewModel.aiDemandPrediction) {
@@ -413,6 +414,7 @@ struct RestaurantSettingsView: View {
                         }
                     }
                 }
+                #endif // ENABLE_AI_EMPLOYEES
 
                 // Support Section
                 Section("Support") {

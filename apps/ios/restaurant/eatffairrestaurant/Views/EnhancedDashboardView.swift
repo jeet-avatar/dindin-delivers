@@ -87,10 +87,12 @@ struct OrdersDashboardView: View {
                 // Orders List
                 ScrollView {
                     LazyVStack(spacing: 12) {
+                        #if ENABLE_AI_EMPLOYEES
                         // AI Suggestion Banner
                         if let suggestion = ordersVM.aiSuggestion {
                             AISuggestionBanner(suggestion: suggestion)
                         }
+                        #endif // ENABLE_AI_EMPLOYEES
 
                         // Orders
                         ForEach(filteredOrders) { order in
@@ -328,6 +330,7 @@ struct FilterTab: View {
     }
 }
 
+#if ENABLE_AI_EMPLOYEES
 // MARK: - AI Suggestion Banner
 struct AISuggestionBanner: View {
     let suggestion: String
@@ -372,6 +375,7 @@ struct AISuggestionBanner: View {
         }
     }
 }
+#endif // ENABLE_AI_EMPLOYEES
 
 // MARK: - Enhanced Order Card
 struct EnhancedOrderCard: View {
