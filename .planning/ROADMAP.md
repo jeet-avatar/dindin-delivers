@@ -70,6 +70,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 - [ ] **Phase 07: Play Store Publishing** - Set up Google Play Console and publish all 3 Android apps
 - [ ] **Phase 08: DB Password Rotation** - Enable automated Secrets Manager rotation for RDS credentials
 - [ ] **Phase 09: Rideshare E2E Validation** - Automated backend test covering full 12-step rideshare lifecycle
+- [ ] **Phase 10: Automated Support System** - Hide aspirational AI features, set up Twilio + OpenAI Realtime voice for phone support, fix chat for order tracking
 
 ## Phase Details
 
@@ -133,10 +134,25 @@ Plans:
 Plans:
 - [ ] 09-01: Build and verify 12-step rideshare E2E test against staging
 
+### Phase 10: Automated Support System
+**Goal**: One-man company has fully automated customer support — AI phone agent handles calls, chat tracks orders
+**Depends on**: None (can run independently)
+**Requirements**: SUPPORT-01, SUPPORT-02, SUPPORT-03
+**Success Criteria** (what must be TRUE):
+  1. AI Employees and aspirational AI feature toggles are hidden from Restaurant app (AI Insights/analytics remains)
+  2. Twilio + OpenAI Realtime Voice handles incoming calls on support number — can look up orders, give status, handle basic support
+  3. In-app chat for customer order tracking works (broken URLs fixed)
+**Plans**: TBD
+
+Plans:
+- [ ] 10-01: Hide aspirational AI features from Restaurant app, fix chat URLs
+- [ ] 10-02: Set up Twilio phone number + OpenAI Realtime Voice integration for automated support
+- [ ] 10-03: Wire AI phone agent to backend — order lookup, status updates, basic support flows
+
 ## Progress
 
 **Execution Order:**
-Phase 06 (SSL fix, urgent) -> Phase 07 (Play Store) -> Phase 08 (DB rotation) -> Phase 09 (E2E validation)
+Phase 06 (SSL fix, urgent) -> Phase 07 (Play Store) -> Phase 08 (DB rotation) -> Phase 09 (E2E validation) -> Phase 10 (Automated Support)
 
 Note: Phases 07 and 08 are technically independent and could run in parallel.
 
