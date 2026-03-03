@@ -18,7 +18,7 @@ class TestDocumentUploadAndSave:
     """Test document upload saves correctly to database"""
 
     def test_upload_w9_form_saves_to_database(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         Uploading W9 form should set w9_form=True and store URL in w9_form_url
@@ -36,7 +36,7 @@ class TestDocumentUploadAndSave:
             f"/api/vendors/{test_vendor.id}/documents",
             files=files,
             data=data,
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         # Check response
@@ -49,7 +49,7 @@ class TestDocumentUploadAndSave:
         assert "w9_form" in test_vendor.w9_form_url, "URL should contain document type"
 
     def test_upload_health_permit_saves_to_database(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         Uploading health permit should set health_permit=True and store URL
@@ -66,7 +66,7 @@ class TestDocumentUploadAndSave:
             f"/api/vendors/{test_vendor.id}/documents",
             files=files,
             data=data,
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         assert response.status_code in [200, 201]
@@ -76,7 +76,7 @@ class TestDocumentUploadAndSave:
         assert test_vendor.health_permit_url is not None, "health_permit_url should be set"
 
     def test_upload_food_handler_saves_to_database(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         Uploading food handler cert should set food_license=True and store URL
@@ -91,7 +91,7 @@ class TestDocumentUploadAndSave:
             f"/api/vendors/{test_vendor.id}/documents",
             files=files,
             data=data,
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         assert response.status_code in [200, 201]
@@ -101,7 +101,7 @@ class TestDocumentUploadAndSave:
         assert test_vendor.food_license_url is not None, "food_license_url should be set"
 
     def test_upload_liability_insurance_saves_to_database(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         Uploading liability insurance should set insurance=True and store URL
@@ -116,7 +116,7 @@ class TestDocumentUploadAndSave:
             f"/api/vendors/{test_vendor.id}/documents",
             files=files,
             data=data,
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         assert response.status_code in [200, 201]
@@ -126,7 +126,7 @@ class TestDocumentUploadAndSave:
         assert test_vendor.insurance_url is not None, "insurance_url should be set"
 
     def test_upload_business_license_saves_to_database(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         Uploading business license should set compliance_certs=True and store URL
@@ -141,7 +141,7 @@ class TestDocumentUploadAndSave:
             f"/api/vendors/{test_vendor.id}/documents",
             files=files,
             data=data,
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         assert response.status_code in [200, 201]
@@ -155,7 +155,7 @@ class TestDocumentRetrieval:
     """Test that uploaded documents can be retrieved"""
 
     def test_get_vendor_documents_returns_uploaded_docs(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         Getting vendor documents should return uploaded documents with correct structure
@@ -169,13 +169,13 @@ class TestDocumentRetrieval:
             f"/api/vendors/{test_vendor.id}/documents",
             files=files,
             data=data,
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         # Now get documents
         response = client.get(
             f"/api/vendors/{test_vendor.id}/documents",
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         assert response.status_code == 200
@@ -190,7 +190,7 @@ class TestDocumentRetrieval:
         assert "w9_form" in doc_types, "Uploaded w9_form should be in response"
 
     def test_get_documents_reflects_upload_status(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         After uploading a document, get should show it as pending/approved
@@ -204,14 +204,14 @@ class TestDocumentRetrieval:
             f"/api/vendors/{test_vendor.id}/documents",
             files=files,
             data=data,
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
         assert upload_response.status_code in [200, 201]
 
         # Now get documents
         get_response = client.get(
             f"/api/vendors/{test_vendor.id}/documents",
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         assert get_response.status_code == 200
@@ -276,7 +276,7 @@ class TestDocumentSaveToDatabase:
     """Test that documents are actually persisted in the database"""
 
     def test_multiple_documents_all_saved(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         Upload all 4 required documents and verify all are saved
@@ -299,7 +299,7 @@ class TestDocumentSaveToDatabase:
                 f"/api/vendors/{test_vendor.id}/documents",
                 files=files,
                 data=data,
-                headers=admin_auth_headers,
+                headers=vendor_auth_headers,
             )
 
             assert response.status_code in [200, 201], f"Failed to upload {doc_type}: {response.json()}"
@@ -320,7 +320,7 @@ class TestDocumentSaveToDatabase:
         assert test_vendor.insurance_url is not None, "insurance_url should be set"
 
     def test_document_upload_updates_last_activity(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         Uploading a document should update vendor's last_activity timestamp
@@ -335,7 +335,7 @@ class TestDocumentSaveToDatabase:
             f"/api/vendors/{test_vendor.id}/documents",
             files=files,
             data=data,
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         assert response.status_code in [200, 201]
@@ -356,7 +356,7 @@ class TestCrossPlatformDocumentUpload:
     """
 
     def test_multipart_upload_format(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         Test the multipart form-data format used by all platforms
@@ -374,7 +374,7 @@ class TestCrossPlatformDocumentUpload:
             f"/api/vendors/{test_vendor.id}/documents",
             files=files,
             data=data,
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         assert response.status_code in [200, 201]
@@ -382,7 +382,7 @@ class TestCrossPlatformDocumentUpload:
         assert "message" in response_data, "Response should have 'message' key"
 
     def test_image_upload_jpg(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         Test uploading JPG image (common from mobile cameras)
@@ -398,13 +398,13 @@ class TestCrossPlatformDocumentUpload:
             f"/api/vendors/{test_vendor.id}/documents",
             files=files,
             data=data,
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         assert response.status_code in [200, 201], f"JPG upload failed: {response.json()}"
 
     def test_image_upload_png(
-        self, client: TestClient, db_session, test_vendor, admin_auth_headers
+        self, client: TestClient, db_session, test_vendor, vendor_auth_headers
     ):
         """
         Test uploading PNG image
@@ -420,7 +420,7 @@ class TestCrossPlatformDocumentUpload:
             f"/api/vendors/{test_vendor.id}/documents",
             files=files,
             data=data,
-            headers=admin_auth_headers,
+            headers=vendor_auth_headers,
         )
 
         assert response.status_code in [200, 201], f"PNG upload failed: {response.json()}"
