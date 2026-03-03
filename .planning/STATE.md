@@ -29,7 +29,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 **Velocity (v1.4):**
 - Total phases: 5
 - Total plans: 12
-- Quick tasks: 53
+- Quick tasks: 59
 
 **v1.5 Execution:**
 - Total plans: 10 (across 5 phases)
@@ -66,6 +66,8 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase 10-02]: Escalation email uses skip_validation=True since support@dollor.ai is not in user tables
 - [Phase quick-58]: SHOW_AI_FEATURES=false constant pattern for Android (mirrors iOS #if ENABLE_AI_EMPLOYEES)
 - [Phase quick-58]: Route-based tab mapping in Partner MainScreen instead of index-based (resilient to tab filtering)
+- [Phase quick-59]: vendor_auth_headers fixture for vendor-authenticated endpoints; admin_auth_headers only for admin-only endpoints (status approval)
+- [Phase quick-59]: Never define local client fixtures in test files -- always use conftest.client which sets up test DB properly
 
 ### Blockers
 
@@ -80,9 +82,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 56 | Audit and fix route collisions, duplicate routes, dead endpoint constants | 2026-03-02 | 020fcae5 | [56-audit-fix-route-collisions-duplicate-rou](./quick/56-audit-fix-route-collisions-duplicate-rou/) |
 | 57 | Fix restaurant orders 404, extend history to 90 days, add earnings breakdown | 2026-03-02 | e132ec30 | [57-fix-restaurant-orders-404-extend-history](./quick/57-fix-restaurant-orders-404-extend-history/) |
 | 58 | Add Phase 10 features to Android apps and build/distribute all 6 apps | 2026-03-03 | 030c8aac | [58-add-phase-10-features-to-android-apps-an](./quick/58-add-phase-10-features-to-android-apps-an/) |
+| 59 | Fix 17 failing backend tests + build/distribute all 6 apps | 2026-03-03 | b536924f | [59-fix-18-failing-backend-tests-and-build-a](./quick/59-fix-18-failing-backend-tests-and-build-a/) |
 
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed quick-58 (Phase 10 Android parity + 6-app distribution)
+Stopped at: Completed quick-59 (Fix 17 backend test failures + 6-app distribution)
 Resume file: N/A
