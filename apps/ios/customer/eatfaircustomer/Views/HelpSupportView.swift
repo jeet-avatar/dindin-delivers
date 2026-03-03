@@ -12,6 +12,7 @@ struct HelpSupportView: View {
     @State private var searchQuery = ""
     @State private var selectedCategory: FAQCategory = .all
     @State private var expandedFAQs: Set<String> = []
+    @State private var showLiveChat = false
 
     var body: some View {
         NavigationStack {
@@ -44,6 +45,9 @@ struct HelpSupportView: View {
                         dismiss()
                     }
                 }
+            }
+            .sheet(isPresented: $showLiveChat) {
+                LiveChatView()
             }
         }
     }
@@ -86,7 +90,7 @@ struct HelpSupportView: View {
                     subtitle: "Chat with us",
                     color: Color(hex: "4CAF50")
                 ) {
-                    // Open chat
+                    showLiveChat = true
                 }
 
                 ContactOptionCard(
