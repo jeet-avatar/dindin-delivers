@@ -7033,6 +7033,109 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Order Chat (Food Delivery)
+
+    /// Fetch chat messages for a food delivery order
+    /// Endpoint: GET /api/customer/orders/{order_id}/chat
+    public func fetchOrderChatMessages(
+        orderId: Int,
+        completion: @escaping (Result<[OrderChatMessage], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customer/orders/\(orderId)/chat") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken ?? driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        secureSession.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            guard let data = data else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.noData))
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                do {
+                    let messages = try JSONDecoder().decode([OrderChatMessage].self, from: data)
+                    completion(.success(messages))
+                } catch {
+                    // Empty conversation returns []
+                    completion(.success([]))
+                }
+            }
+        }.resume()
+    }
+
+    /// Send a chat message for a food delivery order
+    /// Endpoint: POST /api/customer/orders/{order_id}/chat
+    /// Body: { "message": "...", "sender_type": "customer"|"driver" }
+    public func sendOrderChatMessage(
+        orderId: Int,
+        message: String,
+        senderType: String,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/customer/orders/\(orderId)/chat") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken ?? driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "message": message,
+            "sender_type": senderType
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        secureSession.dataTask(with: request) { data, response, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            guard let data = data else {
+                DispatchQueue.main.async {
+                    completion(.failure(P2PAPIError.noData))
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let success = json["success"] as? Bool, success {
+                    completion(.success(true))
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Failed to send message")))
+                }
+            }
+        }.resume()
+    }
+
     /// Customer fare negotiation - submit counter offer
     public func customerSubmitFareOffer(
         rideId: Int,
@@ -7363,6 +7466,32 @@ public struct RideChatMessage: Identifiable, Codable {
         case rideRequestId = "ride_request_id"
         case senderType = "sender_type"
         case senderId = "sender_id"
+        case message
+        case createdAt = "created_at"
+    }
+}
+
+/// Chat message model for food delivery order chat
+/// Backend response: { "id", "order_id", "sender_type", "sender_id", "sender_name", "message", "created_at" }
+public struct OrderChatMessage: Identifiable, Codable, Sendable {
+    public let id: Int
+    public let orderId: Int
+    public let senderType: String // "customer" or "driver"
+    public let senderId: Int
+    public let senderName: String?
+    public let message: String
+    public let createdAt: String?
+
+    public var isFromDriver: Bool {
+        return senderType == "driver"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case orderId = "order_id"
+        case senderType = "sender_type"
+        case senderId = "sender_id"
+        case senderName = "sender_name"
         case message
         case createdAt = "created_at"
     }

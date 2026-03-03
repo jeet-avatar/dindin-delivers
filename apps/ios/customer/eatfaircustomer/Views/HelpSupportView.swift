@@ -215,7 +215,8 @@ struct HelpSupportView: View {
     }
 
     private func openPhone() {
-        if let url = URL(string: "tel:+18001234567") {
+        let phone = AppConfig.shared.supportPhone.replacingOccurrences(of: "-", with: "")
+        if let url = URL(string: "tel:\(phone)") {
             UIApplication.shared.open(url)
         }
     }
