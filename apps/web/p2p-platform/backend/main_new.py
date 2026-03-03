@@ -337,6 +337,10 @@ _PUBLIC_EXACT_PATHS = {
 
     # Onboarding code-gated flows (not JWT-gated)
     "/api/onboarding/accept", "/api/onboarding/scrape-menu",
+
+    # Voice agent (Twilio webhook, no JWT) and AI text chat
+    "/api/voice/incoming-call",
+    "/api/support/chat",
 }
 
 _PUBLIC_PREFIXES = [
@@ -14605,6 +14609,10 @@ app.include_router(doc_verification_router)
 # Include Investor Deck Tracking (Email-gated access + view logging)
 from investor_tracking import router as investor_router
 app.include_router(investor_router)
+
+# Include Voice Agent (Twilio + OpenAI Realtime) and AI Text Chat
+from voice_agent import router as voice_router
+app.include_router(voice_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create
