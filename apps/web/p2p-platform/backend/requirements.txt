@@ -23,6 +23,8 @@ boto3==1.35.80
 apscheduler==3.10.4
 firebase-admin==6.4.0
 redis[hiredis]==5.0.1
+twilio>=9.0.0
+websockets>=12.0
 
 # Testing dependencies
 pytest==8.3.4
