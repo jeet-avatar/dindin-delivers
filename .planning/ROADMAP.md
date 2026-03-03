@@ -162,7 +162,7 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 | 07. Play Store Publishing | 1/3 | In Progress|  | - |
 | 08. DB Password Rotation | v1.5 | 0/2 | Not started | - |
 | 09. Rideshare E2E Validation | v1.5 | 0/1 | Not started | - |
-| 10. Automated Support System | v1.5 | 0/3 | Not started | - |
+| 10. Automated Support System | 1/3 | In Progress|  | - |
 
 ---
 *Roadmap created: 2026-02-21*
