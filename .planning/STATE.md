@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 10 of 10 (Automated Support System)
-Plan: 1 of 3 in current phase
-Status: Phase 10 Plan 01 complete
-Last activity: 2026-03-03 - Completed 10-01: Hide AI features, build OrderChatView, fix phone number
+Plan: 2 of 3 in current phase
+Status: Phase 10 Plan 02 complete
+Last activity: 2026-03-03 - Completed 10-02: Twilio-OpenAI voice agent backend + AI text chat
 
-Progress: [####░░░░░░] 40% (4/10 plans)
+Progress: [#####░░░░░] 50% (5/10 plans)
 
 ## Completed Milestones
 
@@ -33,7 +33,7 @@ Progress: [####░░░░░░] 40% (4/10 plans)
 
 **v1.5 Execution:**
 - Total plans: 10 (across 5 phases)
-- Completed: 4
+- Completed: 5
 
 ## Accumulated Context
 
@@ -61,6 +61,9 @@ Progress: [####░░░░░░] 40% (4/10 plans)
 - [Phase quick-57]: Vendor alias uses require_vendor + ownership check pattern; monthly_breakdown queries all-time orders independent of period filter
 - [Phase 10-01]: OrderChatMessage.sendOrderChatMessage returns Result<Bool> (backend returns success flag, not full message object); view refetches after send
 - [Phase 10-01]: #if ENABLE_AI_EMPLOYEES compile-time flag pattern for hiding aspirational features without code deletion
+- [Phase 10-02]: Text chat uses gpt-4o-mini via Chat Completions (cheaper than Realtime for text); voice uses sage voice with PCMU audio passthrough
+- [Phase 10-02]: /api/support/chat and /api/voice/incoming-call added to auth middleware allowlist (public endpoints)
+- [Phase 10-02]: Escalation email uses skip_validation=True since support@dollor.ai is not in user tables
 
 ### Blockers
 
@@ -78,5 +81,5 @@ Progress: [####░░░░░░] 40% (4/10 plans)
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 10-01-PLAN.md (Phase 10: Automated Support System)
+Stopped at: Completed 10-02-PLAN.md (Voice agent backend + AI text chat)
 Resume file: None
