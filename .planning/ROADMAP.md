@@ -142,12 +142,12 @@ Plans:
   1. AI Employees and aspirational AI feature toggles are hidden from Restaurant app (AI Insights/analytics remains)
   2. Twilio + OpenAI Realtime Voice handles incoming calls on support number — can look up orders, give status, handle basic support
   3. In-app chat for customer order tracking works (broken URLs fixed)
-**Plans**: TBD
+**Plans**: 3 plans (Wave 1 parallel: 10-01 + 10-02, Wave 2: 10-03)
 
 Plans:
-- [ ] 10-01: Hide aspirational AI features from Restaurant app, fix chat URLs
-- [ ] 10-02: Set up Twilio phone number + OpenAI Realtime Voice integration for automated support
-- [ ] 10-03: Wire AI phone agent to backend — order lookup, status updates, basic support flows
+- [ ] 10-01-PLAN.md — Hide aspirational AI features in Restaurant app (#if ENABLE_AI_EMPLOYEES), build OrderChatView for Customer and Driver apps, fix HelpSupportView phone number
+- [ ] 10-02-PLAN.md — Create Twilio + OpenAI Realtime voice agent backend (voice_agent.py, voice_agent_tools.py), add AI text chat endpoint (/api/support/chat)
+- [ ] 10-03-PLAN.md — Wire iOS Live Chat button to AI text agent, verify all Phase 10 deliverables
 
 ## Progress
 
@@ -162,7 +162,8 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 | 07. Play Store Publishing | 1/3 | In Progress|  | - |
 | 08. DB Password Rotation | v1.5 | 0/2 | Not started | - |
 | 09. Rideshare E2E Validation | v1.5 | 0/1 | Not started | - |
+| 10. Automated Support System | v1.5 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-21*
-*Last updated: 2026-02-27 -- Phase 07 plans created*
+*Last updated: 2026-03-02 -- Phase 10 plans created*
