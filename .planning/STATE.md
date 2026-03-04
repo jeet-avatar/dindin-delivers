@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-04 - Rebuilt all 6 apps with bumped builds (iOS 1107/212/182, Android vC=32/29/25)
+Last activity: 2026-03-04 - Rebuilt all 6 apps with CI gate (iOS 1108/213/183, Android vC=33/30/26)
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -29,7 +29,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 **Velocity (v1.4):**
 - Total phases: 5
 - Total plans: 12
-- Quick tasks: 66
+- Quick tasks: 67
 
 **v1.5 Execution:**
 - Total plans: 10 (across 5 phases)
@@ -77,6 +77,8 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-64]: Individual bid expiry job runs on same 60s interval as other ride cleanup jobs
 - [Phase quick-65]: test_get_realtime_analytics call count boundaries updated for 15 OrderStatus values (was 13; PENDING_DELIVERY_PROOF + DELIVERY_FAILED added in quick-63)
 - [Phase quick-66]: CI Security workflow lacks workflow_dispatch trigger -- cannot be manually triggered; only fires on PR to main or push to develop
+- [Phase quick-67]: CI/CD Pipeline workflow has path filters (apps/web/p2p-platform/**) -- does not auto-trigger on iOS-only pushes; needs manual trigger
+- [Phase quick-67]: Android gradlew clean assembleRelease required after version bump to avoid stale APK cache with old version numbers
 
 ### Blockers
 
@@ -99,9 +101,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 64 | Fix all 5 rideshare ride availability gaps + standardize 5s polling + build 6 apps | 2026-03-04 | 01bb0919 | [64-fix-all-5-rideshare-ride-availability-ga](./quick/64-fix-all-5-rideshare-ride-availability-ga/) |
 | 65 | Deploy backend, distribute Android APKs, rebuild iOS apps to TestFlight | 2026-03-04 | 2076afff | [65-deploy-backend-distribute-android-apks-r](./quick/65-deploy-backend-distribute-android-apks-r/) |
 | 66 | Rebuild all 6 apps fresh -- iOS 1107/212/182 to TestFlight, Android vC=32/29/25 to Firebase | 2026-03-04 | a6ea527c | [66-rebuild-all-6-apps-fresh-trigger-ci-secu](./quick/66-rebuild-all-6-apps-fresh-trigger-ci-secu/) |
+| 67 | Rebuild all 6 apps with full CI/CD gate -- iOS 1108/213/183, Android vC=33/30/26 | 2026-03-04 | 73152d96 | [67-rebuild-all-6-apps-with-full-ci-cd-passi](./quick/67-rebuild-all-6-apps-with-full-ci-cd-passi/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-66 (rebuild all 6 apps fresh). iOS 1107/212/182 on TestFlight, Android vC=32/29/25 on Firebase.
+Stopped at: Completed quick-67 (CI-gated rebuild all 6 apps). iOS 1108/213/183 on TestFlight, Android vC=33/30/26 on Firebase.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
