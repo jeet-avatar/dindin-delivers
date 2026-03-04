@@ -95,5 +95,5 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-63 (Add delivery timeout safety net)
-Resume file: N/A
+Stopped at: Investigated ride availability gaps (5 found). Next: fix all gaps + standardize 5s polling + build 6 apps.
+Resume file: .planning/NEXT_SESSION_PROMPT.md
