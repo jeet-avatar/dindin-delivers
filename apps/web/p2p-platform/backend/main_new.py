@@ -451,6 +451,14 @@ password_reset_limiter = RateLimiter(max_requests=5, window_seconds=3600)  # 5 p
 payment_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 per minute per user
 admin_mutation_limiter = RateLimiter(max_requests=30, window_seconds=60)  # 30 per minute per admin IP
 
+# Demo accounts exempt from auth rate limiting (Apple App Store reviewers)
+DEMO_EMAILS = frozenset({
+    "demo.customer@dollor.ai",
+    "demo.driver@dollor.ai",
+    "demo.restaurant@dollor.ai",
+    "support@dollor.ai"
+})
+
 # ===================== INPUT SANITIZATION =====================
 # SECURITY: Strip HTML/script tags from user-supplied text to prevent stored XSS
 import re
@@ -1734,7 +1742,9 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
 @app.post("/api/auth/login", response_model=Token)
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # SECURITY: Rate limit login attempts to prevent brute force
-    check_rate_limit(request, auth_rate_limiter, "admin_login")
+    # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
+    if form_data.username not in DEMO_EMAILS:
+        check_rate_limit(request, auth_rate_limiter, "admin_login")
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
         raise HTTPException(
@@ -1760,7 +1770,9 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
 @app.post("/api/auth/vendor/login")
 def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # SECURITY: Rate limit login attempts to prevent brute force
-    check_rate_limit(request, auth_rate_limiter, "vendor_login")
+    # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
+    if form_data.username not in DEMO_EMAILS:
+        check_rate_limit(request, auth_rate_limiter, "vendor_login")
 
     # Find user with VENDOR role
     user = db.query(User).filter(
@@ -2529,7 +2541,9 @@ class DriverLoginResponse(BaseModel):
 def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Driver login - authenticates driver and returns token"""
     # SECURITY: Rate limit login attempts to prevent brute force
-    check_rate_limit(request, auth_rate_limiter, "driver_login")
+    # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
+    if form_data.username not in DEMO_EMAILS:
+        check_rate_limit(request, auth_rate_limiter, "driver_login")
 
     # Find user with DRIVER role first
     user = db.query(User).filter(
@@ -3057,7 +3071,9 @@ class CustomerLoginRequest(BaseModel):
 def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Customer login - authenticates customer and returns token for rideshare"""
     # SECURITY: Rate limit login attempts to prevent brute force
-    check_rate_limit(request, auth_rate_limiter, "customer_login")
+    # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
+    if form_data.username not in DEMO_EMAILS:
+        check_rate_limit(request, auth_rate_limiter, "customer_login")
     print(f"Customer login attempt for: {form_data.username}")
 
     # Find customer by email
@@ -3810,6 +3826,12 @@ def estimate_fare_frontend(
     """
     if not all([pickup_lat, pickup_lng, dropoff_lat, dropoff_lng]):
         raise HTTPException(status_code=400, detail="Missing coordinate parameters")
+
+    # Validate coordinate ranges
+    if not (-90 <= pickup_lat <= 90) or not (-90 <= dropoff_lat <= 90):
+        raise HTTPException(status_code=400, detail="Invalid coordinates: latitude must be between -90 and 90")
+    if not (-180 <= pickup_lng <= 180) or not (-180 <= dropoff_lng <= 180):
+        raise HTTPException(status_code=400, detail="Invalid coordinates: longitude must be between -180 and 180")
 
     distance_km = calculate_distance_km(pickup_lat, pickup_lng, dropoff_lat, dropoff_lng)
     distance_miles = distance_km * 0.621371
@@ -10029,6 +10051,7 @@ def get_vendors(
 @app.get("/api/vendors/published")
 def get_published_vendors(
     platform: str = Query("all", description="Platform filter: ios, android, web, or all"),
+    search: Optional[str] = Query(None, description="Search by restaurant name or cuisine"),
     limit: int = Query(100, le=500),
     offset: int = Query(0),
     db: Session = Depends(get_db)
@@ -10040,9 +10063,9 @@ def get_published_vendors(
     """
     from cache import cache_json_get, cache_json_set
 
-    # Cache default requests (all platforms, first page) for 30s
-    cache_key = f"vendors:published:{platform}:{limit}:{offset}"
-    if platform == "all" and offset == 0:
+    # Cache default requests (all platforms, first page, no search) for 30s
+    cache_key = f"vendors:published:{platform}:{search or ''}:{limit}:{offset}"
+    if platform == "all" and offset == 0 and not search:
         cached = cache_json_get(cache_key)
         if cached is not None:
             return cached
@@ -10063,6 +10086,17 @@ def get_published_vendors(
             or_(
                 Vendor.published_platforms.is_(None),
                 Vendor.published_platforms.like(f'%{platform}%')
+            )
+        )
+
+    # Optional search filter on restaurant name or cuisine
+    if search:
+        search_term = f"%{search}%"
+        from sqlalchemy import or_ as or_filter
+        query = query.filter(
+            or_filter(
+                Vendor.restaurant_name.ilike(search_term),
+                Vendor.cuisine_type.ilike(search_term)
             )
         )
 
@@ -10179,8 +10213,8 @@ def get_published_vendors(
         "vendors": restaurants
     }
 
-    # Cache default requests for 30s
-    if platform == "all" and offset == 0:
+    # Cache default requests for 30s (skip caching search queries)
+    if platform == "all" and offset == 0 and not search:
         cache_json_set(cache_key, response, ttl=30)
 
     return response
@@ -19159,6 +19193,12 @@ def get_fare_estimate_android(request: dict, db: Session = Depends(get_db)):
     pickup_lng = request.get("pickup_longitude", 0)
     dropoff_lat = request.get("dropoff_latitude", 0)
     dropoff_lng = request.get("dropoff_longitude", 0)
+
+    # Validate coordinate ranges
+    if not (-90 <= pickup_lat <= 90) or not (-90 <= dropoff_lat <= 90):
+        raise HTTPException(status_code=400, detail="Invalid coordinates: latitude must be between -90 and 90")
+    if not (-180 <= pickup_lng <= 180) or not (-180 <= dropoff_lng <= 180):
+        raise HTTPException(status_code=400, detail="Invalid coordinates: longitude must be between -180 and 180")
 
     # Calculate distance using Haversine formula
     import math
