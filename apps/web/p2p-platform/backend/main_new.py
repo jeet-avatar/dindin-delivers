@@ -14316,7 +14316,31 @@ async def accept_ride_ios_alias(ride_id: int, request: AssignDriverRequest, _aut
     ride.status = RRS.MATCHED
     ride.matched_driver_id = request.driver_id
     ride.matched_at = datetime.utcnow()
+
+    # Reject all other PENDING bids on this ride (match bid_routes.py:617-629 behavior)
+    from models import RideBid, BidStatus
+    other_bids = db.query(RideBid).filter(
+        RideBid.ride_request_id == ride_id,
+        RideBid.status == BidStatus.PENDING
+    ).all()
+    for other_bid in other_bids:
+        other_bid.status = BidStatus.REJECTED
+        other_bid.rejected_at = datetime.utcnow()
+        other_bid.customer_response = "Ride accepted via legacy endpoint"
+
     db.commit()
+
+    # Broadcast ride_request_closed via WebSocket
+    try:
+        from websocket_server import broadcast_ride_status
+        import asyncio
+        asyncio.ensure_future(broadcast_ride_status(
+            str(ride.id), "matched",
+            {"ride_id": ride.id, "driver_id": request.driver_id, "reason": "legacy_accept"}
+        ))
+    except Exception as ws_err:
+        logger.warning(f"Failed to broadcast ride matched for legacy accept: {ws_err}")
+
     return {"success": True, "message": "Ride accepted", "ride_id": ride.id, "status": "matched"}
 
 @app.post("/erp/rides/{ride_id}/picked-up")
@@ -15512,15 +15536,24 @@ def get_available_ride_requests(
     if radius_km:
         radius_miles = radius_km * 0.621371
 
-    # Query open ride requests (status = OPEN or BIDDING)
+    # Query open ride requests (status = OPEN or BIDDING, not expired)
+    now = datetime.utcnow()
     try:
         requests = db.query(RideRequest).filter(
-            RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
+            RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING]),
+            or_(
+                RideRequest.bidding_expires_at > now,
+                RideRequest.bidding_expires_at.is_(None)
+            )
         ).order_by(RideRequest.created_at.desc()).limit(50).all()
     except Exception as e:
         # Fallback: try without enum if RideRequestStatus not available
         requests = db.query(RideRequest).filter(
-            RideRequest.status.in_(["open", "bidding"])
+            RideRequest.status.in_(["open", "bidding"]),
+            or_(
+                RideRequest.bidding_expires_at > now,
+                RideRequest.bidding_expires_at.is_(None)
+            )
         ).order_by(RideRequest.created_at.desc()).limit(50).all()
 
     available_requests = []
@@ -15570,7 +15603,7 @@ def get_available_ride_requests(
             "customer_max_price": req.customer_max_price,
             "customer_preferred_price": req.customer_preferred_price,
             "status": req.status.value if hasattr(req.status, 'value') else str(req.status),
-            "bidding_expires_at": None,
+            "bidding_expires_at": req.bidding_expires_at.isoformat() if req.bidding_expires_at else None,
             "special_requests": None,
             "created_at": req.created_at.isoformat() if req.created_at else None,
             "bid_count": 0,
