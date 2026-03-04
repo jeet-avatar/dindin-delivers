@@ -5141,6 +5141,11 @@ public class P2PAPIService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        // Include auth header if available (endpoint accepts both authenticated and public requests)
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
         let body: [String: Any] = [
             "pickup_latitude": pickupLat,
             "pickup_longitude": pickupLng,

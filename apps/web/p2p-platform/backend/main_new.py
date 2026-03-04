@@ -19184,11 +19184,12 @@ def serve_terms_of_service_page():
         raise HTTPException(status_code=404, detail="Terms of service page not found")
 
 
-# Fare estimate endpoint for Android
-# Note: Driver profile GET /api/erp/drivers/{driver_id} is handled by get_driver_profile_by_id (line ~3027)
-@app.post("/api/rides/estimate")
+# Fare estimate helper for ERP alias (below)
+# NOTE: POST /api/rides/estimate is handled by bid_routes.py (registered first via include_router).
+# This function is kept only for the /api/erp/rides/fare-estimate alias.
+# Driver profile GET /api/erp/drivers/{driver_id} is handled by get_driver_profile_by_id (line ~3027)
 def get_fare_estimate_android(request: dict, db: Session = Depends(get_db)):
-    """Android-compatible fare estimate endpoint."""
+    """Fare estimate calculation (used by ERP alias endpoint)."""
     pickup_lat = request.get("pickup_latitude", 0)
     pickup_lng = request.get("pickup_longitude", 0)
     dropoff_lat = request.get("dropoff_latitude", 0)
