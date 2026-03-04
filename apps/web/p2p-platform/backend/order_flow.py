@@ -796,10 +796,15 @@ async def get_available_rides(
     Returns ride requests waiting for driver acceptance
     """
     try:
-        # Query RideRequest table for open/bidding rides
+        # Query RideRequest table for open/bidding rides (exclude expired)
         # Note: Using RideRequestModel to avoid shadowing by Pydantic RideRequest class
+        now = datetime.utcnow()
         rides = db.query(RideRequestModel).filter(
-            RideRequestModel.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
+            RideRequestModel.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING]),
+            or_(
+                RideRequestModel.bidding_expires_at > now,
+                RideRequestModel.bidding_expires_at.is_(None)
+            )
         ).order_by(RideRequestModel.created_at.desc()).limit(50).all()
 
         result = []
@@ -2354,6 +2359,7 @@ def start_timeout_scheduler():
             check_ride_bidding_expiry_job,
             check_ride_matched_timeout_job,
             check_ride_in_progress_timeout_job,
+            check_individual_bid_expiry_job,
             RIDE_CLEANUP_CHECK_INTERVAL_SECONDS,
             RIDE_BIDDING_EXPIRY_MINUTES,
             RIDE_MATCHED_TIMEOUT_MINUTES,
@@ -2380,6 +2386,13 @@ def start_timeout_scheduler():
             name="Auto-cancel stale IN_PROGRESS rides (2h+)",
             replace_existing=True
         )
+        restaurant_timeout_scheduler.add_job(
+            check_individual_bid_expiry_job,
+            IntervalTrigger(seconds=RIDE_CLEANUP_CHECK_INTERVAL_SECONDS),
+            id="individual_bid_expiry_checker",
+            name="Auto-expire individual bids past their expires_at",
+            replace_existing=True
+        )
         restaurant_timeout_scheduler.start()
         logger.info(
             f"Timeout scheduler started. "
@@ -2391,7 +2404,8 @@ def start_timeout_scheduler():
             f"stale order cleanup ({STALE_ORDER_HOURS}h every {STALE_ORDER_CHECK_INTERVAL_SECONDS}s). "
             f"Rideshare: bidding expiry ({RIDE_BIDDING_EXPIRY_MINUTES}min), "
             f"matched timeout ({RIDE_MATCHED_TIMEOUT_MINUTES}min), "
-            f"in-progress timeout ({RIDE_IN_PROGRESS_TIMEOUT_HOURS}h) every {RIDE_CLEANUP_CHECK_INTERVAL_SECONDS}s."
+            f"in-progress timeout ({RIDE_IN_PROGRESS_TIMEOUT_HOURS}h), "
+            f"individual bid expiry every {RIDE_CLEANUP_CHECK_INTERVAL_SECONDS}s."
         )
 
 

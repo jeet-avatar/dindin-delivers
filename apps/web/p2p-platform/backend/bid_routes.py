@@ -3029,6 +3029,19 @@ def check_ride_bidding_expiry_job():
                 bid.status = BidStatus.EXPIRED
                 bid.updated_at = now
 
+            # Notify customer that ride expired with no match
+            try:
+                from order_flow import send_push_notification
+                send_push_notification(
+                    "customer",
+                    ride.customer_id,
+                    "No Drivers Available",
+                    "No drivers were available for your ride. Please try again.",
+                    {"type": "ride_expired", "ride_id": str(ride.id), "ride_request_id": ride.request_id or ""}
+                )
+            except Exception as push_err:
+                logger.warning(f"Failed to send expiry push for ride {ride.request_id}: {push_err}")
+
         db.commit()
         logger.info(f"Ride bidding expiry check: {expired_count} rides expired")
 
@@ -3094,15 +3107,14 @@ def check_ride_matched_timeout_job():
 
             # Send push notification to customer
             try:
-                customer = db.query(Customer).filter(Customer.id == ride.customer_id).first()
-                if customer and hasattr(customer, 'push_token') and customer.push_token:
-                    from order_flow import send_push_notification
-                    asyncio.run(send_push_notification(
-                        customer.push_token,
-                        "Driver Unavailable",
-                        f"Your driver didn't respond in time. Your ride has been reopened for other drivers.",
-                        {"type": "ride_reopened", "ride_id": str(ride.id)}
-                    ))
+                from order_flow import send_push_notification
+                send_push_notification(
+                    "customer",
+                    ride.customer_id,
+                    "Driver Unavailable",
+                    "Your driver didn't respond in time. Your ride has been reopened for other drivers.",
+                    {"type": "ride_reopened", "ride_id": str(ride.id)}
+                )
             except Exception as push_err:
                 logger.warning(f"Failed to send push for ride {ride.request_id}: {push_err}")
 
@@ -3154,15 +3166,14 @@ def check_ride_in_progress_timeout_job():
 
             # Notify customer
             try:
-                customer = db.query(Customer).filter(Customer.id == ride.customer_id).first()
-                if customer and hasattr(customer, 'push_token') and customer.push_token:
-                    from order_flow import send_push_notification
-                    asyncio.run(send_push_notification(
-                        customer.push_token,
-                        "Ride Cancelled",
-                        f"Your ride was automatically cancelled due to inactivity. Please request a new ride.",
-                        {"type": "ride_auto_cancelled", "ride_id": str(ride.id)}
-                    ))
+                from order_flow import send_push_notification
+                send_push_notification(
+                    "customer",
+                    ride.customer_id,
+                    "Ride Cancelled",
+                    "Your ride was automatically cancelled due to inactivity. Please request a new ride.",
+                    {"type": "ride_auto_cancelled", "ride_id": str(ride.id)}
+                )
             except Exception as push_err:
                 logger.warning(f"Failed to send push for ride {ride.request_id}: {push_err}")
 
@@ -3171,6 +3182,37 @@ def check_ride_in_progress_timeout_job():
 
     except Exception as e:
         logger.error(f"Error in ride in-progress timeout check: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def check_individual_bid_expiry_job():
+    """Auto-expire individual bids whose expires_at has passed while still PENDING."""
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        expired_bids = db.query(RideBid).filter(
+            RideBid.status == BidStatus.PENDING,
+            RideBid.expires_at.isnot(None),
+            RideBid.expires_at < now
+        ).all()
+
+        if not expired_bids:
+            return
+
+        expired_count = 0
+        for bid in expired_bids:
+            bid.status = BidStatus.EXPIRED
+            bid.updated_at = now
+            expired_count += 1
+            logger.info(f"Bid {bid.id} on ride {bid.ride_request_id} auto-expired (expires_at: {bid.expires_at.isoformat()})")
+
+        db.commit()
+        logger.info(f"Individual bid expiry check: {expired_count} bids expired")
+
+    except Exception as e:
+        logger.error(f"Error in individual bid expiry check: {e}")
         db.rollback()
     finally:
         db.close()
