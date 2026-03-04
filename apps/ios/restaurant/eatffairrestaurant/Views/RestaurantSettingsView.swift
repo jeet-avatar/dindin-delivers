@@ -288,10 +288,10 @@ struct RestaurantSettingsView: View {
                             }
                         }
 
-                        Link(destination: URL(string: AppConstants.adminPanelURL)!) {
+                        Link(destination: URL(string: AppConstants.vendorDocumentsURL)!) {
                             HStack {
-                                Image(systemName: "globe")
-                                Text("Go to Admin Portal")
+                                Image(systemName: "doc.arrow.up")
+                                Text("Upload Documents")
                                 Spacer()
                                 Image(systemName: "arrow.up.right")
                             }

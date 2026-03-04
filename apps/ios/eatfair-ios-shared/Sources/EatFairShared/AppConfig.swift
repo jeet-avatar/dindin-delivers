@@ -593,6 +593,7 @@ public struct AppConstants {
     public static let restaurantTermsURL = "https://dollor.ai/restaurant-terms"
     public static let driverApplicationURL = "https://dollor.ai/driver-application"
     public static let adminPanelURL = "https://www.dollor.ai/admin"
+    public static let vendorDocumentsURL = "https://www.dollor.ai/vendor/documents"
     public static let appDownloadURL = "https://dollor.ai/app"
 }
 
