@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-04 - Deployed backend to staging+production, distributed 3 Android APKs, uploaded 3 iOS apps to TestFlight
+Last activity: 2026-03-04 - Rebuilt all 6 apps with bumped builds (iOS 1107/212/182, Android vC=32/29/25)
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -29,7 +29,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 **Velocity (v1.4):**
 - Total phases: 5
 - Total plans: 12
-- Quick tasks: 65
+- Quick tasks: 66
 
 **v1.5 Execution:**
 - Total plans: 10 (across 5 phases)
@@ -76,6 +76,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-64]: bidding_expires_at filter uses or_(field > now, field.is_(None)) for backward compat with NULL values
 - [Phase quick-64]: Individual bid expiry job runs on same 60s interval as other ride cleanup jobs
 - [Phase quick-65]: test_get_realtime_analytics call count boundaries updated for 15 OrderStatus values (was 13; PENDING_DELIVERY_PROOF + DELIVERY_FAILED added in quick-63)
+- [Phase quick-66]: CI Security workflow lacks workflow_dispatch trigger -- cannot be manually triggered; only fires on PR to main or push to develop
 
 ### Blockers
 
@@ -97,9 +98,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 63 | Add delivery timeout safety net -- 90-min warning, 120-min auto-refund, 24h stale cleanup | 2026-03-04 | 781ab4bc | [63-add-delivery-timeout-safety-net-90min-wa](./quick/63-add-delivery-timeout-safety-net-90min-wa/) |
 | 64 | Fix all 5 rideshare ride availability gaps + standardize 5s polling + build 6 apps | 2026-03-04 | 01bb0919 | [64-fix-all-5-rideshare-ride-availability-ga](./quick/64-fix-all-5-rideshare-ride-availability-ga/) |
 | 65 | Deploy backend, distribute Android APKs, rebuild iOS apps to TestFlight | 2026-03-04 | 2076afff | [65-deploy-backend-distribute-android-apks-r](./quick/65-deploy-backend-distribute-android-apks-r/) |
+| 66 | Rebuild all 6 apps fresh -- iOS 1107/212/182 to TestFlight, Android vC=32/29/25 to Firebase | 2026-03-04 | a6ea527c | [66-rebuild-all-6-apps-fresh-trigger-ci-secu](./quick/66-rebuild-all-6-apps-fresh-trigger-ci-secu/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-65 (deploy backend + distribute all 6 apps). All platforms current with quick-60 through quick-64 changes.
+Stopped at: Completed quick-66 (rebuild all 6 apps fresh). iOS 1107/212/182 on TestFlight, Android vC=32/29/25 on Firebase.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
