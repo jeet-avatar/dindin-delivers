@@ -1465,19 +1465,25 @@ class TestAnalytics:
         prep_query = MagicMock()
         prep_query.filter.return_value.all.return_value = []
 
+        # Also mock .scalar() for avg delivery time query
+        scalar_query = MagicMock()
+        scalar_query.filter.return_value.scalar.return_value = None
+
         call_count = [0]
         def query_side_effect(*args):
             call_count[0] += 1
-            if call_count[0] <= 13:  # Status counts (13 order statuses now)
+            if call_count[0] <= 15:  # Status counts (15 order statuses: added PENDING_DELIVERY_PROOF + DELIVERY_FAILED)
                 return status_query
-            elif call_count[0] <= 15:  # Driver counts
+            elif call_count[0] <= 17:  # Driver counts (total_drivers, online_drivers)
                 return driver_query
-            elif call_count[0] == 16:  # Completed orders
+            elif call_count[0] == 18:  # Completed orders (.all())
                 return order_query
-            elif call_count[0] == 17:  # Vendor count
+            elif call_count[0] == 19:  # Vendor count (.count())
                 return vendor_query
-            else:  # Prep time orders
+            elif call_count[0] == 20:  # Prep time orders (.all())
                 return prep_query
+            else:  # Avg delivery time (.scalar())
+                return scalar_query
 
         mock_db_session.query.side_effect = query_side_effect
 
