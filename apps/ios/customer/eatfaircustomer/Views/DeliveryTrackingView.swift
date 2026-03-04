@@ -423,6 +423,28 @@ struct DeliveryBottomSheet: View {
                 .frame(width: 40, height: 5)
                 .padding(.top, 10)
 
+            // Delivery Failed Banner
+            if order.status.lowercased() == "delivery_failed" {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.white)
+                    VStack(alignment: .leading) {
+                        Text("Delivery Failed")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text("A full refund has been issued to your payment method.")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.red)
+                .cornerRadius(12)
+                .padding(.horizontal)
+                .padding(.top, 12)
+            }
+
             // ETA Header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -634,12 +656,13 @@ struct DeliveryStatusTimeline: View {
         let isReady = status == "ready" || status == "pending_delivery_decision" || status == "ready_for_pickup"
         let isOnTheWay = ["out_for_delivery", "ontheway", "restaurant_will_deliver", "pending_delivery_proof"].contains(status)
         let isDelivered = status == "delivered"
+        let isDeliveryFailed = status == "delivery_failed"
 
         // Stage completion logic - each stage is complete when we've moved past it
         let stage1Complete = !isPlaced && !isConfirming  // Past Placed/Confirming
-        let stage2Complete = isReady || isOnTheWay || isDelivered  // Past Preparing
-        let stage3Complete = isOnTheWay || isDelivered  // Past Ready
-        let stage4Complete = isDelivered  // Past On the Way
+        let stage2Complete = isReady || isOnTheWay || isDelivered || isDeliveryFailed  // Past Preparing
+        let stage3Complete = isOnTheWay || isDelivered || isDeliveryFailed  // Past Ready
+        let stage4Complete = isDelivered || isDeliveryFailed  // Past On the Way
 
         return [
             // Stage 1: Placed/Confirming - shows "Confirming" with clock during restaurant acceptance
@@ -667,11 +690,12 @@ struct DeliveryStatusTimeline: View {
              stage4Complete,
              events["picked_up"] ?? events["out_for_delivery"] ?? events["ontheway"] ?? events["restaurant_will_deliver"]),
 
-            // Stage 5: Delivered - complete
-            ("Delivered", "house.fill",
-             isDelivered,
-             isDelivered,
-             events["delivered"])
+            // Stage 5: Delivered or Failed
+            (isDeliveryFailed ? "Delivery Failed" : "Delivered",
+             isDeliveryFailed ? "xmark.circle.fill" : "house.fill",
+             isDelivered || isDeliveryFailed,
+             isDelivered || isDeliveryFailed,
+             isDeliveryFailed ? events["delivery_failed"] : events["delivered"])
         ]
     }
 
