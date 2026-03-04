@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-04 - Fixed delivery button error handling in iOS + Android restaurant apps
+Last activity: 2026-03-04 - Replaced OpenAI chat with deterministic rule-based support agent
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -29,7 +29,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 **Velocity (v1.4):**
 - Total phases: 5
 - Total plans: 12
-- Quick tasks: 60
+- Quick tasks: 61
 
 **v1.5 Execution:**
 - Total plans: 10 (across 5 phases)
@@ -68,6 +68,8 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-58]: Route-based tab mapping in Partner MainScreen instead of index-based (resilient to tab filtering)
 - [Phase quick-59]: vendor_auth_headers fixture for vendor-authenticated endpoints; admin_auth_headers only for admin-only endpoints (status approval)
 - [Phase quick-59]: Never define local client fixtures in test files -- always use conftest.client which sets up test DB properly
+- [Phase quick-61]: Text chat now deterministic (keyword intent -> DB lookup -> template response). Zero LLM cost. Voice path unchanged.
+- [Phase quick-61]: /api/support/chat stays in auth allowlist; optional JWT extraction via try_extract_customer for account-specific responses
 
 ### Blockers
 
@@ -84,9 +86,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 58 | Add Phase 10 features to Android apps and build/distribute all 6 apps | 2026-03-03 | 030c8aac | [58-add-phase-10-features-to-android-apps-an](./quick/58-add-phase-10-features-to-android-apps-an/) |
 | 59 | Fix 17 failing backend tests + build/distribute all 6 apps | 2026-03-03 | b536924f | [59-fix-18-failing-backend-tests-and-build-a](./quick/59-fix-18-failing-backend-tests-and-build-a/) |
 | 60 | Fix delivery button error handling in iOS and Android restaurant apps | 2026-03-04 | 7786c5b7 | [60-fix-delivery-button-error-handling-in-io](./quick/60-fix-delivery-button-error-handling-in-io/) |
+| 61 | Replace OpenAI chat with deterministic rule-based support agent | 2026-03-04 | 55c0d994 | [61-replace-openai-chat-with-deterministic-s](./quick/61-replace-openai-chat-with-deterministic-s/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-60 (Fix delivery button error handling in iOS + Android)
+Stopped at: Completed quick-61 (Replace OpenAI chat with deterministic support agent)
 Resume file: N/A
