@@ -408,14 +408,7 @@ class OrdersViewModel: ObservableObject {
                 case .success:
                     self?.fetchP2POrders() // Refresh orders
                 case .failure(let error):
-                    let errorMsg = error.localizedDescription.lowercased()
-                    if errorMsg.contains("expired") || errorMsg.contains("timeout") || errorMsg.contains("window") {
-                        self?.errorMessage = "Delivery decision window expired. Order sent to driver pool."
-                    } else if errorMsg.contains("already") || errorMsg.contains("assigned") {
-                        self?.errorMessage = "A driver has already been assigned to this order."
-                    } else {
-                        self?.errorMessage = "Unable to accept delivery. Please try again."
-                    }
+                    self?.errorMessage = error.localizedDescription
                     self?.showError = true
                 }
             }
@@ -444,12 +437,7 @@ class OrdersViewModel: ObservableObject {
                 case .success:
                     self?.fetchP2POrders() // Refresh orders
                 case .failure(let error):
-                    let errorMsg = error.localizedDescription.lowercased()
-                    if errorMsg.contains("already") || errorMsg.contains("assigned") {
-                        self?.errorMessage = "A driver has already been assigned to this order."
-                    } else {
-                        self?.errorMessage = "Unable to decline delivery. Please try again."
-                    }
+                    self?.errorMessage = error.localizedDescription
                     self?.showError = true
                 }
             }

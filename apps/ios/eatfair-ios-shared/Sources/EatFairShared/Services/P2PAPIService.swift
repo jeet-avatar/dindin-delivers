@@ -3364,10 +3364,21 @@ public class P2PAPIService: ObservableObject {
                     return
                 }
 
-                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                    completion(.success(true))
+                if let httpResponse = response as? HTTPURLResponse {
+                    if httpResponse.statusCode == 200 {
+                        completion(.success(true))
+                    } else if httpResponse.statusCode >= 400 {
+                        if let data = data,
+                           let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                            completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                        } else {
+                            completion(.failure(P2PAPIError.serverError("Failed to accept delivery")))
+                        }
+                    } else {
+                        completion(.success(true))
+                    }
                 } else {
-                    completion(.failure(P2PAPIError.serverError("Failed to accept delivery")))
+                    completion(.failure(P2PAPIError.serverError("Invalid response")))
                 }
             }
         }.resume()
@@ -3398,10 +3409,21 @@ public class P2PAPIService: ObservableObject {
                     return
                 }
 
-                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                    completion(.success(true))
+                if let httpResponse = response as? HTTPURLResponse {
+                    if httpResponse.statusCode == 200 {
+                        completion(.success(true))
+                    } else if httpResponse.statusCode >= 400 {
+                        if let data = data,
+                           let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                            completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                        } else {
+                            completion(.failure(P2PAPIError.serverError("Failed to send to driver pool")))
+                        }
+                    } else {
+                        completion(.success(true))
+                    }
                 } else {
-                    completion(.failure(P2PAPIError.serverError("Failed to send to driver pool")))
+                    completion(.failure(P2PAPIError.serverError("Invalid response")))
                 }
             }
         }.resume()
