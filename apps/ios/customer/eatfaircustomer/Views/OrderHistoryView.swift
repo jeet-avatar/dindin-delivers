@@ -190,7 +190,7 @@ struct OrderHistoryView: View {
             }
         case .completed:
             return viewModel.orders.filter {
-                ["Delivered", "Cancelled"].contains($0.status)
+                ["Delivered", "Cancelled", "DeliveryFailed", "delivery_failed"].contains($0.status)
             }
         }
     }
