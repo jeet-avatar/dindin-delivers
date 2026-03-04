@@ -265,7 +265,7 @@ public class AppConfig: ObservableObject {
     @Published public var rideBaseFare: Double = 2.50          // Minimum base fare
     @Published public var ridePerMileRate: Double = 1.15       // Per mile rate
     @Published public var ridePerMinuteRate: Double = 0.18     // Per minute rate
-    @Published public var rideMinFare: Double = 5.00           // Minimum fare
+    @Published public var rideMinFare: Double = 8.00           // Minimum fare (matches backend pricing_config.py:21 MINIMUM_FARE)
     @Published public var rideCancellationFee: Double = 5.00   // Cancellation fee (base)
     @Published public var rideCancellationFeeDriverEnRoute: Double = 5.00  // Fee when driver assigned
     @Published public var rideCancellationFeeInProgress: Double = 10.00    // Fee when ride in progress
