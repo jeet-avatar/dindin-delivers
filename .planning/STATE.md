@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-04 - Added delivery timeout safety net (90-min warn, 120-min refund, 24h cleanup)
+Last activity: 2026-03-04 - Fixed all 5 rideshare ride availability gaps + standardized 5s polling + built/distributed 6 apps
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -29,7 +29,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 **Velocity (v1.4):**
 - Total phases: 5
 - Total plans: 12
-- Quick tasks: 63
+- Quick tasks: 64
 
 **v1.5 Execution:**
 - Total plans: 10 (across 5 phases)
@@ -72,6 +72,9 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-61]: /api/support/chat stays in auth allowlist; optional JWT extraction via try_extract_customer for account-specific responses
 - [Phase quick-62]: vendorDocumentsURL constant added to AppConstants; iOS/Android vendor document links use www.dollor.ai/vendor/documents (not admin portal)
 - [Phase quick-63]: In-memory set for 90-min delivery warning deduplication; delivery_failed is a new terminal OrderStatus; 120-min check before 90-min in loop to avoid double notification
+- [Phase quick-64]: send_push_notification sync call pattern (user_type, user_id) replaces old asyncio.run(token) pattern in bid_routes.py
+- [Phase quick-64]: bidding_expires_at filter uses or_(field > now, field.is_(None)) for backward compat with NULL values
+- [Phase quick-64]: Individual bid expiry job runs on same 60s interval as other ride cleanup jobs
 
 ### Blockers
 
@@ -91,9 +94,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 61 | Replace OpenAI chat with deterministic rule-based support agent | 2026-03-04 | 55c0d994 | [61-replace-openai-chat-with-deterministic-s](./quick/61-replace-openai-chat-with-deterministic-s/) |
 | 62 | Fix vendor document upload flow E2E -- URL + camera capture | 2026-03-04 | 3a4d4992 | [62-fix-vendor-document-upload-flow-e2e-url-](./quick/62-fix-vendor-document-upload-flow-e2e-url-/) |
 | 63 | Add delivery timeout safety net -- 90-min warning, 120-min auto-refund, 24h stale cleanup | 2026-03-04 | 781ab4bc | [63-add-delivery-timeout-safety-net-90min-wa](./quick/63-add-delivery-timeout-safety-net-90min-wa/) |
+| 64 | Fix all 5 rideshare ride availability gaps + standardize 5s polling + build 6 apps | 2026-03-04 | 01bb0919 | [64-fix-all-5-rideshare-ride-availability-ga](./quick/64-fix-all-5-rideshare-ride-availability-ga/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Investigated ride availability gaps (5 found). Next: fix all gaps + standardize 5s polling + build 6 apps.
+Stopped at: Completed quick-64 (ride availability gaps). Firebase re-auth needed for Android APK distribution. Backend deploy pending.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
