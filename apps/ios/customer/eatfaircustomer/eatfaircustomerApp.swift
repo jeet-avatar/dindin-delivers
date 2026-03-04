@@ -196,6 +196,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                     userInfo: ["rideRequestId": rideRequestId]
                 )
             }
+        case .rideExpired:
+            // Show ride expired — no need to navigate, just post notification for any listening view
+            NotificationCenter.default.post(
+                name: NSNotification.Name("RideRequestExpired"),
+                object: nil,
+                userInfo: payload.rideRequestId.map { ["rideRequestId": $0] } ?? [:]
+            )
         default:
             break
         }
