@@ -83,6 +83,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-69]: App Store version has build 1037 attached (REJECTED Jan 23) -- must attach build 1108 and resubmit
 - [Phase quick-70]: AWS admin secret is dollor/production/admin (not admin-yCDIFY as in CLAUDE.md); www.dollor.ai required for privacy/support URLs (bare domain SSL fails)
 - [Phase quick-71]: GO recommendation: all 30 checks pass (27 PASS, 0 FAIL, 3 non-blocking WARNINGs) for App Store submission of build 1108
+- [Phase quick-72]: NO-GO for App Store submission: demo customer OAuth2 login returns 401 on production; standard /api/auth/customer/login tested (not bypass); fix password hash before submitting
 
 ### Blockers
 
@@ -109,9 +110,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 69 | Pre-submission App Store rejection audit -- 42 checks, 4 blockers found | 2026-03-04 | bf106f8d | [69-pre-submission-app-store-rejection-audit](./quick/69-pre-submission-app-store-rejection-audit/) |
 | 70 | Fix 4 App Store blockers -- demo 401, privacy URL, build 1108, REJECTED state | 2026-03-04 | (API-only) | [70-fix-4-app-store-blockers-for-customer-ap](./quick/70-fix-4-app-store-blockers-for-customer-ap/) |
 | 71 | E2E pre-submission verification -- 30 checks, 27 PASS, 0 FAIL, 3 WARNING, GO recommendation | 2026-03-04 | 05af5b30 | [71-e2e-pre-submission-verification-for-cust](./quick/71-e2e-pre-submission-verification-for-cust/) |
+| 72 | Final stress test -- 39 checks, 34 PASS, 1 FAIL (demo login 401), 4 WARNING, NO-GO | 2026-03-04 | 04c19800 | [72-final-stress-test-for-customer-app-build](./quick/72-final-stress-test-for-customer-app-build/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-71 (E2E pre-submission verification: GO for App Store submission of build 1108).
+Stopped at: Completed quick-72 (Final stress test: NO-GO -- demo login 401 on production, fix before submitting).
 Resume file: .planning/NEXT_SESSION_PROMPT.md
