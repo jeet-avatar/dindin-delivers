@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-04 - Fixed vendor document upload flow E2E (URLs + camera capture)
+Last activity: 2026-03-04 - Added delivery timeout safety net (90-min warn, 120-min refund, 24h cleanup)
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -29,7 +29,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 **Velocity (v1.4):**
 - Total phases: 5
 - Total plans: 12
-- Quick tasks: 62
+- Quick tasks: 63
 
 **v1.5 Execution:**
 - Total plans: 10 (across 5 phases)
@@ -71,6 +71,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-61]: Text chat now deterministic (keyword intent -> DB lookup -> template response). Zero LLM cost. Voice path unchanged.
 - [Phase quick-61]: /api/support/chat stays in auth allowlist; optional JWT extraction via try_extract_customer for account-specific responses
 - [Phase quick-62]: vendorDocumentsURL constant added to AppConstants; iOS/Android vendor document links use www.dollor.ai/vendor/documents (not admin portal)
+- [Phase quick-63]: In-memory set for 90-min delivery warning deduplication; delivery_failed is a new terminal OrderStatus; 120-min check before 90-min in loop to avoid double notification
 
 ### Blockers
 
@@ -89,9 +90,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 60 | Fix delivery button error handling in iOS and Android restaurant apps | 2026-03-04 | 7786c5b7 | [60-fix-delivery-button-error-handling-in-io](./quick/60-fix-delivery-button-error-handling-in-io/) |
 | 61 | Replace OpenAI chat with deterministic rule-based support agent | 2026-03-04 | 55c0d994 | [61-replace-openai-chat-with-deterministic-s](./quick/61-replace-openai-chat-with-deterministic-s/) |
 | 62 | Fix vendor document upload flow E2E -- URL + camera capture | 2026-03-04 | 3a4d4992 | [62-fix-vendor-document-upload-flow-e2e-url-](./quick/62-fix-vendor-document-upload-flow-e2e-url-/) |
+| 63 | Add delivery timeout safety net -- 90-min warning, 120-min auto-refund, 24h stale cleanup | 2026-03-04 | 781ab4bc | [63-add-delivery-timeout-safety-net-90min-wa](./quick/63-add-delivery-timeout-safety-net-90min-wa/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-62 (Fix vendor document upload flow E2E)
+Stopped at: Completed quick-63 (Add delivery timeout safety net)
 Resume file: N/A
