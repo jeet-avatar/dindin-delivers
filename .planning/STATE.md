@@ -79,6 +79,8 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-66]: CI Security workflow lacks workflow_dispatch trigger -- cannot be manually triggered; only fires on PR to main or push to develop
 - [Phase quick-67]: CI/CD Pipeline workflow has path filters (apps/web/p2p-platform/**) -- does not auto-trigger on iOS-only pushes; needs manual trigger
 - [Phase quick-67]: Android gradlew clean assembleRelease required after version bump to avoid stale APK cache with old version numbers
+- [Phase quick-69]: Privacy policy URL must use www.dollor.ai (bare domain has Let's Encrypt SSL issues causing connection failures)
+- [Phase quick-69]: App Store version has build 1037 attached (REJECTED Jan 23) -- must attach build 1108 and resubmit
 
 ### Blockers
 
@@ -102,9 +104,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 65 | Deploy backend, distribute Android APKs, rebuild iOS apps to TestFlight | 2026-03-04 | 2076afff | [65-deploy-backend-distribute-android-apks-r](./quick/65-deploy-backend-distribute-android-apks-r/) |
 | 66 | Rebuild all 6 apps fresh -- iOS 1107/212/182 to TestFlight, Android vC=32/29/25 to Firebase | 2026-03-04 | a6ea527c | [66-rebuild-all-6-apps-fresh-trigger-ci-secu](./quick/66-rebuild-all-6-apps-fresh-trigger-ci-secu/) |
 | 67 | Rebuild all 6 apps with full CI/CD gate -- iOS 1108/213/183, Android vC=33/30/26 | 2026-03-04 | 73152d96 | [67-rebuild-all-6-apps-with-full-ci-cd-passi](./quick/67-rebuild-all-6-apps-with-full-ci-cd-passi/) |
+| 69 | Pre-submission App Store rejection audit -- 42 checks, 4 blockers found | 2026-03-04 | bf106f8d | [69-pre-submission-app-store-rejection-audit](./quick/69-pre-submission-app-store-rejection-audit/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-67 (CI-gated rebuild all 6 apps). iOS 1108/213/183 on TestFlight, Android vC=33/30/26 on Firebase.
+Stopped at: Completed quick-69 (App Store pre-submission audit). 4 blockers found: demo 401, privacy URL SSL, wrong build attached, REJECTED state.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
