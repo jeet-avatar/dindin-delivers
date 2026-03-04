@@ -299,9 +299,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 81 | Submit iOS Customer app build 1111 to App Store review — WAITING_FOR_REVIEW | 2026-03-04 | (API-only) | [81-submit-ios-customer-app-build-1111-to-ap](./quick/81-submit-ios-customer-app-build-1111-to-ap/) |
 | 82 | Fix Android Apple Auth path mismatch — FALSE POSITIVE, no changes needed | 2026-03-04 | (none) | [82-fix-android-apple-auth-path-mismatch-dol](./quick/82-fix-android-apple-auth-path-mismatch-dol/) |
 | 83 | Cross-platform API sync verification — 0 real bugs, all 12 flags are false positives or cosmetic | 2026-03-04 | (none) | [83-cross-platform-api-sync-verification-rec](./quick/83-cross-platform-api-sync-verification-rec/) |
+| 84 | Research API alignment guarantee strategy — OpenAPI CI validator recommended (~2-3 hrs to implement) | 2026-03-04 | (none) | [84-research-api-alignment-guarantee-strateg](./quick/84-research-api-alignment-guarantee-strateg/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-83 (Cross-platform API sync verification: all 12 flags from quick-79 are false positives or cosmetic — 0 real bugs, iOS and Android fully in sync).
+Stopped at: Completed quick-84 (API alignment guarantee strategy: OpenAPI CI validator recommended, ~2-3 hrs to implement).
 Resume file: .planning/NEXT_SESSION_PROMPT.md
