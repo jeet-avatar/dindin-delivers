@@ -405,6 +405,7 @@ class OrderStatus(enum.Enum):
     PENDING_DELIVERY_PROOF = "pending_delivery_proof"  # Driver must upload proof photo before payout
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
+    DELIVERY_FAILED = "delivery_failed"
 
 class Order(Base):
     __tablename__ = "orders"

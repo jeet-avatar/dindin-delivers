@@ -31,7 +31,7 @@ import os
 import requests
 
 from database import get_db, SessionLocal
-from email_service import send_order_delivered_with_receipt_email
+from email_service import send_order_delivered_with_receipt_email, send_email
 from google_maps_service import get_traffic_eta, ETAResult
 
 # Service URLs
@@ -2041,6 +2041,16 @@ def check_delivery_decision_timeouts_job():
 DELIVERY_PROOF_TIMEOUT_HOURS = 24
 DELIVERY_PROOF_CHECK_INTERVAL_SECONDS = 300  # Check every 5 minutes
 
+# Delivery timeout thresholds
+DELIVERY_WARNING_MINUTES = 90      # Send warning after 90 minutes
+DELIVERY_FAILURE_MINUTES = 120     # Auto-refund after 120 minutes
+DELIVERY_TIMEOUT_CHECK_INTERVAL_SECONDS = 60  # Check every 60 seconds
+STALE_ORDER_HOURS = 24             # Cancel stale active orders after 24 hours
+STALE_ORDER_CHECK_INTERVAL_SECONDS = 300  # Check every 5 minutes
+
+# Track warned orders in-memory to avoid duplicate notifications
+_delivery_warned_orders: set = set()
+
 
 def check_delivery_proof_timeouts_job():
     """Auto-release payments for orders stuck in PENDING_DELIVERY_PROOF for 24+ hours"""
@@ -2113,6 +2123,190 @@ def check_delivery_proof_timeouts_job():
         db.close()
 
 
+def check_delivery_timeouts_job():
+    """
+    Background job to catch orders stuck in out_for_delivery status.
+    - 90 minutes: warn customer via push, email support (once per order)
+    - 120 minutes: auto-refund, mark delivery_failed, notify customer + support
+    Runs every 60 seconds.
+    """
+    global _delivery_warned_orders
+    db = SessionLocal()
+    try:
+        # Find all orders currently out for delivery with a pickup timestamp
+        stuck_orders = db.query(Order).filter(
+            Order.status == OrderStatus.OUT_FOR_DELIVERY,
+            Order.picked_up_at.isnot(None)
+        ).all()
+
+        failed_count = 0
+        for order in stuck_orders:
+            elapsed_minutes = (datetime.now() - order.picked_up_at).total_seconds() / 60
+
+            # 120-minute auto-refund (check first so 120+ orders don't also trigger 90-min)
+            if elapsed_minutes >= DELIVERY_FAILURE_MINUTES:
+                # Trigger refund
+                if order.stripe_payment_intent_id:
+                    trigger_refund(order, reason="Delivery timeout - order not delivered within 120 minutes")
+
+                order.status = OrderStatus.DELIVERY_FAILED
+                order.payment_status = "refunded"
+                failed_count += 1
+
+                # Notify customer
+                try:
+                    send_push_notification(
+                        user_type="customer",
+                        user_id=order.customer_id,
+                        title="Order Could Not Be Delivered",
+                        body="Your order could not be delivered. A full refund has been issued to your payment method.",
+                        data={"type": "delivery_failed", "order_id": str(order.id)},
+                        db=db
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send delivery failed notification: {e}")
+
+                # Email support
+                try:
+                    customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+                    driver = db.query(Driver).filter(Driver.id == order.driver_id).first() if order.driver_id else None
+                    html_body = f"""
+                    <h2>Delivery Failed - Auto-Refund Issued</h2>
+                    <p><strong>Order:</strong> {order.order_number}</p>
+                    <p><strong>Customer:</strong> {customer.email if customer else 'Unknown'} (ID: {order.customer_id})</p>
+                    <p><strong>Driver:</strong> {driver.first_name + ' ' + driver.last_name if driver else 'Unknown'} (ID: {order.driver_id})</p>
+                    <p><strong>Picked up at:</strong> {order.picked_up_at.strftime('%Y-%m-%d %H:%M UTC') if order.picked_up_at else 'N/A'}</p>
+                    <p><strong>Elapsed:</strong> {int(elapsed_minutes)} minutes</p>
+                    <p><strong>Resolution:</strong> Full refund issued, status set to delivery_failed</p>
+                    <p>This was handled automatically by the delivery timeout safety net.</p>
+                    """
+                    send_email(
+                        to_email="support@dollor.ai",
+                        subject=f"[Delivery Failed] Order {order.order_number} auto-refunded after 120+ minutes",
+                        html_body=html_body,
+                        text_body=f"Delivery Failed: Order {order.order_number} auto-refunded after {int(elapsed_minutes)} min",
+                        skip_validation=True,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send delivery failed escalation email: {e}")
+
+                # Remove from warned set if present
+                _delivery_warned_orders.discard(order.id)
+
+                logger.error(f"Order {order.order_number} delivery FAILED after {int(elapsed_minutes)} min. Refund issued.")
+
+            # 90-minute warning (fire once per order)
+            elif elapsed_minutes >= DELIVERY_WARNING_MINUTES and order.id not in _delivery_warned_orders:
+                # Notify customer
+                try:
+                    send_push_notification(
+                        user_type="customer",
+                        user_id=order.customer_id,
+                        title="Delivery Update",
+                        body="Your delivery appears to be delayed. We're looking into it and will keep you updated.",
+                        data={"type": "delivery_delayed", "order_id": str(order.id)},
+                        db=db
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send delivery delayed notification: {e}")
+
+                # Email support
+                try:
+                    customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+                    driver = db.query(Driver).filter(Driver.id == order.driver_id).first() if order.driver_id else None
+                    html_body = f"""
+                    <h2>Delivery Alert - Order Delayed 90+ Minutes</h2>
+                    <p><strong>Order:</strong> {order.order_number}</p>
+                    <p><strong>Customer:</strong> {customer.email if customer else 'Unknown'} (ID: {order.customer_id})</p>
+                    <p><strong>Driver:</strong> {driver.first_name + ' ' + driver.last_name if driver else 'Unknown'} (ID: {order.driver_id})</p>
+                    <p><strong>Picked up at:</strong> {order.picked_up_at.strftime('%Y-%m-%d %H:%M UTC') if order.picked_up_at else 'N/A'}</p>
+                    <p><strong>Elapsed:</strong> {int(elapsed_minutes)} minutes</p>
+                    <p>Please investigate. If not resolved, auto-refund will trigger at 120 minutes.</p>
+                    """
+                    send_email(
+                        to_email="support@dollor.ai",
+                        subject=f"[Delivery Alert] Order {order.order_number} delayed 90+ minutes",
+                        html_body=html_body,
+                        text_body=f"Delivery Alert: Order {order.order_number} delayed {int(elapsed_minutes)} min",
+                        skip_validation=True,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send delivery delayed escalation email: {e}")
+
+                _delivery_warned_orders.add(order.id)
+                logger.warning(f"Order {order.order_number} delivery delayed {int(elapsed_minutes)} min. Warning sent.")
+
+        if failed_count > 0:
+            db.commit()
+            logger.info(f"Delivery timeout check: {failed_count} orders marked as delivery_failed")
+
+    except Exception as e:
+        logger.error(f"Error in delivery timeout check: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def cleanup_stale_orders_job():
+    """
+    Background job to cancel any active orders older than 24 hours.
+    Catches edge cases where orders get stuck in any active status.
+    Runs every 5 minutes.
+    """
+    db = SessionLocal()
+    try:
+        active_statuses = [
+            OrderStatus.PENDING_RESTAURANT,
+            OrderStatus.PREPARING,
+            OrderStatus.READY_FOR_PICKUP,
+            OrderStatus.OUT_FOR_DELIVERY,
+            OrderStatus.PENDING_DELIVERY_DECISION,
+            OrderStatus.PENDING_DELIVERY_PROOF,
+        ]
+        cutoff = datetime.now() - timedelta(hours=STALE_ORDER_HOURS)
+
+        stale_orders = db.query(Order).filter(
+            Order.status.in_(active_statuses),
+            Order.created_at < cutoff
+        ).all()
+
+        cancelled_count = 0
+        for order in stale_orders:
+            # Refund if payment was captured
+            if order.stripe_payment_intent_id:
+                trigger_refund(order, reason="Stale order cleanup - order inactive for 24+ hours")
+                order.payment_status = "refunded"
+
+            order.status = OrderStatus.CANCELLED
+            order.cancelled_at = datetime.now()
+            cancelled_count += 1
+
+            # Notify customer
+            try:
+                send_push_notification(
+                    user_type="customer",
+                    user_id=order.customer_id,
+                    title="Order Cancelled",
+                    body="Your order has been automatically cancelled due to inactivity. If you were charged, a full refund has been issued.",
+                    data={"type": "stale_order_cancelled", "order_id": str(order.id)},
+                    db=db
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send stale order notification: {e}")
+
+            logger.warning(f"Stale order {order.order_number} auto-cancelled after 24+ hours")
+
+        if cancelled_count > 0:
+            db.commit()
+            logger.info(f"Stale order cleanup: {cancelled_count} orders auto-cancelled")
+
+    except Exception as e:
+        logger.error(f"Error in stale order cleanup: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 # Initialize the background scheduler
 restaurant_timeout_scheduler = BackgroundScheduler()
 restaurant_timeout_scheduler.add_job(
@@ -2134,6 +2328,20 @@ restaurant_timeout_scheduler.add_job(
     IntervalTrigger(seconds=DELIVERY_PROOF_CHECK_INTERVAL_SECONDS),
     id="delivery_proof_timeout_checker",
     name="Check for delivery proof photo timeouts (24h auto-release)",
+    replace_existing=True
+)
+restaurant_timeout_scheduler.add_job(
+    check_delivery_timeouts_job,
+    IntervalTrigger(seconds=DELIVERY_TIMEOUT_CHECK_INTERVAL_SECONDS),
+    id="delivery_timeout_checker",
+    name="Check for delivery timeouts (90min warn, 120min fail)",
+    replace_existing=True
+)
+restaurant_timeout_scheduler.add_job(
+    cleanup_stale_orders_job,
+    IntervalTrigger(seconds=STALE_ORDER_CHECK_INTERVAL_SECONDS),
+    id="stale_order_cleanup",
+    name="Cleanup stale active orders (24h+)",
     replace_existing=True
 )
 
@@ -2178,7 +2386,9 @@ def start_timeout_scheduler():
             f"Checking every {TIMEOUT_CHECK_INTERVAL_SECONDS}s for: "
             f"restaurant acceptance ({RESTAURANT_ACCEPTANCE_WINDOW_SECONDS}s window), "
             f"delivery decision ({DELIVERY_DECISION_WINDOW_SECONDS}s window), "
-            f"delivery proof ({DELIVERY_PROOF_TIMEOUT_HOURS}h auto-release every {DELIVERY_PROOF_CHECK_INTERVAL_SECONDS}s). "
+            f"delivery proof ({DELIVERY_PROOF_TIMEOUT_HOURS}h auto-release every {DELIVERY_PROOF_CHECK_INTERVAL_SECONDS}s), "
+            f"delivery timeout ({DELIVERY_WARNING_MINUTES}min warn/{DELIVERY_FAILURE_MINUTES}min fail every {DELIVERY_TIMEOUT_CHECK_INTERVAL_SECONDS}s), "
+            f"stale order cleanup ({STALE_ORDER_HOURS}h every {STALE_ORDER_CHECK_INTERVAL_SECONDS}s). "
             f"Rideshare: bidding expiry ({RIDE_BIDDING_EXPIRY_MINUTES}min), "
             f"matched timeout ({RIDE_MATCHED_TIMEOUT_MINUTES}min), "
             f"in-progress timeout ({RIDE_IN_PROGRESS_TIMEOUT_HOURS}h) every {RIDE_CLEANUP_CHECK_INTERVAL_SECONDS}s."

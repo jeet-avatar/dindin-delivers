@@ -152,8 +152,11 @@ class TestEnums:
         # Delivery proof
         assert OrderStatus.PENDING_DELIVERY_PROOF.value == "pending_delivery_proof"
 
+        # Delivery failed (timeout safety net)
+        assert OrderStatus.DELIVERY_FAILED.value == "delivery_failed"
+
         statuses = [e.value for e in OrderStatus]
-        assert len(statuses) == 14
+        assert len(statuses) == 15
 
     def test_customer_status_enum_values(self):
         """Test CustomerStatus enum has all expected values"""
