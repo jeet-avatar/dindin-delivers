@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-04 - Completed quick task 81: iOS Customer app build 1111 submitted for App Store review (WAITING_FOR_REVIEW)
+Last activity: 2026-03-04 - Completed quick task 85: OpenAPI CI contract validator — 321 PASS, 0 FAIL, 15 EXCLUDED
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -365,131 +365,12 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-77]: Use backend total/subtotal as primary fare display values with local-calc fallback (eliminates time_adjustment/long_distance_discount mismatch)
 - [Phase quick-77]: Gate fare section on fareEstimateReceived AND canRequestRide; separate isEstimatingFare overlay from isLoading overlay
 - [Phase quick-78]: pricing_config.py is canonical source for rideshare fare constants; order_flow.py payment engine must mirror exactly (was divergent: 2.00/1.00/0.15/5.00 vs 2.50/1.15/0.18/8.00)
-- [Phase quick-78]: Payment engine (order_flow.py) uses flat ### Decisions
-
- PLATFORM_FEE; tiered ### Decisions
-
-/- Use existing SNS topic for ACM cert expiry alarms (same channel as EKS/RDS alerts)
-- Conditional CloudWatch alarm creation via count so module does not break environments without ACM ARN
-- ok_actions on critical alarm only to confirm renewal recovery
-- Runbook stored in .planning/runbooks/ for operational procedures
-- SSL leaf pin is a ticking time bomb -- ACM now renews every 198 days, next renewal breaks all 182 iOS API calls
-- Play Store and DB rotation are independent domains -- can parallel if needed
-- E2E testing comes last to validate infrastructure changes from earlier phases
-- Real-device testing deferred to future milestone -- backend API E2E covers business logic
-- Client-side secret caching rejected -- ECS force-redeployment sufficient for 30-day rotation
-- Pin all 5 Amazon Trust Services root CAs (not just the one in chain) for resilience against AWS chain changes
-- Root CA keys are permanent -- leaf/intermediate pins removed entirely to prevent ACM renewal breakage
-- ImageMagick for alpha stripping (sips fails with error 13 on hasAlpha property)
-- Proceed with AAB build despite pk_test_ Stripe key -- user must update to pk_live_ before Play Store submission
-- No ACCESS_BACKGROUND_LOCATION in any Android app -- foreground-only location simplifies Data Safety
-- Firebase Analytics/Crashlytics not included despite being in version catalog -- accurately reported as absent
-- [Phase quick-55]: Use www.dollor.ai canonical domain for all user-facing URLs (avoids 301 redirect from bare domain)
-- [Phase quick-55]: Convert vanity phone +1-800-DOLLOR to numeric +1-800-365-5671 for iOS tel: scheme compatibility
-- [Phase quick-56]: Path aliases use multi-decorator on original handler, not separate alias functions
-- [Phase quick-56]: Removed vendorAuth AppConfig constant (pointed to non-existent /api/vendors/google-auth; actual route is /api/auth/vendor/google-auth)
-- [Phase quick-57]: Vendor alias uses require_vendor + ownership check pattern; monthly_breakdown queries all-time orders independent of period filter
-- [Phase 10-01]: OrderChatMessage.sendOrderChatMessage returns Result<Bool> (backend returns success flag, not full message object); view refetches after send
-- [Phase 10-01]: #if ENABLE_AI_EMPLOYEES compile-time flag pattern for hiding aspirational features without code deletion
-- [Phase 10-02]: Text chat uses gpt-4o-mini via Chat Completions (cheaper than Realtime for text); voice uses sage voice with PCMU audio passthrough
-- [Phase 10-02]: /api/support/chat and /api/voice/incoming-call added to auth middleware allowlist (public endpoints)
-- [Phase 10-02]: Escalation email uses skip_validation=True since support@dollor.ai is not in user tables
-- [Phase quick-58]: SHOW_AI_FEATURES=false constant pattern for Android (mirrors iOS #if ENABLE_AI_EMPLOYEES)
-- [Phase quick-58]: Route-based tab mapping in Partner MainScreen instead of index-based (resilient to tab filtering)
-- [Phase quick-59]: vendor_auth_headers fixture for vendor-authenticated endpoints; admin_auth_headers only for admin-only endpoints (status approval)
-- [Phase quick-59]: Never define local client fixtures in test files -- always use conftest.client which sets up test DB properly
-- [Phase quick-61]: Text chat now deterministic (keyword intent -> DB lookup -> template response). Zero LLM cost. Voice path unchanged.
-- [Phase quick-61]: /api/support/chat stays in auth allowlist; optional JWT extraction via try_extract_customer for account-specific responses
-- [Phase quick-62]: vendorDocumentsURL constant added to AppConstants; iOS/Android vendor document links use www.dollor.ai/vendor/documents (not admin portal)
-- [Phase quick-63]: In-memory set for 90-min delivery warning deduplication; delivery_failed is a new terminal OrderStatus; 120-min check before 90-min in loop to avoid double notification
-- [Phase quick-64]: send_push_notification sync call pattern (user_type, user_id) replaces old asyncio.run(token) pattern in bid_routes.py
-- [Phase quick-64]: bidding_expires_at filter uses or_(field > now, field.is_(None)) for backward compat with NULL values
-- [Phase quick-64]: Individual bid expiry job runs on same 60s interval as other ride cleanup jobs
-- [Phase quick-65]: test_get_realtime_analytics call count boundaries updated for 15 OrderStatus values (was 13; PENDING_DELIVERY_PROOF + DELIVERY_FAILED added in quick-63)
-- [Phase quick-66]: CI Security workflow lacks workflow_dispatch trigger -- cannot be manually triggered; only fires on PR to main or push to develop
-- [Phase quick-67]: CI/CD Pipeline workflow has path filters (apps/web/p2p-platform/**) -- does not auto-trigger on iOS-only pushes; needs manual trigger
-- [Phase quick-67]: Android gradlew clean assembleRelease required after version bump to avoid stale APK cache with old version numbers
-- [Phase quick-69]: Privacy policy URL must use www.dollor.ai (bare domain has Let's Encrypt SSL issues causing connection failures)
-- [Phase quick-69]: App Store version has build 1037 attached (REJECTED Jan 23) -- must attach build 1108 and resubmit
-- [Phase quick-70]: AWS admin secret is dollor/production/admin (not admin-yCDIFY as in CLAUDE.md); www.dollor.ai required for privacy/support URLs (bare domain SSL fails)
-- [Phase quick-71]: GO recommendation: all 30 checks pass (27 PASS, 0 FAIL, 3 non-blocking WARNINGs) for App Store submission of build 1108
-- [Phase quick-72]: NO-GO for App Store submission: demo customer OAuth2 login returns 401 on production; standard /api/auth/customer/login tested (not bypass); fix password hash before submitting
-- [Phase quick-73]: ASC supportUrl lives on appStoreVersionLocalizations (not appInfoLocalizations); quick-72 checked wrong resource; DEMO_EMAILS frozenset exempts demo accounts from rate limiting on all 4 login endpoints
-- [Phase quick-75]: 422 from staging smoke test accepted (plan curl used abbreviated field names); correct field names return 200
-- [Phase quick-76]: Production deploy already succeeded despite CI/CD timeout -- verified via smoke test; demo customer login requires /api/customer/demo-login with secret_key, not standard auth endpoint
-- [Phase quick-77]: Use backend total/subtotal as primary fare display values with local-calc fallback (eliminates time_adjustment/long_distance_discount mismatch)
-- [Phase quick-77]: Gate fare section on fareEstimateReceived AND canRequestRide; separate isEstimatingFare overlay from isLoading overlay
-- [Phase quick-78]: pricing_config.py is canonical source for rideshare fare constants; order_flow.py payment engine must mirror exactly (was divergent: 2.00/1.00/0.15/5.00 vs 2.50/1.15/0.18/8.00)
-- [Phase quick-78]: Payment engine (order_flow.py) uses flat ### Decisions
-
- PLATFORM_FEE; tiered ### Decisions
-
-/- Use existing SNS topic for ACM cert expiry alarms (same channel as EKS/RDS alerts)
-- Conditional CloudWatch alarm creation via count so module does not break environments without ACM ARN
-- ok_actions on critical alarm only to confirm renewal recovery
-- Runbook stored in .planning/runbooks/ for operational procedures
-- SSL leaf pin is a ticking time bomb -- ACM now renews every 198 days, next renewal breaks all 182 iOS API calls
-- Play Store and DB rotation are independent domains -- can parallel if needed
-- E2E testing comes last to validate infrastructure changes from earlier phases
-- Real-device testing deferred to future milestone -- backend API E2E covers business logic
-- Client-side secret caching rejected -- ECS force-redeployment sufficient for 30-day rotation
-- Pin all 5 Amazon Trust Services root CAs (not just the one in chain) for resilience against AWS chain changes
-- Root CA keys are permanent -- leaf/intermediate pins removed entirely to prevent ACM renewal breakage
-- ImageMagick for alpha stripping (sips fails with error 13 on hasAlpha property)
-- Proceed with AAB build despite pk_test_ Stripe key -- user must update to pk_live_ before Play Store submission
-- No ACCESS_BACKGROUND_LOCATION in any Android app -- foreground-only location simplifies Data Safety
-- Firebase Analytics/Crashlytics not included despite being in version catalog -- accurately reported as absent
-- [Phase quick-55]: Use www.dollor.ai canonical domain for all user-facing URLs (avoids 301 redirect from bare domain)
-- [Phase quick-55]: Convert vanity phone +1-800-DOLLOR to numeric +1-800-365-5671 for iOS tel: scheme compatibility
-- [Phase quick-56]: Path aliases use multi-decorator on original handler, not separate alias functions
-- [Phase quick-56]: Removed vendorAuth AppConfig constant (pointed to non-existent /api/vendors/google-auth; actual route is /api/auth/vendor/google-auth)
-- [Phase quick-57]: Vendor alias uses require_vendor + ownership check pattern; monthly_breakdown queries all-time orders independent of period filter
-- [Phase 10-01]: OrderChatMessage.sendOrderChatMessage returns Result<Bool> (backend returns success flag, not full message object); view refetches after send
-- [Phase 10-01]: #if ENABLE_AI_EMPLOYEES compile-time flag pattern for hiding aspirational features without code deletion
-- [Phase 10-02]: Text chat uses gpt-4o-mini via Chat Completions (cheaper than Realtime for text); voice uses sage voice with PCMU audio passthrough
-- [Phase 10-02]: /api/support/chat and /api/voice/incoming-call added to auth middleware allowlist (public endpoints)
-- [Phase 10-02]: Escalation email uses skip_validation=True since support@dollor.ai is not in user tables
-- [Phase quick-58]: SHOW_AI_FEATURES=false constant pattern for Android (mirrors iOS #if ENABLE_AI_EMPLOYEES)
-- [Phase quick-58]: Route-based tab mapping in Partner MainScreen instead of index-based (resilient to tab filtering)
-- [Phase quick-59]: vendor_auth_headers fixture for vendor-authenticated endpoints; admin_auth_headers only for admin-only endpoints (status approval)
-- [Phase quick-59]: Never define local client fixtures in test files -- always use conftest.client which sets up test DB properly
-- [Phase quick-61]: Text chat now deterministic (keyword intent -> DB lookup -> template response). Zero LLM cost. Voice path unchanged.
-- [Phase quick-61]: /api/support/chat stays in auth allowlist; optional JWT extraction via try_extract_customer for account-specific responses
-- [Phase quick-62]: vendorDocumentsURL constant added to AppConstants; iOS/Android vendor document links use www.dollor.ai/vendor/documents (not admin portal)
-- [Phase quick-63]: In-memory set for 90-min delivery warning deduplication; delivery_failed is a new terminal OrderStatus; 120-min check before 90-min in loop to avoid double notification
-- [Phase quick-64]: send_push_notification sync call pattern (user_type, user_id) replaces old asyncio.run(token) pattern in bid_routes.py
-- [Phase quick-64]: bidding_expires_at filter uses or_(field > now, field.is_(None)) for backward compat with NULL values
-- [Phase quick-64]: Individual bid expiry job runs on same 60s interval as other ride cleanup jobs
-- [Phase quick-65]: test_get_realtime_analytics call count boundaries updated for 15 OrderStatus values (was 13; PENDING_DELIVERY_PROOF + DELIVERY_FAILED added in quick-63)
-- [Phase quick-66]: CI Security workflow lacks workflow_dispatch trigger -- cannot be manually triggered; only fires on PR to main or push to develop
-- [Phase quick-67]: CI/CD Pipeline workflow has path filters (apps/web/p2p-platform/**) -- does not auto-trigger on iOS-only pushes; needs manual trigger
-- [Phase quick-67]: Android gradlew clean assembleRelease required after version bump to avoid stale APK cache with old version numbers
-- [Phase quick-69]: Privacy policy URL must use www.dollor.ai (bare domain has Let's Encrypt SSL issues causing connection failures)
-- [Phase quick-69]: App Store version has build 1037 attached (REJECTED Jan 23) -- must attach build 1108 and resubmit
-- [Phase quick-70]: AWS admin secret is dollor/production/admin (not admin-yCDIFY as in CLAUDE.md); www.dollor.ai required for privacy/support URLs (bare domain SSL fails)
-- [Phase quick-71]: GO recommendation: all 30 checks pass (27 PASS, 0 FAIL, 3 non-blocking WARNINGs) for App Store submission of build 1108
-- [Phase quick-72]: NO-GO for App Store submission: demo customer OAuth2 login returns 401 on production; standard /api/auth/customer/login tested (not bypass); fix password hash before submitting
-- [Phase quick-73]: ASC supportUrl lives on appStoreVersionLocalizations (not appInfoLocalizations); quick-72 checked wrong resource; DEMO_EMAILS frozenset exempts demo accounts from rate limiting on all 4 login endpoints
-- [Phase quick-75]: 422 from staging smoke test accepted (plan curl used abbreviated field names); correct field names return 200
-- [Phase quick-76]: Production deploy already succeeded despite CI/CD timeout -- verified via smoke test; demo customer login requires /api/customer/demo-login with secret_key, not standard auth endpoint
-- [Phase quick-77]: Use backend total/subtotal as primary fare display values with local-calc fallback (eliminates time_adjustment/long_distance_discount mismatch)
-- [Phase quick-77]: Gate fare section on fareEstimateReceived AND canRequestRide; separate isEstimatingFare overlay from isLoading overlay
-- [Phase quick-78]: pricing_config.py is canonical source for rideshare fare constants; order_flow.py payment engine must mirror exactly (was divergent: 2.00/1.00/0.15/5.00 vs 2.50/1.15/0.18/8.00)
 - [Phase quick-78]: Payment engine (order_flow.py) uses flat $1 PLATFORM_FEE; tiered $1/$2/$3 is only in estimate engine (pricing_config.py); test_dollor_pricing_model tier2/tier3 tests fixed accordingly
-/$3 is only in estimate engine (pricing_config.py); test_dollor_pricing_model tier2/tier3 tests fixed accordingly
-- [Phase quick-79]: Android Apple Auth path mismatch is HIGH priority (DollorApiService.kt:51 uses auth/customer/apple-auth but backend only has /api/customer/apple-auth); 11 dead shared service endpoints are aspirational and safe to ignore
-/$3 is only in estimate engine (pricing_config.py); test_dollor_pricing_model tier2/tier3 tests fixed accordingly
-/$3 is only in estimate engine (pricing_config.py); test_dollor_pricing_model tier2/tier3 tests fixed accordingly
-- [Phase quick-79]: Android Apple Auth path mismatch is HIGH priority (DollorApiService.kt:51 uses auth/customer/apple-auth but backend only has /api/customer/apple-auth); 11 dead shared service endpoints are aspirational and safe to ignore
+- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
 - [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-/$3 is only in estimate engine (pricing_config.py); test_dollor_pricing_model tier2/tier3 tests fixed accordingly
-/$3 is only in estimate engine (pricing_config.py); test_dollor_pricing_model tier2/tier3 tests fixed accordingly
-- [Phase quick-79]: Android Apple Auth path mismatch is HIGH priority (DollorApiService.kt:51 uses auth/customer/apple-auth but backend only has /api/customer/apple-auth); 11 dead shared service endpoints are aspirational and safe to ignore
-/$3 is only in estimate engine (pricing_config.py); test_dollor_pricing_model tier2/tier3 tests fixed accordingly
-/$3 is only in estimate engine (pricing_config.py); test_dollor_pricing_model tier2/tier3 tests fixed accordingly
-- [Phase quick-79]: Android Apple Auth path mismatch is HIGH priority (DollorApiService.kt:51 uses auth/customer/apple-auth but backend only has /api/customer/apple-auth); 11 dead shared service endpoints are aspirational and safe to ignore
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-85]: Dead-code exclusion via prefix list (chat/negotiations/call) + exact path list (pending-restaurant-delivery); CI runs --skip-android; api-contracts job non-blocking initially
+- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
+- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
+- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
 
 ### Blockers
 
@@ -528,9 +409,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 82 | Fix Android Apple Auth path mismatch — FALSE POSITIVE, no changes needed | 2026-03-04 | (none) | [82-fix-android-apple-auth-path-mismatch-dol](./quick/82-fix-android-apple-auth-path-mismatch-dol/) |
 | 83 | Cross-platform API sync verification — 0 real bugs, all 12 flags are false positives or cosmetic | 2026-03-04 | (none) | [83-cross-platform-api-sync-verification-rec](./quick/83-cross-platform-api-sync-verification-rec/) |
 | 84 | Research API alignment guarantee strategy — OpenAPI CI validator recommended (~2-3 hrs to implement) | 2026-03-04 | (none) | [84-research-api-alignment-guarantee-strateg](./quick/84-research-api-alignment-guarantee-strateg/) |
+| 85 | Implement OpenAPI CI contract validator — 321 PASS, 0 FAIL, 15 EXCLUDED, CI job added | 2026-03-04 | 57358368 | [85-implement-openapi-ci-contract-validator-](./quick/85-implement-openapi-ci-contract-validator-/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-84 (API alignment guarantee strategy: OpenAPI CI validator recommended, ~2-3 hrs to implement).
+Stopped at: Completed quick-85 (OpenAPI CI contract validator implemented: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI job added to ci-complete.yml).
 Resume file: .planning/NEXT_SESSION_PROMPT.md
