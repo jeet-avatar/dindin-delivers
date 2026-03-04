@@ -4,7 +4,7 @@ Twilio Media Streams <-> OpenAI Realtime API bridge for Dollor.ai voice support.
 This module provides:
 - /api/voice/incoming-call: Twilio webhook that returns TwiML with a WebSocket Stream directive
 - /api/voice/media-stream: WebSocket endpoint bridging Twilio audio to OpenAI Realtime API
-- /api/support/chat: Text chat endpoint for Live Chat (uses OpenAI Chat Completions)
+- /api/support/chat: Text chat endpoint for Live Chat (deterministic rule-based, zero LLM)
 
 The voice agent can look up orders, rides, and account information, and log escalation
 requests for human follow-up.
@@ -25,6 +25,7 @@ import websockets
 from database import get_db
 from models import Customer, Driver, Vendor
 from voice_agent_tools import execute_tool, TOOL_DEFINITIONS
+from support_agent import handle_support_message, try_extract_customer
 
 logger = logging.getLogger(__name__)
 
@@ -309,69 +310,21 @@ def _lookup_caller(phone: str, db: Session) -> str:
 
 @router.post("/api/support/chat", tags=["Support"])
 async def support_text_chat(request: Request, db: Session = Depends(get_db)):
-    """AI text chat endpoint for Live Chat feature. Uses OpenAI Chat Completions (not Realtime)."""
-    import httpx
-
+    """Deterministic text chat endpoint for Live Chat feature. Rule-based, zero LLM dependency."""
     try:
         body = await request.json()
     except Exception:
         return JSONResponse(status_code=400, content={"detail": "Invalid JSON body"})
 
     message = body.get("message", "").strip()
-    phone = body.get("phone", "")
 
     if not message:
         return JSONResponse(status_code=400, content={"detail": "Message is required"})
 
-    if not OPENAI_API_KEY:
-        return JSONResponse(
-            status_code=503,
-            content={"detail": "AI support is temporarily unavailable"},
-        )
+    # Optionally extract customer from JWT (endpoint is public -- no auth required)
+    customer = try_extract_customer(request, db)
 
-    # Build system prompt with caller context
-    system_prompt = SUPPORT_AGENT_SYSTEM_PROMPT
-    if phone:
-        caller_context = _lookup_caller(phone, db)
-        if caller_context:
-            system_prompt += f"\n\nUSER CONTEXT:\n{caller_context}"
+    # Handle via deterministic rule-based agent
+    result = handle_support_message(message, customer, db)
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
-                json={
-                    "model": "gpt-4o-mini",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": message},
-                    ],
-                    "max_tokens": 500,
-                },
-            )
-
-        if response.status_code != 200:
-            logger.error("OpenAI Chat API error: %s %s", response.status_code, response.text)
-            return JSONResponse(
-                status_code=503,
-                content={"detail": "AI support is temporarily unavailable"},
-            )
-
-        data = response.json()
-        ai_reply = data["choices"][0]["message"]["content"]
-
-        return {"success": True, "response": ai_reply}
-
-    except httpx.TimeoutException:
-        logger.error("OpenAI Chat API timeout")
-        return JSONResponse(
-            status_code=503,
-            content={"detail": "AI support is temporarily unavailable. Please try again."},
-        )
-    except Exception as e:
-        logger.error("Text chat error: %s", e)
-        return JSONResponse(
-            status_code=500,
-            content={"detail": "An error occurred. Please try again."},
-        )
+    return {"success": True, "response": result["response"]}
