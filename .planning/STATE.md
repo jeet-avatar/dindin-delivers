@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-04 - Completed quick task 75: Deploy fare estimate fix + rebuild iOS Customer 1109 to TestFlight
+Last activity: 2026-03-04 - Completed quick task 76: Deploy auth-restored fare estimate fix, iOS Customer 1110 to TestFlight + ASC
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -86,6 +86,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-72]: NO-GO for App Store submission: demo customer OAuth2 login returns 401 on production; standard /api/auth/customer/login tested (not bypass); fix password hash before submitting
 - [Phase quick-73]: ASC supportUrl lives on appStoreVersionLocalizations (not appInfoLocalizations); quick-72 checked wrong resource; DEMO_EMAILS frozenset exempts demo accounts from rate limiting on all 4 login endpoints
 - [Phase quick-75]: 422 from staging smoke test accepted (plan curl used abbreviated field names); correct field names return 200
+- [Phase quick-76]: Production deploy already succeeded despite CI/CD timeout -- verified via smoke test; demo customer login requires /api/customer/demo-login with secret_key, not standard auth endpoint
 
 ### Blockers
 
@@ -115,9 +116,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 72 | Final stress test -- 39 checks, 34 PASS, 1 FAIL (demo login 401), 4 WARNING, NO-GO | 2026-03-04 | 04c19800 | [72-final-stress-test-for-customer-app-build](./quick/72-final-stress-test-for-customer-app-build/) |
 | 73 | Fix 4 non-blocking warnings -- coord validation, vendor search, demo rate limit, ASC supportUrl | 2026-03-04 | a24566f8 | [73-fix-all-4-non-blocking-warnings-from-str](./quick/73-fix-all-4-non-blocking-warnings-from-str/) |
 | 75 | Deploy fare estimate fix + rebuild iOS Customer build 1109 to TestFlight | 2026-03-04 | 3530de4f | [75-deploy-fare-estimate-fix-rebuild-ios-cus](./quick/75-deploy-fare-estimate-fix-rebuild-ios-cus/) |
+| 76 | Deploy auth-restored fare estimate fix, rebuild iOS Customer 1110, attach to ASC | 2026-03-04 | b13db834 | [76-deploy-auth-restored-fare-estimate-fix-r](./quick/76-deploy-auth-restored-fare-estimate-fix-r/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-75 (Fare estimate fix deployed to staging + production; iOS Customer build 1109 uploaded to TestFlight). Checkpoint pending: user verification of build 1109 on TestFlight.
+Stopped at: Completed quick-76 (Production auth verified 401/200 on fare estimate; iOS Customer build 1110 on TestFlight; build 1110 attached to ASC version PREPARE_FOR_SUBMISSION).
 Resume file: .planning/NEXT_SESSION_PROMPT.md

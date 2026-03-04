@@ -272,7 +272,7 @@ pytest tests/ -v
 
 | Platform | App | Build | Version | Bundle/Package | TestFlight/Firebase |
 |----------|-----|-------|---------|----------------|---------------------|
-| iOS | Customer | 1109 | 1.0 | `com.dollorai.customer` | Uploaded 2026-03-04 |
+| iOS | Customer | 1110 | 1.0 | `com.dollorai.customer` | Uploaded 2026-03-04 |
 | iOS | Driver | 213 | 1.0 | `com.dollorai.delivery` | Uploaded 2026-03-04 |
 | iOS | Restaurant | 183 | 1.0 | `com.dollorai.restaurant` | Uploaded 2026-03-04 |
 | Android | Customer | vC=33 | 1.0.32 | `ai.dollor.customer` | Firebase 2026-03-04 |
