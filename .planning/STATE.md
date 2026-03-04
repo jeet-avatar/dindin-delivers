@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-04 - Completed quick task 73: Fix 4 non-blocking warnings + deploy to production
+Last activity: 2026-03-04 - Completed quick task 75: Deploy fare estimate fix + rebuild iOS Customer 1109 to TestFlight
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -85,6 +85,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-71]: GO recommendation: all 30 checks pass (27 PASS, 0 FAIL, 3 non-blocking WARNINGs) for App Store submission of build 1108
 - [Phase quick-72]: NO-GO for App Store submission: demo customer OAuth2 login returns 401 on production; standard /api/auth/customer/login tested (not bypass); fix password hash before submitting
 - [Phase quick-73]: ASC supportUrl lives on appStoreVersionLocalizations (not appInfoLocalizations); quick-72 checked wrong resource; DEMO_EMAILS frozenset exempts demo accounts from rate limiting on all 4 login endpoints
+- [Phase quick-75]: 422 from staging smoke test accepted (plan curl used abbreviated field names); correct field names return 200
 
 ### Blockers
 
@@ -113,9 +114,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 71 | E2E pre-submission verification -- 30 checks, 27 PASS, 0 FAIL, 3 WARNING, GO recommendation | 2026-03-04 | 05af5b30 | [71-e2e-pre-submission-verification-for-cust](./quick/71-e2e-pre-submission-verification-for-cust/) |
 | 72 | Final stress test -- 39 checks, 34 PASS, 1 FAIL (demo login 401), 4 WARNING, NO-GO | 2026-03-04 | 04c19800 | [72-final-stress-test-for-customer-app-build](./quick/72-final-stress-test-for-customer-app-build/) |
 | 73 | Fix 4 non-blocking warnings -- coord validation, vendor search, demo rate limit, ASC supportUrl | 2026-03-04 | a24566f8 | [73-fix-all-4-non-blocking-warnings-from-str](./quick/73-fix-all-4-non-blocking-warnings-from-str/) |
+| 75 | Deploy fare estimate fix + rebuild iOS Customer build 1109 to TestFlight | 2026-03-04 | 3530de4f | [75-deploy-fare-estimate-fix-rebuild-ios-cus](./quick/75-deploy-fare-estimate-fix-rebuild-ios-cus/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-73 (Fix 4 stress test warnings: coordinate validation, vendor search, demo rate limit, ASC supportUrl confirmed). Deployed to staging + production.
+Stopped at: Completed quick-75 (Fare estimate fix deployed to staging + production; iOS Customer build 1109 uploaded to TestFlight). Checkpoint pending: user verification of build 1109 on TestFlight.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
