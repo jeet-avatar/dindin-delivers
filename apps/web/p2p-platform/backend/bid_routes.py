@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_
 from datetime import datetime, timedelta
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import math
 import re
 import uuid
@@ -2135,10 +2135,10 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
 
 class FareEstimateInput(BaseModel):
     """Input for fare estimate calculation"""
-    pickup_latitude: float
-    pickup_longitude: float
-    dropoff_latitude: float
-    dropoff_longitude: float
+    pickup_latitude: float = Field(..., ge=-90, le=90)
+    pickup_longitude: float = Field(..., ge=-180, le=180)
+    dropoff_latitude: float = Field(..., ge=-90, le=90)
+    dropoff_longitude: float = Field(..., ge=-180, le=180)
     ride_type: str = "standard"
 
 
