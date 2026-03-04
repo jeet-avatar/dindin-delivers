@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-04 - Completed quick task 77: Fix fare estimate flash/wrong price 3 root causes, iOS Customer build 1111 to TestFlight + ASC
+Last activity: 2026-03-04 - Completed quick task 78: Reconcile pricing engines, fix Android MINIMUM_FARE, deploy backend + distribute Android APKs
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -89,6 +89,8 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-76]: Production deploy already succeeded despite CI/CD timeout -- verified via smoke test; demo customer login requires /api/customer/demo-login with secret_key, not standard auth endpoint
 - [Phase quick-77]: Use backend total/subtotal as primary fare display values with local-calc fallback (eliminates time_adjustment/long_distance_discount mismatch)
 - [Phase quick-77]: Gate fare section on fareEstimateReceived AND canRequestRide; separate isEstimatingFare overlay from isLoading overlay
+- [Phase quick-78]: pricing_config.py is canonical source for rideshare fare constants; order_flow.py payment engine must mirror exactly (was divergent: 2.00/1.00/0.15/5.00 vs 2.50/1.15/0.18/8.00)
+- [Phase quick-78]: Payment engine (order_flow.py) uses flat $1 PLATFORM_FEE; tiered $1/$2/$3 is only in estimate engine (pricing_config.py); test_dollor_pricing_model tier2/tier3 tests fixed accordingly
 
 ### Blockers
 
@@ -120,9 +122,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 75 | Deploy fare estimate fix + rebuild iOS Customer build 1109 to TestFlight | 2026-03-04 | 3530de4f | [75-deploy-fare-estimate-fix-rebuild-ios-cus](./quick/75-deploy-fare-estimate-fix-rebuild-ios-cus/) |
 | 76 | Deploy auth-restored fare estimate fix, rebuild iOS Customer 1110, attach to ASC | 2026-03-04 | b13db834 | [76-deploy-auth-restored-fare-estimate-fix-r](./quick/76-deploy-auth-restored-fare-estimate-fix-r/) |
 | 77 | Fix fare estimate flash/wrong price — 3 root causes, build 1111 to TestFlight + ASC | 2026-03-04 | 2bbec74d | [77-fix-fare-estimate-flash-wrong-price-3-ro](./quick/77-fix-fare-estimate-flash-wrong-price-3-ro/) |
+| 78 | Reconcile pricing engines — unify order_flow.py constants, fix Android MINIMUM_FARE, deploy+distribute | 2026-03-04 | 2788fde3 | [78-reconcile-pricing-engines-fix-android-mi](./quick/78-reconcile-pricing-engines-fix-android-mi/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-77 (Fare estimate flash+wrong price 3 root causes fixed; iOS Customer build 1111 on TestFlight; attached to ASC version PREPARE_FOR_SUBMISSION).
+Stopped at: Completed quick-78 (Pricing engines reconciled: order_flow.py constants match pricing_config.py; Android MINIMUM_FARE=8.00; backend deployed; Android vC=34/31/27 on Firebase).
 Resume file: .planning/NEXT_SESSION_PROMPT.md
