@@ -1,7 +1,7 @@
 import SwiftUI
 import EatFairShared
 
-/// LiveChatView - AI-powered text support chat
+/// LiveChatView - Deterministic rule-based text support chat
 /// Connects to POST /api/support/chat backend endpoint
 /// Simple request/response pattern (no polling needed)
 struct LiveChatView: View {
@@ -12,10 +12,12 @@ struct LiveChatView: View {
     @FocusState private var isInputFocused: Bool
 
     private let suggestions = [
-        "Order status",
-        "Ride issue",
-        "Account help",
-        "Refund request"
+        "Where is my order?",
+        "Cancel my order",
+        "Refund request",
+        "Delivery issue",
+        "Ride status",
+        "Pricing info"
     ]
 
     var body: some View {
@@ -41,7 +43,7 @@ struct LiveChatView: View {
                 if messages.isEmpty {
                     messages.append((
                         id: UUID(),
-                        text: "Hi! I'm Dollor AI Support. How can I help you today?",
+                        text: "Hi! I'm Dollor Support. I can help you check order status, cancel orders, check refund eligibility, and more. What do you need help with?",
                         isFromUser: false
                     ))
                 }
@@ -202,7 +204,7 @@ private struct ChatBubble: View {
                         Image(systemName: "sparkles")
                             .font(.caption2)
                             .foregroundColor(Color(hex: "FF6B35"))
-                        Text("Dollor AI")
+                        Text("Dollor Support")
                             .font(.caption2)
                             .foregroundColor(.gray)
                     }
