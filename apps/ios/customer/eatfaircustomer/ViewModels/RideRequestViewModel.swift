@@ -18,6 +18,8 @@ class RideRequestViewModel: ObservableObject {
     @Published var tip: Double = 0.0
 
     @Published var isLoading = false
+    @Published var isEstimatingFare = false
+    @Published var fareEstimateReceived = false
     @Published var errorMessage: String?
     @Published var showError = false
 
@@ -29,6 +31,8 @@ class RideRequestViewModel: ObservableObject {
     @Published var timeFee: Double = 0.0
     @Published var surgeMultiplier: Double = 1.0  // Demand multiplier from backend
     @Published var surgeLabel: String = "Standard"  // Demand label from backend
+    @Published var backendTotal: Double?       // Backend's calculated total (includes time_adjustment, long_distance_discount)
+    @Published var backendSubtotal: Double?    // Backend's calculated subtotal (pre-tax)
 
     // Active ride tracking
     @Published var activeRide: RideRequestResponse?
@@ -134,9 +138,13 @@ class RideRequestViewModel: ObservableObject {
     }
 
     /// Fare before tax (driver earnings + platform fee)
-    /// NOTE: Backend /rides/estimate returns breakdown values (baseFare, distanceFee, timeFee) WITHOUT surge.
-    /// Surge is applied here to raw breakdown values. Do NOT remove surgeMultiplier unless backend changes.
+    /// Uses backend subtotal when available (includes time_adjustment + long_distance_discount).
+    /// Falls back to local recalculation only when API is unavailable.
     var fareBeforeTax: Double {
+        if let backendSubtotal = backendSubtotal {
+            return backendSubtotal
+        }
+        // Fallback for local calculation only
         let driverPortion = (baseFare + distanceFee + timeFee) * surgeMultiplier
         return max(driverPortion, minimumFare) + platformFee
     }
@@ -165,8 +173,12 @@ class RideRequestViewModel: ObservableObject {
     }
 
     /// Estimated fare (used in UI before tip)
+    /// Uses backend total when available for exact match with server-side calculation.
     var estimatedFare: Double {
-        fareBeforeTax + taxAmount
+        if let total = backendTotal {
+            return total
+        }
+        return fareBeforeTax + taxAmount
     }
 
     var canRequestRide: Bool {
@@ -234,7 +246,11 @@ class RideRequestViewModel: ObservableObject {
     private func estimateFare() {
         guard let pickup = pickupAddress, let dropoff = dropoffAddress else { return }
 
-        isLoading = true
+        // Reset state for new estimation
+        fareEstimateReceived = false
+        isEstimatingFare = true
+        backendTotal = nil
+        backendSubtotal = nil
 
         // Get state code for tax calculation
         let stateCode = StateTaxRates.stateCode(from: pickup.state)
@@ -248,7 +264,6 @@ class RideRequestViewModel: ObservableObject {
             stateCode: stateCode
         ) { [weak self] result in
             guard let self = self else { return }
-            self.isLoading = false
 
             switch result {
             case .success(let response):
@@ -260,6 +275,10 @@ class RideRequestViewModel: ObservableObject {
                 self.distanceFee = estimate.breakdown.distanceCost
                 self.timeFee = estimate.breakdown.timeCost
 
+                // Store backend totals for direct display (includes time_adjustment, long_distance_discount)
+                self.backendTotal = estimate.total
+                self.backendSubtotal = estimate.subtotal
+
                 // Apply surge/demand multiplier from backend
                 if let surge = estimate.surgeMultiplier {
                     self.surgeMultiplier = surge
@@ -267,6 +286,9 @@ class RideRequestViewModel: ObservableObject {
                 if let label = estimate.surgeLabel {
                     self.surgeLabel = label
                 }
+
+                self.fareEstimateReceived = true
+                self.isEstimatingFare = false
 
                 #if DEBUG
                 logger.info("[RideRequestViewModel] Fare estimate from production API:")
@@ -285,6 +307,8 @@ class RideRequestViewModel: ObservableObject {
                 #endif
                 // Fallback to local calculation if API fails
                 self.estimateFareLocally()
+                self.fareEstimateReceived = true
+                self.isEstimatingFare = false
             }
         }
     }

@@ -47,7 +47,18 @@ struct RideRequestView: View {
                 )
             }
 
-            // Loading Overlay
+            // Fare Estimation Overlay (opaque — prevents reading default values)
+            if viewModel.isEstimatingFare {
+                Color.white.opacity(0.95)
+                    .ignoresSafeArea()
+                ProgressView("Estimating fare...")
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(radius: 4)
+            }
+
+            // Ride Request Loading Overlay
             if viewModel.isLoading {
                 Color.black.opacity(0.3)
                     .ignoresSafeArea()
@@ -398,7 +409,8 @@ struct RideBottomSheet: View {
             }
 
             // Price Summary - World Class Fare Breakdown (Scrollable to ensure buttons visible)
-            if viewModel.canRequestRide {
+            // Gated on fareEstimateReceived to prevent showing default values before API responds
+            if viewModel.canRequestRide && viewModel.fareEstimateReceived {
                 ScrollView {
                     VStack(spacing: 12) {
                     // Trip Estimate Header
