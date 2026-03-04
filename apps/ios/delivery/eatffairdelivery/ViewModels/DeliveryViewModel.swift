@@ -117,8 +117,8 @@ class DeliveryViewModel: ObservableObject {
 
     // MARK: - Refresh Timer for Real-time Updates
     private func setupRefreshTimer() {
-        // Poll every 10 seconds for updates (P2P doesn't have real-time listeners like Firebase)
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+        // Poll every 5 seconds for updates (standardized across iOS and Android)
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             self?.refreshAllData()
         }
     }

@@ -175,6 +175,7 @@ public enum NotificationType: String {
     case counterAccepted = "counter_accepted"
     case driverEnRoute = "driver_en_route"
     case paymentProcessed = "payment_processed"
+    case rideExpired = "ride_expired"
 
     public var soundName: String {
         switch self {
