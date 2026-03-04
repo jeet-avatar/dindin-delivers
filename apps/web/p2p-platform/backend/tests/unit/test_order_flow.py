@@ -224,8 +224,8 @@ class TestUtilityFunctions:
 
         assert fare["platform_fee"] == PLATFORM_FEE
         assert fare["base_fare"] == BASE_FARE
-        assert fare["distance_fee"] == 5.0  # 5 miles * $1/mile
-        assert fare["time_fee"] == 2.25  # 15 min * $0.15/min
+        assert fare["distance_fee"] == 5.75  # 5 miles * $1.15/mile
+        assert fare["time_fee"] == 2.70  # 15 min * $0.18/min
         assert fare["surge_multiplier"] == 1.0
         assert fare["surge_amount"] == 0.0
         assert fare["tax_rate"] == 0.0725  # CA tax rate
@@ -245,9 +245,10 @@ class TestUtilityFunctions:
             is_airport=False
         )
 
-        driver_base = 2.0 + 3.0 + 1.5  # base + distance + time = 6.5
-        driver_with_surge = driver_base * 1.5  # 9.75
-        surge_amount = driver_with_surge - driver_base  # 3.25
+        # base=2.50 + distance=3*1.15 + time=10*0.18 = 7.75
+        driver_base = BASE_FARE + (3.0 * PER_MILE_RATE) + (10.0 * PER_MINUTE_RATE)
+        driver_with_surge = driver_base * 1.5
+        surge_amount = driver_with_surge - driver_base
 
         assert fare["surge_multiplier"] == 1.5
         assert fare["surge_amount"] == round(surge_amount, 2)
@@ -1819,10 +1820,10 @@ class TestEdgeCases:
         assert RESTAURANT_PLATFORM_FEE == 1.00
         assert CUSTOMER_SERVICE_FEE == 1.00  # $1 service fee from customer per order
         assert DELIVERY_FEE == 4.99
-        assert BASE_FARE == 2.00
-        assert PER_MILE_RATE == 1.00
-        assert PER_MINUTE_RATE == 0.15
-        assert MINIMUM_FARE == 5.00
+        assert BASE_FARE == 2.50
+        assert PER_MILE_RATE == 1.15
+        assert PER_MINUTE_RATE == 0.18
+        assert MINIMUM_FARE == 8.00
 
     def test_ai_employees_constants(self):
         """Test AI employee constants"""

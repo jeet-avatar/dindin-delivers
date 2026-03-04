@@ -513,12 +513,12 @@ class RideRequest(BaseModel):
 PLATFORM_FEE = 1.00      # $1 flat platform fee - ONLY fee to EatFair
 
 # Driver Earnings (100% to driver, minus taxes)
-BASE_FARE = 2.00         # $2.00 base fare per ride
-PER_MILE_RATE = 1.00     # $1.00 per mile
-PER_MINUTE_RATE = 0.15   # $0.15 per minute
+BASE_FARE = 2.50         # $2.50 base fare per ride (matches pricing_config.py:18)
+PER_MILE_RATE = 1.15     # $1.15 per mile (matches pricing_config.py:19)
+PER_MINUTE_RATE = 0.18   # $0.18 per minute (matches pricing_config.py:20)
 
 # Minimums & Caps
-MINIMUM_FARE = 5.00      # Minimum total fare
+MINIMUM_FARE = 8.00      # Minimum total fare (matches pricing_config.py:21)
 MAXIMUM_SURGE = 3.0      # Maximum surge multiplier
 
 # Surge Pricing Thresholds

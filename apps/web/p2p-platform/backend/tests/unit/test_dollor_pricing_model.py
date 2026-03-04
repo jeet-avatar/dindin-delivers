@@ -413,16 +413,18 @@ class TestRideshareFareCalculation:
             assert fare["platform_earnings"] == 1.00
 
     def test_ride_fare_platform_earnings_tier2(self):
-        """Platform earns $2 for fares $35-$70"""
+        """Platform earns flat $1 fee (payment engine uses PLATFORM_FEE constant)"""
         fare = calculate_ride_fare(distance_miles=20, duration_minutes=30)
-        if 35 < fare["total_fare"] <= 70:
-            assert fare["platform_earnings"] == 2.00
+        # Payment engine (order_flow.py) uses flat $1 PLATFORM_FEE
+        # Tiered $1/$2/$3 is only in estimate engine (pricing_config.py)
+        assert fare["platform_earnings"] == 1.00
 
     def test_ride_fare_platform_earnings_tier3(self):
-        """Platform earns $3 for fares > $70"""
+        """Platform earns flat $1 fee even for high fares (payment engine)"""
         fare = calculate_ride_fare(distance_miles=50, duration_minutes=60)
-        if fare["total_fare"] > 70:
-            assert fare["platform_earnings"] == 3.00
+        # Payment engine (order_flow.py) uses flat $1 PLATFORM_FEE
+        # Tiered $1/$2/$3 is only in estimate engine (pricing_config.py)
+        assert fare["platform_earnings"] == 1.00
 
     def test_ride_fare_driver_earnings(self):
         """Driver should get fare minus platform fee + tip"""
