@@ -17984,7 +17984,18 @@ def get_terms_of_service():
                 "Flat $1 matchmaking fee - no percentage commissions",
                 "100% of tips go directly to drivers",
                 "Drivers choose their own routes, schedules, and which requests to accept"
-            ]
+            ],
+            "cancellation_policy": {
+                "food_delivery": {
+                    "cancellable_statuses": ["pending_payment", "confirmed", "pending_restaurant"],
+                    "non_cancellable_after": "Restaurant has accepted the order",
+                    "refund_timeline": "1-3 business days"
+                },
+                "rideshare": {
+                    "free_cancellation": "Before driver assignment",
+                    "cancellation_fee": "After driver assigned and en route"
+                }
+            }
         }
     }
 
