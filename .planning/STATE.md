@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-04 - Completed quick task 80: Stress test v2 rerun, 39/39 PASS, GO for App Store submission
+Last activity: 2026-03-04 - Completed quick task 81: iOS Customer app build 1111 submitted for App Store review (WAITING_FOR_REVIEW)
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -296,9 +296,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 78 | Reconcile pricing engines — unify order_flow.py constants, fix Android MINIMUM_FARE, deploy+distribute | 2026-03-04 | 2788fde3 | [78-reconcile-pricing-engines-fix-android-mi](./quick/78-reconcile-pricing-engines-fix-android-mi/) |
 | 79 | Anti-hallucination full-stack API alignment audit — 79 endpoints, 67 PASS, 5 FAIL, 7 WARNING | 2026-03-04 | c4db7439 | [79-anti-hallucination-full-stack-api-alignm](./quick/79-anti-hallucination-full-stack-api-alignm/) |
 | 80 | Stress test v2 rerun — 39/39 PASS, 0 FAIL, 0 WARNING, GO for App Store submission | 2026-03-04 | 942883e3 | [80-rerun-39-check-stress-test-against-produ](./quick/80-rerun-39-check-stress-test-against-produ/) |
+| 81 | Submit iOS Customer app build 1111 to App Store review — WAITING_FOR_REVIEW | 2026-03-04 | (API-only) | [81-submit-ios-customer-app-build-1111-to-ap](./quick/81-submit-ios-customer-app-build-1111-to-ap/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-80 (Stress test v2: 39/39 PASS, 0 FAIL, 0 WARNING, GO for App Store submission with build 1111).
+Stopped at: Completed quick-81 (iOS Customer app build 1111 submitted for App Store review, WAITING_FOR_REVIEW).
 Resume file: .planning/NEXT_SESSION_PROMPT.md
