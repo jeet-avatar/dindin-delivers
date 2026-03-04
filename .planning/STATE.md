@@ -81,6 +81,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 - [Phase quick-67]: Android gradlew clean assembleRelease required after version bump to avoid stale APK cache with old version numbers
 - [Phase quick-69]: Privacy policy URL must use www.dollor.ai (bare domain has Let's Encrypt SSL issues causing connection failures)
 - [Phase quick-69]: App Store version has build 1037 attached (REJECTED Jan 23) -- must attach build 1108 and resubmit
+- [Phase quick-70]: AWS admin secret is dollor/production/admin (not admin-yCDIFY as in CLAUDE.md); www.dollor.ai required for privacy/support URLs (bare domain SSL fails)
 
 ### Blockers
 
@@ -105,9 +106,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 66 | Rebuild all 6 apps fresh -- iOS 1107/212/182 to TestFlight, Android vC=32/29/25 to Firebase | 2026-03-04 | a6ea527c | [66-rebuild-all-6-apps-fresh-trigger-ci-secu](./quick/66-rebuild-all-6-apps-fresh-trigger-ci-secu/) |
 | 67 | Rebuild all 6 apps with full CI/CD gate -- iOS 1108/213/183, Android vC=33/30/26 | 2026-03-04 | 73152d96 | [67-rebuild-all-6-apps-with-full-ci-cd-passi](./quick/67-rebuild-all-6-apps-with-full-ci-cd-passi/) |
 | 69 | Pre-submission App Store rejection audit -- 42 checks, 4 blockers found | 2026-03-04 | bf106f8d | [69-pre-submission-app-store-rejection-audit](./quick/69-pre-submission-app-store-rejection-audit/) |
+| 70 | Fix 4 App Store blockers -- demo 401, privacy URL, build 1108, REJECTED state | 2026-03-04 | (API-only) | [70-fix-4-app-store-blockers-for-customer-ap](./quick/70-fix-4-app-store-blockers-for-customer-ap/) |
 
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed quick-69 (App Store pre-submission audit). 4 blockers found: demo 401, privacy URL SSL, wrong build attached, REJECTED state.
+Stopped at: Completed quick-70 (All 4 App Store blockers resolved). Version in PREPARE_FOR_SUBMISSION state, ready for manual review submission.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
