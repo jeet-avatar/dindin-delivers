@@ -77,6 +77,33 @@ jobs:
         run: npm run lint
 
   # ============================================
+  # STAGE 1b: API CONTRACT VALIDATION
+  # ============================================
+  api-contracts:
+    name: API Contract Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install backend dependencies
+        working-directory: apps/web/p2p-platform/backend
+        run: pip install -r requirements.txt
+
+      - name: Validate API contracts
+        run: python scripts/validate-api-contracts.py --skip-android
+        env:
+          DATABASE_URL: sqlite:///tmp/test.db
+          JWT_SECRET_KEY: ci-test-key
+          ENVIRONMENT: development
+
+  # ============================================
   # STAGE 2: SECURITY SCANNING (SAST)
   # ============================================
   semgrep:
