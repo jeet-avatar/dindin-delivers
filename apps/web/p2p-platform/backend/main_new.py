@@ -316,9 +316,9 @@ _PUBLIC_EXACT_PATHS = {
     "/api/erp/auth/login", "/api/erp/auth/register",
     "/api/erp/drivers/login", "/api/erp/drivers/register",
 
-    # Fare estimates (public)
+    # Fare estimates (ERP aliases are public, /api/rides/estimate requires auth)
     "/api/erp/rides/estimate-fare", "/api/erp/rides/fare-estimate",
-    "/api/rides/estimate", "/api/erp/rides/estimate",
+    "/api/erp/rides/estimate",
 
     # Matchmaking public info
     "/api/matchmaking/states/live", "/api/matchmaking/connection-fee",
