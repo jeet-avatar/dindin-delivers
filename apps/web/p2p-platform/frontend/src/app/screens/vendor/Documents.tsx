@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, Upload, Button, Table, Tag, Space, Modal, message, Descriptions, Progress, Spin } from 'antd';
-import { UploadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, EyeOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
+import { UploadOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, EyeOutlined, DeleteOutlined, DownloadOutlined, CameraOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import moment from 'moment';
 import { useUser } from '../../context/UserContext';
@@ -70,6 +70,8 @@ const VendorDocuments: React.FC = () => {
     visible: false,
     document: null
   });
+  const [cameraDocType, setCameraDocType] = useState<string | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const { user } = useUser();
 
   // Get vendor_id from logged-in user context
@@ -148,6 +150,23 @@ const VendorDocuments: React.FC = () => {
         }
       }
     });
+  };
+
+  const handleCameraCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && cameraDocType) {
+      handleUpload(file, cameraDocType);
+    }
+    // Reset input so the same file can be re-selected
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
+    setCameraDocType(null);
+  };
+
+  const triggerCamera = (docType: string) => {
+    setCameraDocType(docType);
+    cameraInputRef.current?.click();
   };
 
   const getStatusIcon = (status: string) => {
@@ -286,6 +305,16 @@ const VendorDocuments: React.FC = () => {
 
   return (
     <div className="vendor-documents">
+      {/* Hidden camera input for mobile photo capture */}
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        ref={cameraInputRef}
+        onChange={handleCameraCapture}
+        style={{ display: 'none' }}
+      />
+
       <div className="page-header">
         <h1>Documents</h1>
         <div className="completion-badge">
@@ -359,7 +388,7 @@ const VendorDocuments: React.FC = () => {
               <Upload
                 beforeUpload={(file) => handleUpload(file, docType.type)}
                 showUploadList={false}
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
               >
                 <Button
                   type={existingDoc ? 'default' : 'primary'}
@@ -371,6 +400,15 @@ const VendorDocuments: React.FC = () => {
                   {existingDoc ? 'Replace Document' : 'Upload Document'}
                 </Button>
               </Upload>
+              <Button
+                icon={<CameraOutlined />}
+                onClick={() => triggerCamera(docType.type)}
+                loading={isUploading && cameraDocType === docType.type}
+                block
+                style={{ marginTop: 8 }}
+              >
+                Take Photo
+              </Button>
             </Card>
           );
         })}
