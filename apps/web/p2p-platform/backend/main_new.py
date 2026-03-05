@@ -1416,6 +1416,29 @@ def _run_startup_migrations():
         )
         """,
         """
+        CREATE TABLE IF NOT EXISTS order_disputes (
+            id SERIAL PRIMARY KEY,
+            order_id INTEGER NOT NULL REFERENCES orders(id),
+            customer_id INTEGER NOT NULL REFERENCES customers(id),
+            reason VARCHAR(50) NOT NULL,
+            description TEXT,
+            affected_items TEXT,
+            status VARCHAR(50) NOT NULL DEFAULT 'submitted',
+            refund_amount FLOAT,
+            stripe_refund_id VARCHAR(255),
+            admin_notes TEXT,
+            resolved_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_order_disputes_order_id ON order_disputes(order_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_order_disputes_customer_id ON order_disputes(customer_id)
+        """,
+        """
         CREATE TABLE IF NOT EXISTS recurring_rides (
             id SERIAL PRIMARY KEY,
             customer_id INTEGER NOT NULL REFERENCES customers(id),
