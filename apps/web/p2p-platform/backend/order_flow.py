@@ -4902,4 +4902,3 @@ async def refund_order(
     except stripe.error.StripeError as e:
         logger.error(f"Refund failed for order {order.order_number}: {e}")
         raise HTTPException(status_code=500, detail=f"Refund failed: {str(e)}")
-    }
