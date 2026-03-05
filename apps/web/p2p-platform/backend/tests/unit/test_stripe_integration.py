@@ -59,6 +59,7 @@ def mock_vendor(db_session):
         state="CA",
         zip_code="94102",
         onboarding_status=VendorStatus.APPROVED,
+        is_online=True,
     )
     db_session.add(vendor)
     db_session.commit()
