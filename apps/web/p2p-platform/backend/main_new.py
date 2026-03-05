@@ -8624,7 +8624,7 @@ _VALID_ORDER_TRANSITIONS = {
     "PENDING_DELIVERY_DECISION": {"RESTAURANT_WILL_DELIVER", "DELIVERY_DECISION_TIMEOUT", "OUT_FOR_DELIVERY"},
     "RESTAURANT_WILL_DELIVER": {"OUT_FOR_DELIVERY", "DELIVERED"},
     "DELIVERY_DECISION_TIMEOUT": {"OUT_FOR_DELIVERY"},
-    "OUT_FOR_DELIVERY": {"DELIVERED", "PENDING_DELIVERY_PROOF", "DELIVERY_FAILED"},
+    "OUT_FOR_DELIVERY": {"DELIVERED", "PENDING_DELIVERY_PROOF", "DELIVERY_FAILED", "READY_FOR_PICKUP"},
     "PENDING_DELIVERY_PROOF": {"DELIVERED", "DELIVERY_FAILED"},
     "DELIVERED": set(),  # Terminal state
     "CANCELLED": set(),  # Terminal state
@@ -20249,6 +20249,31 @@ def complete_delivery(
         "message": "Delivery completed!",
         "payout": float(order.delivery_fee or 0) + float(order.tip or 0)
     }
+
+# ============================================================
+# ADMIN - DELIVERY REASSIGNMENT
+# ============================================================
+
+@app.post("/api/deliveries/{order_id}/reassign")
+def reassign_delivery_endpoint(
+    order_id: int,
+    _auth: dict = Depends(require_any_auth),
+    db: Session = Depends(get_db)
+):
+    """Admin/system endpoint to manually reassign a delivery to the driver pool."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.OUT_FOR_DELIVERY:
+        raise HTTPException(status_code=400, detail=f"Order must be OUT_FOR_DELIVERY to reassign. Current: {order.status.value}")
+    if not order.driver_id:
+        raise HTTPException(status_code=400, detail="Order has no assigned driver")
+
+    from order_flow import reassign_delivery
+    result = reassign_delivery(order, "Manual reassignment via admin endpoint", db)
+    db.commit()
+    return result
+
 
 # ============================================================
 # ADMIN - RIDESHARE MANAGEMENT
