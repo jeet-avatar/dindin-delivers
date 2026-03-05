@@ -10966,10 +10966,29 @@ def update_vendor_online_status(
     db_vendor.is_online = is_online
 
     # Track when vendor went online/offline
+    auto_cancelled_count = 0
     if is_online:
         db_vendor.went_online_at = datetime.now()
     else:
         db_vendor.went_offline_at = datetime.now()
+
+        # GAP-6: Auto-cancel pending orders when vendor goes offline
+        pending_orders = db.query(Order).filter(
+            Order.vendor_id == vendor_id,
+            Order.status.in_([OrderStatus.PENDING_PAYMENT, OrderStatus.CONFIRMED, OrderStatus.PENDING_RESTAURANT])
+        ).all()
+
+        for order in pending_orders:
+            order.status = OrderStatus.CANCELLED
+            if order.stripe_payment_intent_id and order.payment_status != "refunded":
+                try:
+                    stripe.PaymentIntent.cancel(order.stripe_payment_intent_id)
+                    order.payment_status = "refunded"
+                except Exception as e:
+                    logger.warning(f"Auto-cancel PaymentIntent failed for order {order.order_number}: {e}")
+            logger.info(f"Auto-cancelled order {order.order_number} - vendor went offline")
+
+        auto_cancelled_count = len(pending_orders)
 
     db_vendor.last_activity = datetime.now()
     db.commit()
@@ -10979,7 +10998,8 @@ def update_vendor_online_status(
         "vendor_id": vendor_id,
         "is_online": db_vendor.is_online,
         "went_online_at": db_vendor.went_online_at.isoformat() if db_vendor.went_online_at else None,
-        "went_offline_at": db_vendor.went_offline_at.isoformat() if db_vendor.went_offline_at else None
+        "went_offline_at": db_vendor.went_offline_at.isoformat() if db_vendor.went_offline_at else None,
+        "auto_cancelled_orders": auto_cancelled_count
     }
 
 

@@ -49,6 +49,7 @@ class OrderItem(BaseModel):
     name: str
     quantity: int
     price: float
+    expected_price: Optional[float] = None  # Client-side cart price for staleness detection
 
     # SECURITY: Validate quantity is positive
     @field_validator('quantity')
@@ -187,32 +188,46 @@ async def create_order(
     # Check if vendor is approved (onboarding_status is an Enum, compare with .value)
     if vendor.onboarding_status.value != "approved":
         raise HTTPException(status_code=400, detail=f"Vendor is not approved. Status: {vendor.onboarding_status.value}")
-    
+
+    # GAP-6: Block orders if vendor is offline
+    if not getattr(vendor, 'is_online', True):
+        raise HTTPException(status_code=400, detail="Restaurant is currently offline and not accepting orders")
+
     # Verify menu items exist and calculate totals
     subtotal = 0.0
     items_data = []
-    
+    price_changes = []
+
     for item in order_data.items:
         menu_item = db.query(VendorMenuItem).filter(
             VendorMenuItem.id == item.menu_item_id,
             VendorMenuItem.vendor_id == order_data.vendor_id
         ).first()
-        
+
         if not menu_item:
             raise HTTPException(
-                status_code=404, 
+                status_code=404,
                 detail=f"Menu item {item.menu_item_id} not found"
             )
-        
+
         if not menu_item.is_available or not menu_item.in_stock:
             raise HTTPException(
                 status_code=400,
                 detail=f"{menu_item.item_name} is not available"
             )
-        
+
+        # GAP-5: Price change detection — compare client-side price to current DB price
+        expected_price = item.expected_price if item.expected_price is not None else item.price
+        if expected_price is not None and abs(menu_item.price - float(expected_price)) > 0.01:
+            price_changes.append({
+                "item": menu_item.item_name,
+                "expected": float(expected_price),
+                "current": menu_item.price
+            })
+
         item_total = menu_item.price * item.quantity
         subtotal += item_total
-        
+
         items_data.append({
             "menu_item_id": item.menu_item_id,
             "name": menu_item.item_name,
@@ -220,6 +235,10 @@ async def create_order(
             "unit_price": menu_item.price,
             "total_price": item_total
         })
+
+    # GAP-5: Reject if any prices have changed
+    if price_changes:
+        raise HTTPException(status_code=409, detail={"message": "Menu prices have changed", "price_changes": price_changes})
     
     # Calculate fees and taxes
     # Platform Fee Structure (from CLAUDE.md):

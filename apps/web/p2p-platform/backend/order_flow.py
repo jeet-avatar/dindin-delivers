@@ -1152,9 +1152,14 @@ async def create_order(
     if vendor.onboarding_status.value != "approved":
         raise HTTPException(status_code=400, detail="Restaurant is not accepting orders")
 
+    # GAP-6: Block orders if vendor is offline
+    if not getattr(vendor, 'is_online', True):
+        raise HTTPException(status_code=400, detail="Restaurant is currently offline and not accepting orders")
+
     # Calculate order totals
     subtotal = 0.0
     items_data = []
+    price_changes = []
 
     for item in order_data.items:
         # Verify menu item exists
@@ -1164,6 +1169,15 @@ async def create_order(
         ).first()
 
         if menu_item:
+            # GAP-5: Price change detection — compare client-side price to current DB price
+            expected_price = item.get("expected_price", item.get("price"))
+            if expected_price is not None and abs(menu_item.price - float(expected_price)) > 0.01:
+                price_changes.append({
+                    "item": menu_item.item_name,
+                    "expected": float(expected_price),
+                    "current": menu_item.price
+                })
+
             item_total = menu_item.price * item.get("quantity", 1)
             subtotal += item_total
             items_data.append({
@@ -1183,6 +1197,10 @@ async def create_order(
                 "unit_price": item.get("price", 0),
                 "total_price": item_total
             })
+
+    # GAP-5: Reject if any prices have changed
+    if price_changes:
+        raise HTTPException(status_code=409, detail={"message": "Menu prices have changed", "price_changes": price_changes})
 
     # Calculate fees with state-specific tax rate
     # Extract state from delivery address for tax calculation
