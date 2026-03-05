@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-05 - Completed quick task 92: Deploy Wave 1 Payment Safety backend to staging and production via CI/CD
+Last activity: 2026-03-05 - Completed quick task 93: Wave 2 Gap #3 — Customer not at door (5-min timer, leave at door, cancel with photo proof)
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -5472,6 +5472,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 90 | Wave 1 client-side handling — 409 price change, 400 vendor offline, push notifications for auto-cancel and refund | 2026-03-05 | 39758703 | [90-wave-1-client-side-handling-409-price-ch](./quick/90-wave-1-client-side-handling-409-price-ch/) |
 | 91 | Build and distribute all 6 apps — iOS 1112/214/184 to TestFlight, Android vC=35/32/28 to Firebase | 2026-03-05 | b74dc56a | [91-build-and-distribute-all-6-apps-3-ios-to](./quick/91-build-and-distribute-all-6-apps-3-ios-to/) |
 | 92 | Deploy Wave 1 Payment Safety backend to staging and production via CI/CD | 2026-03-05 | — | [92-deploy-wave-1-payment-safety-backend-to-](./quick/92-deploy-wave-1-payment-safety-backend-to-/) |
+| 93 | Wave 2 Gap #3: Customer not at door — 5-min wait timer, leave at door, cancel with photo proof | 2026-03-05 | ec4a8607 | [93-wave-2-gap-3-customer-not-at-door-5-min-](./quick/93-wave-2-gap-3-customer-not-at-door-5-min-/) |
 
 ## Session Continuity
 
