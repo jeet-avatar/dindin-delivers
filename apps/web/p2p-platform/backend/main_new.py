@@ -14243,6 +14243,9 @@ from order_flow import (
     CreateOrderRequest,
     get_full_order_tracking,  # iOS customer app tracking
     get_vendor_orders,  # iOS restaurant app vendor orders
+    driver_arrived_at_delivery,  # Customer not at door flow
+    cancel_no_customer,
+    CancelNoCustomerRequest,
 )
 app.include_router(order_flow_router)
 
@@ -14332,6 +14335,16 @@ async def restaurant_decline_delivery_alias(order_id: int, _auth: dict = Depends
     iOS calls: POST /erp/orders/{orderId}/restaurant-decline-delivery
     """
     return await restaurant_decline_delivery(order_id, db)
+
+@app.post("/erp/orders/{order_id}/driver-arrived-at-delivery")
+async def driver_arrived_alias(order_id: int, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - mark arrived at delivery location"""
+    return await driver_arrived_at_delivery(order_id, db, driver)
+
+@app.post("/erp/orders/{order_id}/cancel-no-customer")
+async def cancel_no_customer_alias(order_id: int, request_body: CancelNoCustomerRequest, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - cancel due to customer not available"""
+    return await cancel_no_customer(order_id, request_body, db, driver)
 
 # ==================== ADDITIONAL iOS ALIASES ====================
 # These enable iOS apps to call /erp/* paths without /api prefix

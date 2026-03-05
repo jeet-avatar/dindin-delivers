@@ -18,7 +18,7 @@ AI Employees:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Request
-from auth_utils import require_any_auth
+from auth_utils import require_any_auth, require_driver
 from cache import check_rate_limit, RateLimiter
 from sqlalchemy.orm import Session
 from sqlalchemy import text, or_, and_, func
@@ -3998,6 +3998,152 @@ async def upload_delivery_photo(
         "delivery_photo_url": url_path,
         "requires_photo": False,
         "message": "Delivery proof photo uploaded successfully"
+    }
+
+
+# ==================== CUSTOMER NOT AT DOOR FLOW ====================
+
+@router.post("/orders/{order_id}/driver-arrived-at-delivery")
+async def driver_arrived_at_delivery(
+    order_id: int,
+    db: Session = Depends(get_db),
+    driver: Driver = Depends(require_driver),
+):
+    """
+    Driver marks arrival at delivery location, starting a 5-minute wait timer.
+    Customer receives a push notification to come out.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not assigned to this order")
+
+    if order.status != OrderStatus.OUT_FOR_DELIVERY:
+        raise HTTPException(status_code=400, detail=f"Order status must be OUT_FOR_DELIVERY, got {order.status.value}")
+
+    if getattr(order, 'driver_arrived_at_delivery', None) is not None:
+        raise HTTPException(status_code=400, detail="Already marked as arrived")
+
+    order.driver_arrived_at_delivery = datetime.now()
+    db.commit()
+
+    # Notify customer
+    try:
+        send_push_notification(
+            user_type="customer",
+            user_id=order.customer_id,
+            title="Driver Has Arrived",
+            body="Your driver has arrived at your delivery location. Please come out to receive your order.",
+            data={"type": "driver_arrived", "order_id": str(order.id)},
+        )
+    except Exception as e:
+        logging.warning(f"Failed to send driver-arrived notification for order {order.id}: {e}")
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "arrived_at": order.driver_arrived_at_delivery.isoformat() + "Z",
+        "wait_timer_seconds": 300,
+        "leave_at_door": getattr(order, 'leave_at_door', False),
+    }
+
+
+class CancelNoCustomerRequest(BaseModel):
+    photo_url: str  # URL of proof photo (already uploaded via /orders/{id}/delivery-photo)
+
+
+@router.post("/orders/{order_id}/cancel-no-customer")
+async def cancel_no_customer(
+    order_id: int,
+    request_body: CancelNoCustomerRequest,
+    db: Session = Depends(get_db),
+    driver: Driver = Depends(require_driver),
+):
+    """
+    Cancel order due to customer not available at delivery location.
+    Requires 5-minute wait after arrival and photo proof.
+    If leave_at_door=True: food left at door -> DELIVERED with photo proof.
+    If leave_at_door=False: order cancelled -> DELIVERY_FAILED with refund.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not assigned to this order")
+
+    if order.status not in (OrderStatus.OUT_FOR_DELIVERY, OrderStatus.PENDING_DELIVERY_PROOF):
+        raise HTTPException(status_code=400, detail=f"Order status must be OUT_FOR_DELIVERY or PENDING_DELIVERY_PROOF, got {order.status.value}")
+
+    arrived_at = getattr(order, 'driver_arrived_at_delivery', None)
+    if arrived_at is None:
+        raise HTTPException(status_code=400, detail="Must mark arrival first")
+
+    elapsed = (datetime.now() - arrived_at).total_seconds()
+    if elapsed < 300:
+        raise HTTPException(
+            status_code=400,
+            detail="Must wait 5 minutes after arrival",
+            headers={"X-Seconds-Remaining": str(int(300 - elapsed))},
+        )
+
+    # Record photo proof
+    order.delivery_photo_url = request_body.photo_url
+    order.delivery_photo_uploaded_at = datetime.now()
+
+    if getattr(order, 'leave_at_door', False):
+        # Leave at door path -> mark as delivered
+        order.status = OrderStatus.DELIVERED
+        order.delivered_at = datetime.now()
+        result_status = "delivered"
+        result_message = "Food left at door with photo proof"
+
+        # Notify customer
+        try:
+            send_push_notification(
+                user_type="customer",
+                user_id=order.customer_id,
+                title="Order Left at Door",
+                body="Your driver left your order at the door. A photo has been taken for confirmation.",
+                data={"type": "delivery_no_customer", "order_id": str(order.id), "left_at_door": "true"},
+            )
+        except Exception as e:
+            logging.warning(f"Failed to send left-at-door notification for order {order.id}: {e}")
+    else:
+        # No leave at door -> cancel with refund
+        order.status = OrderStatus.DELIVERY_FAILED
+        result_status = "delivery_failed"
+        result_message = "Order cancelled - customer not available"
+
+        # Trigger refund if payment exists
+        if order.stripe_payment_intent_id:
+            try:
+                trigger_refund(order, reason="Customer not available at delivery location")
+                order.payment_status = "refunded"
+            except Exception as e:
+                logging.error(f"Refund failed for order {order.id}: {e}")
+
+        # Notify customer
+        try:
+            send_push_notification(
+                user_type="customer",
+                user_id=order.customer_id,
+                title="Order Could Not Be Delivered",
+                body="Your driver waited 5 minutes but could not reach you. The order has been cancelled and a refund will be issued.",
+                data={"type": "delivery_no_customer", "order_id": str(order.id), "left_at_door": "false"},
+            )
+        except Exception as e:
+            logging.warning(f"Failed to send cancel-no-customer notification for order {order.id}: {e}")
+
+    db.commit()
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "status": result_status,
+        "message": result_message,
     }
 
 
