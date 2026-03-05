@@ -2073,9 +2073,13 @@ DELIVERY_FAILURE_MINUTES = 120     # Auto-refund after 120 minutes
 DELIVERY_TIMEOUT_CHECK_INTERVAL_SECONDS = 60  # Check every 60 seconds
 STALE_ORDER_HOURS = 24             # Cancel stale active orders after 24 hours
 STALE_ORDER_CHECK_INTERVAL_SECONDS = 300  # Check every 5 minutes
+STALE_DRIVER_LOCATION_MINUTES = 10  # Reassign if no GPS update in 10 minutes
+STALE_DRIVER_CHECK_INTERVAL_SECONDS = 60  # Check every 60 seconds
 
 # Track warned orders in-memory to avoid duplicate notifications
 _delivery_warned_orders: set = set()
+# Track reassigned order IDs to avoid duplicate processing
+_reassigned_orders: set = set()
 
 
 def check_delivery_proof_timeouts_job():
@@ -2273,6 +2277,138 @@ def check_delivery_timeouts_job():
         db.close()
 
 
+def reassign_delivery(order, reason: str, db):
+    """
+    Reassign a delivery back to the driver pool.
+    Clears driver assignment, resets to READY_FOR_PICKUP, notifies customer and driver.
+    Returns dict with success, order_id, original_driver_id.
+    """
+    original_driver_id = order.driver_id
+    original_driver_name = order.driver_name
+
+    # Clear driver assignment
+    order.driver_id = None
+    order.driver_name = None
+    order.driver_en_route = False
+    order.driver_accepted_at = None
+    order.picked_up_at = None
+    order.status = OrderStatus.READY_FOR_PICKUP
+
+    # Notify customer
+    try:
+        send_push_notification(
+            user_type="customer",
+            user_id=order.customer_id,
+            title="Delivery Update",
+            body="Your driver went offline. We're finding a new driver for your order.",
+            data={"type": "driver_reassigned", "order_id": str(order.id)},
+            db=db
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send customer reassignment notification: {e}")
+
+    # Notify original driver
+    if original_driver_id:
+        try:
+            send_push_notification(
+                user_type="driver",
+                user_id=original_driver_id,
+                title="Delivery Reassigned",
+                body="Your delivery has been reassigned due to inactivity. Please check your connection.",
+                data={"type": "delivery_reassigned", "order_id": str(order.id)},
+                db=db
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send driver reassignment notification: {e}")
+
+    # Email support with details
+    try:
+        html_body = f"""
+        <h2>Delivery Reassigned</h2>
+        <p><strong>Order:</strong> {order.order_number}</p>
+        <p><strong>Original Driver:</strong> {original_driver_name} (ID: {original_driver_id})</p>
+        <p><strong>Reason:</strong> {reason}</p>
+        <p><strong>Action:</strong> Order reset to READY_FOR_PICKUP for new driver assignment.</p>
+        """
+        send_email(
+            to_email="support@dollor.ai",
+            subject=f"[Delivery Reassigned] Order {order.order_number} - {reason}",
+            html_body=html_body,
+            text_body=f"Delivery Reassigned: Order {order.order_number} from driver {original_driver_name} (ID: {original_driver_id}). Reason: {reason}",
+            skip_validation=True,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send reassignment email to support: {e}")
+
+    logger.warning(f"Order {order.order_number} reassigned from driver {original_driver_name} (ID: {original_driver_id}): {reason}")
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "original_driver_id": original_driver_id,
+        "message": f"Order reassigned: {reason}"
+    }
+
+
+def check_stale_driver_reassignment_job():
+    """
+    Background job to detect drivers who go offline mid-delivery.
+    If a driver's location_updated_at is >10 minutes stale while order is OUT_FOR_DELIVERY,
+    the order is auto-reassigned back to READY_FOR_PICKUP for another driver to claim.
+    Runs every 60 seconds.
+    """
+    db = SessionLocal()
+    try:
+        cutoff = datetime.now() - timedelta(minutes=STALE_DRIVER_LOCATION_MINUTES)
+        stale_orders = db.query(Order).filter(
+            Order.status == OrderStatus.OUT_FOR_DELIVERY,
+            Order.driver_id.isnot(None)
+        ).all()
+
+        if not stale_orders:
+            return
+
+        reassigned_count = 0
+        for order in stale_orders:
+            if order.id in _reassigned_orders:
+                continue
+
+            driver = db.query(Driver).filter(Driver.id == order.driver_id).first()
+            if not driver:
+                continue
+
+            # No location update at all OR location older than 10 minutes = stale
+            if driver.location_updated_at is None or driver.location_updated_at < cutoff:
+                if driver.location_updated_at:
+                    elapsed = (datetime.now() - driver.location_updated_at).total_seconds() / 60
+                    elapsed_str = f"{int(elapsed)}"
+                else:
+                    elapsed_str = "never updated"
+
+                reassign_delivery(order, f"Driver location stale for {elapsed_str}+ minutes", db)
+                _reassigned_orders.add(order.id)
+                reassigned_count += 1
+
+        if reassigned_count > 0:
+            db.commit()
+            logger.info(f"Stale driver check: {reassigned_count} orders reassigned")
+
+        # Cleanup dedup set: remove IDs for orders no longer in READY_FOR_PICKUP
+        if _reassigned_orders:
+            still_waiting = db.query(Order.id).filter(
+                Order.id.in_(_reassigned_orders),
+                Order.status == OrderStatus.READY_FOR_PICKUP
+            ).all()
+            still_waiting_ids = {row[0] for row in still_waiting}
+            _reassigned_orders.intersection_update(still_waiting_ids)
+
+    except Exception as e:
+        logger.error(f"Error in stale driver reassignment check: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def cleanup_stale_orders_job():
     """
     Background job to cancel any active orders older than 24 hours.
@@ -2370,6 +2506,13 @@ restaurant_timeout_scheduler.add_job(
     name="Cleanup stale active orders (24h+)",
     replace_existing=True
 )
+restaurant_timeout_scheduler.add_job(
+    check_stale_driver_reassignment_job,
+    IntervalTrigger(seconds=STALE_DRIVER_CHECK_INTERVAL_SECONDS),
+    id="stale_driver_reassignment",
+    name="Auto-reassign deliveries with stale driver location (10min+)",
+    replace_existing=True
+)
 
 def start_timeout_scheduler():
     """Start the background scheduler for timeout checks"""
@@ -2426,7 +2569,8 @@ def start_timeout_scheduler():
             f"Rideshare: bidding expiry ({RIDE_BIDDING_EXPIRY_MINUTES}min), "
             f"matched timeout ({RIDE_MATCHED_TIMEOUT_MINUTES}min), "
             f"in-progress timeout ({RIDE_IN_PROGRESS_TIMEOUT_HOURS}h), "
-            f"individual bid expiry every {RIDE_CLEANUP_CHECK_INTERVAL_SECONDS}s."
+            f"individual bid expiry every {RIDE_CLEANUP_CHECK_INTERVAL_SECONDS}s. "
+            f"Stale driver reassignment ({STALE_DRIVER_LOCATION_MINUTES}min every {STALE_DRIVER_CHECK_INTERVAL_SECONDS}s)."
         )
 
 
