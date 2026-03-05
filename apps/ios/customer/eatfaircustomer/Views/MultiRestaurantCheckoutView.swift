@@ -1055,7 +1055,18 @@ struct MultiRestaurantCheckoutView: View {
                     #if DEBUG
                     print("[PlaceOrder] Order failed: \(error.localizedDescription)")
                     #endif
-                    errorMessage = error.localizedDescription
+                    if let apiError = error as? P2PAPIError {
+                        switch apiError {
+                        case .priceChanged(let message, _):
+                            errorMessage = "\(message)\n\nPlease review your cart — prices have been updated."
+                        case .vendorOffline:
+                            errorMessage = "This restaurant is currently closed and not accepting orders. Please try again later."
+                        default:
+                            errorMessage = error.localizedDescription
+                        }
+                    } else {
+                        errorMessage = error.localizedDescription
+                    }
                     showError = true
                 }
             }

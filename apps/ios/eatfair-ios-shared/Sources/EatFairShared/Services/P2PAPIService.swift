@@ -2994,6 +2994,33 @@ public class P2PAPIService: ObservableObject {
 
                 // Check for error response
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    // 409: Price change detected
+                    if httpResponse.statusCode == 409 {
+                        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                           let message = json["message"] as? String,
+                           let priceChanges = json["price_changes"] as? [[String: Any]] {
+                            completion(.failure(P2PAPIError.priceChanged(message, priceChanges)))
+                        } else {
+                            completion(.failure(P2PAPIError.serverError("Menu prices have changed. Please refresh your cart.")))
+                        }
+                        return
+                    }
+
+                    // 400: Check for vendor offline
+                    if httpResponse.statusCode == 400 {
+                        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                           let detail = json["detail"] as? String,
+                           detail.lowercased().contains("offline") {
+                            completion(.failure(P2PAPIError.vendorOffline(detail)))
+                        } else if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                            completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                        } else {
+                            completion(.failure(P2PAPIError.serverError("Order creation failed")))
+                        }
+                        return
+                    }
+
+                    // Default error handling for other status codes
                     if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
                         completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
                     } else {
@@ -7851,6 +7878,8 @@ public enum P2PAPIError: Error, LocalizedError {
     case serverError(String)
     case httpError(Int)
     case registrationRequired(String, String) // (message, registrationURL)
+    case priceChanged(String, [[String: Any]])  // (message, price_changes array)
+    case vendorOffline(String)                   // (detail message)
 
     public var errorDescription: String? {
         switch self {
@@ -7867,6 +7896,10 @@ public enum P2PAPIError: Error, LocalizedError {
         case .httpError(let statusCode):
             return "HTTP error: \(statusCode)"
         case .registrationRequired(let message, _):
+            return message
+        case .priceChanged(let message, _):
+            return message
+        case .vendorOffline(let message):
             return message
         }
     }

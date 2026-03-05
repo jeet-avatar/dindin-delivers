@@ -508,7 +508,28 @@ class MultiRestaurantCartViewModel: ObservableObject {
                     logger.info("[OrderFlow] ❌ Order failed for \(restaurant.name): \(error.localizedDescription)")
                     #endif
                     DispatchQueue.main.async {
-                        failedOrders.append(restaurant.name)
+                        // Check for specific error types
+                        if let apiError = error as? P2PAPIError {
+                            switch apiError {
+                            case .priceChanged(let message, let changes):
+                                // Build detailed price change message
+                                var detail = "\(restaurant.name): \(message)\n"
+                                for change in changes {
+                                    if let name = change["item"] as? String,
+                                       let expected = change["expected_price"] as? Double,
+                                       let current = change["current_price"] as? Double {
+                                        detail += "  \(name): $\(String(format: "%.2f", expected)) -> $\(String(format: "%.2f", current))\n"
+                                    }
+                                }
+                                failedOrders.append(detail)
+                            case .vendorOffline:
+                                failedOrders.append("\(restaurant.name): Restaurant is currently closed")
+                            default:
+                                failedOrders.append(restaurant.name)
+                            }
+                        } else {
+                            failedOrders.append(restaurant.name)
+                        }
                         orderGroup.leave()
                     }
                 }
