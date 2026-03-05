@@ -483,6 +483,7 @@ class CreateOrderRequest(BaseModel):
     delivery_address: Dict[str, Any]  # Includes street, city, state, zip, latitude, longitude
     delivery_instructions: Optional[str] = None
     tip: float = Field(default=0.0, ge=0.0, le=500.0, description="Tip amount in dollars (must be non-negative)")
+    leave_at_door: Optional[bool] = False  # Customer can request food left at door
 
 
 class AssignDriverRequest(BaseModel):
@@ -1263,6 +1264,7 @@ async def create_order(
         total_amount=total_amount,
         delivery_address=json.dumps(order_data.delivery_address),
         delivery_instructions=order_data.delivery_instructions,
+        leave_at_door=order_data.leave_at_door or False,
         status=OrderStatus.PENDING_PAYMENT,
         payment_status="pending"
     )
@@ -4735,7 +4737,9 @@ async def get_full_order_tracking(
             "total": order.total_amount,
             "delivery_address": delivery_addr,
             "delivery_instructions": order.delivery_instructions,
-            "delivery_photo_url": order.delivery_photo_url
+            "delivery_photo_url": order.delivery_photo_url,
+            "leave_at_door": getattr(order, 'leave_at_door', False),
+            "driver_arrived_at_delivery": (order.driver_arrived_at_delivery.isoformat() + "Z") if getattr(order, 'driver_arrived_at_delivery', None) else None,
         },
         "restaurant": {
             "id": vendor.id if vendor else None,
