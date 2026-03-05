@@ -1782,6 +1782,41 @@ class RideDispute(Base):
 
 
 # =============================================================================
+# ORDER DISPUTE - Food order dispute/refund tracking
+# =============================================================================
+
+class OrderDisputeReason(enum.Enum):
+    WRONG_ITEMS = "wrong_items"
+    MISSING_ITEMS = "missing_items"
+    QUALITY_ISSUE = "quality_issue"
+    NEVER_DELIVERED = "never_delivered"
+    OTHER = "other"
+
+
+class OrderDispute(Base):
+    """Customer dispute on a delivered food order"""
+    __tablename__ = "order_disputes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+    reason = Column(SQLEnum(OrderDisputeReason, native_enum=False), nullable=False)
+    description = Column(Text)
+    affected_items = Column(Text)  # JSON array of item names/ids that were wrong/missing
+    status = Column(SQLEnum(DisputeStatus, native_enum=False), nullable=False, default=DisputeStatus.SUBMITTED)
+    refund_amount = Column(Float)
+    stripe_refund_id = Column(String(255))
+    admin_notes = Column(Text)
+    resolved_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    order = relationship("Order")
+    customer = relationship("Customer")
+
+
+# =============================================================================
 # RECURRING RIDE - Saved ride patterns for P2P matchmaking
 # =============================================================================
 
