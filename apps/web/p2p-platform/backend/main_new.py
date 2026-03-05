@@ -5368,7 +5368,8 @@ async def complete_ride_and_pay_driver(
                 "ride_fare": str(ride_fare),
                 "platform_fee": str(platform_fee),
                 "tip": str(tip)
-            }
+            },
+            idempotency_key=f"main_ride_xfer_{ride_id}_{ride.request_id}"
         )
 
         # Update ride record with transfer info
@@ -17771,6 +17772,7 @@ async def proxy_create_payment_intent(
 
         if order_id:
             payment_intent_params["metadata"] = {"order_id": order_id}
+            payment_intent_params["idempotency_key"] = f"main_pi_{order_id}_{int(datetime.utcnow().timestamp())}"
 
         payment_intent = stripe.PaymentIntent.create(**payment_intent_params)
 
