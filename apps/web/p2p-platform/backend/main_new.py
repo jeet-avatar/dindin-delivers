@@ -1348,6 +1348,9 @@ def _run_startup_migrations():
         # Delivery proof photo columns
         ("orders", "delivery_photo_url", "VARCHAR(500)"),
         ("orders", "delivery_photo_uploaded_at", "TIMESTAMP"),
+        # Customer not at door flow columns
+        ("orders", "leave_at_door", "BOOLEAN DEFAULT FALSE"),
+        ("orders", "driver_arrived_at_delivery", "TIMESTAMP"),
         # Vendor payout Stripe transfer tracking
         ("vendor_payouts", "stripe_transfer_id", "VARCHAR(255)"),
         # Apple Sign-In user ID for returning user lookup
@@ -8621,9 +8624,11 @@ _VALID_ORDER_TRANSITIONS = {
     "PENDING_DELIVERY_DECISION": {"RESTAURANT_WILL_DELIVER", "DELIVERY_DECISION_TIMEOUT", "OUT_FOR_DELIVERY"},
     "RESTAURANT_WILL_DELIVER": {"OUT_FOR_DELIVERY", "DELIVERED"},
     "DELIVERY_DECISION_TIMEOUT": {"OUT_FOR_DELIVERY"},
-    "OUT_FOR_DELIVERY": {"DELIVERED"},
+    "OUT_FOR_DELIVERY": {"DELIVERED", "PENDING_DELIVERY_PROOF", "DELIVERY_FAILED"},
+    "PENDING_DELIVERY_PROOF": {"DELIVERED", "DELIVERY_FAILED"},
     "DELIVERED": set(),  # Terminal state
     "CANCELLED": set(),  # Terminal state
+    "DELIVERY_FAILED": set(),  # Terminal state
 }
 
 @app.patch("/api/orders/{order_id}/status")
@@ -14844,6 +14849,8 @@ def get_customer_orders(
             "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
             # Delivery proof photo
             "delivery_photo_url": getattr(order, 'delivery_photo_url', None),
+            "leave_at_door": getattr(order, 'leave_at_door', False),
+            "driver_arrived_at_delivery": (order.driver_arrived_at_delivery.isoformat() + "Z") if getattr(order, 'driver_arrived_at_delivery', None) else None,
             # Estimated delivery time (30 min from created_at if not delivered)
             "estimated_delivery_time": (order.created_at + timedelta(minutes=30)).isoformat() + "Z" if order.created_at and not order.delivered_at else None,
         })

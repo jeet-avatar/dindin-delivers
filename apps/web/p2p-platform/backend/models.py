@@ -489,6 +489,10 @@ class Order(Base):
     delivery_photo_url = Column(String(500))
     delivery_photo_uploaded_at = Column(DateTime)
 
+    # Customer Not At Door flow
+    leave_at_door = Column(Boolean, default=False)  # Customer sets at checkout
+    driver_arrived_at_delivery = Column(DateTime, nullable=True)  # When driver taps "arrived"
+
     # Prep Time ETA for Early Driver Notification
     estimated_prep_minutes = Column(Integer, nullable=True)  # e.g., 15 minutes
     estimated_ready_at = Column(DateTime, nullable=True)  # calculated timestamp when food will be ready
