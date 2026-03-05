@@ -382,7 +382,16 @@ async def stripe_webhook(
     # Log the event
     event_type = event['type']
     event_data = event['data']['object']
-    
+
+    # IDEMPOTENCY: Check if we already processed this exact Stripe event.
+    # Stripe retries webhooks on timeout/error, which would cause duplicate
+    # confirmation emails and duplicate order status updates.
+    existing_log = db.query(StripePaymentLog).filter(
+        StripePaymentLog.stripe_event_id == event['id']
+    ).first()
+    if existing_log:
+        return {"status": "already_processed", "event_type": event_type}
+
     stripe_log = StripePaymentLog(
         event_type=event_type,
         stripe_event_id=event['id'],
@@ -394,7 +403,7 @@ async def stripe_webhook(
     )
     db.add(stripe_log)
     db.commit()
-    
+
     # Handle payment_intent.succeeded event
     if event_type == 'payment_intent.succeeded':
         payment_intent = event_data

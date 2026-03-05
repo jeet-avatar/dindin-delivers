@@ -2133,6 +2133,9 @@ STALE_DRIVER_CHECK_INTERVAL_SECONDS = 60  # Check every 60 seconds
 
 # Track warned orders in-memory to avoid duplicate notifications
 _delivery_warned_orders: set = set()
+# Track orders already processed for 120-min delivery failure (prevents duplicate
+# emails/refunds if commit fails and job re-runs before status change persists)
+_delivery_failed_orders: set = set()
 # Track reassigned order IDs to avoid duplicate processing
 _reassigned_orders: set = set()
 
@@ -2230,6 +2233,11 @@ def check_delivery_timeouts_job():
 
             # 120-minute auto-refund (check first so 120+ orders don't also trigger 90-min)
             if elapsed_minutes >= DELIVERY_FAILURE_MINUTES:
+                # Dedup: skip if already processed (prevents duplicate emails/refunds
+                # if db.commit() fails and this job re-runs before status change persists)
+                if order.id in _delivery_failed_orders:
+                    continue
+
                 # Trigger refund
                 if order.stripe_payment_intent_id:
                     trigger_refund(order, reason="Delivery timeout - order not delivered within 120 minutes")
@@ -2275,8 +2283,9 @@ def check_delivery_timeouts_job():
                 except Exception as e:
                     logger.warning(f"Failed to send delivery failed escalation email: {e}")
 
-                # Remove from warned set if present
+                # Remove from warned set if present, add to failed set
                 _delivery_warned_orders.discard(order.id)
+                _delivery_failed_orders.add(order.id)
 
                 logger.error(f"Order {order.order_number} delivery FAILED after {int(elapsed_minutes)} min. Refund issued.")
 
@@ -2488,14 +2497,25 @@ def check_stale_driver_reassignment_job():
             db.commit()
             logger.info(f"Stale driver check: {reassigned_count} orders reassigned")
 
-        # Cleanup dedup set: remove IDs for orders no longer in READY_FOR_PICKUP
+        # Cleanup dedup set: only remove IDs for orders that have reached a TERMINAL
+        # state (DELIVERED, CANCELLED, DELIVERY_FAILED). Keep IDs for orders still in
+        # READY_FOR_PICKUP (waiting for new driver) or any other active state.
+        # BUG FIX: Previously used intersection_update(still_in_READY_FOR_PICKUP) which
+        # cleared the ENTIRE set when orders moved out of READY_FOR_PICKUP (e.g., new
+        # driver accepted). This removed dedup protection, causing repeated reassignment
+        # + email sends when the new driver also went stale.
         if _reassigned_orders:
-            still_waiting = db.query(Order.id).filter(
+            terminal_statuses = [
+                OrderStatus.DELIVERED,
+                OrderStatus.CANCELLED,
+                OrderStatus.DELIVERY_FAILED,
+            ]
+            completed = db.query(Order.id).filter(
                 Order.id.in_(_reassigned_orders),
-                Order.status == OrderStatus.READY_FOR_PICKUP
+                Order.status.in_(terminal_statuses)
             ).all()
-            still_waiting_ids = {row[0] for row in still_waiting}
-            _reassigned_orders.intersection_update(still_waiting_ids)
+            completed_ids = {row[0] for row in completed}
+            _reassigned_orders.difference_update(completed_ids)
 
     except Exception as e:
         logger.error(f"Error in stale driver reassignment check: {e}")
@@ -2609,9 +2629,40 @@ restaurant_timeout_scheduler.add_job(
     replace_existing=True
 )
 
+def _should_run_scheduler() -> bool:
+    """
+    Guard: Only ONE worker process per container should run the background scheduler.
+    Without this guard, each uvicorn worker (--workers 4) starts its own scheduler,
+    causing all background jobs to run 4x per interval with separate in-memory dedup sets.
+    This leads to duplicate emails, duplicate refunds, and duplicate push notifications.
+
+    Uses a file lock that only one process can acquire.
+    """
+    import fcntl
+    lock_path = "/tmp/dollor-scheduler.lock"
+    try:
+        # O_CREAT | O_WRONLY — create if missing
+        lock_fd = os.open(lock_path, os.O_CREAT | os.O_WRONLY, 0o644)
+        # Non-blocking exclusive lock — only one process wins
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # Write our PID for debugging
+        os.write(lock_fd, f"{os.getpid()}\n".encode())
+        os.fsync(lock_fd)
+        # Keep lock_fd open (lock held for process lifetime — released on exit)
+        # Store on module to prevent garbage collection
+        global _scheduler_lock_fd
+        _scheduler_lock_fd = lock_fd
+        logger.info(f"Scheduler lock acquired by PID {os.getpid()}")
+        return True
+    except (OSError, IOError):
+        # Another process already holds the lock
+        logger.info(f"Scheduler lock NOT acquired by PID {os.getpid()} — another worker is the scheduler leader")
+        return False
+
+
 def start_timeout_scheduler():
     """Start the background scheduler for timeout checks"""
-    if not restaurant_timeout_scheduler.running:
+    if not restaurant_timeout_scheduler.running and _should_run_scheduler():
         # Import ride cleanup jobs here to avoid circular import
         # (bid_routes imports from order_flow at module level)
         from bid_routes import (
