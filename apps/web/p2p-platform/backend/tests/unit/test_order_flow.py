@@ -402,7 +402,9 @@ class TestOrderCreation:
                 "street": "456 Oak St",
                 "city": "San Francisco",
                 "state": "CA",
-                "zip": "94102"
+                "zip": "94102",
+                "latitude": 37.7749,
+                "longitude": -122.4194,
             },
             tip=5.0
         )
@@ -430,7 +432,7 @@ class TestOrderCreation:
             customer_phone="+14155559999",
             vendor_id=999,
             items=[{"menu_item_id": 1, "quantity": 1}],
-            delivery_address={"street": "123 St", "city": "SF", "state": "CA", "zip": "94102"}
+            delivery_address={"street": "123 St", "city": "SF", "state": "CA", "zip": "94102", "latitude": 37.7749, "longitude": -122.4194}
         )
 
         from order_flow import create_order
@@ -452,7 +454,7 @@ class TestOrderCreation:
             customer_phone="+14155559999",
             vendor_id=1,
             items=[{"menu_item_id": 1, "quantity": 1}],
-            delivery_address={"street": "123 St", "city": "SF", "state": "CA", "zip": "94102"}
+            delivery_address={"street": "123 St", "city": "SF", "state": "CA", "zip": "94102", "latitude": 37.7749, "longitude": -122.4194}
         )
 
         from order_flow import create_order
@@ -497,7 +499,7 @@ class TestOrderCreation:
             items=[
                 {"name": "Custom Item", "price": 15.99, "quantity": 1}
             ],
-            delivery_address={"street": "123 St", "city": "SF", "state": "CA", "zip": "94102"}
+            delivery_address={"street": "123 St", "city": "SF", "state": "CA", "zip": "94102", "latitude": 37.7749, "longitude": -122.4194}
         )
 
         from order_flow import create_order
