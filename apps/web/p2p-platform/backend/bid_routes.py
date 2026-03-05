@@ -2030,7 +2030,8 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
                             "driver_id": str(driver.id),
                             "fare": str(final_price),
                             "platform_fee": str(platform_fee),
-                        }
+                        },
+                        idempotency_key=f"bid_driver_xfer_{ride_request.id}_{bid.id if hasattr(bid, 'id') else ride_request.matched_bid_id}"
                     )
                     ride_request.stripe_transfer_id = transfer.id
                     ride_request.driver_paid_at = datetime.utcnow()

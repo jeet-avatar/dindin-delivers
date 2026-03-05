@@ -153,7 +153,8 @@ async def create_simple_payment_intent(http_request: Request, request: SimplePay
                 "customer_email": request.customer_email or ""
             },
             receipt_email=request.customer_email if request.customer_email else None,
-            description=f"Order payment - {request.order_id}" if request.order_id else "Mobile app payment"
+            description=f"Order payment - {request.order_id}" if request.order_id else "Mobile app payment",
+            idempotency_key=f"simple_pi_{request.order_id}_{int(datetime.now().timestamp())}" if request.order_id else None
         )
 
         return SimplePaymentIntentResponse(

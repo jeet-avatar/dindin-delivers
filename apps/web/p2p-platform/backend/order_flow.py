@@ -984,7 +984,8 @@ async def ride_completed(
                             "driver_id": str(driver.id),
                             "fare": str(fare),
                             "platform_fee": str(tier_fee),
-                        }
+                        },
+                        idempotency_key=f"ride_driver_xfer_{ride.id}"
                     )
                     ride.stripe_transfer_id = transfer.id
                     ride.driver_paid_at = datetime.now()
@@ -3219,7 +3220,8 @@ async def order_delivered(
                             "vendor_id": str(vendor.id),
                             "gross_revenue": str(order.subtotal),
                             "platform_fee": str(RESTAURANT_PLATFORM_FEE),
-                        }
+                        },
+                        idempotency_key=f"vendor_xfer_{order.id}_{order.order_number}"
                     )
                     vendor_payout.status = "completed"
                     vendor_payout.paid_at = datetime.now()
@@ -3228,6 +3230,7 @@ async def order_delivered(
             else:
                 logging.info(f"Order {order.order_number} vendor {vendor.id} not Stripe-onboarded, payout pending manual processing")
         except Exception as e:
+            vendor_payout.status = "failed"
             logging.error(f"Order {order.order_number} vendor auto-payout failed (non-blocking): {e}")
 
     # ==================== CREATE DRIVER PAYOUT RECORD ====================
@@ -3272,7 +3275,8 @@ async def order_delivered(
                             "driver_id": str(driver.id),
                             "delivery_fee": str(order.delivery_fee),
                             "tip": str(order.tip),
-                        }
+                        },
+                        idempotency_key=f"driver_xfer_{order.id}_{order.order_number}"
                     )
                     driver_payout_record.status = "completed"
                     driver_payout_record.stripe_transfer_id = getattr(driver_payout_record, 'stripe_transfer_id', None) or transfer.id
@@ -3280,6 +3284,7 @@ async def order_delivered(
             else:
                 logging.info(f"Order {order.order_number} driver {driver.id} not Stripe-onboarded, payout pending manual processing")
         except Exception as e:
+            driver_payout_record.status = "failed"
             logging.error(f"Order {order.order_number} auto-payout failed (non-blocking): {e}")
 
     db.commit()
@@ -4822,4 +4827,61 @@ async def cleanup_test_orders(
         "deleted_count": count,
         "status": status,
         "message": f"Deleted {count} orders with status '{status}'"
+    }
+
+
+# ==================== ORDER REFUND ====================
+
+@router.post("/orders/{order_id}/refund")
+async def refund_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
+):
+    """
+    Refund an order via Stripe.
+    Requires authentication (admin or customer who owns the order).
+    Creates a Stripe Refund against the order's PaymentIntent.
+    """
+    import stripe
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Check if order is already delivered/completed — cannot refund
+    if order.status in [OrderStatus.DELIVERED]:
+        raise HTTPException(status_code=400, detail="Cannot refund completed order")
+
+    # Check if already refunded
+    if order.payment_status == "refunded":
+        raise HTTPException(status_code=400, detail="Order already refunded")
+
+    # Must have a payment intent to refund
+    if not order.stripe_payment_intent_id:
+        raise HTTPException(status_code=400, detail="No payment found for this order")
+
+    try:
+        refund = stripe.Refund.create(
+            payment_intent=order.stripe_payment_intent_id,
+            idempotency_key=f"refund_{order.id}"
+        )
+
+        order.payment_status = "refunded"
+        order.status = OrderStatus.CANCELLED
+        db.commit()
+
+        logger.info(f"Order {order.order_number} refunded: {refund.id}")
+
+        return {
+            "success": True,
+            "refund_id": refund.id,
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "amount_refunded": refund.amount / 100.0
+        }
+    except stripe.error.StripeError as e:
+        logger.error(f"Refund failed for order {order.order_number}: {e}")
+        raise HTTPException(status_code=500, detail=f"Refund failed: {str(e)}")
     }

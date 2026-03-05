@@ -138,7 +138,8 @@ async def create_payment_intent(http_request: Request, data: CreatePaymentIntent
                 "customer_pays": str(customer_pays),
                 "driver_payout": str(driver_receives),
                 "platform_earns": str(platform_earns)
-            }
+            },
+            idempotency_key=f"ride_pi_{ride.id}_{ride.request_id}"
         )
 
         ride.stripe_payment_intent_id = payment_intent.id

@@ -424,7 +424,8 @@ async def accept_driver_bid(http_request: Request, request: AcceptBidRequest, db
                     "customer_id": str(request.customer_id),
                     "driver_id": str(driver.id),
                     "note": "Matchmaking connection fee - fare paid directly to driver"
-                }
+                },
+                idempotency_key=f"conn_fee_{ride.request_id}_{bid.id}"
             )
         except stripe.error.StripeError as e:
             raise HTTPException(status_code=400, detail=f"Payment failed: {str(e)}")
