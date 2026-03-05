@@ -3041,6 +3041,8 @@ def update_driver_location(latitude: float, longitude: float, driver: Driver = D
     driver.location_updated_at = datetime.utcnow()
     db.commit()
 
+    _check_driver_proximity_to_delivery(driver.id, latitude, longitude, db)
+
     return {"success": True, "latitude": latitude, "longitude": longitude}
 
 
@@ -3617,6 +3619,11 @@ class RideRequestModel(BaseModel):
 
 import math
 
+# Track orders where "driver approaching" notification already sent (in-memory, resets on restart)
+_driver_approaching_notified: set = set()
+
+DRIVER_APPROACHING_THRESHOLD_METERS = 500
+
 def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculate distance between two points using Haversine formula"""
     R = 6371  # Earth's radius in kilometers
@@ -3629,6 +3636,50 @@ def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) ->
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
     return R * c
+
+
+def _haversine_distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance between two GPS points in meters using Haversine formula."""
+    R = 6371000  # Earth radius in meters
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _check_driver_proximity_to_delivery(driver_id: int, driver_lat: float, driver_lng: float, db: Session):
+    """Check if driver is within 500m of any active delivery address. Send one-time push to customer."""
+    global _driver_approaching_notified
+    try:
+        active_orders = db.query(Order).filter(
+            Order.driver_id == driver_id,
+            Order.status == OrderStatus.OUT_FOR_DELIVERY,
+            Order.delivery_latitude.isnot(None),
+            Order.delivery_longitude.isnot(None)
+        ).all()
+
+        for order in active_orders:
+            if order.id in _driver_approaching_notified:
+                continue
+            distance = _haversine_distance_meters(
+                driver_lat, driver_lng,
+                order.delivery_latitude, order.delivery_longitude
+            )
+            if distance <= DRIVER_APPROACHING_THRESHOLD_METERS:
+                from order_flow import send_push_notification
+                send_push_notification(
+                    user_type="customer",
+                    user_id=order.customer_id,
+                    title="Driver Approaching",
+                    body="Your driver is about 2 minutes away!",
+                    data={"type": "driver_approaching", "order_id": str(order.id)},
+                    db=db
+                )
+                _driver_approaching_notified.add(order.id)
+                logger.info(f"Driver approaching notification sent for order {order.id} (distance: {distance:.0f}m)")
+    except Exception as e:
+        logger.warning(f"Driver proximity check failed: {e}")
 
 
 def get_fare_tier_description(fare: float) -> str:
@@ -19619,6 +19670,9 @@ def update_driver_location_android(request: dict, db: Session = Depends(get_db),
     driver.current_latitude = latitude
     driver.current_longitude = longitude
     db.commit()
+
+    if latitude is not None and longitude is not None:
+        _check_driver_proximity_to_delivery(driver.id, latitude, longitude, db)
 
     return {
         "success": True,
