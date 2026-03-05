@@ -270,22 +270,22 @@ class TestWave1Refund:
     """E2E tests for refund endpoint."""
 
     @pytest.mark.e2e
-    @patch("order_flow.stripe.Refund.create")
-    def test_refund_blocks_delivered_order(self, mock_refund, client, db_session, e2e_vendor, e2e_driver, e2e_customer, e2e_customer_headers, mock_push):
+    def test_refund_blocks_delivered_order(self, client, db_session, e2e_vendor, e2e_driver, e2e_customer, e2e_customer_headers, mock_push):
         """Refund on DELIVERED order returns 400."""
         order = _make_order(db_session, e2e_vendor, e2e_driver, e2e_customer, status=OrderStatus.DELIVERED)
-        resp = client.post(f"/api/erp/orders/{order.id}/refund", headers=e2e_customer_headers)
+        with patch("stripe.Refund.create"):
+            resp = client.post(f"/api/erp/orders/{order.id}/refund", headers=e2e_customer_headers)
         assert resp.status_code == 400, f"Expected 400 for delivered refund, got {resp.status_code}: {resp.text}"
         assert "completed" in resp.text.lower() or "refund" in resp.text.lower()
 
     @pytest.mark.e2e
-    @patch("order_flow.send_push_notification")
-    @patch("order_flow.stripe.Refund.create")
-    def test_refund_cancellable_order(self, mock_refund, mock_notify, client, db_session, e2e_vendor, e2e_driver, e2e_customer, e2e_customer_headers):
+    def test_refund_cancellable_order(self, client, db_session, e2e_vendor, e2e_driver, e2e_customer, e2e_customer_headers):
         """Refund on CONFIRMED order succeeds, sets status=CANCELLED and payment_status=refunded."""
-        mock_refund.return_value = MagicMock(id="re_test_123", amount=1480)
         order = _make_order(db_session, e2e_vendor, e2e_driver, e2e_customer, status=OrderStatus.CONFIRMED)
-        resp = client.post(f"/api/erp/orders/{order.id}/refund", headers=e2e_customer_headers)
+        mock_refund_obj = MagicMock(id="re_test_123", amount=1480)
+        with patch("stripe.Refund.create", return_value=mock_refund_obj), \
+             patch("order_flow.send_push_notification"):
+            resp = client.post(f"/api/erp/orders/{order.id}/refund", headers=e2e_customer_headers)
         assert resp.status_code == 200, f"Expected 200 for refund, got {resp.status_code}: {resp.text}"
         data = resp.json()
         assert data["success"] is True
