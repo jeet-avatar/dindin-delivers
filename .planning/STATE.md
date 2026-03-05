@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-05 - Completed quick task 95: Wave 2 Gap #15 — Address validation at checkout + address-unreachable endpoint
+Last activity: 2026-03-05 - Completed quick task 96: Wave 2 Gap #17 — Driver approaching push notification (500m proximity)
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
