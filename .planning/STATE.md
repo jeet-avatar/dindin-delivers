@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-05 - Completed quick task 90: Wave 1 client-side handling — iOS/Android 409+400 error UX, push notifications for auto-cancel and refund
+Last activity: 2026-03-05 - Completed quick task 91: Build and distribute all 6 apps — iOS to TestFlight, Android to Firebase
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -1426,6 +1426,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 88 | Gap analysis vs DoorDash/Swiggy — 74 scenarios, 43 covered, 31 gaps (8 CRITICAL) | 2026-03-05 | (research) | [88-gap-analysis-vs-doordash-swiggy-prioriti](./quick/88-gap-analysis-vs-doordash-swiggy-prioriti/) |
 | 89 | Wave 1 Payment Safety — Stripe idempotency keys, refund endpoint, price change detection, vendor offline blocking | 2026-03-05 | 903a43d0 | [89-wave-1-payment-safety-stripe-idempotency](./quick/89-wave-1-payment-safety-stripe-idempotency/) |
 | 90 | Wave 1 client-side handling — 409 price change, 400 vendor offline, push notifications for auto-cancel and refund | 2026-03-05 | 39758703 | [90-wave-1-client-side-handling-409-price-ch](./quick/90-wave-1-client-side-handling-409-price-ch/) |
+| 91 | Build and distribute all 6 apps — iOS 1112/214/184 to TestFlight, Android vC=35/32/28 to Firebase | 2026-03-05 | b74dc56a | [91-build-and-distribute-all-6-apps-3-ios-to](./quick/91-build-and-distribute-all-6-apps-3-ios-to/) |
 
 ## Session Continuity
 
