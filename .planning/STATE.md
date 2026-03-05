@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-05 - Completed quick task 96: Wave 2 Gap #17 — Driver approaching push notification (500m proximity)
+Last activity: 2026-03-05 - Completed quick task 97: Wave 2 pre-deploy audit + deploy (Android lat/lng fix, staging+prod deployed)
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -10868,6 +10868,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 94 | Wave 2 Gap #7: Driver offline mid-delivery — stale GPS detection, auto-reassign | 2026-03-05 | 7099c15a | [94-wave-2-gap-7-driver-offline-mid-delivery](./quick/94-wave-2-gap-7-driver-offline-mid-delivery/) |
 | 95 | Wave 2 Gap #15: Address validation at checkout + address-unreachable endpoint | 2026-03-05 | 56c49af5 | [95-wave-2-gap-15-address-validation-geocode](./quick/95-wave-2-gap-15-address-validation-geocode/) |
 | 96 | Wave 2 Gap #17: Driver approaching notification — 500m proximity push | 2026-03-05 | 4b6396f1 | [96-wave-2-gap-17-driver-approaching-notific](./quick/96-wave-2-gap-17-driver-approaching-notific/) |
+| 97 | Wave 2 pre-deploy audit — iOS OK, Android lat/lng fix, staging+prod deployed | 2026-03-05 | 9a124947 | [97-wave-2-pre-deploy-audit-check-ios-androi](./quick/97-wave-2-pre-deploy-audit-check-ios-androi/) |
 
 ## Session Continuity
 
