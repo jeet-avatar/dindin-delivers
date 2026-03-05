@@ -562,6 +562,8 @@ struct LoginView: View {
                             errorMessage = "Failed to send request. Please try again."
                         case .httpError(let code):
                             errorMessage = "Server error (\(code)). Please try again later."
+                        default:
+                            errorMessage = "Login failed. Please try again."
                         }
                     } else {
                         errorMessage = "Login failed. Please check your credentials."
