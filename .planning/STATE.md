@@ -5473,6 +5473,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 91 | Build and distribute all 6 apps — iOS 1112/214/184 to TestFlight, Android vC=35/32/28 to Firebase | 2026-03-05 | b74dc56a | [91-build-and-distribute-all-6-apps-3-ios-to](./quick/91-build-and-distribute-all-6-apps-3-ios-to/) |
 | 92 | Deploy Wave 1 Payment Safety backend to staging and production via CI/CD | 2026-03-05 | — | [92-deploy-wave-1-payment-safety-backend-to-](./quick/92-deploy-wave-1-payment-safety-backend-to-/) |
 | 93 | Wave 2 Gap #3: Customer not at door — 5-min wait timer, leave at door, cancel with photo proof | 2026-03-05 | ec4a8607 | [93-wave-2-gap-3-customer-not-at-door-5-min-](./quick/93-wave-2-gap-3-customer-not-at-door-5-min-/) |
+| 94 | Wave 2 Gap #7: Driver offline mid-delivery — stale GPS detection, auto-reassign | 2026-03-05 | 7099c15a | [94-wave-2-gap-7-driver-offline-mid-delivery](./quick/94-wave-2-gap-7-driver-offline-mid-delivery/) |
 
 ## Session Continuity
 
