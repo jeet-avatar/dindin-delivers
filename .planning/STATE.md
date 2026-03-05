@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-05 - HOTFIX quick task 98: Email notification loop fix deployed to production
+Last activity: 2026-03-05 - Completed quick task 99: Wave 1+2 E2E recheck — 30 tests, all pass, 0 regressions
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -21654,6 +21654,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 96 | Wave 2 Gap #17: Driver approaching notification — 500m proximity push | 2026-03-05 | 4b6396f1 | [96-wave-2-gap-17-driver-approaching-notific](./quick/96-wave-2-gap-17-driver-approaching-notific/) |
 | 97 | Wave 2 pre-deploy audit — iOS OK, Android lat/lng fix, staging+prod deployed | 2026-03-05 | 9a124947 | [97-wave-2-pre-deploy-audit-check-ios-androi](./quick/97-wave-2-pre-deploy-audit-check-ios-androi/) |
 | 98 | HOTFIX: Email notification loop fix — scheduler dedup, Stripe webhook idempotency | 2026-03-05 | 0ac64022 | [98-hotfix-deploy-email-notification-loop-fi](./quick/98-hotfix-deploy-email-notification-loop-fi/) |
+| 99 | Wave 1+2 E2E recheck — 15 smoke + 15 lifecycle tests, all pass | 2026-03-05 | 1c247b9f | [99-recheck-wave-1-2-features-on-production-](./quick/99-recheck-wave-1-2-features-on-production-/) |
 
 ## Session Continuity
 
