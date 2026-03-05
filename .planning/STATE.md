@@ -411,9 +411,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 84 | Research API alignment guarantee strategy — OpenAPI CI validator recommended (~2-3 hrs to implement) | 2026-03-04 | (none) | [84-research-api-alignment-guarantee-strateg](./quick/84-research-api-alignment-guarantee-strateg/) |
 | 85 | Implement OpenAPI CI contract validator — 321 PASS, 0 FAIL, 15 EXCLUDED, CI job added | 2026-03-04 | 57358368 | [85-implement-openapi-ci-contract-validator-](./quick/85-implement-openapi-ci-contract-validator-/) |
 | 86 | Staging + production smoke test suite — 15 tests, 7 classes, shell wrapper | 2026-03-05 | d677a227 | [86-staging-production-smoke-test-suite](./quick/86-staging-production-smoke-test-suite/) |
+| 87 | Food order dispute system — OrderDispute model, 4 endpoints, partial refund, 11 tests | 2026-03-05 | be84828d | [87-investigate-and-implement-wrong-food-del](./quick/87-investigate-and-implement-wrong-food-del/) |
 
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Completed quick-86 (staging/production smoke test suite: 15 tests across 7 classes, scripts/smoke-test.sh wrapper).
+Stopped at: Completed quick-87 (food order dispute system: OrderDispute model, 4 endpoints, partial refund support, 11 tests passing).
 Resume file: .planning/NEXT_SESSION_PROMPT.md
