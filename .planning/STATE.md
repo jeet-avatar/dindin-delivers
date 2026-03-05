@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-05 - Session resumed, previous session completed quick tasks 86-88 (smoke tests, food disputes, gap analysis)
+Last activity: 2026-03-05 - Completed quick task 89: Wave 1 Payment Safety — 8 idempotency keys, refund endpoint, price detection, vendor offline blocking (1346 tests, 0 regressions)
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -750,6 +750,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 86 | Staging + production smoke test suite — 15 tests, 7 classes, shell wrapper | 2026-03-05 | d677a227 | [86-staging-production-smoke-test-suite](./quick/86-staging-production-smoke-test-suite/) |
 | 87 | Food order dispute system — OrderDispute model, 4 endpoints, partial refund, 11 tests | 2026-03-05 | be84828d | [87-investigate-and-implement-wrong-food-del](./quick/87-investigate-and-implement-wrong-food-del/) |
 | 88 | Gap analysis vs DoorDash/Swiggy — 74 scenarios, 43 covered, 31 gaps (8 CRITICAL) | 2026-03-05 | (research) | [88-gap-analysis-vs-doordash-swiggy-prioriti](./quick/88-gap-analysis-vs-doordash-swiggy-prioriti/) |
+| 89 | Wave 1 Payment Safety — Stripe idempotency keys, refund endpoint, price change detection, vendor offline blocking | 2026-03-05 | 903a43d0 | [89-wave-1-payment-safety-stripe-idempotency](./quick/89-wave-1-payment-safety-stripe-idempotency/) |
 
 ## Session Continuity
 
