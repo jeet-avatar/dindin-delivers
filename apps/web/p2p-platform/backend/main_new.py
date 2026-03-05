@@ -10988,6 +10988,20 @@ def update_vendor_online_status(
                     logger.warning(f"Auto-cancel PaymentIntent failed for order {order.order_number}: {e}")
             logger.info(f"Auto-cancelled order {order.order_number} - vendor went offline")
 
+            # Notify customer about auto-cancellation
+            try:
+                from order_flow import send_push_notification
+                send_push_notification(
+                    user_type="customer",
+                    user_id=order.customer_id,
+                    title="Order Cancelled",
+                    body=f"Your order #{order.order_number} has been cancelled because the restaurant went offline. A refund will be processed if payment was made.",
+                    data={"type": "order_cancelled", "order_id": str(order.id), "reason": "vendor_offline"},
+                    db=db
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send auto-cancel notification for order {order.order_number}: {e}")
+
         auto_cancelled_count = len(pending_orders)
 
     db_vendor.last_activity = datetime.now()
