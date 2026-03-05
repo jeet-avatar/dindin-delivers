@@ -5474,6 +5474,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 92 | Deploy Wave 1 Payment Safety backend to staging and production via CI/CD | 2026-03-05 | — | [92-deploy-wave-1-payment-safety-backend-to-](./quick/92-deploy-wave-1-payment-safety-backend-to-/) |
 | 93 | Wave 2 Gap #3: Customer not at door — 5-min wait timer, leave at door, cancel with photo proof | 2026-03-05 | ec4a8607 | [93-wave-2-gap-3-customer-not-at-door-5-min-](./quick/93-wave-2-gap-3-customer-not-at-door-5-min-/) |
 | 94 | Wave 2 Gap #7: Driver offline mid-delivery — stale GPS detection, auto-reassign | 2026-03-05 | 7099c15a | [94-wave-2-gap-7-driver-offline-mid-delivery](./quick/94-wave-2-gap-7-driver-offline-mid-delivery/) |
+| 95 | Wave 2 Gap #15: Address validation at checkout + address-unreachable endpoint | 2026-03-05 | 56c49af5 | [95-wave-2-gap-15-address-validation-geocode](./quick/95-wave-2-gap-15-address-validation-geocode/) |
 
 ## Session Continuity
 
