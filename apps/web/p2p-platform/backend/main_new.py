@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from database import get_db, init_db
-from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus
+from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus, OrderDispute, OrderDisputeReason, DisputeStatus
 from auth_utils import require_any_auth, require_customer, require_driver, require_vendor, require_admin
 from email_service import (
     send_vendor_approval_email, send_vendor_registration_confirmation,
@@ -14994,6 +14994,270 @@ async def get_refund_status(
         "refund_status": "not_applicable",
         "refund_amount": 0.0,
         "refund_reason": None
+    }
+
+
+# =========================================================================
+# FOOD ORDER DISPUTE / REFUND
+# =========================================================================
+
+class CreateOrderDisputeInput(BaseModel):
+    reason: str  # OrderDisputeReason value
+    description: Optional[str] = None
+    affected_items: Optional[list] = None  # List of item names/ids
+
+
+@app.post("/api/orders/{order_id}/dispute")
+async def create_order_dispute(
+    order_id: int,
+    data: CreateOrderDisputeInput,
+    request: Request,
+    customer: Customer = Depends(require_customer),
+    db: Session = Depends(get_db)
+):
+    """
+    Customer creates a dispute for a delivered food order.
+    Only DELIVERED orders can be disputed. One dispute per order.
+    Used by Android/iOS customer apps.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatus.DELIVERED:
+        raise HTTPException(status_code=400, detail="Can only dispute delivered orders")
+
+    # SECURITY: Only the order's customer can dispute
+    if order.customer_email and order.customer_email != customer.email:
+        raise HTTPException(status_code=403, detail="Only the order's customer can create a dispute")
+    # Also check customer_id if available
+    if order.customer_id and order.customer_id != customer.id:
+        raise HTTPException(status_code=403, detail="Only the order's customer can create a dispute")
+
+    # Validate reason
+    try:
+        reason_enum = OrderDisputeReason(data.reason)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid reason. Valid: {[r.value for r in OrderDisputeReason]}"
+        )
+
+    # Check for existing dispute on this order
+    existing = db.query(OrderDispute).filter(
+        OrderDispute.order_id == order_id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="A dispute already exists for this order")
+
+    _strip = lambda t: re.sub(r'<[^>]+>', '', t).strip() if t and isinstance(t, str) else t
+    affected_items_json = None
+    if data.affected_items:
+        affected_items_json = json.dumps(data.affected_items)
+
+    dispute = OrderDispute(
+        order_id=order_id,
+        customer_id=customer.id,
+        reason=reason_enum,
+        description=_strip(data.description),
+        affected_items=affected_items_json,
+        status=DisputeStatus.SUBMITTED
+    )
+    db.add(dispute)
+    db.commit()
+    db.refresh(dispute)
+
+    logger.info(f"Order dispute {dispute.id} created for order {order_id} by customer {customer.id}")
+
+    return {
+        "success": True,
+        "message": "Dispute submitted successfully. We'll review within 24-48 hours.",
+        "dispute": {
+            "id": dispute.id,
+            "order_id": dispute.order_id,
+            "reason": dispute.reason.value,
+            "description": dispute.description,
+            "affected_items": json.loads(dispute.affected_items) if dispute.affected_items else None,
+            "status": dispute.status.value,
+            "created_at": dispute.created_at.isoformat() if dispute.created_at else None
+        }
+    }
+
+
+@app.get("/api/orders/{order_id}/dispute")
+async def get_order_dispute(
+    order_id: int,
+    request: Request,
+    _auth: dict = Depends(require_any_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Get dispute status for a food order. Requires auth (dispute owner or admin).
+    Used by Android/iOS customer apps and admin portal.
+    """
+    dispute = db.query(OrderDispute).filter(OrderDispute.order_id == order_id).first()
+    if not dispute:
+        raise HTTPException(status_code=404, detail="No dispute found for this order")
+
+    jwt_customer_id = _auth.get("customer_id")
+    jwt_role = _auth.get("role", "")
+    if jwt_role != "admin" and jwt_customer_id != dispute.customer_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this dispute")
+
+    result = {
+        "id": dispute.id,
+        "order_id": dispute.order_id,
+        "reason": dispute.reason.value,
+        "description": dispute.description,
+        "affected_items": json.loads(dispute.affected_items) if dispute.affected_items else None,
+        "status": dispute.status.value,
+        "refund_amount": dispute.refund_amount,
+        "resolved_at": dispute.resolved_at.isoformat() if dispute.resolved_at else None,
+        "created_at": dispute.created_at.isoformat() if dispute.created_at else None,
+        "updated_at": dispute.updated_at.isoformat() if dispute.updated_at else None
+    }
+    # Only include admin_notes for admin users
+    if jwt_role == "admin":
+        result["admin_notes"] = dispute.admin_notes
+
+    return {"success": True, "dispute": result}
+
+
+@app.get("/api/orders/customer/{customer_id}/disputes")
+async def get_customer_order_disputes(
+    customer_id: int,
+    request: Request,
+    customer: Customer = Depends(require_customer),
+    db: Session = Depends(get_db)
+):
+    """
+    List all food order disputes for a customer. Requires customer auth + ownership.
+    Used by Android/iOS customer apps.
+    """
+    if customer.id != customer_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view these disputes")
+
+    disputes = db.query(OrderDispute).filter(
+        OrderDispute.customer_id == customer_id
+    ).order_by(OrderDispute.created_at.desc()).all()
+
+    return {
+        "success": True,
+        "count": len(disputes),
+        "disputes": [{
+            "id": d.id,
+            "order_id": d.order_id,
+            "reason": d.reason.value,
+            "description": d.description,
+            "status": d.status.value,
+            "refund_amount": d.refund_amount,
+            "created_at": d.created_at.isoformat() if d.created_at else None
+        } for d in disputes]
+    }
+
+
+class ResolveOrderDisputeInput(BaseModel):
+    resolution: str  # "refund", "partial_refund", or "no_refund"
+    refund_amount: Optional[float] = None
+    admin_notes: Optional[str] = None
+
+
+@app.post("/api/orders/dispute/{dispute_id}/resolve")
+async def resolve_order_dispute(
+    dispute_id: int,
+    data: ResolveOrderDisputeInput,
+    request: Request,
+    _auth: dict = Depends(require_any_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin resolves a food order dispute. Optionally issues a Stripe refund.
+    Requires admin auth.
+    """
+    jwt_role = _auth.get("role", "")
+    if jwt_role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can resolve disputes")
+
+    dispute = db.query(OrderDispute).filter(OrderDispute.id == dispute_id).first()
+    if not dispute:
+        raise HTTPException(status_code=404, detail="Dispute not found")
+
+    if dispute.status.value not in ("submitted", "under_review"):
+        raise HTTPException(status_code=400, detail=f"Dispute already resolved (status: {dispute.status.value})")
+
+    if data.resolution in ("refund", "partial_refund"):
+        order = db.query(Order).filter(Order.id == dispute.order_id).first()
+        if data.resolution == "refund":
+            refund_amount = float(order.total_amount or 0) if order else 0
+        else:
+            # partial_refund requires explicit amount
+            if not data.refund_amount or data.refund_amount <= 0:
+                raise HTTPException(status_code=400, detail="Partial refund requires a positive refund_amount")
+            if order and data.refund_amount > float(order.total_amount or 0):
+                raise HTTPException(status_code=400, detail="Refund amount cannot exceed order total")
+            refund_amount = data.refund_amount
+
+        if refund_amount <= 0:
+            raise HTTPException(status_code=400, detail="Refund amount must be greater than $0")
+
+        # Attempt Stripe refund if payment intent exists
+        stripe_refund_id = None
+        if order and order.stripe_payment_intent_id and not order.stripe_payment_intent_id.startswith("demo_"):
+            try:
+                import stripe as stripe_lib
+                stripe_lib.api_key = os.getenv("STRIPE_SECRET_KEY")
+                refund = stripe_lib.Refund.create(
+                    payment_intent=order.stripe_payment_intent_id,
+                    amount=int(refund_amount * 100),
+                    metadata={"dispute_id": str(dispute_id), "order_id": str(order.id)}
+                )
+                stripe_refund_id = refund.id
+                logger.info(f"Stripe refund {refund.id} created for order dispute {dispute_id}")
+            except Exception as e:
+                logger.error(f"Stripe refund failed for order dispute {dispute_id}: {e}")
+                raise HTTPException(status_code=500, detail=f"Stripe refund failed: {str(e)}")
+
+        dispute.status = DisputeStatus.RESOLVED_REFUND
+        dispute.refund_amount = refund_amount
+        dispute.stripe_refund_id = stripe_refund_id
+    elif data.resolution == "no_refund":
+        dispute.status = DisputeStatus.RESOLVED_NO_REFUND
+    else:
+        raise HTTPException(status_code=400, detail="Resolution must be 'refund', 'partial_refund', or 'no_refund'")
+
+    dispute.admin_notes = data.admin_notes
+    dispute.resolved_at = datetime.utcnow()
+    db.commit()
+
+    # Notify customer of resolution
+    try:
+        from order_flow import send_push_notification
+        if data.resolution in ("refund", "partial_refund"):
+            msg = f"Your food order dispute has been resolved. A refund of ${dispute.refund_amount:.2f} has been issued."
+        else:
+            msg = "Your food order dispute has been reviewed. After careful review, no refund will be issued."
+        send_push_notification(
+            user_type="customer",
+            user_id=dispute.customer_id,
+            title="Order Dispute Resolved",
+            body=msg,
+            data={"type": "order_dispute_resolved", "dispute_id": str(dispute_id), "resolution": data.resolution},
+            db=db
+        )
+    except Exception as e:
+        logger.error(f"Failed to send order dispute resolution notification: {e}")
+
+    return {
+        "success": True,
+        "message": f"Dispute resolved: {data.resolution}",
+        "dispute": {
+            "id": dispute.id,
+            "status": dispute.status.value,
+            "refund_amount": dispute.refund_amount,
+            "stripe_refund_id": dispute.stripe_refund_id,
+            "admin_notes": dispute.admin_notes,
+            "resolved_at": dispute.resolved_at.isoformat() if dispute.resolved_at else None
+        }
     }
 
 
