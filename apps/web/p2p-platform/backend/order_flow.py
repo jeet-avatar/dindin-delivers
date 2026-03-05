@@ -4892,6 +4892,19 @@ async def refund_order(
 
         logger.info(f"Order {order.order_number} refunded: {refund.id}")
 
+        # Notify customer about refund
+        try:
+            send_push_notification(
+                user_type="customer",
+                user_id=order.customer_id,
+                title="Refund Issued",
+                body=f"A refund of ${refund.amount / 100.0:.2f} has been issued for order #{order.order_number}. It may take 5-10 business days to appear.",
+                data={"type": "refund_issued", "order_id": str(order.id), "refund_id": refund.id, "amount": str(refund.amount / 100.0)},
+                db=db
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send refund notification for order {order.order_number}: {e}")
+
         return {
             "success": True,
             "refund_id": refund.id,
