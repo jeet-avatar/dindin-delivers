@@ -14246,6 +14246,8 @@ from order_flow import (
     driver_arrived_at_delivery,  # Customer not at door flow
     cancel_no_customer,
     CancelNoCustomerRequest,
+    report_address_unreachable,
+    AddressUnreachableRequest,
 )
 app.include_router(order_flow_router)
 
@@ -14345,6 +14347,11 @@ async def driver_arrived_alias(order_id: int, driver: Driver = Depends(require_d
 async def cancel_no_customer_alias(order_id: int, request_body: CancelNoCustomerRequest, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - cancel due to customer not available"""
     return await cancel_no_customer(order_id, request_body, db, driver)
+
+@app.post("/erp/orders/{order_id}/address-unreachable")
+async def address_unreachable_alias(order_id: int, request_body: AddressUnreachableRequest, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
+    """Alias for iOS Driver app - report address unreachable"""
+    return await report_address_unreachable(order_id, request_body, db, driver)
 
 # ==================== ADDITIONAL iOS ALIASES ====================
 # These enable iOS apps to call /erp/* paths without /api prefix

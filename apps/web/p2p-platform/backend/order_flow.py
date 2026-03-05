@@ -474,6 +474,57 @@ def calculate_delivery_fee(distance_miles: float = None, surge_multiplier: float
 
 # ==================== REQUEST MODELS ====================
 
+# ==================== ADDRESS VALIDATION ====================
+
+# In-memory tracking for address-unreachable reports (avoids DB migration)
+_address_unreachable_orders: Dict[int, datetime] = {}
+
+
+def validate_delivery_address(address: Dict[str, Any]) -> None:
+    """
+    Validate delivery address at checkout.
+    Raises HTTPException(422) if address is invalid.
+    Returns None if valid.
+    """
+    if not address:
+        return  # Optional address (e.g., pickup orders)
+
+    # Validate latitude
+    lat = address.get("latitude") or address.get("lat")
+    if lat is None:
+        raise HTTPException(status_code=422, detail="Delivery address missing latitude")
+    try:
+        lat = float(lat)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=422, detail="Delivery address latitude must be numeric")
+    if lat < 24.0 or lat > 50.0:
+        raise HTTPException(status_code=422, detail=f"Delivery address latitude {lat} is out of service area (24.0-50.0)")
+
+    # Validate longitude
+    lng = address.get("longitude") or address.get("lng")
+    if lng is None:
+        raise HTTPException(status_code=422, detail="Delivery address missing longitude")
+    try:
+        lng = float(lng)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=422, detail="Delivery address longitude must be numeric")
+    if lng < -125.0 or lng > -66.0:
+        raise HTTPException(status_code=422, detail=f"Delivery address longitude {lng} is out of service area (-125.0 to -66.0)")
+
+    # Validate street
+    street = address.get("street", "")
+    if not street or not isinstance(street, str) or len(street.strip()) < 3:
+        raise HTTPException(status_code=422, detail="Delivery address must include a street address (at least 3 characters)")
+
+    # Validate city or zip
+    city = address.get("city", "")
+    zip_code = address.get("zip", "")
+    if (not city or not str(city).strip()) and (not zip_code or not str(zip_code).strip()):
+        raise HTTPException(status_code=422, detail="Delivery address must include at least a city or zip code")
+
+    return None
+
+
 class CreateOrderRequest(BaseModel):
     customer_name: str
     customer_email: str
@@ -1202,6 +1253,10 @@ async def create_order(
     # GAP-5: Reject if any prices have changed
     if price_changes:
         raise HTTPException(status_code=409, detail={"message": "Menu prices have changed", "price_changes": price_changes})
+
+    # GAP-15: Validate delivery address before proceeding
+    if order_data.delivery_address:
+        validate_delivery_address(order_data.delivery_address)
 
     # Calculate fees with state-specific tax rate
     # Extract state from delivery address for tax calculation
@@ -2265,6 +2320,46 @@ def check_delivery_timeouts_job():
 
                 _delivery_warned_orders.add(order.id)
                 logger.warning(f"Order {order.order_number} delivery delayed {int(elapsed_minutes)} min. Warning sent.")
+
+        # GAP-15: Check address-unreachable 5-minute timeouts
+        expired_order_ids = []
+        for unreachable_order_id, reported_at in list(_address_unreachable_orders.items()):
+            elapsed_secs = (datetime.now() - reported_at).total_seconds()
+            if elapsed_secs >= 300:  # 5 minutes
+                unreachable_order = db.query(Order).filter(Order.id == unreachable_order_id).first()
+                if unreachable_order and unreachable_order.status == OrderStatus.OUT_FOR_DELIVERY:
+                    # Order still in same status — customer did not respond
+                    unreachable_order.status = OrderStatus.DELIVERY_FAILED
+                    failed_count += 1
+
+                    # Trigger refund if payment exists
+                    if unreachable_order.stripe_payment_intent_id:
+                        try:
+                            trigger_refund(unreachable_order, reason="Address unreachable - customer did not respond within 5 minutes")
+                            unreachable_order.payment_status = "refunded"
+                        except Exception as e:
+                            logger.error(f"Refund failed for address-unreachable order {unreachable_order_id}: {e}")
+
+                    # Notify customer
+                    try:
+                        send_push_notification(
+                            user_type="customer",
+                            user_id=unreachable_order.customer_id,
+                            title="Order Cancelled - Address Unreachable",
+                            body="Your order has been cancelled because the driver could not reach your address and no response was received. A refund has been issued.",
+                            data={"type": "address_unreachable_timeout", "order_id": str(unreachable_order_id)},
+                            db=db,
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to send address-unreachable timeout notification: {e}")
+
+                    logger.warning(f"Order {unreachable_order.order_number} cancelled: address unreachable, 5-min timeout expired")
+
+                expired_order_ids.append(unreachable_order_id)
+
+        # Clean up expired entries from tracking dict
+        for oid in expired_order_ids:
+            _address_unreachable_orders.pop(oid, None)
 
         if failed_count > 0:
             db.commit()
@@ -4288,6 +4383,66 @@ async def cancel_no_customer(
         "order_id": order.id,
         "status": result_status,
         "message": result_message,
+    }
+
+
+# ==================== ADDRESS UNREACHABLE (GAP-15) ====================
+
+class AddressUnreachableRequest(BaseModel):
+    notes: Optional[str] = None  # Driver description of the issue
+
+
+@router.post("/orders/{order_id}/address-unreachable")
+async def report_address_unreachable(
+    order_id: int,
+    request_body: AddressUnreachableRequest,
+    db: Session = Depends(get_db),
+    driver: Driver = Depends(require_driver),
+):
+    """
+    Driver reports that the delivery address is unreachable (gated community, wrong address, etc.).
+    Customer is notified via push and has 5 minutes to respond before order is auto-failed with refund.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not assigned to this order")
+
+    if order.status != OrderStatus.OUT_FOR_DELIVERY:
+        raise HTTPException(status_code=400, detail=f"Order must be OUT_FOR_DELIVERY, got {order.status.value}")
+
+    # Track the report time in-memory (avoids DB migration)
+    now = datetime.now()
+    _address_unreachable_orders[order.id] = now
+
+    # Store notes in delivery_instructions (existing field) for audit trail
+    note_text = request_body.notes or "No details provided"
+    existing_instructions = order.delivery_instructions or ""
+    order.delivery_instructions = f"{existing_instructions}\n[ADDRESS UNREACHABLE] {note_text}".strip()
+
+    # Notify customer via push
+    try:
+        send_push_notification(
+            user_type="customer",
+            user_id=order.customer_id,
+            title="Driver Cannot Reach Address",
+            body="Your driver cannot reach your delivery address. Please update your address or contact support. If no response in 5 minutes, your order will be cancelled with a refund.",
+            data={"type": "address_unreachable", "order_id": str(order.id)},
+            db=db,
+        )
+    except Exception as e:
+        logging.warning(f"Failed to send address-unreachable notification for order {order.id}: {e}")
+
+    db.commit()
+
+    expires_at = now + timedelta(minutes=5)
+    return {
+        "success": True,
+        "order_id": order.id,
+        "message": "Address unreachable reported. Customer notified. Order will be cancelled in 5 minutes if no response.",
+        "expires_at": expires_at.isoformat(),
     }
 
 
