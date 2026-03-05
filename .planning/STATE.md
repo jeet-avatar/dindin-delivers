@@ -410,9 +410,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 83 | Cross-platform API sync verification — 0 real bugs, all 12 flags are false positives or cosmetic | 2026-03-04 | (none) | [83-cross-platform-api-sync-verification-rec](./quick/83-cross-platform-api-sync-verification-rec/) |
 | 84 | Research API alignment guarantee strategy — OpenAPI CI validator recommended (~2-3 hrs to implement) | 2026-03-04 | (none) | [84-research-api-alignment-guarantee-strateg](./quick/84-research-api-alignment-guarantee-strateg/) |
 | 85 | Implement OpenAPI CI contract validator — 321 PASS, 0 FAIL, 15 EXCLUDED, CI job added | 2026-03-04 | 57358368 | [85-implement-openapi-ci-contract-validator-](./quick/85-implement-openapi-ci-contract-validator-/) |
+| 86 | Staging + production smoke test suite — 15 tests, 7 classes, shell wrapper | 2026-03-05 | d677a227 | [86-staging-production-smoke-test-suite](./quick/86-staging-production-smoke-test-suite/) |
 
 ## Session Continuity
 
-Last session: 2026-03-04
-Stopped at: Completed quick-85 (OpenAPI CI contract validator implemented: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI job added to ci-complete.yml).
+Last session: 2026-03-05
+Stopped at: Completed quick-86 (staging/production smoke test suite: 15 tests across 7 classes, scripts/smoke-test.sh wrapper).
 Resume file: .planning/NEXT_SESSION_PROMPT.md
