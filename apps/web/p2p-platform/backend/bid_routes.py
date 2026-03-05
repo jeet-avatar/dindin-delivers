@@ -2144,7 +2144,7 @@ class FareEstimateInput(BaseModel):
 
 
 @router.post("/estimate")
-async def get_fare_estimate_endpoint(data: FareEstimateInput, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def get_fare_estimate_endpoint(data: FareEstimateInput, db: Session = Depends(get_db)):
     """
     Get fare estimate with full breakdown and driver suggestions.
 
