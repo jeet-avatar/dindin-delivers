@@ -59,6 +59,8 @@ def init_db():
     # Import RateLimitEntry for distributed rate limiting
     # Import PasswordResetToken for bulletproof password reset
     from models import RateLimitEntry, PasswordResetToken
+    # Import ProjectCase for project tracker table
+    from project_tracker import ProjectCase
     from sqlalchemy.exc import ProgrammingError
 
     # Try to create all tables/indices, ignore if they already exist
