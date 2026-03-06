@@ -38,10 +38,8 @@ struct QuickSearchView: View {
                             searchResultsSection
                         }
 
-                        // Voice Search & AI Suggestions
-                        if viewModel.searchQuery.isEmpty {
-                            advancedSearchSection
-                        }
+                        // Popular cuisines fill the empty state
+
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 16)
@@ -61,18 +59,6 @@ struct QuickSearchView: View {
             }
             .onAppear {
                 isSearchFocused = true
-            }
-            .sheet(isPresented: $viewModel.showVoiceSearch) {
-                QuickVoiceSearchSheet(onResult: { result in
-                    viewModel.searchQuery = result
-                    viewModel.showVoiceSearch = false
-                })
-            }
-            .sheet(isPresented: $viewModel.showAIRecommendations) {
-                QuickAIRecommendationsSheet(onSelect: { recommendation in
-                    // Handle AI recommendation selection
-                    viewModel.showAIRecommendations = false
-                })
             }
         }
     }
@@ -105,16 +91,6 @@ struct QuickSearchView: View {
             .background(Color.white)
             .cornerRadius(12)
 
-            // Voice Search Button
-            Button {
-                viewModel.showVoiceSearch = true
-            } label: {
-                Image(systemName: "mic.fill")
-                    .foregroundColor(Theme.brandOrange)
-                    .padding(12)
-                    .background(Color.white)
-                    .cornerRadius(12)
-            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -214,33 +190,6 @@ struct QuickSearchView: View {
         .padding(.vertical, 40)
     }
 
-    // MARK: - Advanced Search Section
-    private var advancedSearchSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Smart Search")
-                .font(.headline)
-
-            HStack(spacing: 12) {
-                AdvancedSearchCard(
-                    icon: "waveform",
-                    title: "Voice Search",
-                    description: "Speak to search",
-                    color: Theme.brandGreen
-                ) {
-                    viewModel.showVoiceSearch = true
-                }
-
-                AdvancedSearchCard(
-                    icon: "sparkles",
-                    title: "AI Picks",
-                    description: "Personalized for you",
-                    color: Theme.brandOrange
-                ) {
-                    viewModel.showAIRecommendations = true
-                }
-            }
-        }
-    }
 
     // MARK: - Helper Functions
     private func cuisineIcon(for cuisine: String) -> String {
@@ -277,8 +226,6 @@ class QuickSearchViewModel: ObservableObject {
         "Italian", "Indian", "Chinese", "Mexican",
         "Japanese", "Thai", "American", "Healthy"
     ]
-    @Published var showVoiceSearch = false
-    @Published var showAIRecommendations = false
 
     private var searchTask: Task<Void, Never>?
 
@@ -470,38 +417,6 @@ struct SearchResultCard: View {
     }
 }
 
-// MARK: - Advanced Search Card
-struct AdvancedSearchCard: View {
-    let icon: String
-    let title: String
-    let description: String
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(color)
-
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
-            .background(Color.white)
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
-        }
-    }
-}
 
 // MARK: - Flow Layout
 struct FlowLayout: Layout {
@@ -557,63 +472,6 @@ struct FlowLayout: Layout {
     }
 }
 
-// MARK: - Quick Voice Search Sheet (local placeholder)
-struct QuickVoiceSearchSheet: View {
-    let onResult: (String) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "waveform.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(Theme.brandOrange)
-
-            Text("Voice Search")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("Speak to search for restaurants or dishes")
-                .font(.subheadline)
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-
-            Button("Cancel") {
-                dismiss()
-            }
-            .foregroundColor(Theme.brandOrange)
-        }
-        .padding()
-    }
-}
-
-// MARK: - Quick AI Recommendations Sheet (local placeholder)
-struct QuickAIRecommendationsSheet: View {
-    let onSelect: (Any) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 80))
-                .foregroundColor(Theme.brandOrange)
-
-            Text("AI Recommendations")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("Get personalized food recommendations based on your preferences")
-                .font(.subheadline)
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-
-            Button("Cancel") {
-                dismiss()
-            }
-            .foregroundColor(Theme.brandOrange)
-        }
-        .padding()
-    }
-}
 
 #Preview {
     QuickSearchView { _ in }

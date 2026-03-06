@@ -36,9 +36,6 @@ struct HomeView: View {
                     // MARK: - Categories
                     categoriesSection
 
-                    // MARK: - AI Recommendation Banner
-                    aiRecommendationBanner
-
                     // MARK: - Hot Deals Section (Restaurants with active promotions)
                     if !restaurantsWithDeals.isEmpty {
                         hotDealsSection
@@ -233,54 +230,6 @@ struct HomeView: View {
         .padding(.top, 8)
     }
 
-    // MARK: - AI Recommendation Banner
-    private var aiRecommendationBanner: some View {
-        NavigationLink(destination: SearchRestaurantsView()) {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [.purple, .pink],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 50, height: 50)
-
-                    Image(systemName: "sparkles")
-                        .font(.title2)
-                        .foregroundColor(.white)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("AI Food Assistant")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    Text("Tell me what you're craving!")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-
-                Text("Try Now")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.purple)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.purple.opacity(0.1))
-                    .cornerRadius(8)
-            }
-            .padding()
-            .background(Color.white)
-            .cornerRadius(16)
-            .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-            .padding()
-        }
-        .buttonStyle(.plain)
-    }
 
     // MARK: - Restaurants with Active Deals
     private var restaurantsWithDeals: [Restaurant] {
