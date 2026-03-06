@@ -7,6 +7,7 @@ import CoupaDashboard from './app/screens/coupaDashboard/Main';
 import NetsuiteDashboard from './app/screens/netsuiteDashboard/Main';
 import JiraDashboard from './app/screens/jiraDashboard/Main';
 import ZipDashboard from './app/screens/zipDashboard/Main';
+import ProjectTracker from './app/screens/projectTracker/Main';
 import VendorManagement from './app/screens/vendorManagement/Main';
 import DocumentReview from './app/screens/vendorManagement/DocumentReview';
 import MenuReview from './app/screens/vendorManagement/MenuReview';
@@ -244,6 +245,7 @@ function App() {
           <Route path="accounting/platform-revenue" element={<PlatformRevenue />} />
           <Route path="accounting/reports" element={<AccountingReports />} />
           <Route path="invoices" element={<Invoices />} />
+          <Route path="project-tracker" element={<ProjectTracker />} />
           <Route path="clients" element={<Clients />} />
         </Route>
 
