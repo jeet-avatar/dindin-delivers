@@ -14808,8 +14808,9 @@ from voice_agent import router as voice_router
 app.include_router(voice_router)
 
 # Include Project Tracker (Jira-style test case tracking for admin panel)
-from project_tracker import project_tracker_router
+from project_tracker import project_tracker_router, department_router
 app.include_router(project_tracker_router)
+app.include_router(department_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create

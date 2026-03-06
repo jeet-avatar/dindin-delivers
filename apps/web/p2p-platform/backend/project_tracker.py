@@ -11,7 +11,8 @@ Provides:
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from sqlalchemy import Column, Integer, String, Text, DateTime, func, inspect, text
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, func, inspect, text, or_
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
@@ -49,8 +50,55 @@ class ProjectCase(Base):
     platform = Column(String(50), nullable=True, default="backend", index=True)  # backend/ios/android/microservice/frontend
     impact_analysis = Column(Text, nullable=True)  # What breaks if changed
     last_activity = Column(Text, nullable=True)  # Tracks what changed on last update
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="SET NULL"), nullable=True, index=True)
+    assigned_to = Column(String(200), nullable=True)  # email of assignee
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    department = relationship("Department", back_populates="cases")
+
+
+class Department(Base):
+    __tablename__ = "departments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(50), unique=True, nullable=False, index=True)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    lead_name = Column(String(200), nullable=True)
+    lead_email = Column(String(200), nullable=True)
+    color = Column(String(20), nullable=True, default="#3b82f6")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    cases = relationship("ProjectCase", back_populates="department")
+    members = relationship("TeamMember", back_populates="department", cascade="all, delete-orphan")
+    assignment_rules = relationship("AssignmentRule", back_populates="department", cascade="all, delete-orphan")
+
+
+class TeamMember(Base):
+    __tablename__ = "team_members"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False)
+    email = Column(String(200), nullable=False)
+    role = Column(String(50), nullable=False, default="engineer")  # engineer/qa/lead/manager
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    department = relationship("Department", back_populates="members")
+
+
+class AssignmentRule(Base):
+    __tablename__ = "assignment_rules"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="CASCADE"), nullable=False, index=True)
+    match_field = Column(String(50), nullable=False)  # category, platform, test_type, name
+    match_pattern = Column(String(500), nullable=False)  # regex or exact match
+    priority = Column(Integer, nullable=False, default=100)  # lower = evaluated first
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    department = relationship("Department", back_populates="assignment_rules")
 
 
 # ==================== Pydantic Schemas ====================
@@ -66,11 +114,49 @@ class ProjectCaseUpdate(BaseModel):
     dependencies: Optional[str] = None
     impact_analysis: Optional[str] = None
     last_activity: Optional[str] = None
+    department_id: Optional[int] = None
+    assigned_to: Optional[str] = None
 
 
 class BulkUpdateRequest(BaseModel):
     case_ids: List[str]
     updates: ProjectCaseUpdate
+
+
+class DepartmentCreate(BaseModel):
+    code: str
+    name: str
+    description: Optional[str] = None
+    lead_name: Optional[str] = None
+    lead_email: Optional[str] = None
+    color: Optional[str] = "#3b82f6"
+
+
+class DepartmentUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    lead_name: Optional[str] = None
+    lead_email: Optional[str] = None
+    color: Optional[str] = None
+
+
+class TeamMemberCreate(BaseModel):
+    name: str
+    email: str
+    role: str = "engineer"
+
+
+class AssignmentRuleCreate(BaseModel):
+    department_id: int
+    match_field: str  # category, platform, test_type, name
+    match_pattern: str
+    priority: int = 100
+
+
+class AssignmentRuleUpdate(BaseModel):
+    match_field: Optional[str] = None
+    match_pattern: Optional[str] = None
+    priority: Optional[int] = None
 
 
 # ==================== Seed Logic ====================
@@ -813,7 +899,7 @@ def get_project_case_stats(
 SORTABLE_COLUMNS = {"case_id", "name", "category", "platform", "status", "priority", "test_type", "updated_at", "created_at"}
 
 
-def _build_filtered_query(db: Session, status=None, priority=None, category=None, test_type=None, platform=None, search=None):
+def _build_filtered_query(db: Session, status=None, priority=None, category=None, test_type=None, platform=None, search=None, department_id=None, unassigned=None):
     """Build a filtered query for ProjectCase. Shared by list and export."""
     query = db.query(ProjectCase)
     if status:
@@ -826,12 +912,18 @@ def _build_filtered_query(db: Session, status=None, priority=None, category=None
         query = query.filter(ProjectCase.test_type == test_type)
     if platform:
         query = query.filter(ProjectCase.platform == platform)
+    if department_id:
+        query = query.filter(ProjectCase.department_id == int(department_id))
+    if unassigned and unassigned.lower() == "true":
+        query = query.filter(ProjectCase.department_id.is_(None))
     if search:
         search_term = f"%{search}%"
         query = query.filter(
-            (ProjectCase.name.ilike(search_term))
-            | (ProjectCase.full_path.ilike(search_term))
-            | (ProjectCase.case_id.ilike(search_term))
+            or_(
+                ProjectCase.name.ilike(search_term),
+                ProjectCase.full_path.ilike(search_term),
+                ProjectCase.case_id.ilike(search_term),
+            )
         )
     return query
 
@@ -844,6 +936,8 @@ def list_project_cases(
     test_type: Optional[str] = None,
     platform: Optional[str] = None,
     search: Optional[str] = None,
+    department_id: Optional[str] = None,
+    unassigned: Optional[str] = None,
     sort_by: Optional[str] = Query(default=None),
     sort_order: Optional[str] = Query(default="asc"),
     page: int = Query(default=1, ge=1),
@@ -851,7 +945,7 @@ def list_project_cases(
     db: Session = Depends(get_db),
 ):
     """List all project cases with filtering, sorting, and pagination."""
-    query = _build_filtered_query(db, status, priority, category, test_type, platform, search)
+    query = _build_filtered_query(db, status, priority, category, test_type, platform, search, department_id, unassigned)
 
     total = query.count()
 
@@ -894,6 +988,10 @@ def list_project_cases(
                 "dependencies": c.dependencies,
                 "impact_analysis": c.impact_analysis,
                 "last_activity": c.last_activity,
+                "department_id": c.department_id,
+                "department_name": c.department.name if c.department else None,
+                "department_color": c.department.color if c.department else None,
+                "assigned_to": c.assigned_to,
                 "created_at": c.created_at.isoformat() if c.created_at else None,
                 "updated_at": c.updated_at.isoformat() if c.updated_at else None,
             }
@@ -1015,6 +1113,10 @@ def update_project_case(
         case.dependencies = updates.dependencies
     if updates.impact_analysis is not None:
         case.impact_analysis = updates.impact_analysis
+    if updates.department_id is not None:
+        case.department_id = updates.department_id if updates.department_id > 0 else None
+    if updates.assigned_to is not None:
+        case.assigned_to = updates.assigned_to or None
 
     # Track what changed for last_activity
     changed_fields = []
@@ -1049,6 +1151,9 @@ def update_project_case(
         "dependencies": case.dependencies,
         "impact_analysis": case.impact_analysis,
         "last_activity": case.last_activity,
+        "department_id": case.department_id,
+        "department_name": case.department.name if case.department else None,
+        "assigned_to": case.assigned_to,
         "created_at": case.created_at.isoformat() if case.created_at else None,
         "updated_at": case.updated_at.isoformat() if case.updated_at else None,
     }
@@ -1078,3 +1183,267 @@ def seed_cases_endpoint(
         return {platform: result}
     else:
         return seed_all_platforms(db, build_label=build_label, default_reason=reason)
+
+
+# ==================== Department CRUD ====================
+
+department_router = APIRouter(
+    prefix="/api/admin/departments",
+    tags=["departments"],
+)
+
+
+def _serialize_department(dept, db: Session):
+    case_count = db.query(func.count(ProjectCase.id)).filter(ProjectCase.department_id == dept.id).scalar()
+    member_count = db.query(func.count(TeamMember.id)).filter(TeamMember.department_id == dept.id).scalar()
+    rule_count = db.query(func.count(AssignmentRule.id)).filter(AssignmentRule.department_id == dept.id).scalar()
+    return {
+        "id": dept.id,
+        "code": dept.code,
+        "name": dept.name,
+        "description": dept.description,
+        "lead_name": dept.lead_name,
+        "lead_email": dept.lead_email,
+        "color": dept.color,
+        "case_count": case_count,
+        "member_count": member_count,
+        "rule_count": rule_count,
+        "created_at": dept.created_at.isoformat() if dept.created_at else None,
+    }
+
+
+@department_router.get("/")
+def list_departments(db: Session = Depends(get_db)):
+    depts = db.query(Department).order_by(Department.name).all()
+    return [_serialize_department(d, db) for d in depts]
+
+
+@department_router.post("/")
+def create_department(data: DepartmentCreate, db: Session = Depends(get_db)):
+    existing = db.query(Department).filter(Department.code == data.code).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Department code '{data.code}' already exists")
+    dept = Department(
+        code=data.code, name=data.name, description=data.description,
+        lead_name=data.lead_name, lead_email=data.lead_email, color=data.color,
+    )
+    db.add(dept)
+    db.commit()
+    db.refresh(dept)
+    return _serialize_department(dept, db)
+
+
+@department_router.put("/{dept_id}")
+def update_department(dept_id: int, data: DepartmentUpdate, db: Session = Depends(get_db)):
+    dept = db.query(Department).filter(Department.id == dept_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    if data.name is not None:
+        dept.name = data.name
+    if data.description is not None:
+        dept.description = data.description
+    if data.lead_name is not None:
+        dept.lead_name = data.lead_name
+    if data.lead_email is not None:
+        dept.lead_email = data.lead_email
+    if data.color is not None:
+        dept.color = data.color
+    db.commit()
+    db.refresh(dept)
+    return _serialize_department(dept, db)
+
+
+@department_router.delete("/{dept_id}")
+def delete_department(dept_id: int, db: Session = Depends(get_db)):
+    dept = db.query(Department).filter(Department.id == dept_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    db.query(ProjectCase).filter(ProjectCase.department_id == dept_id).update(
+        {"department_id": None}, synchronize_session="fetch"
+    )
+    db.delete(dept)
+    db.commit()
+    return {"deleted": True}
+
+
+@department_router.get("/dashboard")
+def department_dashboard(db: Session = Depends(get_db)):
+    """Delegation dashboard — per-department stats + unassigned count."""
+    depts = db.query(Department).order_by(Department.name).all()
+    total_cases = db.query(func.count(ProjectCase.id)).scalar()
+    unassigned = db.query(func.count(ProjectCase.id)).filter(ProjectCase.department_id.is_(None)).scalar()
+
+    dept_stats = []
+    for d in depts:
+        base = db.query(ProjectCase).filter(ProjectCase.department_id == d.id)
+        by_status = {}
+        for status_name, cnt in (
+            db.query(ProjectCase.status, func.count(ProjectCase.id))
+            .filter(ProjectCase.department_id == d.id)
+            .group_by(ProjectCase.status)
+            .all()
+        ):
+            by_status[status_name] = cnt
+        dept_stats.append({
+            "id": d.id,
+            "code": d.code,
+            "name": d.name,
+            "color": d.color,
+            "lead_name": d.lead_name,
+            "lead_email": d.lead_email,
+            "total": base.count(),
+            "by_status": by_status,
+            "member_count": db.query(func.count(TeamMember.id)).filter(TeamMember.department_id == d.id).scalar(),
+        })
+
+    return {
+        "total_cases": total_cases,
+        "unassigned": unassigned,
+        "departments": dept_stats,
+    }
+
+
+# ==================== Team Member CRUD ====================
+
+@department_router.get("/{dept_id}/members")
+def list_team_members(dept_id: int, db: Session = Depends(get_db)):
+    dept = db.query(Department).filter(Department.id == dept_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    members = db.query(TeamMember).filter(TeamMember.department_id == dept_id).order_by(TeamMember.name).all()
+    return [
+        {"id": m.id, "name": m.name, "email": m.email, "role": m.role, "department_id": m.department_id, "created_at": m.created_at.isoformat() if m.created_at else None}
+        for m in members
+    ]
+
+
+@department_router.post("/{dept_id}/members")
+def add_team_member(dept_id: int, data: TeamMemberCreate, db: Session = Depends(get_db)):
+    dept = db.query(Department).filter(Department.id == dept_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    member = TeamMember(name=data.name, email=data.email, role=data.role, department_id=dept_id)
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+    return {"id": member.id, "name": member.name, "email": member.email, "role": member.role, "department_id": member.department_id}
+
+
+@department_router.delete("/members/{member_id}")
+def remove_team_member(member_id: int, db: Session = Depends(get_db)):
+    member = db.query(TeamMember).filter(TeamMember.id == member_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    db.delete(member)
+    db.commit()
+    return {"deleted": True}
+
+
+# ==================== Assignment Rules CRUD ====================
+
+@department_router.get("/rules")
+def list_assignment_rules(db: Session = Depends(get_db)):
+    rules = db.query(AssignmentRule).order_by(AssignmentRule.priority, AssignmentRule.id).all()
+    return [
+        {
+            "id": r.id,
+            "department_id": r.department_id,
+            "department_name": r.department.name if r.department else None,
+            "match_field": r.match_field,
+            "match_pattern": r.match_pattern,
+            "priority": r.priority,
+        }
+        for r in rules
+    ]
+
+
+@department_router.post("/rules")
+def create_assignment_rule(data: AssignmentRuleCreate, db: Session = Depends(get_db)):
+    dept = db.query(Department).filter(Department.id == data.department_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    if data.match_field not in ("category", "platform", "test_type", "name"):
+        raise HTTPException(status_code=400, detail="match_field must be one of: category, platform, test_type, name")
+    rule = AssignmentRule(
+        department_id=data.department_id, match_field=data.match_field,
+        match_pattern=data.match_pattern, priority=data.priority,
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return {"id": rule.id, "department_id": rule.department_id, "match_field": rule.match_field, "match_pattern": rule.match_pattern, "priority": rule.priority}
+
+
+@department_router.put("/rules/{rule_id}")
+def update_assignment_rule(rule_id: int, data: AssignmentRuleUpdate, db: Session = Depends(get_db)):
+    rule = db.query(AssignmentRule).filter(AssignmentRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    if data.match_field is not None:
+        if data.match_field not in ("category", "platform", "test_type", "name"):
+            raise HTTPException(status_code=400, detail="match_field must be one of: category, platform, test_type, name")
+        rule.match_field = data.match_field
+    if data.match_pattern is not None:
+        rule.match_pattern = data.match_pattern
+    if data.priority is not None:
+        rule.priority = data.priority
+    db.commit()
+    db.refresh(rule)
+    return {"id": rule.id, "department_id": rule.department_id, "match_field": rule.match_field, "match_pattern": rule.match_pattern, "priority": rule.priority}
+
+
+@department_router.delete("/rules/{rule_id}")
+def delete_assignment_rule(rule_id: int, db: Session = Depends(get_db)):
+    rule = db.query(AssignmentRule).filter(AssignmentRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    db.delete(rule)
+    db.commit()
+    return {"deleted": True}
+
+
+# ==================== Auto-Assign Engine ====================
+
+@department_router.post("/auto-assign")
+def auto_assign_cases(db: Session = Depends(get_db)):
+    """Read assignment rules from DB, evaluate against unassigned cases, assign to departments.
+    Zero hardcoded logic — all rules come from the assignment_rules table."""
+    rules = db.query(AssignmentRule).order_by(AssignmentRule.priority, AssignmentRule.id).all()
+    if not rules:
+        raise HTTPException(status_code=400, detail="No assignment rules configured. Add rules first via the Rules API.")
+
+    unassigned = db.query(ProjectCase).filter(ProjectCase.department_id.is_(None)).all()
+    assigned_count = 0
+    dept_counts = {}
+
+    for case in unassigned:
+        for rule in rules:
+            field_value = getattr(case, rule.match_field, None) or ""
+            try:
+                if re.search(rule.match_pattern, field_value, re.IGNORECASE):
+                    case.department_id = rule.department_id
+                    assigned_count += 1
+                    dept_counts[rule.department_id] = dept_counts.get(rule.department_id, 0) + 1
+                    break
+            except re.error:
+                if rule.match_pattern.lower() == field_value.lower():
+                    case.department_id = rule.department_id
+                    assigned_count += 1
+                    dept_counts[rule.department_id] = dept_counts.get(rule.department_id, 0) + 1
+                    break
+
+    db.commit()
+
+    still_unassigned = db.query(func.count(ProjectCase.id)).filter(ProjectCase.department_id.is_(None)).scalar()
+
+    dept_names = {}
+    for dept_id in dept_counts:
+        d = db.query(Department).filter(Department.id == dept_id).first()
+        if d:
+            dept_names[d.name] = dept_counts[dept_id]
+
+    return {
+        "assigned": assigned_count,
+        "still_unassigned": still_unassigned,
+        "by_department": dept_names,
+    }
