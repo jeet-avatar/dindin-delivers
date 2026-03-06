@@ -4,69 +4,70 @@
 
 ---
 
-## Session Summary (Mar 5-6, 2026)
+## Session Summary (Mar 6, 2026)
 
-### Completed This Session (5 tasks)
+### Completed This Session
 | Task | What | Commit |
 |------|------|--------|
-| Quick-100 | Phase 10 Android parity — Call Support added to Driver + Partner apps | `ae4342f3` (android), `d998fe21` (docs) |
-| Quick-101 | Phase 10 test coverage — 24 new tests (order chat, support chat, voice agent) | `55e3f93b`, `4394298d` |
-| Quick-102 | Full backend test suite run — 1439 passed, 0 failed, 11 skipped | `e6841e86` |
-| Quick-103 | E2E UI audit — 153 screens, 441 handlers, 45 E2E tests, 23 issues found | `d13a325a` |
-| Quick-104 | Root cause analysis of 23 issues — 10 false positives, 9 real bugs, 4 no-fix | ISSUE_TRACKER.md written, needs commit |
+| Quick-105 | Fix 5 UI audit bugs (BUG-01 through BUG-05) — function shadow, phone dialer, instructions no-op, pull-to-refresh, chat button | `6bbccc44`, `5d93272b` |
+| Quick-106 | Jira-style project tracking in admin panel — backend API + React UI + seeder | `2527f68d`, `bdeb2556` |
+| Build | All 6 apps built and distributed | TestFlight + Firebase |
+| Play Store | Customer app submitted to Google Play Store production (internal → production) | vC=37 (1.0.36) |
 
-### Key Discovery
-**10 of 23 UI audit issues are FALSE POSITIVES.** The audit agents missed backend route aliases registered via `app.add_api_route()` at the bottom of `main_new.py` (lines 21300+). These aliases were added during v1.2 API Standardization.
-
----
-
-## PRIORITY 1: Fix 5 Real Bugs (Waves 1-3, ~40 min)
-
-From `ISSUE_TRACKER.md` in `.planning/quick/104-detailed-fix-plan-for-23-ui-audit-issues/`:
-
-### Wave 1 — Backend (HIGH, 5 min)
-| ID | Issue | File | Fix |
-|----|-------|------|-----|
-| BUG-01 | `complete_delivery()` function at line 20273 shadows the order_flow import at line 14277 | `main_new.py:20273` | Rename to `complete_delivery_v2()` |
-
-### Wave 2 — Android Missing Handlers (MEDIUM, 15 min)
-| ID | Issue | File | Fix |
-|----|-------|------|-----|
-| BUG-02 | `onCallPartner` receives phone but no dialer Intent launched | `NavigationGraph.kt:320` | Add `Intent(ACTION_DIAL)` |
-| BUG-03 | `onAddInstructions` empty lambda, confusing UX | `OrderTrackingScreen.kt:483` | Remove clickable row (backend doesn't support post-checkout instructions) |
-
-### Wave 3 — iOS Missing UX (MEDIUM, 20 min)
-| ID | Issue | File | Fix |
-|----|-------|------|-----|
-| BUG-04 | No pull-to-refresh on OrderHistoryView | `OrderHistoryView.swift` | Add `.refreshable` modifier |
-| BUG-05 | No "Chat" button on DeliveryTrackingView | `DeliveryTrackingView.swift` | Add OrderChatView sheet button |
-
-### After fixes:
-- Run full test suite (`pytest tests/ -v`)
-- Build + distribute all 6 apps (TestFlight + Firebase)
+### App Store / Play Store Status
+- **iOS Customer**: `WAITING_FOR_REVIEW` (App Store) — build 1113 on TestFlight
+- **Android Customer**: `IN_REVIEW` (Google Play Store) — vC=37 (1.0.36)
+- **iOS Driver**: `PREPARE_FOR_SUBMISSION` — build 215 on TestFlight
+- **iOS Restaurant**: `PREPARE_FOR_SUBMISSION` — build 185 on TestFlight
 
 ---
 
-## PRIORITY 2: Commit Quick-104 Artifacts
+## PRIORITY 1: Fix Project Tracker Seeder (5 min)
 
-Quick-104 ISSUE_TRACKER.md and SUMMARY are written but STATE.md update was interrupted. Need to:
-1. Update STATE.md "Last activity" and quick tasks table with row 104
-2. `git add` and commit the artifacts
+The seeder script at `scripts/seed_project_cases.py` runs but seeds 0 cases because `pytest --collect-only -q --no-header` outputs verbose format (`<Dir>`, `<Function>`) instead of bare nodeids.
+
+**Fix:** Change line 130 in `project_tracker.py`:
+```python
+# FROM:
+["python", "-m", "pytest", test_dir, "--collect-only", "-q", "--no-header"],
+# TO:
+["python", "-m", "pytest", test_dir, "--collect-only", "-qq"],
+```
+
+Then re-run:
+```bash
+cd apps/web/p2p-platform/backend
+source venv/bin/activate
+DATABASE_URL=postgresql://jeet@localhost:5432/dollor_dev JWT_SECRET_KEY=test ADMIN_SECRET_KEY=test python scripts/seed_project_cases.py
+```
+
+Should seed ~1495 cases.
 
 ---
 
-## PRIORITY 3: Check App Store Review
+## PRIORITY 2: Deploy Backend with Project Tracker
 
-Customer build 1111 was WAITING_FOR_REVIEW (submitted Mar 4).
-- Check status via ASC API
-- If approved: submit Driver (214) + Restaurant (184) for review
-- If rejected: read rejection notes, fix, rebuild
-- Build 1112 is on TestFlight (includes Wave 1+2 safety fixes)
+After seeder works:
+1. Run tests: `JWT_SECRET_KEY=test ADMIN_SECRET_KEY=test pytest tests/ -v`
+2. Push: `git push origin main`
+3. Deploy staging: `gh workflow run deploy-staging.yml --ref main`
+4. Smoke test staging: verify `/api/admin/project-cases/stats` returns data
+5. Deploy production: `gh workflow run deploy-dollar-ai.yml`
 
 ---
 
-## PRIORITY 4: Wave 4 Low-Priority Fixes (Optional, 85 min)
+## PRIORITY 3: Check App Store Reviews
 
+- Check iOS Customer review status via ASC API
+- Check Android Customer review status in Play Console
+- If approved: submit iOS Driver + Restaurant for review
+- If rejected: read notes, fix, rebuild
+
+---
+
+## PRIORITY 4: Wave 4 Low-Priority Bug Fixes (Optional, 85 min)
+
+From Quick-104 ISSUE_TRACKER.md:
 | ID | Issue | Effort |
 |----|-------|--------|
 | BUG-06 | Driver old ChatView uses Firebase, not REST | 20 min |
@@ -76,46 +77,32 @@ Customer build 1111 was WAITING_FOR_REVIEW (submitted Mar 4).
 
 ---
 
-## PRIORITY 5: Wave 3 Safety & Trust (Future)
-
-| # | Gap | What to build | Effort |
-|---|-----|---------------|--------|
-| 4 | Emergency SOS button | In-app panic -> 911 + share live location | 8h |
-| 8 | GPS spoofing detection | Impossible speed check, teleportation detection | 8h |
-| 11 | Route deviation detection | Compare actual GPS vs optimal route, alert if >20% | 8h |
-| 13 | Driver deactivation | Auto-suspend if avg rating <4.0 after 50 rides | 3h |
-
----
-
 ## Current Build Versions
 
 | Platform | App | Build | Distribution |
 |----------|-----|-------|-------------|
-| iOS | Customer | 1112 | TestFlight Mar 5 |
-| iOS | Driver | 214 | TestFlight Mar 5 |
-| iOS | Restaurant | 184 | TestFlight Mar 5 |
-| Android | Customer | vC=35 (1.0.34) | Firebase Mar 5 |
-| Android | Driver | vC=32 (1.0.31) | Firebase Mar 5 |
-| Android | Partner | vC=28 (1.0.27) | Firebase Mar 5 |
-
-**Note:** Android APKs need rebuild after Quick-100 Call Support fix.
+| iOS | Customer | 1113 | TestFlight Mar 6 |
+| iOS | Driver | 215 | TestFlight Mar 6 |
+| iOS | Restaurant | 185 | TestFlight Mar 6 |
+| Android | Customer | vC=37 (1.0.36) | Firebase + Play Store Mar 6 |
+| Android | Driver | vC=33 (1.0.32) | Firebase Mar 6 |
+| Android | Partner | vC=29 (1.0.28) | Firebase Mar 6 |
 
 ## Test Health
-- **1439 backend tests** passing, 0 failures (Quick-102 verified)
-- **45 E2E tests** (Quick-103) all passing
-- **24 Phase 10 tests** (Quick-101) all passing
+- **1484 backend tests** passing (Quick-105 verified)
+- **1495 total test cases** collected (pending seeder fix for project tracker)
 
 ---
 
 ## Remaining v1.5 Phases
 
-| Phase | Status | What's Left |
-|-------|--------|-------------|
-| 06 SSL Pinning | Done | - |
-| 07 Play Store | 1/3 plans done | 07-02 (Play Console setup), 07-03 (upload+submit) |
-| 08 DB Rotation | Not started | Secrets Manager Lambda, staging test, production enable |
-| 09 Rideshare E2E | Not started | 12-step lifecycle test against staging |
-| 10 Support System | Complete (iOS + Android) | - |
+| Phase | Status |
+|-------|--------|
+| 06 SSL Pinning | Done |
+| 07 Play Store | Customer submitted, Driver/Partner pending |
+| 08 DB Rotation | Not started |
+| 09 Rideshare E2E | Not started |
+| 10 Support System | Complete |
 
 ---
 
@@ -123,9 +110,10 @@ Customer build 1111 was WAITING_FOR_REVIEW (submitted Mar 4).
 
 ```
 /gsd:resume-work
-→ Commit Quick-104 artifacts (STATE.md + ISSUE_TRACKER.md)
-→ /gsd:quick Fix BUG-01 through BUG-05 (Waves 1-3)
-→ /gsd:quick Build + distribute all 6 apps
-→ Check App Store review status
+→ Fix seeder (-qq flag), seed 1495 cases
+→ Run tests, push, deploy staging+production
+→ Check App Store / Play Store review status
+→ If approved, submit Driver + Restaurant apps
+→ Optional: Wave 4 bug fixes
 → /gsd:pause-work
 ```
