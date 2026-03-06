@@ -11,6 +11,10 @@ import {
   ChevronRight,
   X,
   Database,
+  GitCommit,
+  Link,
+  AlertTriangle,
+  FileText,
 } from 'lucide-react';
 import { Spin, message, Select, Input, Tag, Pagination } from 'antd';
 import api from '../../api/api';
@@ -30,6 +34,10 @@ interface ProjectCase {
   version_introduced: string | null;
   build_number: string | null;
   release_notes: string | null;
+  reason: string | null;
+  commit_ref: string | null;
+  dependencies: string | null;
+  impact_analysis: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -115,7 +123,11 @@ const ProjectTracker: React.FC = () => {
     version_introduced: string;
     build_number: string;
     release_notes: string;
-  }>({ version_introduced: '', build_number: '', release_notes: '' });
+    reason: string;
+    commit_ref: string;
+    dependencies: string;
+    impact_analysis: string;
+  }>({ version_introduced: '', build_number: '', release_notes: '', reason: '', commit_ref: '', dependencies: '', impact_analysis: '' });
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -276,6 +288,10 @@ const ProjectTracker: React.FC = () => {
           version_introduced: c.version_introduced || '',
           build_number: c.build_number || '',
           release_notes: c.release_notes || '',
+          reason: c.reason || '',
+          commit_ref: c.commit_ref || '',
+          dependencies: c.dependencies || '',
+          impact_analysis: c.impact_analysis || '',
         });
       }
     }
@@ -574,75 +590,161 @@ const ProjectTracker: React.FC = () => {
                     {expandedRow === c.case_id && (
                       <tr className="bg-neutral-50">
                         <td colSpan={11} className="px-6 py-4">
-                          <div className="space-y-3">
-                            <div>
-                              <label className="text-xs font-medium text-neutral-500 uppercase">
-                                Full Path
-                              </label>
-                              <p className="font-mono text-xs text-neutral-600 mt-1 bg-neutral-100 px-3 py-2 rounded">
-                                {c.full_path}
-                              </p>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-4">
+                            {/* Section 1: Context & Lineage */}
+                            <div className="space-y-3">
+                              <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Context & Lineage</h4>
                               <div>
-                                <label className="text-xs font-medium text-neutral-500 uppercase">
-                                  Version
+                                <label className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 uppercase">
+                                  <FileText className="h-3.5 w-3.5" />
+                                  Reason / Context
                                 </label>
-                                <input
-                                  type="text"
-                                  value={editForm.version_introduced}
+                                <textarea
+                                  value={editForm.reason}
                                   onChange={(e) =>
                                     setEditForm((prev) => ({
                                       ...prev,
-                                      version_introduced: e.target.value,
+                                      reason: e.target.value,
                                     }))
                                   }
-                                  placeholder="e.g. v1.0"
-                                  className="mt-1 w-full px-3 py-1.5 text-sm border border-neutral-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                  placeholder="Why was this test/feature built?"
+                                  rows={2}
+                                  className="mt-1 w-full px-3 py-2 text-sm border border-neutral-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 uppercase">
+                                  <GitCommit className="h-3.5 w-3.5" />
+                                  Commit Reference
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editForm.commit_ref}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      commit_ref: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="e.g. abc123 or v1.0.5"
+                                  className="mt-1 w-full px-3 py-1.5 text-sm font-mono border border-neutral-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                                 />
                               </div>
                               <div>
                                 <label className="text-xs font-medium text-neutral-500 uppercase">
-                                  Build Number
+                                  Full Path
                                 </label>
-                                <input
-                                  type="text"
-                                  value={editForm.build_number}
+                                <p className="font-mono text-xs text-neutral-600 mt-1 bg-neutral-100 px-3 py-2 rounded">
+                                  {c.full_path}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Section 2: Dependencies & Impact */}
+                            <div className="space-y-3">
+                              <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Dependencies & Impact</h4>
+                              <div>
+                                <label className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 uppercase">
+                                  <Link className="h-3.5 w-3.5" />
+                                  Dependencies
+                                </label>
+                                <textarea
+                                  value={editForm.dependencies}
                                   onChange={(e) =>
                                     setEditForm((prev) => ({
                                       ...prev,
-                                      build_number: e.target.value,
+                                      dependencies: e.target.value,
                                     }))
                                   }
-                                  placeholder="e.g. 1110"
-                                  className="mt-1 w-full px-3 py-1.5 text-sm border border-neutral-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                  placeholder="What does this depend on? (other tests, modules, services)"
+                                  rows={2}
+                                  className="mt-1 w-full px-3 py-2 text-sm border border-neutral-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                                 />
                               </div>
-                              <div className="flex items-end">
-                                <button
-                                  onClick={() => handleExpandedSave(c.case_id)}
-                                  className="px-4 py-1.5 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 transition-colors"
-                                >
-                                  Save
-                                </button>
+                              <div>
+                                <label className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 uppercase">
+                                  <AlertTriangle className="h-3.5 w-3.5" />
+                                  Impact Analysis
+                                </label>
+                                <textarea
+                                  value={editForm.impact_analysis}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      impact_analysis: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="What breaks if this code/feature is changed?"
+                                  rows={3}
+                                  className="mt-1 w-full px-3 py-2 text-sm border border-neutral-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                />
                               </div>
                             </div>
-                            <div>
-                              <label className="text-xs font-medium text-neutral-500 uppercase">
-                                Release Notes
-                              </label>
-                              <textarea
-                                value={editForm.release_notes}
-                                onChange={(e) =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    release_notes: e.target.value,
-                                  }))
-                                }
-                                placeholder="Add release notes..."
-                                rows={3}
-                                className="mt-1 w-full px-3 py-2 text-sm border border-neutral-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                              />
+
+                            {/* Section 3: Release Info */}
+                            <div className="space-y-3">
+                              <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Release Info</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                  <label className="text-xs font-medium text-neutral-500 uppercase">
+                                    Version
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={editForm.version_introduced}
+                                    onChange={(e) =>
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        version_introduced: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="e.g. v1.0"
+                                    className="mt-1 w-full px-3 py-1.5 text-sm border border-neutral-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs font-medium text-neutral-500 uppercase">
+                                    Build Number
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={editForm.build_number}
+                                    onChange={(e) =>
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        build_number: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="e.g. 1110"
+                                    className="mt-1 w-full px-3 py-1.5 text-sm border border-neutral-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                  />
+                                </div>
+                                <div className="flex items-end">
+                                  <button
+                                    onClick={() => handleExpandedSave(c.case_id)}
+                                    className="px-4 py-1.5 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 transition-colors"
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium text-neutral-500 uppercase">
+                                  Release Notes
+                                </label>
+                                <textarea
+                                  value={editForm.release_notes}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      release_notes: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="Add release notes..."
+                                  rows={3}
+                                  className="mt-1 w-full px-3 py-2 text-sm border border-neutral-300 rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                />
+                              </div>
                             </div>
                           </div>
                         </td>
