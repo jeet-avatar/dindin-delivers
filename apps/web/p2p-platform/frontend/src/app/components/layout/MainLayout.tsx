@@ -13,6 +13,7 @@ import {
   Wallet,
   Building2,
   ClipboardCheck,
+  ClipboardList,
   Utensils,
   FileCheck,
   LogOut,
@@ -127,6 +128,9 @@ const MainLayout: React.FC = () => {
 
     // === CUSTOMERS ===
     { name: 'Customers', href: '/admin/clients', icon: User },
+
+    // === PROJECT TRACKER ===
+    { name: 'Project Tracker', href: '/admin/project-tracker', icon: ClipboardList },
 
     // === INVOICES ===
     { name: 'Invoices', href: '/admin/invoices', icon: FileText },
