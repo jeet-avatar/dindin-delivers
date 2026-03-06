@@ -15,6 +15,7 @@ import {
   Link,
   AlertTriangle,
   FileText,
+  Download,
 } from 'lucide-react';
 import { Spin, message, Select, Input, Tag, Pagination } from 'antd';
 import api from '../../api/api';
@@ -39,6 +40,7 @@ interface ProjectCase {
   commit_ref: string | null;
   dependencies: string | null;
   impact_analysis: string | null;
+  last_activity: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -131,6 +133,8 @@ const ProjectTracker: React.FC = () => {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<{ caseId: string; field: string } | null>(null);
+  const [sortBy, setSortBy] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Expanded row edit state
   const [editForm, setEditForm] = useState<{
@@ -160,6 +164,7 @@ const ProjectTracker: React.FC = () => {
       if (filters.test_type) params.test_type = filters.test_type;
       if (filters.search) params.search = filters.search;
       if (filters.platform) params.platform = filters.platform;
+      if (sortBy) { params.sort_by = sortBy; params.sort_order = sortOrder; }
 
       const response = await api.get('/admin/project-cases/', { params });
       setCases(response.data.items);
@@ -173,7 +178,7 @@ const ProjectTracker: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filters]);
+  }, [page, pageSize, filters, sortBy, sortOrder]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -210,6 +215,45 @@ const ProjectTracker: React.FC = () => {
   const clearFilters = () => {
     setFilters({ search: '', status: '', priority: '', category: '', test_type: '', platform: '' });
     setPage(1);
+  };
+
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      if (sortOrder === 'asc') {
+        setSortOrder('desc');
+      } else {
+        // Clear sort
+        setSortBy('');
+        setSortOrder('asc');
+      }
+    } else {
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+    setPage(1);
+  };
+
+  const handleExport = async () => {
+    try {
+      const params: Record<string, string> = {};
+      if (filters.status) params.status = filters.status;
+      if (filters.priority) params.priority = filters.priority;
+      if (filters.category) params.category = filters.category;
+      if (filters.test_type) params.test_type = filters.test_type;
+      if (filters.search) params.search = filters.search;
+      if (filters.platform) params.platform = filters.platform;
+
+      const response = await api.get('/admin/project-cases/export', { params, responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'project-cases.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+      message.error('Failed to export CSV');
+    }
   };
 
   const handleSeed = async () => {
@@ -329,6 +373,13 @@ const ProjectTracker: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center space-x-3">
+          <button
+            onClick={handleExport}
+            className="flex items-center space-x-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors text-sm font-medium"
+          >
+            <Download className="h-4 w-4" />
+            <span>Export CSV</span>
+          </button>
           <button
             onClick={handleSeed}
             disabled={seeding}
@@ -495,16 +546,32 @@ const ProjectTracker: React.FC = () => {
                     />
                   </th>
                   <th className="px-3 py-3 text-left w-6"></th>
-                  <th className="px-3 py-3 text-left font-medium text-neutral-600 w-24">Case ID</th>
-                  <th className="px-3 py-3 text-left font-medium text-neutral-600 w-24">Platform</th>
-                  <th className="px-3 py-3 text-left font-medium text-neutral-600">Name</th>
-                  <th className="px-3 py-3 text-left font-medium text-neutral-600 w-32">Category</th>
-                  <th className="px-3 py-3 text-left font-medium text-neutral-600 w-24">Type</th>
-                  <th className="px-3 py-3 text-left font-medium text-neutral-600 w-28">Status</th>
-                  <th className="px-3 py-3 text-left font-medium text-neutral-600 w-24">Priority</th>
+                  <th className="px-3 py-3 text-left font-medium text-neutral-600 cursor-pointer select-none hover:text-neutral-900 w-24" onClick={() => handleSort('case_id')}>
+                    <span className="inline-flex items-center gap-1">Case ID {sortBy === 'case_id' && (sortOrder === 'asc' ? '\u2191' : '\u2193')}</span>
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium text-neutral-600 cursor-pointer select-none hover:text-neutral-900 w-24" onClick={() => handleSort('platform')}>
+                    <span className="inline-flex items-center gap-1">Platform {sortBy === 'platform' && (sortOrder === 'asc' ? '\u2191' : '\u2193')}</span>
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium text-neutral-600 cursor-pointer select-none hover:text-neutral-900" onClick={() => handleSort('name')}>
+                    <span className="inline-flex items-center gap-1">Name {sortBy === 'name' && (sortOrder === 'asc' ? '\u2191' : '\u2193')}</span>
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium text-neutral-600 cursor-pointer select-none hover:text-neutral-900 w-32" onClick={() => handleSort('category')}>
+                    <span className="inline-flex items-center gap-1">Category {sortBy === 'category' && (sortOrder === 'asc' ? '\u2191' : '\u2193')}</span>
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium text-neutral-600 cursor-pointer select-none hover:text-neutral-900 w-24" onClick={() => handleSort('test_type')}>
+                    <span className="inline-flex items-center gap-1">Type {sortBy === 'test_type' && (sortOrder === 'asc' ? '\u2191' : '\u2193')}</span>
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium text-neutral-600 cursor-pointer select-none hover:text-neutral-900 w-28" onClick={() => handleSort('status')}>
+                    <span className="inline-flex items-center gap-1">Status {sortBy === 'status' && (sortOrder === 'asc' ? '\u2191' : '\u2193')}</span>
+                  </th>
+                  <th className="px-3 py-3 text-left font-medium text-neutral-600 cursor-pointer select-none hover:text-neutral-900 w-24" onClick={() => handleSort('priority')}>
+                    <span className="inline-flex items-center gap-1">Priority {sortBy === 'priority' && (sortOrder === 'asc' ? '\u2191' : '\u2193')}</span>
+                  </th>
                   <th className="px-3 py-3 text-left font-medium text-neutral-600 w-20">Version</th>
                   <th className="px-3 py-3 text-left font-medium text-neutral-600 w-20">Build</th>
-                  <th className="px-3 py-3 text-left font-medium text-neutral-600 w-28">Updated</th>
+                  <th className="px-3 py-3 text-left font-medium text-neutral-600 cursor-pointer select-none hover:text-neutral-900 w-28" onClick={() => handleSort('updated_at')}>
+                    <span className="inline-flex items-center gap-1">Updated {sortBy === 'updated_at' && (sortOrder === 'asc' ? '\u2191' : '\u2193')}</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -786,6 +853,16 @@ const ProjectTracker: React.FC = () => {
                                 />
                               </div>
                             </div>
+
+                            {/* Last Activity */}
+                            {c.last_activity && (
+                              <div className="mt-3 pt-3 border-t border-neutral-200">
+                                <p className="text-xs text-neutral-400">
+                                  <Clock className="h-3 w-3 inline mr-1" />
+                                  Last Activity: {c.last_activity}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
