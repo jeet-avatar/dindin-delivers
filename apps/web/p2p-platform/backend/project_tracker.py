@@ -127,15 +127,27 @@ def _parse_nodeid(nodeid: str):
     }
 
 
-def seed_project_cases(db: Session, test_dir: str = "tests/") -> dict:
+def seed_project_cases(
+    db: Session,
+    test_dir: str = "tests/",
+    build_label: str = None,
+    default_reason: str = None,
+) -> dict:
     """Collect pytest tests and seed them into the project_cases table.
+
+    Args:
+        db: Database session.
+        test_dir: Directory to collect tests from.
+        build_label: Optional build version string to set on new cases
+            (e.g. "iOS-Customer:1113,iOS-Driver:215").
+        default_reason: Optional reason/context to set on new cases.
 
     Returns dict with {seeded: N, skipped: M}.
     """
     # Run pytest --collect-only to get all test nodeids
     backend_dir = os.path.dirname(os.path.abspath(__file__))
     result = subprocess.run(
-        ["python", "-m", "pytest", test_dir, "--collect-only", "-q", "--no-header"],
+        ["python", "-m", "pytest", test_dir, "--collect-only", "-qq"],
         capture_output=True,
         text=True,
         cwd=backend_dir,
@@ -182,6 +194,23 @@ def seed_project_cases(db: Session, test_dir: str = "tests/") -> dict:
             continue
 
         current_num += 1
+        # Parse build_label into formatted string if provided
+        build_str = None
+        version_str = None
+        if build_label:
+            parts = [p.strip() for p in build_label.split(",") if p.strip()]
+            formatted = []
+            for part in parts:
+                if ":" in part:
+                    app, ver = part.split(":", 1)
+                    # Shorten common prefixes for display
+                    short = app.replace("Customer", "Cust").replace("Driver", "Drv").replace("Restaurant", "Rest").replace("Partner", "Part")
+                    formatted.append(f"{short}:{ver}")
+                else:
+                    formatted.append(part)
+            build_str = " / ".join(formatted)
+            version_str = "1.0"
+
         case = ProjectCase(
             case_id=f"TC-{current_num:04d}",
             name=parsed["name"],
@@ -191,6 +220,9 @@ def seed_project_cases(db: Session, test_dir: str = "tests/") -> dict:
             test_type=parsed["test_type"],
             status="Open",
             priority="Medium",
+            build_number=build_str,
+            version_introduced=version_str,
+            reason=default_reason or None,
         )
         db.add(case)
         seeded += 1
@@ -426,7 +458,11 @@ def update_project_case(
 
 
 @project_tracker_router.post("/seed")
-def seed_cases_endpoint(db: Session = Depends(get_db)):
+def seed_cases_endpoint(
+    build_label: Optional[str] = Query(default=None, description="Build versions, e.g. iOS-Customer:1113,iOS-Driver:215"),
+    reason: Optional[str] = Query(default=None, description="Default reason/context for new cases"),
+    db: Session = Depends(get_db),
+):
     """Trigger seeding of project cases from pytest collection."""
-    result = seed_project_cases(db)
+    result = seed_project_cases(db, build_label=build_label, default_reason=reason)
     return result
