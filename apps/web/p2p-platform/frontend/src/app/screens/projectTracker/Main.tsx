@@ -31,6 +31,7 @@ interface ProjectCase {
   test_type: string;
   status: string;
   priority: string;
+  platform: string | null;
   version_introduced: string | null;
   build_number: string | null;
   release_notes: string | null;
@@ -48,8 +49,10 @@ interface Stats {
   by_priority: Record<string, number>;
   by_category: Record<string, number>;
   by_test_type: Record<string, number>;
+  by_platform?: Record<string, number>;
   categories: string[];
   test_types: string[];
+  platforms?: string[];
 }
 
 interface Filters {
@@ -58,6 +61,7 @@ interface Filters {
   priority: string;
   category: string;
   test_type: string;
+  platform: string;
 }
 
 // ==================== Constants ====================
@@ -88,6 +92,14 @@ const TEST_TYPE_COLORS: Record<string, string> = {
   'other': 'default',
 };
 
+const PLATFORM_COLORS: Record<string, string> = {
+  'backend': 'blue',
+  'ios': 'geekblue',
+  'android': 'green',
+  'microservice': 'purple',
+  'frontend': 'orange',
+};
+
 const STATUS_ICONS: Record<string, React.ReactNode> = {
   'Open': <AlertCircle className="h-5 w-5 text-amber-500" />,
   'In Progress': <Clock className="h-5 w-5 text-blue-500" />,
@@ -108,12 +120,14 @@ const ProjectTracker: React.FC = () => {
     priority: '',
     category: '',
     test_type: '',
+    platform: '',
   });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [total, setTotal] = useState(0);
   const [categories, setCategories] = useState<string[]>([]);
   const [testTypes, setTestTypes] = useState<string[]>([]);
+  const [platforms, setPlatforms] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<{ caseId: string; field: string } | null>(null);
@@ -145,12 +159,14 @@ const ProjectTracker: React.FC = () => {
       if (filters.category) params.category = filters.category;
       if (filters.test_type) params.test_type = filters.test_type;
       if (filters.search) params.search = filters.search;
+      if (filters.platform) params.platform = filters.platform;
 
       const response = await api.get('/admin/project-cases/', { params });
       setCases(response.data.items);
       setTotal(response.data.total);
       setCategories(response.data.categories || []);
       setTestTypes(response.data.test_types || []);
+      setPlatforms(response.data.platforms || []);
     } catch (error) {
       console.error('Failed to fetch cases:', error);
       message.error('Failed to load project cases');
@@ -192,7 +208,7 @@ const ProjectTracker: React.FC = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ search: '', status: '', priority: '', category: '', test_type: '' });
+    setFilters({ search: '', status: '', priority: '', category: '', test_type: '', platform: '' });
     setPage(1);
   };
 
@@ -298,7 +314,7 @@ const ProjectTracker: React.FC = () => {
   };
 
   const hasActiveFilters =
-    filters.search || filters.status || filters.priority || filters.category || filters.test_type;
+    filters.search || filters.status || filters.priority || filters.category || filters.test_type || filters.platform;
 
   // ==================== Render ====================
 
@@ -330,31 +346,41 @@ const ProjectTracker: React.FC = () => {
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard
-            title="Total Cases"
-            value={stats.total}
-            icon={<ClipboardList className="h-5 w-5 text-primary-600" />}
-            bgColor="bg-primary-50"
-          />
-          <StatsCard
-            title="Open"
-            value={stats.by_status['Open'] || 0}
-            icon={<AlertCircle className="h-5 w-5 text-amber-600" />}
-            bgColor="bg-amber-50"
-          />
-          <StatsCard
-            title="In Progress"
-            value={stats.by_status['In Progress'] || 0}
-            icon={<Clock className="h-5 w-5 text-blue-600" />}
-            bgColor="bg-blue-50"
-          />
-          <StatsCard
-            title="Verified / Released"
-            value={(stats.by_status['Verified'] || 0) + (stats.by_status['Released'] || 0)}
-            icon={<CheckCircle className="h-5 w-5 text-green-600" />}
-            bgColor="bg-green-50"
-          />
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard
+              title="Total Cases"
+              value={stats.total}
+              icon={<ClipboardList className="h-5 w-5 text-primary-600" />}
+              bgColor="bg-primary-50"
+              subtitle={
+                stats.by_platform
+                  ? Object.entries(stats.by_platform)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([p, c]) => `${p.charAt(0).toUpperCase() + p.slice(1)}: ${c}`)
+                      .join(' | ')
+                  : undefined
+              }
+            />
+            <StatsCard
+              title="Open"
+              value={stats.by_status['Open'] || 0}
+              icon={<AlertCircle className="h-5 w-5 text-amber-600" />}
+              bgColor="bg-amber-50"
+            />
+            <StatsCard
+              title="In Progress"
+              value={stats.by_status['In Progress'] || 0}
+              icon={<Clock className="h-5 w-5 text-blue-600" />}
+              bgColor="bg-blue-50"
+            />
+            <StatsCard
+              title="Verified / Released"
+              value={(stats.by_status['Verified'] || 0) + (stats.by_status['Released'] || 0)}
+              icon={<CheckCircle className="h-5 w-5 text-green-600" />}
+              bgColor="bg-green-50"
+            />
+          </div>
         </div>
       )}
 
@@ -401,6 +427,14 @@ const ProjectTracker: React.FC = () => {
             onChange={(val) => handleFilterChange('test_type', val || '')}
             style={{ width: 140 }}
             options={testTypes.map((t) => ({ label: t, value: t }))}
+          />
+          <Select
+            placeholder="Platform"
+            allowClear
+            value={filters.platform || undefined}
+            onChange={(val) => handleFilterChange('platform', val || '')}
+            style={{ width: 140 }}
+            options={platforms.map((p) => ({ label: p.charAt(0).toUpperCase() + p.slice(1), value: p }))}
           />
           {hasActiveFilters && (
             <button
@@ -462,6 +496,7 @@ const ProjectTracker: React.FC = () => {
                   </th>
                   <th className="px-3 py-3 text-left w-6"></th>
                   <th className="px-3 py-3 text-left font-medium text-neutral-600 w-24">Case ID</th>
+                  <th className="px-3 py-3 text-left font-medium text-neutral-600 w-24">Platform</th>
                   <th className="px-3 py-3 text-left font-medium text-neutral-600">Name</th>
                   <th className="px-3 py-3 text-left font-medium text-neutral-600 w-32">Category</th>
                   <th className="px-3 py-3 text-left font-medium text-neutral-600 w-24">Type</th>
@@ -504,6 +539,11 @@ const ProjectTracker: React.FC = () => {
                         <span className="font-mono text-primary-600 font-medium text-xs">
                           {c.case_id}
                         </span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Tag color={PLATFORM_COLORS[c.platform || 'backend'] || 'default'} className="m-0">
+                          {c.platform || 'backend'}
+                        </Tag>
                       </td>
                       <td className="px-3 py-2.5">
                         <span className="text-neutral-800 font-medium">{c.name}</span>
@@ -589,7 +629,7 @@ const ProjectTracker: React.FC = () => {
                     {/* Expanded Row */}
                     {expandedRow === c.case_id && (
                       <tr className="bg-neutral-50">
-                        <td colSpan={11} className="px-6 py-4">
+                        <td colSpan={12} className="px-6 py-4">
                           <div className="space-y-4">
                             {/* Section 1: Context & Lineage */}
                             <div className="space-y-3">
@@ -754,7 +794,7 @@ const ProjectTracker: React.FC = () => {
                 ))}
                 {cases.length === 0 && !loading && (
                   <tr>
-                    <td colSpan={11} className="px-6 py-12 text-center text-neutral-400">
+                    <td colSpan={12} className="px-6 py-12 text-center text-neutral-400">
                       <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p>No cases found. Click "Seed from Tests" to populate.</p>
                     </td>
@@ -798,11 +838,13 @@ function StatsCard({
   value,
   icon,
   bgColor,
+  subtitle,
 }: {
   title: string;
   value: number;
   icon: React.ReactNode;
   bgColor: string;
+  subtitle?: string;
 }) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-4">
@@ -810,6 +852,9 @@ function StatsCard({
         <div>
           <p className="text-sm text-neutral-500">{title}</p>
           <p className="text-2xl font-bold text-neutral-900 mt-1">{value.toLocaleString()}</p>
+          {subtitle && (
+            <p className="text-xs text-neutral-400 mt-1">{subtitle}</p>
+          )}
         </div>
         <div className={`h-10 w-10 rounded-full ${bgColor} flex items-center justify-center`}>
           {icon}
