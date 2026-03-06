@@ -38,6 +38,10 @@ class ProjectCase(Base):
     version_introduced = Column(String(50), nullable=True)
     build_number = Column(String(50), nullable=True)
     release_notes = Column(Text, nullable=True)
+    reason = Column(Text, nullable=True)  # Why this test/feature was built
+    commit_ref = Column(String(200), nullable=True)  # Git commit hash or tag
+    dependencies = Column(Text, nullable=True)  # What this case depends on
+    impact_analysis = Column(Text, nullable=True)  # What breaks if changed
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -50,6 +54,10 @@ class ProjectCaseUpdate(BaseModel):
     version_introduced: Optional[str] = None
     build_number: Optional[str] = None
     release_notes: Optional[str] = None
+    reason: Optional[str] = None
+    commit_ref: Optional[str] = None
+    dependencies: Optional[str] = None
+    impact_analysis: Optional[str] = None
 
 
 class BulkUpdateRequest(BaseModel):
@@ -310,6 +318,10 @@ def list_project_cases(
                 "version_introduced": c.version_introduced,
                 "build_number": c.build_number,
                 "release_notes": c.release_notes,
+                "reason": c.reason,
+                "commit_ref": c.commit_ref,
+                "dependencies": c.dependencies,
+                "impact_analysis": c.impact_analysis,
                 "created_at": c.created_at.isoformat() if c.created_at else None,
                 "updated_at": c.updated_at.isoformat() if c.updated_at else None,
             }
@@ -378,6 +390,14 @@ def update_project_case(
         case.build_number = updates.build_number
     if updates.release_notes is not None:
         case.release_notes = updates.release_notes
+    if updates.reason is not None:
+        case.reason = updates.reason
+    if updates.commit_ref is not None:
+        case.commit_ref = updates.commit_ref
+    if updates.dependencies is not None:
+        case.dependencies = updates.dependencies
+    if updates.impact_analysis is not None:
+        case.impact_analysis = updates.impact_analysis
 
     case.updated_at = datetime.utcnow()
     db.commit()
@@ -396,6 +416,10 @@ def update_project_case(
         "version_introduced": case.version_introduced,
         "build_number": case.build_number,
         "release_notes": case.release_notes,
+        "reason": case.reason,
+        "commit_ref": case.commit_ref,
+        "dependencies": case.dependencies,
+        "impact_analysis": case.impact_analysis,
         "created_at": case.created_at.isoformat() if case.created_at else None,
         "updated_at": case.updated_at.isoformat() if case.updated_at else None,
     }
