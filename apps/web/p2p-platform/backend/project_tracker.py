@@ -9,6 +9,7 @@ Provides:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import Column, Integer, String, Text, DateTime, func, inspect, text
 from datetime import datetime
@@ -17,6 +18,8 @@ from pydantic import BaseModel
 import subprocess
 import os
 import re
+import csv
+import io
 import glob as glob_mod
 
 from models import Base
@@ -38,13 +41,14 @@ class ProjectCase(Base):
     status = Column(String(20), nullable=False, default="Open")  # Open/In Progress/Verified/Released
     priority = Column(String(20), nullable=False, default="Medium")  # Critical/High/Medium/Low
     version_introduced = Column(String(50), nullable=True)
-    build_number = Column(String(50), nullable=True)
+    build_number = Column(String(200), nullable=True)
     release_notes = Column(Text, nullable=True)
     reason = Column(Text, nullable=True)  # Why this test/feature was built
     commit_ref = Column(String(200), nullable=True)  # Git commit hash or tag
     dependencies = Column(Text, nullable=True)  # What this case depends on
     platform = Column(String(50), nullable=True, default="backend", index=True)  # backend/ios/android/microservice/frontend
     impact_analysis = Column(Text, nullable=True)  # What breaks if changed
+    last_activity = Column(Text, nullable=True)  # Tracks what changed on last update
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -61,6 +65,7 @@ class ProjectCaseUpdate(BaseModel):
     commit_ref: Optional[str] = None
     dependencies: Optional[str] = None
     impact_analysis: Optional[str] = None
+    last_activity: Optional[str] = None
 
 
 class BulkUpdateRequest(BaseModel):
@@ -150,7 +155,7 @@ def seed_project_cases(
     backend_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Alembic-free migration: add platform column if missing
-    _ensure_platform_column(db)
+    _ensure_new_columns(db)
 
     # Run pytest --collect-only to get all test nodeids
     result = subprocess.run(
@@ -241,17 +246,36 @@ def seed_project_cases(
 
 # ==================== Platform Column Migration ====================
 
-def _ensure_platform_column(db: Session):
-    """Add platform column to project_cases table if it doesn't exist (Alembic-free)."""
+def _ensure_new_columns(db: Session):
+    """Add any missing columns to project_cases table (Alembic-free migration)."""
+    NEW_COLUMNS = {
+        "platform": "ALTER TABLE project_cases ADD COLUMN platform VARCHAR(50) DEFAULT 'backend'",
+        "reason": "ALTER TABLE project_cases ADD COLUMN reason TEXT",
+        "commit_ref": "ALTER TABLE project_cases ADD COLUMN commit_ref VARCHAR(200)",
+        "dependencies": "ALTER TABLE project_cases ADD COLUMN dependencies TEXT",
+        "impact_analysis": "ALTER TABLE project_cases ADD COLUMN impact_analysis TEXT",
+        "last_activity": "ALTER TABLE project_cases ADD COLUMN last_activity TEXT",
+    }
     try:
         inspector = inspect(db.bind)
-        columns = [c['name'] for c in inspector.get_columns('project_cases')]
-        if 'platform' not in columns:
-            db.execute(text("ALTER TABLE project_cases ADD COLUMN platform VARCHAR(50) DEFAULT 'backend'"))
-            db.execute(text("UPDATE project_cases SET platform = 'backend' WHERE platform IS NULL"))
+        columns = {c['name']: c for c in inspector.get_columns('project_cases')}
+        added = []
+        for col_name, ddl in NEW_COLUMNS.items():
+            if col_name not in columns:
+                db.execute(text(ddl))
+                added.append(col_name)
+        # Widen build_number if it's too small (was VARCHAR(50), need 200)
+        if 'build_number' in columns:
+            col_type = str(columns['build_number'].get('type', ''))
+            if 'VARCHAR(50)' in col_type.upper():
+                db.execute(text("ALTER TABLE project_cases ALTER COLUMN build_number TYPE VARCHAR(200)"))
+                added.append('build_number_widened')
+        if added:
+            if 'platform' in added:
+                db.execute(text("UPDATE project_cases SET platform = 'backend' WHERE platform IS NULL"))
             db.commit()
     except Exception:
-        # Table may not exist yet — that's OK, ORM will create it with the column
+        # Table may not exist yet — that's OK, ORM will create it with all columns
         db.rollback()
 
 
@@ -297,7 +321,7 @@ def seed_ios_cases(
 
     Walks apps/ios/ directory, parses .swift files for test functions.
     """
-    _ensure_platform_column(db)
+    _ensure_new_columns(db)
     backend_dir = os.path.dirname(os.path.abspath(__file__))
     ios_dir = os.path.normpath(os.path.join(backend_dir, '..', '..', '..', 'ios'))
     repo_root = os.path.normpath(os.path.join(backend_dir, '..', '..', '..', '..'))
@@ -403,7 +427,7 @@ def seed_android_cases(
 
     Walks the eatfair-android directory for test files.
     """
-    _ensure_platform_column(db)
+    _ensure_new_columns(db)
     android_root = ANDROID_ROOT
 
     if not os.path.isdir(android_root):
@@ -523,7 +547,7 @@ def seed_microservice_cases(
 
     Runs pytest --collect-only for each service in services/core/*/tests/.
     """
-    _ensure_platform_column(db)
+    _ensure_new_columns(db)
     backend_dir = os.path.dirname(os.path.abspath(__file__))
     services_dir = os.path.normpath(os.path.join(backend_dir, '..', '..', '..', '..', 'services', 'core'))
 
@@ -615,7 +639,7 @@ def seed_frontend_cases(
 
     Parses it/test/describe blocks from React/TypeScript test files.
     """
-    _ensure_platform_column(db)
+    _ensure_new_columns(db)
     backend_dir = os.path.dirname(os.path.abspath(__file__))
     frontend_src = os.path.normpath(os.path.join(backend_dir, '..', 'frontend', 'src'))
     repo_root = os.path.normpath(os.path.join(backend_dir, '..', '..', '..', '..'))
@@ -690,35 +714,19 @@ def seed_all_platforms(
     """
     results = {}
 
-    # Backend
-    try:
-        results["backend"] = seed_project_cases(db, build_label=build_label, default_reason=default_reason)
-    except Exception as e:
-        results["backend"] = {"seeded": 0, "skipped": 0, "error": str(e)}
-
-    # iOS
-    try:
-        results["ios"] = seed_ios_cases(db, build_label=build_label, default_reason=default_reason)
-    except Exception as e:
-        results["ios"] = {"seeded": 0, "skipped": 0, "error": str(e)}
-
-    # Android
-    try:
-        results["android"] = seed_android_cases(db, build_label=build_label, default_reason=default_reason)
-    except Exception as e:
-        results["android"] = {"seeded": 0, "skipped": 0, "error": str(e)}
-
-    # Microservices
-    try:
-        results["microservice"] = seed_microservice_cases(db, build_label=build_label, default_reason=default_reason)
-    except Exception as e:
-        results["microservice"] = {"seeded": 0, "skipped": 0, "error": str(e)}
-
-    # Frontend
-    try:
-        results["frontend"] = seed_frontend_cases(db, build_label=build_label, default_reason=default_reason)
-    except Exception as e:
-        results["frontend"] = {"seeded": 0, "skipped": 0, "error": str(e)}
+    platform_seeders = [
+        ("backend", seed_project_cases),
+        ("ios", seed_ios_cases),
+        ("android", seed_android_cases),
+        ("microservice", seed_microservice_cases),
+        ("frontend", seed_frontend_cases),
+    ]
+    for name, seeder_fn in platform_seeders:
+        try:
+            results[name] = seeder_fn(db, build_label=build_label, default_reason=default_reason)
+        except Exception as e:
+            db.rollback()
+            results[name] = {"seeded": 0, "skipped": 0, "error": str(e)}
 
     total_seeded = sum(r.get("seeded", 0) for r in results.values())
     total_skipped = sum(r.get("skipped", 0) for r in results.values())
@@ -802,21 +810,12 @@ def get_project_case_stats(
     }
 
 
-@project_tracker_router.get("/")
-def list_project_cases(
-    status: Optional[str] = None,
-    priority: Optional[str] = None,
-    category: Optional[str] = None,
-    test_type: Optional[str] = None,
-    platform: Optional[str] = None,
-    search: Optional[str] = None,
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
-    db: Session = Depends(get_db),
-):
-    """List all project cases with filtering and pagination."""
-    query = db.query(ProjectCase)
+SORTABLE_COLUMNS = {"case_id", "name", "category", "platform", "status", "priority", "test_type", "updated_at", "created_at"}
 
+
+def _build_filtered_query(db: Session, status=None, priority=None, category=None, test_type=None, platform=None, search=None):
+    """Build a filtered query for ProjectCase. Shared by list and export."""
+    query = db.query(ProjectCase)
     if status:
         query = query.filter(ProjectCase.status == status)
     if priority:
@@ -834,11 +833,37 @@ def list_project_cases(
             | (ProjectCase.full_path.ilike(search_term))
             | (ProjectCase.case_id.ilike(search_term))
         )
+    return query
+
+
+@project_tracker_router.get("/")
+def list_project_cases(
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    category: Optional[str] = None,
+    test_type: Optional[str] = None,
+    platform: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = Query(default=None),
+    sort_order: Optional[str] = Query(default="asc"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """List all project cases with filtering, sorting, and pagination."""
+    query = _build_filtered_query(db, status, priority, category, test_type, platform, search)
 
     total = query.count()
+
+    # Apply sorting
+    if sort_by and sort_by in SORTABLE_COLUMNS:
+        order_col = getattr(ProjectCase, sort_by)
+        query = query.order_by(order_col.desc() if sort_order == "desc" else order_col.asc())
+    else:
+        query = query.order_by(ProjectCase.id)
+
     items = (
-        query.order_by(ProjectCase.id)
-        .offset((page - 1) * page_size)
+        query.offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
@@ -868,6 +893,7 @@ def list_project_cases(
                 "commit_ref": c.commit_ref,
                 "dependencies": c.dependencies,
                 "impact_analysis": c.impact_analysis,
+                "last_activity": c.last_activity,
                 "created_at": c.created_at.isoformat() if c.created_at else None,
                 "updated_at": c.updated_at.isoformat() if c.updated_at else None,
             }
@@ -880,6 +906,50 @@ def list_project_cases(
         "test_types": test_types,
         "platforms": platforms,
     }
+
+
+@project_tracker_router.get("/export")
+def export_project_cases(
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    category: Optional[str] = None,
+    test_type: Optional[str] = None,
+    platform: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Export filtered project cases as CSV."""
+    query = _build_filtered_query(db, status, priority, category, test_type, platform, search)
+    cases = query.order_by(ProjectCase.id).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Header row
+    headers = [
+        "case_id", "name", "category", "subcategory", "test_type", "status",
+        "priority", "platform", "version_introduced", "build_number", "reason",
+        "commit_ref", "dependencies", "impact_analysis", "full_path",
+        "created_at", "updated_at", "last_activity",
+    ]
+    writer.writerow(headers)
+
+    for c in cases:
+        writer.writerow([
+            c.case_id, c.name, c.category, c.subcategory, c.test_type, c.status,
+            c.priority, c.platform or "backend", c.version_introduced, c.build_number,
+            c.reason, c.commit_ref, c.dependencies, c.impact_analysis, c.full_path,
+            c.created_at.isoformat() if c.created_at else "",
+            c.updated_at.isoformat() if c.updated_at else "",
+            c.last_activity or "",
+        ])
+
+    csv_string = output.getvalue()
+    return Response(
+        content=csv_string,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=project-cases.csv"},
+    )
 
 
 @project_tracker_router.put("/bulk-update")
@@ -946,6 +1016,16 @@ def update_project_case(
     if updates.impact_analysis is not None:
         case.impact_analysis = updates.impact_analysis
 
+    # Track what changed for last_activity
+    changed_fields = []
+    update_dict = updates.dict(exclude_unset=True)
+    for field_name in update_dict:
+        if field_name != "last_activity":
+            changed_fields.append(field_name)
+    if changed_fields:
+        change_desc = "Updated " + ", ".join(changed_fields)
+        case.last_activity = f"{change_desc} at {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+
     case.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(case)
@@ -968,6 +1048,7 @@ def update_project_case(
         "commit_ref": case.commit_ref,
         "dependencies": case.dependencies,
         "impact_analysis": case.impact_analysis,
+        "last_activity": case.last_activity,
         "created_at": case.created_at.isoformat() if case.created_at else None,
         "updated_at": case.updated_at.isoformat() if case.updated_at else None,
     }

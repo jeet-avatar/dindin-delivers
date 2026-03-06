@@ -1,0 +1,100 @@
+"""Tests for the Project Tracker admin API endpoints.
+
+Validates stats, list (with sorting), export CSV, and update (with last_activity tracking).
+"""
+import os
+
+# Set admin secret before importing app (admin middleware checks this)
+os.environ.setdefault("ADMIN_SECRET_KEY", "test-admin-secret")
+os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret")
+os.environ.setdefault("DATABASE_URL", "postgresql://jeet@localhost:5432/dollor_dev")
+
+from fastapi.testclient import TestClient
+from main_new import app
+
+client = TestClient(app)
+ADMIN_SECRET = os.environ.get("ADMIN_SECRET_KEY", "test-admin-secret")
+
+
+def admin_url(path: str) -> str:
+    """Append secret_key query param to admin URL for auth."""
+    separator = "&" if "?" in path else "?"
+    return f"{path}{separator}secret_key={ADMIN_SECRET}"
+
+
+class TestProjectTrackerStats:
+    def test_stats_endpoint(self):
+        """GET /api/admin/project-cases/stats returns expected keys."""
+        response = client.get(admin_url("/api/admin/project-cases/stats"))
+        assert response.status_code == 200, f"Stats returned {response.status_code}: {response.text}"
+        data = response.json()
+        assert "total" in data
+        assert "by_status" in data
+        assert "by_platform" in data
+        assert "platforms" in data
+
+
+class TestProjectTrackerList:
+    def test_list_endpoint_fields(self):
+        """GET /api/admin/project-cases/ returns items with all expected fields."""
+        response = client.get(admin_url("/api/admin/project-cases/"))
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert "total" in data
+        assert "page" in data
+        assert "platforms" in data
+
+        if data["items"]:
+            item = data["items"][0]
+            expected_fields = [
+                "case_id", "name", "full_path", "category", "subcategory",
+                "test_type", "status", "priority", "platform",
+                "version_introduced", "build_number", "release_notes",
+                "reason", "commit_ref", "dependencies", "impact_analysis",
+                "last_activity", "created_at", "updated_at",
+            ]
+            for field in expected_fields:
+                assert field in item, f"Missing field: {field}"
+
+    def test_list_sorting(self):
+        """GET /api/admin/project-cases/?sort_by=case_id&sort_order=desc returns 200."""
+        response = client.get(
+            admin_url("/api/admin/project-cases/?sort_by=case_id&sort_order=desc"),
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+
+
+class TestProjectTrackerExport:
+    def test_export_csv(self):
+        """GET /api/admin/project-cases/export returns CSV content."""
+        response = client.get(admin_url("/api/admin/project-cases/export"))
+        assert response.status_code == 200
+        assert "text/csv" in response.headers.get("content-type", "")
+        # Verify CSV has header row
+        lines = response.text.strip().split("\n")
+        assert len(lines) >= 1, "CSV should have at least a header row"
+        assert "case_id" in lines[0]
+
+
+class TestProjectTrackerUpdate:
+    def test_update_case(self):
+        """PUT /api/admin/project-cases/TC-0001 updates and returns last_activity."""
+        # First check if TC-0001 exists
+        list_resp = client.get(admin_url("/api/admin/project-cases/?search=TC-0001"))
+        if list_resp.status_code != 200 or not list_resp.json().get("items"):
+            # No cases seeded -- skip gracefully
+            return
+
+        response = client.put(
+            admin_url("/api/admin/project-cases/TC-0001"),
+            json={"status": "Verified"},
+        )
+        assert response.status_code == 200, f"Update returned {response.status_code}: {response.text}"
+        data = response.json()
+        assert data["status"] == "Verified"
+        assert "last_activity" in data
+        assert data["last_activity"] is not None
+        assert "Updated status" in data["last_activity"]
