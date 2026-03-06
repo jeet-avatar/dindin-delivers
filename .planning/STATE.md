@@ -21667,9 +21667,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 109 | Jira-quality project tracker -- sort, export CSV, activity log | 2026-03-06 | 56c8af61 | [109-audit-fix-project-tracker-jira-quality](./quick/109-audit-fix-project-tracker-jira-quality/) |
 | 110 | Board-level project tracker verification -- 2512 cases populated | 2026-03-06 | 2feab352 | [110-board-level-project-tracker-verification](./quick/110-board-level-project-tracker-verification/) |
 | 111 | Deploy project tracker to staging + production -- STATE.md bloat fix, CI/CD deploy | 2026-03-06 | 70c78845 | [111-deploy-project-tracker-staging-prod](./quick/111-deploy-project-tracker-staging-prod/) |
+| 112 | Sync project tracker data to staging + production -- 2512 cases seeded + populated | 2026-03-06 | (pending) | [112-sync-project-tracker-data-staging-produc](./quick/112-sync-project-tracker-data-staging-produc/) |
 
 ## Session Continuity
 
 Last session: 2026-03-06
-Stopped at: Completed quick-111 (deployed project tracker to staging + production, fixed 282MB STATE.md bloat).
+Stopped at: Completed quick-112 (synced 2512 project tracker cases to staging + production DBs).
 Resume file: .planning/NEXT_SESSION_PROMPT.md
