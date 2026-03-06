@@ -5,17 +5,19 @@ Provides:
 - ProjectCase SQLAlchemy model (stored in same DB as all other models)
 - CRUD API endpoints under /api/admin/project-cases (protected by admin_auth_middleware)
 - Seed logic to populate cases from pytest --collect-only output
+- Multi-platform seeding: backend, iOS, Android, microservices, frontend
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import Column, Integer, String, Text, DateTime, func
+from sqlalchemy import Column, Integer, String, Text, DateTime, func, inspect, text
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
 import subprocess
 import os
 import re
+import glob as glob_mod
 
 from models import Base
 from database import get_db
@@ -41,6 +43,7 @@ class ProjectCase(Base):
     reason = Column(Text, nullable=True)  # Why this test/feature was built
     commit_ref = Column(String(200), nullable=True)  # Git commit hash or tag
     dependencies = Column(Text, nullable=True)  # What this case depends on
+    platform = Column(String(50), nullable=True, default="backend", index=True)  # backend/ios/android/microservice/frontend
     impact_analysis = Column(Text, nullable=True)  # What breaks if changed
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -144,8 +147,12 @@ def seed_project_cases(
 
     Returns dict with {seeded: N, skipped: M}.
     """
-    # Run pytest --collect-only to get all test nodeids
     backend_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Alembic-free migration: add platform column if missing
+    _ensure_platform_column(db)
+
+    # Run pytest --collect-only to get all test nodeids
     result = subprocess.run(
         ["python", "-m", "pytest", test_dir, "--collect-only", "-qq"],
         capture_output=True,
@@ -220,6 +227,7 @@ def seed_project_cases(
             test_type=parsed["test_type"],
             status="Open",
             priority="Medium",
+            platform="backend",
             build_number=build_str,
             version_introduced=version_str,
             reason=default_reason or None,
@@ -231,6 +239,494 @@ def seed_project_cases(
     return {"seeded": seeded, "skipped": skipped}
 
 
+# ==================== Platform Column Migration ====================
+
+def _ensure_platform_column(db: Session):
+    """Add platform column to project_cases table if it doesn't exist (Alembic-free)."""
+    try:
+        inspector = inspect(db.bind)
+        columns = [c['name'] for c in inspector.get_columns('project_cases')]
+        if 'platform' not in columns:
+            db.execute(text("ALTER TABLE project_cases ADD COLUMN platform VARCHAR(50) DEFAULT 'backend'"))
+            db.execute(text("UPDATE project_cases SET platform = 'backend' WHERE platform IS NULL"))
+            db.commit()
+    except Exception:
+        # Table may not exist yet — that's OK, ORM will create it with the column
+        db.rollback()
+
+
+# ==================== Helper: Get next case_id number ====================
+
+def _get_next_case_num(db: Session) -> int:
+    """Get the current max case_id number from DB."""
+    max_case = db.query(func.max(ProjectCase.case_id)).scalar()
+    if max_case:
+        return int(max_case.replace("TC-", ""))
+    return 0
+
+
+def _get_existing_paths(db: Session) -> set:
+    """Get all existing full_paths."""
+    return set(row[0] for row in db.query(ProjectCase.full_path).all())
+
+
+def _format_build_label(build_label: str):
+    """Format build label into build_str and version_str."""
+    if not build_label:
+        return None, None
+    parts = [p.strip() for p in build_label.split(",") if p.strip()]
+    formatted = []
+    for part in parts:
+        if ":" in part:
+            app, ver = part.split(":", 1)
+            short = app.replace("Customer", "Cust").replace("Driver", "Drv").replace("Restaurant", "Rest").replace("Partner", "Part")
+            formatted.append(f"{short}:{ver}")
+        else:
+            formatted.append(part)
+    return " / ".join(formatted), "1.0"
+
+
+# ==================== iOS Seed ====================
+
+def seed_ios_cases(
+    db: Session,
+    build_label: str = None,
+    default_reason: str = None,
+) -> dict:
+    """Collect iOS XCTest functions and seed them into project_cases.
+
+    Walks apps/ios/ directory, parses .swift files for test functions.
+    """
+    _ensure_platform_column(db)
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    ios_dir = os.path.normpath(os.path.join(backend_dir, '..', '..', '..', 'ios'))
+    repo_root = os.path.normpath(os.path.join(backend_dir, '..', '..', '..', '..'))
+
+    if not os.path.isdir(ios_dir):
+        return {"seeded": 0, "skipped": 0, "error": f"iOS dir not found: {ios_dir}"}
+
+    exclude_dirs = {'Pods', 'DerivedData', 'build', '.build'}
+    existing_paths = _get_existing_paths(db)
+    current_num = _get_next_case_num(db)
+    build_str, version_str = _format_build_label(build_label)
+
+    seeded = 0
+    skipped = 0
+
+    func_re = re.compile(r'func\s+(test\w+)\s*\(')
+    class_re = re.compile(r'class\s+(\w+)\s*:\s*XCTestCase')
+
+    for root, dirs, files in os.walk(ios_dir):
+        # Exclude unwanted directories
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
+        for fname in files:
+            if not fname.endswith('.swift'):
+                continue
+
+            filepath = os.path.join(root, fname)
+            rel_path = os.path.relpath(filepath, repo_root)
+
+            try:
+                with open(filepath, 'r', errors='ignore') as f:
+                    content = f.read()
+            except Exception:
+                continue
+
+            # Detect class name
+            class_match = class_re.search(content)
+            class_name = class_match.group(1) if class_match else None
+
+            # Detect category from app folder
+            path_lower = rel_path.lower()
+            if '/customer/' in path_lower:
+                category = 'customer'
+            elif '/delivery/' in path_lower:
+                category = 'driver'
+            elif '/restaurant/' in path_lower:
+                category = 'restaurant'
+            else:
+                # Use the first meaningful folder name
+                parts = rel_path.split(os.sep)
+                category = parts[2] if len(parts) > 2 else 'ios'
+
+            # Detect test type
+            if 'UITest' in rel_path or 'uitest' in path_lower:
+                test_type = 'e2e'
+            elif 'Flow' in rel_path:
+                test_type = 'integration'
+            else:
+                test_type = 'unit'
+
+            # Find test functions
+            for match in func_re.finditer(content):
+                func_name = match.group(1)
+                full_path = f"ios::{rel_path}::{class_name or 'unknown'}::{func_name}"
+
+                if full_path in existing_paths:
+                    skipped += 1
+                    continue
+
+                current_num += 1
+                case = ProjectCase(
+                    case_id=f"TC-{current_num:04d}",
+                    name=func_name,
+                    full_path=full_path,
+                    category=category,
+                    subcategory=class_name,
+                    test_type=test_type,
+                    status="Open",
+                    priority="Medium",
+                    platform="ios",
+                    build_number=build_str,
+                    version_introduced=version_str,
+                    reason=default_reason or None,
+                )
+                db.add(case)
+                existing_paths.add(full_path)
+                seeded += 1
+
+    db.commit()
+    return {"seeded": seeded, "skipped": skipped}
+
+
+# ==================== Android Seed ====================
+
+ANDROID_ROOT = "/Users/jeet/StudioProjects/eatfair-android"
+
+def seed_android_cases(
+    db: Session,
+    build_label: str = None,
+    default_reason: str = None,
+) -> dict:
+    """Collect Android JUnit/Kotlin test functions and seed them into project_cases.
+
+    Walks the eatfair-android directory for test files.
+    """
+    _ensure_platform_column(db)
+    android_root = ANDROID_ROOT
+
+    if not os.path.isdir(android_root):
+        return {"seeded": 0, "skipped": 0, "error": f"Android dir not found: {android_root}"}
+
+    exclude_dirs = {'build', '.gradle', '.idea'}
+    existing_paths = _get_existing_paths(db)
+    current_num = _get_next_case_num(db)
+    build_str, version_str = _format_build_label(build_label)
+
+    seeded = 0
+    skipped = 0
+
+    func_re = re.compile(r'fun\s+(test\w+)\s*\(')
+    class_re = re.compile(r'class\s+(\w+)')
+    test_annotation_re = re.compile(r'@Test')
+
+    for root, dirs, files in os.walk(android_root):
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
+        # Only process test directories
+        if '/test/' not in root and '/androidTest/' not in root:
+            continue
+
+        for fname in files:
+            if not fname.endswith('.kt'):
+                continue
+
+            filepath = os.path.join(root, fname)
+            rel_path = os.path.relpath(filepath, android_root)
+
+            try:
+                with open(filepath, 'r', errors='ignore') as f:
+                    lines = f.readlines()
+            except Exception:
+                continue
+
+            # Detect class name from file content
+            content = ''.join(lines)
+            class_match = class_re.search(content)
+            class_name = class_match.group(1) if class_match else None
+
+            # Category from module
+            if rel_path.startswith('app/'):
+                category = 'customer'
+            elif rel_path.startswith('driver/'):
+                category = 'driver'
+            elif rel_path.startswith('partner/'):
+                category = 'partner'
+            else:
+                parts = rel_path.split(os.sep)
+                category = parts[0] if parts else 'android'
+
+            # Test type
+            if '/androidTest/' in rel_path:
+                test_type = 'e2e'
+            elif 'integration' in rel_path.lower():
+                test_type = 'integration'
+            else:
+                test_type = 'unit'
+
+            # Find test functions: both `fun testXxx` and `@Test` annotated
+            test_funcs = set()
+
+            # Method 1: func testXxx pattern
+            for match in func_re.finditer(content):
+                test_funcs.add(match.group(1))
+
+            # Method 2: @Test annotation followed by fun
+            for i, line in enumerate(lines):
+                if test_annotation_re.search(line):
+                    # Look at next non-empty lines for fun declaration
+                    for j in range(i + 1, min(i + 5, len(lines))):
+                        fun_match = re.search(r'fun\s+(\w+)\s*\(', lines[j])
+                        if fun_match:
+                            test_funcs.add(fun_match.group(1))
+                            break
+
+            for func_name in sorted(test_funcs):
+                full_path = f"android::{rel_path}::{class_name or 'unknown'}::{func_name}"
+
+                if full_path in existing_paths:
+                    skipped += 1
+                    continue
+
+                current_num += 1
+                case = ProjectCase(
+                    case_id=f"TC-{current_num:04d}",
+                    name=func_name,
+                    full_path=full_path,
+                    category=category,
+                    subcategory=class_name,
+                    test_type=test_type,
+                    status="Open",
+                    priority="Medium",
+                    platform="android",
+                    build_number=build_str,
+                    version_introduced=version_str,
+                    reason=default_reason or None,
+                )
+                db.add(case)
+                existing_paths.add(full_path)
+                seeded += 1
+
+    db.commit()
+    return {"seeded": seeded, "skipped": skipped}
+
+
+# ==================== Microservice Seed ====================
+
+def seed_microservice_cases(
+    db: Session,
+    build_label: str = None,
+    default_reason: str = None,
+) -> dict:
+    """Collect microservice pytest tests and seed them into project_cases.
+
+    Runs pytest --collect-only for each service in services/core/*/tests/.
+    """
+    _ensure_platform_column(db)
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    services_dir = os.path.normpath(os.path.join(backend_dir, '..', '..', '..', '..', 'services', 'core'))
+
+    if not os.path.isdir(services_dir):
+        return {"seeded": 0, "skipped": 0, "error": f"Services dir not found: {services_dir}"}
+
+    existing_paths = _get_existing_paths(db)
+    current_num = _get_next_case_num(db)
+    build_str, version_str = _format_build_label(build_label)
+
+    seeded = 0
+    skipped = 0
+    errors = []
+
+    for service_name in sorted(os.listdir(services_dir)):
+        service_dir = os.path.join(services_dir, service_name)
+        tests_dir = os.path.join(service_dir, 'tests')
+        if not os.path.isdir(tests_dir):
+            continue
+
+        try:
+            result = subprocess.run(
+                ["python", "-m", "pytest", "tests/", "--collect-only", "-qq"],
+                capture_output=True,
+                text=True,
+                cwd=service_dir,
+                timeout=60,
+            )
+
+            for line in result.stdout.strip().split("\n"):
+                line = line.strip()
+                if not line or line.startswith("=") or line.startswith("-") or line.startswith("no tests") or "warning" in line.lower():
+                    continue
+                if "::" not in line:
+                    continue
+
+                nodeid = line.split(" ")[0].strip()
+                if not nodeid:
+                    continue
+
+                full_path = f"microservice::{service_name}::{nodeid}"
+
+                if full_path in existing_paths:
+                    skipped += 1
+                    continue
+
+                parsed = _parse_nodeid(nodeid)
+                if not parsed:
+                    continue
+
+                current_num += 1
+                case = ProjectCase(
+                    case_id=f"TC-{current_num:04d}",
+                    name=parsed["name"],
+                    full_path=full_path,
+                    category=service_name,
+                    subcategory=parsed["subcategory"],
+                    test_type=parsed["test_type"],
+                    status="Open",
+                    priority="Medium",
+                    platform="microservice",
+                    build_number=build_str,
+                    version_introduced=version_str,
+                    reason=default_reason or None,
+                )
+                db.add(case)
+                existing_paths.add(full_path)
+                seeded += 1
+
+        except Exception as e:
+            errors.append(f"{service_name}: {str(e)}")
+            continue
+
+    db.commit()
+    result = {"seeded": seeded, "skipped": skipped}
+    if errors:
+        result["warnings"] = errors
+    return result
+
+
+# ==================== Frontend Seed ====================
+
+def seed_frontend_cases(
+    db: Session,
+    build_label: str = None,
+    default_reason: str = None,
+) -> dict:
+    """Collect frontend test cases from *.test.* and *.spec.* files.
+
+    Parses it/test/describe blocks from React/TypeScript test files.
+    """
+    _ensure_platform_column(db)
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    frontend_src = os.path.normpath(os.path.join(backend_dir, '..', 'frontend', 'src'))
+    repo_root = os.path.normpath(os.path.join(backend_dir, '..', '..', '..', '..'))
+
+    if not os.path.isdir(frontend_src):
+        return {"seeded": 0, "skipped": 0, "error": f"Frontend src not found: {frontend_src}"}
+
+    existing_paths = _get_existing_paths(db)
+    current_num = _get_next_case_num(db)
+    build_str, version_str = _format_build_label(build_label)
+
+    seeded = 0
+    skipped = 0
+
+    test_name_re = re.compile(r'(?:it|test|describe)\s*\(["\'](.+?)["\']')
+
+    for root, dirs, files in os.walk(frontend_src):
+        for fname in files:
+            if not ('.test.' in fname or '.spec.' in fname):
+                continue
+
+            filepath = os.path.join(root, fname)
+            rel_path = os.path.relpath(filepath, repo_root)
+
+            try:
+                with open(filepath, 'r', errors='ignore') as f:
+                    content = f.read()
+            except Exception:
+                continue
+
+            for match in test_name_re.finditer(content):
+                test_name = match.group(1)
+                full_path = f"frontend::{rel_path}::{test_name}"
+
+                if full_path in existing_paths:
+                    skipped += 1
+                    continue
+
+                current_num += 1
+                case = ProjectCase(
+                    case_id=f"TC-{current_num:04d}",
+                    name=test_name,
+                    full_path=full_path,
+                    category="admin-portal",
+                    subcategory=fname,
+                    test_type="unit",
+                    status="Open",
+                    priority="Medium",
+                    platform="frontend",
+                    build_number=build_str,
+                    version_introduced=version_str,
+                    reason=default_reason or None,
+                )
+                db.add(case)
+                existing_paths.add(full_path)
+                seeded += 1
+
+    db.commit()
+    return {"seeded": seeded, "skipped": skipped}
+
+
+# ==================== Seed All Platforms ====================
+
+def seed_all_platforms(
+    db: Session,
+    build_label: str = None,
+    default_reason: str = None,
+) -> dict:
+    """Seed test cases from all platforms: backend, iOS, Android, microservices, frontend.
+
+    Returns combined results dict with per-platform counts.
+    """
+    results = {}
+
+    # Backend
+    try:
+        results["backend"] = seed_project_cases(db, build_label=build_label, default_reason=default_reason)
+    except Exception as e:
+        results["backend"] = {"seeded": 0, "skipped": 0, "error": str(e)}
+
+    # iOS
+    try:
+        results["ios"] = seed_ios_cases(db, build_label=build_label, default_reason=default_reason)
+    except Exception as e:
+        results["ios"] = {"seeded": 0, "skipped": 0, "error": str(e)}
+
+    # Android
+    try:
+        results["android"] = seed_android_cases(db, build_label=build_label, default_reason=default_reason)
+    except Exception as e:
+        results["android"] = {"seeded": 0, "skipped": 0, "error": str(e)}
+
+    # Microservices
+    try:
+        results["microservice"] = seed_microservice_cases(db, build_label=build_label, default_reason=default_reason)
+    except Exception as e:
+        results["microservice"] = {"seeded": 0, "skipped": 0, "error": str(e)}
+
+    # Frontend
+    try:
+        results["frontend"] = seed_frontend_cases(db, build_label=build_label, default_reason=default_reason)
+    except Exception as e:
+        results["frontend"] = {"seeded": 0, "skipped": 0, "error": str(e)}
+
+    total_seeded = sum(r.get("seeded", 0) for r in results.values())
+    total_skipped = sum(r.get("skipped", 0) for r in results.values())
+    results["total"] = {"seeded": total_seeded, "skipped": total_skipped}
+
+    return results
+
+
 # ==================== API Router ====================
 
 project_tracker_router = APIRouter(
@@ -240,47 +736,58 @@ project_tracker_router = APIRouter(
 
 
 @project_tracker_router.get("/stats")
-def get_project_case_stats(db: Session = Depends(get_db)):
+def get_project_case_stats(
+    platform: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
     """Aggregate stats for the project tracker dashboard."""
-    total = db.query(func.count(ProjectCase.id)).scalar() or 0
+    base_query = db.query(ProjectCase)
+    if platform:
+        base_query = base_query.filter(ProjectCase.platform == platform)
+
+    total = base_query.count()
 
     # By status
-    status_rows = (
-        db.query(ProjectCase.status, func.count(ProjectCase.id))
-        .group_by(ProjectCase.status)
-        .all()
-    )
-    by_status = {row[0]: row[1] for row in status_rows}
+    status_q = db.query(ProjectCase.status, func.count(ProjectCase.id)).group_by(ProjectCase.status)
+    if platform:
+        status_q = status_q.filter(ProjectCase.platform == platform)
+    by_status = {row[0]: row[1] for row in status_q.all()}
 
     # By priority
-    priority_rows = (
-        db.query(ProjectCase.priority, func.count(ProjectCase.id))
-        .group_by(ProjectCase.priority)
-        .all()
-    )
-    by_priority = {row[0]: row[1] for row in priority_rows}
+    priority_q = db.query(ProjectCase.priority, func.count(ProjectCase.id)).group_by(ProjectCase.priority)
+    if platform:
+        priority_q = priority_q.filter(ProjectCase.platform == platform)
+    by_priority = {row[0]: row[1] for row in priority_q.all()}
 
     # By category (top 20)
-    category_rows = (
+    category_q = (
         db.query(ProjectCase.category, func.count(ProjectCase.id))
         .group_by(ProjectCase.category)
         .order_by(func.count(ProjectCase.id).desc())
         .limit(20)
-        .all()
     )
-    by_category = {row[0]: row[1] for row in category_rows}
+    if platform:
+        category_q = category_q.filter(ProjectCase.platform == platform)
+    by_category = {row[0]: row[1] for row in category_q.all()}
 
     # By test_type
-    type_rows = (
-        db.query(ProjectCase.test_type, func.count(ProjectCase.id))
-        .group_by(ProjectCase.test_type)
+    type_q = db.query(ProjectCase.test_type, func.count(ProjectCase.id)).group_by(ProjectCase.test_type)
+    if platform:
+        type_q = type_q.filter(ProjectCase.platform == platform)
+    by_test_type = {row[0]: row[1] for row in type_q.all()}
+
+    # By platform
+    platform_rows = (
+        db.query(ProjectCase.platform, func.count(ProjectCase.id))
+        .group_by(ProjectCase.platform)
         .all()
     )
-    by_test_type = {row[0]: row[1] for row in type_rows}
+    by_platform = {(row[0] or "backend"): row[1] for row in platform_rows}
 
     # Distinct values for filter dropdowns
     categories = sorted([row[0] for row in db.query(ProjectCase.category).distinct().all()])
     test_types = sorted([row[0] for row in db.query(ProjectCase.test_type).distinct().all()])
+    platforms = sorted([row[0] or "backend" for row in db.query(ProjectCase.platform).distinct().all()])
 
     return {
         "total": total,
@@ -288,8 +795,10 @@ def get_project_case_stats(db: Session = Depends(get_db)):
         "by_priority": by_priority,
         "by_category": by_category,
         "by_test_type": by_test_type,
+        "by_platform": by_platform,
         "categories": categories,
         "test_types": test_types,
+        "platforms": platforms,
     }
 
 
@@ -299,6 +808,7 @@ def list_project_cases(
     priority: Optional[str] = None,
     category: Optional[str] = None,
     test_type: Optional[str] = None,
+    platform: Optional[str] = None,
     search: Optional[str] = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
@@ -315,6 +825,8 @@ def list_project_cases(
         query = query.filter(ProjectCase.category == category)
     if test_type:
         query = query.filter(ProjectCase.test_type == test_type)
+    if platform:
+        query = query.filter(ProjectCase.platform == platform)
     if search:
         search_term = f"%{search}%"
         query = query.filter(
@@ -334,6 +846,7 @@ def list_project_cases(
     # Distinct values for filter dropdowns
     categories = sorted([row[0] for row in db.query(ProjectCase.category).distinct().all()])
     test_types = sorted([row[0] for row in db.query(ProjectCase.test_type).distinct().all()])
+    platforms = sorted([row[0] or "backend" for row in db.query(ProjectCase.platform).distinct().all()])
 
     return {
         "items": [
@@ -347,6 +860,7 @@ def list_project_cases(
                 "test_type": c.test_type,
                 "status": c.status,
                 "priority": c.priority,
+                "platform": c.platform or "backend",
                 "version_introduced": c.version_introduced,
                 "build_number": c.build_number,
                 "release_notes": c.release_notes,
@@ -364,6 +878,7 @@ def list_project_cases(
         "page_size": page_size,
         "categories": categories,
         "test_types": test_types,
+        "platforms": platforms,
     }
 
 
@@ -445,6 +960,7 @@ def update_project_case(
         "test_type": case.test_type,
         "status": case.status,
         "priority": case.priority,
+        "platform": case.platform or "backend",
         "version_introduced": case.version_introduced,
         "build_number": case.build_number,
         "release_notes": case.release_notes,
@@ -461,8 +977,23 @@ def update_project_case(
 def seed_cases_endpoint(
     build_label: Optional[str] = Query(default=None, description="Build versions, e.g. iOS-Customer:1113,iOS-Driver:215"),
     reason: Optional[str] = Query(default=None, description="Default reason/context for new cases"),
+    platform: Optional[str] = Query(default=None, description="Platform to seed: backend, ios, android, microservice, frontend, or None for all"),
     db: Session = Depends(get_db),
 ):
-    """Trigger seeding of project cases from pytest collection."""
-    result = seed_project_cases(db, build_label=build_label, default_reason=reason)
-    return result
+    """Trigger seeding of project cases from test collection.
+
+    If platform specified, only seeds that platform. If None, seeds all platforms.
+    """
+    platform_seed_map = {
+        "backend": lambda: seed_project_cases(db, build_label=build_label, default_reason=reason),
+        "ios": lambda: seed_ios_cases(db, build_label=build_label, default_reason=reason),
+        "android": lambda: seed_android_cases(db, build_label=build_label, default_reason=reason),
+        "microservice": lambda: seed_microservice_cases(db, build_label=build_label, default_reason=reason),
+        "frontend": lambda: seed_frontend_cases(db, build_label=build_label, default_reason=reason),
+    }
+
+    if platform and platform in platform_seed_map:
+        result = platform_seed_map[platform]()
+        return {platform: result}
+    else:
+        return seed_all_platforms(db, build_label=build_label, default_reason=reason)
