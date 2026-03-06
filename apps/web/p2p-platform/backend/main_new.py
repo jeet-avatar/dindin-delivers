@@ -20270,7 +20270,7 @@ def mark_delivery_picked_up(
 
 
 @app.post("/api/v2/driver/deliveries/{delivery_id}/complete")
-def complete_delivery(
+def complete_delivery_v2(
     delivery_id: int,
     driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
