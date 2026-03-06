@@ -47,6 +47,9 @@ struct OrderHistoryView: View {
             }
         }
         .navigationTitle("Your Orders")
+        .refreshable {
+            viewModel.fetchOrders()
+        }
         .onAppear {
             viewModel.fetchOrders()
         }

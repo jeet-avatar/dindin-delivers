@@ -372,6 +372,7 @@ struct DeliveryBottomSheet: View {
     var driverInfo: P2PTrackingDriver?
     var isTrafficAwareETA: Bool = false
     var etaDistanceMiles: Double? = nil
+    @State private var showChat = false
 
     /// Check if driver is en-route to restaurant (early acceptance)
     private var isDriverEnRoute: Bool {
@@ -584,23 +585,42 @@ struct DeliveryBottomSheet: View {
             }
             .padding()
 
-            // Contact Driver Button
-            if isOutForDelivery, let driverPhone = order.driverPhone, !driverPhone.isEmpty {
+            // Contact Driver Buttons
+            if isOutForDelivery {
                 Divider()
 
-                Button(action: {
-                    callDriver(phone: driverPhone)
-                }) {
-                    HStack {
-                        Image(systemName: "phone.fill")
-                        Text("Contact Driver")
+                HStack(spacing: 12) {
+                    // Chat with Driver
+                    Button(action: { showChat = true }) {
+                        HStack {
+                            Image(systemName: "message.fill")
+                            Text("Chat")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Theme.brandGreen)
+                        .cornerRadius(12)
                     }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Theme.brandGreen)
-                    .cornerRadius(12)
+
+                    // Call Driver
+                    if let driverPhone = order.driverPhone, !driverPhone.isEmpty {
+                        Button(action: {
+                            callDriver(phone: driverPhone)
+                        }) {
+                            HStack {
+                                Image(systemName: "phone.fill")
+                                Text("Call")
+                            }
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Theme.brandGreen)
+                            .cornerRadius(12)
+                        }
+                    }
                 }
                 .padding()
             }
@@ -610,6 +630,15 @@ struct DeliveryBottomSheet: View {
                 .fill(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
         )
+        .sheet(isPresented: $showChat) {
+            NavigationStack {
+                OrderChatView(
+                    orderId: Int(order.id ?? "0") ?? 0,
+                    driverName: driverInfo?.name ?? "Driver",
+                    driverPhone: order.driverPhone
+                )
+            }
+        }
     }
 
     private var isPickedUp: Bool {
