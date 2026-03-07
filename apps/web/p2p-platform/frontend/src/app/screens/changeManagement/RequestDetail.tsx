@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Tag, Button, Modal, Input, Spin, message } from 'antd';
+import { Tag, Button, Modal, Input, Spin, message, DatePicker } from 'antd';
 import {
   ArrowLeft,
   GitBranch,
@@ -12,6 +12,8 @@ import {
   AlertTriangle,
   ExternalLink,
   RotateCcw,
+  Users,
+  Shield,
 } from 'lucide-react';
 import api from '../../api/api';
 
@@ -27,6 +29,18 @@ interface AuditEntry {
   new_value: string | null;
   metadata_json: string | null;
   created_at: string | null;
+}
+
+interface ApprovalStepData {
+  id: number;
+  step_order: number;
+  approver_role: string;
+  approver_email: string | null;
+  status: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  sla_deadline: string | null;
+  comments: string | null;
 }
 
 interface ChangeRequestDetail {
@@ -46,11 +60,13 @@ interface ChangeRequestDetail {
   staging_deployed_at: string | null;
   production_deployed_at: string | null;
   rollback_of_cr_id: string | null;
+  custom_fields_json: string | null;
   created_at: string | null;
   updated_at: string | null;
   approved_at: string | null;
   approved_by: string | null;
   audit_entries: AuditEntry[];
+  approval_steps?: ApprovalStepData[];
 }
 
 // ==================== Constants ====================
@@ -80,8 +96,12 @@ const PRIORITY_COLORS: Record<string, string> = {
 const ACTION_ICONS: Record<string, React.ReactNode> = {
   pr_created: <GitBranch size={14} />,
   approved: <CheckCircle size={14} style={{ color: '#52c41a' }} />,
+  approval: <CheckCircle size={14} style={{ color: '#52c41a' }} />,
+  step_approved: <CheckCircle size={14} style={{ color: '#52c41a' }} />,
   rejected: <XCircle size={14} style={{ color: '#f5222d' }} />,
+  rejection: <XCircle size={14} style={{ color: '#f5222d' }} />,
   status_changed: <Clock size={14} style={{ color: '#1890ff' }} />,
+  status_change: <Clock size={14} style={{ color: '#1890ff' }} />,
   deployed_staging: <Rocket size={14} style={{ color: '#faad14' }} />,
   deployed_production: <Rocket size={14} style={{ color: '#52c41a' }} />,
   created: <FileText size={14} style={{ color: '#722ed1' }} />,
@@ -94,13 +114,24 @@ const ACTION_COLORS: Record<string, string> = {
   created: 'purple',
   submitted: 'blue',
   approved: 'green',
+  approval: 'green',
+  step_approved: 'green',
   rejected: 'red',
+  rejection: 'red',
   status_changed: 'cyan',
+  status_change: 'cyan',
   pr_created: 'geekblue',
   deployed_staging: 'gold',
   deployed_production: 'lime',
   updated: 'default',
   rollback_created: 'volcano',
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  dept_lead: 'Dept Lead',
+  cto: 'CTO Review',
+  vp_engineering: 'VP Engineering',
+  security_lead: 'Security Lead',
 };
 
 // ==================== Component ====================
@@ -113,6 +144,7 @@ const RequestDetail: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [delegateModalOpen, setDelegateModalOpen] = useState(false);
 
   const getAdminEmail = (): string => {
     try {
@@ -224,6 +256,23 @@ const RequestDetail: React.FC = () => {
     });
   };
 
+  const handleCreateDelegation = async (values: {
+    delegator_email: string;
+    delegate_email: string;
+    active_from: string;
+    active_until: string;
+    reason: string;
+  }) => {
+    try {
+      await api.post('/admin/approval-delegations', values);
+      message.success('Delegation created');
+      setDelegateModalOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create delegation';
+      message.error(msg);
+    }
+  };
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -246,6 +295,23 @@ const RequestDetail: React.FC = () => {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const getSlaStatus = (slaDeadline: string | null, status: string) => {
+    if (!slaDeadline || status !== 'pending') return null;
+    const deadline = new Date(slaDeadline);
+    const now = new Date();
+    const diffMs = deadline.getTime() - now.getTime();
+    const diffHours = Math.floor(diffMs / 3600000);
+
+    if (diffMs < 0) {
+      const overdueHours = Math.abs(diffHours);
+      return { text: `OVERDUE by ${overdueHours}h`, color: '#f5222d', isOverdue: true };
+    }
+    if (diffHours <= 4) {
+      return { text: `Due in ${diffHours}h`, color: '#faad14', isOverdue: false };
+    }
+    return { text: `Due in ${diffHours}h`, color: '#52c41a', isOverdue: false };
+  };
+
   if (loading) {
     return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>;
   }
@@ -258,6 +324,82 @@ const RequestDetail: React.FC = () => {
       </div>
     );
   }
+
+  // Parse custom fields
+  let customFields: Record<string, string> = {};
+  if (cr.custom_fields_json) {
+    try { customFields = JSON.parse(cr.custom_fields_json); } catch { /* ignore */ }
+  }
+
+  // ==================== Approval Steps ====================
+
+  const renderApprovalSteps = () => {
+    const steps = cr.approval_steps;
+    if (!steps || steps.length === 0) return null;
+
+    return (
+      <div style={{ padding: 16, background: '#f6f8fa', borderRadius: 8, marginBottom: 16 }}>
+        <div style={{ fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Shield size={14} />
+          Approval Chain ({steps.filter(s => s.status === 'approved').length}/{steps.length} approved)
+        </div>
+        <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          {steps.map((step, idx) => {
+            const sla = getSlaStatus(step.sla_deadline, step.status);
+            const isDelegate = step.decided_by && step.approver_email && step.decided_by !== step.approver_email;
+            const stepBg = step.status === 'approved' ? '#f6ffed' :
+                           step.status === 'rejected' ? '#fff2f0' :
+                           sla?.isOverdue ? '#fff7e6' : '#fff';
+
+            return (
+              <React.Fragment key={step.id}>
+                {idx > 0 && (
+                  <div style={{
+                    width: 40, height: 2, background: step.status === 'approved' ? '#52c41a' : '#d9d9d9',
+                    alignSelf: 'center', marginTop: 20,
+                  }} />
+                )}
+                <div style={{
+                  minWidth: 160, maxWidth: 220, padding: 12, borderRadius: 8,
+                  border: `1px solid ${step.status === 'approved' ? '#b7eb8f' : step.status === 'rejected' ? '#ffa39e' : '#d9d9d9'}`,
+                  background: stepBg,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    {step.status === 'approved' && <CheckCircle size={14} style={{ color: '#52c41a' }} />}
+                    {step.status === 'rejected' && <XCircle size={14} style={{ color: '#f5222d' }} />}
+                    {step.status === 'pending' && <Clock size={14} style={{ color: sla?.isOverdue ? '#faad14' : '#999' }} />}
+                    <span style={{ fontWeight: 600, fontSize: 13 }}>
+                      Step {step.step_order}: {ROLE_LABELS[step.approver_role] || step.approver_role}
+                    </span>
+                  </div>
+                  {step.approver_email && (
+                    <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>{step.approver_email}</div>
+                  )}
+                  {step.decided_by && (
+                    <div style={{ fontSize: 11, color: '#333' }}>
+                      Decided by: {step.decided_by}
+                      {isDelegate && (
+                        <Tag color="purple" style={{ fontSize: 10, marginLeft: 4, padding: '0 4px' }}>delegate</Tag>
+                      )}
+                    </div>
+                  )}
+                  {step.decided_at && (
+                    <div style={{ fontSize: 10, color: '#999' }}>{formatRelative(step.decided_at)}</div>
+                  )}
+                  {sla && (
+                    <div style={{ fontSize: 11, color: sla.color, fontWeight: 600, marginTop: 4 }}>
+                      {sla.isOverdue && <AlertTriangle size={10} style={{ marginRight: 2 }} />}
+                      {sla.text}
+                    </div>
+                  )}
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   // ==================== Action Buttons ====================
 
@@ -297,6 +439,14 @@ const RequestDetail: React.FC = () => {
           onClick={() => setRejectModalOpen(true)}
         >
           Reject
+        </Button>,
+        <Button
+          key="delegate"
+          icon={<Users size={14} />}
+          loading={actionLoading}
+          onClick={() => setDelegateModalOpen(true)}
+        >
+          Set Delegate
         </Button>
       );
     }
@@ -358,7 +508,6 @@ const RequestDetail: React.FC = () => {
           Mark PR Created
         </Button>
       );
-      // Non-code CRs can skip PR/CI and go directly to Staging
       if (cr.change_type !== 'code') {
         buttons.push(
           <Button
@@ -593,6 +742,24 @@ const RequestDetail: React.FC = () => {
         )}
       </div>
 
+      {/* Custom fields */}
+      {Object.keys(customFields).length > 0 && (
+        <div style={{ padding: 16, background: '#f0f5ff', borderRadius: 8, marginBottom: 16 }}>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>Custom Fields</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+            {Object.entries(customFields).map(([key, value]) => (
+              <div key={key}>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>{key.replace(/_/g, ' ')}</div>
+                <div style={{ fontSize: 13 }}>{value || '-'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Approval Steps */}
+      {renderApprovalSteps()}
+
       {/* Rollback link */}
       {cr.rollback_of_cr_id && (
         <div style={{ padding: 12, background: '#fff2e8', borderRadius: 8, marginBottom: 16 }}>
@@ -721,7 +888,78 @@ const RequestDetail: React.FC = () => {
           placeholder="Reason for rejection (optional)"
         />
       </Modal>
+
+      {/* Delegate Modal */}
+      <DelegateModal
+        open={delegateModalOpen}
+        onCancel={() => setDelegateModalOpen(false)}
+        onSubmit={handleCreateDelegation}
+      />
     </div>
+  );
+};
+
+// ==================== Delegate Modal ====================
+
+const DelegateModal: React.FC<{
+  open: boolean;
+  onCancel: () => void;
+  onSubmit: (values: {
+    delegator_email: string;
+    delegate_email: string;
+    active_from: string;
+    active_until: string;
+    reason: string;
+  }) => void;
+}> = ({ open, onCancel, onSubmit }) => {
+  const [delegatorEmail, setDelegatorEmail] = useState('');
+  const [delegateEmail, setDelegateEmail] = useState('');
+  const [reason, setReason] = useState('');
+
+  const handleOk = () => {
+    const now = new Date();
+    const weekLater = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
+    onSubmit({
+      delegator_email: delegatorEmail,
+      delegate_email: delegateEmail,
+      active_from: now.toISOString(),
+      active_until: weekLater.toISOString(),
+      reason,
+    });
+    setDelegatorEmail('');
+    setDelegateEmail('');
+    setReason('');
+  };
+
+  return (
+    <Modal
+      title={
+        <span>
+          <Users size={16} style={{ marginRight: 8 }} />
+          Set Approval Delegate
+        </span>
+      }
+      open={open}
+      onOk={handleOk}
+      onCancel={onCancel}
+      okText="Create Delegation"
+    >
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Delegator Email (who is OOO)</div>
+        <Input value={delegatorEmail} onChange={(e) => setDelegatorEmail(e.target.value)} placeholder="lead@dollor.ai" />
+      </div>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Delegate Email (who approves instead)</div>
+        <Input value={delegateEmail} onChange={(e) => setDelegateEmail(e.target.value)} placeholder="backup@dollor.ai" />
+      </div>
+      <div>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Reason (optional)</div>
+        <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="OOO vacation" />
+      </div>
+      <div style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
+        Delegation will be active for 7 days from now.
+      </div>
+    </Modal>
   );
 };
 
