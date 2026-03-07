@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Drivers keep 100% of delivery fees and tips
-**Current focus:** v1.5 Production Readiness -- v1.5 Production Readiness -- Phase 11 complete
+**Current focus:** v1.5 Production Readiness -- Phase 12 in progress (Fix Admin Portal UI)
 
 ## Current Position
 
-Phase: 11 of 11 (Change Management Workflow)
-Plan: 3 of 3 in current phase
-Status: Phase 11 Plan 03 complete -- CM notifications, CI check, stale monitoring wired into lifecycle
-Last activity: 2026-03-07 - Completed 11-03: Notifications & CI integration
+Phase: 12 of 12 (Fix Admin Portal UI)
+Plan: 1 of 2 in current phase
+Status: Phase 12 Plan 01 complete -- vendor management screens fixed (raw fetch replaced with api instance)
+Last activity: 2026-03-07 - Completed 12-01: Vendor management auth fix
 
-Progress: [#######░░░] 73% (8/11 plans)
+Progress: [########░░] 75% (9/12 plans)
 
 ## Completed Milestones
 
@@ -37,6 +37,10 @@ Progress: [#######░░░] 73% (8/11 plans)
 
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 12 added: Fix Admin Portal UI — Fix broken admin portal screens (restaurants not loading, design issues, mock dashboards), make admin portal production-ready
 
 ### Decisions
 
@@ -314,5 +318,5 @@ None
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Phase 11 complete — change management workflow built and verified (3/3 plans, 8/8 must-haves). Ready to deploy.
+Stopped at: Completed 12-01-PLAN.md -- vendor management auth fix (3 screens, 0 raw fetch remaining)
 Resume file: .planning/NEXT_SESSION_PROMPT.md
