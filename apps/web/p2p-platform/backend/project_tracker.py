@@ -1202,6 +1202,87 @@ def seed_cases_endpoint(
         return seed_all_platforms(db, build_label=build_label, default_reason=reason)
 
 
+# ==================== Quick Task Seeder ====================
+
+class QuickTaskItem(BaseModel):
+    quick_num: int
+    description: str
+    date: Optional[str] = None
+    commit: Optional[str] = None
+    category: Optional[str] = "feature"
+    platform: Optional[str] = "backend"
+    department_code: Optional[str] = "ENG"
+    priority: Optional[str] = "Medium"
+
+
+@project_tracker_router.post("/seed-quick-tasks")
+def seed_quick_tasks(
+    tasks: List[QuickTaskItem],
+    db: Session = Depends(get_db),
+):
+    """Seed quick tasks as Released project cases.
+
+    Accepts a JSON array of quick task objects. Idempotent: skips if
+    full_path already exists.
+    """
+    _ensure_new_columns(db)
+    existing_paths = _get_existing_paths(db)
+    current_num = _get_next_case_num(db)
+
+    # Pre-load department codes -> ids
+    dept_map = {}
+    for dept in db.query(Department).all():
+        dept_map[dept.code] = dept.id
+
+    created = 0
+    skipped = 0
+    errors = []
+
+    for task in tasks:
+        full_path = f"quick-tasks/QT-{task.quick_num}"
+
+        if full_path in existing_paths:
+            skipped += 1
+            continue
+
+        # Look up department
+        dept_id = dept_map.get(task.department_code)
+        # If department not found, try without — don't fail the whole batch
+        if not dept_id and task.department_code:
+            errors.append(f"QT-{task.quick_num}: department '{task.department_code}' not found, setting to None")
+
+        # Clean commit hash
+        commit_ref = task.commit if task.commit and task.commit not in ("(pending)", "(API-only)", "(none)", "(research)", "—", "") else None
+
+        current_num += 1
+        case = ProjectCase(
+            case_id=f"TC-{current_num:04d}",
+            name=f"QT-{task.quick_num}: {task.description}",
+            full_path=full_path,
+            category=task.category or "feature",
+            subcategory=None,
+            test_type="operational",
+            status="Released",
+            priority=task.priority or "Medium",
+            platform=task.platform or "backend",
+            commit_ref=commit_ref,
+            reason=f"Quick task {task.quick_num} -- {task.description}",
+            version_introduced="v1.5",
+            release_notes=f"Resolved on {task.date} via quick task {task.quick_num}" if task.date else None,
+            department_id=dept_id,
+            last_activity=f"Completed {task.date}" if task.date else None,
+        )
+        db.add(case)
+        existing_paths.add(full_path)
+        created += 1
+
+    db.commit()
+    result = {"created": created, "skipped": skipped, "total_submitted": len(tasks)}
+    if errors:
+        result["warnings"] = errors
+    return result
+
+
 # ==================== Department CRUD ====================
 
 department_router = APIRouter(
