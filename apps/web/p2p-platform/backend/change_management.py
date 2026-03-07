@@ -231,6 +231,26 @@ class AuditLog(Base):
 # Create tables on import (following project_tracker.py pattern)
 Base.metadata.create_all(bind=engine, checkfirst=True)
 
+# ---------- Column migrations for existing tables (create_all won't add new columns) ----------
+try:
+    from sqlalchemy import text, inspect as sa_inspect
+    _inspector = sa_inspect(engine)
+    _existing_cols = {c["name"] for c in _inspector.get_columns("change_requests")}
+    _new_cols = {
+        "custom_fields_json": "TEXT",
+    }
+    _is_pg = not str(engine.url).startswith("sqlite")
+    with engine.connect() as _conn:
+        for _col_name, _col_type in _new_cols.items():
+            if _col_name not in _existing_cols:
+                _if_clause = "IF NOT EXISTS " if _is_pg else ""
+                _conn.execute(text(
+                    f"ALTER TABLE change_requests ADD COLUMN {_if_clause}{_col_name} {_col_type}"  # nosemgrep: avoid-sqlalchemy-text
+                ))
+                _conn.commit()
+                logger.info(f"Migration: added change_requests.{_col_name}")
+except Exception as _mig_err:
+    logger.warning(f"Change requests column migration skipped: {_mig_err}")
 
 # ==================== State Machine ====================
 
