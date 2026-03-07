@@ -13,9 +13,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
-import { getApiUrl } from '../../api/api';
-
-const API_URL = getApiUrl();
+import api from '../../api/api';
 
 interface MenuItem {
   id: number;
@@ -94,8 +92,8 @@ const MenuReview: React.FC = () => {
     setLoading(true);
     try {
       // Fetch all vendors first
-      const vendorsResponse = await fetch(`${API_URL}/api/vendors`);
-      const vendors = await vendorsResponse.json();
+      const vendorsResponse = await api.get('/vendors');
+      const vendors = vendorsResponse.data;
 
       const allGroups: VendorMenuGroup[] = [];
       const allCategories = new Set<string>();
@@ -103,9 +101,9 @@ const MenuReview: React.FC = () => {
       // Fetch menu for each vendor
       for (const vendor of vendors) {
         try {
-          const menuResponse = await fetch(`${API_URL}/api/vendors/${vendor.id || vendor.vendor_id}/menu`);
-          if (menuResponse.ok) {
-            const menuItems = await menuResponse.json();
+          const menuResponse = await api.get(`/vendors/${vendor.id || vendor.vendor_id}/menu`);
+          if (menuResponse.status === 200) {
+            const menuItems = menuResponse.data;
 
             if (menuItems && menuItems.length > 0) {
               const items = menuItems.map((item: BackendMenuItem) => ({
@@ -201,10 +199,8 @@ const MenuReview: React.FC = () => {
   const handleApproveItem = async (item: MenuItem) => {
     setProcessingAction(true);
     try {
-      await fetch(`${API_URL}/api/admin/menu/${item.id}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ admin_notes: adminNotes })
+      await api.post(`/admin/menu/${item.id}/approve`, {
+        admin_notes: adminNotes
       });
 
       updateItemStatus(item.id, 'approved');
@@ -228,10 +224,8 @@ const MenuReview: React.FC = () => {
 
     setProcessingAction(true);
     try {
-      await fetch(`${API_URL}/api/admin/menu/${item.id}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ admin_notes: adminNotes })
+      await api.post(`/admin/menu/${item.id}/reject`, {
+        admin_notes: adminNotes
       });
 
       updateItemStatus(item.id, 'rejected');
@@ -250,10 +244,8 @@ const MenuReview: React.FC = () => {
   const handleFlagItem = async (item: MenuItem) => {
     setProcessingAction(true);
     try {
-      await fetch(`${API_URL}/api/admin/menu/${item.id}/flag`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ admin_notes: adminNotes || 'Flagged for review' })
+      await api.post(`/admin/menu/${item.id}/flag`, {
+        admin_notes: adminNotes || 'Flagged for review'
       });
 
       updateItemStatus(item.id, 'flagged');

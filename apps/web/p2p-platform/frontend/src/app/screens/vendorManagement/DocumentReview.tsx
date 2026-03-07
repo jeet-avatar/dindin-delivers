@@ -13,9 +13,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
-import { getApiUrl } from '../../api/api';
-
-const API_URL = getApiUrl();
+import api from '../../api/api';
 
 interface VendorDocument {
   id: number;
@@ -97,8 +95,8 @@ const DocumentReview: React.FC = () => {
     setLoading(true);
     try {
       // Fetch all vendors
-      const response = await fetch(`${API_URL}/api/vendors`);
-      const vendorData = await response.json();
+      const response = await api.get('/vendors');
+      const vendorData = response.data;
 
       // Map vendor data and extract document information
       const mappedVendors = vendorData.map((v: BackendVendorDoc) => ({
@@ -155,10 +153,8 @@ const DocumentReview: React.FC = () => {
   const handleApproveDocument = async (document: VendorDocument) => {
     setProcessingAction(true);
     try {
-      await fetch(`${API_URL}/api/admin/vendors/${document.vendor_id}/documents/${document.document_type}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ admin_notes: adminNotes })
+      await api.post(`/admin/vendors/${document.vendor_id}/documents/${document.document_type}/approve`, {
+        admin_notes: adminNotes
       });
 
       // Update local state
@@ -193,10 +189,8 @@ const DocumentReview: React.FC = () => {
 
     setProcessingAction(true);
     try {
-      await fetch(`${API_URL}/api/admin/vendors/${document.vendor_id}/documents/${document.document_type}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ admin_notes: adminNotes })
+      await api.post(`/admin/vendors/${document.vendor_id}/documents/${document.document_type}/reject`, {
+        admin_notes: adminNotes
       });
 
       setDocuments(prev => prev.map(d =>
