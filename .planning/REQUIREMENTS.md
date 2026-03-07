@@ -36,6 +36,15 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 
 - [ ] **E2E-01**: Automated backend API test covering 12-step rideshare lifecycle (request, bid, accept, pickup, dropoff, payment, rating) against staging
 
+### Admin Portal UI
+
+- [ ] **ADMIN-01**: Vendor management screens (Main, DocumentReview, MenuReview) use `api` axios instance with auth interceptor -- no raw `fetch()` calls
+- [ ] **ADMIN-02**: Mock ERP dashboard tabs (Jira, NetSuite, ZIP, ProcessUtility, NetSuiteWolt) removed from dashboard and sidebar
+- [ ] **ADMIN-03**: Main dashboard wired to real `/api/dashboard/stats` and `/api/dashboard/recent-activity` endpoints
+- [ ] **ADMIN-04**: Sidebar navigation cleaned -- no links to nonexistent screens (JiraDashboard, NetsuiteDashboard, Transactions)
+- [ ] **ADMIN-05**: All mock data removed (mockData.ts, mockNetSuiteTransactions.ts, _mockVendors state)
+- [ ] **ADMIN-06**: VendorManagement data mapping aligned with actual backend Vendor model fields
+
 ## Future Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -56,7 +65,10 @@ Explicitly excluded. Documented to prevent scope creep.
 | iOS App Store submission | TestFlight distribution for SSL pin fix; full App Store submission in future milestone |
 | Alternating-user DB rotation strategy | Overkill for current scale (db.t3.micro, 2 ECS tasks); single-user rotation sufficient |
 | Play Store paid app pricing | All apps are free; monetization is through platform matchmaking fees |
-| Real-device manual testing | Deferred to future — backend API E2E test covers business logic validation |
+| Real-device manual testing | Deferred to future -- backend API E2E test covers business logic validation |
+| Coupa Dashboard rewrite | Backend Coupa endpoints exist but may serve static data; audit deferred to future phase |
+| Stripe Transactions screen | Finance section already covers revenue/payouts; separate transaction view not needed now |
+| AI Dashboard | Not in sidebar, partially working -- leave as-is |
 
 ## Traceability
 
@@ -64,29 +76,35 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SSL-01 | — | Complete |
-| SSL-02 | — | Complete |
-| SSL-03 | — | Complete |
-| SSL-04 | — | Complete |
-| PLAY-01 | — | Pending |
-| PLAY-02 | — | Complete |
-| PLAY-03 | — | Pending |
-| PLAY-04 | — | Complete |
-| PLAY-05 | — | Pending |
-| PLAY-06 | — | Complete |
-| PLAY-07 | — | Pending |
-| DBROT-01 | — | Pending |
-| DBROT-02 | — | Pending |
-| DBROT-03 | — | Pending |
-| DBROT-04 | — | Pending |
-| DBROT-05 | — | Pending |
-| E2E-01 | — | Pending |
+| SSL-01 | 06 | Complete |
+| SSL-02 | 06 | Complete |
+| SSL-03 | 06 | Complete |
+| SSL-04 | 06 | Complete |
+| PLAY-01 | 07 | Pending |
+| PLAY-02 | 07 | Complete |
+| PLAY-03 | 07 | Pending |
+| PLAY-04 | 07 | Complete |
+| PLAY-05 | 07 | Pending |
+| PLAY-06 | 07 | Complete |
+| PLAY-07 | 07 | Pending |
+| DBROT-01 | 08 | Pending |
+| DBROT-02 | 08 | Pending |
+| DBROT-03 | 08 | Pending |
+| DBROT-04 | 08 | Pending |
+| DBROT-05 | 08 | Pending |
+| E2E-01 | 09 | Pending |
+| ADMIN-01 | 12 | Pending |
+| ADMIN-02 | 12 | Pending |
+| ADMIN-03 | 12 | Pending |
+| ADMIN-04 | 12 | Pending |
+| ADMIN-05 | 12 | Pending |
+| ADMIN-06 | 12 | Pending |
 
 **Coverage:**
-- v1.5 requirements: 17 total
-- Mapped to phases: 0
-- Unmapped: 17 (pending roadmap creation)
+- v1.5 requirements: 23 total
+- Mapped to phases: 23
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-02-26 after initial definition*
+*Last updated: 2026-03-07 -- Added ADMIN-01 through ADMIN-06 for Phase 12*
