@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Create non-root user for security (Semgrep: dockerfile.security.missing-user)
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
-# Copy application code
+# Copy application code (includes admin_frontend/ built from frontend dist)
 COPY . .
 
 # Create uploads directory and set permissions
