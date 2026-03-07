@@ -132,6 +132,9 @@ const MainLayout: React.FC = () => {
     // === PROJECT TRACKER ===
     { name: 'Project Tracker', href: '/admin/project-tracker', icon: ClipboardList },
 
+    // === CHANGE MANAGEMENT ===
+    { name: 'Change Management', href: '/admin/change-management', icon: GitPullRequest },
+
     // === INVOICES ===
     { name: 'Invoices', href: '/admin/invoices', icon: FileText },
   ];

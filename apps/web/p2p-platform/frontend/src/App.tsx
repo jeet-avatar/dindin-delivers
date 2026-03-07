@@ -8,6 +8,8 @@ import NetsuiteDashboard from './app/screens/netsuiteDashboard/Main';
 import JiraDashboard from './app/screens/jiraDashboard/Main';
 import ZipDashboard from './app/screens/zipDashboard/Main';
 import ProjectTracker from './app/screens/projectTracker/Main';
+import ChangeManagement from './app/screens/changeManagement/Main';
+import ChangeRequestDetail from './app/screens/changeManagement/RequestDetail';
 import VendorManagement from './app/screens/vendorManagement/Main';
 import DocumentReview from './app/screens/vendorManagement/DocumentReview';
 import MenuReview from './app/screens/vendorManagement/MenuReview';
@@ -246,6 +248,8 @@ function App() {
           <Route path="accounting/reports" element={<AccountingReports />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="project-tracker" element={<ProjectTracker />} />
+          <Route path="change-management" element={<ChangeManagement />} />
+          <Route path="change-management/:crId" element={<ChangeRequestDetail />} />
           <Route path="clients" element={<Clients />} />
         </Route>
 

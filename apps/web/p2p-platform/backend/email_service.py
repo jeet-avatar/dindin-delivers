@@ -2676,3 +2676,363 @@ def send_ride_cancelled_email(
     """
 
     return send_email(to_email, subject, html_body, text_body)
+
+
+# ==================== Change Management Email Templates ====================
+
+
+def send_approval_needed_email(
+    to_email: str,
+    lead_name: str,
+    cr_id: str,
+    cr_title: str,
+    requested_by: str,
+    priority: str,
+) -> bool:
+    """Notify department lead that a change request needs approval."""
+    subject = f"[Action Required] Change Request {cr_id} Needs Your Approval"
+
+    priority_colors = {
+        "Critical": "#dc2626",
+        "High": "#ea580c",
+        "Medium": "#ca8a04",
+        "Low": "#16a34a",
+    }
+    priority_color = priority_colors.get(priority, "#64748b")
+    review_url = f"{WEB_BASE_URL}/admin/change-management/{cr_id}"
+
+    html_body = f"""
+    <html>
+    <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
+        <div style="max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">Approval Needed</h1>
+                <p style="color:#e9d5ff;margin:8px 0 0;">Dollor.AI Change Management</p>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none;">
+                <p style="margin:0 0 16px;">Hi {lead_name},</p>
+                <p style="margin:0 0 20px;">A new change request requires your review and approval.</p>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">CR ID</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{cr_id}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Title</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{cr_title}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Requested By</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{requested_by}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Priority</td><td style="padding:8px 12px;border:1px solid #e2e8f0;"><span style="color:{priority_color};font-weight:bold;">{priority}</span></td></tr>
+                </table>
+                <div style="text-align:center;">
+                    <a href="{review_url}" style="display:inline-block;background:#7c3aed;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:bold;">Review Request</a>
+                </div>
+            </div>
+            <div style="text-align:center;padding:16px;color:#94a3b8;font-size:12px;">
+                <p>&copy; {datetime.utcnow().year} Dollor.AI Change Management</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Approval Needed - Dollor.AI Change Management
+
+    Hi {lead_name},
+
+    A new change request requires your review and approval.
+
+    CR ID: {cr_id}
+    Title: {cr_title}
+    Requested By: {requested_by}
+    Priority: {priority}
+
+    Review at: {review_url}
+
+    (c) {datetime.utcnow().year} Dollor.AI
+    """
+
+    return send_email(to_email, subject, html_body, text_body, skip_validation=True)
+
+
+def send_cr_rejected_email(
+    to_email: str,
+    cr_id: str,
+    cr_title: str,
+    rejected_by: str,
+    reason: str,
+) -> bool:
+    """Notify requester their change request was rejected."""
+    subject = f"Change Request {cr_id} Rejected"
+
+    html_body = f"""
+    <html>
+    <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
+        <div style="max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#dc2626,#ef4444);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">Change Request Rejected</h1>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none;">
+                <p style="margin:0 0 16px;">Your change request has been rejected.</p>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">CR ID</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{cr_id}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Title</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{cr_title}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Rejected By</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{rejected_by}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Reason</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{reason}</td></tr>
+                </table>
+                <p style="color:#64748b;font-size:14px;">You may revise and resubmit the request after addressing the feedback.</p>
+            </div>
+            <div style="text-align:center;padding:16px;color:#94a3b8;font-size:12px;">
+                <p>&copy; {datetime.utcnow().year} Dollor.AI Change Management</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Change Request {cr_id} Rejected
+
+    Your change request has been rejected.
+
+    CR ID: {cr_id}
+    Title: {cr_title}
+    Rejected By: {rejected_by}
+    Reason: {reason}
+
+    You may revise and resubmit the request after addressing the feedback.
+
+    (c) {datetime.utcnow().year} Dollor.AI
+    """
+
+    return send_email(to_email, subject, html_body, text_body, skip_validation=True)
+
+
+def send_ci_failed_email(
+    to_email: str,
+    cr_id: str,
+    cr_title: str,
+    ci_run_id: str,
+    branch_name: str,
+) -> bool:
+    """Notify requester that CI failed for their change request."""
+    subject = f"CI Failed for Change Request {cr_id}"
+    gh_run_url = f"https://github.com/dollor-ai/eatfair-ios/actions/runs/{ci_run_id}"
+
+    html_body = f"""
+    <html>
+    <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
+        <div style="max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#ea580c,#f97316);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">CI Pipeline Failed</h1>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none;">
+                <p style="margin:0 0 16px;">The CI pipeline for your change request has failed.</p>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">CR ID</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{cr_id}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Title</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{cr_title}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Branch</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{branch_name}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Run ID</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{ci_run_id}</td></tr>
+                </table>
+                <div style="text-align:center;">
+                    <a href="{gh_run_url}" style="display:inline-block;background:#ea580c;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:bold;">View CI Run</a>
+                </div>
+            </div>
+            <div style="text-align:center;padding:16px;color:#94a3b8;font-size:12px;">
+                <p>&copy; {datetime.utcnow().year} Dollor.AI Change Management</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    CI Failed for Change Request {cr_id}
+
+    The CI pipeline for your change request has failed.
+
+    CR ID: {cr_id}
+    Title: {cr_title}
+    Branch: {branch_name}
+    Run ID: {ci_run_id}
+
+    View CI Run: {gh_run_url}
+
+    (c) {datetime.utcnow().year} Dollor.AI
+    """
+
+    return send_email(to_email, subject, html_body, text_body, skip_validation=True)
+
+
+def send_deploy_complete_email(
+    to_email: str,
+    cr_id: str,
+    cr_title: str,
+    environment: str,
+    deploy_time: str,
+) -> bool:
+    """Notify on staging or production deployment completion."""
+    env_label = environment.capitalize()
+    subject = f"Change Request {cr_id} Deployed to {env_label}"
+
+    env_colors = {"staging": "#2563eb", "production": "#16a34a"}
+    env_color = env_colors.get(environment.lower(), "#64748b")
+
+    html_body = f"""
+    <html>
+    <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
+        <div style="max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,{env_color},#60a5fa);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">Deployed to {env_label}</h1>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none;">
+                <p style="margin:0 0 16px;">Your change request has been successfully deployed.</p>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">CR ID</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{cr_id}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Title</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{cr_title}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Environment</td><td style="padding:8px 12px;border:1px solid #e2e8f0;"><span style="color:{env_color};font-weight:bold;">{env_label}</span></td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Deploy Time</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{deploy_time}</td></tr>
+                </table>
+            </div>
+            <div style="text-align:center;padding:16px;color:#94a3b8;font-size:12px;">
+                <p>&copy; {datetime.utcnow().year} Dollor.AI Change Management</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Change Request {cr_id} Deployed to {env_label}
+
+    Your change request has been successfully deployed.
+
+    CR ID: {cr_id}
+    Title: {cr_title}
+    Environment: {env_label}
+    Deploy Time: {deploy_time}
+
+    (c) {datetime.utcnow().year} Dollor.AI
+    """
+
+    return send_email(to_email, subject, html_body, text_body, skip_validation=True)
+
+
+def send_rollback_triggered_email(
+    to_email: str,
+    cr_id: str,
+    cr_title: str,
+    rollback_cr_id: str,
+    triggered_by: str,
+) -> bool:
+    """Notify that a rollback CR was created for a change request."""
+    subject = f"Rollback Triggered for Change Request {cr_id}"
+    review_url = f"{WEB_BASE_URL}/admin/change-management/{rollback_cr_id}"
+
+    html_body = f"""
+    <html>
+    <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
+        <div style="max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">Rollback Triggered</h1>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none;">
+                <p style="margin:0 0 16px;">A rollback has been initiated for a deployed change request.</p>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Original CR</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{cr_id}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Title</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{cr_title}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Rollback CR</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{rollback_cr_id}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Triggered By</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{triggered_by}</td></tr>
+                </table>
+                <div style="text-align:center;">
+                    <a href="{review_url}" style="display:inline-block;background:#dc2626;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:bold;">View Rollback CR</a>
+                </div>
+            </div>
+            <div style="text-align:center;padding:16px;color:#94a3b8;font-size:12px;">
+                <p>&copy; {datetime.utcnow().year} Dollor.AI Change Management</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Rollback Triggered for Change Request {cr_id}
+
+    A rollback has been initiated for a deployed change request.
+
+    Original CR: {cr_id}
+    Title: {cr_title}
+    Rollback CR: {rollback_cr_id}
+    Triggered By: {triggered_by}
+
+    View Rollback CR: {review_url}
+
+    (c) {datetime.utcnow().year} Dollor.AI
+    """
+
+    return send_email(to_email, subject, html_body, text_body, skip_validation=True)
+
+
+def send_approval_digest_email(
+    to_email: str,
+    lead_name: str,
+    pending_crs: list,
+) -> bool:
+    """Batch digest when 3+ CRs need approval from same lead."""
+    count = len(pending_crs)
+    subject = f"[Action Required] {count} Change Requests Awaiting Your Approval"
+    review_url = f"{WEB_BASE_URL}/admin/change-management"
+
+    # Build table rows from pending_crs list of dicts
+    rows_html = ""
+    rows_text = ""
+    for cr in pending_crs:
+        cr_id = cr.get("cr_id", "")
+        title = cr.get("title", "")
+        priority = cr.get("priority", "Medium")
+        requested_by = cr.get("requested_by", "")
+        rows_html += f'<tr><td style="padding:8px 12px;border:1px solid #e2e8f0;">{cr_id}</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{title}</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{priority}</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{requested_by}</td></tr>'
+        rows_text += f"  - {cr_id}: {title} ({priority}) by {requested_by}\n"
+
+    html_body = f"""
+    <html>
+    <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
+        <div style="max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">{count} Requests Awaiting Approval</h1>
+                <p style="color:#e9d5ff;margin:8px 0 0;">Dollor.AI Change Management</p>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none;">
+                <p style="margin:0 0 16px;">Hi {lead_name},</p>
+                <p style="margin:0 0 20px;">The following change requests are awaiting your review.</p>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+                    <tr style="background:#f1f5f9;">
+                        <th style="padding:8px 12px;border:1px solid #e2e8f0;text-align:left;">CR ID</th>
+                        <th style="padding:8px 12px;border:1px solid #e2e8f0;text-align:left;">Title</th>
+                        <th style="padding:8px 12px;border:1px solid #e2e8f0;text-align:left;">Priority</th>
+                        <th style="padding:8px 12px;border:1px solid #e2e8f0;text-align:left;">Requested By</th>
+                    </tr>
+                    {rows_html}
+                </table>
+                <div style="text-align:center;">
+                    <a href="{review_url}" style="display:inline-block;background:#7c3aed;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:bold;">Review All Requests</a>
+                </div>
+            </div>
+            <div style="text-align:center;padding:16px;color:#94a3b8;font-size:12px;">
+                <p>&copy; {datetime.utcnow().year} Dollor.AI Change Management</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    {count} Change Requests Awaiting Your Approval
+
+    Hi {lead_name},
+
+    The following change requests are awaiting your review:
+
+{rows_text}
+    Review all at: {review_url}
+
+    (c) {datetime.utcnow().year} Dollor.AI
+    """
+
+    return send_email(to_email, subject, html_body, text_body, skip_validation=True)
