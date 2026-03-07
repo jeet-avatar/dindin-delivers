@@ -2,16 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Briefcase,
   FileText,
   User,
   Menu,
   X,
   ChevronDown,
   GitPullRequest,
-  FileSpreadsheet,
   Wallet,
-  Building2,
   ClipboardCheck,
   ClipboardList,
   Utensils,
@@ -57,7 +54,7 @@ const MainLayout: React.FC = () => {
   }
 
   // =========================================================================
-  // DOLLOR.AI ERP NAVIGATION
+  // DOLLOR.AI ADMIN NAVIGATION
   // Matchmaking Platform for Food Delivery & Rideshare
   // Revenue Model: $1 customer + $1 restaurant (food) | Tiered fees (rideshare)
   // =========================================================================
@@ -110,19 +107,6 @@ const MainLayout: React.FC = () => {
         { name: 'Platform Revenue', href: '/admin/accounting/platform-revenue', icon: DollarSign },
         { name: 'Financial Reports', href: '/admin/accounting/reports', icon: PieChart },
         { name: 'Settlement', href: '/admin/accounting/vendor-payouts', icon: Wallet },
-      ],
-    },
-
-    // === ERP INTEGRATIONS ===
-    {
-      name: 'ERP',
-      href: '/admin/coupa-dashboard',
-      icon: Building2,
-      children: [
-        { name: 'Coupa (Procurement)', href: '/admin/coupa-dashboard', icon: FileSpreadsheet },
-        { name: 'NetSuite (Accounting)', href: '/admin/netsuite-dashboard', icon: Building2 },
-        { name: 'JIRA (Support)', href: '/admin/jira-dashboard', icon: GitPullRequest },
-        { name: 'Transactions', href: '/admin/transactions', icon: Briefcase },
       ],
     },
 

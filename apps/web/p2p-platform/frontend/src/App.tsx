@@ -4,8 +4,6 @@ import Login from './app/screens/auth/Login';
 import ForgotPassword from './app/screens/auth/ForgotPassword';
 import Dashboard from './app/screens/dashboard/Main';
 import CoupaDashboard from './app/screens/coupaDashboard/Main';
-import NetsuiteDashboard from './app/screens/netsuiteDashboard/Main';
-import JiraDashboard from './app/screens/jiraDashboard/Main';
 import ZipDashboard from './app/screens/zipDashboard/Main';
 import ProjectTracker from './app/screens/projectTracker/Main';
 import ChangeManagement from './app/screens/changeManagement/Main';
@@ -13,7 +11,6 @@ import ChangeRequestDetail from './app/screens/changeManagement/RequestDetail';
 import VendorManagement from './app/screens/vendorManagement/Main';
 import DocumentReview from './app/screens/vendorManagement/DocumentReview';
 import MenuReview from './app/screens/vendorManagement/MenuReview';
-import Transactions from './app/screens/transactions/Main';
 import Invoices from './app/screens/invoices/Invoices';
 import Clients from './app/screens/clients/Clients';
 import Orders from './app/screens/orders/Main';
@@ -232,13 +229,10 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="coupa-dashboard" element={<CoupaDashboard />} />
-          <Route path="netsuite-dashboard" element={<NetsuiteDashboard />} />
-          <Route path="jira-dashboard" element={<JiraDashboard />} />
           <Route path="zip-dashboard" element={<ZipDashboard />} />
           <Route path="vendor-management" element={<VendorManagement />} />
           <Route path="document-review" element={<DocumentReview />} />
           <Route path="menu-review" element={<MenuReview />} />
-          <Route path="transactions/*" element={<Transactions />} />
           <Route path="orders" element={<Orders />} />
           <Route path="rideshare/requests" element={<RideRequests />} />
           <Route path="rideshare/active" element={<ActiveRides />} />
