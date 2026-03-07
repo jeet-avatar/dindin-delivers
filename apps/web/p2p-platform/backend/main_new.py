@@ -356,6 +356,11 @@ _PUBLIC_PREFIXES = [
     "/api/vendors/public",    # Public vendor registration + document upload (code-gated)
     "/api/restaurants",       # Public restaurant browsing
     "/uploads/",              # Static files
+    "/admin",                 # Admin SPA frontend (static files, auth handled client-side)
+    "/login",                 # Admin login page (SPA frontend)
+    "/assets/",               # Vite-built frontend assets
+    "/favicon.svg",           # Static favicon
+    "/logo-dollar-ai.svg",    # Static logo
     "/api/admin/",            # Handled by admin_auth_middleware (don't double-check)
     "/api/demo/",             # Demo endpoints have own _require_admin_secret check
     "/ws/",                   # WebSocket connections (auth handled in websocket_route)
@@ -21656,6 +21661,43 @@ async def estimate_state_tax(
         "estimated_total": round(subtotal + estimated_tax, 2),
         "note": "This is an estimate. Final tax calculated at checkout with exact address."
     }
+
+
+# ===================== ADMIN FRONTEND (SPA) =====================
+# Serve the React admin portal from the built frontend dist directory.
+# This must come AFTER all API routes so /api/* routes take priority.
+import pathlib as _pathlib
+
+_frontend_dist = _pathlib.Path(__file__).parent / "admin_frontend"
+if _frontend_dist.is_dir():
+    from fastapi.responses import FileResponse
+
+    # Serve static assets (JS, CSS, images)
+    app.mount("/assets", StaticFiles(directory=str(_frontend_dist / "assets")), name="admin_assets")
+
+    # Serve favicon and other root-level static files
+    @app.get("/favicon.svg")
+    async def favicon():
+        return FileResponse(str(_frontend_dist / "favicon.svg"))
+
+    @app.get("/logo-dollar-ai.svg")
+    async def logo():
+        return FileResponse(str(_frontend_dist / "logo-dollar-ai.svg"))
+
+    # SPA catch-all: serve index.html for all frontend routes (React Router handles routing)
+    _SPA_ROUTES = ["/admin", "/login", "/customer", "/vendor", "/driver"]
+
+    @app.get("/admin")
+    async def admin_spa_root():
+        return FileResponse(str(_frontend_dist / "index.html"))
+
+    @app.get("/admin/{full_path:path}")
+    async def admin_spa(full_path: str = ""):
+        return FileResponse(str(_frontend_dist / "index.html"))
+
+    @app.get("/login")
+    async def login_spa():
+        return FileResponse(str(_frontend_dist / "index.html"))
 
 
 if __name__ == "__main__":
