@@ -737,3 +737,53 @@ async def mark_as_read(
     db.commit()
 
     return {"success": True, "message": "Marked as read"}
+
+
+# ==================== Change Management Real-Time Events ====================
+
+import logging as _cm_logging
+
+_cm_logger = _cm_logging.getLogger(__name__)
+
+
+async def _broadcast_cm_event_async(event_type: str, cr_id: str, data: dict):
+    """Internal async broadcast to all admin WebSocket clients."""
+    message = {
+        "type": event_type,
+        "cr_id": cr_id,
+        "data": data,
+        "timestamp": datetime.now().isoformat(),
+    }
+    # Broadcast to all admin connections
+    await manager.broadcast_to_type("admin", message)
+
+
+def broadcast_cm_event(event_type: str, cr_id: str, data: dict):
+    """
+    Broadcast a change management event to all connected admin clients.
+
+    Event types:
+    - cm_status_change: Any status transition
+    - cm_approval_needed: New CR needs approval
+    - cm_ci_update: CI status changed (running/passed/failed)
+    - cm_deployed: CR deployed to staging or production
+
+    Data payload should include: cr_id, new_status, actor, and any relevant metadata.
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # We are inside an async context (e.g., FastAPI request handler)
+            asyncio.ensure_future(_broadcast_cm_event_async(event_type, cr_id, data))
+        else:
+            loop.run_until_complete(_broadcast_cm_event_async(event_type, cr_id, data))
+    except RuntimeError:
+        # No event loop -- create one (sync context outside FastAPI)
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(_broadcast_cm_event_async(event_type, cr_id, data))
+        except Exception as e:
+            _cm_logger.error(f"Failed to broadcast CM event {event_type} for {cr_id}: {e}")
+    except Exception as e:
+        _cm_logger.error(f"Failed to broadcast CM event {event_type} for {cr_id}: {e}")
