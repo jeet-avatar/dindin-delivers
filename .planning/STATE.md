@@ -320,10 +320,11 @@ None
 | 117 | Rebuild admin frontend, deploy staging + production — smoke tests green | 2026-03-07 | 892fd0e6 | [117-rebuild-admin-frontend-deploy-to-staging](./quick/117-rebuild-admin-frontend-deploy-to-staging/) |
 | 118 | Enterprise approval routing — multi-step chains, delegation, SLA tracking, dept fields | 2026-03-07 | eaa11f26 | [118-enterprise-approval-routing-audit-25-cas](./quick/118-enterprise-approval-routing-audit-25-cas/) |
 | 119 | Rebuild admin frontend with enterprise approval routing, deploy staging + production | 2026-03-07 | de132089 | [119-rebuild-admin-frontend-with-enterprise-a](./quick/119-rebuild-admin-frontend-with-enterprise-a/) |
+| 120 | Fix change-requests 500 — missing custom_fields_json column migration, deployed | 2026-03-07 | 933252dd | [debug](./debug/resolved/change-requests-500-after-approval-routing.md) |
 
 
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed quick task 119: Admin frontend rebuilt with enterprise approval routing, deployed staging + production
+Stopped at: Fixed change-requests 500 (missing column migration), deployed staging + production, all smoke tests green
 Resume file: .planning/NEXT_SESSION_PROMPT.md
