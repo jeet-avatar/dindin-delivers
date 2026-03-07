@@ -24,7 +24,7 @@ must_haves:
     - "First 25 project cases have complete metadata with correct department assignments"
   artifacts:
     - path: "apps/web/p2p-platform/backend/change_management.py"
-      provides: "ApprovalChainRule, ApprovalStep models, multi-level approval logic, delegation, SLAs"
+      provides: "ApprovalChainRule, ApprovalStep, ApprovalDelegation models, multi-level approval logic, delegation, SLAs"
       contains: "class ApprovalChainRule"
     - path: "apps/web/p2p-platform/backend/project_tracker.py"
       provides: "DepartmentRequiredField model for department-specific CR fields"
@@ -75,7 +75,7 @@ Output: Backend models + APIs for approval chains, delegation, SLAs. Frontend UI
 <tasks>
 
 <task type="auto">
-  <name>Task 1: Add DepartmentRequiredField model and CRUD endpoints to project_tracker.py</name>
+  <name>Task 1: Add DepartmentRequiredField model, CRUD endpoints, and seed data to project_tracker.py</name>
   <files>
     apps/web/p2p-platform/backend/project_tracker.py
   </files>
@@ -112,26 +112,20 @@ Add a seed function `seed_default_required_fields(db)` that creates default fiel
 - QA: "test_coverage_impact" (textarea, optional)
 
 Wire seed function to run on startup (same pattern as existing seed logic -- check if rows exist first, skip if already seeded).
-
-**Read-only audit of first 25 project cases.**
-
-Query the first 25 cases from the LOCAL backend (start backend locally first, do NOT hit production). Use `curl http://localhost:8080/api/admin/project-cases?page=1&page_size=25` with admin auth obtained via `curl -X POST http://localhost:8080/api/admin/login -H "Content-Type: application/json" -d '{"email":"support@dollor.ai","password":"AdminTest123"}'`. Log findings (which cases have empty department_id, reason, impact_analysis) to a markdown table in the SUMMARY. Do NOT mutate any data — this is a read-only audit to inform future cleanup.
   </action>
   <verify>
     1. `cd apps/web/p2p-platform/backend && python -c "from project_tracker import DepartmentRequiredField; print('Model OK')"`
     2. Start backend locally, obtain admin token, then:
        - `curl localhost:8080/api/admin/departments/1/required-fields` returns seeded fields for Engineering
-       - `curl localhost:8080/api/admin/project-cases?page=1&page_size=25` returns cases (read-only check)
   </verify>
   <done>
     - DepartmentRequiredField model exists with CRUD endpoints
     - Default required fields seeded for Engineering, DevOps, Security, QA departments
-    - First 25 project cases audited (read-only) with findings documented
   </done>
 </task>
 
 <task type="auto">
-  <name>Task 2: Add ApprovalChainRule, ApprovalStep, ApprovalDelegation models and approval APIs to change_management.py</name>
+  <name>Task 2: Add ApprovalChainRule, ApprovalStep, ApprovalDelegation models and CRUD endpoints to change_management.py</name>
   <files>
     apps/web/p2p-platform/backend/change_management.py
   </files>
@@ -185,6 +179,45 @@ class ApprovalDelegation(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 ```
 
+**Add CRUD API endpoints (models and read/write only — no submit/approve modification yet):**
+
+- `GET /api/admin/approval-chain-rules?department_id=X` — list rules for a department
+- `POST /api/admin/approval-chain-rules` — create rule
+- `PUT /api/admin/approval-chain-rules/{id}` — update rule
+- `DELETE /api/admin/approval-chain-rules/{id}` — delete rule
+- `GET /api/admin/approval-delegations` — list active delegations
+- `POST /api/admin/approval-delegations` — create delegation
+- `DELETE /api/admin/approval-delegations/{id}` — delete delegation
+- `GET /api/admin/change-requests/{cr_id}/approval-steps` — get approval steps for a CR
+
+**Seed default approval chain rules** via `seed_default_approval_rules(db)`:
+- Engineering: step 1 = dept_lead (24h SLA), step 2 = CTO for Critical priority (48h SLA)
+- QA: step 1 = dept_lead (24h SLA)
+- DevOps/Infrastructure: step 1 = dept_lead (12h SLA), step 2 = CTO for Critical (24h SLA)
+- Security: step 1 = dept_lead (24h SLA), step 2 = CTO for Critical (24h SLA)
+- All other depts: step 1 = dept_lead (24h SLA)
+
+Wire seed to run on startup (check if rows exist first).
+  </action>
+  <verify>
+    1. `cd apps/web/p2p-platform/backend && python -c "from change_management import ApprovalChainRule, ApprovalStep, ApprovalDelegation; print('Models OK')"`
+    2. Start backend locally, obtain admin token, then:
+       - `curl localhost:8080/api/admin/approval-chain-rules?department_id=1` returns seeded rules
+       - `curl localhost:8080/api/admin/approval-delegations` returns empty list
+  </verify>
+  <done>
+    - ApprovalChainRule, ApprovalStep, ApprovalDelegation models exist and tables are created
+    - All 8 CRUD endpoints for chain rules, delegations, and approval steps work
+    - Default chain rules seeded for all departments
+  </done>
+</task>
+
+<task type="auto">
+  <name>Task 3: Wire multi-step approval into submit/approve flow with delegation check and overdue endpoint</name>
+  <files>
+    apps/web/p2p-platform/backend/change_management.py
+  </files>
+  <action>
 **Update submit endpoint to generate approval steps.**
 
 Modify `submit_change_request`:
@@ -202,50 +235,32 @@ Modify `approve_change_request`:
 4. If more pending steps remain, keep CR in "Under Review".
 5. If all steps approved, transition CR to "Approved".
 
-**Add CRUD API endpoints:**
+**Add overdue endpoint:**
 
-- `GET /api/admin/approval-chain-rules?department_id=X` — list rules for a department
-- `POST /api/admin/approval-chain-rules` — create rule
-- `PUT /api/admin/approval-chain-rules/{id}` — update rule
-- `DELETE /api/admin/approval-chain-rules/{id}` — delete rule
-- `GET /api/admin/approval-delegations` — list active delegations
-- `POST /api/admin/approval-delegations` — create delegation
-- `DELETE /api/admin/approval-delegations/{id}` — delete delegation
-- `GET /api/admin/change-requests/{cr_id}/approval-steps` — get approval steps for a CR
-- `GET /api/admin/change-requests/overdue` — CRs with any step past SLA deadline
+- `GET /api/admin/change-requests/overdue` — CRs with any step past SLA deadline (status=pending and sla_deadline < now)
+
+**Update _cr_to_dict:**
 
 Include `approval_steps` in `_cr_to_dict` response when `include_audit=True`.
-
-**Seed default approval chain rules** via `seed_default_approval_rules(db)`:
-- Engineering: step 1 = dept_lead (24h SLA), step 2 = CTO for Critical priority (48h SLA)
-- QA: step 1 = dept_lead (24h SLA)
-- DevOps/Infrastructure: step 1 = dept_lead (12h SLA), step 2 = CTO for Critical (24h SLA)
-- Security: step 1 = dept_lead (24h SLA), step 2 = CTO for Critical (24h SLA)
-- All other depts: step 1 = dept_lead (24h SLA)
-
-Wire seed to run on startup (check if rows exist first).
   </action>
   <verify>
-    1. `cd apps/web/p2p-platform/backend && python -c "from change_management import ApprovalChainRule, ApprovalStep, ApprovalDelegation; print('Models OK')"`
-    2. Start backend locally, obtain admin token via `curl -X POST localhost:8080/api/admin/login -H "Content-Type: application/json" -d '{"email":"support@dollor.ai","password":"AdminTest123"}'`, then:
-       - `curl localhost:8080/api/admin/approval-chain-rules?department_id=1` returns seeded rules
-       - `curl localhost:8080/api/admin/approval-delegations` returns empty list
+    1. Start backend locally, obtain admin token, then:
        - Create a CR for Engineering dept with Critical priority, submit it, verify 2 approval_steps in the response
        - Approve step 1, verify CR stays "Under Review"
        - Approve step 2, verify CR transitions to "Approved"
+       - `curl localhost:8080/api/admin/change-requests/overdue` returns valid response
   </verify>
   <done>
-    - ApprovalChainRule, ApprovalStep, ApprovalDelegation models exist and tables are created
     - Submit endpoint generates approval steps from chain rules
     - Approve endpoint handles multi-step approval (advances step, or approves CR when all steps done)
     - Delegation check works in approve flow
-    - Default chain rules seeded for all departments
-    - All 9 CRUD endpoints for chain rules, delegations, and approval steps work
+    - Overdue endpoint returns CRs with past-due approval steps
+    - _cr_to_dict includes approval_steps when include_audit=True
   </done>
 </task>
 
 <task type="auto">
-  <name>Task 3: Build frontend UI for approval chains, department-specific fields, and SLA tracking</name>
+  <name>Task 4: Build frontend UI for approval chains, department-specific fields, and SLA tracking</name>
   <files>
     apps/web/p2p-platform/frontend/src/app/screens/changeManagement/RequestForm.tsx
     apps/web/p2p-platform/frontend/src/app/screens/changeManagement/RequestDetail.tsx
@@ -301,12 +316,14 @@ Use Ant Design components (Table, Modal, Form, Steps, Tag, Badge) consistent wit
 </task>
 
 <task type="auto">
-  <name>Task 4: E2E verification — multi-step approval, delegation, and SLA flow</name>
+  <name>Task 5: E2E verification and read-only audit of first 25 project cases</name>
   <files>
     apps/web/p2p-platform/backend/change_management.py
   </files>
   <action>
-Run E2E verification of the complete approval routing system by starting the backend locally and testing via curl.
+**E2E verification of the complete approval routing system.**
+
+Start the backend locally and test via curl:
 
 1. **Auth**: Obtain admin token via `curl -X POST localhost:8080/api/admin/login -H "Content-Type: application/json" -d '{"email":"support@dollor.ai","password":"AdminTest123"}'`.
 
@@ -322,6 +339,10 @@ Run E2E verification of the complete approval routing system by starting the bac
 
 6. **Run test suite**: `cd apps/web/p2p-platform/backend && pytest tests/ -v --tb=short` — all tests pass, no regressions.
 
+**Read-only audit of first 25 project cases.**
+
+Query the first 25 cases from the LOCAL backend (do NOT hit production). Use `curl http://localhost:8080/api/admin/project-cases?page=1&page_size=25` with the admin auth token. Log findings (which cases have empty department_id, reason, impact_analysis) to a markdown table in the SUMMARY. Do NOT mutate any data — this is a read-only audit to inform future cleanup.
+
 If any test failures are found, fix them in change_management.py before marking done.
   </action>
   <verify>
@@ -329,12 +350,14 @@ If any test failures are found, fix them in change_management.py before marking 
     2. Multi-step approval flow completes successfully (2-step chain for Engineering Critical)
     3. Delegation approval succeeds with correct decided_by
     4. SLA deadlines present on all approval steps
+    5. First 25 project cases queried and findings documented
   </verify>
   <done>
     - Multi-step approval E2E verified: 2-step chain creates 2 steps, sequential approval works
     - Delegation E2E verified: delegate can approve, decided_by recorded correctly
     - SLA deadlines set on all approval steps, overdue endpoint works
     - All backend tests pass with zero regressions
+    - First 25 project cases audited (read-only) with findings documented in SUMMARY
   </done>
 </task>
 
