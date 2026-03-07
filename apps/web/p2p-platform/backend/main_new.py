@@ -14842,8 +14842,10 @@ app.include_router(project_tracker_router)
 app.include_router(department_router)
 
 # Include Change Management (enterprise change request lifecycle)
-from change_management import change_management_router
+from change_management import change_management_router, approval_rules_router, delegation_router
 app.include_router(change_management_router)
+app.include_router(approval_rules_router)
+app.include_router(delegation_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create

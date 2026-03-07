@@ -161,6 +161,53 @@ class ChangeRequest(Base):
 
     department = relationship("Department")
     audit_entries = relationship("AuditLog", back_populates="change_request", order_by="AuditLog.created_at.desc()")
+    approval_steps = relationship("ApprovalStep", back_populates="change_request", order_by="ApprovalStep.step_order")
+
+
+class ApprovalChainRule(Base):
+    __tablename__ = "approval_chain_rules"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="CASCADE"), nullable=False, index=True)
+    priority = Column(String(20), nullable=True)  # NULL = all priorities, "Critical" = only Critical CRs
+    step_order = Column(Integer, nullable=False, default=1)
+    approver_role = Column(String(50), nullable=False)  # "dept_lead", "cto", "vp_engineering", "security_lead"
+    approver_email = Column(String(200), nullable=True)  # specific email, or NULL for role-based lookup
+    sla_hours = Column(Integer, nullable=False, default=24)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    department = relationship("Department")
+
+
+class ApprovalStep(Base):
+    __tablename__ = "approval_steps"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    change_request_id = Column(Integer, ForeignKey("change_requests.id", ondelete="CASCADE"), nullable=False, index=True)
+    step_order = Column(Integer, nullable=False)
+    approver_role = Column(String(50), nullable=False)
+    approver_email = Column(String(200), nullable=True)
+    status = Column(String(20), nullable=False, default="pending")  # pending/approved/rejected/skipped
+    decided_by = Column(String(200), nullable=True)  # actual person (could be delegate)
+    decided_at = Column(DateTime, nullable=True)
+    sla_deadline = Column(DateTime, nullable=True)
+    comments = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    change_request = relationship("ChangeRequest", back_populates="approval_steps")
+
+
+class ApprovalDelegation(Base):
+    __tablename__ = "approval_delegations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    delegator_email = Column(String(200), nullable=False, index=True)
+    delegate_email = Column(String(200), nullable=False)
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="CASCADE"), nullable=True)
+    active_from = Column(DateTime, nullable=False)
+    active_until = Column(DateTime, nullable=False)
+    reason = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class AuditLog(Base):
@@ -942,4 +989,252 @@ def get_stale_requests(db: Session, timeout_minutes: int = 30) -> list:
     return stale
 
 
+# ==================== Approval Chain Rules CRUD ====================
+
+approval_rules_router = APIRouter(
+    prefix="/api/admin/approval-chain-rules",
+    tags=["approval-chain-rules"],
+)
+
+
+@approval_rules_router.get("/")
+def list_approval_chain_rules(
+    department_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """List approval chain rules, optionally filtered by department."""
+    query = db.query(ApprovalChainRule)
+    if department_id:
+        query = query.filter(ApprovalChainRule.department_id == department_id)
+    rules = query.order_by(ApprovalChainRule.department_id, ApprovalChainRule.step_order).all()
+    return [
+        {
+            "id": r.id,
+            "department_id": r.department_id,
+            "department_name": r.department.name if r.department else None,
+            "priority": r.priority,
+            "step_order": r.step_order,
+            "approver_role": r.approver_role,
+            "approver_email": r.approver_email,
+            "sla_hours": r.sla_hours,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rules
+    ]
+
+
+@approval_rules_router.post("/")
+def create_approval_chain_rule(data: dict, db: Session = Depends(get_db)):
+    """Create a new approval chain rule."""
+    dept = db.query(Department).filter(Department.id == data.get("department_id")).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    rule = ApprovalChainRule(
+        department_id=data["department_id"],
+        priority=data.get("priority"),
+        step_order=data.get("step_order", 1),
+        approver_role=data.get("approver_role", "dept_lead"),
+        approver_email=data.get("approver_email"),
+        sla_hours=data.get("sla_hours", 24),
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return {
+        "id": rule.id,
+        "department_id": rule.department_id,
+        "priority": rule.priority,
+        "step_order": rule.step_order,
+        "approver_role": rule.approver_role,
+        "approver_email": rule.approver_email,
+        "sla_hours": rule.sla_hours,
+    }
+
+
+@approval_rules_router.put("/{rule_id}")
+def update_approval_chain_rule(rule_id: int, data: dict, db: Session = Depends(get_db)):
+    """Update an approval chain rule."""
+    rule = db.query(ApprovalChainRule).filter(ApprovalChainRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Approval chain rule not found")
+    for field in ("priority", "step_order", "approver_role", "approver_email", "sla_hours"):
+        if field in data:
+            setattr(rule, field, data[field])
+    db.commit()
+    db.refresh(rule)
+    return {
+        "id": rule.id,
+        "department_id": rule.department_id,
+        "priority": rule.priority,
+        "step_order": rule.step_order,
+        "approver_role": rule.approver_role,
+        "approver_email": rule.approver_email,
+        "sla_hours": rule.sla_hours,
+    }
+
+
+@approval_rules_router.delete("/{rule_id}")
+def delete_approval_chain_rule(rule_id: int, db: Session = Depends(get_db)):
+    """Delete an approval chain rule."""
+    rule = db.query(ApprovalChainRule).filter(ApprovalChainRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Approval chain rule not found")
+    db.delete(rule)
+    db.commit()
+    return {"deleted": True}
+
+
+# ==================== Approval Delegations CRUD ====================
+
+delegation_router = APIRouter(
+    prefix="/api/admin/approval-delegations",
+    tags=["approval-delegations"],
+)
+
+
+@delegation_router.get("/")
+def list_delegations(db: Session = Depends(get_db)):
+    """List active and future approval delegations."""
+    delegations = db.query(ApprovalDelegation).order_by(ApprovalDelegation.active_from.desc()).all()
+    return [
+        {
+            "id": d.id,
+            "delegator_email": d.delegator_email,
+            "delegate_email": d.delegate_email,
+            "department_id": d.department_id,
+            "active_from": d.active_from.isoformat() if d.active_from else None,
+            "active_until": d.active_until.isoformat() if d.active_until else None,
+            "reason": d.reason,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        }
+        for d in delegations
+    ]
+
+
+@delegation_router.post("/")
+def create_delegation(data: dict, db: Session = Depends(get_db)):
+    """Create an approval delegation (OOO coverage)."""
+    delegation = ApprovalDelegation(
+        delegator_email=data.get("delegator_email", ""),
+        delegate_email=data.get("delegate_email", ""),
+        department_id=data.get("department_id"),
+        active_from=datetime.fromisoformat(data["active_from"]) if data.get("active_from") else datetime.utcnow(),
+        active_until=datetime.fromisoformat(data["active_until"]) if data.get("active_until") else datetime.utcnow() + timedelta(days=7),
+        reason=data.get("reason"),
+    )
+    db.add(delegation)
+    db.commit()
+    db.refresh(delegation)
+    return {
+        "id": delegation.id,
+        "delegator_email": delegation.delegator_email,
+        "delegate_email": delegation.delegate_email,
+        "department_id": delegation.department_id,
+        "active_from": delegation.active_from.isoformat(),
+        "active_until": delegation.active_until.isoformat(),
+        "reason": delegation.reason,
+    }
+
+
+@delegation_router.delete("/{delegation_id}")
+def delete_delegation(delegation_id: int, db: Session = Depends(get_db)):
+    """Delete an approval delegation."""
+    delegation = db.query(ApprovalDelegation).filter(ApprovalDelegation.id == delegation_id).first()
+    if not delegation:
+        raise HTTPException(status_code=404, detail="Delegation not found")
+    db.delete(delegation)
+    db.commit()
+    return {"deleted": True}
+
+
+# ==================== Approval Steps Read ====================
+
+@change_management_router.get("/{cr_id}/approval-steps")
+def get_approval_steps(cr_id: str, db: Session = Depends(get_db)):
+    """Get approval steps for a change request."""
+    cr = _get_cr_or_404(db, cr_id)
+    steps = (
+        db.query(ApprovalStep)
+        .filter(ApprovalStep.change_request_id == cr.id)
+        .order_by(ApprovalStep.step_order)
+        .all()
+    )
+    return [
+        {
+            "id": s.id,
+            "step_order": s.step_order,
+            "approver_role": s.approver_role,
+            "approver_email": s.approver_email,
+            "status": s.status,
+            "decided_by": s.decided_by,
+            "decided_at": s.decided_at.isoformat() if s.decided_at else None,
+            "sla_deadline": s.sla_deadline.isoformat() if s.sla_deadline else None,
+            "comments": s.comments,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        }
+        for s in steps
+    ]
+
+
+# ==================== Seed Default Approval Rules ====================
+
+DEFAULT_APPROVAL_RULES = {
+    "ENG": [
+        {"step_order": 1, "approver_role": "dept_lead", "priority": None, "sla_hours": 24},
+        {"step_order": 2, "approver_role": "cto", "priority": "Critical", "sla_hours": 48},
+    ],
+    "QA": [
+        {"step_order": 1, "approver_role": "dept_lead", "priority": None, "sla_hours": 24},
+    ],
+    "DEVOPS": [
+        {"step_order": 1, "approver_role": "dept_lead", "priority": None, "sla_hours": 12},
+        {"step_order": 2, "approver_role": "cto", "priority": "Critical", "sla_hours": 24},
+    ],
+    "SEC": [
+        {"step_order": 1, "approver_role": "dept_lead", "priority": None, "sla_hours": 24},
+        {"step_order": 2, "approver_role": "cto", "priority": "Critical", "sla_hours": 24},
+    ],
+}
+
+
+def seed_default_approval_rules(db: Session):
+    """Seed default approval chain rules for departments if none exist."""
+    from sqlalchemy import func as sqlfunc
+    existing_count = db.query(sqlfunc.count(ApprovalChainRule.id)).scalar()
+    if existing_count and existing_count > 0:
+        return {"seeded": 0, "message": "Approval rules already exist"}
+
+    seeded = 0
+    for dept_code, rules in DEFAULT_APPROVAL_RULES.items():
+        dept = db.query(Department).filter(Department.code == dept_code).first()
+        if not dept:
+            continue
+        for rdef in rules:
+            rule = ApprovalChainRule(
+                department_id=dept.id,
+                priority=rdef["priority"],
+                step_order=rdef["step_order"],
+                approver_role=rdef["approver_role"],
+                sla_hours=rdef["sla_hours"],
+            )
+            db.add(rule)
+            seeded += 1
+
+    # Add default rule for any department not covered: dept_lead, 24h SLA
+    covered_codes = set(DEFAULT_APPROVAL_RULES.keys())
+    all_depts = db.query(Department).all()
+    for dept in all_depts:
+        if dept.code not in covered_codes:
+            rule = ApprovalChainRule(
+                department_id=dept.id,
+                priority=None,
+                step_order=1,
+                approver_role="dept_lead",
+                sla_hours=24,
+            )
+            db.add(rule)
+            seeded += 1
+
+    db.commit()
+    return {"seeded": seeded}
 
