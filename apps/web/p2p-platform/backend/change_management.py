@@ -153,6 +153,9 @@ class ChangeRequest(Base):
     deploy_staging_at = Column(DateTime, nullable=True)
     deploy_production_at = Column(DateTime, nullable=True)
 
+    # Department-specific custom fields (JSON blob)
+    custom_fields_json = Column(Text, nullable=True)
+
     # Rollback reference
     rollback_of_cr_id = Column(String(15), nullable=True)  # CR-XXXX this reverts
 
@@ -288,6 +291,8 @@ class ChangeRequestCreate(BaseModel):
     priority: str = "Medium"
     case_ids: Optional[List[str]] = None
     requested_by: str  # email of requester
+    department_id: Optional[int] = None
+    custom_fields: Optional[Dict[str, Any]] = None
 
 class ChangeRequestUpdate(BaseModel):
     title: Optional[str] = None
@@ -422,6 +427,7 @@ def _cr_to_dict(cr: ChangeRequest, include_audit: bool = False) -> dict:
         "deploy_staging_at": cr.deploy_staging_at.isoformat() if cr.deploy_staging_at else None,
         "deploy_production_at": cr.deploy_production_at.isoformat() if cr.deploy_production_at else None,
         "rollback_of_cr_id": cr.rollback_of_cr_id,
+        "custom_fields_json": cr.custom_fields_json,
         "created_at": cr.created_at.isoformat() if cr.created_at else None,
         "updated_at": cr.updated_at.isoformat() if cr.updated_at else None,
     }
@@ -438,7 +444,125 @@ def _cr_to_dict(cr: ChangeRequest, include_audit: bool = False) -> dict:
             }
             for a in (cr.audit_entries or [])
         ]
+        # Include approval steps
+        result["approval_steps"] = [
+            {
+                "id": s.id,
+                "step_order": s.step_order,
+                "approver_role": s.approver_role,
+                "approver_email": s.approver_email,
+                "status": s.status,
+                "decided_by": s.decided_by,
+                "decided_at": s.decided_at.isoformat() if s.decided_at else None,
+                "sla_deadline": s.sla_deadline.isoformat() if s.sla_deadline else None,
+                "comments": s.comments,
+            }
+            for s in (cr.approval_steps or [])
+        ]
     return result
+
+
+# ==================== Approval Step Generation ====================
+
+def _generate_approval_steps(db: Session, cr: ChangeRequest):
+    """Generate approval steps from chain rules for the CR's department and priority.
+
+    Logic:
+    1. Find chain rules matching department_id AND (priority = cr.priority OR priority IS NULL).
+    2. Priority-specific rules take precedence over wildcard (NULL) rules.
+    3. If no rules found, create one default step for dept_lead with 24h SLA.
+    """
+    if not cr.department_id:
+        # No department = single default approval step
+        step = ApprovalStep(
+            change_request_id=cr.id,
+            step_order=1,
+            approver_role="dept_lead",
+            approver_email=cr.department.lead_email if cr.department else None,
+            status="pending",
+            sla_deadline=datetime.utcnow() + timedelta(hours=24),
+        )
+        db.add(step)
+        return
+
+    # Fetch rules for this department
+    dept_rules = (
+        db.query(ApprovalChainRule)
+        .filter(ApprovalChainRule.department_id == cr.department_id)
+        .order_by(ApprovalChainRule.step_order)
+        .all()
+    )
+
+    if not dept_rules:
+        # No rules configured - single dept_lead step
+        lead_email = None
+        if cr.department:
+            lead_email = cr.department.lead_email
+        step = ApprovalStep(
+            change_request_id=cr.id,
+            step_order=1,
+            approver_role="dept_lead",
+            approver_email=lead_email,
+            status="pending",
+            sla_deadline=datetime.utcnow() + timedelta(hours=24),
+        )
+        db.add(step)
+        return
+
+    # Collect applicable rules: priority-specific match OR wildcard (NULL priority)
+    applicable_rules = []
+    for rule in dept_rules:
+        if rule.priority is None:
+            applicable_rules.append(rule)
+        elif rule.priority == cr.priority:
+            applicable_rules.append(rule)
+
+    if not applicable_rules:
+        # Fallback: single dept_lead
+        step = ApprovalStep(
+            change_request_id=cr.id,
+            step_order=1,
+            approver_role="dept_lead",
+            approver_email=cr.department.lead_email if cr.department else None,
+            status="pending",
+            sla_deadline=datetime.utcnow() + timedelta(hours=24),
+        )
+        db.add(step)
+        return
+
+    # Sort by step_order and create steps
+    applicable_rules.sort(key=lambda r: r.step_order)
+    now = datetime.utcnow()
+    for rule in applicable_rules:
+        # Resolve approver email: specific email on rule, or department lead for dept_lead role
+        approver_email = rule.approver_email
+        if not approver_email and rule.approver_role == "dept_lead" and cr.department:
+            approver_email = cr.department.lead_email
+
+        step = ApprovalStep(
+            change_request_id=cr.id,
+            step_order=rule.step_order,
+            approver_role=rule.approver_role,
+            approver_email=approver_email,
+            status="pending",
+            sla_deadline=now + timedelta(hours=rule.sla_hours),
+        )
+        db.add(step)
+
+
+def _find_active_delegate(db: Session, approver_email: str) -> Optional[str]:
+    """Check if there is an active delegation for the given approver email."""
+    now = datetime.utcnow()
+    delegation = (
+        db.query(ApprovalDelegation)
+        .filter(
+            ApprovalDelegation.delegator_email == approver_email,
+            ApprovalDelegation.active_from <= now,
+            ApprovalDelegation.active_until >= now,
+        )
+        .first()
+    )
+    return delegation.delegate_email if delegation else None
 
 
 # ==================== API Routes ====================
@@ -465,9 +589,9 @@ def create_change_request(data: ChangeRequestCreate, db: Session = Depends(get_d
 
     cr_id = generate_cr_id(db)
 
-    # Auto-resolve department from first linked case
-    department_id = None
-    if data.case_ids:
+    # Department: explicit pick or auto-resolve from first linked case
+    department_id = data.department_id
+    if not department_id and data.case_ids:
         first_case_id = data.case_ids[0].strip()
         case = db.query(ProjectCase).filter(ProjectCase.case_id == first_case_id).first()
         if case and case.department_id:
@@ -482,6 +606,7 @@ def create_change_request(data: ChangeRequestCreate, db: Session = Depends(get_d
         case_ids=",".join(data.case_ids) if data.case_ids else None,
         department_id=department_id,
         requested_by=data.requested_by,
+        custom_fields_json=json.dumps(data.custom_fields) if data.custom_fields else None,
         status="Draft",
     )
     db.add(cr)
@@ -585,6 +710,31 @@ def list_change_requests(
     }
 
 
+@change_management_router.get("/overdue", response_model=None)
+def list_overdue_requests(db: Session = Depends(get_db)):
+    """Return change requests with approval steps past their SLA deadline."""
+    now = datetime.utcnow()
+    overdue_steps = (
+        db.query(ApprovalStep)
+        .filter(
+            ApprovalStep.status == "pending",
+            ApprovalStep.sla_deadline < now,
+        )
+        .all()
+    )
+
+    # Get unique CR IDs
+    cr_ids = list(set(s.change_request_id for s in overdue_steps))
+    if not cr_ids:
+        return {"items": [], "total": 0}
+
+    crs = db.query(ChangeRequest).filter(ChangeRequest.id.in_(cr_ids)).all()
+    return {
+        "items": [_cr_to_dict(c, include_audit=True) for c in crs],
+        "total": len(crs),
+    }
+
+
 @change_management_router.get("/stale", response_model=None)
 def list_stale_requests(
     timeout_minutes: int = Query(default=30, ge=1, le=1440),
@@ -681,6 +831,9 @@ def submit_change_request(cr_id: str, db: Session = Depends(get_db)):
         "auto_transition": True,
     })
 
+    # Generate approval steps from chain rules
+    _generate_approval_steps(db, cr)
+
     db.commit()
     db.refresh(cr)
 
@@ -709,9 +862,87 @@ def submit_change_request(cr_id: str, db: Session = Depends(get_db)):
 
 @change_management_router.post("/{cr_id}/approve")
 def approve_change_request(cr_id: str, data: ApprovalRequest, db: Session = Depends(get_db)):
-    """Approve a change request. Under Review -> Approved."""
+    """Approve a change request. Handles multi-step approval chains.
+
+    If approval steps exist:
+    1. Find the current pending step (lowest step_order with status=pending).
+    2. Verify approver is the step's approver_email OR an active delegate.
+    3. Mark step as approved.
+    4. If more pending steps remain, keep CR in Under Review.
+    5. If all steps approved, transition to Approved.
+
+    If no approval steps (legacy single-approve): Under Review -> Approved directly.
+    """
     cr = _get_cr_or_404(db, cr_id, for_update=True)
 
+    # Check if we have multi-step approval
+    pending_steps = (
+        db.query(ApprovalStep)
+        .filter(ApprovalStep.change_request_id == cr.id, ApprovalStep.status == "pending")
+        .order_by(ApprovalStep.step_order)
+        .all()
+    )
+
+    if pending_steps:
+        current_step = pending_steps[0]
+
+        # Authorization check: approver must match step or be a delegate
+        is_authorized = False
+        decided_by = data.approver_email
+
+        if current_step.approver_email:
+            if data.approver_email == current_step.approver_email:
+                is_authorized = True
+            else:
+                # Check delegation
+                delegate = _find_active_delegate(db, current_step.approver_email)
+                if delegate and delegate == data.approver_email:
+                    is_authorized = True
+                    decided_by = data.approver_email  # delegate is the actual decider
+
+        if not is_authorized:
+            # Allow super_admin (support@dollor.ai) to approve any step
+            if data.approver_email in ("support@dollor.ai", "admin@dollor.ai"):
+                is_authorized = True
+
+        if not is_authorized and current_step.approver_email:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Not authorized to approve this step. Expected: {current_step.approver_email}"
+            )
+
+        # If no approver_email on step (role-based), anyone with the right role can approve
+        if not current_step.approver_email:
+            is_authorized = True
+
+        # Mark current step as approved
+        current_step.status = "approved"
+        current_step.decided_by = decided_by
+        current_step.decided_at = datetime.utcnow()
+
+        log_audit(db, cr.id, "step_approved", decided_by, {
+            "step_order": current_step.step_order,
+            "approver_role": current_step.approver_role,
+            "decided_by": decided_by,
+        })
+
+        # Check if more pending steps remain
+        remaining = len(pending_steps) - 1  # we just approved one
+        if remaining > 0:
+            # Stay in Under Review
+            cr.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(cr)
+
+            _safe_broadcast("cm_step_approved", cr.cr_id, {
+                "step_order": current_step.step_order,
+                "remaining_steps": remaining,
+                "decided_by": decided_by,
+            })
+
+            return _cr_to_dict(cr, include_audit=True)
+
+    # All steps approved (or no steps) -> transition to Approved
     validate_transition(cr.status, "Approved", cr.change_type, "dept_lead")
 
     old_status = cr.status
