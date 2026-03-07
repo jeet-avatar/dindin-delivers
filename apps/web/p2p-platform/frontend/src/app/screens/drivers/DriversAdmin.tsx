@@ -102,23 +102,8 @@ const DriversAdmin: React.FC = () => {
       setStats(response.data.stats || stats);
     } catch (error) {
       console.error('Failed to fetch drivers:', error);
-      // Try the ERP endpoint
-      try {
-        const response = await api.get('/erp/drivers', { params: { limit: 100 } });
-        const driversList = response.data.drivers || response.data || [];
-        setDrivers(driversList);
-        // Calculate stats from data
-        setStats({
-          totalDrivers: driversList.length,
-          activeDrivers: driversList.filter((d: Driver) => d.status === 'approved' || d.status === 'active').length,
-          pendingApproval: driversList.filter((d: Driver) => d.status === 'pending').length,
-          onlineNow: driversList.filter((d: Driver) => d.is_online).length
-        });
-      } catch (e) {
-        console.error('Failed to fetch from ERP endpoint:', e);
-        setDrivers([]);
-        message.info('Drivers API endpoint not yet configured');
-      }
+      setDrivers([]);
+      message.error('Failed to load drivers');
     } finally {
       setLoading(false);
     }
