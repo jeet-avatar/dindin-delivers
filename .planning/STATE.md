@@ -245,6 +245,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase 11]: Submit endpoint auto-transitions Draft -> Submitted -> Under Review in single API call
 - [Phase 11-02]: Used custom relative time formatting instead of date-fns to keep bundle size unchanged
 - [Phase 12]: Kept Coupa dashboard route but removed from sidebar; kept ZIP in Partners > Onboarding; dashboard rewired to /api/dashboard/stats
+- [Phase quick-116]: Used Modal.confirm with inline Input for PR/CI metadata; non-code CRs skip PR/CI states
 
 ### Blockers
 
@@ -315,10 +316,11 @@ None
 | 113 | Department & team management — zero hardcoded values, DB-driven rules, full CRUD UI | 2026-03-06 | 18d08bbd | [113-dept-team-mgmt-project-tracker](./quick/113-dept-team-mgmt-project-tracker/) |
 | 114 | Remove placeholder AI/voice features from iOS Customer app before App Store review | 2026-03-07 | 253f98fb | [114-remove-placeholder-ai-voice-features-fro](./quick/114-remove-placeholder-ai-voice-features-fro/) |
 | 115 | Full admin portal UI audit — 26 endpoints tested, 24 PASS, 2 WARN, 0 FAIL | 2026-03-07 | e20e75ce | [115-full-admin-portal-ui-audit-verify-every-](./quick/115-full-admin-portal-ui-audit-verify-every-/) |
+| 116 | Audit project tracker + change management, fix missing workflow buttons | 2026-03-07 | 0910dc55 | [116-audit-project-tracker-change-management-](./quick/116-audit-project-tracker-change-management-/) |
 
 
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed 12-02-PLAN.md -- mock ERP removed, real dashboard stats, sidebar cleaned (Phase 12 complete)
+Stopped at: Completed quick task 116: Project tracker & change management audit + workflow button fix
 Resume file: .planning/NEXT_SESSION_PROMPT.md
