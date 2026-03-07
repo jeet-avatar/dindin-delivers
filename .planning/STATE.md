@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI)
 Plan: 2 of 2 in current phase
 Status: Phase 12 complete -- mock ERP dashboards removed, real stats wired, sidebar cleaned
-Last activity: 2026-03-07 - Completed quick task 115: Full admin portal UI audit
+Last activity: 2026-03-07 - Completed quick task 117: Admin frontend deployed to staging + production
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -317,10 +317,11 @@ None
 | 114 | Remove placeholder AI/voice features from iOS Customer app before App Store review | 2026-03-07 | 253f98fb | [114-remove-placeholder-ai-voice-features-fro](./quick/114-remove-placeholder-ai-voice-features-fro/) |
 | 115 | Full admin portal UI audit — 26 endpoints tested, 24 PASS, 2 WARN, 0 FAIL | 2026-03-07 | e20e75ce | [115-full-admin-portal-ui-audit-verify-every-](./quick/115-full-admin-portal-ui-audit-verify-every-/) |
 | 116 | Audit project tracker + change management, fix missing workflow buttons | 2026-03-07 | 0910dc55 | [116-audit-project-tracker-change-management-](./quick/116-audit-project-tracker-change-management-/) |
+| 117 | Rebuild admin frontend, deploy staging + production — smoke tests green | 2026-03-07 | 892fd0e6 | [117-rebuild-admin-frontend-deploy-to-staging](./quick/117-rebuild-admin-frontend-deploy-to-staging/) |
 
 
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed quick task 116: Project tracker & change management audit + workflow button fix
+Stopped at: Completed quick task 117: Admin frontend rebuilt + deployed to staging + production
 Resume file: .planning/NEXT_SESSION_PROMPT.md
