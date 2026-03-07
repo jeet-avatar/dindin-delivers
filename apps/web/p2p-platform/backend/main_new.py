@@ -1559,6 +1559,30 @@ def _run_startup_migrations():
 async def startup_event():
     init_db()
     _run_startup_migrations()
+    # Seed default required fields for departments (if not already seeded)
+    try:
+        from project_tracker import seed_default_required_fields
+        from database import SessionLocal
+        _seed_db = SessionLocal()
+        try:
+            seed_default_required_fields(_seed_db)
+        finally:
+            _seed_db.close()
+    except Exception as _e:
+        import logging as _log
+        _log.getLogger(__name__).warning(f"Failed to seed required fields: {_e}")
+    # Seed default approval chain rules (if not already seeded)
+    try:
+        from change_management import seed_default_approval_rules
+        from database import SessionLocal
+        _seed_db2 = SessionLocal()
+        try:
+            seed_default_approval_rules(_seed_db2)
+        finally:
+            _seed_db2.close()
+    except Exception as _e:
+        import logging as _log
+        _log.getLogger(__name__).warning(f"Failed to seed approval rules: {_e}")
     # Start background scheduler for restaurant timeout checks
     start_timeout_scheduler()
     # Capture the running event loop for the WebSocket Redis subscriber thread
