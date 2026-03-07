@@ -1,6 +1,12 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Ensure antd CSS-in-JS layer takes precedence over Tailwind resets.
+   When StyleProvider layer is enabled, antd injects into @layer antd.
+   Tailwind directives go into @layer tw-base/components/utilities so
+   they have lower specificity than un-layered or antd-layered styles. */
+@layer tailwind-base, antd;
+
+@import "tailwindcss/base" layer(tailwind-base);
+@import "tailwindcss/components" layer(tailwind-base);
+@import "tailwindcss/utilities" layer(tailwind-base);
 
 
 .dashboard-count-block:hover{
