@@ -10,6 +10,21 @@ interface ProjectCaseOption {
   name: string;
 }
 
+interface DepartmentOption {
+  id: number;
+  name: string;
+}
+
+interface RequiredField {
+  id: number;
+  field_name: string;
+  field_label: string;
+  field_type: string;
+  is_required: boolean;
+  options_json: string | null;
+  sort_order: number;
+}
+
 interface RequestFormProps {
   onSuccess?: () => void;
 }
@@ -34,9 +49,13 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSuccess }) => {
   const [submitting, setSubmitting] = useState(false);
   const [cases, setCases] = useState<ProjectCaseOption[]>([]);
   const [loadingCases, setLoadingCases] = useState(false);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
+  const [requiredFields, setRequiredFields] = useState<RequiredField[]>([]);
+  const [loadingFields, setLoadingFields] = useState(false);
 
   useEffect(() => {
     fetchCases();
+    fetchDepartments();
   }, []);
 
   const fetchCases = async () => {
@@ -52,6 +71,38 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSuccess }) => {
       // Cases might not exist yet; not blocking
     } finally {
       setLoadingCases(false);
+    }
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await api.get('/admin/departments');
+      setDepartments((res.data || []).map((d: { id: number; name: string }) => ({
+        id: d.id,
+        name: d.name,
+      })));
+    } catch {
+      // Not blocking
+    }
+  };
+
+  const fetchRequiredFields = async (deptId: number) => {
+    setLoadingFields(true);
+    try {
+      const res = await api.get(`/admin/departments/${deptId}/required-fields`);
+      setRequiredFields(res.data || []);
+    } catch {
+      setRequiredFields([]);
+    } finally {
+      setLoadingFields(false);
+    }
+  };
+
+  const handleDepartmentChange = (deptId: number | undefined) => {
+    if (deptId) {
+      fetchRequiredFields(deptId);
+    } else {
+      setRequiredFields([]);
     }
   };
 
@@ -71,7 +122,14 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSuccess }) => {
       const values = await form.validateFields();
       setSubmitting(true);
 
-      const payload = {
+      // Collect custom fields
+      const customFields: Record<string, string> = {};
+      for (const f of requiredFields) {
+        const val = values[`custom_${f.field_name}`];
+        if (val) customFields[f.field_name] = val;
+      }
+
+      const payload: Record<string, unknown> = {
         title: values.title,
         description: values.description || null,
         change_type: values.change_type || 'code',
@@ -79,6 +137,14 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSuccess }) => {
         case_ids: values.case_ids || [],
         requested_by: getAdminEmail(),
       };
+
+      if (values.department_id) {
+        payload.department_id = values.department_id;
+      }
+
+      if (Object.keys(customFields).length > 0) {
+        payload.custom_fields = customFields;
+      }
 
       const res = await api.post('/admin/change-requests/', payload);
       const cr = res.data;
@@ -91,6 +157,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSuccess }) => {
       }
 
       form.resetFields();
+      setRequiredFields([]);
       onSuccess?.();
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create change request';
@@ -98,6 +165,49 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSuccess }) => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const renderCustomField = (field: RequiredField) => {
+    const name = `custom_${field.field_name}`;
+    const rules = field.is_required ? [{ required: true, message: `${field.field_label} is required` }] : [];
+
+    if (field.field_type === 'textarea') {
+      return (
+        <Form.Item key={name} name={name} label={field.field_label} rules={rules}>
+          <TextArea rows={3} placeholder={field.field_label} />
+        </Form.Item>
+      );
+    }
+
+    if (field.field_type === 'url') {
+      return (
+        <Form.Item key={name} name={name} label={field.field_label} rules={[
+          ...rules,
+          { type: 'url', message: 'Please enter a valid URL' },
+        ]}>
+          <Input placeholder="https://..." />
+        </Form.Item>
+      );
+    }
+
+    if (field.field_type === 'select' && field.options_json) {
+      let options: string[] = [];
+      try { options = JSON.parse(field.options_json); } catch { /* ignore */ }
+      return (
+        <Form.Item key={name} name={name} label={field.field_label} rules={rules}>
+          <Select
+            placeholder={`Select ${field.field_label}`}
+            options={options.map((o) => ({ value: o, label: o }))}
+          />
+        </Form.Item>
+      );
+    }
+
+    return (
+      <Form.Item key={name} name={name} label={field.field_label} rules={rules}>
+        <Input placeholder={field.field_label} />
+      </Form.Item>
+    );
   };
 
   return (
@@ -131,6 +241,15 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSuccess }) => {
           <Select options={PRIORITIES} />
         </Form.Item>
 
+        <Form.Item name="department_id" label="Department">
+          <Select
+            placeholder="Select department"
+            allowClear
+            onChange={handleDepartmentChange}
+            options={departments.map((d) => ({ value: d.id, label: d.name }))}
+          />
+        </Form.Item>
+
         <Form.Item name="case_ids" label="Linked Cases">
           <Select
             mode="multiple"
@@ -147,6 +266,20 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSuccess }) => {
             notFoundContent={loadingCases ? <Spin size="small" /> : 'No cases found'}
           />
         </Form.Item>
+
+        {/* Department-specific required fields */}
+        {loadingFields && <Spin size="small" style={{ marginBottom: 16 }} />}
+        {requiredFields.length > 0 && (
+          <div style={{
+            padding: 16, background: '#f6f8fa', borderRadius: 8, marginBottom: 16,
+            border: '1px solid #e8e8e8',
+          }}>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 12, fontWeight: 600 }}>
+              Department-Specific Fields
+            </div>
+            {requiredFields.map(renderCustomField)}
+          </div>
+        )}
 
         <Form.Item style={{ marginTop: 32 }}>
           <div style={{ display: 'flex', gap: 12 }}>
