@@ -72,7 +72,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 - [ ] **Phase 09: Rideshare E2E Validation** - Automated backend test covering full 12-step rideshare lifecycle
 - [ ] **Phase 10: Automated Support System** - Hide aspirational AI features, set up Twilio + OpenAI Realtime voice for phone support, fix chat for order tracking
 - [x] **Phase 11: Change Management Workflow** - Enterprise case management: request -> approval -> GSD execution -> PR -> CI/CD pipeline -> deploy. All 2512+ cases tracked with full lifecycle. (completed 2026-03-07)
-- [ ] **Phase 12: Fix Admin Portal UI** - Fix vendor management auth, remove mock ERP dashboards, wire real dashboard stats
+- [x] **Phase 12: Fix Admin Portal UI** - Fix vendor management auth, remove mock ERP dashboards, wire real dashboard stats (completed 2026-03-07)
 
 ## Phase Details
 
@@ -202,7 +202,7 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 | 09. Rideshare E2E Validation | v1.5 | 0/1 | Not started | - |
 | 10. Automated Support System | 2/3 | In Progress|  | - |
 | 11. Change Management Workflow | 3/3 | Complete    | 2026-03-07 | - |
-| 12. Fix Admin Portal UI | 1/2 | In Progress|  | - |
+| 12. Fix Admin Portal UI | 2/2 | Complete   | 2026-03-07 | - |
 
 ---
 *Roadmap created: 2026-02-21*

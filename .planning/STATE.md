@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 12 of 12 (Fix Admin Portal UI)
-Plan: 1 of 2 in current phase
-Status: Phase 12 Plan 01 complete -- vendor management screens fixed (raw fetch replaced with api instance)
-Last activity: 2026-03-07 - Completed 12-01: Vendor management auth fix
+Plan: 2 of 2 in current phase
+Status: Phase 12 complete -- mock ERP dashboards removed, real stats wired, sidebar cleaned
+Last activity: 2026-03-07 - Completed 12-02: Remove mock ERP dashboards
 
-Progress: [########░░] 75% (9/12 plans)
+Progress: [##########] 100% (10/12 plans)
 
 ## Completed Milestones
 
@@ -244,6 +244,7 @@ Progress: [########░░] 75% (9/12 plans)
 - [Phase 11]: Rollback restricted to Production/Verified/Closed status CRs; creates new CR through full approval flow
 - [Phase 11]: Submit endpoint auto-transitions Draft -> Submitted -> Under Review in single API call
 - [Phase 11-02]: Used custom relative time formatting instead of date-fns to keep bundle size unchanged
+- [Phase 12]: Kept Coupa dashboard route but removed from sidebar; kept ZIP in Partners > Onboarding; dashboard rewired to /api/dashboard/stats
 
 ### Blockers
 
@@ -318,5 +319,5 @@ None
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed 12-01-PLAN.md -- vendor management auth fix (3 screens, 0 raw fetch remaining)
+Stopped at: Completed 12-02-PLAN.md -- mock ERP removed, real dashboard stats, sidebar cleaned (Phase 12 complete)
 Resume file: .planning/NEXT_SESSION_PROMPT.md
