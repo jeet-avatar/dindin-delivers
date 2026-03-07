@@ -202,7 +202,7 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 | 09. Rideshare E2E Validation | v1.5 | 0/1 | Not started | - |
 | 10. Automated Support System | 2/3 | In Progress|  | - |
 | 11. Change Management Workflow | 3/3 | Complete    | 2026-03-07 | - |
-| 12. Fix Admin Portal UI | 2/2 | Complete   | 2026-03-07 | - |
+| 12. Fix Admin Portal UI | 2/2 | Complete    | 2026-03-07 | - |
 
 ---
 *Roadmap created: 2026-02-21*
