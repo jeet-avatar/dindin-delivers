@@ -38,12 +38,12 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 
 ### Admin Portal UI
 
-- [ ] **ADMIN-01**: Vendor management screens (Main, DocumentReview, MenuReview) use `api` axios instance with auth interceptor -- no raw `fetch()` calls
+- [x] **ADMIN-01**: Vendor management screens (Main, DocumentReview, MenuReview) use `api` axios instance with auth interceptor -- no raw `fetch()` calls
 - [ ] **ADMIN-02**: Mock ERP dashboard tabs (Jira, NetSuite, ZIP, ProcessUtility, NetSuiteWolt) removed from dashboard and sidebar
 - [ ] **ADMIN-03**: Main dashboard wired to real `/api/dashboard/stats` and `/api/dashboard/recent-activity` endpoints
 - [ ] **ADMIN-04**: Sidebar navigation cleaned -- no links to nonexistent screens (JiraDashboard, NetsuiteDashboard, Transactions)
-- [ ] **ADMIN-05**: All mock data removed (mockData.ts, mockNetSuiteTransactions.ts, _mockVendors state)
-- [ ] **ADMIN-06**: VendorManagement data mapping aligned with actual backend Vendor model fields
+- [x] **ADMIN-05**: All mock data removed (mockData.ts, mockNetSuiteTransactions.ts, _mockVendors state)
+- [x] **ADMIN-06**: VendorManagement data mapping aligned with actual backend Vendor model fields
 
 ## Future Requirements
 
@@ -93,12 +93,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DBROT-04 | 08 | Pending |
 | DBROT-05 | 08 | Pending |
 | E2E-01 | 09 | Pending |
-| ADMIN-01 | 12 | Pending |
+| ADMIN-01 | 12 | Complete |
 | ADMIN-02 | 12 | Pending |
 | ADMIN-03 | 12 | Pending |
 | ADMIN-04 | 12 | Pending |
-| ADMIN-05 | 12 | Pending |
-| ADMIN-06 | 12 | Pending |
+| ADMIN-05 | 12 | Complete |
+| ADMIN-06 | 12 | Complete |
 
 **Coverage:**
 - v1.5 requirements: 23 total
