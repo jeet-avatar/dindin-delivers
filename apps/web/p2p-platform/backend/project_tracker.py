@@ -11,7 +11,7 @@ Provides:
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, func, inspect, text, or_
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, func, inspect, text, or_
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from typing import Optional, List
@@ -73,6 +73,7 @@ class Department(Base):
     cases = relationship("ProjectCase", back_populates="department")
     members = relationship("TeamMember", back_populates="department", cascade="all, delete-orphan")
     assignment_rules = relationship("AssignmentRule", back_populates="department", cascade="all, delete-orphan")
+    required_fields = relationship("DepartmentRequiredField", back_populates="department", cascade="all, delete-orphan")
 
 
 class TeamMember(Base):
@@ -99,6 +100,22 @@ class AssignmentRule(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     department = relationship("Department", back_populates="assignment_rules")
+
+
+class DepartmentRequiredField(Base):
+    __tablename__ = "department_required_fields"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="CASCADE"), nullable=False, index=True)
+    field_name = Column(String(100), nullable=False)  # e.g., "branch_name", "runbook_url"
+    field_label = Column(String(200), nullable=False)  # e.g., "Branch Name", "Runbook URL"
+    field_type = Column(String(50), nullable=False, default="text")  # text, textarea, url, select
+    is_required = Column(Boolean, nullable=False, default=True)
+    options_json = Column(Text, nullable=True)  # JSON array for select type
+    sort_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    department = relationship("Department", back_populates="required_fields")
 
 
 # ==================== Pydantic Schemas ====================
@@ -1447,3 +1464,133 @@ def auto_assign_cases(db: Session = Depends(get_db)):
         "still_unassigned": still_unassigned,
         "by_department": dept_names,
     }
+
+
+# ==================== Department Required Fields CRUD ====================
+
+@department_router.get("/{dept_id}/required-fields")
+def list_required_fields(dept_id: int, db: Session = Depends(get_db)):
+    """List department-specific required fields for change requests."""
+    dept = db.query(Department).filter(Department.id == dept_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    fields = (
+        db.query(DepartmentRequiredField)
+        .filter(DepartmentRequiredField.department_id == dept_id)
+        .order_by(DepartmentRequiredField.sort_order, DepartmentRequiredField.id)
+        .all()
+    )
+    return [
+        {
+            "id": f.id,
+            "department_id": f.department_id,
+            "field_name": f.field_name,
+            "field_label": f.field_label,
+            "field_type": f.field_type,
+            "is_required": f.is_required,
+            "options_json": f.options_json,
+            "sort_order": f.sort_order,
+            "created_at": f.created_at.isoformat() if f.created_at else None,
+        }
+        for f in fields
+    ]
+
+
+@department_router.post("/{dept_id}/required-fields")
+def create_required_field(dept_id: int, data: dict, db: Session = Depends(get_db)):
+    """Create a required field for a department."""
+    dept = db.query(Department).filter(Department.id == dept_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    valid_types = {"text", "textarea", "url", "select"}
+    field_type = data.get("field_type", "text")
+    if field_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"field_type must be one of: {sorted(valid_types)}")
+
+    field = DepartmentRequiredField(
+        department_id=dept_id,
+        field_name=data.get("field_name", ""),
+        field_label=data.get("field_label", ""),
+        field_type=field_type,
+        is_required=data.get("is_required", True),
+        options_json=data.get("options_json"),
+        sort_order=data.get("sort_order", 0),
+    )
+    db.add(field)
+    db.commit()
+    db.refresh(field)
+    return {
+        "id": field.id,
+        "department_id": field.department_id,
+        "field_name": field.field_name,
+        "field_label": field.field_label,
+        "field_type": field.field_type,
+        "is_required": field.is_required,
+        "options_json": field.options_json,
+        "sort_order": field.sort_order,
+    }
+
+
+@department_router.delete("/{dept_id}/required-fields/{field_id}")
+def delete_required_field(dept_id: int, field_id: int, db: Session = Depends(get_db)):
+    """Delete a required field."""
+    field = (
+        db.query(DepartmentRequiredField)
+        .filter(DepartmentRequiredField.id == field_id, DepartmentRequiredField.department_id == dept_id)
+        .first()
+    )
+    if not field:
+        raise HTTPException(status_code=404, detail="Required field not found")
+    db.delete(field)
+    db.commit()
+    return {"deleted": True}
+
+
+# ==================== Seed Default Required Fields ====================
+
+DEFAULT_REQUIRED_FIELDS = {
+    "ENG": [
+        {"field_name": "branch_name", "field_label": "Branch Name", "field_type": "text", "is_required": True, "sort_order": 0},
+        {"field_name": "test_plan", "field_label": "Test Plan", "field_type": "textarea", "is_required": True, "sort_order": 1},
+        {"field_name": "rollback_plan", "field_label": "Rollback Plan", "field_type": "textarea", "is_required": False, "sort_order": 2},
+    ],
+    "DEVOPS": [
+        {"field_name": "runbook_url", "field_label": "Runbook URL", "field_type": "url", "is_required": True, "sort_order": 0},
+        {"field_name": "affected_services", "field_label": "Affected Services", "field_type": "text", "is_required": True, "sort_order": 1},
+    ],
+    "SEC": [
+        {"field_name": "vulnerability_id", "field_label": "Vulnerability ID", "field_type": "text", "is_required": False, "sort_order": 0},
+        {"field_name": "cvss_score", "field_label": "CVSS Score", "field_type": "text", "is_required": False, "sort_order": 1},
+    ],
+    "QA": [
+        {"field_name": "test_coverage_impact", "field_label": "Test Coverage Impact", "field_type": "textarea", "is_required": False, "sort_order": 0},
+    ],
+}
+
+
+def seed_default_required_fields(db: Session):
+    """Seed default required fields for departments if none exist."""
+    existing_count = db.query(func.count(DepartmentRequiredField.id)).scalar()
+    if existing_count and existing_count > 0:
+        return {"seeded": 0, "message": "Required fields already exist"}
+
+    seeded = 0
+    for dept_code, fields in DEFAULT_REQUIRED_FIELDS.items():
+        dept = db.query(Department).filter(Department.code == dept_code).first()
+        if not dept:
+            continue
+        for fdef in fields:
+            field = DepartmentRequiredField(
+                department_id=dept.id,
+                field_name=fdef["field_name"],
+                field_label=fdef["field_label"],
+                field_type=fdef["field_type"],
+                is_required=fdef["is_required"],
+                sort_order=fdef["sort_order"],
+            )
+            db.add(field)
+            seeded += 1
+
+    db.commit()
+    return {"seeded": seeded}
