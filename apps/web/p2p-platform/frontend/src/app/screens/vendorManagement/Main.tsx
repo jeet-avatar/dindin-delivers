@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getApiUrl } from '../../api/api';
+import api from '../../api/api';
 import {
   Users,
   Plus,
@@ -29,7 +29,8 @@ import { useVendorAnalytics } from '../../hooks/useVendorAnalytics';
 import AIOnboardingAssistant from '../../components/vendors/AIOnboardingAssistant';
 
 interface BackendVendor {
-  vendor_id: string;
+  id?: number;
+  vendor_id?: string;
   restaurant_name?: string;
   company_name?: string;
   tax_id?: string;
@@ -47,12 +48,17 @@ interface BackendVendor {
   zip_code?: string;
   country?: string;
   onboarding_status?: string;
+  onboarding_phase?: string;
+  is_published?: boolean;
   last_activity?: string;
   created_at?: string;
-  approved_date?: string;
+  updated_at?: string;
+  approved_at?: string;
   zip_status?: string;
   w9_form?: boolean;
   insurance?: boolean;
+  food_license?: boolean;
+  health_permit?: boolean;
   financial_statements?: boolean;
   compliance_certs?: boolean;
   security_policy?: boolean;
@@ -120,13 +126,13 @@ const Main: React.FC = () => {
 
   const fetchVendors = async () => {
     try {
-      const response = await fetch(`${getApiUrl()}/api/vendors`);
-      const data = await response.json();
-      
+      const response = await api.get('/vendors');
+      const data = response.data;
+
       // Map backend data to frontend format
       const mappedVendors = data.map((v: BackendVendor) => ({
-        id: v.vendor_id,
-        companyName: v.restaurant_name || v.company_name,
+        id: String(v.id || v.vendor_id),
+        companyName: v.restaurant_name || v.company_name || 'Unknown',
         taxId: v.tax_id || '',
         businessType: v.business_type || '',
         industry: v.industry || v.cuisine_type || '',
@@ -144,13 +150,13 @@ const Main: React.FC = () => {
           zip: v.zip_code || '',
           country: v.country || ''
         },
-        onboardingStatus: v.onboarding_status,
-        onboardingPhase: v.onboarding_phase,
-        riskRating: v.risk_rating,
-        performanceScore: v.performance_score || 0,
-        contractStatus: v.contract_status || 'none',
-        lastActivity: v.last_activity || v.updated_at,
-        createdDate: v.created_at,
+        onboardingStatus: v.onboarding_status || 'not_started',
+        onboardingPhase: v.onboarding_phase || 'registration',
+        riskRating: 'low' as const,
+        performanceScore: 0,
+        contractStatus: v.is_published ? 'active' as const : 'none' as const,
+        lastActivity: v.last_activity || v.updated_at || v.created_at || '',
+        createdDate: v.created_at || '',
         approvedDate: v.approved_at,
         zipStatus: v.zip_status || 'not_uploaded',
         requiredDocuments: {
@@ -161,7 +167,7 @@ const Main: React.FC = () => {
           securityPolicy: v.security_policy || false
         }
       }));
-      
+
       setVendors(mappedVendors);
     } catch (error) {
       console.error('Failed to fetch vendors:', error);
@@ -169,153 +175,6 @@ const Main: React.FC = () => {
     }
   };
 
-  const [_mockVendors] = useState<Vendor[]>([
-    {
-      id: 'vendor-001',
-      companyName: 'Tech Solutions Inc.',
-      taxId: '12-3456789',
-      businessType: 'Corporation',
-      industry: 'Technology',
-      website: 'https://techsolutions.com',
-      primaryContact: {
-        name: 'John Smith',
-        email: 'john.smith@techsolutions.com',
-        phone: '(555) 123-4567',
-        title: 'VP of Sales'
-      },
-      address: {
-        street: '123 Tech Street',
-        city: 'San Francisco',
-        state: 'CA',
-        zip: '94105',
-        country: 'US'
-      },
-      onboardingStatus: 'approved',
-      onboardingPhase: 'completed',
-      riskRating: 'low',
-      performanceScore: 95,
-      contractStatus: 'active',
-      lastActivity: '2024-03-15',
-      createdDate: '2024-01-15',
-      approvedDate: '2024-02-01',
-      zipStatus: 'approved',
-      requiredDocuments: {
-        w9Form: true,
-        insurance: true,
-        financialStatements: true,
-        complianceCerts: true,
-        securityPolicy: true
-      }
-    },
-    {
-      id: 'vendor-002',
-      companyName: 'Global Supplies Co.',
-      taxId: '98-7654321',
-      businessType: 'LLC',
-      industry: 'Manufacturing',
-      website: 'https://globalsupplies.com',
-      primaryContact: {
-        name: 'Sarah Johnson',
-        email: 'sarah.j@globalsupplies.com',
-        phone: '(555) 987-6543',
-        title: 'Account Manager'
-      },
-      address: {
-        street: '456 Industrial Blvd',
-        city: 'Chicago',
-        state: 'IL',
-        zip: '60601',
-        country: 'US'
-      },
-      onboardingStatus: 'in_progress',
-      onboardingPhase: 'due_diligence',
-      riskRating: 'medium',
-      performanceScore: 88,
-      contractStatus: 'draft',
-      lastActivity: '2024-03-16',
-      createdDate: '2024-03-01',
-      zipStatus: 'uploaded',
-      requiredDocuments: {
-        w9Form: true,
-        insurance: true,
-        financialStatements: false,
-        complianceCerts: true,
-        securityPolicy: false
-      }
-    },
-    {
-      id: 'vendor-003',
-      companyName: 'Quality Services Ltd.',
-      taxId: '55-1122334',
-      businessType: 'Corporation',
-      industry: 'Professional Services',
-      website: 'https://qualityservices.com',
-      primaryContact: {
-        name: 'Michael Chen',
-        email: 'mchen@qualityservices.com',
-        phone: '(555) 456-7890',
-        title: 'Business Development'
-      },
-      address: {
-        street: '789 Service Ave',
-        city: 'New York',
-        state: 'NY',
-        zip: '10001',
-        country: 'US'
-      },
-      onboardingStatus: 'pending_approval',
-      onboardingPhase: 'final_approval',
-      riskRating: 'low',
-      performanceScore: 92,
-      contractStatus: 'draft',
-      lastActivity: '2024-03-14',
-      createdDate: '2024-02-20',
-      zipStatus: 'verified',
-      requiredDocuments: {
-        w9Form: true,
-        insurance: true,
-        financialStatements: true,
-        complianceCerts: true,
-        securityPolicy: true
-      }
-    },
-    {
-      id: 'vendor-004',
-      companyName: 'Innovative Materials Corp.',
-      taxId: '77-9988776',
-      businessType: 'Corporation',
-      industry: 'Materials',
-      website: 'https://innovativematerials.com',
-      primaryContact: {
-        name: 'Emma Wilson',
-        email: 'ewilson@innovativematerials.com',
-        phone: '(555) 321-0987',
-        title: 'Sales Director'
-      },
-      address: {
-        street: '321 Innovation Dr',
-        city: 'Austin',
-        state: 'TX',
-        zip: '73301',
-        country: 'US'
-      },
-      onboardingStatus: 'not_started',
-      onboardingPhase: 'registration',
-      riskRating: 'medium',
-      performanceScore: 0,
-      contractStatus: 'none',
-      lastActivity: '2024-03-16',
-      createdDate: '2024-03-16',
-      zipStatus: 'not_uploaded',
-      requiredDocuments: {
-        w9Form: false,
-        insurance: false,
-        financialStatements: false,
-        complianceCerts: false,
-        securityPolicy: false
-      }
-    }
-  ]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
@@ -474,24 +333,14 @@ const Main: React.FC = () => {
   const handlePublishVendor = async (vendor: Vendor) => {
     setPublishingVendorId(vendor.id);
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${getApiUrl()}/api/admin/vendors/${vendor.id}/publish`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ platforms: ['ios', 'android', 'web'] })
+      await api.post(`/admin/vendors/${vendor.id}/publish`, {
+        platforms: ['ios', 'android', 'web']
       });
-      if (response.ok) {
-        alert(`${vendor.companyName} published successfully to iOS, Android, and Web!`);
-        fetchVendors();
-      } else {
-        const error = await response.json();
-        alert(`Publish failed: ${error.message || 'Unknown error'}`);
-      }
-    } catch (error) {
-      alert(`Publish failed: ${error}`);
+      alert(`${vendor.companyName} published successfully to iOS, Android, and Web!`);
+      fetchVendors();
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Publish failed: ${errMsg}`);
     } finally {
       setPublishingVendorId(null);
     }
@@ -508,16 +357,8 @@ const Main: React.FC = () => {
     setLoadingChecklist(true);
     setShowChecklistModal(true);
     try {
-      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-      const response = await fetch(`${getApiUrl()}/api/admin/vendors/${vendor.id}/publish-checklist`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setSelectedChecklist(data);
-      } else {
-        setSelectedChecklist({ error: 'Failed to load checklist' });
-      }
+      const response = await api.get(`/vendors/${vendor.id}/publish-checklist`);
+      setSelectedChecklist(response.data);
     } catch (_error) {
       setSelectedChecklist({ error: 'Failed to load checklist' });
     } finally {
