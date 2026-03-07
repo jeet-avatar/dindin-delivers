@@ -157,14 +157,18 @@ const RequestDetail: React.FC = () => {
     }
   };
 
-  const handleTransition = async (newStatus: string) => {
+  const handleTransition = async (newStatus: string, metadata?: Record<string, unknown>) => {
     if (!cr) return;
     setActionLoading(true);
     try {
-      await api.post(`/admin/change-requests/${cr.cr_id}/transition`, {
+      const payload: Record<string, unknown> = {
         new_status: newStatus,
         actor_email: getAdminEmail(),
-      });
+      };
+      if (metadata && Object.keys(metadata).length > 0) {
+        payload.metadata = metadata;
+      }
+      await api.post(`/admin/change-requests/${cr.cr_id}/transition`, payload);
       message.success(`Transitioned to ${newStatus}`);
       fetchCr();
     } catch (err: unknown) {
@@ -310,6 +314,123 @@ const RequestDetail: React.FC = () => {
       );
     }
 
+    if (status === 'In Progress') {
+      buttons.push(
+        <Button
+          key="mark-pr"
+          type="primary"
+          icon={<GitBranch size={14} />}
+          loading={actionLoading}
+          onClick={() => {
+            let prUrl = '';
+            let branchName = '';
+            Modal.confirm({
+              title: 'Mark PR Created',
+              icon: <GitBranch size={20} style={{ color: '#722ed1' }} />,
+              content: (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>PR URL (optional)</div>
+                    <Input
+                      placeholder="https://github.com/..."
+                      onChange={(e) => { prUrl = e.target.value; }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Branch Name (optional)</div>
+                    <Input
+                      placeholder="feature/my-branch"
+                      onChange={(e) => { branchName = e.target.value; }}
+                    />
+                  </div>
+                </div>
+              ),
+              okText: 'Mark PR Created',
+              onOk: () => {
+                const metadata: Record<string, string> = {};
+                if (prUrl.trim()) metadata.pr_url = prUrl.trim();
+                if (branchName.trim()) metadata.branch_name = branchName.trim();
+                return handleTransition('PR Created', metadata);
+              },
+            });
+          }}
+        >
+          Mark PR Created
+        </Button>
+      );
+      // Non-code CRs can skip PR/CI and go directly to Staging
+      if (cr.change_type !== 'code') {
+        buttons.push(
+          <Button
+            key="skip-to-staging"
+            icon={<Rocket size={14} />}
+            loading={actionLoading}
+            onClick={() => handleTransition('Staging')}
+          >
+            Deploy to Staging
+          </Button>
+        );
+      }
+    }
+
+    if (status === 'PR Created') {
+      buttons.push(
+        <Button
+          key="start-ci"
+          type="primary"
+          icon={<Rocket size={14} />}
+          loading={actionLoading}
+          onClick={() => {
+            let ciRunId = '';
+            Modal.confirm({
+              title: 'Start CI',
+              icon: <Rocket size={20} style={{ color: '#1890ff' }} />,
+              content: (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>CI Run ID (optional)</div>
+                  <Input
+                    placeholder="e.g. 12345678"
+                    onChange={(e) => { ciRunId = e.target.value; }}
+                  />
+                </div>
+              ),
+              okText: 'Start CI',
+              onOk: () => {
+                const metadata: Record<string, string> = {};
+                if (ciRunId.trim()) metadata.ci_run_id = ciRunId.trim();
+                return handleTransition('CI Running', metadata);
+              },
+            });
+          }}
+        >
+          Start CI
+        </Button>
+      );
+    }
+
+    if (status === 'CI Running') {
+      buttons.push(
+        <Button
+          key="ci-passed"
+          type="primary"
+          icon={<CheckCircle size={14} />}
+          loading={actionLoading}
+          onClick={() => handleTransition('Staging')}
+        >
+          CI Passed - Deploy to Staging
+        </Button>,
+        <Button
+          key="ci-failed"
+          danger
+          icon={<RotateCcw size={14} />}
+          loading={actionLoading}
+          onClick={() => handleTransition('In Progress')}
+        >
+          CI Failed - Back to In Progress
+        </Button>
+      );
+    }
+
     if (status === 'Staging') {
       buttons.push(
         <Button
@@ -376,9 +497,22 @@ const RequestDetail: React.FC = () => {
       );
     }
 
+    if (status === 'Rejected') {
+      buttons.push(
+        <Button
+          key="resubmit"
+          icon={<RotateCcw size={14} />}
+          loading={actionLoading}
+          onClick={() => handleTransition('Draft')}
+        >
+          Resubmit as Draft
+        </Button>
+      );
+    }
+
     if (buttons.length === 0) return null;
     return (
-      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
         {buttons}
       </div>
     );
