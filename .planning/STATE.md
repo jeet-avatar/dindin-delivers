@@ -318,10 +318,11 @@ None
 | 115 | Full admin portal UI audit — 26 endpoints tested, 24 PASS, 2 WARN, 0 FAIL | 2026-03-07 | e20e75ce | [115-full-admin-portal-ui-audit-verify-every-](./quick/115-full-admin-portal-ui-audit-verify-every-/) |
 | 116 | Audit project tracker + change management, fix missing workflow buttons | 2026-03-07 | 0910dc55 | [116-audit-project-tracker-change-management-](./quick/116-audit-project-tracker-change-management-/) |
 | 117 | Rebuild admin frontend, deploy staging + production — smoke tests green | 2026-03-07 | 892fd0e6 | [117-rebuild-admin-frontend-deploy-to-staging](./quick/117-rebuild-admin-frontend-deploy-to-staging/) |
+| 118 | Enterprise approval routing — multi-step chains, delegation, SLA tracking, dept fields | 2026-03-07 | eaa11f26 | [118-enterprise-approval-routing-audit-25-cas](./quick/118-enterprise-approval-routing-audit-25-cas/) |
 
 
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed quick task 117: Admin frontend rebuilt + deployed to staging + production
+Stopped at: Completed quick task 118: Enterprise approval routing with multi-step chains, delegation, SLA tracking
 Resume file: .planning/NEXT_SESSION_PROMPT.md
