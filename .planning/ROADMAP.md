@@ -71,7 +71,8 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 - [ ] **Phase 08: DB Password Rotation** - Enable automated Secrets Manager rotation for RDS credentials
 - [ ] **Phase 09: Rideshare E2E Validation** - Automated backend test covering full 12-step rideshare lifecycle
 - [ ] **Phase 10: Automated Support System** - Hide aspirational AI features, set up Twilio + OpenAI Realtime voice for phone support, fix chat for order tracking
-- [x] **Phase 11: Change Management Workflow** - Enterprise case management: request → approval → GSD execution → PR → CI/CD pipeline → deploy. All 2512+ cases tracked with full lifecycle. (completed 2026-03-07)
+- [x] **Phase 11: Change Management Workflow** - Enterprise case management: request -> approval -> GSD execution -> PR -> CI/CD pipeline -> deploy. All 2512+ cases tracked with full lifecycle. (completed 2026-03-07)
+- [ ] **Phase 12: Fix Admin Portal UI** - Fix vendor management auth, remove mock ERP dashboards, wire real dashboard stats
 
 ## Phase Details
 
@@ -136,44 +137,60 @@ Plans:
 - [ ] 09-01: Build and verify 12-step rideshare E2E test against staging
 
 ### Phase 10: Automated Support System
-**Goal**: One-man company has fully automated customer support — AI phone agent handles calls, chat tracks orders
+**Goal**: One-man company has fully automated customer support -- AI phone agent handles calls, chat tracks orders
 **Depends on**: None (can run independently)
 **Requirements**: SUPPORT-01, SUPPORT-02, SUPPORT-03
 **Success Criteria** (what must be TRUE):
   1. AI Employees and aspirational AI feature toggles are hidden from Restaurant app (AI Insights/analytics remains)
-  2. Twilio + OpenAI Realtime Voice handles incoming calls on support number — can look up orders, give status, handle basic support
+  2. Twilio + OpenAI Realtime Voice handles incoming calls on support number -- can look up orders, give status, handle basic support
   3. In-app chat for customer order tracking works (broken URLs fixed)
 **Plans**: 3 plans (Wave 1 parallel: 10-01 + 10-02, Wave 2: 10-03)
 
 Plans:
-- [ ] 10-01-PLAN.md — Hide aspirational AI features in Restaurant app (#if ENABLE_AI_EMPLOYEES), build OrderChatView for Customer and Driver apps, fix HelpSupportView phone number
-- [ ] 10-02-PLAN.md — Create Twilio + OpenAI Realtime voice agent backend (voice_agent.py, voice_agent_tools.py), add AI text chat endpoint (/api/support/chat)
-- [ ] 10-03-PLAN.md — Wire iOS Live Chat button to AI text agent, verify all Phase 10 deliverables
+- [ ] 10-01-PLAN.md -- Hide aspirational AI features in Restaurant app (#if ENABLE_AI_EMPLOYEES), build OrderChatView for Customer and Driver apps, fix HelpSupportView phone number
+- [ ] 10-02-PLAN.md -- Create Twilio + OpenAI Realtime voice agent backend (voice_agent.py, voice_agent_tools.py), add AI text chat endpoint (/api/support/chat)
+- [ ] 10-03-PLAN.md -- Wire iOS Live Chat button to AI text agent, verify all Phase 10 deliverables
 
 ### Phase 11: Change Management Workflow
-**Goal**: Enterprise-grade case management system — all changes flow through request → approval → execution → PR → CI/CD → deploy pipeline with full audit trail
+**Goal**: Enterprise-grade case management system -- all changes flow through request -> approval -> execution -> PR -> CI/CD -> deploy pipeline with full audit trail
 **Depends on**: Phase 10 (builds on existing project tracker from quick tasks 106-113)
 **Requirements**: CM-01, CM-02, CM-03, CM-04, CM-05, CM-06
 **Success Criteria** (what must be TRUE):
   1. Change requests can be submitted via admin portal form AND API endpoint
-  2. Requests auto-route to department lead for approval (no auto-approve — everything needs sign-off)
+  2. Requests auto-route to department lead for approval (no auto-approve -- everything needs sign-off)
   3. Approved cases trigger GSD executor to implement changes on feature branch with PR
   4. CI pipeline runs all checks (pytest, TypeScript, staging smoke test, approval verification) before merge
-  5. Full enterprise status lifecycle: Draft → Submitted → Under Review → Approved → In Progress → PR Created → CI Running → Staging → Production → Verified → Closed
-  6. Full audit log with every status change, approval, PR link, deploy — timestamped with who did it
+  5. Full enterprise status lifecycle: Draft -> Submitted -> Under Review -> Approved -> In Progress -> PR Created -> CI Running -> Staging -> Production -> Verified -> Closed
+  6. Full audit log with every status change, approval, PR link, deploy -- timestamped with who did it
   7. Email + in-app notifications on key transitions (approval needed, deployed, failed)
   8. Rollback creates revert PR through same approval flow (auditable)
 **Plans**: 3 plans (Wave 1: 11-01, Wave 2 parallel: 11-02 + 11-03)
 
 Plans:
-- [ ] 11-01-PLAN.md — Backend models (ChangeRequest, AuditLog), state machine, all CRUD/lifecycle/audit API routes, department lead routing, rollback
-- [ ] 11-02-PLAN.md — Admin portal UI: change management screens (request form, approval queue, request detail with timeline, audit log export)
-- [ ] 11-03-PLAN.md — Email + in-app notifications on lifecycle transitions, CI approval check endpoint, stale request monitoring
+- [ ] 11-01-PLAN.md -- Backend models (ChangeRequest, AuditLog), state machine, all CRUD/lifecycle/audit API routes, department lead routing, rollback
+- [ ] 11-02-PLAN.md -- Admin portal UI: change management screens (request form, approval queue, request detail with timeline, audit log export)
+- [ ] 11-03-PLAN.md -- Email + in-app notifications on lifecycle transitions, CI approval check endpoint, stale request monitoring
+
+### Phase 12: Fix Admin Portal UI
+**Goal:** Make the admin portal production-ready -- fix broken vendor management screens (auth headers), remove mock ERP dashboards, wire main dashboard to real operational stats
+**Depends on:** Phase 11 (admin frontend now served from backend)
+**Requirements**: ADMIN-01, ADMIN-02, ADMIN-03, ADMIN-04, ADMIN-05, ADMIN-06
+**Success Criteria** (what must be TRUE):
+  1. Vendor management screens load real data with proper auth headers (no 401 errors)
+  2. Main dashboard shows real Dollor.ai operational stats from /api/dashboard/stats
+  3. Mock ERP tabs and screens (Jira, NetSuite, ZIP) removed from dashboard and sidebar
+  4. No mock data files remain in the frontend codebase
+  5. All sidebar navigation items point to working, real-data screens
+**Plans**: 2 plans (Wave 1 -- parallel)
+
+Plans:
+- [ ] 12-01-PLAN.md -- Fix vendor management auth (replace raw fetch with api axios instance), remove mock vendor data, align data mapping
+- [ ] 12-02-PLAN.md -- Rewire dashboard to real stats, remove mock ERP tabs/screens, clean sidebar navigation, delete mock data files
 
 ## Progress
 
 **Execution Order:**
-Phase 06 (SSL fix, urgent) -> Phase 07 (Play Store) -> Phase 08 (DB rotation) -> Phase 09 (E2E validation) -> Phase 10 (Automated Support) -> Phase 11 (Change Management)
+Phase 06 (SSL fix, urgent) -> Phase 07 (Play Store) -> Phase 08 (DB rotation) -> Phase 09 (E2E validation) -> Phase 10 (Automated Support) -> Phase 11 (Change Management) -> Phase 12 (Admin Portal UI)
 
 Note: Phases 07 and 08 are technically independent and could run in parallel.
 
@@ -185,7 +202,8 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 | 09. Rideshare E2E Validation | v1.5 | 0/1 | Not started | - |
 | 10. Automated Support System | 2/3 | In Progress|  | - |
 | 11. Change Management Workflow | 3/3 | Complete    | 2026-03-07 | - |
+| 12. Fix Admin Portal UI | v1.5 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-21*
-*Last updated: 2026-03-07 -- Phase 11 plans created*
+*Last updated: 2026-03-07 -- Phase 12 plans created*
