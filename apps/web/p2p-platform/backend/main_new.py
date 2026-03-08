@@ -7074,6 +7074,24 @@ async def get_driver_earnings(
     tips = sum(float(o.tip or 0) for o in orders)
     bonuses = 0  # Bonus tracking not yet implemented
 
+    # Query completed rideshare rides for this driver
+    try:
+        from models import RideRequest, RideRequestStatus
+        rideshare_rides = db.query(RideRequest).filter(
+            RideRequest.matched_driver_id == driver.id,
+            RideRequest.status == RideRequestStatus.COMPLETED,
+            RideRequest.created_at >= start_date
+        ).all()
+    except Exception:
+        rideshare_rides = []
+
+    rideshare_earnings = sum(float(r.driver_payout or 0) for r in rideshare_rides)
+    rideshare_tips = sum(float(r.tip_amount or 0) for r in rideshare_rides)
+    rideshare_count = len(rideshare_rides)
+
+    total = round(base_earnings + tips + rideshare_earnings + rideshare_tips + bonuses, 2)
+    food_total = round(base_earnings + tips, 2)
+
     # Also return period-based totals for dashboard display
     return {
         "period": period,
@@ -7083,13 +7101,15 @@ async def get_driver_earnings(
         "base_earnings": round(base_earnings, 2),
         "tips": round(tips, 2),
         "bonuses": round(bonuses, 2),
-        "total_earnings": round(base_earnings + tips + bonuses, 2),
+        "rideshare_rides": rideshare_count,
+        "rideshare_earnings": round(rideshare_earnings + rideshare_tips, 2),
+        "total_earnings": total,
         "platform_fee": 0.00,  # Drivers pay $0 commission per CLAUDE.md
         "note": "100% of your earnings go to you. Dollor.ai charges $0 commission to drivers.",
         # Period totals for iOS/Android apps
-        "today": round(base_earnings + tips, 2) if period == "today" else 0,
-        "week": round(base_earnings + tips, 2) if period == "week" else 0,
-        "month": round(base_earnings + tips, 2) if period == "month" else 0,
+        "today": total if period == "today" else 0,
+        "week": total if period == "week" else 0,
+        "month": total if period == "month" else 0,
         "pending": 0.0  # Pending payout amount
     }
 
