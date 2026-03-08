@@ -1610,15 +1610,20 @@ async def get_driver_bids(
     driver_id: int,
     request: Request,
     status: Optional[str] = None,
+    days: int = 7,
     auth_driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
-    """Get all bids for a driver. Requires driver auth + ownership."""
+    """Get all bids for a driver. Requires driver auth + ownership. Filterable by days (default 7)."""
     if auth_driver.id != driver_id:
         raise HTTPException(status_code=403, detail="Not authorized to view this driver's bids")
     query = db.query(RideBid).options(
         joinedload(RideBid.driver)
     ).filter(RideBid.driver_id == driver_id)
+
+    # Filter by time window
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    query = query.filter(RideBid.created_at >= cutoff)
 
     if status:
         try:
@@ -1629,17 +1634,24 @@ async def get_driver_bids(
 
     bids = query.order_by(RideBid.created_at.desc()).limit(50).all()
 
-    # Include ride request info
+    # Include ride request info and count active rides
     result = []
+    active_rides_count = 0
     for bid in bids:
         bid_data = serialize_bid(bid)
         if bid.ride_request:
             bid_data["ride_request"] = serialize_ride_request(bid.ride_request)
         result.append(bid_data)
 
+        # Count bids where driver is actively matched on a live ride
+        if bid.status == BidStatus.ACCEPTED and bid.ride_request and \
+           bid.ride_request.status in (RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS):
+            active_rides_count += 1
+
     return {
         "success": True,
-        "bids": result
+        "bids": result,
+        "active_rides_count": active_rides_count
     }
 
 
