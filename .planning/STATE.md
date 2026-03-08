@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-08 - Completed quick task 123: Rideshare E2E flow test on production + sync tasks to tracker + seed departments
+Last activity: 2026-03-08 - Completed quick task 124: Fix 4 rideshare data issues (stale rides, earnings, bids, active count)
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -60,6 +60,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase 11-02]: Used custom relative time formatting instead of date-fns to keep bundle size unchanged
 - [Phase 12]: Kept Coupa dashboard route but removed from sidebar; dashboard rewired to /api/dashboard/stats
 - [Phase quick-121]: Fixed 6 bugs in rideshare E2E test; production result 14/15 PASS; Rate Ride expected fail on non-completed rides
+- [Phase quick-122]: 30-min null-expiry cutoff for stale rides; rideshare earnings as separate response fields for backward compat
 
 ### Blockers
 
@@ -136,10 +137,11 @@ None
 | 121 | Sync all 63 quick tasks into project tracker — endpoint + script + deploy staging/prod | 2026-03-07 | 2ccd124d | [120-sync-all-120-quick-tasks-into-project-tr](./quick/120-sync-all-120-quick-tasks-into-project-tr/) |
 | 122 | Fix admin UI misalignment — Tailwind Preflight vs antd CSS + CSP unsafe-inline fix | 2026-03-07 | 6c32fd96 | [debug](./debug/resolved/admin-portal-ui-broken-except-cm-pt.md) |
 | 123 | Rideshare E2E flow test on production + sync tasks to tracker + seed departments | 2026-03-08 | 71dee42a | [121-rideshare-e2e-flow-test-on-production-sy](./quick/121-rideshare-e2e-flow-test-on-production-sy/) |
+| 124 | Fix 4 rideshare data issues — stale rides, earnings, bids filter, active count | 2026-03-08 | 433a0677 | [122-fix-4-rideshare-data-issues-stale-rides-](./quick/122-fix-4-rideshare-data-issues-stale-rides-/) |
 
 
 ## Session Continuity
 
 Last session: 2026-03-08
-Stopped at: Rideshare E2E (14/15 pass), project tracker synced (65 tasks), 10 departments verified
+Stopped at: Completed quick-122: Fix 4 rideshare data issues (stale rides, earnings, bids filter, active count)
 Resume file: .planning/NEXT_SESSION_PROMPT.md
