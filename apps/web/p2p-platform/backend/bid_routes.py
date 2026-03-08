@@ -1025,7 +1025,10 @@ async def get_available_ride_requests(
             RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING]),
             or_(
                 RideRequest.bidding_expires_at > now,
-                RideRequest.bidding_expires_at.is_(None)
+                and_(
+                    RideRequest.bidding_expires_at.is_(None),
+                    RideRequest.created_at > now - timedelta(minutes=30)
+                )
             )
         )
     ).all()
@@ -2983,6 +2986,53 @@ async def delete_recurring_ride(ride_id: int, request: Request, customer: Custom
     return {"success": True, "message": "Recurring ride deleted"}
 
 
+# ==================== ADMIN CLEANUP ====================
+
+@router.post("/admin/cleanup-stale-rides")
+async def admin_cleanup_stale_rides(
+    request: Request,
+    max_age_hours: int = 24,
+    _auth: dict = Depends(require_any_auth),
+    db: Session = Depends(get_db)
+):
+    """Admin endpoint to force-expire all stale OPEN/BIDDING rides older than max_age_hours."""
+    jwt_role = _auth.get("role", "")
+    if jwt_role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can cleanup stale rides")
+
+    now = datetime.utcnow()
+    cutoff = now - timedelta(hours=max_age_hours)
+
+    stale_rides = db.query(RideRequest).filter(
+        RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING]),
+        RideRequest.created_at < cutoff
+    ).all()
+
+    cleaned_count = 0
+    for ride in stale_rides:
+        ride.status = RideRequestStatus.EXPIRED
+        ride.updated_at = now
+        cleaned_count += 1
+
+        # Expire pending bids
+        pending_bids = db.query(RideBid).filter(
+            RideBid.ride_request_id == ride.id,
+            RideBid.status == BidStatus.PENDING
+        ).all()
+        for bid in pending_bids:
+            bid.status = BidStatus.EXPIRED
+            bid.updated_at = now
+
+    db.commit()
+
+    return {
+        "success": True,
+        "cleaned_rides": cleaned_count,
+        "max_age_hours": max_age_hours,
+        "cutoff_time": cutoff.isoformat()
+    }
+
+
 # ==================== RIDE TIMEOUT / CLEANUP JOBS ====================
 # These run as background scheduler jobs (registered in order_flow.py)
 
@@ -3045,6 +3095,49 @@ def check_ride_bidding_expiry_job():
 
         db.commit()
         logger.info(f"Ride bidding expiry check: {expired_count} rides expired")
+
+        # Also expire stale rides with null bidding_expires_at (older than 30 min)
+        stale_null_rides = db.query(RideRequest).filter(
+            RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING]),
+            RideRequest.bidding_expires_at.is_(None),
+            RideRequest.created_at < now - timedelta(minutes=30)
+        ).all()
+
+        stale_count = 0
+        for ride in stale_null_rides:
+            ride.status = RideRequestStatus.EXPIRED
+            ride.updated_at = now
+            stale_count += 1
+            logger.info(
+                f"Ride {ride.request_id} auto-expired: null expiry, created "
+                f"{ride.created_at.isoformat()} (stale > 30 min)"
+            )
+
+            # Also expire any pending bids on this ride
+            pending_bids = db.query(RideBid).filter(
+                RideBid.ride_request_id == ride.id,
+                RideBid.status == BidStatus.PENDING
+            ).all()
+            for bid in pending_bids:
+                bid.status = BidStatus.EXPIRED
+                bid.updated_at = now
+
+            # Notify customer that ride expired with no match
+            try:
+                from order_flow import send_push_notification
+                send_push_notification(
+                    "customer",
+                    ride.customer_id,
+                    "No Drivers Available",
+                    "No drivers were available for your ride. Please try again.",
+                    {"type": "ride_expired", "ride_id": str(ride.id), "ride_request_id": ride.request_id or ""}
+                )
+            except Exception as push_err:
+                logger.warning(f"Failed to send expiry push for stale ride {ride.request_id}: {push_err}")
+
+        if stale_count > 0:
+            db.commit()
+            logger.info(f"Stale null-expiry cleanup: {stale_count} rides expired")
 
     except Exception as e:
         logger.error(f"Error in ride bidding expiry check: {e}")
