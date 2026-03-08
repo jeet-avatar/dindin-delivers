@@ -113,7 +113,7 @@ class RideshareTestAgent:
             if response.status_code == 200:
                 data = response.json()
                 self.customer_token = data.get("access_token")
-                self.customer_id = data.get("customer", {}).get("id")
+                self.customer_id = data.get("customer_id") or data.get("customer", {}).get("id")
                 return TestResult(True, f"Customer logged in (ID: {self.customer_id})", data)
             else:
                 return TestResult(False, f"Customer login failed: {response.status_code}",
@@ -136,7 +136,7 @@ class RideshareTestAgent:
             if response.status_code == 200:
                 data = response.json()
                 self.driver_token = data.get("access_token")
-                self.driver_id = data.get("driver", {}).get("id")
+                self.driver_id = data.get("driver_id") or data.get("driver", {}).get("id")
                 return TestResult(True, f"Driver logged in (ID: {self.driver_id})", data)
             else:
                 return TestResult(False, f"Driver login failed: {response.status_code}",
@@ -176,15 +176,17 @@ class RideshareTestAgent:
         """Customer creates a ride request"""
         try:
             response = self.session.post(
-                f"{API_URL}/api/erp/rides/request",
+                f"{API_URL}/api/rides/request",
                 json={
-                    "customer_name": "Demo Customer",
-                    "customer_email": CUSTOMER_EMAIL,
-                    "customer_phone": "9498881234",
-                    "pickup_address": PICKUP_ADDRESS,
-                    "dropoff_address": DROPOFF_ADDRESS,
-                    "tip": 5.00,
-                    "ride_type": "standard"
+                    "customer_id": self.customer_id or 0,
+                    "pickup_address": PICKUP_ADDRESS["formatted"],
+                    "pickup_latitude": PICKUP_ADDRESS["lat"],
+                    "pickup_longitude": PICKUP_ADDRESS["lng"],
+                    "dropoff_address": DROPOFF_ADDRESS["formatted"],
+                    "dropoff_latitude": DROPOFF_ADDRESS["lat"],
+                    "dropoff_longitude": DROPOFF_ADDRESS["lng"],
+                    "ride_type": "standard",
+                    "bidding_duration_minutes": 5
                 },
                 headers={
                     "Authorization": f"Bearer {self.customer_token}",
@@ -192,14 +194,15 @@ class RideshareTestAgent:
                 }
             )
 
-            if response.status_code == 200:
+            if response.status_code in (200, 201):
                 data = response.json()
-                # Store string ride_id for display, use numeric ID for API calls
-                self.ride_request_str = data.get("ride_id") or data.get("id")
-                # For API calls that need integer ID, use a mock or extracted numeric ID
-                # The ride_id is a string like "PURRIHMSMP", we need the DB record ID
-                self.ride_request_id = 1  # Will be updated by other endpoints
-                fare = data.get("estimated_fare") or data.get("total_fare", 0)
+                # Response is {"success": true, "ride_request": {...}}
+                ride_data = data.get("ride_request", data)
+                # Store string request_id for display, use numeric ID for API calls
+                self.ride_request_str = ride_data.get("request_id") or ride_data.get("ride_id") or ride_data.get("id")
+                # The ride_request object includes the DB record ID
+                self.ride_request_id = ride_data.get("id") or data.get("id") or data.get("ride_request_id")
+                fare = ride_data.get("suggested_price") or ride_data.get("estimated_fare") or 0
                 return TestResult(True,
                     f"Ride request created (ID: {self.ride_request_str}, Fare: ${fare})", data)
             else:
@@ -258,7 +261,8 @@ class RideshareTestAgent:
 
             if response.status_code == 200:
                 data = response.json()
-                self.bid_id = data.get("bid_id") or data.get("id")
+                bid_data = data.get("bid", {})
+                self.bid_id = bid_data.get("id") or data.get("bid_id") or data.get("id")
                 return TestResult(True,
                     f"Bid submitted: ${proposed_price} (Bid ID: {self.bid_id})", data)
             else:
@@ -455,7 +459,7 @@ class RideshareTestAgent:
         try:
             response = self.session.post(
                 f"{API_URL}/api/rides/{self.ride_request_id}/rate",
-                params={
+                json={
                     "rating": rating,
                     "comment": comment
                 },
