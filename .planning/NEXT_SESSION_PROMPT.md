@@ -4,20 +4,28 @@
 
 ---
 
-## Session Summary (Mar 7, 2026)
+## Session Summary (Mar 7, 2026 — Evening)
 
-### Completed This Session
-| Task | What | Commit |
-|------|------|--------|
-| Quick-114 | Removed placeholder AI/voice features from iOS Customer app | `253f98fb` |
-| Phase 11 | Change Management Workflow — full enterprise lifecycle, 14 API routes, 5 React screens | deployed |
-| Phase 12 | Fix Admin Portal UI — vendor auth fix, mock dashboard removal, sidebar cleanup | deployed |
-| Admin hosting | Admin portal now served from backend at `api.dollor.ai/admin` | `880be718`, `8f2e8e91` |
-| Password fix | Admin login reset to `DollorAdmin2026!` on staging + production | API call |
+### Completed This Session (8 tasks)
 
-### Phase 12 Details
-- **12-01**: Replaced 11 raw `fetch()` with `api` axios instance in 3 vendor management screens. Removed 150-line mock data.
-- **12-02**: Deleted 14 mock files (Jira, NetSuite, System, Transactions). Cleaned sidebar. Wired `/api/dashboard/stats`. -4,572 lines, -100KB bundle.
+| # | Task | What | Commit |
+|---|------|------|--------|
+| 115 | Admin portal audit | 26 endpoints tested, 24 PASS, 2 WARN, 0 FAIL | `e20e75ce` |
+| 116 | Project tracker + CM audit | 4 missing workflow buttons added (In Progress, PR Created, CI Running, Rejected) | `0910dc55` |
+| 117 | Deploy quick-116 | Frontend rebuilt + deployed staging + production | `892fd0e6` |
+| 118 | Enterprise approval routing | Multi-step chains, delegation, SLA tracking, dept-specific fields, 4 new models, 12 endpoints | `eaa11f26` |
+| 119 | Deploy quick-118 | Frontend rebuilt + deployed staging + production | `de132089` |
+| 120 | Fix change-requests 500 | Missing `custom_fields_json` column — added ALTER TABLE migration | `933252dd` |
+| 121 | Sync quick tasks to tracker | 63 quick tasks seeded as project cases (TC-2513 to TC-2575) | `2ccd124d` |
+| 122 | Fix admin UI misalignment | Tailwind Preflight vs antd CSS @layer fix + CSP `style-src 'unsafe-inline'` | `6c32fd96` |
+
+### Enterprise Approval Routing (Quick-118) — What Was Built
+- **ApprovalChainRule**: Configurable per department + priority (e.g., Engineering P1 → dept lead + CTO)
+- **ApprovalStep**: Per-CR sequential multi-level approval tracking
+- **ApprovalDelegation**: OOO coverage — delegate auto-resolves when lead unavailable
+- **DepartmentRequiredField**: Dept-specific required fields on CR creation (e.g., Engineering needs `branch_name`)
+- **SLA tracking**: Deadlines, overdue endpoint, color-coded urgency in approval queue
+- **Frontend**: Dynamic dept fields on form, approval chain progress, SLA indicators, Approval Rules admin tab
 
 ### Admin Portal Access
 - **Production**: `https://api.dollor.ai/admin`
@@ -26,15 +34,18 @@
 
 ---
 
-## PRIORITY 1: Verify Admin Portal Screens (10 min)
+## PRIORITY 1: Verify Admin Portal UI Fix (5 min)
 
-Log into production admin portal and verify:
-1. **Vendor Management** — restaurants load with real data (16 published vendors)
-2. **Dashboard** — real stats from `/api/dashboard/stats`
-3. **Change Management** — new CR form, approval queue, audit log all work
-4. **Drivers** — driver list loads
-5. **Rideshare** — ride requests and active rides load
-6. **Sidebar** — no broken links, all items go to real screens
+The CSP fix (`style-src 'unsafe-inline'`) was deployed. Verify:
+1. **Dashboard** — stats cards, charts render correctly (antd Table/Card/Statistic)
+2. **Orders** — table layout, filters, pagination all look right
+3. **Vendor Management** — restaurant list renders properly
+4. **Drivers** — driver list loads with correct layout
+5. **Accounting** — balance sheet, revenue tables aligned
+6. **Change Management** — approval chain progress, SLA indicators visible
+7. **Project Tracker** — cases list, department tabs, all functional
+
+If still broken → check browser console for remaining CSP violations.
 
 ---
 
@@ -55,21 +66,22 @@ Remaining incomplete phases:
 | 07 Play Store | 1/3 plans | Customer submitted, need Driver + Partner |
 | 08 DB Rotation | Not started | `/gsd:plan-phase 8` |
 | 09 Rideshare E2E | Not started | `/gsd:plan-phase 9` |
-| 10 Support System | 2/3 plans | Plan 10-03 remaining |
+| 10 Support System | 2/3 plans | Plan 10-03 remaining (wire Live Chat to AI agent) |
 
 ---
 
-## PRIORITY 4: Frontend Rebuild Workflow
+## PRIORITY 4: Department Setup for Project Tracker
 
-Currently manual: build frontend -> copy to backend/admin_frontend/ -> commit -> deploy.
-Could automate in CI/CD pipeline. Consider adding to deploy workflow.
+Quick-121 synced 63 quick tasks as project cases, but `department_id=NULL` because departments aren't seeded in production DB yet. Need to:
+1. Create departments (ENG, OPS, QA, SEC, PMO) on production via API
+2. Run auto-assign to classify the 63 cases into departments
 
 ---
 
-## Known Items
-- Coupa dashboard route kept but removed from sidebar — delete entirely if not needed
-- Dashboard main screen wired to real stats but may need visual polish
-- `force-reset-passwords` endpoint resets admin password — useful for dev/staging
+## Known Issues
+- `test_checkout_rejects_stale_prices_stripe_integration` — 1 test ERROR (needs live Stripe key)
+- Coupa dashboard route exists but removed from sidebar — can delete entirely
+- Frontend rebuild is still manual (build → copy → commit → deploy)
 
 ## Current Build Versions
 
@@ -88,9 +100,10 @@ Could automate in CI/CD pipeline. Consider adding to deploy workflow.
 
 ```
 /gsd:resume-work
--> Verify admin portal screens on production
--> Check App Store / Play Store review status
--> If approved, submit remaining apps
--> /gsd:plan-phase 8 (or next priority)
--> /gsd:pause-work
+→ Verify admin portal UI fix on production (all screens)
+→ Check App Store / Play Store review status
+→ If approved, submit remaining apps
+→ Set up departments on production for project tracker
+→ /gsd:plan-phase 8 (or next priority)
+→ /gsd:pause-work
 ```

@@ -322,11 +322,12 @@ None
 | 119 | Rebuild admin frontend with enterprise approval routing, deploy staging + production | 2026-03-07 | de132089 | [119-rebuild-admin-frontend-with-enterprise-a](./quick/119-rebuild-admin-frontend-with-enterprise-a/) |
 | 120 | Fix change-requests 500 — missing custom_fields_json column migration, deployed | 2026-03-07 | 933252dd | [debug](./debug/resolved/change-requests-500-after-approval-routing.md) |
 | 121 | Sync all 63 quick tasks into project tracker — endpoint + script + deploy staging/prod | 2026-03-07 | 2ccd124d | [120-sync-all-120-quick-tasks-into-project-tr](./quick/120-sync-all-120-quick-tasks-into-project-tr/) |
-| 122 | Fix admin UI misalignment — Tailwind Preflight overriding antd CSS, deployed | 2026-03-07 | ad598c6e | [debug](./debug/resolved/admin-portal-ui-broken-except-cm-pt.md) |
+| 122 | Fix admin UI misalignment — Tailwind Preflight vs antd CSS + CSP unsafe-inline fix | 2026-03-07 | 6c32fd96 | [debug](./debug/resolved/admin-portal-ui-broken-except-cm-pt.md) |
 
 
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Fixed admin UI misalignment (Tailwind vs antd CSS layer ordering), deployed to production
+Stopped at: 8 tasks completed — admin audit, enterprise approval routing, UI fixes, quick task sync, CSP fix
+Resume file: .planning/NEXT_SESSION_PROMPT.md
 Resume file: .planning/NEXT_SESSION_PROMPT.md
