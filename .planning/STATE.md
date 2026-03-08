@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Drivers keep 100% of delivery fees and tips
-**Current focus:** v1.5 Production Readiness -- Phase 12 in progress (Fix Admin Portal UI)
+**Current focus:** v1.5 Production Readiness -- Phase 12 complete, post-launch tasks in progress
 
 ## Current Position
 
-Phase: 12 of 12 (Fix Admin Portal UI)
+Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
-Status: Phase 12 complete -- mock ERP dashboards removed, real stats wired, sidebar cleaned
-Last activity: 2026-03-07 - Completed quick task 119: Admin frontend rebuilt with enterprise approval routing, deployed staging + production
+Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
+Last activity: 2026-03-08 - Session resumed, admin portal verified on production, App Store status checked
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -44,208 +44,22 @@ Progress: [##########] 100% (10/12 plans)
 
 ### Decisions
 
+- [Phase quick-79]: Android Apple Auth path mismatch is FALSE POSITIVE — Retrofit base URL resolves correctly
+- [Phase quick-80]: Build 1111 is the submission build; 39/39 stress tests PASS; GO for App Store
+- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code
+- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs
 - [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
 - [Phase quick-92]: Deploy-only task -- no code changes, CI/CD only via gh workflow run
-- [Phase quick-93]: require_driver auth for both endpoints; leave-at-door -> DELIVERED, no-leave -> DELIVERY_FAILED + refund; 5-min timer server-side enforcement
-- [Phase quick-97]: Android DeliveryAddressDict missing lat/lng was BREAKING -- fixed before deploying Wave 2 to production
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
-- [Phase quick-92]: Deploy-only task -- no code changes, CI/CD only via gh workflow run
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
-- [Phase quick-92]: Deploy-only task -- no code changes, CI/CD only via gh workflow run
-- [Phase quick-93]: require_driver auth for both endpoints; leave-at-door -> DELIVERED, no-leave -> DELIVERY_FAILED + refund; 5-min timer server-side enforcement
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
-- [Phase quick-92]: Deploy-only task -- no code changes, CI/CD only via gh workflow run
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-79]: Android Apple Auth path mismatch flagged as HIGH but is FALSE POSITIVE — Retrofit base URL /api/ resolves correctly to /api/auth/customer/apple-auth (main_new.py:20910)
-- [Phase quick-80]: Build 1111 is the submission build; all 39 production stress test checks PASS with 0 FAIL/0 WARNING; GO for App Store submission
-- [Phase quick-82]: Apple Auth path mismatch confirmed FALSE POSITIVE — all 3 Apple Auth paths (customer/driver/vendor) resolve correctly with Retrofit base URL
-- [Phase quick-83]: All 12 flags from quick-79 are false positives or cosmetic — 0 real API misalignment bugs
-- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code; CI runs --skip-android; api-contracts job non-blocking initially
-- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs, for proper retry deduplication
-- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
-- [Phase quick-92]: Deploy-only task -- no code changes, CI/CD only via gh workflow run
-- [Phase quick-93]: require_driver auth for both endpoints; leave-at-door -> DELIVERED, no-leave -> DELIVERY_FAILED + refund; 5-min timer server-side enforcement
-- [Phase quick-97]: Android DeliveryAddressDict missing lat/lng was BREAKING -- fixed before deploying Wave 2 to production
+- [Phase quick-93]: require_driver auth; leave-at-door -> DELIVERED, no-leave -> DELIVERY_FAILED + refund; 5-min timer
+- [Phase quick-97]: Android DeliveryAddressDict missing lat/lng was BREAKING -- fixed before Wave 2 deploy
 - [Phase quick-99]: Mock stripe.Refund.create directly (not order_flow.stripe) since stripe is imported inside function body
-- [Phase 11]: Non-code changes (config/docs/infrastructure/manual) use NON_CODE_TRANSITIONS to skip PR Created and CI Running states
+- [Phase quick-116]: Used Modal.confirm with inline Input for PR/CI metadata; non-code CRs skip PR/CI states
+- [Phase 11]: Non-code changes use NON_CODE_TRANSITIONS to skip PR Created and CI Running states
 - [Phase 11]: Rollback restricted to Production/Verified/Closed status CRs; creates new CR through full approval flow
 - [Phase 11]: Submit endpoint auto-transitions Draft -> Submitted -> Under Review in single API call
 - [Phase 11-02]: Used custom relative time formatting instead of date-fns to keep bundle size unchanged
-- [Phase 12]: Kept Coupa dashboard route but removed from sidebar; kept ZIP in Partners > Onboarding; dashboard rewired to /api/dashboard/stats
-- [Phase quick-116]: Used Modal.confirm with inline Input for PR/CI metadata; non-code CRs skip PR/CI states
+- [Phase 12]: Kept Coupa dashboard route but removed from sidebar; dashboard rewired to /api/dashboard/stats
+- [Phase quick-121]: Fixed 6 bugs in rideshare E2E test; production result 14/15 PASS; Rate Ride expected fail on non-completed rides
 
 ### Blockers
 
@@ -253,8 +67,6 @@ None
 
 ### Quick Tasks Completed
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 55 | Fix broken links in Restaurant iOS app — Help Center, Contact Support, Go to Admin Portal | 2026-03-02 | 1682b609 | [55-fix-broken-links-in-restaurant-ios-app-h](./quick/55-fix-broken-links-in-restaurant-ios-app-h/) |
@@ -329,5 +141,4 @@ None
 
 Last session: 2026-03-07
 Stopped at: 8 tasks completed — admin audit, enterprise approval routing, UI fixes, quick task sync, CSP fix
-Resume file: .planning/NEXT_SESSION_PROMPT.md
 Resume file: .planning/NEXT_SESSION_PROMPT.md
