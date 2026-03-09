@@ -4,90 +4,124 @@
 
 ---
 
-## Session Summary (Mar 7, 2026 — Evening)
+## Session Summary (Mar 9, 2026)
 
-### Completed This Session (8 tasks)
+### Completed This Session (5 tasks + 1 in-progress)
 
 | # | Task | What | Commit |
 |---|------|------|--------|
-| 115 | Admin portal audit | 26 endpoints tested, 24 PASS, 2 WARN, 0 FAIL | `e20e75ce` |
-| 116 | Project tracker + CM audit | 4 missing workflow buttons added (In Progress, PR Created, CI Running, Rejected) | `0910dc55` |
-| 117 | Deploy quick-116 | Frontend rebuilt + deployed staging + production | `892fd0e6` |
-| 118 | Enterprise approval routing | Multi-step chains, delegation, SLA tracking, dept-specific fields, 4 new models, 12 endpoints | `eaa11f26` |
-| 119 | Deploy quick-118 | Frontend rebuilt + deployed staging + production | `de132089` |
-| 120 | Fix change-requests 500 | Missing `custom_fields_json` column — added ALTER TABLE migration | `933252dd` |
-| 121 | Sync quick tasks to tracker | 63 quick tasks seeded as project cases (TC-2513 to TC-2575) | `2ccd124d` |
-| 122 | Fix admin UI misalignment | Tailwind Preflight vs antd CSS @layer fix + CSP `style-src 'unsafe-inline'` | `6c32fd96` |
+| 123 | Rideshare E2E flow test | 14/15 PASS on production, 65 tasks synced to tracker, 10 departments verified | `71dee42a` |
+| 124 | Fix 4 rideshare data issues | Stale rides cleanup (16 expired), rideshare earnings, bids filter (7-day), active count | `433a0677` |
+| 124 | Deploy rideshare fixes | CR-0001 through full lifecycle, staging + production deployed | CI/CD runs |
+| 125 | Enterprise Apple audit | 86 checks, 68 PASS, 3 FAIL, 10 WARN — **BUILD 1111 APPROVED by Apple** | `37b7f6c2` |
+| — | Apple cleanup TODO | 7 items saved for next iOS builds | `d3157b62` |
+| 126 | Restaurant app ASC prep | **IN PROGRESS** — plan created, executor interrupted by user | Plan only |
 
-### Enterprise Approval Routing (Quick-118) — What Was Built
-- **ApprovalChainRule**: Configurable per department + priority (e.g., Engineering P1 → dept lead + CTO)
-- **ApprovalStep**: Per-CR sequential multi-level approval tracking
-- **ApprovalDelegation**: OOO coverage — delegate auto-resolves when lead unavailable
-- **DepartmentRequiredField**: Dept-specific required fields on CR creation (e.g., Engineering needs `branch_name`)
-- **SLA tracking**: Deadlines, overdue endpoint, color-coded urgency in approval queue
-- **Frontend**: Dynamic dept fields on form, approval chain progress, SLA indicators, Approval Rules admin tab
+### STATE.md Cleanup
+- Removed 190 duplicate decision lines (333 → 143 lines)
 
-### Admin Portal Access
-- **Production**: `https://api.dollor.ai/admin`
-- **Staging**: `https://d34u5ixl0bulv4.cloudfront.net/admin`
-- **Login**: `support@dollor.ai` / `DollorAdmin2026!`
+### Key Discovery: iOS Customer App APPROVED
+- Build 1111 state: **PENDING_DEVELOPER_RELEASE** — ready to release to App Store
+- Apple is checking business papers/agreements — will confirm if anything else needed
+- Current production build: **1114** (latest uploaded Mar 6)
 
----
+### Rideshare Lifecycle (investigated)
+- Customer sets 1-30 min bidding window
+- Rides visible to drivers while OPEN/BIDDING AND bidding_expires_at > now
+- Auto-expiry job runs every 60s
+- Matched driver: 10-min no-show timeout → ride reopens +5 min
+- In-progress: 2-hour stall → auto-cancel
+- Each bid: 10-min individual expiry
 
-## PRIORITY 1: Verify Admin Portal UI Fix (5 min)
-
-The CSP fix (`style-src 'unsafe-inline'`) was deployed. Verify:
-1. **Dashboard** — stats cards, charts render correctly (antd Table/Card/Statistic)
-2. **Orders** — table layout, filters, pagination all look right
-3. **Vendor Management** — restaurant list renders properly
-4. **Drivers** — driver list loads with correct layout
-5. **Accounting** — balance sheet, revenue tables aligned
-6. **Change Management** — approval chain progress, SLA indicators visible
-7. **Project Tracker** — cases list, department tabs, all functional
-
-If still broken → check browser console for remaining CSP violations.
+### Slow Period Promotion (investigated)
+- NOT AI-powered — pure rule-based analytics
+- Endpoint: `GET /api/vendors/{vendor_id}/ai-insights`
+- Flags hours with < 2 orders as "slow", suggests discounts
+- Also generates: staffing recommendations, trending items, prep time alerts, demand forecast (simple hourly average)
+- No actual promotion creation system exists — just suggestions
 
 ---
 
-## PRIORITY 2: Check App Store / Play Store Reviews
+## PRIORITY 1: iOS Restaurant App — Complete ASC Setup + Submit
 
-- iOS Customer: was `WAITING_FOR_REVIEW` — check status
-- Android Customer: was `IN_REVIEW` on Play Store — check status
-- If approved: submit iOS Driver + Restaurant for review
+**Status:** Quick-126 plan created but executor was interrupted. Resume this.
+**Plan:** `.planning/quick/124-get-ios-restaurant-app-ready-for-app-sto/124-PLAN.md`
+
+The Restaurant app ASC metadata is **almost completely empty**:
+- ALL version localization fields null (description, keywords, supportUrl, etc.)
+- No categories set
+- Age rating not completed
+- No build attached to version
+- No review detail (no demo credentials)
+- Zero screenshots uploaded
+- Code has "Coming Soon" text in KOTSettingsView.swift (Toast POS)
+
+**Positive:** Sign in with Apple is implemented, demo vendor login works, no unused permissions (unlike Customer app).
+
+**Action:** Resume quick-126 execution — fill all ASC metadata via API, attach build 185, audit code, submit for review. Screenshots need manual upload.
 
 ---
 
-## PRIORITY 3: Continue v1.5 Roadmap
+## PRIORITY 2: iOS Driver App — Prepare + Submit
 
-Remaining incomplete phases:
+Same ASC metadata audit + fill needed for Driver app (com.dollorai.delivery, build 215).
+- Demo: demo.driver@dollor.ai / DemoDriver2025!
+- State: PREPARE_FOR_SUBMISSION
+
+---
+
+## PRIORITY 3: Release iOS Customer App
+
+Build 1111 is approved. Before releasing:
+1. Fill "What's New" text in ASC
+2. Set privacy URL in version localization
+3. Click "Release This Version"
+
+**Wait for Apple's business papers confirmation first.**
+
+---
+
+## PRIORITY 4: Apple Cleanup TODO (for next iOS builds)
+
+Saved at `.planning/todos/pending/2026-03-09-apple-app-store-ios-cleanup-for-next-builds.md`:
+1. Remove NSContactsUsageDescription (unused)
+2. Remove NSLocationAlwaysAndWhenInUseUsageDescription (unused)
+3. Set ENABLE_AI_FEATURES=NO in Production.xcconfig
+4. Delete ACHPaymentService.swift (dead code)
+5. Verify ASC privacy labels match SDK data collection
+6. Fill What's New text
+7. Set privacy URL in version localization
+
+---
+
+## PRIORITY 5: Continue v1.5 Roadmap
 
 | Phase | Status | Next Step |
 |-------|--------|-----------|
-| 07 Play Store | 1/3 plans | Customer submitted, need Driver + Partner |
+| 07 Play Store | 1/3 plans | Customer on internal, need production track |
 | 08 DB Rotation | Not started | `/gsd:plan-phase 8` |
 | 09 Rideshare E2E | Not started | `/gsd:plan-phase 9` |
-| 10 Support System | 2/3 plans | Plan 10-03 remaining (wire Live Chat to AI agent) |
+| 10 Support System | 2/3 plans | Plan 10-03 remaining |
 
 ---
 
-## PRIORITY 4: Department Setup for Project Tracker
+## Rideshare Fixes Deployed (Quick-124)
 
-Quick-121 synced 63 quick tasks as project cases, but `department_id=NULL` because departments aren't seeded in production DB yet. Need to:
-1. Create departments (ENG, OPS, QA, SEC, PMO) on production via API
-2. Run auto-assign to classify the 63 cases into departments
+| Fix | Before | After |
+|-----|--------|-------|
+| Available rides | 10+ stale ghost rides from Feb 14-18 | 0 (null-expiry >30min excluded + admin cleanup) |
+| Driver earnings | $0 (food delivery only) | Includes rideshare_rides, rideshare_earnings, rideshare_tips |
+| My bids | 19 (all historical) | Last 7 days default (`?days=` param) |
+| Active rides | 12 (all accepted bids ever) | Only MATCHED/IN_PROGRESS (`active_rides_count` field) |
+| Admin cleanup | No endpoint | `POST /api/rides/admin/cleanup-stale-rides` |
 
 ---
-
-## Known Issues
-- `test_checkout_rejects_stale_prices_stripe_integration` — 1 test ERROR (needs live Stripe key)
-- Coupa dashboard route exists but removed from sidebar — can delete entirely
-- Frontend rebuild is still manual (build → copy → commit → deploy)
 
 ## Current Build Versions
 
 | Platform | App | Build | Distribution |
 |----------|-----|-------|-------------|
-| iOS | Customer | 1113 | TestFlight Mar 6 |
+| iOS | Customer | 1114 | TestFlight Mar 6, **Build 1111 APPROVED** |
 | iOS | Driver | 215 | TestFlight Mar 6 |
 | iOS | Restaurant | 185 | TestFlight Mar 6 |
 | Android | Customer | vC=37 (1.0.36) | Firebase + Play Store Mar 6 |
@@ -96,14 +130,23 @@ Quick-121 synced 63 quick tasks as project cases, but `department_id=NULL` becau
 
 ---
 
+## Change Management Pipeline (Verified Working)
+
+Full lifecycle tested with CR-0001:
+Draft → Submitted → Under Review → Approved → In Progress → PR Created → CI Running → Staging → Production → Verified → Closed
+
+12 audit trail entries recorded. Pipeline: Project Tracker case → Change Request → CI/CD deploy.
+
+---
+
 ## Suggested Session Flow
 
 ```
 /gsd:resume-work
-→ Verify admin portal UI fix on production (all screens)
-→ Check App Store / Play Store review status
-→ If approved, submit remaining apps
-→ Set up departments on production for project tracker
-→ /gsd:plan-phase 8 (or next priority)
+→ Complete Restaurant app ASC metadata + submit (quick-126)
+→ Prepare Driver app ASC metadata + submit
+→ Release Customer app (after Apple confirms business papers)
+→ Apply Apple cleanup TODO items + rebuild iOS apps
+→ Continue v1.5 roadmap (Phase 08 or 09)
 → /gsd:pause-work
 ```
