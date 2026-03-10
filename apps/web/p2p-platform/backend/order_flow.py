@@ -3537,10 +3537,7 @@ async def order_delivered(
     # ==================== DELIVERY PROOF PHOTO GATE ====================
     # If no proof photo uploaded, hold payment and require photo first
     if not order.delivery_photo_url:
-        order.status = OrderStatus.PENDING_DELIVERY_PROOF
-        order.updated_at = datetime.now()
-        db.commit()
-        return {
+        proof_gate_response = {
             "success": True,
             "order_id": order.id,
             "order_number": order.order_number,
@@ -3548,6 +3545,17 @@ async def order_delivered(
             "requires_photo": True,
             "message": "Please upload a delivery proof photo to complete this delivery"
         }
+        try:
+            order.status = OrderStatus.PENDING_DELIVERY_PROOF
+            # Note: updated_at is handled by SQLAlchemy onupdate=datetime.utcnow
+            db.commit()
+            logger.info(f"Delivery proof gate: order {order_id} requires photo upload")
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Delivery proof gate DB error for order {order_id}: {e}")
+            # Still return the proof gate response even if DB status update fails —
+            # the client needs to know a photo is required regardless
+        return proof_gate_response
 
     # Update order status FIRST (this must succeed regardless of accounting)
     order.status = OrderStatus.DELIVERED

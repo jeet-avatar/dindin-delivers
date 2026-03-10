@@ -1552,6 +1552,35 @@ def _run_startup_migrations():
                     print(f"Index creation: {e}")
 
             conn.commit()
+
+            # Add missing OrderStatus enum values to PostgreSQL
+            # SQLAlchemy uses enum NAMES (uppercase) as DB values, and create_all
+            # does not add new enum values to existing types. Must use ALTER TYPE.
+            # NOTE: ALTER TYPE ... ADD VALUE cannot run inside a transaction in some
+            # PostgreSQL versions, so we use autocommit mode.
+            new_order_statuses = [
+                "PENDING_RESTAURANT",
+                "DECLINED_BY_RESTAURANT",
+                "RESTAURANT_TIMEOUT",
+                "PENDING_DELIVERY_DECISION",
+                "RESTAURANT_WILL_DELIVER",
+                "DELIVERY_DECISION_TIMEOUT",
+                "PENDING_DELIVERY_PROOF",
+                "DELIVERY_FAILED",
+            ]
+            for status_name in new_order_statuses:
+                try:
+                    conn.execute(text(f"ALTER TYPE orderstatus ADD VALUE IF NOT EXISTS '{status_name}'"))  # nosemgrep: avoid-sqlalchemy-text
+                    conn.commit()
+                except Exception as e:
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+                    # Value may already exist or DB may not support ALTER TYPE (e.g., SQLite)
+                    if "already exists" not in str(e).lower() and "no such" not in str(e).lower():
+                        print(f"OrderStatus enum migration {status_name}: {e}")
+
             print("Database migrations completed successfully (including Phase 3 indexes)")
     except Exception as e:
         print(f"Migration error: {e}")
