@@ -432,6 +432,9 @@ class Order(Base):
     delivery_fee = Column(Float, default=0.0)
     tip = Column(Float, default=0.0)  # Customer tip for driver
     platform_fee = Column(Float, default=0.0)  # Your commission ($1 flat fee)
+    discount_amount = Column(Float, default=0.0)  # Promo discount applied
+    promo_code = Column(String(50), nullable=True)  # Applied promo code
+    promo_type = Column(String(50), nullable=True)  # percentage, flat, free_delivery, bogo
     total_amount = Column(Float, nullable=False)
     
     # Delivery Details

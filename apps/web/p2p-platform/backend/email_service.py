@@ -1566,7 +1566,9 @@ def send_order_delivered_with_receipt_email(
     order_total: float,
     driver_name: str,
     delivery_address: str,
-    order_date: str
+    order_date: str,
+    discount_amount: float = 0.0,
+    promo_code: str = None
 ) -> bool:
     """
     Send thank you email with full receipt when order is delivered.
@@ -1679,6 +1681,7 @@ def send_order_delivered_with_receipt_email(
                             <span>Tax</span>
                             <span>${tax_amount:.2f}</span>
                         </div>
+                        {"<div class='total-row' style='color: #22c55e;'><span>Discount (" + promo_code + ")</span><span>-$" + f"{discount_amount:.2f}</span></div>" if discount_amount and discount_amount > 0 else ""}
                         {"<div class='total-row'><span>Tip</span><span>$" + f"{tip:.2f}</span></div>" if tip > 0 else ""}
                         <div class="total-row grand-total">
                             <span>Total</span>
@@ -1735,6 +1738,7 @@ def send_order_delivered_with_receipt_email(
     Delivery Fee: ${delivery_fee:.2f}
     Service Fee: ${service_fee:.2f}
     Tax: ${tax_amount:.2f}
+    {"Discount (" + (promo_code or "") + "): -$" + f"{discount_amount:.2f}" if discount_amount and discount_amount > 0 else ""}
     {"Tip: $" + f"{tip:.2f}" if tip > 0 else ""}
     -------------------
     TOTAL: ${order_total:.2f}
@@ -1743,6 +1747,105 @@ def send_order_delivered_with_receipt_email(
     Drivers keep 100% of tips on Dollor.AI.
 
     Thank you for choosing Dollor!
+
+    Questions? support@dollor.ai
+    — The Dollor.AI Team
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
+def send_delivery_completed_driver_email(
+    to_email: str,
+    driver_name: str,
+    order_number: str,
+    restaurant_name: str,
+    delivery_fee: float,
+    tip: float,
+    total_earnings: float = None
+) -> bool:
+    """
+    Send earnings email to driver after food delivery completion.
+    Drivers keep 100% — $0 platform fee for food delivery.
+    """
+    if total_earnings is None:
+        total_earnings = delivery_fee + tip
+
+    subject = f"Delivery Complete! You Earned ${total_earnings:.2f}"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; }}
+            .header {{ background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 30px 20px; text-align: center; color: white; }}
+            .content {{ padding: 30px; }}
+            .earnings-box {{ background: #ecfdf5; border-radius: 12px; padding: 25px; margin: 20px 0; border: 2px solid #22c55e; }}
+            .earnings-row {{ display: flex; justify-content: space-between; padding: 8px 0; }}
+            .earnings-label {{ color: #64748b; }}
+            .earnings-value {{ font-weight: 500; color: #1e293b; }}
+            .earnings-total {{ display: flex; justify-content: space-between; padding: 15px 0; border-top: 2px solid #22c55e; margin-top: 10px; }}
+            .total-label {{ font-size: 18px; font-weight: bold; color: #059669; }}
+            .total-value {{ font-size: 24px; font-weight: bold; color: #059669; }}
+            .zero-fee {{ background: #f0fdf4; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: center; border: 1px dashed #22c55e; }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>Delivery Complete!</h2>
+                <p style="margin: 5px 0 0 0; opacity: 0.9;">Order #{order_number}</p>
+            </div>
+            <div class="content">
+                <p>Great job, {driver_name}!</p>
+                <p style="color: #64748b;">You delivered from <strong>{restaurant_name}</strong>. Here are your earnings:</p>
+
+                <div class="earnings-box">
+                    <div class="earnings-row">
+                        <span class="earnings-label">Delivery Fee</span>
+                        <span class="earnings-value">${delivery_fee:.2f}</span>
+                    </div>
+                    {"<div class='earnings-row'><span class='earnings-label'>Tip</span><span class='earnings-value'>$" + f"{tip:.2f}</span></div>" if tip > 0 else ""}
+                    <div class="earnings-row">
+                        <span class="earnings-label">Platform Fee</span>
+                        <span class="earnings-value" style="color: #22c55e;">$0.00</span>
+                    </div>
+                    <div class="earnings-total">
+                        <span class="total-label">TOTAL EARNINGS</span>
+                        <span class="total-value">${total_earnings:.2f}</span>
+                    </div>
+                </div>
+
+                <div class="zero-fee">
+                    <p style="margin: 0; color: #059669; font-weight: 600;">You keep 100% &mdash; Dollor.AI charges $0 to drivers for food delivery.</p>
+                </div>
+            </div>
+            <div class="footer">
+                <p>Questions? Contact support@dollor.ai</p>
+                <p>&copy; 2026 Dollor.AI by Zietra Technologies Inc.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Delivery Complete! Order #{order_number}
+
+    Great job, {driver_name}!
+    Restaurant: {restaurant_name}
+
+    YOUR EARNINGS:
+    Delivery Fee: ${delivery_fee:.2f}
+    {"Tip: $" + f"{tip:.2f}" if tip > 0 else ""}
+    Platform Fee: $0.00
+    -------------------
+    TOTAL EARNINGS: ${total_earnings:.2f}
+
+    You keep 100% — Dollor.AI charges $0 to drivers for food delivery.
 
     Questions? support@dollor.ai
     — The Dollor.AI Team
@@ -1906,12 +2009,48 @@ def send_new_order_vendor_email(
     order_number: str,
     customer_name: str,
     order_total: float,
-    items_summary: str = ""
+    items_summary: str = "",
+    subtotal: float = 0.0,
+    discount_amount: float = 0.0,
+    promo_code: str = None,
+    platform_fee: float = 1.0,
+    vendor_payout: float = None
 ) -> bool:
     """
-    Send email to vendor when new order is received.
+    Send email to vendor when new order is received with payout breakdown.
     """
     subject = f"New Order #{order_number} - ${order_total:.2f}"
+
+    # Calculate vendor payout if not provided
+    if vendor_payout is None:
+        vendor_payout = (subtotal or order_total) - discount_amount - platform_fee
+
+    # Build payout breakdown HTML
+    payout_html = ""
+    if subtotal > 0:
+        payout_html = f"""
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #f59e0b;">
+                        <p style="font-weight: 600; color: #92400e; margin-bottom: 10px;">YOUR PAYOUT BREAKDOWN:</p>
+                        <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                            <span style="color: #64748b;">Subtotal</span>
+                            <span style="font-weight: 500;">${subtotal:.2f}</span>
+                        </div>"""
+        if discount_amount > 0:
+            payout_html += f"""
+                        <div style="display: flex; justify-content: space-between; padding: 4px 0; color: #22c55e;">
+                            <span>Discount ({promo_code or 'Promo'})</span>
+                            <span>-${discount_amount:.2f}</span>
+                        </div>"""
+        payout_html += f"""
+                        <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                            <span style="color: #64748b;">Platform Fee</span>
+                            <span style="font-weight: 500;">-${platform_fee:.2f}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 2px solid #d97706; margin-top: 8px; font-weight: bold; font-size: 16px;">
+                            <span style="color: #92400e;">YOUR PAYOUT</span>
+                            <span style="color: #22c55e;">${vendor_payout:.2f}</span>
+                        </div>
+                    </div>"""
 
     html_body = f"""
     <!DOCTYPE html>
@@ -1939,26 +2078,41 @@ def send_new_order_vendor_email(
                     <h3>Order #{order_number}</h3>
                     <p><strong>Customer:</strong> {customer_name}</p>
                     {f'<p><strong>Items:</strong> {items_summary}</p>' if items_summary else ''}
-                    <p><strong>Total:</strong> ${order_total:.2f}</p>
+                    <p><strong>Order Total:</strong> ${order_total:.2f}</p>
+                    {payout_html}
                 </div>
 
                 <p>Open the Dollor.AI Partner app to accept this order!</p>
             </div>
             <div class="footer">
                 <p>{restaurant_name}</p>
-                <p>2025 Dollor.AI by Zietra Technologies Inc.</p>
+                <p>2026 Dollor.AI by Zietra Technologies Inc.</p>
             </div>
         </div>
     </body>
     </html>
     """
 
+    # Build payout text
+    payout_text = ""
+    if subtotal > 0:
+        payout_text = f"""
+    YOUR PAYOUT BREAKDOWN:
+    Subtotal: ${subtotal:.2f}"""
+        if discount_amount > 0:
+            payout_text += f"\n    Discount ({promo_code or 'Promo'}): -${discount_amount:.2f}"
+        payout_text += f"""
+    Platform Fee: -${platform_fee:.2f}
+    -------------------
+    YOUR PAYOUT: ${vendor_payout:.2f}"""
+
     text_body = f"""
     NEW ORDER for {restaurant_name}!
 
     Order #{order_number}
     Customer: {customer_name}
-    Total: ${order_total:.2f}
+    Order Total: ${order_total:.2f}
+    {payout_text}
 
     Please confirm within 3 minutes!
     Open the Dollor.AI Partner app to accept.
