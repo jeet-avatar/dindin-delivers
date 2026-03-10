@@ -30,16 +30,17 @@ fi
 # ---------------------------------------------------------------------------
 # Environment URLs for display
 # ---------------------------------------------------------------------------
-declare -A ENV_URLS=(
-    ["staging"]="https://d34u5ixl0bulv4.cloudfront.net"
-    ["production"]="https://api.dollor.ai"
-)
+if [[ "$ENV" == "staging" ]]; then
+    TARGET_URL="https://d34u5ixl0bulv4.cloudfront.net"
+else
+    TARGET_URL="https://api.dollor.ai"
+fi
 
 echo "============================================="
 echo " Dollor.ai Smoke Tests"
 echo "============================================="
 echo " Environment: $ENV"
-echo " Target URL:  ${ENV_URLS[$ENV]}"
+echo " Target URL:  $TARGET_URL"
 echo " Time:        $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
 echo "============================================="
 echo ""
@@ -47,12 +48,17 @@ echo ""
 # ---------------------------------------------------------------------------
 # Build pytest command
 # ---------------------------------------------------------------------------
+SMOKE_DIR="$BACKEND_DIR/tests/smoke"
+
 PYTEST_ARGS=(
     -v
     --tb=short
     --no-header
     "--env=$ENV"
-    "$BACKEND_DIR/tests/smoke/"
+    -c /dev/null
+    --rootdir="$SMOKE_DIR"
+    --confcutdir="$SMOKE_DIR"
+    "$SMOKE_DIR/"
 )
 
 if [[ "$ENV" == "production" ]]; then
@@ -63,12 +69,14 @@ fi
 # ---------------------------------------------------------------------------
 # Run tests
 # ---------------------------------------------------------------------------
-cd "$BACKEND_DIR"
 
 # Activate venv if present
-if [[ -f "venv/bin/activate" ]]; then
-    source venv/bin/activate
+if [[ -f "$BACKEND_DIR/venv/bin/activate" ]]; then
+    source "$BACKEND_DIR/venv/bin/activate"
 fi
+
+# Run from smoke dir to avoid parent conftest loading
+cd "$SMOKE_DIR"
 
 START_TIME=$(date +%s)
 
@@ -88,7 +96,7 @@ echo "============================================="
 echo " Smoke Test Summary"
 echo "============================================="
 echo " Environment: $ENV"
-echo " Target URL:  ${ENV_URLS[$ENV]}"
+echo " Target URL:  $TARGET_URL"
 echo " Duration:    ${DURATION}s"
 if [[ $EXIT_CODE -eq 0 ]]; then
     echo " Result:      PASS"
