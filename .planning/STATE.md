@@ -62,6 +62,25 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-121]: Fixed 6 bugs in rideshare E2E test; production result 14/15 PASS; Rate Ride expected fail on non-completed rides
 - [Phase quick-122]: 30-min null-expiry cutoff for stale rides; rideshare earnings as separate response fields for backward compat
 - [Phase quick-123]: Build 1111 APPROVED (PENDING_DEVELOPER_RELEASE); 3 metadata blockers; CONDITIONAL GO for release
+- [Phase quick-125]: Vendor absorbs promo discount; platform keeps - [Phase quick-79]: Android Apple Auth path mismatch is FALSE POSITIVE — Retrofit base URL resolves correctly
+- [Phase quick-80]: Build 1111 is the submission build; 39/39 stress tests PASS; GO for App Store
+- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code
+- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs
+- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
+- [Phase quick-92]: Deploy-only task -- no code changes, CI/CD only via gh workflow run
+- [Phase quick-93]: require_driver auth; leave-at-door -> DELIVERED, no-leave -> DELIVERY_FAILED + refund; 5-min timer
+- [Phase quick-97]: Android DeliveryAddressDict missing lat/lng was BREAKING -- fixed before Wave 2 deploy
+- [Phase quick-99]: Mock stripe.Refund.create directly (not order_flow.stripe) since stripe is imported inside function body
+- [Phase quick-116]: Used Modal.confirm with inline Input for PR/CI metadata; non-code CRs skip PR/CI states
+- [Phase 11]: Non-code changes use NON_CODE_TRANSITIONS to skip PR Created and CI Running states
+- [Phase 11]: Rollback restricted to Production/Verified/Closed status CRs; creates new CR through full approval flow
+- [Phase 11]: Submit endpoint auto-transitions Draft -> Submitted -> Under Review in single API call
+- [Phase 11-02]: Used custom relative time formatting instead of date-fns to keep bundle size unchanged
+- [Phase 12]: Kept Coupa dashboard route but removed from sidebar; dashboard rewired to /api/dashboard/stats
+- [Phase quick-121]: Fixed 6 bugs in rideshare E2E test; production result 14/15 PASS; Rate Ride expected fail on non-completed rides
+- [Phase quick-122]: 30-min null-expiry cutoff for stale rides; rideshare earnings as separate response fields for backward compat
+- [Phase quick-123]: Build 1111 APPROVED (PENDING_DEVELOPER_RELEASE); 3 metadata blockers; CONDITIONAL GO for release
+/order flat. Built-in codes + DB promos
 
 ### Blockers
 
@@ -140,10 +159,11 @@ None
 | 123 | Rideshare E2E flow test on production + sync tasks to tracker + seed departments | 2026-03-08 | 71dee42a | [121-rideshare-e2e-flow-test-on-production-sy](./quick/121-rideshare-e2e-flow-test-on-production-sy/) |
 | 124 | Fix 4 rideshare data issues — stale rides, earnings, bids filter, active count | 2026-03-08 | 433a0677 | [122-fix-4-rideshare-data-issues-stale-rides-](./quick/122-fix-4-rideshare-data-issues-stale-rides-/) |
 | 125 | Enterprise App Store audit — 86 checks, 68 PASS, 3 FAIL, 10 WARNING, build 1111 APPROVED | 2026-03-09 | ed5340cd | [123-enterprise-level-apple-app-store-submiss](./quick/123-enterprise-level-apple-app-store-submiss/) |
+| 126 | Wire promotion system into payment flow — promo codes, discount math, receipt/driver/vendor emails, real featured deals | 2026-03-10 | c4b60252 | [125-wire-promotion-system-into-payment-flow](./quick/125-wire-promotion-system-into-payment-flow/) |
 
 
 ## Session Continuity
 
-Last session: 2026-03-09
-Stopped at: 5 tasks complete (rideshare E2E, data fixes, deploy, Apple audit, TODO). Restaurant app ASC prep in progress. Build 1111 APPROVED by Apple.
+Last session: 2026-03-10
+Stopped at: Completed quick-125: Wire promotion system into payment flow. Deployed to staging + production.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
