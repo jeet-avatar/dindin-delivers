@@ -1493,15 +1493,36 @@ async def confirm_payment(
     order.sent_to_restaurant_at = datetime.now()
 
     # In-app notification for customer
+    vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+    restaurant_name = vendor.restaurant_name if vendor else "The restaurant"
     if order.customer_id:
-        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
-        restaurant_name = vendor.restaurant_name if vendor else "The restaurant"
         _notify_customer(db, order.customer_id,
                          "Order Confirmed",
                          f"Your order from {restaurant_name} has been confirmed and sent to the restaurant.",
                          "order", order.id, "order")
 
     db.commit()
+
+    # GAP-1 FIX: Send push notification to customer at order placement
+    try:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer and customer.push_token:
+            send_push_notification(
+                user_type="customer",
+                user_id=customer.id,
+                title="Order Placed!",
+                body=f"Your order from {restaurant_name} has been confirmed. We'll keep you updated!",
+                data={
+                    "type": "order_placed",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "status": "confirmed"
+                },
+                db=db
+            )
+            logger.info(f"Order placed push sent to customer {customer.id} for order {order.order_number}")
+    except Exception as e:
+        logger.warning(f"Failed to send order placed push notification: {e}")
 
     # Send push notification to vendor/restaurant about new order
     try:
@@ -3142,6 +3163,31 @@ async def update_order_status(
         order.status = OrderStatus.PENDING_DELIVERY_DECISION
         order.ready_for_pickup_at = datetime.now()
         order.delivery_decision_sent_at = datetime.now()
+
+        # GAP-2 FIX: Notify customer that food is ready
+        try:
+            from models import Customer, Vendor
+            customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+            r_name = vendor.restaurant_name if vendor else "The restaurant"
+            if customer:
+                send_push_notification(
+                    user_type="customer",
+                    user_id=customer.id,
+                    title="Your food is ready!",
+                    body=f"{r_name} has finished preparing your order. Delivery will begin shortly.",
+                    data={
+                        "type": "order_ready",
+                        "order_id": str(order.id),
+                        "order_number": order.order_number,
+                        "status": "ready_for_pickup"
+                    },
+                    db=db
+                )
+                logging.info(f"Food ready push sent to customer {customer.id} for order {order.order_number}")
+        except Exception as e:
+            logging.error(f"Failed to send food ready push: {e}")
+
     elif new_status == OrderStatus.DELIVERED:
         order.status = new_status
         order.delivered_at = datetime.now()
@@ -3149,6 +3195,37 @@ async def update_order_status(
         order.status = new_status
 
     db.commit()
+
+    # GAP-3 FIX: Send push notification when order goes out for delivery
+    if new_status == OrderStatus.OUT_FOR_DELIVERY:
+        try:
+            from models import Customer, Vendor
+            customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+            r_name = vendor.restaurant_name if vendor else "The restaurant"
+            is_self_delivery = getattr(order, 'restaurant_will_deliver', False)
+            if customer:
+                if is_self_delivery:
+                    body_text = f"{r_name} has left to deliver your order."
+                else:
+                    driver_name = order.driver_name or "Your driver"
+                    body_text = f"{driver_name} is on the way with your order from {r_name}."
+                send_push_notification(
+                    user_type="customer",
+                    user_id=customer.id,
+                    title="Out for delivery!",
+                    body=body_text,
+                    data={
+                        "type": "out_for_delivery",
+                        "order_id": str(order.id),
+                        "order_number": order.order_number,
+                        "status": "out_for_delivery"
+                    },
+                    db=db
+                )
+                logging.info(f"Out-for-delivery push sent to customer {customer.id} for order {order.order_number}")
+        except Exception as e:
+            logging.error(f"Failed to send out-for-delivery push: {e}")
 
     # Calculate timeout for delivery decision window
     response = {
@@ -4582,17 +4659,84 @@ async def driver_arrived_at_delivery(
     order.driver_arrived_at_delivery = datetime.now()
     db.commit()
 
-    # Notify customer
+    # GAP-4 FIX: Use appropriate language for self-delivery vs driver delivery
+    is_self_delivery = getattr(order, 'restaurant_will_deliver', False)
     try:
+        from models import Vendor
+        if is_self_delivery:
+            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+            r_name = vendor.restaurant_name if vendor else "The restaurant"
+            title = "Your Order Has Arrived"
+            body = f"{r_name} has arrived at your delivery location. Please come out to receive your order."
+        else:
+            title = "Driver Has Arrived"
+            body = "Your driver has arrived at your delivery location. Please come out to receive your order."
         send_push_notification(
             user_type="customer",
             user_id=order.customer_id,
-            title="Driver Has Arrived",
-            body="Your driver has arrived at your delivery location. Please come out to receive your order.",
+            title=title,
+            body=body,
             data={"type": "driver_arrived", "order_id": str(order.id)},
         )
     except Exception as e:
         logging.warning(f"Failed to send driver-arrived notification for order {order.id}: {e}")
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "arrived_at": order.driver_arrived_at_delivery.isoformat() + "Z",
+        "wait_timer_seconds": 300,
+        "leave_at_door": getattr(order, 'leave_at_door', False),
+    }
+
+
+@router.post("/orders/{order_id}/vendor-arrived-at-delivery")
+async def vendor_arrived_at_delivery(
+    order_id: int,
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
+):
+    """
+    Restaurant marks arrival at customer's delivery location during self-delivery.
+    Accepts both RESTAURANT_WILL_DELIVER and OUT_FOR_DELIVERY statuses.
+    Customer receives a push notification.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Verify this is a self-delivery order
+    if not getattr(order, 'restaurant_will_deliver', False):
+        raise HTTPException(status_code=400, detail="This is not a self-delivery order")
+
+    # Accept both restaurant_will_deliver and out_for_delivery statuses
+    valid_statuses = {OrderStatus.RESTAURANT_WILL_DELIVER, OrderStatus.OUT_FOR_DELIVERY}
+    if order.status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order status must be RESTAURANT_WILL_DELIVER or OUT_FOR_DELIVERY, got {order.status.value}"
+        )
+
+    if getattr(order, 'driver_arrived_at_delivery', None) is not None:
+        raise HTTPException(status_code=400, detail="Already marked as arrived")
+
+    order.driver_arrived_at_delivery = datetime.now()
+    db.commit()
+
+    # Send customer push notification
+    try:
+        from models import Vendor
+        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+        r_name = vendor.restaurant_name if vendor else "The restaurant"
+        send_push_notification(
+            user_type="customer",
+            user_id=order.customer_id,
+            title="Your Order Has Arrived",
+            body=f"{r_name} has arrived at your delivery location. Please come out to receive your order.",
+            data={"type": "vendor_arrived", "order_id": str(order.id)},
+        )
+    except Exception as e:
+        logging.warning(f"Failed to send vendor-arrived notification for order {order.id}: {e}")
 
     return {
         "success": True,

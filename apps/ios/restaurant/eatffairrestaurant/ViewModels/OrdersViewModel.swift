@@ -443,6 +443,40 @@ class OrdersViewModel: ObservableObject {
         }
     }
 
+    /// Restaurant marks arrival at customer's delivery location (self-delivery)
+    func markArrivedAtDelivery(_ order: Order) {
+        guard let idString = order.id else {
+            errorMessage = "Order ID not found. Please refresh."
+            showError = true
+            return
+        }
+        guard let orderIdInt = Int(idString) else {
+            #if DEBUG
+            logger.error("[OrdersViewModel] Cannot parse order ID '\(idString)' as integer")
+            #endif
+            errorMessage = "Unable to process order. Please contact support."
+            showError = true
+            return
+        }
+
+        p2pAPI.markArrivedAtDelivery(orderId: orderIdInt) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self?.fetchP2POrders() // Refresh to show updated state
+                case .failure(let error):
+                    let errorMsg = error.localizedDescription.lowercased()
+                    if errorMsg.contains("already") {
+                        self?.errorMessage = "Already marked as arrived."
+                    } else {
+                        self?.errorMessage = "Failed to mark arrival. Please try again."
+                    }
+                    self?.showError = true
+                }
+            }
+        }
+    }
+
     /// Restaurant marks self-delivery order as delivered — triggers proof photo requirement
     func markOrderDelivered(_ order: Order) {
         guard let idString = order.id else {
