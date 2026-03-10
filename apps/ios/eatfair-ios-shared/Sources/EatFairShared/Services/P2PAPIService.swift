@@ -10288,6 +10288,11 @@ public struct P2PVendorOrder: Codable, Identifiable {
     // Leave-at-door preference
     public let leaveAtDoor: Bool?
 
+    // Vendor location for self-delivery map/navigation
+    public let vendorLatitude: Double?
+    public let vendorLongitude: Double?
+    public let vendorName: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case orderNumber = "order_number"
@@ -10313,6 +10318,9 @@ public struct P2PVendorOrder: Codable, Identifiable {
         case driverEtaToRestaurant = "driver_eta_to_restaurant"
         case driverEtaText = "driver_eta_text"
         case leaveAtDoor = "leave_at_door"
+        case vendorLatitude = "vendor_latitude"
+        case vendorLongitude = "vendor_longitude"
+        case vendorName = "vendor_name"
     }
 
     /// Get items as dictionary array for compatibility
@@ -10428,10 +10436,10 @@ public struct P2PVendorOrder: Codable, Identifiable {
             deliveryInstructions: deliveryInstructions ?? "",
             restaurant: RestaurantInfo(
                 id: vendorId,
-                name: restaurantName,
+                name: vendorName ?? restaurantName,
                 address: "",
-                latitude: 0,
-                longitude: 0,
+                latitude: vendorLatitude ?? 0,
+                longitude: vendorLongitude ?? 0,
                 imageUrl: ""
             ),
             items: orderItems,

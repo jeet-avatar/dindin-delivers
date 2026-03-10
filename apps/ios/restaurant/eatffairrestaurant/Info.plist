@@ -69,6 +69,7 @@
 	<array>
 		<string>tel</string>
 		<string>sms</string>
+		<string>comgooglemaps</string>
 	</array>
 </dict>
 </plist>

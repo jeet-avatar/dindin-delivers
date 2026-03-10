@@ -3020,6 +3020,12 @@ async def get_vendor_orders(
         Order.created_at >= cutoff_90d
     ).order_by(Order.created_at.desc()).limit(500).all()
 
+    # Pre-fetch vendor info for self-delivery map/navigation (avoids N+1 query)
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    vendor_lat = vendor.latitude if vendor else None
+    vendor_lng = vendor.longitude if vendor else None
+    vendor_display_name = (vendor.restaurant_name or vendor.name) if vendor else None
+
     result = []
     for order in orders:
         # Safely parse items JSON and normalize fields for iOS compatibility
@@ -3099,6 +3105,10 @@ async def get_vendor_orders(
             "total": order.total_amount,
             "delivery_address": delivery_addr,
             "delivery_instructions": order.delivery_instructions,
+            # Vendor location for self-delivery map
+            "vendor_latitude": vendor_lat,
+            "vendor_longitude": vendor_lng,
+            "vendor_name": vendor_display_name,
             # Driver info for pickup coordination
             "driver_id": order.driver_id,
             "driver_name": order.driver_name,
