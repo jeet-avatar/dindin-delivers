@@ -1,5 +1,6 @@
 import SwiftUI
 import EatFairShared
+import MapKit
 import os
 
 private let logger = Logger(subsystem: "com.dollorai.restaurant", category: "EnhancedDashboard")
@@ -1048,6 +1049,45 @@ struct EnhancedOrderCard: View {
                     .padding(.horizontal)
                     .padding(.top, 8)
 
+                    // Leave-at-door badge
+                    if order.leaveAtDoor == true {
+                        HStack {
+                            Image(systemName: "door.left.hand.open")
+                                .foregroundColor(.orange)
+                            Text("LEAVE AT DOOR")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.orange.opacity(0.15))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
+                    }
+
+                    // Delivery instructions callout
+                    if !order.deliveryInstructions.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Image(systemName: "note.text")
+                                    .foregroundColor(.blue)
+                                Text("Delivery Instructions")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.blue)
+                            }
+                            Text(order.deliveryInstructions)
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.blue.opacity(0.08))
+                        .cornerRadius(10)
+                        .padding(.horizontal)
+                    }
+
                     // Delivery address reminder
                     if !order.deliveryAddress.fullAddress.isEmpty {
                         HStack {
@@ -1060,6 +1100,71 @@ struct EnhancedOrderCard: View {
                                 .lineLimit(2)
                             Spacer()
                         }
+                        .padding(.horizontal)
+                    }
+
+                    // Map showing restaurant and customer locations
+                    if order.deliveryAddress.latitude != 0 && order.deliveryAddress.longitude != 0
+                        && order.restaurant.latitude != 0 && order.restaurant.longitude != 0 {
+                        let restaurantCoord = CLLocationCoordinate2D(
+                            latitude: order.restaurant.latitude,
+                            longitude: order.restaurant.longitude
+                        )
+                        let customerCoord = CLLocationCoordinate2D(
+                            latitude: order.deliveryAddress.latitude,
+                            longitude: order.deliveryAddress.longitude
+                        )
+                        let centerLat = (restaurantCoord.latitude + customerCoord.latitude) / 2
+                        let centerLon = (restaurantCoord.longitude + customerCoord.longitude) / 2
+                        let latDelta = abs(restaurantCoord.latitude - customerCoord.latitude) * 1.5 + 0.01
+                        let lonDelta = abs(restaurantCoord.longitude - customerCoord.longitude) * 1.5 + 0.01
+
+                        Map(coordinateRegion: .constant(MKCoordinateRegion(
+                            center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
+                            span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lonDelta)
+                        )), annotationItems: [
+                            SelfDeliveryMapPin(id: "restaurant", coordinate: restaurantCoord, tint: .orange, icon: "building.2.fill"),
+                            SelfDeliveryMapPin(id: "customer", coordinate: customerCoord, tint: .green, icon: "house.fill")
+                        ]) { pin in
+                            MapAnnotation(coordinate: pin.coordinate) {
+                                Image(systemName: pin.icon)
+                                    .font(.title2)
+                                    .foregroundColor(pin.tint)
+                                    .padding(6)
+                                    .background(Circle().fill(Color.white))
+                                    .shadow(radius: 2)
+                            }
+                        }
+                        .frame(height: 200)
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+
+                        // Navigate to Customer button
+                        Button(action: {
+                            let destCoord = CLLocationCoordinate2D(
+                                latitude: order.deliveryAddress.latitude,
+                                longitude: order.deliveryAddress.longitude
+                            )
+                            let placemark = MKPlacemark(coordinate: destCoord)
+                            let mapItem = MKMapItem(placemark: placemark)
+                            mapItem.name = order.customerName
+                            mapItem.openInMaps(launchOptions: [
+                                MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+                            ])
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                                Text("Navigate to Customer")
+                            }
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.blue)
+                            .cornerRadius(10)
+                        }
+                        .buttonStyle(.borderless)
                         .padding(.horizontal)
                     }
 
@@ -1094,6 +1199,14 @@ struct EnhancedOrderCard: View {
         .cornerRadius(16)
         .shadow(color: RestaurantTheme.cardShadow, radius: 8, x: 0, y: 4)
     }
+}
+
+// MARK: - Self-Delivery Map Pin
+struct SelfDeliveryMapPin: Identifiable {
+    let id: String
+    let coordinate: CLLocationCoordinate2D
+    let tint: Color
+    let icon: String
 }
 
 // MARK: - Empty Orders View
