@@ -20887,14 +20887,22 @@ def admin_verify_driver(
 def admin_cleanup_pending_orders(
     request: Request,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    secret_key: str = None,
 ):
     """
     Admin endpoint to cancel all old pending orders and ride requests.
     This cleans up stale data that clutters the Restaurant and Driver apps.
     Only cancels: pending_payment, pending_restaurant, pending_delivery_decision
     Keeps: confirmed, preparing, ready_for_pickup, out_for_delivery, delivered, etc.
+    Accepts either admin JWT Bearer token or ADMIN_SECRET_KEY query param.
     """
+    # Auth: accept JWT Bearer or secret_key query param
+    expected_key = os.getenv("ADMIN_SECRET_KEY")
+    auth_header = request.headers.get("authorization", "")
+    has_jwt = auth_header.startswith("Bearer ")
+    has_secret = expected_key and secret_key and secret_key == expected_key
+    if not has_jwt and not has_secret:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
     check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
     from models import Order, OrderStatus, RideRequest, RideRequestStatus
 
@@ -20950,7 +20958,7 @@ def admin_cleanup_pending_orders(
 def admin_cleanup_all_incomplete(
     request: Request,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    secret_key: str = None,
 ):
     """
     Admin endpoint to cancel ALL incomplete orders and ride requests.
@@ -20960,7 +20968,15 @@ def admin_cleanup_all_incomplete(
     - Orders NOT in: DELIVERED, CANCELLED
     - Rides NOT in: COMPLETED, CANCELLED, EXPIRED
     - Also cancels any bids that are still PENDING
+    Accepts either admin JWT Bearer token or ADMIN_SECRET_KEY query param.
     """
+    # Auth: accept JWT Bearer or secret_key query param
+    expected_key = os.getenv("ADMIN_SECRET_KEY")
+    auth_header = request.headers.get("authorization", "")
+    has_jwt = auth_header.startswith("Bearer ")
+    has_secret = expected_key and secret_key and secret_key == expected_key
+    if not has_jwt and not has_secret:
+        raise HTTPException(status_code=401, detail="Admin authentication required")
     check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
     from models import Order, OrderStatus, RideRequest, RideRequestStatus, RideBid, BidStatus
 
