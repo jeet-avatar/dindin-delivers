@@ -25,6 +25,7 @@ from sqlalchemy import text, or_, and_, func
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
+import asyncio
 import json
 import logging
 import os
@@ -2678,6 +2679,76 @@ def cleanup_stale_orders_job():
         db.close()
 
 
+# Delivery photo retention: 12 hours
+DELIVERY_PHOTO_RETENTION_HOURS = 12
+
+
+def cleanup_expired_delivery_photos():
+    """
+    Background job to delete S3 delivery proof photos older than 12 hours.
+    Privacy compliance: photos are only needed for immediate delivery verification.
+    Nullifies delivery_photo_url but preserves delivery_photo_uploaded_at for audit trail.
+    Runs every hour.
+    """
+    from s3_service import get_s3_service, S3_BUCKET
+
+    db = SessionLocal()
+    try:
+        cutoff = datetime.now() - timedelta(hours=DELIVERY_PHOTO_RETENTION_HOURS)
+        expired_orders = db.query(Order).filter(
+            Order.delivery_photo_url.isnot(None),
+            Order.delivery_photo_uploaded_at < cutoff,
+            Order.status.in_([OrderStatus.DELIVERED, OrderStatus.CANCELLED])
+        ).all()
+
+        if not expired_orders:
+            return
+
+        s3_service = get_s3_service()
+        deleted_count = 0
+        error_count = 0
+
+        for order in expired_orders:
+            try:
+                # Extract S3 key from stored URL
+                # Format: "s3://dollor-ai-uploads/delivery_proofs/123/..." or "/uploads/delivery_proofs/..."
+                photo_url = order.delivery_photo_url
+                if photo_url.startswith(f"s3://{S3_BUCKET}/"):
+                    key = photo_url[len(f"s3://{S3_BUCKET}/"):]
+                elif photo_url.startswith("/uploads/"):
+                    key = photo_url[len("/uploads/"):]
+                elif "amazonaws.com/" in photo_url:
+                    key = photo_url.split("amazonaws.com/", 1)[1]
+                else:
+                    key = photo_url
+
+                # delete_file is async — run in a new event loop for the sync scheduler
+                success, message = asyncio.run(s3_service.delete_file(key))
+
+                if success:
+                    logger.info(f"Cleaned up delivery photo for order {order.id}, uploaded at {order.delivery_photo_uploaded_at}")
+                    order.delivery_photo_url = None
+                    # Preserve delivery_photo_uploaded_at for audit trail
+                    deleted_count += 1
+                else:
+                    logger.warning(f"Failed to delete S3 photo for order {order.id}: {message}")
+                    error_count += 1
+            except Exception as e:
+                logger.error(f"Error cleaning up photo for order {order.id}: {e}")
+                error_count += 1
+
+        if deleted_count > 0:
+            db.commit()
+
+        logger.info(f"Delivery photo cleanup: {deleted_count} photos deleted, {error_count} errors")
+
+    except Exception as e:
+        logger.error(f"Error in delivery photo cleanup: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 # Initialize the background scheduler
 restaurant_timeout_scheduler = BackgroundScheduler()
 restaurant_timeout_scheduler.add_job(
@@ -2797,6 +2868,13 @@ def start_timeout_scheduler():
             name="Auto-expire individual bids past their expires_at",
             replace_existing=True
         )
+        restaurant_timeout_scheduler.add_job(
+            cleanup_expired_delivery_photos,
+            IntervalTrigger(hours=1),
+            id="delivery_photo_cleanup",
+            name="Delete S3 delivery photos older than 12 hours",
+            replace_existing=True
+        )
         restaurant_timeout_scheduler.start()
         logger.info(
             f"Timeout scheduler started. "
@@ -2810,7 +2888,8 @@ def start_timeout_scheduler():
             f"matched timeout ({RIDE_MATCHED_TIMEOUT_MINUTES}min), "
             f"in-progress timeout ({RIDE_IN_PROGRESS_TIMEOUT_HOURS}h), "
             f"individual bid expiry every {RIDE_CLEANUP_CHECK_INTERVAL_SECONDS}s. "
-            f"Stale driver reassignment ({STALE_DRIVER_LOCATION_MINUTES}min every {STALE_DRIVER_CHECK_INTERVAL_SECONDS}s)."
+            f"Stale driver reassignment ({STALE_DRIVER_LOCATION_MINUTES}min every {STALE_DRIVER_CHECK_INTERVAL_SECONDS}s). "
+            f"Delivery photo cleanup ({DELIVERY_PHOTO_RETENTION_HOURS}h, hourly)."
         )
 
 
