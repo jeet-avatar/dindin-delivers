@@ -1407,6 +1407,7 @@ None
 | 129 | Clean up 20 stale orders, iOS Restaurant 186 to TestFlight, Android Partner vC=30, parity audit | 2026-03-10 | eccc7de3 | [129-clean-up-stale-pending-orders-build-ios-](./quick/129-clean-up-stale-pending-orders-build-ios-/) |
 | 130 | E2E test 10 food orders full lifecycle on production — 10/10 delivered, 2 bugs found | 2026-03-10 | 6480d901 | [130-create-10-test-orders-e2e-lifecycle-on-p](./quick/130-create-10-test-orders-e2e-lifecycle-on-p/) |
 | 132 | Fix 4 delivery flow bugs — delivered 500, photo proof, navigation, address display [CR-0006] | 2026-03-10 | 4cc8926e | [132-fix-4-delivery-flow-bugs-delivered-500-p](./quick/132-fix-4-delivery-flow-bugs-delivered-500-p/) |
+| 133 | E2E delivery flow verification — 3/4 PASS, delivered-without-photo 500 found [CR-0007] | 2026-03-10 | 669202c0 | [133-e2e-delivery-flow-verification-full-life](./quick/133-e2e-delivery-flow-verification-full-life/) |
 
 
 ## Session Continuity
