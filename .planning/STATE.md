@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-10 - Completed quick task 128: Fix 3 self-delivery gaps (leave_at_door, MapView, instructions)
+Last activity: 2026-03-10 - Completed quick task 129: Clean up stale orders, build restaurant apps, parity audit
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -45,6 +45,42 @@ Progress: [##########] 100% (10/12 plans)
 ### Decisions
 
 - [Phase quick-79]: Android Apple Auth path mismatch is FALSE POSITIVE — Retrofit base URL resolves correctly
+- [Phase quick-80]: Build 1111 is the submission build; 39/39 stress tests PASS; GO for App Store
+- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code
+- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs
+- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
+- [Phase quick-92]: Deploy-only task -- no code changes, CI/CD only via gh workflow run
+- [Phase quick-93]: require_driver auth; leave-at-door -> DELIVERED, no-leave -> DELIVERY_FAILED + refund; 5-min timer
+- [Phase quick-97]: Android DeliveryAddressDict missing lat/lng was BREAKING -- fixed before Wave 2 deploy
+- [Phase quick-99]: Mock stripe.Refund.create directly (not order_flow.stripe) since stripe is imported inside function body
+- [Phase quick-116]: Used Modal.confirm with inline Input for PR/CI metadata; non-code CRs skip PR/CI states
+- [Phase 11]: Non-code changes use NON_CODE_TRANSITIONS to skip PR Created and CI Running states
+- [Phase 11]: Rollback restricted to Production/Verified/Closed status CRs; creates new CR through full approval flow
+- [Phase 11]: Submit endpoint auto-transitions Draft -> Submitted -> Under Review in single API call
+- [Phase 11-02]: Used custom relative time formatting instead of date-fns to keep bundle size unchanged
+- [Phase 12]: Kept Coupa dashboard route but removed from sidebar; dashboard rewired to /api/dashboard/stats
+- [Phase quick-121]: Fixed 6 bugs in rideshare E2E test; production result 14/15 PASS; Rate Ride expected fail on non-completed rides
+- [Phase quick-122]: 30-min null-expiry cutoff for stale rides; rideshare earnings as separate response fields for backward compat
+- [Phase quick-123]: Build 1111 APPROVED (PENDING_DEVELOPER_RELEASE); 3 metadata blockers; CONDITIONAL GO for release
+- [Phase quick-125]: Vendor absorbs promo discount; platform keeps - [Phase quick-79]: Android Apple Auth path mismatch is FALSE POSITIVE — Retrofit base URL resolves correctly
+- [Phase quick-80]: Build 1111 is the submission build; 39/39 stress tests PASS; GO for App Store
+- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code
+- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs
+- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
+- [Phase quick-92]: Deploy-only task -- no code changes, CI/CD only via gh workflow run
+- [Phase quick-93]: require_driver auth; leave-at-door -> DELIVERED, no-leave -> DELIVERY_FAILED + refund; 5-min timer
+- [Phase quick-97]: Android DeliveryAddressDict missing lat/lng was BREAKING -- fixed before Wave 2 deploy
+- [Phase quick-99]: Mock stripe.Refund.create directly (not order_flow.stripe) since stripe is imported inside function body
+- [Phase quick-116]: Used Modal.confirm with inline Input for PR/CI metadata; non-code CRs skip PR/CI states
+- [Phase 11]: Non-code changes use NON_CODE_TRANSITIONS to skip PR Created and CI Running states
+- [Phase 11]: Rollback restricted to Production/Verified/Closed status CRs; creates new CR through full approval flow
+- [Phase 11]: Submit endpoint auto-transitions Draft -> Submitted -> Under Review in single API call
+- [Phase 11-02]: Used custom relative time formatting instead of date-fns to keep bundle size unchanged
+- [Phase 12]: Kept Coupa dashboard route but removed from sidebar; dashboard rewired to /api/dashboard/stats
+- [Phase quick-121]: Fixed 6 bugs in rideshare E2E test; production result 14/15 PASS; Rate Ride expected fail on non-completed rides
+- [Phase quick-122]: 30-min null-expiry cutoff for stale rides; rideshare earnings as separate response fields for backward compat
+- [Phase quick-123]: Build 1111 APPROVED (PENDING_DEVELOPER_RELEASE); 3 metadata blockers; CONDITIONAL GO for release
+- [Phase quick-125]: Vendor absorbs promo discount; platform keeps - [Phase quick-79]: Android Apple Auth path mismatch is FALSE POSITIVE — Retrofit base URL resolves correctly
 - [Phase quick-80]: Build 1111 is the submission build; 39/39 stress tests PASS; GO for App Store
 - [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code
 - [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs
@@ -123,6 +159,50 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-123]: Build 1111 APPROVED (PENDING_DEVELOPER_RELEASE); 3 metadata blockers; CONDITIONAL GO for release
 /order flat. Built-in codes + DB promos
 - [Phase quick-127]: Used iOS 14+ Map(coordinateRegion:annotationItems:) for device compatibility; SelfDeliveryMapPin helper struct for annotations
+/order flat. Built-in codes + DB promos
+- [Phase quick-126]: 1489 tests green, promo math verified, staging deployed via CI/CD run 22888129870, CR-0002 verified
+- [Phase quick-79]: Android Apple Auth path mismatch is FALSE POSITIVE — Retrofit base URL resolves correctly
+- [Phase quick-80]: Build 1111 is the submission build; 39/39 stress tests PASS; GO for App Store
+- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code
+- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs
+- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
+- [Phase quick-92]: Deploy-only task -- no code changes, CI/CD only via gh workflow run
+- [Phase quick-93]: require_driver auth; leave-at-door -> DELIVERED, no-leave -> DELIVERY_FAILED + refund; 5-min timer
+- [Phase quick-97]: Android DeliveryAddressDict missing lat/lng was BREAKING -- fixed before Wave 2 deploy
+- [Phase quick-99]: Mock stripe.Refund.create directly (not order_flow.stripe) since stripe is imported inside function body
+- [Phase quick-116]: Used Modal.confirm with inline Input for PR/CI metadata; non-code CRs skip PR/CI states
+- [Phase 11]: Non-code changes use NON_CODE_TRANSITIONS to skip PR Created and CI Running states
+- [Phase 11]: Rollback restricted to Production/Verified/Closed status CRs; creates new CR through full approval flow
+- [Phase 11]: Submit endpoint auto-transitions Draft -> Submitted -> Under Review in single API call
+- [Phase 11-02]: Used custom relative time formatting instead of date-fns to keep bundle size unchanged
+- [Phase 12]: Kept Coupa dashboard route but removed from sidebar; dashboard rewired to /api/dashboard/stats
+- [Phase quick-121]: Fixed 6 bugs in rideshare E2E test; production result 14/15 PASS; Rate Ride expected fail on non-completed rides
+- [Phase quick-122]: 30-min null-expiry cutoff for stale rides; rideshare earnings as separate response fields for backward compat
+- [Phase quick-123]: Build 1111 APPROVED (PENDING_DEVELOPER_RELEASE); 3 metadata blockers; CONDITIONAL GO for release
+/order flat. Built-in codes + DB promos
+/order flat. Built-in codes + DB promos
+- [Phase quick-126]: 1489 tests green, promo math verified, staging deployed via CI/CD run 22888129870, CR-0002 verified
+- [Phase quick-79]: Android Apple Auth path mismatch is FALSE POSITIVE — Retrofit base URL resolves correctly
+- [Phase quick-80]: Build 1111 is the submission build; 39/39 stress tests PASS; GO for App Store
+- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code
+- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs
+- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
+- [Phase quick-92]: Deploy-only task -- no code changes, CI/CD only via gh workflow run
+- [Phase quick-93]: require_driver auth; leave-at-door -> DELIVERED, no-leave -> DELIVERY_FAILED + refund; 5-min timer
+- [Phase quick-97]: Android DeliveryAddressDict missing lat/lng was BREAKING -- fixed before Wave 2 deploy
+- [Phase quick-99]: Mock stripe.Refund.create directly (not order_flow.stripe) since stripe is imported inside function body
+- [Phase quick-116]: Used Modal.confirm with inline Input for PR/CI metadata; non-code CRs skip PR/CI states
+- [Phase 11]: Non-code changes use NON_CODE_TRANSITIONS to skip PR Created and CI Running states
+- [Phase 11]: Rollback restricted to Production/Verified/Closed status CRs; creates new CR through full approval flow
+- [Phase 11]: Submit endpoint auto-transitions Draft -> Submitted -> Under Review in single API call
+- [Phase 11-02]: Used custom relative time formatting instead of date-fns to keep bundle size unchanged
+- [Phase 12]: Kept Coupa dashboard route but removed from sidebar; dashboard rewired to /api/dashboard/stats
+- [Phase quick-121]: Fixed 6 bugs in rideshare E2E test; production result 14/15 PASS; Rate Ride expected fail on non-completed rides
+- [Phase quick-122]: 30-min null-expiry cutoff for stale rides; rideshare earnings as separate response fields for backward compat
+- [Phase quick-123]: Build 1111 APPROVED (PENDING_DEVELOPER_RELEASE); 3 metadata blockers; CONDITIONAL GO for release
+/order flat. Built-in codes + DB promos
+- [Phase quick-127]: Used iOS 14+ Map(coordinateRegion:annotationItems:) for device compatibility; SelfDeliveryMapPin helper struct for annotations
+- [Phase quick-129]: Added secret_key auth to admin cleanup endpoints; Critical parity gap: iOS missing Promotions management screen
 
 ### Blockers
 
@@ -204,10 +284,11 @@ None
 | 126 | Wire promotion system into payment flow — promo codes, discount math, receipt/driver/vendor emails, real featured deals | 2026-03-10 | c4b60252 | [125-wire-promotion-system-into-payment-flow](./quick/125-wire-promotion-system-into-payment-flow/) |
 | 127 | Test promotion system E2E and deploy to staging — 1489 tests green, CR-0002 verified | 2026-03-10 | (test+deploy) | [126-test-promotion-system-e2e-and-deploy-sta](./quick/126-test-promotion-system-e2e-and-deploy-sta/) |
 | 128 | Fix 3 self-delivery gaps — leave_at_door decode, MapView + navigate, instructions callout | 2026-03-10 | 0a38c974 | [127-audit-restaurant-self-delivery-flow-maps](./quick/127-audit-restaurant-self-delivery-flow-maps/) |
+| 129 | Clean up 20 stale orders, iOS Restaurant 186 to TestFlight, Android Partner vC=30, parity audit | 2026-03-10 | eccc7de3 | [129-clean-up-stale-pending-orders-build-ios-](./quick/129-clean-up-stale-pending-orders-build-ios-/) |
 
 
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Completed quick-126: Test promotion system E2E and deploy to staging. 1489 tests green, staging deployed, CR-0002 verified.
+Stopped at: Completed quick-129: Clean up stale orders, iOS Restaurant 186 to TestFlight, parity audit (48 features, 10 Android-only gaps).
 Resume file: .planning/NEXT_SESSION_PROMPT.md
