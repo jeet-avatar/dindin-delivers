@@ -1946,6 +1946,23 @@ class TestDeliveryProofPhoto:
         assert "accounting" not in result
 
     @pytest.mark.asyncio
+    async def test_order_delivered_proof_gate_handles_db_error(self, mock_db_session, mock_order_no_photo):
+        """When proof gate db.commit() fails (e.g., invalid enum value), should still return clean response"""
+        mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order_no_photo
+        mock_db_session.commit.side_effect = Exception("invalid input value for enum orderstatus")
+
+        from order_flow import order_delivered
+        result = await order_delivered(1, mock_db_session)
+
+        # Should return clean response even when DB commit fails
+        assert result["success"] is True
+        assert result["requires_photo"] is True
+        assert result["status"] == "pending_delivery_proof"
+        assert "order_id" in result
+        # rollback should have been called
+        mock_db_session.rollback.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_order_delivered_completes_with_photo(self, mock_db_session, mock_order_with_photo, mock_vendor, mock_driver):
         """When driver marks delivered with photo present, should complete normally"""
         order_query = MagicMock()
