@@ -1231,6 +1231,9 @@ def _run_startup_migrations():
         ("orders", "broadcast_to_drivers", "BOOLEAN DEFAULT FALSE"),
         ("orders", "broadcast_at", "TIMESTAMP"),
         ("orders", "broadcast_radius_km", "FLOAT"),
+        ("orders", "discount_amount", "FLOAT DEFAULT 0.0"),
+        ("orders", "promo_code", "VARCHAR(50)"),
+        ("orders", "promo_type", "VARCHAR(50)"),
         # Drivers table columns
         ("drivers", "date_of_birth", "VARCHAR(20)"),
         ("drivers", "license_number", "VARCHAR(50)"),
@@ -13962,39 +13965,47 @@ def get_featured_deals(db: Session = Depends(get_db)):
     valid_until = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
     deals = []
 
-    # Try to get restaurant-specific deals from database
+    # Try to get real promotions from database first
     try:
+        from models_extended import Promotion, PromotionStatus
         from models import Vendor, VendorStatus
 
-        restaurants = db.query(Vendor).filter(
-            Vendor.onboarding_status == VendorStatus.APPROVED,
-            Vendor.cuisine_type.isnot(None)
+        now = datetime.now()
+        active_promos = db.query(Promotion).filter(
+            Promotion.status == PromotionStatus.ACTIVE,
+            or_(Promotion.end_date.is_(None), Promotion.end_date > now)
         ).limit(10).all()
 
-        deal_templates = [
-            {"discount": "20% OFF", "title": "20% OFF Your First Order", "desc": "New customer welcome discount"},
-            {"discount": "$5 OFF", "title": "$5 OFF Orders Over $25", "desc": "Limited time offer"},
-            {"discount": "FREE DELIVERY", "title": "Free Delivery This Week", "desc": "No delivery fee on all orders"},
-            {"discount": "BOGO", "title": "Buy One Get One Free", "desc": "On select menu items"},
-            {"discount": "15% OFF", "title": "15% OFF Lunch Special", "desc": "Valid 11am - 2pm"},
-        ]
+        for idx, promo in enumerate(active_promos):
+            vendor = db.query(Vendor).filter(Vendor.id == promo.vendor_id).first()
+            promo_type = promo.type.value if hasattr(promo.type, 'value') else str(promo.type)
 
-        for idx, restaurant in enumerate(restaurants):
-            template = deal_templates[idx % len(deal_templates)]
+            if promo_type == "percentage":
+                discount_text = f"{int(promo.value)}% OFF"
+            elif promo_type in ("flat", "flat_amount"):
+                discount_text = f"${int(promo.value)} OFF"
+            elif promo_type == "free_delivery":
+                discount_text = "FREE DELIVERY"
+            elif promo_type == "bogo":
+                discount_text = "BOGO"
+            else:
+                discount_text = f"{int(promo.value)}% OFF"
+
             deals.append({
-                "id": idx + 1,
-                "title": template["title"],
-                "description": template["desc"],
+                "id": promo.id,
+                "title": promo.name,
+                "description": promo.description or "",
                 "image_url": None,
-                "discount_text": template["discount"],
-                "restaurant_id": restaurant.id,
-                "restaurant_name": restaurant.restaurant_name or restaurant.company_name,
-                "valid_until": valid_until
+                "discount_text": discount_text,
+                "promo_code": promo.promotion_code,
+                "restaurant_id": promo.vendor_id,
+                "restaurant_name": (vendor.restaurant_name or vendor.company_name) if vendor else "All Restaurants",
+                "valid_until": promo.end_date.strftime("%Y-%m-%d") if promo.end_date else valid_until,
+                "min_order": promo.min_order_amount or 0
             })
     except Exception as e:
-        # Database not available, will use fallback deals
         import logging
-        logging.warning(f"Could not fetch restaurants for deals: {e}")
+        logging.warning(f"Could not fetch promotions for deals: {e}")
 
     # If no restaurants or database error, return platform-wide deals
     if not deals:
@@ -14173,6 +14184,87 @@ def apply_promotion_code(
         "original_total": round(order_total, 2),
         "final_total": round(order_total - discount, 2),
         "message": f"Promo code applied! You saved ${discount:.2f}"
+    }
+
+
+@app.post("/api/promotions/send-samples")
+def send_sample_promo_emails(db: Session = Depends(get_db)):
+    """
+    One-time endpoint: Send 3 sample promo emails to support@dollor.ai.
+    Customer receipt, vendor notification, driver earnings.
+    """
+    from email_service import (
+        send_order_delivered_with_receipt_email,
+        send_new_order_vendor_email,
+        send_delivery_completed_driver_email
+    )
+
+    target = "support@dollor.ai"
+    sample_items = [
+        {"name": "Classic Burger", "quantity": 2, "price": 12.99},
+        {"name": "Caesar Salad", "quantity": 1, "price": 12.99},
+        {"name": "Iced Tea", "quantity": 2, "price": 3.99}
+    ]
+    subtotal = 46.95
+    discount = 9.39  # WELCOME20 = 20% of $46.95
+    delivery_fee = 4.99
+    service_fee = 1.00
+    tax = 2.82
+    tip = 5.00
+    total = subtotal + delivery_fee + service_fee + tax + tip - discount  # 51.37
+
+    results = {}
+
+    # 1. Customer receipt with discount
+    results["customer_receipt"] = send_order_delivered_with_receipt_email(
+        to_email=target,
+        customer_name="John Smith",
+        order_number="DOLL2026042",
+        restaurant_name="The Tasty Kitchen",
+        order_items=sample_items,
+        subtotal=subtotal,
+        delivery_fee=delivery_fee,
+        service_fee=service_fee,
+        tax_amount=tax,
+        tip=tip,
+        order_total=total,
+        driver_name="Mike Johnson",
+        delivery_address="123 Main St, Cheyenne, WY 82001",
+        order_date="March 9, 2026 at 12:30 PM",
+        discount_amount=discount,
+        promo_code="WELCOME20"
+    )
+
+    # 2. Vendor notification with payout breakdown
+    vendor_payout = subtotal - discount - 1.00  # $46.95 - $9.39 - $1.00 = $36.56
+    results["vendor_notification"] = send_new_order_vendor_email(
+        to_email=target,
+        restaurant_name="The Tasty Kitchen",
+        order_number="DOLL2026042",
+        customer_name="John Smith",
+        order_total=total,
+        items_summary="Classic Burger x2, Caesar Salad x1, Iced Tea x2",
+        subtotal=subtotal,
+        discount_amount=discount,
+        promo_code="WELCOME20",
+        platform_fee=1.00,
+        vendor_payout=vendor_payout
+    )
+
+    # 3. Driver earnings
+    results["driver_earnings"] = send_delivery_completed_driver_email(
+        to_email=target,
+        driver_name="Mike Johnson",
+        order_number="DOLL2026042",
+        restaurant_name="The Tasty Kitchen",
+        delivery_fee=delivery_fee,
+        tip=tip
+    )
+
+    return {
+        "success": all(results.values()),
+        "results": results,
+        "sent_to": target
     }
 
 

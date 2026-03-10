@@ -31,7 +31,7 @@ import os
 import requests
 
 from database import get_db, SessionLocal
-from email_service import send_order_delivered_with_receipt_email, send_email
+from email_service import send_order_delivered_with_receipt_email, send_delivery_completed_driver_email, send_email
 from google_maps_service import get_traffic_eta, ETAResult
 
 # Service URLs
@@ -535,6 +535,7 @@ class CreateOrderRequest(BaseModel):
     delivery_instructions: Optional[str] = None
     tip: float = Field(default=0.0, ge=0.0, le=500.0, description="Tip amount in dollars (must be non-negative)")
     leave_at_door: Optional[bool] = False  # Customer can request food left at door
+    promo_code: Optional[str] = None  # Promo code from checkout
 
 
 class AssignDriverRequest(BaseModel):
@@ -1284,8 +1285,64 @@ async def create_order(
 
     delivery_fee = calculate_delivery_fee(delivery_distance)
 
-    # Customer pays: Subtotal + Tax + Service Fee + Delivery Fee + Tip
-    total_amount = subtotal + tax_amount + CUSTOMER_SERVICE_FEE + delivery_fee + order_data.tip
+    # Validate and apply promo code if provided
+    discount_amount = 0.0
+    applied_promo_code = None
+    applied_promo_type = None
+
+    if order_data.promo_code:
+        code = order_data.promo_code.upper().strip()
+
+        # Built-in promo codes (always available)
+        builtin_codes = {
+            "WELCOME20": {"type": "percentage", "value": 20, "min_order": 15, "max_discount": 10},
+            "SAVE5": {"type": "flat", "value": 5, "min_order": 25, "max_discount": 5},
+            "FREEDELIVERY": {"type": "free_delivery", "value": 0, "min_order": 20, "max_discount": 5},
+            "APPLE15": {"type": "percentage", "value": 15, "min_order": 10, "max_discount": 10},
+            "DOLLOR10": {"type": "percentage", "value": 10, "min_order": 10, "max_discount": 8},
+            "FIRST5": {"type": "flat", "value": 5, "min_order": 15, "max_discount": 5},
+        }
+
+        promo = None
+        db_promo = None
+
+        if code in builtin_codes:
+            promo = builtin_codes[code]
+        else:
+            # Check database for vendor promos
+            try:
+                from models_extended import Promotion, PromotionStatus
+                db_promo = db.query(Promotion).filter(
+                    Promotion.promotion_code == code,
+                    Promotion.status == PromotionStatus.ACTIVE
+                ).first()
+                if db_promo:
+                    promo_type = db_promo.type.value if hasattr(db_promo.type, 'value') else str(db_promo.type)
+                    promo = {
+                        "type": promo_type,
+                        "value": db_promo.value,
+                        "min_order": db_promo.min_order_amount or 0,
+                        "max_discount": db_promo.max_discount or db_promo.value
+                    }
+            except Exception as e:
+                logging.warning(f"Error looking up promo code {code}: {e}")
+
+        if promo and subtotal >= promo["min_order"]:
+            if promo["type"] == "percentage":
+                discount_amount = min(subtotal * (promo["value"] / 100), promo["max_discount"])
+                applied_promo_type = "percentage"
+            elif promo["type"] in ("flat", "flat_amount"):
+                discount_amount = min(promo["value"], promo["max_discount"])
+                applied_promo_type = "flat"
+            else:  # free_delivery
+                discount_amount = min(delivery_fee, promo["max_discount"])
+                applied_promo_type = "free_delivery"
+
+            discount_amount = round(discount_amount, 2)
+            applied_promo_code = code
+
+    # Customer pays: Subtotal + Tax + Service Fee + Delivery Fee + Tip - Discount
+    total_amount = subtotal + tax_amount + CUSTOMER_SERVICE_FEE + delivery_fee + order_data.tip - discount_amount
 
     # Generate standardized order number: DOLL{YEAR}{SEQUENCE}
     # Example: DOLL2026001, DOLL2026002, etc.
@@ -1316,6 +1373,9 @@ async def create_order(
         delivery_fee=delivery_fee,  # Distance-based fee (100% to driver)
         tip=order_data.tip,
         platform_fee=CUSTOMER_SERVICE_FEE,  # $1 customer service fee
+        discount_amount=discount_amount,
+        promo_code=applied_promo_code,
+        promo_type=applied_promo_type,
         total_amount=total_amount,
         delivery_address=json.dumps(order_data.delivery_address),
         delivery_instructions=order_data.delivery_instructions,
@@ -1328,16 +1388,45 @@ async def create_order(
     db.commit()
     db.refresh(new_order)
 
+    # Track promo redemption if discount was applied
+    if applied_promo_code and discount_amount > 0:
+        try:
+            from models_extended import PromotionRedemption, Promotion, PromotionStatus
+            db_promo = db.query(Promotion).filter(
+                Promotion.promotion_code == applied_promo_code,
+                Promotion.status == PromotionStatus.ACTIVE
+            ).first()
+            if db_promo:
+                redemption = PromotionRedemption(
+                    promotion_id=db_promo.id,
+                    order_id=new_order.id,
+                    customer_id=customer_id,
+                    discount_amount=discount_amount,
+                    original_total=total_amount + discount_amount,
+                    final_total=total_amount
+                )
+                db.add(redemption)
+                db_promo.usage_count = (db_promo.usage_count or 0) + 1
+                db_promo.total_discount_given = (db_promo.total_discount_given or 0) + discount_amount
+                db.commit()
+        except Exception as e:
+            logging.warning(f"Failed to record promo redemption: {e}")
+
+    # Restaurant payout: subtotal - discount (vendor absorbs) - platform fee
+    restaurant_payout = subtotal - discount_amount - RESTAURANT_PLATFORM_FEE
+
     return {
         "success": True,
         "order_id": new_order.id,
         "order_number": order_number,
         "subtotal": subtotal,
         "tax": tax_amount,
-        "service_fee": CUSTOMER_SERVICE_FEE,  # Customer service fee ($1.00)
-        "delivery_fee": DELIVERY_FEE,          # Delivery fee to driver
+        "service_fee": CUSTOMER_SERVICE_FEE,
+        "delivery_fee": DELIVERY_FEE,
         "tip": order_data.tip,
-        "platform_fee": CUSTOMER_SERVICE_FEE,  # Legacy field (same as service_fee)
+        "discount": discount_amount,
+        "promo_code": applied_promo_code,
+        "platform_fee": CUSTOMER_SERVICE_FEE,
         "total": total_amount,
         "status": "Pending Payment",
         "processed_by": ai_employee["name"],
@@ -1349,11 +1438,15 @@ async def create_order(
                 "service_fee": CUSTOMER_SERVICE_FEE,
                 "delivery_fee": DELIVERY_FEE,
                 "tip": order_data.tip,
+                "discount": discount_amount,
+                "promo_code": applied_promo_code,
                 "total": total_amount
             },
             "restaurant_deduction": {
                 "platform_fee": RESTAURANT_PLATFORM_FEE,
-                "description": "Deducted from restaurant payout"
+                "discount_absorbed": discount_amount,
+                "payout": restaurant_payout,
+                "description": "Vendor absorbs discount; platform keeps $2 flat"
             },
             "driver_receives": {
                 "delivery_fee": DELIVERY_FEE,
@@ -2162,7 +2255,8 @@ def check_delivery_proof_timeouts_job():
                 driver = db.query(Driver).filter(Driver.id == order.driver_id).first() if order.driver_id else None
 
                 # Create payout records (same logic as order_delivered)
-                restaurant_payout = order.subtotal - RESTAURANT_PLATFORM_FEE
+                # Vendor absorbs discount: subtotal - discount - platform fee
+                restaurant_payout = order.subtotal - (order.discount_amount or 0) - RESTAURANT_PLATFORM_FEE
                 driver_payout_amount = order.delivery_fee + order.tip
 
                 payout_count = db.query(VendorPayout).count()
@@ -3431,10 +3525,11 @@ async def order_delivered(
     db.flush()  # Get the ID
 
     # Calculate payouts (Dollor.ai $1 flat fee model)
-    # Restaurant receives: subtotal minus $1 platform fee (RESTAURANT_PLATFORM_FEE)
+    # Restaurant receives: subtotal minus discount minus $1 platform fee
+    # Vendor absorbs discount; platform keeps $2 flat regardless
     # Driver receives: delivery fee + tip (100% to driver)
     # Platform receives: $1 from customer + $1 from restaurant = $2 total
-    restaurant_payout = order.subtotal - RESTAURANT_PLATFORM_FEE
+    restaurant_payout = order.subtotal - (order.discount_amount or 0) - RESTAURANT_PLATFORM_FEE
     driver_payout = order.delivery_fee + order.tip
     platform_revenue = CUSTOMER_SERVICE_FEE + RESTAURANT_PLATFORM_FEE  # $1.00 + $1.00 = $2.00
 
@@ -3699,12 +3794,26 @@ async def order_delivered(
                 order_total=float(order.total_amount or 0),
                 driver_name=order.driver_name or "Your Driver",
                 delivery_address=delivery_address,
-                order_date=order.created_at.strftime("%B %d, %Y at %I:%M %p") if order.created_at else ""
+                order_date=order.created_at.strftime("%B %d, %Y at %I:%M %p") if order.created_at else "",
+                discount_amount=float(order.discount_amount or 0),
+                promo_code=order.promo_code
             )
             logging.info(f"Thank you email sent to {order.customer_email} for order {order.order_number}")
+
+        # Send driver earnings email
+        if driver and driver.email:
+            send_delivery_completed_driver_email(
+                to_email=driver.email,
+                driver_name=f"{driver.first_name} {driver.last_name}".strip() or "Driver",
+                order_number=order.order_number,
+                restaurant_name=vendor.restaurant_name if vendor else "Restaurant",
+                delivery_fee=float(order.delivery_fee or 0),
+                tip=float(order.tip or 0)
+            )
+            logging.info(f"Earnings email sent to driver {driver.email} for order {order.order_number}")
     except Exception as e:
         # Don't fail the delivery if email fails
-        logging.error(f"Failed to send thank you email for order {order.order_number}: {e}")
+        logging.error(f"Failed to send delivery emails for order {order.order_number}: {e}")
 
     return {
         "success": True,

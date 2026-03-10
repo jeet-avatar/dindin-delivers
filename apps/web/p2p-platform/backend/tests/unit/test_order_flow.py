@@ -174,6 +174,9 @@ def mock_order():
     order.customer_id = None
     order.confirmed_at = None
     order.picked_up_at = None
+    order.discount_amount = 0.0
+    order.promo_code = None
+    order.promo_type = None
     return order
 
 
@@ -1875,6 +1878,9 @@ class TestDeliveryProofPhoto:
         order.delivery_photo_url = None
         order.delivery_photo_uploaded_at = None
         order.updated_at = None
+        order.discount_amount = 0.0
+        order.promo_code = None
+        order.promo_type = None
         return order
 
     @pytest.fixture
@@ -1900,6 +1906,9 @@ class TestDeliveryProofPhoto:
         order.delivery_photo_url = "https://s3.amazonaws.com/delivery_proofs/1/photo.jpg"
         order.delivery_photo_uploaded_at = datetime.now()
         order.updated_at = None
+        order.discount_amount = 0.0
+        order.promo_code = None
+        order.promo_type = None
         return order
 
     @pytest.fixture

@@ -452,12 +452,19 @@ async def stripe_webhook(
 
                 # Email to vendor - new order received
                 if vendor and vendor.contact_email:
+                    _discount = float(order.discount_amount or 0)
+                    _subtotal = float(order.subtotal or 0)
                     send_new_order_vendor_email(
                         to_email=vendor.contact_email,
                         restaurant_name=restaurant_name,
                         order_number=order.order_number or str(order.id),
                         customer_name=order.customer_name or "Customer",
-                        order_total=float(order.total_amount or 0)
+                        order_total=float(order.total_amount or 0),
+                        subtotal=_subtotal,
+                        discount_amount=_discount,
+                        promo_code=order.promo_code,
+                        platform_fee=1.0,
+                        vendor_payout=_subtotal - _discount - 1.0
                     )
             except Exception as e:
                 print(f"Order notification error: {e}")
