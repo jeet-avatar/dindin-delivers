@@ -766,10 +766,11 @@ None
 | 128 | Fix 3 self-delivery gaps — leave_at_door decode, MapView + navigate, instructions callout | 2026-03-10 | 0a38c974 | [127-audit-restaurant-self-delivery-flow-maps](./quick/127-audit-restaurant-self-delivery-flow-maps/) |
 | 129 | Clean up 20 stale orders, iOS Restaurant 186 to TestFlight, Android Partner vC=30, parity audit | 2026-03-10 | eccc7de3 | [129-clean-up-stale-pending-orders-build-ios-](./quick/129-clean-up-stale-pending-orders-build-ios-/) |
 | 130 | E2E test 10 food orders full lifecycle on production — 10/10 delivered, 2 bugs found | 2026-03-10 | 6480d901 | [130-create-10-test-orders-e2e-lifecycle-on-p](./quick/130-create-10-test-orders-e2e-lifecycle-on-p/) |
+| 132 | Fix 4 delivery flow bugs — delivered 500, photo proof, navigation, address display [CR-0006] | 2026-03-10 | 4cc8926e | [132-fix-4-delivery-flow-bugs-delivered-500-p](./quick/132-fix-4-delivery-flow-bugs-delivered-500-p/) |
 
 
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Completed quick-129: Clean up stale orders, iOS Restaurant 186 to TestFlight, parity audit (48 features, 10 Android-only gaps).
+Stopped at: Completed quick-132: Fixed 4 delivery flow bugs (CR-0006 Verified). Deployed to staging+production.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
