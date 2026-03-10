@@ -20611,6 +20611,7 @@ None
 | 134 | Fix delivery proof gate 500 — missing PostgreSQL enum value + startup migration [CR-0008] | 2026-03-10 | ba34a2ca | [134-fix-delivery-proof-gate-500-when-no-phot](./quick/134-fix-delivery-proof-gate-500-when-no-phot/) |
 | 135 | 2 orders E2E — self-delivery + driver delivery with photo proof, receipts sent [CR-0009] | 2026-03-10 | a7982ba6 | [135-2-orders-google-restaurant-self-delivery](./quick/135-2-orders-google-restaurant-self-delivery/) |
 | 136 | E2E delivery test — driver pool + self-delivery, 610-line report, 16/16 steps PASS [CR-0010] | 2026-03-10 | 409ed671 | [136-e2e-delivery-test-google-restaurant-andr](./quick/136-e2e-delivery-test-google-restaurant-andr/) |
+| 137 | S3 photo 12h retention + Android Partner delivery photo + notification audit | 2026-03-10 | 4454dd6b | [137-s3-photo-12h-retention-android-partner-d](./quick/137-s3-photo-12h-retention-android-partner-d/) |
 
 
 ## Session Continuity
