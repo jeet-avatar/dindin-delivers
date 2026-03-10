@@ -420,6 +420,12 @@ For detailed information, see `.claude/docs/`:
 
 **EVERY task — trivial or complex, code or deploy — MUST use a GSD command.** No direct code edits, no ad-hoc fixes, no standalone deploys, no "just this once" shortcuts.
 
+### ⚠️ ALL tasks MUST create a Change Request ticket
+
+**Before ANY code changes**, create a CR in the ticketing system. See `.agents/skills/ticketed-task/SKILL.md` for the full protocol. The GSD executor reads this skill automatically.
+
+**Branching strategy is `phase`** — full phases create branches + PRs. Quick tasks commit to main but still MUST create a CR ticket for audit trail.
+
 #### Quick tasks (bug fixes, small changes, one-off edits)
 ```
 /gsd:quick <description>
