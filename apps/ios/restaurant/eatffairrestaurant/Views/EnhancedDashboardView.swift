@@ -104,6 +104,7 @@ struct OrdersDashboardView: View {
                                 onMarkReady: { ordersVM.markOrderReady(order) },
                                 onSelfDeliver: { ordersVM.acceptDelivery(order) },
                                 onSendToDriver: { ordersVM.declineDelivery(order) },
+                                onArrivedAtDelivery: { ordersVM.markArrivedAtDelivery(order) },
                                 onMarkDelivered: { ordersVM.markOrderDelivered(order) },
                                 onTap: { showOrderDetail = order }
                             )
@@ -386,6 +387,7 @@ struct EnhancedOrderCard: View {
     var onMarkReady: () -> Void
     var onSelfDeliver: (() -> Void)? = nil
     var onSendToDriver: (() -> Void)? = nil
+    var onArrivedAtDelivery: (() -> Void)? = nil
     var onMarkDelivered: (() -> Void)? = nil
     var onTap: () -> Void
 
@@ -1167,6 +1169,25 @@ struct EnhancedOrderCard: View {
                         .buttonStyle(.borderless)
                         .padding(.horizontal)
                     }
+
+                    // "I've Arrived" button — notifies customer that restaurant is at their location
+                    Button {
+                        onArrivedAtDelivery?()
+                    } label: {
+                        HStack {
+                            Image(systemName: "mappin.and.ellipse")
+                            Text("I've Arrived at Customer")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.orange)
+                        .cornerRadius(10)
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.horizontal)
 
                     // Mark Delivered button (requires proof photo)
                     Button {

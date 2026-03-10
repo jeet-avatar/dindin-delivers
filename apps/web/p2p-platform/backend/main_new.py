@@ -8822,6 +8822,37 @@ def update_order_status(
 
     db.commit()
 
+    # GAP-3 FIX: Send push notification when order goes out for delivery
+    if status.upper() == "OUT_FOR_DELIVERY":
+        try:
+            customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first() if order.vendor_id else None
+            r_name = vendor.restaurant_name if vendor else "The restaurant"
+            is_self_delivery = getattr(order, 'restaurant_will_deliver', False)
+            if customer:
+                if is_self_delivery:
+                    body_text = f"{r_name} has left to deliver your order."
+                else:
+                    driver_name = getattr(order, 'driver_name', None) or "Your driver"
+                    body_text = f"{driver_name} is on the way with your order from {r_name}."
+                from order_flow import send_push_notification
+                send_push_notification(
+                    user_type="customer",
+                    user_id=customer.id,
+                    title="Out for delivery!",
+                    body=body_text,
+                    data={
+                        "type": "out_for_delivery",
+                        "order_id": str(order.id),
+                        "order_number": order.order_number or str(order.id),
+                        "status": "out_for_delivery"
+                    },
+                    db=db
+                )
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to send out-for-delivery push: {e}")
+
     # Send status notification emails
     try:
         customer_email = order.customer_email

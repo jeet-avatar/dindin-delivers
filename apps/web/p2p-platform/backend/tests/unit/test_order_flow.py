@@ -520,9 +520,30 @@ class TestPaymentConfirmation:
     @pytest.mark.asyncio
     async def test_confirm_payment_success(self, mock_db_session, mock_order):
         """Test successful payment confirmation - auto sends to restaurant"""
-        mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order
+        from unittest.mock import MagicMock, patch
+        from models import Order, Vendor, Customer
 
-        from unittest.mock import MagicMock
+        # Create mock vendor and customer for GAP-1 notification queries
+        mock_vendor = MagicMock()
+        mock_vendor.restaurant_name = "Test Restaurant"
+        mock_customer = MagicMock()
+        mock_customer.id = 1
+        mock_customer.push_token = "test-token"
+
+        # Return different objects based on which model is queried
+        def query_side_effect(model):
+            mock_query = MagicMock()
+            if model == Order or model is type(mock_order):
+                mock_query.filter.return_value.first.return_value = mock_order
+            elif model == Vendor:
+                mock_query.filter.return_value.first.return_value = mock_vendor
+            elif model == Customer:
+                mock_query.filter.return_value.first.return_value = mock_customer
+            else:
+                mock_query.filter.return_value.first.return_value = None
+            return mock_query
+        mock_db_session.query.side_effect = query_side_effect
+
         mock_request = MagicMock()
         mock_request.headers = {}
         mock_request.client = MagicMock()
@@ -530,7 +551,8 @@ class TestPaymentConfirmation:
         mock_auth = {"user_id": 1, "role": "customer"}
 
         from order_flow import confirm_payment
-        result = await confirm_payment(mock_request, 1, mock_db_session, mock_auth)
+        with patch("order_flow.send_push_notification"):
+            result = await confirm_payment(mock_request, 1, mock_db_session, mock_auth)
 
         assert result["success"] is True
         assert result["order_id"] == 1

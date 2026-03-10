@@ -3498,6 +3498,42 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Restaurant marks arrival at customer's delivery location (self-delivery)
+    /// POST /api/erp/orders/{orderId}/vendor-arrived-at-delivery
+    public func markArrivedAtDelivery(
+        orderId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/vendor-arrived-at-delivery") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        secureSession.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200 else {
+                    completion(.failure(P2PAPIError.serverError("Failed to mark arrived at delivery")))
+                    return
+                }
+
+                completion(.success(true))
+            }
+        }.resume()
+    }
+
     // MARK: - Driver Authentication APIs
 
     /// Login as a driver
