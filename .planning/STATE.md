@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-10 - Completed quick task 126: Wire promotion system into payment flow
+Last activity: 2026-03-10 - Completed quick task 127: Test promotion system E2E and deploy to staging
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -62,7 +62,9 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-121]: Fixed 6 bugs in rideshare E2E test; production result 14/15 PASS; Rate Ride expected fail on non-completed rides
 - [Phase quick-122]: 30-min null-expiry cutoff for stale rides; rideshare earnings as separate response fields for backward compat
 - [Phase quick-123]: Build 1111 APPROVED (PENDING_DEVELOPER_RELEASE); 3 metadata blockers; CONDITIONAL GO for release
-- [Phase quick-125]: Vendor absorbs promo discount; platform keeps - [Phase quick-79]: Android Apple Auth path mismatch is FALSE POSITIVE — Retrofit base URL resolves correctly
+- [Phase quick-125]: Vendor absorbs promo discount; platform keeps $2/order flat. Built-in codes + DB promos
+- [Phase quick-126]: 1489 tests green, promo math verified, staging deployed via CI/CD run 22888129870, CR-0002 verified
+- [Phase quick-79]: Android Apple Auth path mismatch is FALSE POSITIVE — Retrofit base URL resolves correctly
 - [Phase quick-80]: Build 1111 is the submission build; 39/39 stress tests PASS; GO for App Store
 - [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code
 - [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs
@@ -160,10 +162,11 @@ None
 | 124 | Fix 4 rideshare data issues — stale rides, earnings, bids filter, active count | 2026-03-08 | 433a0677 | [122-fix-4-rideshare-data-issues-stale-rides-](./quick/122-fix-4-rideshare-data-issues-stale-rides-/) |
 | 125 | Enterprise App Store audit — 86 checks, 68 PASS, 3 FAIL, 10 WARNING, build 1111 APPROVED | 2026-03-09 | ed5340cd | [123-enterprise-level-apple-app-store-submiss](./quick/123-enterprise-level-apple-app-store-submiss/) |
 | 126 | Wire promotion system into payment flow — promo codes, discount math, receipt/driver/vendor emails, real featured deals | 2026-03-10 | c4b60252 | [125-wire-promotion-system-into-payment-flow](./quick/125-wire-promotion-system-into-payment-flow/) |
+| 127 | Test promotion system E2E and deploy to staging — 1489 tests green, CR-0002 verified | 2026-03-10 | (test+deploy) | [126-test-promotion-system-e2e-and-deploy-sta](./quick/126-test-promotion-system-e2e-and-deploy-sta/) |
 
 
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Completed quick-125: Wire promotion system into payment flow. Deployed to staging + production.
+Stopped at: Completed quick-126: Test promotion system E2E and deploy to staging. 1489 tests green, staging deployed, CR-0002 verified.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
