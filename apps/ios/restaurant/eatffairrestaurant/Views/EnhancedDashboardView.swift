@@ -104,6 +104,7 @@ struct OrdersDashboardView: View {
                                 onMarkReady: { ordersVM.markOrderReady(order) },
                                 onSelfDeliver: { ordersVM.acceptDelivery(order) },
                                 onSendToDriver: { ordersVM.declineDelivery(order) },
+                                onStartDelivery: { ordersVM.startDelivery(order) },
                                 onArrivedAtDelivery: { ordersVM.markArrivedAtDelivery(order) },
                                 onMarkDelivered: { ordersVM.markOrderDelivered(order) },
                                 onTap: { showOrderDetail = order }
@@ -387,6 +388,7 @@ struct EnhancedOrderCard: View {
     var onMarkReady: () -> Void
     var onSelfDeliver: (() -> Void)? = nil
     var onSendToDriver: (() -> Void)? = nil
+    var onStartDelivery: (() -> Void)? = nil
     var onArrivedAtDelivery: (() -> Void)? = nil
     var onMarkDelivered: (() -> Void)? = nil
     var onTap: () -> Void
@@ -950,7 +952,7 @@ struct EnhancedOrderCard: View {
                         .padding(.bottom)
                     }
                 }
-            } else if order.status.lowercased() == "ontheway" || order.status.lowercased() == "pickedup" {
+            } else if (order.status.lowercased() == "ontheway" || order.status.lowercased() == "pickedup") && order.driverName != nil && !(order.driverName?.isEmpty ?? true) {
                 // Driver is delivering - show delivery status (mapped from out_for_delivery/picked_up)
                 Divider()
 
@@ -1034,7 +1036,101 @@ struct EnhancedOrderCard: View {
                     }
                 }
             } else if order.status.lowercased() == "restaurant_will_deliver" {
-                // Self-delivery in progress - show Mark Delivered button
+                // Phase A: Ready to deliver — show address preview + Start Delivery button
+                Divider()
+
+                VStack(spacing: 12) {
+                    // Status indicator
+                    HStack {
+                        Image(systemName: "shippingbox.fill")
+                            .foregroundColor(RestaurantTheme.brandGreen)
+                        Text("Ready to deliver")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(RestaurantTheme.brandGreen)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                    // Delivery address preview
+                    if !order.deliveryAddress.fullAddress.isEmpty {
+                        HStack {
+                            Image(systemName: "location.fill")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(order.deliveryAddress.fullAddress)
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                                .lineLimit(2)
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    // Delivery instructions callout
+                    if !order.deliveryInstructions.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Image(systemName: "note.text")
+                                    .foregroundColor(.blue)
+                                Text("Delivery Instructions")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.blue)
+                            }
+                            Text(order.deliveryInstructions)
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.blue.opacity(0.08))
+                        .cornerRadius(10)
+                        .padding(.horizontal)
+                    }
+
+                    // Leave-at-door badge
+                    if order.leaveAtDoor == true {
+                        HStack {
+                            Image(systemName: "door.left.hand.open")
+                                .foregroundColor(.orange)
+                            Text("LEAVE AT DOOR")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.orange.opacity(0.15))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
+                    }
+
+                    // Start Delivery button
+                    Button {
+                        onStartDelivery?()
+                    } label: {
+                        HStack {
+                            Image(systemName: "car.fill")
+                            Text("Start Delivery")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(RestaurantTheme.brandGreen)
+                        .cornerRadius(10)
+                    }
+                    .accessibilityLabel("Start delivery")
+                    .accessibilityHint("Marks the order as out for delivery and shows navigation")
+                    .buttonStyle(.borderless)
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                }
+            } else if order.status.lowercased() == "ontheway" && (order.driverName == nil || order.driverName?.isEmpty == true) {
+                // Phase B: Self-delivery in transit — map, navigate, arrived, mark delivered
                 Divider()
 
                 VStack(spacing: 12) {
@@ -1042,7 +1138,7 @@ struct EnhancedOrderCard: View {
                     HStack {
                         Image(systemName: "car.fill")
                             .foregroundColor(RestaurantTheme.brandGreen)
-                        Text("You are delivering this order")
+                        Text("On the way to customer")
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .foregroundColor(RestaurantTheme.brandGreen)
@@ -1090,15 +1186,15 @@ struct EnhancedOrderCard: View {
                         .padding(.horizontal)
                     }
 
-                    // Delivery address reminder
+                    // Delivery address
                     if !order.deliveryAddress.fullAddress.isEmpty {
                         HStack {
                             Image(systemName: "location.fill")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             Text(order.deliveryAddress.fullAddress)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
                                 .lineLimit(2)
                             Spacer()
                         }
@@ -1141,18 +1237,17 @@ struct EnhancedOrderCard: View {
                         .cornerRadius(12)
                         .padding(.horizontal)
 
-                        // Navigate to Customer button
+                        // Navigate to Customer button — Google Maps first, Apple Maps fallback
                         Button(action: {
-                            let destCoord = CLLocationCoordinate2D(
-                                latitude: order.deliveryAddress.latitude,
-                                longitude: order.deliveryAddress.longitude
-                            )
-                            let placemark = MKPlacemark(coordinate: destCoord)
-                            let mapItem = MKMapItem(placemark: placemark)
-                            mapItem.name = order.customerName
-                            mapItem.openInMaps(launchOptions: [
-                                MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
-                            ])
+                            let lat = order.deliveryAddress.latitude
+                            let lon = order.deliveryAddress.longitude
+                            let googleMapsURL = URL(string: "comgooglemaps://?daddr=\(lat),\(lon)&directionsmode=driving")
+                            let appleMapsURL = URL(string: "https://maps.apple.com/?daddr=\(lat),\(lon)&dirflg=d")
+                            if let url = googleMapsURL, UIApplication.shared.canOpenURL(url) {
+                                UIApplication.shared.open(url)
+                            } else if let url = appleMapsURL {
+                                UIApplication.shared.open(url)
+                            }
                         }) {
                             HStack {
                                 Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")

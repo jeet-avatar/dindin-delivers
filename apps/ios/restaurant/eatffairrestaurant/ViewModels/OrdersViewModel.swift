@@ -383,6 +383,13 @@ class OrdersViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Self-Delivery Flow
+
+    /// Restaurant starts self-delivery — transitions from restaurant_will_deliver to out_for_delivery
+    func startDelivery(_ order: Order) {
+        updateOrderStatus(order, newStatus: "OUT_FOR_DELIVERY")
+    }
+
     // MARK: - Delivery Decision Flow (3-minute window)
 
     /// Restaurant accepts delivery (will self-deliver)
