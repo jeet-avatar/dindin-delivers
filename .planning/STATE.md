@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-10 - Completed quick task 129: Clean up stale orders, build restaurant apps, parity audit
+Last activity: 2026-03-10 - Completed quick task 130: E2E test 10 food orders full lifecycle on production
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -445,6 +445,7 @@ None
 | 127 | Test promotion system E2E and deploy to staging — 1489 tests green, CR-0002 verified | 2026-03-10 | (test+deploy) | [126-test-promotion-system-e2e-and-deploy-sta](./quick/126-test-promotion-system-e2e-and-deploy-sta/) |
 | 128 | Fix 3 self-delivery gaps — leave_at_door decode, MapView + navigate, instructions callout | 2026-03-10 | 0a38c974 | [127-audit-restaurant-self-delivery-flow-maps](./quick/127-audit-restaurant-self-delivery-flow-maps/) |
 | 129 | Clean up 20 stale orders, iOS Restaurant 186 to TestFlight, Android Partner vC=30, parity audit | 2026-03-10 | eccc7de3 | [129-clean-up-stale-pending-orders-build-ios-](./quick/129-clean-up-stale-pending-orders-build-ios-/) |
+| 130 | E2E test 10 food orders full lifecycle on production — 10/10 delivered, 2 bugs found | 2026-03-10 | 6480d901 | [130-create-10-test-orders-e2e-lifecycle-on-p](./quick/130-create-10-test-orders-e2e-lifecycle-on-p/) |
 
 
 ## Session Continuity
