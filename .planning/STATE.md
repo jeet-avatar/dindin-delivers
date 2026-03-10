@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-10 - Completed quick task 133: E2E delivery flow verification (3/4 CR-0006 fixes PASS, new proof gate 500 found)
+Last activity: 2026-03-10 - Completed quick task 138: Fix 5 delivery notification gaps (GAP-1 through GAP-5) [CR-0011]
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -41092,6 +41092,7 @@ None
 | 135 | 2 orders E2E — self-delivery + driver delivery with photo proof, receipts sent [CR-0009] | 2026-03-10 | a7982ba6 | [135-2-orders-google-restaurant-self-delivery](./quick/135-2-orders-google-restaurant-self-delivery/) |
 | 136 | E2E delivery test — driver pool + self-delivery, 610-line report, 16/16 steps PASS [CR-0010] | 2026-03-10 | 409ed671 | [136-e2e-delivery-test-google-restaurant-andr](./quick/136-e2e-delivery-test-google-restaurant-andr/) |
 | 137 | S3 photo 12h retention + Android Partner delivery photo + notification audit | 2026-03-10 | 4454dd6b | [137-s3-photo-12h-retention-android-partner-d](./quick/137-s3-photo-12h-retention-android-partner-d/) |
+| 138 | Fix 5 delivery notification gaps (GAP-1 through GAP-5) — backend + iOS + Android [CR-0011] | 2026-03-10 | 140f31a1 | [138-fix-5-delivery-notification-gaps-gap-1-t](./quick/138-fix-5-delivery-notification-gaps-gap-1-t/) |
 
 
 ## Session Continuity
