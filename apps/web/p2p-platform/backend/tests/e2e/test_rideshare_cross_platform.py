@@ -338,8 +338,27 @@ class TestRideshareCrossPlatform:
 
     @pytest.fixture(autouse=True)
     def setup(self):
-        """Setup test client"""
+        """Setup test client with authentication"""
         self.client = RideshareTestClient()
+
+        # Authenticate as customer to get a valid JWT for API calls
+        # Try demo credentials first, then test credentials
+        login_attempts = [
+            {"email": "demo.customer@dollor.ai", "password": "DemoCustomer2025!"},
+            {"email": "ios.customer@test.dollor.ai", "password": "TestPass123!"},
+        ]
+        authenticated = False
+        for creds in login_attempts:
+            result = self.client.customer_login(creds["email"], creds["password"])
+            token = result.get("token") or result.get("access_token")
+            if token:
+                self.client.set_auth_token(token)
+                authenticated = True
+                break
+
+        if not authenticated:
+            pytest.skip("Could not authenticate with staging API — no valid credentials")
+
         yield
 
     # =====================================================================
