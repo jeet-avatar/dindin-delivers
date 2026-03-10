@@ -1201,7 +1201,7 @@ struct EnhancedOrderCard: View {
                         .padding(.horizontal)
                     }
 
-                    // Map showing restaurant and customer locations
+                    // Map showing restaurant and customer locations (requires both coords)
                     if order.deliveryAddress.latitude != 0 && order.deliveryAddress.longitude != 0
                         && order.restaurant.latitude != 0 && order.restaurant.longitude != 0 {
                         let restaurantCoord = CLLocationCoordinate2D(
@@ -1236,8 +1236,10 @@ struct EnhancedOrderCard: View {
                         .frame(height: 200)
                         .cornerRadius(12)
                         .padding(.horizontal)
+                    }
 
-                        // Navigate to Customer button — Google Maps first, Apple Maps fallback
+                    // Navigate to Customer button — only needs delivery coordinates
+                    if order.deliveryAddress.latitude != 0 && order.deliveryAddress.longitude != 0 {
                         Button(action: {
                             let lat = order.deliveryAddress.latitude
                             let lon = order.deliveryAddress.longitude
