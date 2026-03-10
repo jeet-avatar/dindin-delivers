@@ -3092,6 +3092,73 @@ async def update_order_status(
 
 # ==================== DRIVER FLOW ====================
 
+
+def _build_customer_address(delivery_addr: dict, order) -> str:
+    """Build a readable customer address from delivery_addr dict and order fields."""
+    parts = []
+    street = delivery_addr.get("street") or delivery_addr.get("address") or ""
+    city = delivery_addr.get("city") or ""
+    state = delivery_addr.get("state") or ""
+    zip_code = delivery_addr.get("zip") or delivery_addr.get("zipCode") or ""
+
+    if street:
+        parts.append(street)
+    if city:
+        parts.append(city)
+    if state:
+        parts.append(state)
+    if zip_code:
+        parts.append(zip_code)
+
+    if parts:
+        return ", ".join(parts)
+
+    # Fallback to full_address
+    if delivery_addr.get("full_address") or delivery_addr.get("fullAddress"):
+        return delivery_addr.get("full_address") or delivery_addr.get("fullAddress")
+
+    # Last resort: the raw delivery_address string
+    return str(order.delivery_address or "Address not available")
+
+
+def _safe_parse_delivery_addr(order) -> dict:
+    """Safely parse delivery address JSON from order, always returns a dict."""
+    delivery_addr = {}
+    if order.delivery_address:
+        try:
+            parsed = json.loads(order.delivery_address)
+            if isinstance(parsed, dict):
+                delivery_addr = parsed
+            else:
+                delivery_addr = {"address": str(parsed)}
+        except (json.JSONDecodeError, TypeError):
+            delivery_addr = {"address": str(order.delivery_address)}
+    return delivery_addr
+
+
+def _safe_dropoff_lat(delivery_addr: dict, order) -> float:
+    """Return non-null dropoff latitude."""
+    return delivery_addr.get("latitude") or (getattr(order, 'delivery_latitude', None)) or 0.0
+
+
+def _safe_dropoff_lng(delivery_addr: dict, order) -> float:
+    """Return non-null dropoff longitude."""
+    return delivery_addr.get("longitude") or (getattr(order, 'delivery_longitude', None)) or 0.0
+
+
+def _build_delivery_address_dict(delivery_addr: dict, order) -> dict:
+    """Build a structured delivery_address dict for driver order responses."""
+    return {
+        "street": delivery_addr.get("street") or delivery_addr.get("address") or "",
+        "city": delivery_addr.get("city") or "",
+        "state": delivery_addr.get("state") or "",
+        "zip": delivery_addr.get("zip") or delivery_addr.get("zipCode") or "",
+        "full_address": _build_customer_address(delivery_addr, order),
+        "latitude": _safe_dropoff_lat(delivery_addr, order),
+        "longitude": _safe_dropoff_lng(delivery_addr, order),
+    }
+
+
 @router.get("/orders/available-for-delivery")
 async def get_available_orders(
     db: Session = Depends(get_db),
@@ -3109,12 +3176,7 @@ async def get_available_orders(
     for order in orders:
         vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
         # Safely parse delivery address
-        delivery_addr = {}
-        if order.delivery_address:
-            try:
-                delivery_addr = json.loads(order.delivery_address)
-            except (json.JSONDecodeError, TypeError):
-                delivery_addr = {"address": str(order.delivery_address)}
+        delivery_addr = _safe_parse_delivery_addr(order)
         # Calculate minutes until ready
         minutes_until_ready = None
         if order.estimated_ready_at:
@@ -3130,13 +3192,14 @@ async def get_available_orders(
             "restaurant": vendor.restaurant_name if vendor else "Unknown",
             "pickup_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
             "customer_name": order.customer_name,
-            "customer_address": delivery_addr.get("street", delivery_addr.get("address", "")) + ", " + delivery_addr.get("city", ""),
+            "customer_address": _build_customer_address(delivery_addr, order),
             "customer_phone": order.customer_phone,
             "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
             "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
-            # Use JSON coordinates first, fall back to dedicated columns
-            "dropoff_latitude": delivery_addr.get("latitude") or (order.delivery_latitude if hasattr(order, 'delivery_latitude') else None),
-            "dropoff_longitude": delivery_addr.get("longitude") or (order.delivery_longitude if hasattr(order, 'delivery_longitude') else None),
+            # Use JSON coordinates first, fall back to dedicated columns — never return None
+            "dropoff_latitude": _safe_dropoff_lat(delivery_addr, order),
+            "dropoff_longitude": _safe_dropoff_lng(delivery_addr, order),
+            "delivery_address": _build_delivery_address_dict(delivery_addr, order),
             "estimated_distance": None,
             "estimated_duration": 30,
             "delivery_fee": order.delivery_fee,
@@ -3486,7 +3549,7 @@ async def order_delivered(
             "message": "Please upload a delivery proof photo to complete this delivery"
         }
 
-    # Update order status
+    # Update order status FIRST (this must succeed regardless of accounting)
     order.status = OrderStatus.DELIVERED
     order.delivered_at = datetime.now()
 
@@ -3504,195 +3567,202 @@ async def order_delivered(
                          f"Your order from {restaurant_name} has been delivered. Enjoy your meal!",
                          "delivery", order.id, "order")
 
+    # Commit delivery status first — accounting failures must NOT block delivery
+    db.commit()
+
     # ==================== CREATE ACCOUNTING ENTRIES ====================
+    # Wrapped in try/except so accounting failures don't revert delivery status
 
-    # Generate entry number
-    entry_count = db.query(JournalEntry).count()
-    entry_number = f"JE-{datetime.now().strftime('%Y%m%d')}-{entry_count + 1:05d}"
-
-    # Create journal entry
-    journal_entry = JournalEntry(
-        entry_number=entry_number,
-        order_id=order.id,
-        entry_type="ORDER_COMPLETED",
-        description=f"Order {order.order_number} completed - Payment received from customer",
-        status="posted",
-        created_by_ai=accountant_ai["id"],
-        created_by_ai_name=accountant_ai["name"],
-        posted_at=datetime.now()
-    )
-    db.add(journal_entry)
-    db.flush()  # Get the ID
-
-    # Calculate payouts (Dollor.ai $1 flat fee model)
-    # Restaurant receives: subtotal minus discount minus $1 platform fee
-    # Vendor absorbs discount; platform keeps $2 flat regardless
-    # Driver receives: delivery fee + tip (100% to driver)
-    # Platform receives: $1 from customer + $1 from restaurant = $2 total
-    restaurant_payout = order.subtotal - (order.discount_amount or 0) - RESTAURANT_PLATFORM_FEE
-    driver_payout = order.delivery_fee + order.tip
+    # Calculate payouts (Dollor.ai $1 flat fee model) — None-safe arithmetic
+    restaurant_payout = (order.subtotal or 0) - (order.discount_amount or 0) - RESTAURANT_PLATFORM_FEE
+    driver_payout = (order.delivery_fee or 0) + (order.tip or 0)
     platform_revenue = CUSTOMER_SERVICE_FEE + RESTAURANT_PLATFORM_FEE  # $1.00 + $1.00 = $2.00
+    entry_number = None
 
-    # Create journal entry lines (double-entry accounting)
-    lines = [
-        JournalEntryLine(
-            journal_entry_id=journal_entry.id,
-            account_code="1000",
-            account_name="Cash/Stripe",
-            debit=order.total_amount,
-            credit=0,
-            description=f"Payment received for order {order.order_number}"
-        ),
-        JournalEntryLine(
-            journal_entry_id=journal_entry.id,
-            account_code="2100",
-            account_name="Restaurant Payable",
-            debit=0,
-            credit=restaurant_payout,
-            description=f"Payable to {vendor.restaurant_name if vendor else 'Restaurant'} (subtotal - ${RESTAURANT_PLATFORM_FEE} platform fee)"
-        ),
-        JournalEntryLine(
-            journal_entry_id=journal_entry.id,
-            account_code="2200",
-            account_name="Driver Payable",
-            debit=0,
-            credit=driver_payout,
-            description=f"Payable to {order.driver_name or 'Driver'} (delivery fee + tip)"
-        ),
-        JournalEntryLine(
-            journal_entry_id=journal_entry.id,
-            account_code="4000",
-            account_name="Platform Revenue - Service Fee",
-            debit=0,
-            credit=CUSTOMER_SERVICE_FEE,
-            description=f"Service fee from customer (${CUSTOMER_SERVICE_FEE})"
-        ),
-        JournalEntryLine(
-            journal_entry_id=journal_entry.id,
-            account_code="4001",
-            account_name="Platform Revenue - Restaurant Fee",
-            debit=0,
-            credit=RESTAURANT_PLATFORM_FEE,
-            description=f"Platform fee from restaurant (${RESTAURANT_PLATFORM_FEE})"
-        ),
-        JournalEntryLine(
-            journal_entry_id=journal_entry.id,
-            account_code="2300",
-            account_name="Tax Collected",
-            debit=0,
-            credit=order.tax_amount,
-            description="Sales tax collected"
-        )
-    ]
+    try:
+        # Generate entry number
+        entry_count = db.query(JournalEntry).count()
+        entry_number = f"JE-{datetime.now().strftime('%Y%m%d')}-{entry_count + 1:05d}"
 
-    for line in lines:
-        db.add(line)
-
-    # ==================== CREATE VENDOR PAYOUT RECORD ====================
-
-    payout_count = db.query(VendorPayout).count()
-    vendor_payout = VendorPayout(
-        payout_number=f"VP-{datetime.now().strftime('%Y%m%d')}-{payout_count + 1:05d}",
-        vendor_id=order.vendor_id,
-        period_start=order.created_at,
-        period_end=datetime.now(),
-        total_orders=1,
-        gross_revenue=order.subtotal,
-        platform_fee=RESTAURANT_PLATFORM_FEE,  # $1 platform fee from restaurant
-        stripe_fees=0,  # Will be calculated separately
-        net_payout=restaurant_payout,
-        status="pending"
-    )
-    db.add(vendor_payout)
-
-    # ==================== AUTO-PAYOUT VENDOR VIA STRIPE CONNECT ====================
-    if vendor and restaurant_payout > 0:
-        try:
-            import stripe
-            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-
-            if getattr(vendor, 'stripe_account_id', None) and getattr(vendor, 'stripe_onboarding_complete', False):
-                vendor_payout_cents = int(restaurant_payout * 100)
-                if vendor_payout_cents > 0:
-                    vendor_transfer = stripe.Transfer.create(
-                        amount=vendor_payout_cents,
-                        currency="usd",
-                        destination=vendor.stripe_account_id,
-                        description=f"Order {order.order_number} restaurant payout",
-                        metadata={
-                            "order_id": str(order.id),
-                            "order_number": order.order_number,
-                            "vendor_id": str(vendor.id),
-                            "gross_revenue": str(order.subtotal),
-                            "platform_fee": str(RESTAURANT_PLATFORM_FEE),
-                        },
-                        idempotency_key=f"vendor_xfer_{order.id}_{order.order_number}"
-                    )
-                    vendor_payout.status = "completed"
-                    vendor_payout.paid_at = datetime.now()
-                    vendor_payout.stripe_transfer_id = vendor_transfer.id
-                    logging.info(f"Order {order.order_number} vendor auto-payout ${restaurant_payout:.2f} to vendor {vendor.id}")
-            else:
-                logging.info(f"Order {order.order_number} vendor {vendor.id} not Stripe-onboarded, payout pending manual processing")
-        except Exception as e:
-            vendor_payout.status = "failed"
-            logging.error(f"Order {order.order_number} vendor auto-payout failed (non-blocking): {e}")
-
-    # ==================== CREATE DRIVER PAYOUT RECORD ====================
-
-    if driver:
-        driver_payout_count = db.query(DriverPayout).count()
-        driver_payout_record = DriverPayout(
-            payout_number=f"DP-{datetime.now().strftime('%Y%m%d')}-{driver_payout_count + 1:05d}",
-            driver_id=driver.id,
+        # Create journal entry
+        journal_entry = JournalEntry(
+            entry_number=entry_number,
             order_id=order.id,
+            entry_type="ORDER_COMPLETED",
+            description=f"Order {order.order_number} completed - Payment received from customer",
+            status="posted",
+            created_by_ai=accountant_ai["id"],
+            created_by_ai_name=accountant_ai["name"],
+            posted_at=datetime.now()
+        )
+        db.add(journal_entry)
+        db.flush()  # Get the ID
+
+        # Create journal entry lines (double-entry accounting)
+        lines = [
+            JournalEntryLine(
+                journal_entry_id=journal_entry.id,
+                account_code="1000",
+                account_name="Cash/Stripe",
+                debit=order.total_amount or 0,
+                credit=0,
+                description=f"Payment received for order {order.order_number}"
+            ),
+            JournalEntryLine(
+                journal_entry_id=journal_entry.id,
+                account_code="2100",
+                account_name="Restaurant Payable",
+                debit=0,
+                credit=restaurant_payout,
+                description=f"Payable to {vendor.restaurant_name if vendor else 'Restaurant'} (subtotal - ${RESTAURANT_PLATFORM_FEE} platform fee)"
+            ),
+            JournalEntryLine(
+                journal_entry_id=journal_entry.id,
+                account_code="2200",
+                account_name="Driver Payable",
+                debit=0,
+                credit=driver_payout,
+                description=f"Payable to {order.driver_name or 'Driver'} (delivery fee + tip)"
+            ),
+            JournalEntryLine(
+                journal_entry_id=journal_entry.id,
+                account_code="4000",
+                account_name="Platform Revenue - Service Fee",
+                debit=0,
+                credit=CUSTOMER_SERVICE_FEE,
+                description=f"Service fee from customer (${CUSTOMER_SERVICE_FEE})"
+            ),
+            JournalEntryLine(
+                journal_entry_id=journal_entry.id,
+                account_code="4001",
+                account_name="Platform Revenue - Restaurant Fee",
+                debit=0,
+                credit=RESTAURANT_PLATFORM_FEE,
+                description=f"Platform fee from restaurant (${RESTAURANT_PLATFORM_FEE})"
+            ),
+            JournalEntryLine(
+                journal_entry_id=journal_entry.id,
+                account_code="2300",
+                account_name="Tax Collected",
+                debit=0,
+                credit=order.tax_amount or 0,
+                description="Sales tax collected"
+            )
+        ]
+
+        for line in lines:
+            db.add(line)
+
+        # ==================== CREATE VENDOR PAYOUT RECORD ====================
+
+        payout_count = db.query(VendorPayout).count()
+        vendor_payout = VendorPayout(
+            payout_number=f"VP-{datetime.now().strftime('%Y%m%d')}-{payout_count + 1:05d}",
+            vendor_id=order.vendor_id,
             period_start=order.created_at,
             period_end=datetime.now(),
-            total_deliveries=1,
-            delivery_fee=order.delivery_fee,
-            tip=order.tip,
-            bonus=0,
-            deductions=0,
-            net_payout=driver_payout,
+            total_orders=1,
+            gross_revenue=order.subtotal or 0,
+            platform_fee=RESTAURANT_PLATFORM_FEE,  # $1 platform fee from restaurant
+            stripe_fees=0,  # Will be calculated separately
+            net_payout=restaurant_payout,
             status="pending"
         )
-        db.add(driver_payout_record)
+        db.add(vendor_payout)
 
-        # Update driver stats
-        driver.total_deliveries += 1
+        # ==================== AUTO-PAYOUT VENDOR VIA STRIPE CONNECT ====================
+        if vendor and restaurant_payout > 0:
+            try:
+                import stripe
+                stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
-        # ==================== AUTO-PAYOUT VIA STRIPE CONNECT ====================
-        try:
-            import stripe
-            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+                if getattr(vendor, 'stripe_account_id', None) and getattr(vendor, 'stripe_onboarding_complete', False):
+                    vendor_payout_cents = int(restaurant_payout * 100)
+                    if vendor_payout_cents > 0:
+                        vendor_transfer = stripe.Transfer.create(
+                            amount=vendor_payout_cents,
+                            currency="usd",
+                            destination=vendor.stripe_account_id,
+                            description=f"Order {order.order_number} restaurant payout",
+                            metadata={
+                                "order_id": str(order.id),
+                                "order_number": order.order_number,
+                                "vendor_id": str(vendor.id),
+                                "gross_revenue": str(order.subtotal),
+                                "platform_fee": str(RESTAURANT_PLATFORM_FEE),
+                            },
+                            idempotency_key=f"vendor_xfer_{order.id}_{order.order_number}"
+                        )
+                        vendor_payout.status = "completed"
+                        vendor_payout.paid_at = datetime.now()
+                        vendor_payout.stripe_transfer_id = vendor_transfer.id
+                        logging.info(f"Order {order.order_number} vendor auto-payout ${restaurant_payout:.2f} to vendor {vendor.id}")
+                else:
+                    logging.info(f"Order {order.order_number} vendor {vendor.id} not Stripe-onboarded, payout pending manual processing")
+            except Exception as e:
+                vendor_payout.status = "failed"
+                logging.error(f"Order {order.order_number} vendor auto-payout failed (non-blocking): {e}")
 
-            if getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
-                payout_cents = int(driver_payout * 100)
-                if payout_cents > 0:
-                    transfer = stripe.Transfer.create(
-                        amount=payout_cents,
-                        currency="usd",
-                        destination=driver.stripe_account_id,
-                        description=f"Order {order.order_number} delivery payout",
-                        metadata={
-                            "order_id": str(order.id),
-                            "order_number": order.order_number,
-                            "driver_id": str(driver.id),
-                            "delivery_fee": str(order.delivery_fee),
-                            "tip": str(order.tip),
-                        },
-                        idempotency_key=f"driver_xfer_{order.id}_{order.order_number}"
-                    )
-                    driver_payout_record.status = "completed"
-                    driver_payout_record.stripe_transfer_id = getattr(driver_payout_record, 'stripe_transfer_id', None) or transfer.id
-                    logging.info(f"Order {order.order_number} auto-payout ${driver_payout:.2f} to driver {driver.id}")
-            else:
-                logging.info(f"Order {order.order_number} driver {driver.id} not Stripe-onboarded, payout pending manual processing")
-        except Exception as e:
-            driver_payout_record.status = "failed"
-            logging.error(f"Order {order.order_number} auto-payout failed (non-blocking): {e}")
+        # ==================== CREATE DRIVER PAYOUT RECORD ====================
 
-    db.commit()
+        if driver:
+            driver_payout_count = db.query(DriverPayout).count()
+            driver_payout_record = DriverPayout(
+                payout_number=f"DP-{datetime.now().strftime('%Y%m%d')}-{driver_payout_count + 1:05d}",
+                driver_id=driver.id,
+                order_id=order.id,
+                period_start=order.created_at,
+                period_end=datetime.now(),
+                total_deliveries=1,
+                delivery_fee=order.delivery_fee or 0,
+                tip=order.tip or 0,
+                bonus=0,
+                deductions=0,
+                net_payout=driver_payout,
+                status="pending"
+            )
+            db.add(driver_payout_record)
+
+            # Update driver stats
+            driver.total_deliveries += 1
+
+            # ==================== AUTO-PAYOUT VIA STRIPE CONNECT ====================
+            try:
+                import stripe
+                stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+                if getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
+                    payout_cents = int(driver_payout * 100)
+                    if payout_cents > 0:
+                        transfer = stripe.Transfer.create(
+                            amount=payout_cents,
+                            currency="usd",
+                            destination=driver.stripe_account_id,
+                            description=f"Order {order.order_number} delivery payout",
+                            metadata={
+                                "order_id": str(order.id),
+                                "order_number": order.order_number,
+                                "driver_id": str(driver.id),
+                                "delivery_fee": str(order.delivery_fee),
+                                "tip": str(order.tip),
+                            },
+                            idempotency_key=f"driver_xfer_{order.id}_{order.order_number}"
+                        )
+                        driver_payout_record.status = "completed"
+                        driver_payout_record.stripe_transfer_id = getattr(driver_payout_record, 'stripe_transfer_id', None) or transfer.id
+                        logging.info(f"Order {order.order_number} auto-payout ${driver_payout:.2f} to driver {driver.id}")
+                else:
+                    logging.info(f"Order {order.order_number} driver {driver.id} not Stripe-onboarded, payout pending manual processing")
+            except Exception as e:
+                driver_payout_record.status = "failed"
+                logging.error(f"Order {order.order_number} auto-payout failed (non-blocking): {e}")
+
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        logging.error(f"Failed to create accounting entries for order {order.order_number}: {e}")
+        entry_number = None
 
     # ==================== SEND PUSH NOTIFICATION TO CUSTOMER ====================
     notification_sent = False
@@ -3828,13 +3898,14 @@ async def order_delivered(
             "journal_entry": entry_number,
             "restaurant_payout": restaurant_payout,
             "driver_payout": driver_payout,
-            "platform_revenue": platform_revenue,  # $2.99 service fee + $1 restaurant fee
-            "tax_collected": order.tax_amount,
+            "platform_revenue": platform_revenue,
+            "tax_collected": order.tax_amount or 0,
+            "accounting_created": entry_number is not None,
             "fee_breakdown": {
                 "restaurant_platform_fee": RESTAURANT_PLATFORM_FEE,
                 "customer_service_fee": CUSTOMER_SERVICE_FEE,
-                "delivery_fee": order.delivery_fee,
-                "tip": order.tip
+                "delivery_fee": order.delivery_fee or 0,
+                "tip": order.tip or 0
             }
         }
     }
@@ -4177,12 +4248,7 @@ async def get_driver_active_orders(
     for order in orders:
         vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
         # Safely parse delivery address
-        delivery_addr = {}
-        if order.delivery_address:
-            try:
-                delivery_addr = json.loads(order.delivery_address)
-            except (json.JSONDecodeError, TypeError):
-                delivery_addr = {"address": str(order.delivery_address)}
+        delivery_addr = _safe_parse_delivery_addr(order)
 
         # Calculate ETA fields for early driver notification
         estimated_ready_at = getattr(order, 'estimated_ready_at', None)
@@ -4204,13 +4270,14 @@ async def get_driver_active_orders(
             "restaurant_name": vendor.restaurant_name if vendor else "Unknown",
             "restaurant_address": f"{vendor.street}, {vendor.city}, {vendor.state}" if vendor else "",
             "customer_name": order.customer_name,
-            "customer_address": delivery_addr.get("street", delivery_addr.get("address", "")) + ", " + delivery_addr.get("city", ""),
+            "customer_address": _build_customer_address(delivery_addr, order),
             "customer_phone": order.customer_phone,
             "pickup_latitude": vendor.latitude if vendor and hasattr(vendor, 'latitude') else None,
             "pickup_longitude": vendor.longitude if vendor and hasattr(vendor, 'longitude') else None,
-            # Use JSON coordinates first, fall back to dedicated columns
-            "dropoff_latitude": delivery_addr.get("latitude") or (order.delivery_latitude if hasattr(order, 'delivery_latitude') else None),
-            "dropoff_longitude": delivery_addr.get("longitude") or (order.delivery_longitude if hasattr(order, 'delivery_longitude') else None),
+            # Use JSON coordinates first, fall back to dedicated columns — never return None
+            "dropoff_latitude": _safe_dropoff_lat(delivery_addr, order),
+            "dropoff_longitude": _safe_dropoff_lng(delivery_addr, order),
+            "delivery_address": _build_delivery_address_dict(delivery_addr, order),
             "estimated_distance": None,
             "estimated_duration": 30,
             "delivery_fee": order.delivery_fee,
@@ -4331,7 +4398,7 @@ async def complete_delivery(
     Complete delivery - Called from iOS Driver App
     Wrapper for the delivered endpoint
     """
-    return await order_delivered(order_id, db)
+    return await order_delivered(order_id, db, _auth)
 
 
 @router.post("/orders/{order_id}/delivery-photo")
@@ -4388,7 +4455,7 @@ async def upload_delivery_photo(
 
     # If order was waiting for proof, complete the delivery now
     if order.status == OrderStatus.PENDING_DELIVERY_PROOF:
-        return await order_delivered(order_id, db)
+        return await order_delivered(order_id, db, _auth)
 
     return {
         "success": True,

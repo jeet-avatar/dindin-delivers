@@ -14441,6 +14441,7 @@ from order_flow import (
     CancelNoCustomerRequest,
     report_address_unreachable,
     AddressUnreachableRequest,
+    upload_delivery_photo,  # Delivery proof photo upload
 )
 app.include_router(order_flow_router)
 
@@ -14475,12 +14476,12 @@ async def assign_driver_alias(order_id: int, request: AssignDriverRequest, _auth
 @app.post("/erp/orders/{order_id}/picked-up")
 async def picked_up_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark order as picked up"""
-    return await order_picked_up(order_id, db)
+    return await order_picked_up(order_id, db, _auth)
 
 @app.put("/erp/orders/{order_id}/complete-delivery")
 async def complete_delivery_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark delivery as complete"""
-    return await complete_delivery(order_id, db)
+    return await complete_delivery(order_id, db, _auth)
 
 @app.put("/erp/orders/{order_id}/unassign-driver")
 async def unassign_driver_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
@@ -14499,7 +14500,19 @@ async def order_delivered_alias(order_id: int, _auth: dict = Depends(require_any
     """Alias for iOS Restaurant/Driver app - mark order as delivered
     iOS calls: POST /erp/orders/{orderId}/delivered
     """
-    return await order_delivered(order_id, db)
+    return await order_delivered(order_id, db, _auth)
+
+@app.post("/erp/orders/{order_id}/delivery-photo")
+async def delivery_photo_alias(
+    order_id: int,
+    file: UploadFile = File(...),
+    _auth: dict = Depends(require_any_auth),
+    db: Session = Depends(get_db),
+):
+    """Alias for iOS Driver/Restaurant app - upload delivery proof photo
+    iOS calls: POST /erp/orders/{orderId}/delivery-photo
+    """
+    return await upload_delivery_photo(order_id, file, db, _auth)
 
 @app.post("/erp/orders/{order_id}/restaurant-accept")
 async def restaurant_accept_alias(order_id: int, request: Optional[RestaurantAcceptRequest] = None, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
@@ -14557,11 +14570,11 @@ async def create_order_ios_alias(order_data: CreateOrderRequest, _auth: dict = D
     return await erp_create_order(order_data, db)
 
 @app.post("/erp/orders/{order_id}/confirm-payment")
-async def confirm_payment_ios_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def confirm_payment_ios_alias(request: Request, order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Customer app - confirm payment
     iOS calls: POST /erp/orders/{orderId}/confirm-payment
     """
-    return await confirm_payment(order_id, db)
+    return await confirm_payment(request, order_id, db, _auth)
 
 @app.get("/erp/orders/{order_id}/driver-location")
 async def get_driver_location_ios_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
