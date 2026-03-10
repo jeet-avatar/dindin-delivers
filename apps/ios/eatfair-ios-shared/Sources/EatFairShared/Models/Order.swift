@@ -373,6 +373,9 @@ public struct Order: Identifiable, Codable {
     public var driverEtaToRestaurant: Int?
     public var driverEtaText: String?
 
+    // Leave-at-door preference
+    public var leaveAtDoor: Bool?
+
     enum CodingKeys: String, CodingKey {
         case id, orderId, customerId, customerName, customerPhone, customerEmail
         case deliveryAddress, deliveryInstructions, restaurant, items, itemsCount
@@ -388,6 +391,8 @@ public struct Order: Identifiable, Codable {
         case estimatedPrepMinutes, estimatedReadyAt, minutesUntilReady, isReady
         // Driver en-route fields
         case driverEnRoute, driverAcceptedAt, driverEtaToRestaurant, driverEtaText
+        // Leave-at-door
+        case leaveAtDoor
     }
     
     public init(from decoder: Decoder) throws {
@@ -463,9 +468,12 @@ public struct Order: Identifiable, Codable {
         driverAcceptedAt = try container.decodeIfPresent(String.self, forKey: .driverAcceptedAt)
         driverEtaToRestaurant = try container.decodeIfPresent(Int.self, forKey: .driverEtaToRestaurant)
         driverEtaText = try container.decodeIfPresent(String.self, forKey: .driverEtaText)
+
+        // Leave-at-door
+        leaveAtDoor = try container.decodeIfPresent(Bool.self, forKey: .leaveAtDoor)
     }
     
-    public init(id: String? = nil, orderId: String, customerId: String, customerName: String, customerPhone: String? = nil, customerEmail: String, deliveryAddress: DeliveryAddress, deliveryInstructions: String, restaurant: RestaurantInfo, items: [OrderItem], itemsCount: Int, subtotal: Double, deliveryFee: Double, serviceFee: Double, priorityFee: Double, smallOrderFee: Double, platformFee: Double = 0.0, promotionCode: String? = nil, discount: Double = 0.0, discountType: String? = nil, tax: Double, taxRate: Double = 0.0, taxState: String? = nil, tip: Double = 0.0, tipPercentage: Double? = nil, total: Double, status: String, placedAt: Int64, acceptedAt: Int64? = nil, preparedAt: Int64? = nil, pickedUpAt: Int64? = nil, deliveredAt: Int64? = nil, estimatedDeliveryTime: Int64? = nil, driverId: String? = nil, driverName: String? = nil, driverPhone: String? = nil, driverRating: Double? = nil, restaurantToCustomerDistance: Double? = nil, isRated: Bool = false, isRestaurantRated: Bool = false, isTipped: Bool = false, estimatedPrepMinutes: Int? = nil, estimatedReadyAt: String? = nil, minutesUntilReady: Int? = nil, isReady: Bool? = nil, driverEnRoute: Bool? = nil, driverAcceptedAt: String? = nil, driverEtaToRestaurant: Int? = nil, driverEtaText: String? = nil) {
+    public init(id: String? = nil, orderId: String, customerId: String, customerName: String, customerPhone: String? = nil, customerEmail: String, deliveryAddress: DeliveryAddress, deliveryInstructions: String, restaurant: RestaurantInfo, items: [OrderItem], itemsCount: Int, subtotal: Double, deliveryFee: Double, serviceFee: Double, priorityFee: Double, smallOrderFee: Double, platformFee: Double = 0.0, promotionCode: String? = nil, discount: Double = 0.0, discountType: String? = nil, tax: Double, taxRate: Double = 0.0, taxState: String? = nil, tip: Double = 0.0, tipPercentage: Double? = nil, total: Double, status: String, placedAt: Int64, acceptedAt: Int64? = nil, preparedAt: Int64? = nil, pickedUpAt: Int64? = nil, deliveredAt: Int64? = nil, estimatedDeliveryTime: Int64? = nil, driverId: String? = nil, driverName: String? = nil, driverPhone: String? = nil, driverRating: Double? = nil, restaurantToCustomerDistance: Double? = nil, isRated: Bool = false, isRestaurantRated: Bool = false, isTipped: Bool = false, estimatedPrepMinutes: Int? = nil, estimatedReadyAt: String? = nil, minutesUntilReady: Int? = nil, isReady: Bool? = nil, driverEnRoute: Bool? = nil, driverAcceptedAt: String? = nil, driverEtaToRestaurant: Int? = nil, driverEtaText: String? = nil, leaveAtDoor: Bool? = nil) {
         self.id = id
         self.orderId = orderId
         self.customerId = customerId
@@ -515,6 +523,7 @@ public struct Order: Identifiable, Codable {
         self.driverAcceptedAt = driverAcceptedAt
         self.driverEtaToRestaurant = driverEtaToRestaurant
         self.driverEtaText = driverEtaText
+        self.leaveAtDoor = leaveAtDoor
     }
 
     public init() {
@@ -557,6 +566,7 @@ public struct Order: Identifiable, Codable {
         self.driverAcceptedAt = nil
         self.driverEtaToRestaurant = nil
         self.driverEtaText = nil
+        self.leaveAtDoor = nil
     }
 }
 

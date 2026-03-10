@@ -10249,6 +10249,9 @@ public struct P2PVendorOrder: Codable, Identifiable {
     public let driverEtaToRestaurant: Int?
     public let driverEtaText: String?
 
+    // Leave-at-door preference
+    public let leaveAtDoor: Bool?
+
     enum CodingKeys: String, CodingKey {
         case id
         case orderNumber = "order_number"
@@ -10273,6 +10276,7 @@ public struct P2PVendorOrder: Codable, Identifiable {
         case driverAcceptedAt = "driver_accepted_at"
         case driverEtaToRestaurant = "driver_eta_to_restaurant"
         case driverEtaText = "driver_eta_text"
+        case leaveAtDoor = "leave_at_door"
     }
 
     /// Get items as dictionary array for compatibility
@@ -10416,7 +10420,8 @@ public struct P2PVendorOrder: Codable, Identifiable {
             driverEnRoute: driverEnRoute,
             driverAcceptedAt: driverAcceptedAt,
             driverEtaToRestaurant: driverEtaToRestaurant,
-            driverEtaText: driverEtaText
+            driverEtaText: driverEtaText,
+            leaveAtDoor: leaveAtDoor
         )
     }
 }
