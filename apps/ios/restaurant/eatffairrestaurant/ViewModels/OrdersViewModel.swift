@@ -129,7 +129,7 @@ class OrdersViewModel: ObservableObject {
     var completedOrders: [Order] {
         allOrders.filter {
             let status = $0.status.lowercased()
-            return status == "delivered" || status == "pickedup" || status == "ontheway"
+            return status == "delivered"
         }
         .sorted { $0.placedAt > $1.placedAt }
     }
