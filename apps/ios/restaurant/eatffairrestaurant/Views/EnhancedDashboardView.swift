@@ -778,10 +778,10 @@ struct EnhancedOrderCard: View {
                         .padding(.vertical, 12)
                         .background(RestaurantTheme.brandOrange)
                         .cornerRadius(10)
+                        .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Mark order ready for pickup")
                     .accessibilityHint("Notifies the driver that food is ready")
-                    .buttonStyle(.borderless)
                     .padding(.horizontal)
                     .padding(.bottom)
                 }
@@ -1130,10 +1130,10 @@ struct EnhancedOrderCard: View {
                         .padding(.vertical, 14)
                         .background(RestaurantTheme.brandGreen)
                         .cornerRadius(10)
+                        .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Start delivery")
                     .accessibilityHint("Marks the order as out for delivery and shows navigation")
-                    .buttonStyle(.borderless)
                     .padding(.horizontal)
                     .padding(.bottom)
                 }
@@ -1233,12 +1233,25 @@ struct EnhancedOrderCard: View {
                             SelfDeliveryMapPin(id: "customer", coordinate: customerCoord, tint: .green, icon: "house.fill")
                         ]) { pin in
                             MapAnnotation(coordinate: pin.coordinate) {
-                                Image(systemName: pin.icon)
-                                    .font(.title2)
-                                    .foregroundColor(pin.tint)
-                                    .padding(6)
-                                    .background(Circle().fill(Color.white))
-                                    .shadow(radius: 2)
+                                VStack(spacing: 2) {
+                                    Image(systemName: pin.icon)
+                                        .font(.title2)
+                                        .foregroundColor(pin.tint)
+                                        .padding(6)
+                                        .background(Circle().fill(Color.white))
+                                        .shadow(radius: 2)
+                                    if pin.id == "customer" {
+                                        Text(order.deliveryAddress.street.isEmpty ? order.deliveryAddress.fullAddress : order.deliveryAddress.street)
+                                            .font(.caption2)
+                                            .fontWeight(.medium)
+                                            .lineLimit(1)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 2)
+                                            .background(Color.white.opacity(0.9))
+                                            .cornerRadius(4)
+                                            .shadow(radius: 1)
+                                    }
+                                }
                             }
                         }
                         .frame(height: 200)
@@ -1246,13 +1259,14 @@ struct EnhancedOrderCard: View {
                         .padding(.horizontal)
                     }
 
-                    // Navigate to Customer button — only needs delivery coordinates
+                    // Navigate to Customer button — uses coordinates with address label, or address-only fallback
                     if order.deliveryAddress.latitude != 0 && order.deliveryAddress.longitude != 0 {
                         Button(action: {
                             let lat = order.deliveryAddress.latitude
                             let lon = order.deliveryAddress.longitude
+                            let encodedAddress = order.deliveryAddress.fullAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
                             let googleMapsURL = URL(string: "comgooglemaps://?daddr=\(lat),\(lon)&directionsmode=driving")
-                            let appleMapsURL = URL(string: "https://maps.apple.com/?daddr=\(lat),\(lon)&dirflg=d")
+                            let appleMapsURL = URL(string: "https://maps.apple.com/?daddr=\(lat),\(lon)&q=\(encodedAddress)&dirflg=d")
                             if let url = googleMapsURL, UIApplication.shared.canOpenURL(url) {
                                 UIApplication.shared.open(url)
                             } else if let url = appleMapsURL {
@@ -1270,8 +1284,34 @@ struct EnhancedOrderCard: View {
                             .padding(.vertical, 12)
                             .background(Color.blue)
                             .cornerRadius(10)
+                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.borderless)
+                        .padding(.horizontal)
+                    } else if !order.deliveryAddress.fullAddress.isEmpty {
+                        // Fallback: use address string when coordinates are 0
+                        Button(action: {
+                            let encodedAddr = order.deliveryAddress.fullAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                            let googleMapsURL = URL(string: "comgooglemaps://?daddr=\(encodedAddr)&directionsmode=driving")
+                            let appleMapsURL = URL(string: "https://maps.apple.com/?daddr=\(encodedAddr)&dirflg=d")
+                            if let url = googleMapsURL, UIApplication.shared.canOpenURL(url) {
+                                UIApplication.shared.open(url)
+                            } else if let url = appleMapsURL {
+                                UIApplication.shared.open(url)
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                                Text("Navigate to Customer")
+                            }
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.blue)
+                            .cornerRadius(10)
+                            .contentShape(Rectangle())
+                        }
                         .padding(.horizontal)
                     }
 
@@ -1290,8 +1330,8 @@ struct EnhancedOrderCard: View {
                         .padding(.vertical, 12)
                         .background(Color.orange)
                         .cornerRadius(10)
+                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.borderless)
                     .padding(.horizontal)
 
                     // Mark Delivered button (requires proof photo)
@@ -1312,10 +1352,10 @@ struct EnhancedOrderCard: View {
                         .padding(.vertical, 14)
                         .background(RestaurantTheme.brandGreen)
                         .cornerRadius(10)
+                        .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Mark order as delivered")
                     .accessibilityHint("Confirms the order has been delivered to the customer")
-                    .buttonStyle(.borderless)
                     .padding(.horizontal)
                     .padding(.bottom)
                 }
