@@ -272,6 +272,29 @@ struct RestaurantSettingsView: View {
                     }
                 }
 
+                // Promotions Section
+                Section("Promotions") {
+                    NavigationLink(destination: PromotionsView()) {
+                        HStack {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Manage Promotions")
+                                    Text("Create, edit, and manage promo codes")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            } icon: {
+                                Image(systemName: "tag.fill")
+                                    .foregroundColor(RestaurantTheme.brandOrange)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+
                 // Business Documents Section
                 Section("Business Documents") {
                     VStack(alignment: .leading, spacing: 12) {
