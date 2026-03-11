@@ -10684,8 +10684,8 @@ public struct P2PCustomerOrder: Codable, Identifiable {
         case "ready", "ready_for_pickup":
             return "Ready"
         case "restaurant_will_deliver":
-            // Restaurant is self-delivering
-            return "OnTheWay"
+            // Restaurant chose self-delivery but hasn't started yet
+            return "restaurant_will_deliver"
         case "out_for_delivery":
             return "OnTheWay"
         case "pending_delivery_proof":
