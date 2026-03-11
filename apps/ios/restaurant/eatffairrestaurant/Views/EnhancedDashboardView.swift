@@ -406,6 +406,14 @@ struct EnhancedOrderCard: View {
         return DateTimeFormatter.shared.orderedTime(from: orderDate)
     }
 
+    private var orderDateFormatted: String {
+        let orderDate = Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000)
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: orderDate)
+    }
+
     // MARK: - Delivery Timer Functions
 
     private func formatTime(_ seconds: Int) -> String {
@@ -492,7 +500,7 @@ struct EnhancedOrderCard: View {
                         }
                     }
 
-                    Text("\(order.itemsCount) items • \(timeElapsed)")
+                    Text("\(order.itemsCount) items • \(orderDateFormatted) • \(timeElapsed)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
