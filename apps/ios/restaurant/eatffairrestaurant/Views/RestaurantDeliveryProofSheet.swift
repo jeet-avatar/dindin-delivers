@@ -111,7 +111,7 @@ struct RestaurantDeliveryProofSheet: View {
                     .disabled(viewModel.isUploadingProof)
                 }
             }
-            .sheet(isPresented: $showCamera) {
+            .fullScreenCover(isPresented: $showCamera) {
                 DeliveryProofCameraView(image: $viewModel.deliveryProofImage)
             }
             .onAppear {
