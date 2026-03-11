@@ -3207,6 +3207,7 @@ async def update_order_status(
     db.commit()
 
     # GAP-3 FIX: Send push notification when order goes out for delivery
+    _self_delivery_eta_minutes = None  # Stored for response dict
     if new_status == OrderStatus.OUT_FOR_DELIVERY:
         try:
             from models import Customer, Vendor
@@ -3215,8 +3216,34 @@ async def update_order_status(
             r_name = vendor.restaurant_name if vendor else "The restaurant"
             is_self_delivery = getattr(order, 'restaurant_will_deliver', False)
             if customer:
+                push_data = {
+                    "type": "out_for_delivery",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "status": "out_for_delivery"
+                }
                 if is_self_delivery:
-                    body_text = f"{r_name} has left to deliver your order."
+                    # Calculate ETA from vendor to customer using haversine distance
+                    eta_minutes = 20  # default fallback
+                    try:
+                        from google_maps_service import _haversine_eta
+                        v_lat = getattr(vendor, 'latitude', None)
+                        v_lng = getattr(vendor, 'longitude', None)
+                        c_lat = getattr(order, 'delivery_latitude', None)
+                        c_lng = getattr(order, 'delivery_longitude', None)
+                        if v_lat and v_lng and c_lat and c_lng:
+                            eta_result = _haversine_eta(
+                                float(v_lat), float(v_lng),
+                                float(c_lat), float(c_lng)
+                            )
+                            eta_minutes = eta_result.eta_minutes
+                            logging.info(f"Self-delivery ETA for order {order.order_number}: {eta_minutes} min")
+                    except Exception as eta_err:
+                        logging.warning(f"ETA calculation failed for order {order.order_number}, using default: {eta_err}")
+                    body_text = f"{r_name} has left to deliver your order. Estimated arrival in {eta_minutes} minutes."
+                    push_data["estimated_delivery_minutes"] = str(eta_minutes)
+                    push_data["is_self_delivery"] = "true"
+                    _self_delivery_eta_minutes = eta_minutes
                 else:
                     driver_name = order.driver_name or "Your driver"
                     body_text = f"{driver_name} is on the way with your order from {r_name}."
@@ -3225,12 +3252,7 @@ async def update_order_status(
                     user_id=customer.id,
                     title="Out for delivery!",
                     body=body_text,
-                    data={
-                        "type": "out_for_delivery",
-                        "order_id": str(order.id),
-                        "order_number": order.order_number,
-                        "status": "out_for_delivery"
-                    },
+                    data=push_data,
                     db=db
                 )
                 logging.info(f"Out-for-delivery push sent to customer {customer.id} for order {order.order_number}")
@@ -3252,6 +3274,10 @@ async def update_order_status(
         response["timeout_at"] = timeout_at.isoformat()
         response["window_seconds"] = DELIVERY_DECISION_WINDOW_SECONDS
         response["message"] = "Order ready! Choose to self-deliver or send to driver pool."
+
+    # Include ETA in response for self-delivery out_for_delivery transitions
+    if _self_delivery_eta_minutes is not None:
+        response["estimated_delivery_minutes"] = _self_delivery_eta_minutes
 
     return response
 
