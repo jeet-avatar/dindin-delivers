@@ -1259,14 +1259,15 @@ struct EnhancedOrderCard: View {
                         .padding(.horizontal)
                     }
 
-                    // Navigate to Customer button — uses coordinates with address label, or address-only fallback
+                    // Navigate to Customer button — uses address string so maps shows readable name
                     if order.deliveryAddress.latitude != 0 && order.deliveryAddress.longitude != 0 {
                         Button(action: {
+                            let encodedAddress = order.deliveryAddress.fullAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
                             let lat = order.deliveryAddress.latitude
                             let lon = order.deliveryAddress.longitude
-                            let encodedAddress = order.deliveryAddress.fullAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                            let googleMapsURL = URL(string: "comgooglemaps://?daddr=\(lat),\(lon)&directionsmode=driving")
-                            let appleMapsURL = URL(string: "https://maps.apple.com/?daddr=\(lat),\(lon)&q=\(encodedAddress)&dirflg=d")
+                            // Use address as daddr so maps shows the street name, with coordinates as near hint
+                            let googleMapsURL = URL(string: "comgooglemaps://?daddr=\(encodedAddress)&center=\(lat),\(lon)&directionsmode=driving")
+                            let appleMapsURL = URL(string: "https://maps.apple.com/?daddr=\(encodedAddress)&near=\(lat),\(lon)&dirflg=d")
                             if let url = googleMapsURL, UIApplication.shared.canOpenURL(url) {
                                 UIApplication.shared.open(url)
                             } else if let url = appleMapsURL {
