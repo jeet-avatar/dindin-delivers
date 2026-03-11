@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-10 - Completed quick task 142: Self-delivery navigation flow (iOS Restaurant 188 + Android Partner vC=32)
+Last activity: 2026-03-11 - Completed quick task 143: Deploy backend to staging + production (Quick-138 notifications + Quick-142 vendor coords)
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -163976,6 +163976,7 @@ None
 | 139 | Full backend test suite — 1490 passed, 0 failed, 11 skipped, 0 regressions | 2026-03-10 | dcd9c962 | [139-run-full-backend-test-suite-fix-failures](./quick/139-run-full-backend-test-suite-fix-failures/) |
 | 140 | iOS Restaurant 187 to TestFlight, Android Partner vC=31 to Firebase | 2026-03-10 | 2d20b3db | [140-build-ios-restaurant-187-to-testflight-a](./quick/140-build-ios-restaurant-187-to-testflight-a/) |
 | 142 | Self-delivery navigation flow (iOS Restaurant 188 + Android Partner vC=32) | 2026-03-10 | 3ed94b04 | [142-self-delivery-navigation-flow-reusing-dr](./quick/142-self-delivery-navigation-flow-reusing-dr/) |
+| 143 | Deploy backend to staging + production (Quick-138 notifications + Quick-142 vendor coords) | 2026-03-11 | e5b97b67 | [143-deploy-backend-to-staging-production-qui](./quick/143-deploy-backend-to-staging-production-qui/) |
 
 
 ## Session Continuity
