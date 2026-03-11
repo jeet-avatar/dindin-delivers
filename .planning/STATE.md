@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-11 - Completed quick task 145: Self-delivery ETA to customer + order time on cards
+Last activity: 2026-03-11 - Completed quick task 151: Android checkout promo code API validation (GAP 7)
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -73860,6 +73860,8 @@ Progress: [##########] 100% (10/12 plans)
 | 144 | Create test order DOLL2026270 on production for self-delivery testing | 2026-03-11 | 50398fac | [144-create-test-order-on-production-for-self](./quick/144-create-test-order-on-production-for-self/) |
 | 145 | Self-delivery ETA to customer + order timestamps on restaurant app | 2026-03-11 | e6d78252 | [145-self-delivery-eta-to-customer-order-time](./quick/145-self-delivery-eta-to-customer-order-time/) |
 | 146 | Build + deploy: backend prod, iOS Restaurant 190 TestFlight, Android Partner vC=33 Firebase | 2026-03-11 | 830a02ba | [146-build-deploy-backend-to-staging-prod-ios](./quick/146-build-deploy-backend-to-staging-prod-ios/) |
+| 150 | iOS Restaurant app gap closure — Promotions CRUD + 5 fixes | 2026-03-11 | 8a120f4b | [150-ios-restaurant-app-gap-closure-promotion](./quick/150-ios-restaurant-app-gap-closure-promotion/) |
+| 151 | Android checkout promo code API validation (GAP 7) | 2026-03-11 | 044352e9 | [151-complete-quick-150-gap-7-replace-hardcod](./quick/151-complete-quick-150-gap-7-replace-hardcod/) |
 
 /order flat. Built-in codes + DB promos
 - [Phase quick-126]: 1489 tests green, promo math verified, staging deployed via CI/CD run 22888129870, CR-0002 verified
@@ -164073,6 +164075,8 @@ None
 | 144 | Create test order DOLL2026270 on production for self-delivery testing | 2026-03-11 | 50398fac | [144-create-test-order-on-production-for-self](./quick/144-create-test-order-on-production-for-self/) |
 | 145 | Self-delivery ETA to customer + order timestamps on restaurant app | 2026-03-11 | e6d78252 | [145-self-delivery-eta-to-customer-order-time](./quick/145-self-delivery-eta-to-customer-order-time/) |
 | 146 | Build + deploy: backend prod, iOS Restaurant 190 TestFlight, Android Partner vC=33 Firebase | 2026-03-11 | 830a02ba | [146-build-deploy-backend-to-staging-prod-ios](./quick/146-build-deploy-backend-to-staging-prod-ios/) |
+| 150 | iOS Restaurant app gap closure — Promotions CRUD + 5 fixes | 2026-03-11 | 8a120f4b | [150-ios-restaurant-app-gap-closure-promotion](./quick/150-ios-restaurant-app-gap-closure-promotion/) |
+| 151 | Android checkout promo code API validation (GAP 7) | 2026-03-11 | 044352e9 | [151-complete-quick-150-gap-7-replace-hardcod](./quick/151-complete-quick-150-gap-7-replace-hardcod/) |
 | Phase quick-147 P01 | 224 | 2 tasks | 2 files |
 
 ## Session Continuity
