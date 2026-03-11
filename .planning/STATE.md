@@ -163973,6 +163973,8 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-142]: Self-delivery detected by driverName nil/empty; Google Maps primary nav with fallback; VendorOrder model extended for delivery metadata
 - [Phase quick-143]: Docs endpoint returns 200 on staging (not production-mode) -- acceptable behavior
 - [Phase quick-147]: Use .fullScreenCover for nested camera sheets to prevent SwiftUI double-dismissal
+- [Phase quick-149]: iOS shared API layer has all 9 vendor promotion methods - Restaurant app only needs SwiftUI views
+- [Phase quick-149]: Android V3Checkout promo validation is hardcoded (CRITICAL) - needs API integration
 
 ### Blockers
 
