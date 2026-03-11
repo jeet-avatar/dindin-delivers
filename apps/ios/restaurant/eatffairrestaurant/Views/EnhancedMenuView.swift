@@ -861,7 +861,7 @@ class MenuViewModel: ObservableObject {
     func addItem(name: String, description: String, price: Double, category: String, isAvailable: Bool, isPopular: Bool, prepTime: Int, imageUrl: String = "") {
         guard let restaurantId = restaurantId else { return }
 
-        let newItem: [String: Any] = [
+        let firebaseItem: [String: Any] = [
             "name": name,
             "description": description,
             "price": price,
@@ -873,10 +873,45 @@ class MenuViewModel: ObservableObject {
             "createdAt": Int64(Date().timeIntervalSince1970 * 1000)
         ]
 
-        db.collection("restaurants").document(restaurantId)
-            .collection("menu").addDocument(data: newItem) { [weak self] _ in
-                self?.fetchMenu()
+        // Sync with P2P backend first (primary source)
+        if let vendorId = vendorId {
+            let p2pItem = P2PMenuItemCreate(
+                itemName: name,
+                description: description.isEmpty ? nil : description,
+                category: category,
+                price: price,
+                isAvailable: isAvailable,
+                prepTime: prepTime,
+                imageUrl: imageUrl.isEmpty ? nil : imageUrl,
+                inStock: isAvailable
+            )
+
+            p2pAPI.createMenuItem(vendorId: vendorId, menuItem: p2pItem) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        #if DEBUG
+                        logger.info("[Menu] P2P item created successfully")
+                        #endif
+                    case .failure(let error):
+                        #if DEBUG
+                        logger.info("[Menu] P2P item create failed (Firebase fallback): \(error.localizedDescription)")
+                        #endif
+                    }
+                    // Also write to Firebase as backup
+                    self?.db.collection("restaurants").document(restaurantId)
+                        .collection("menu").addDocument(data: firebaseItem) { _ in
+                            self?.fetchMenu()
+                        }
+                }
             }
+        } else {
+            // Fallback to Firebase only
+            db.collection("restaurants").document(restaurantId)
+                .collection("menu").addDocument(data: firebaseItem) { [weak self] _ in
+                    self?.fetchMenu()
+                }
+        }
     }
 
     func updateItem(_ item: MenuItem, name: String, description: String, price: Double, category: String, isAvailable: Bool, isPopular: Bool, prepTime: Int, imageUrl: String? = nil) {
@@ -1037,11 +1072,36 @@ class MenuViewModel: ObservableObject {
     func deleteItem(_ item: MenuItem) {
         guard let restaurantId = restaurantId, let itemId = item.id else { return }
 
-        db.collection("restaurants").document(restaurantId)
-            .collection("menu").document(itemId)
-            .delete { [weak self] _ in
-                self?.fetchMenu()
+        // Sync with P2P backend first (primary source)
+        if let vendorId = vendorId, let itemIdInt = Int(itemId) {
+            p2pAPI.deleteMenuItem(vendorId: vendorId, itemId: itemIdInt) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        #if DEBUG
+                        logger.info("[Menu] P2P item deleted successfully")
+                        #endif
+                    case .failure(let error):
+                        #if DEBUG
+                        logger.info("[Menu] P2P item delete failed (Firebase fallback): \(error.localizedDescription)")
+                        #endif
+                    }
+                    // Also delete from Firebase as backup
+                    self?.db.collection("restaurants").document(restaurantId)
+                        .collection("menu").document(itemId)
+                        .delete { _ in
+                            self?.fetchMenu()
+                        }
+                }
             }
+        } else {
+            // Fallback to Firebase only
+            db.collection("restaurants").document(restaurantId)
+                .collection("menu").document(itemId)
+                .delete { [weak self] _ in
+                    self?.fetchMenu()
+                }
+        }
     }
 
     private func generateMenuSuggestion() {

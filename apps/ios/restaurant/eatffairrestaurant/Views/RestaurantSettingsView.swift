@@ -857,6 +857,7 @@ class SettingsViewModel: ObservableObject {
             ]
         }
 
+        // Save to Firebase
         db.collection("restaurants").document(restaurantId).updateData([
             "operatingHours": hoursData
         ]) { [weak self] error in
@@ -866,6 +867,36 @@ class SettingsViewModel: ObservableObject {
                 }
             }
         }
+
+        // Also sync to P2P backend via PATCH /api/vendors/{id}
+        if let vendorId = vendorId {
+            let hoursString = formatHoursForP2P(hours)
+            p2pAPI.patchVendorSettings(vendorId: vendorId, updates: ["operating_hours": hoursString]) { result in
+                #if DEBUG
+                switch result {
+                case .success:
+                    logger.info("[Settings] P2P operating hours saved successfully")
+                case .failure(let error):
+                    logger.info("[Settings] P2P operating hours save failed: \(error.localizedDescription)")
+                }
+                #endif
+            }
+        }
+    }
+
+    private func formatHoursForP2P(_ hours: [DayHours]) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mma"
+
+        return hours.map { dayHour in
+            if dayHour.isOpen {
+                let open = formatter.string(from: dayHour.openTime).lowercased()
+                let close = formatter.string(from: dayHour.closeTime).lowercased()
+                return "\(dayHour.day): \(open)-\(close)"
+            } else {
+                return "\(dayHour.day): Closed"
+            }
+        }.joined(separator: ", ")
     }
 
     private func fetchMonthlyEarnings() {
@@ -1143,11 +1174,11 @@ struct OperatingHoursView: View {
 struct NotificationSettingsView: View {
     @Environment(\.dismiss) var dismiss
 
-    @State private var newOrderNotifications = true
-    @State private var orderUpdateNotifications = true
-    @State private var lowStockAlerts = true
-    @State private var performanceReports = true
-    @State private var promotionalEmails = false
+    @AppStorage("notification_newOrderNotifications") private var newOrderNotifications = true
+    @AppStorage("notification_orderUpdateNotifications") private var orderUpdateNotifications = true
+    @AppStorage("notification_lowStockAlerts") private var lowStockAlerts = true
+    @AppStorage("notification_performanceReports") private var performanceReports = true
+    @AppStorage("notification_promotionalEmails") private var promotionalEmails = false
 
     var body: some View {
         NavigationStack {
@@ -1181,11 +1212,35 @@ struct NotificationSettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        syncNotificationPreferences()
+                        dismiss()
+                    }
                         .accessibilityLabel("Done")
                         .accessibilityHint("Closes notification settings")
                 }
             }
+        }
+    }
+
+    private func syncNotificationPreferences() {
+        guard let vendorId = P2PAPIService.shared.currentVendorId else { return }
+        let prefs: [String: Any] = [
+            "new_order_notifications": newOrderNotifications,
+            "order_update_notifications": orderUpdateNotifications,
+            "low_stock_alerts": lowStockAlerts,
+            "performance_reports": performanceReports,
+            "promotional_emails": promotionalEmails
+        ]
+        P2PAPIService.shared.patchVendorSettings(vendorId: vendorId, updates: ["notification_preferences": prefs]) { result in
+            #if DEBUG
+            switch result {
+            case .success:
+                logger.info("[Settings] P2P notification preferences synced")
+            case .failure(let error):
+                logger.info("[Settings] P2P notification sync failed: \(error.localizedDescription)")
+            }
+            #endif
         }
     }
 }
