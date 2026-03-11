@@ -1360,6 +1360,48 @@ struct EnhancedOrderCard: View {
                     .padding(.horizontal)
                     .padding(.bottom)
                 }
+            } else if order.status.lowercased() == "pending_delivery_proof" {
+                // Phase C: Arrived at customer — show only Mark Delivered + photo proof
+                Divider()
+
+                VStack(spacing: 12) {
+                    HStack {
+                        Image(systemName: "mappin.circle.fill")
+                            .foregroundColor(.orange)
+                        Text("Arrived at customer — take photo & complete delivery")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.orange)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                    // Mark Delivered button (requires proof photo)
+                    Button {
+                        #if DEBUG
+                        logger.info("Mark Delivered button tapped for order \(order.orderId)")
+                        #endif
+                        onMarkDelivered?()
+                    } label: {
+                        HStack {
+                            Image(systemName: "camera.fill")
+                            Text("Photo & Mark Delivered")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(RestaurantTheme.brandGreen)
+                        .cornerRadius(10)
+                        .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("Mark order as delivered")
+                    .accessibilityHint("Takes a photo and confirms delivery to the customer")
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                }
             }
         }
         .background(RestaurantTheme.backgroundPrimary)

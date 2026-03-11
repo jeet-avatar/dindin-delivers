@@ -10412,7 +10412,7 @@ public struct P2PVendorOrder: Codable, Identifiable {
         case "out_for_delivery":
             mappedStatus = "OnTheWay"
         case "pending_delivery_proof":
-            mappedStatus = "OnTheWay"
+            mappedStatus = "pending_delivery_proof"
         case "delivered":
             mappedStatus = "Delivered"
         case "cancelled":

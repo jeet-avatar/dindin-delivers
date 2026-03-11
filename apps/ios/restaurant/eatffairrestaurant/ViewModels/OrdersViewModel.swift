@@ -121,7 +121,8 @@ class OrdersViewModel: ObservableObject {
             // "picked_up" -> "PickedUp"
             return status == "restaurant_will_deliver" ||
                    status == "ontheway" ||
-                   status == "pickedup"
+                   status == "pickedup" ||
+                   status == "pending_delivery_proof"
         }
         .sorted { $0.placedAt < $1.placedAt }
     }
