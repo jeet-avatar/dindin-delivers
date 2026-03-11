@@ -2973,15 +2973,20 @@ async def ready_for_pickup(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status not in [OrderStatus.PREPARING]:
+    if order.status not in [OrderStatus.PREPARING, OrderStatus.RESTAURANT_WILL_DELIVER]:
         raise HTTPException(
             status_code=400,
-            detail=f"Order must be PREPARING to mark as ready. Current: {order.status.value}"
+            detail=f"Order must be PREPARING or RESTAURANT_WILL_DELIVER to mark as ready. Current: {order.status.value}"
         )
 
-    # Start the delivery decision window - restaurant has 3 min to decide
-    order.status = OrderStatus.PENDING_DELIVERY_DECISION
-    order.delivery_decision_sent_at = datetime.now()
+    # If restaurant already chose self-delivery, skip the decision window
+    if order.restaurant_will_deliver:
+        order.status = OrderStatus.RESTAURANT_WILL_DELIVER
+        # Don't reset delivery_decision_sent_at — keep existing decision
+    else:
+        # Start the delivery decision window - restaurant has 3 min to decide
+        order.status = OrderStatus.PENDING_DELIVERY_DECISION
+        order.delivery_decision_sent_at = datetime.now()
 
     db.commit()
 
