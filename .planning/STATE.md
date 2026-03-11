@@ -163979,6 +163979,7 @@ None
 | 143 | Deploy backend to staging + production (Quick-138 notifications + Quick-142 vendor coords) | 2026-03-11 | e5b97b67 | [143-deploy-backend-to-staging-production-qui](./quick/143-deploy-backend-to-staging-production-qui/) |
 | 144 | Create test order DOLL2026270 on production for self-delivery testing | 2026-03-11 | 50398fac | [144-create-test-order-on-production-for-self](./quick/144-create-test-order-on-production-for-self/) |
 | 145 | Self-delivery ETA to customer + order timestamps on restaurant app | 2026-03-11 | e6d78252 | [145-self-delivery-eta-to-customer-order-time](./quick/145-self-delivery-eta-to-customer-order-time/) |
+| 146 | Build + deploy: backend prod, iOS Restaurant 190 TestFlight, Android Partner vC=33 Firebase | 2026-03-11 | 830a02ba | [146-build-deploy-backend-to-staging-prod-ios](./quick/146-build-deploy-backend-to-staging-prod-ios/) |
 
 
 ## Session Continuity
