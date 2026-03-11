@@ -1379,6 +1379,8 @@ async def create_order(
         promo_type=applied_promo_type,
         total_amount=total_amount,
         delivery_address=json.dumps(order_data.delivery_address),
+        delivery_latitude=float(customer_lat) if customer_lat else None,
+        delivery_longitude=float(customer_lng) if customer_lng else None,
         delivery_instructions=order_data.delivery_instructions,
         leave_at_door=order_data.leave_at_door or False,
         status=OrderStatus.PENDING_PAYMENT,
@@ -3229,8 +3231,16 @@ async def update_order_status(
                         from google_maps_service import _haversine_eta
                         v_lat = getattr(vendor, 'latitude', None)
                         v_lng = getattr(vendor, 'longitude', None)
+                        # Parse customer coords from delivery_address JSON (columns may be empty)
                         c_lat = getattr(order, 'delivery_latitude', None)
                         c_lng = getattr(order, 'delivery_longitude', None)
+                        if not c_lat or not c_lng:
+                            try:
+                                addr = json.loads(order.delivery_address) if order.delivery_address else {}
+                                c_lat = addr.get("latitude") or addr.get("lat")
+                                c_lng = addr.get("longitude") or addr.get("lng") or addr.get("lon")
+                            except (json.JSONDecodeError, TypeError):
+                                pass
                         if v_lat and v_lng and c_lat and c_lng:
                             eta_result = _haversine_eta(
                                 float(v_lat), float(v_lng),
