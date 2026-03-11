@@ -1364,6 +1364,12 @@ struct EnhancedOrderCard: View {
         .background(RestaurantTheme.backgroundPrimary)
         .cornerRadius(16)
         .shadow(color: RestaurantTheme.cardShadow, radius: 8, x: 0, y: 4)
+        .onChange(of: order.status) { newStatus in
+            if newStatus.lowercased() != "pending_delivery_decision" {
+                deliveryTimer?.invalidate()
+                deliveryTimer = nil
+            }
+        }
     }
 }
 
@@ -1709,6 +1715,32 @@ struct OrderDetailSheet: View {
                         .accessibilityLabel("Mark order as delivered")
                         .accessibilityHint("Confirms the order has been delivered to the customer")
                         .buttonStyle(SuccessButtonStyle())
+                        .padding()
+                    } else if order.status.lowercased() == "ontheway" && (order.driverName == nil || order.driverName?.isEmpty == true) {
+                        // Self-delivery in transit
+                        VStack(spacing: 12) {
+                            HStack {
+                                Image(systemName: "car.fill")
+                                    .foregroundColor(RestaurantTheme.brandGreen)
+                                Text("On the way to customer")
+                                    .font(.headline)
+                                    .foregroundColor(RestaurantTheme.brandGreen)
+                            }
+                            if !order.deliveryAddress.fullAddress.isEmpty {
+                                Text(order.deliveryAddress.fullAddress)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            Button(action: {
+                                ordersVM.markOrderDelivered(order)
+                                dismiss()
+                            }) {
+                                Text("Photo & Mark Delivered")
+                            }
+                            .accessibilityLabel("Mark order as delivered")
+                            .accessibilityHint("Takes a photo and confirms delivery to the customer")
+                            .buttonStyle(SuccessButtonStyle())
+                        }
                         .padding()
                     }
                 }
