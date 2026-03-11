@@ -71,34 +71,47 @@ struct RestaurantDocumentsView: View {
     // MARK: - Progress Header
 
     private var documentProgressHeader: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Text("Document Verification")
-                    .font(.headline)
-                Spacer()
-                Text("\(viewModel.completionPercentage)% Complete")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-
-            ProgressView(value: Double(viewModel.completionPercentage), total: 100)
-                .tint(progressColor)
-
-            if viewModel.hasPendingDocuments {
-                HStack {
-                    Image(systemName: "clock.fill")
-                        .foregroundColor(.blue)
-                    Text("Documents are under review")
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                    Spacer()
+        VStack(spacing: 16) {
+            HStack(spacing: 16) {
+                // Circular progress ring
+                ZStack {
+                    Circle()
+                        .stroke(Color(.systemGray4), lineWidth: 6)
+                        .frame(width: 64, height: 64)
+                    Circle()
+                        .trim(from: 0, to: Double(viewModel.completionPercentage) / 100.0)
+                        .stroke(progressColor, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                        .frame(width: 64, height: 64)
+                        .rotationEffect(.degrees(-90))
+                    Text("\(viewModel.completionPercentage)%")
+                        .font(.system(.headline, design: .rounded).bold())
+                        .foregroundColor(progressColor)
                 }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Document Verification")
+                        .font(.headline)
+                    Text("\(viewModel.uploadedCount) of \(viewModel.requiredCount) documents uploaded")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    if viewModel.hasPendingDocuments {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock.fill")
+                                .font(.caption2)
+                            Text("Under review")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.blue)
+                    }
+                }
+                Spacer()
             }
         }
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 5)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
         .padding(.horizontal)
     }
 
@@ -112,18 +125,39 @@ struct RestaurantDocumentsView: View {
     // MARK: - Status Banner
 
     private func statusBanner(status: String) -> some View {
-        HStack {
+        HStack(spacing: 12) {
             Image(systemName: statusIcon(for: status))
-            Text(statusText(for: status))
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.title3)
+                .frame(width: 36, height: 36)
+                .background(statusColor(for: status).opacity(0.2))
+                .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(statusTitle(for: status))
+                    .font(.subheadline.bold())
+                Text(statusText(for: status))
+                    .font(.caption)
+                    .opacity(0.85)
+            }
             Spacer()
         }
         .padding()
-        .background(statusColor(for: status).opacity(0.15))
+        .background(statusColor(for: status).opacity(0.1))
         .foregroundColor(statusColor(for: status))
-        .cornerRadius(10)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(statusColor(for: status).opacity(0.3), lineWidth: 1)
+        )
         .padding(.horizontal)
+    }
+
+    private func statusTitle(for status: String) -> String {
+        switch status {
+        case "approved": return "Verified"
+        case "pending": return "Under Review"
+        case "rejected": return "Action Required"
+        default: return "Incomplete"
+        }
     }
 
     private func statusIcon(for status: String) -> String {
@@ -159,44 +193,57 @@ struct RestaurantDocumentsView: View {
         Button {
             selectedSection = section
         } label: {
-            HStack(spacing: 16) {
+            HStack(spacing: 14) {
                 // Icon
                 ZStack {
-                    Circle()
-                        .fill(iconColor(for: section).opacity(0.15))
-                        .frame(width: 50, height: 50)
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(iconColor(for: section).opacity(0.12))
+                        .frame(width: 48, height: 48)
                     Image(systemName: iconName(for: section))
-                        .font(.title2)
+                        .font(.title3)
                         .foregroundColor(iconColor(for: section))
                 }
 
-                // Title & Status
-                VStack(alignment: .leading, spacing: 4) {
+                // Title & Status badge
+                VStack(alignment: .leading, spacing: 6) {
                     Text(section.rawValue)
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundColor(.primary)
 
-                    Text(documentStatus(for: section))
-                        .font(.caption)
-                        .foregroundColor(documentStatusColor(for: section))
+                    // Status badge pill
+                    HStack(spacing: 4) {
+                        Image(systemName: documentStatusIcon(for: section))
+                            .font(.caption2)
+                        Text(documentStatus(for: section))
+                            .font(.caption2.weight(.medium))
+                    }
+                    .foregroundColor(documentStatusColor(for: section))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(documentStatusColor(for: section).opacity(0.1))
+                    .cornerRadius(6)
                 }
 
                 Spacer()
 
                 // Chevron or checkmark
-                if isDocumentComplete(for: section) {
-                    Image(systemName: "checkmark.circle.fill")
+                if isDocumentVerified(for: section) {
+                    Image(systemName: "checkmark.seal.fill")
                         .foregroundColor(.green)
-                        .font(.title2)
+                        .font(.title3)
+                } else if isDocumentComplete(for: section) {
+                    Image(systemName: "clock.fill")
+                        .foregroundColor(.orange)
+                        .font(.title3)
                 } else {
                     Image(systemName: "chevron.right")
                         .foregroundColor(.secondary)
                 }
             }
-            .padding()
+            .padding(14)
             .background(Color(.systemBackground))
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.05), radius: 5)
+            .cornerRadius(14)
+            .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -245,6 +292,24 @@ struct RestaurantDocumentsView: View {
         return viewModel.documents.contains(where: { $0.documentType == docType })
     }
 
+    private func isDocumentVerified(for section: DocumentSection) -> Bool {
+        let docType = documentTypeKey(for: section)
+        return viewModel.documents.contains(where: { $0.documentType == docType && $0.status == "approved" })
+    }
+
+    private func documentStatusIcon(for section: DocumentSection) -> String {
+        let docType = documentTypeKey(for: section)
+        if let doc = viewModel.documents.first(where: { $0.documentType == docType }) {
+            switch doc.status {
+            case "approved": return "checkmark.seal.fill"
+            case "pending": return "clock.fill"
+            case "rejected": return "xmark.circle.fill"
+            default: return "doc.fill"
+            }
+        }
+        return "doc.badge.plus"
+    }
+
     /// Maps UI sections to backend API document type keys
     /// These must match the field_mapping in main_new.py
     private func documentTypeKey(for section: DocumentSection) -> String {
@@ -262,15 +327,29 @@ struct RestaurantDocumentsView: View {
         Button {
             viewModel.submitForReview()
         } label: {
-            HStack {
-                Image(systemName: "paperplane.fill")
-                Text("Submit for Review")
+            HStack(spacing: 8) {
+                if viewModel.isSubmitting {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Image(systemName: "paperplane.fill")
+                        .font(.headline)
+                }
+                Text(viewModel.isSubmitting ? "Submitting..." : "Submit for Review")
+                    .fontWeight(.semibold)
             }
             .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.blue)
+            .padding(.vertical, 16)
+            .background(
+                LinearGradient(
+                    colors: [RestaurantTheme.brandOrange, RestaurantTheme.brandOrangeLight],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
             .foregroundColor(.white)
-            .cornerRadius(12)
+            .cornerRadius(14)
+            .shadow(color: RestaurantTheme.brandOrange.opacity(0.3), radius: 8, y: 4)
         }
         .padding(.horizontal)
         .disabled(viewModel.isSubmitting)
@@ -471,6 +550,16 @@ class RestaurantDocumentsViewModel: ObservableObject {
             documents.contains(where: { $0.documentType == docType })
         }
         return requiredDocumentTypes.isEmpty ? 0 : (uploadedRequired.count * 100) / requiredDocumentTypes.count
+    }
+
+    var uploadedCount: Int {
+        requiredDocumentTypes.filter { docType in
+            documents.contains(where: { $0.documentType == docType })
+        }.count
+    }
+
+    var requiredCount: Int {
+        requiredDocumentTypes.count
     }
 
     var hasPendingDocuments: Bool {

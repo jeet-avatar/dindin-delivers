@@ -8188,6 +8188,65 @@ public struct P2PVendorProfile: Codable {
     }
 }
 
+// MARK: - Vendor Settings PATCH API
+
+extension P2PAPIService {
+    /// Patch vendor settings (operating hours, notification preferences, etc.)
+    /// - Parameters:
+    ///   - vendorId: The vendor ID
+    ///   - updates: Dictionary of fields to update
+    ///   - completion: Result with success or error
+    public func patchVendorSettings(
+        vendorId: Int,
+        updates: [String: Any],
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: updates)
+        } catch {
+            completion(.failure(error))
+            return
+        }
+
+        secureSession.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    if httpResponse.statusCode < 400 {
+                        completion(.success(true))
+                    } else {
+                        if let data = data,
+                           let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                            completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                        } else {
+                            completion(.failure(P2PAPIError.serverError("Failed to update vendor settings")))
+                        }
+                    }
+                } else {
+                    completion(.failure(P2PAPIError.serverError("Invalid response")))
+                }
+            }
+        }.resume()
+    }
+}
+
 // MARK: - Vendor Documents API
 
 public struct P2PVendorDocumentsResponse: Codable {
