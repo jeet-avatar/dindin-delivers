@@ -177,6 +177,10 @@ def mock_order():
     order.discount_amount = 0.0
     order.promo_code = None
     order.promo_type = None
+    order.restaurant_will_deliver = False
+    order.delivery_decision_sent_at = None
+    order.delivery_decision_at = None
+    order.delivery_decision_timeout_at = None
     return order
 
 
