@@ -164081,6 +164081,6 @@ None
 
 ## Session Continuity
 
-Last session: 2026-03-10
-Stopped at: Completed quick-132: Fixed 4 delivery flow bugs (CR-0006 Verified). Deployed to staging+production.
+Last session: 2026-03-11
+Stopped at: Completed quick-150+151: All 7 iOS Restaurant gaps closed + Android promo API validation. CR-0012 to CR-0016 raised. Ready for push+deploy.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
