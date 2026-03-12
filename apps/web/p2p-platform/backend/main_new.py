@@ -308,7 +308,7 @@ _PUBLIC_EXACT_PATHS = {
 
     # Public content listings
     "/api/vendors/published",
-    "/api/promotions/featured", "/api/promotions/active", "/api/promotions/suggestions",
+    "/api/promotions/featured", "/api/promotions/active",
     "/api/rides/surge", "/api/rides/estimate/bid-label", "/api/rides/pricing/tiers",
     "/api/payments/ride/pricing-info",
 
@@ -346,6 +346,7 @@ _PUBLIC_EXACT_PATHS = {
 
 _PUBLIC_PREFIXES = [
     "/api/public/",           # Public restaurant listings
+    "/api/promotions/suggestions/",  # AI promotion suggestions (vendor_id in path)
     "/api/webhooks/",         # Stripe webhooks (signature-verified)
     "/api/verification/webhook/",  # Verification provider webhooks (Persona/Onfido/Veriff — signature-verified)
     "/api/legal/",            # Legal pages
