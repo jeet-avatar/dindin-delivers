@@ -21602,6 +21602,43 @@ def get_vendor_ai_insights(
             "priority": "medium"
         })
 
+    # Ensure at least 3 recommendations for demo/new vendors
+    fallback_recommendations = [
+        {
+            "type": "trending",
+            "icon": "star.fill",
+            "title": "Highlight Best Sellers",
+            "description": "Feature your most popular items at the top of your menu to attract more orders.",
+            "impact": "Increase order frequency",
+            "priority": "medium"
+        },
+        {
+            "type": "bundle",
+            "icon": "bag.badge.plus",
+            "title": "Create Combo Deals",
+            "description": "Offer meal combos (entree + side + drink) to increase average order value.",
+            "impact": "+$5-10 per order",
+            "priority": "medium"
+        },
+        {
+            "type": "prep_time",
+            "icon": "clock.badge.checkmark",
+            "title": "Optimize Kitchen Flow",
+            "description": "Pre-prep high-demand ingredients during slow periods to reduce wait times during rushes.",
+            "impact": "Faster service, happier customers",
+            "priority": "low"
+        },
+    ]
+
+    # Fill up to 3 recommendations using fallbacks (skip types already present)
+    existing_types = {r["type"] for r in recommendations}
+    for fallback in fallback_recommendations:
+        if len(recommendations) >= 3:
+            break
+        if fallback["type"] not in existing_types:
+            recommendations.append(fallback)
+            existing_types.add(fallback["type"])
+
     return AIInsightsResponse(
         success=True,
         vendor_id=vendor_id,
