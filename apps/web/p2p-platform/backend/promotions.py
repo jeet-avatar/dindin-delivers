@@ -524,11 +524,20 @@ async def update_promotion(
     db.commit()
 
     return {
-        "success": True,
-        "promotion_id": promotion.id,
+        "id": promotion.id,
+        "promotion_code": promotion.promotion_code,
+        "vendor_id": promotion.vendor_id,
+        "name": promotion.name,
+        "description": promotion.description,
+        "type": promotion.type.value,
+        "value": promotion.value,
+        "max_discount": promotion.max_discount,
+        "min_order_amount": promotion.min_order_amount,
         "status": promotion.status.value,
-        "processed_by": ai_employee["name"],
-        "message": "Promotion updated successfully"
+        "start_date": promotion.start_date.isoformat() if promotion.start_date else None,
+        "end_date": promotion.end_date.isoformat() if promotion.end_date else None,
+        "usage_count": promotion.usage_count,
+        "total_discount_given": promotion.total_discount_given,
     }
 
 
