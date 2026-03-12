@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-11 - Completed quick task 151: Android checkout promo code API validation (GAP 7)
+Last activity: 2026-03-12 - Completed quick task 152: Fix iOS Restaurant demand forecast graph + monthly earnings display
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -164077,10 +164077,10 @@ None
 | 146 | Build + deploy: backend prod, iOS Restaurant 190 TestFlight, Android Partner vC=33 Firebase | 2026-03-11 | 830a02ba | [146-build-deploy-backend-to-staging-prod-ios](./quick/146-build-deploy-backend-to-staging-prod-ios/) |
 | 150 | iOS Restaurant app gap closure — Promotions CRUD + 5 fixes | 2026-03-11 | 8a120f4b | [150-ios-restaurant-app-gap-closure-promotion](./quick/150-ios-restaurant-app-gap-closure-promotion/) |
 | 151 | Android checkout promo code API validation (GAP 7) | 2026-03-11 | 044352e9 | [151-complete-quick-150-gap-7-replace-hardcod](./quick/151-complete-quick-150-gap-7-replace-hardcod/) |
-| Phase quick-147 P01 | 224 | 2 tasks | 2 files |
+| 152 | Fix iOS Restaurant demand forecast graph + monthly earnings display | 2026-03-12 | 81727a19 | [152-fix-ios-restaurant-demand-forecast-graph](./quick/152-fix-ios-restaurant-demand-forecast-graph/) |
 
 ## Session Continuity
 
-Last session: 2026-03-11
-Stopped at: Completed quick-150+151: All 7 iOS Restaurant gaps closed + Android promo API validation. CR-0012 to CR-0016 raised. Ready for push+deploy.
+Last session: 2026-03-12
+Stopped at: Completed quick-152: demand forecast graph + monthly earnings fix
 Resume file: .planning/NEXT_SESSION_PROMPT.md
