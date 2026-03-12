@@ -163979,6 +163979,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-149]: Android V3Checkout promo validation is hardcoded (CRITICAL) - needs API integration
 - [Phase quick-151]: Used HttpURLConnection PromoCodeValidator for composable-level promo API calls (no ViewModel/DI needed)
 - [Phase quick-159]: Use @ViewBuilder helper for AI tab recommendation routing; default unknown types to RestaurantSettingsView
+- [Phase quick-161]: Keep original fields alongside new iOS-compatible fields for backwards compatibility
 
 ### Blockers
 
