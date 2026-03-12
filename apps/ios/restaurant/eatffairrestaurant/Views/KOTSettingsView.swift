@@ -305,22 +305,22 @@ struct CloverConfigFields: View {
     }
 }
 
-// MARK: - Toast Config Fields (Coming Soon)
+// MARK: - Toast Config Fields
 struct ToastConfigFields: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "clock.fill")
+                Image(systemName: "gearshape.fill")
                     .foregroundColor(.orange)
-                Text("Coming Soon")
+                Text("Requires Setup")
                     .fontWeight(.semibold)
             }
 
-            Text("Toast integration requires partner API certification. We're working on getting certified.")
+            Text("Requires a Toast POS subscription and API credentials from your Toast account.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Text("Contact support@dollor.ai if you need Toast integration urgently.")
+            Text("Contact support@dollor.ai for assistance with Toast integration setup.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -570,16 +570,16 @@ struct ToastHelpContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Image(systemName: "clock.fill")
+                Image(systemName: "gearshape.fill")
                     .foregroundColor(.orange)
-                Text("Coming Soon")
+                Text("Toast Integration")
                     .font(.headline)
             }
 
-            Text("Toast integration requires partner API certification from Toast. We are currently in the process of getting certified.")
+            Text("Requires a Toast POS subscription and API credentials from your Toast account.")
                 .foregroundColor(.secondary)
 
-            Text("If you urgently need Toast integration, please contact us at support@dollor.ai and we'll prioritize your request.")
+            Text("Contact support@dollor.ai for assistance with Toast integration setup.")
                 .foregroundColor(.secondary)
         }
     }

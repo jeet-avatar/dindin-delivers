@@ -375,7 +375,7 @@ extension RestaurantDocumentsView.DocumentSection: Identifiable {
     var id: String { rawValue }
 }
 
-// MARK: - Unified Document Upload Form
+// MARK: - Document Upload Form
 
 struct DocumentUploadFormView: View {
     @ObservedObject var viewModel: RestaurantDocumentsViewModel
@@ -387,100 +387,24 @@ struct DocumentUploadFormView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isUploading = false
     @State private var uploadError: String?
+    @State private var uploadSuccess = false
+
+    private var existingDoc: P2PVendorDocument? {
+        viewModel.documents.first(where: { $0.documentType == documentType })
+    }
 
     var body: some View {
-        Form {
-            Section("Document Photo") {
-                VStack(alignment: .center, spacing: 16) {
-                    if let image = selectedImage {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: 250)
-                            .cornerRadius(12)
-                    } else if let existingDoc = viewModel.documents.first(where: { $0.documentType == documentType }),
-                              let fileUrlString = existingDoc.fileUrl,
-                              let url = URL(string: fileUrlString) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                            case .failure:
-                                documentPlaceholder
-                            case .empty:
-                                ProgressView()
-                            @unknown default:
-                                documentPlaceholder
-                            }
-                        }
-                        .frame(maxHeight: 250)
-                        .cornerRadius(12)
-                    } else {
-                        documentPlaceholder
-                    }
-
-                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                        Label(selectedImage == nil ? "Select Photo" : "Change Photo", systemImage: "photo.badge.plus")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue.opacity(0.1))
-                            .foregroundColor(.blue)
-                            .cornerRadius(10)
-                    }
-                    .onChange(of: selectedPhotoItem) { _, newValue in
-                        Task {
-                            if let data = try? await newValue?.loadTransferable(type: Data.self),
-                               let image = UIImage(data: data) {
-                                await MainActor.run { selectedImage = image }
-                            }
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-            }
-
-            if let error = uploadError {
-                Section {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.red)
-                        Text(error)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
-                }
-            }
-
-            Section {
-                Button {
-                    uploadDocument()
-                } label: {
-                    HStack {
-                        if isUploading {
-                            ProgressView()
-                                .padding(.trailing, 8)
-                        }
-                        Text(isUploading ? "Uploading..." : "Upload Document")
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .disabled(selectedImage == nil || isUploading)
-            }
-
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Accepted formats: JPG, PNG, PDF", systemImage: "info.circle")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Label("Documents are saved to your vendor profile", systemImage: "lock.shield")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+        ScrollView {
+            VStack(spacing: 24) {
+                headerSection
+                existingDocSection
+                photoSection
+                messagesSection
+                uploadButtonSection
+                infoFooter
             }
         }
+        .background(Color(.systemGroupedBackground))
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -490,19 +414,214 @@ struct DocumentUploadFormView: View {
         }
     }
 
-    private var documentPlaceholder: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray5))
-                .frame(height: 200)
-            VStack(spacing: 12) {
-                Image(systemName: "doc.badge.plus")
-                    .font(.system(size: 48))
-                    .foregroundColor(.secondary)
-                Text("Tap to select a photo")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+    private var headerSection: some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.1))
+                    .frame(width: 72, height: 72)
+                Image(systemName: documentIcon)
+                    .font(.system(size: 32))
+                    .foregroundColor(.blue)
             }
+            Text(title)
+                .font(.title3.bold())
+            Text(documentDescription)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private var existingDocSection: some View {
+        if let doc = existingDoc {
+            let isApproved = doc.status == "approved"
+            HStack(spacing: 12) {
+                Image(systemName: isApproved ? "checkmark.circle.fill" : "clock.fill")
+                    .foregroundColor(isApproved ? .green : .orange)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isApproved ? "Document Verified" : "Under Review")
+                        .font(.subheadline.weight(.semibold))
+                    if let fileName = doc.fileName {
+                        Text(fileName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                Spacer()
+            }
+            .padding()
+            .background(isApproved ? Color.green.opacity(0.08) : Color.orange.opacity(0.08))
+            .cornerRadius(12)
+            .padding(.horizontal)
+        }
+    }
+
+    private var photoSection: some View {
+        VStack(spacing: 16) {
+            photoPreview
+
+            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                HStack(spacing: 8) {
+                    Image(systemName: "photo.badge.plus")
+                    Text(selectedImage == nil && existingDoc == nil ? "Select Document Photo" : "Change Photo")
+                }
+                .font(.subheadline.weight(.medium))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color(.systemGray6))
+                .foregroundColor(.primary)
+                .cornerRadius(12)
+            }
+            .onChange(of: selectedPhotoItem) { _, newValue in
+                Task {
+                    if let data = try? await newValue?.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        await MainActor.run {
+                            selectedImage = image
+                            uploadError = nil
+                            uploadSuccess = false
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    @ViewBuilder
+    private var photoPreview: some View {
+        if let image = selectedImage {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxHeight: 280)
+                .cornerRadius(16)
+                .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+        } else if let doc = existingDoc,
+                  let fileUrlString = doc.fileUrl,
+                  let url = URL(string: fileUrlString) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let loadedImage):
+                    loadedImage
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 280)
+                        .cornerRadius(16)
+                case .failure:
+                    documentPlaceholder
+                case .empty:
+                    ProgressView()
+                        .frame(height: 200)
+                @unknown default:
+                    documentPlaceholder
+                }
+            }
+        } else {
+            documentPlaceholder
+        }
+    }
+
+    @ViewBuilder
+    private var messagesSection: some View {
+        if let error = uploadError {
+            statusBanner(text: error, icon: "exclamationmark.triangle.fill", color: .red)
+        }
+        if uploadSuccess {
+            statusBanner(text: "Document uploaded successfully!", icon: "checkmark.circle.fill", color: .green)
+        }
+    }
+
+    private func statusBanner(text: String, icon: String, color: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .foregroundColor(color)
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(color)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(color.opacity(0.08))
+        .cornerRadius(10)
+        .padding(.horizontal)
+    }
+
+    private var uploadButtonSection: some View {
+        let canUpload = selectedImage != nil && !isUploading
+        let buttonText = isUploading ? "Uploading..." : (existingDoc != nil ? "Replace Document" : "Upload Document")
+        return Button {
+            uploadDocument()
+        } label: {
+            HStack(spacing: 8) {
+                if isUploading {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Image(systemName: "arrow.up.doc.fill")
+                }
+                Text(buttonText)
+                    .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(canUpload ? Color.blue : Color(.systemGray4))
+            .foregroundColor(.white)
+            .cornerRadius(14)
+        }
+        .disabled(!canUpload)
+        .padding(.horizontal)
+    }
+
+    private var infoFooter: some View {
+        VStack(spacing: 8) {
+            Label("Accepted: JPG, PNG, PDF (max 10 MB)", systemImage: "info.circle")
+            Label("Securely stored and encrypted", systemImage: "lock.shield")
+        }
+        .font(.caption)
+        .foregroundColor(.secondary)
+        .padding(.bottom, 24)
+    }
+
+    private var documentPlaceholder: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "doc.badge.plus")
+                .font(.system(size: 48))
+                .foregroundColor(Color(.systemGray3))
+            Text("No document uploaded yet")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Text("Take a photo or select from your library")
+                .font(.caption)
+                .foregroundColor(Color(.systemGray2))
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 220)
+        .background(Color(.systemGray6))
+        .cornerRadius(16)
+    }
+
+    private var documentIcon: String {
+        switch documentType {
+        case "food_license": return "fork.knife"
+        case "health_permit": return "cross.case.fill"
+        case "w9_form": return "doc.text.fill"
+        case "liability_insurance": return "shield.fill"
+        default: return "doc.fill"
+        }
+    }
+
+    private var documentDescription: String {
+        switch documentType {
+        case "food_license": return "Your state or local food service operating license"
+        case "health_permit": return "Health department inspection permit"
+        case "w9_form": return "IRS Form W-9 for tax reporting"
+        case "liability_insurance": return "General liability insurance certificate"
+        default: return "Upload your document"
         }
     }
 
@@ -515,11 +634,15 @@ struct DocumentUploadFormView: View {
 
         isUploading = true
         uploadError = nil
+        uploadSuccess = false
 
         viewModel.uploadDocument(imageData: imageData, documentType: documentType) { success in
             isUploading = false
             if success {
-                dismiss()
+                uploadSuccess = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    dismiss()
+                }
             } else {
                 uploadError = "Upload failed. Please try again."
             }

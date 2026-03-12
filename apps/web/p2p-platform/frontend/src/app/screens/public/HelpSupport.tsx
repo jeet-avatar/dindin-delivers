@@ -159,7 +159,7 @@ const HelpSupport: React.FC = () => {
                   <MessageOutlined className="contact-icon" />
                   <Title level={4}>Live Chat</Title>
                   <Text type="secondary">Average response: 2 min</Text>
-                  <Button type="primary" block className="contact-btn">
+                  <Button type="primary" block className="contact-btn" onClick={() => window.open('mailto:support@dollor.ai?subject=Live%20Chat%20Request', '_blank')}>
                     Start Chat
                   </Button>
                 </Card>
@@ -169,7 +169,7 @@ const HelpSupport: React.FC = () => {
                   <MailOutlined className="contact-icon" />
                   <Title level={4}>Email Support</Title>
                   <Text type="secondary">support@dollor.ai</Text>
-                  <Button block className="contact-btn">
+                  <Button block className="contact-btn" onClick={() => window.open('mailto:support@dollor.ai', '_blank')}>
                     Send Email
                   </Button>
                 </Card>
@@ -179,7 +179,7 @@ const HelpSupport: React.FC = () => {
                   <PhoneOutlined className="contact-icon" />
                   <Title level={4}>Phone Support</Title>
                   <Text type="secondary">9 AM - 9 PM EST</Text>
-                  <Button block className="contact-btn">
+                  <Button block className="contact-btn" onClick={() => window.location.href = 'tel:+14156966429'}>
                     Call Us
                   </Button>
                 </Card>
@@ -243,7 +243,7 @@ const HelpSupport: React.FC = () => {
               <Paragraph>
                 Our support team is available 24/7 to assist you with any questions or issues.
               </Paragraph>
-              <Button type="primary" size="large" icon={<MessageOutlined />}>
+              <Button type="primary" size="large" icon={<MessageOutlined />} onClick={() => window.open('mailto:support@dollor.ai', '_blank')}>
                 Contact Support
               </Button>
             </Card>

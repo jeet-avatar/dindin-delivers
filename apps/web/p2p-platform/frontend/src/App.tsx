@@ -65,6 +65,7 @@ import VendorDocuments from './app/screens/vendor/Documents';
 import VendorMenuManagement from './app/screens/vendor/MenuManagement';
 import VendorAnalytics from './app/screens/vendor/Analytics';
 import VendorAIInsights from './app/screens/vendor/AIInsights';
+import VendorPaymentSettings from './app/screens/vendor/PaymentSettings';
 
 // Driver Pages
 import DriverLogin from './app/screens/auth/DriverLogin';
@@ -203,6 +204,7 @@ function App() {
           <Route path="profile" element={<VendorProfile />} />
           <Route path="dashboard" element={<VendorDashboard />} />
           <Route path="documents" element={<VendorDocuments />} />
+          <Route path="payouts" element={<VendorPaymentSettings />} />
         </Route>
 
         {/* Driver Routes - Aligned with iOS DriverDashboardView tabs */}
