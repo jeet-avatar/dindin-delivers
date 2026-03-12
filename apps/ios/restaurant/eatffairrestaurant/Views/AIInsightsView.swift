@@ -8,6 +8,8 @@ struct AIInsightsView: View {
     @StateObject private var viewModel = AIInsightsViewModel()
     @State private var selectedInsight: AIInsightType = .demand
     @State private var selectedPeriod: String = "today"
+    @State private var showingNonPromoAlert = false
+    @State private var selectedRecommendation: P2PAIRecommendation?
 
     enum AIInsightType: String, CaseIterable {
         case demand = "Demand"
@@ -478,38 +480,74 @@ struct AIInsightsView: View {
             }
 
             ForEach(viewModel.recommendations) { rec in
-                HStack(spacing: 12) {
-                    Image(systemName: rec.icon)
-                        .font(.title3)
-                        .foregroundColor(colorForPriority(rec.priority))
-                        .frame(width: 40)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(rec.title)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-
-                        Text(rec.description)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Text(rec.impact)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.green)
+                if rec.type == "promotion" {
+                    NavigationLink(destination: PromotionsView()) {
+                        recommendationRow(rec: rec)
                     }
-
-                    Spacer()
+                    .buttonStyle(.plain)
+                } else {
+                    Button {
+                        selectedRecommendation = rec
+                        showingNonPromoAlert = true
+                    } label: {
+                        recommendationRow(rec: rec)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .padding()
-                .background(colorForPriority(rec.priority).opacity(0.05))
-                .cornerRadius(10)
             }
         }
         .padding()
         .background(RestaurantTheme.backgroundPrimary)
         .cornerRadius(16)
         .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
+        .alert("Recommendation", isPresented: $showingNonPromoAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            if let rec = selectedRecommendation {
+                switch rec.type {
+                case "menu":
+                    Text("Go to Menu Management to add combo meals and update your offerings.")
+                case "timing":
+                    Text("Update your operating hours in Restaurant Settings to capture more orders.")
+                default:
+                    Text("Check your restaurant settings to implement this recommendation.")
+                }
+            }
+        }
+    }
+
+    // MARK: - Recommendation Row
+    private func recommendationRow(rec: P2PAIRecommendation) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: rec.icon)
+                .font(.title3)
+                .foregroundColor(colorForPriority(rec.priority))
+                .frame(width: 40)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(rec.title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                Text(rec.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Text(rec.impact)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.green)
+            }
+
+            Spacer()
+
+            Image(systemName: rec.type == "promotion" ? "chevron.right" : "info.circle")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .background(colorForPriority(rec.priority).opacity(0.05))
+        .cornerRadius(10)
     }
 
     // MARK: - Peak Hours Card
