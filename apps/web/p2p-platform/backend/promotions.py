@@ -333,8 +333,11 @@ async def get_ai_suggested_promotions(
         suggestions.append({
             "name": "Slow Period Boost",
             "type": "percentage",
+            "suggestion_type": "percentage",
             "value": 15,
+            "recommended_value": 15.0,
             "reason": f"Orders are slow between {slow_start}:00-{slow_end}:00. A 15% discount could increase traffic.",
+            "description": f"Orders are slow between {slow_start}:00-{slow_end}:00. A 15% discount could increase traffic.",
             "schedule": {
                 "days": [1, 2, 3, 4, 5],
                 "start_time": f"{slow_start}:00",
@@ -349,9 +352,12 @@ async def get_ai_suggested_promotions(
         suggestions.append({
             "name": "First Order Special",
             "type": "percentage",
+            "suggestion_type": "percentage",
             "value": 25,
+            "recommended_value": 25.0,
             "target_audience": "new_customers",
             "reason": "You're a new restaurant. A 25% first-order discount can help build your customer base.",
+            "description": "You're a new restaurant. A 25% first-order discount can help build your customer base.",
             "expected_impact": "+40% new customers",
             "confidence": 0.88
         })
@@ -361,9 +367,12 @@ async def get_ai_suggested_promotions(
         suggestions.append({
             "name": "Spend More, Save More",
             "type": "flat_amount",
+            "suggestion_type": "flat_amount",
             "value": 5,
+            "recommended_value": 5.0,
             "min_order_amount": 35,
             "reason": f"Your average order is ${avg_order_value:.2f}. A '$5 off $35+' deal encourages larger orders.",
+            "description": f"Your average order is ${avg_order_value:.2f}. A '$5 off $35+' deal encourages larger orders.",
             "expected_impact": "+20% average order value",
             "confidence": 0.75
         })
@@ -372,13 +381,16 @@ async def get_ai_suggested_promotions(
     suggestions.append({
         "name": "Weekend Feast",
         "type": "free_delivery",
+        "suggestion_type": "free_delivery",
         "value": 0,
+        "recommended_value": 0.0,
         "schedule": {
             "days": [5, 6],  # Saturday, Sunday
             "start_time": "17:00",
             "end_time": "21:00"
         },
         "reason": "Free delivery on weekends drives family orders and higher ticket sizes.",
+        "description": "Free delivery on weekends drives family orders and higher ticket sizes.",
         "expected_impact": "+35% weekend orders",
         "confidence": 0.80
     })
@@ -387,9 +399,12 @@ async def get_ai_suggested_promotions(
     suggestions.append({
         "name": "We Miss You!",
         "type": "percentage",
+        "suggestion_type": "percentage",
         "value": 20,
+        "recommended_value": 20.0,
         "target_audience": "dormant",
         "reason": "Win back customers who haven't ordered in 30+ days with a personalized discount.",
+        "description": "Win back customers who haven't ordered in 30+ days with a personalized discount.",
         "expected_impact": "15% of dormant customers return",
         "confidence": 0.72
     })
