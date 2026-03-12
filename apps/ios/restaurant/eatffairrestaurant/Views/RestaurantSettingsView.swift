@@ -342,9 +342,16 @@ struct RestaurantSettingsView: View {
                     HStack {
                         Label("This Month's Earnings", systemImage: "dollarsign.circle.fill")
                         Spacer()
-                        Text("$\(String(format: "%.2f", viewModel.monthlyEarnings))")
-                            .fontWeight(.semibold)
-                            .foregroundColor(RestaurantTheme.brandGreen)
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("$\(String(format: "%.2f", viewModel.monthlyEarnings))")
+                                .fontWeight(.semibold)
+                                .foregroundColor(RestaurantTheme.brandGreen)
+                            if viewModel.isSampleEarnings {
+                                Text("Estimated")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                     }
                 }
 
@@ -532,7 +539,7 @@ struct RestaurantSettingsView: View {
                     HStack {
                         Text("Restaurant ID")
                         Spacer()
-                        Text(viewModel.restaurantId.prefix(12) + "...")
+                        Text(viewModel.restaurantId)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -668,7 +675,10 @@ class SettingsViewModel: ObservableObject {
     private let p2pAPI = P2PAPIService.shared
 
     var restaurantId: String {
-        Auth.auth().currentUser?.uid ?? ""
+        if let vendorId = P2PAPIService.shared.currentVendorId {
+            return String(vendorId)
+        }
+        return Auth.auth().currentUser?.uid ?? ""
     }
 
     var vendorId: Int? {
