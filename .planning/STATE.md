@@ -164088,9 +164088,10 @@ None
 | 159 | Fix AI Tab recommendation dead-ends and polish Clover POS for Apple submission | 2026-03-12 | cc578176 | [159-fix-ai-tab-recommendation-dead-ends-and-](./quick/159-fix-ai-tab-recommendation-dead-ends-and-/) |
 | 160 | Populate Restaurant app with demo data for Apple review | 2026-03-12 | 9e141a51 | [160-populate-restaurant-app-with-demo-data-f](./quick/160-populate-restaurant-app-with-demo-data-f/) |
 | 161 | Fix promotion suggestions JSON mismatch between backend and iOS | 2026-03-12 | 2cc46b9a | [161-fix-promotion-suggestions-json-mismatch-](./quick/161-fix-promotion-suggestions-json-mismatch-/) |
+| 162 | Fix demo order seeding + AI recommendations fallback for iOS Restaurant | 2026-03-12 | be1c6620 | [162-fix-demo-order-seeding-ai-recommendation](./quick/162-fix-demo-order-seeding-ai-recommendation/) |
 
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Quick 157-158 complete (9 bugs), backend deployed to prod, Restaurant build 201 on TestFlight, Phase 10 audited, EnhancedMenuView fix needs build 202
+Stopped at: Completed quick task 162: Fix demo order seeding + AI recommendations fallback
 Resume file: .planning/NEXT_SESSION_PROMPT.md
