@@ -8,8 +8,6 @@ struct AIInsightsView: View {
     @StateObject private var viewModel = AIInsightsViewModel()
     @State private var selectedInsight: AIInsightType = .demand
     @State private var selectedPeriod: String = "today"
-    @State private var showingNonPromoAlert = false
-    @State private var selectedRecommendation: P2PAIRecommendation?
 
     enum AIInsightType: String, CaseIterable {
         case demand = "Demand"
@@ -480,39 +478,30 @@ struct AIInsightsView: View {
             }
 
             ForEach(viewModel.recommendations) { rec in
-                if rec.type == "promotion" {
-                    NavigationLink(destination: PromotionsView()) {
-                        recommendationRow(rec: rec)
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    Button {
-                        selectedRecommendation = rec
-                        showingNonPromoAlert = true
-                    } label: {
-                        recommendationRow(rec: rec)
-                    }
-                    .buttonStyle(.plain)
+                NavigationLink(destination: destinationForRecommendation(rec)) {
+                    recommendationRow(rec: rec)
                 }
+                .buttonStyle(.plain)
             }
         }
         .padding()
         .background(RestaurantTheme.backgroundPrimary)
         .cornerRadius(16)
         .shadow(color: RestaurantTheme.cardShadow, radius: 4, x: 0, y: 2)
-        .alert("Recommendation", isPresented: $showingNonPromoAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            if let rec = selectedRecommendation {
-                switch rec.type {
-                case "menu":
-                    Text("Go to Menu Management to add combo meals and update your offerings.")
-                case "timing":
-                    Text("Update your operating hours in Restaurant Settings to capture more orders.")
-                default:
-                    Text("Check your restaurant settings to implement this recommendation.")
-                }
-            }
+    }
+
+    // MARK: - Recommendation Destination
+    @ViewBuilder
+    private func destinationForRecommendation(_ rec: P2PAIRecommendation) -> some View {
+        switch rec.type {
+        case "promotion":
+            PromotionsView()
+        case "trending", "bundle", "menu":
+            EnhancedMenuView()
+        case "timing", "prep_time":
+            RestaurantSettingsView()
+        default:
+            RestaurantSettingsView()
         }
     }
 
@@ -541,7 +530,7 @@ struct AIInsightsView: View {
 
             Spacer()
 
-            Image(systemName: rec.type == "promotion" ? "chevron.right" : "info.circle")
+            Image(systemName: "chevron.right")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
