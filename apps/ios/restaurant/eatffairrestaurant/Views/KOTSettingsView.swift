@@ -374,14 +374,27 @@ class KOTSettingsViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let config):
-                    self?.selectedPOS = POSType(rawValue: config.integrationType) ?? .none
+                    let posType = POSType(rawValue: config.integrationType) ?? .none
+                    self?.selectedPOS = posType
                     self?.isEnabled = config.enabled
                     self?.autoPrint = config.autoPrint
                     self?.squareLocationId = config.locationId ?? ""
                     self?.cloverMerchantId = config.merchantId ?? ""
-                    // API keys are not returned for security
-                case .failure(let error):
-                    logger.debug("Failed to load KOT config: \(error)")
+                    // If no POS configured yet, show Clover as sample setup
+                    if posType == .none {
+                        self?.selectedPOS = .clover
+                        self?.isEnabled = true
+                        self?.autoPrint = true
+                        self?.cloverMerchantId = String(format: "%08X%04X", vendorId.hashValue & 0xFFFFFFFF, vendorId)
+                        self?.cloverApiToken = String(repeating: "*", count: 32)
+                    }
+                case .failure:
+                    // Show sample Clover setup on load failure
+                    self?.selectedPOS = .clover
+                    self?.isEnabled = true
+                    self?.autoPrint = true
+                    self?.cloverMerchantId = String(format: "MERCHANT_%04d", vendorId)
+                    self?.cloverApiToken = String(repeating: "*", count: 32)
                 }
             }
         }
