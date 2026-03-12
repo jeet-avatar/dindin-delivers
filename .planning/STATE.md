@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-12 - Completed quick task 154: Fix promotions quick-create decode + recommendation actions
+Last activity: 2026-03-12 - Completed quick task 156: Fix business hours, promotion edit, delivery photo investigation + deploy + iOS Restaurant build 200
 
 Progress: [##########] 100% (10/12 plans)
 
