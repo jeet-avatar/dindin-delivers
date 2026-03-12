@@ -8926,6 +8926,15 @@ public struct P2PAIRecommendation: Codable, Identifiable {
     public let description: String
     public let impact: String
     public let priority: String
+
+    public init(type: String, icon: String, title: String, description: String, impact: String, priority: String) {
+        self.type = type
+        self.icon = icon
+        self.title = title
+        self.description = description
+        self.impact = impact
+        self.priority = priority
+    }
 }
 
 /// Complete AI Insights response
