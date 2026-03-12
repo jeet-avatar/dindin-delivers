@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-12 - Completed quick task 157: Fix 7 iOS Restaurant bugs (promotion button, earnings, POS, legal pages)
+Last activity: 2026-03-12 - Completed quick task 158: Fix restaurant ID blank + sample earnings label
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -164082,9 +164082,10 @@ None
 | 154 | Fix promotions quick-create decode + actionable smart recommendations | 2026-03-12 | 2de6cbe7 | [154-fix-promotions-quick-create-decode-actio](./quick/154-fix-promotions-quick-create-decode-actio/) |
 | 156 | Fix business hours + promotion edit + delivery photo audit — CR tickets + CI/CD | 2026-03-12 | a039a9bd | [156-fix-business-hours-promotion-edit-delive](./quick/156-fix-business-hours-promotion-edit-delive/) |
 | 157 | Fix 7 iOS Restaurant bugs — promotion button, earnings, POS, legal pages | 2026-03-12 | 45fa75db | [157-fix-7-ios-restaurant-app-bugs-promotion-](./quick/157-fix-7-ios-restaurant-app-bugs-promotion-/) |
+| 158 | Fix restaurant ID blank — P2P vendor ID instead of Firebase UID + sample earnings label | 2026-03-12 | f93006ad | [158-fix-restaurant-id-blank-use-p2p-vendor-i](./quick/158-fix-restaurant-id-blank-use-p2p-vendor-i/) |
 
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Completed quick-157: 7 iOS Restaurant bugs fixed, needs deploy + rebuild
+Stopped at: Completed quick-158: restaurant ID + earnings label fixed, needs deploy + rebuild
 Resume file: .planning/NEXT_SESSION_PROMPT.md
