@@ -164079,9 +164079,10 @@ None
 | 151 | Android checkout promo code API validation (GAP 7) | 2026-03-11 | 044352e9 | [151-complete-quick-150-gap-7-replace-hardcod](./quick/151-complete-quick-150-gap-7-replace-hardcod/) |
 | 152 | Fix iOS Restaurant demand forecast graph + monthly earnings display | 2026-03-12 | 81727a19 | [152-fix-ios-restaurant-demand-forecast-graph](./quick/152-fix-ios-restaurant-demand-forecast-graph/) |
 | 153 | Fix earnings fallback, smart recommendations, promotions decode error | 2026-03-12 | aa22bdcd | [153-fix-earnings-fallback-smart-recommendati](./quick/153-fix-earnings-fallback-smart-recommendati/) |
+| 154 | Fix promotions quick-create decode + actionable smart recommendations | 2026-03-12 | 2de6cbe7 | [154-fix-promotions-quick-create-decode-actio](./quick/154-fix-promotions-quick-create-decode-actio/) |
 
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Completed quick-152: demand forecast graph + monthly earnings fix
+Stopped at: Completed quick-154: promotions quick-create + recommendation actions
 Resume file: .planning/NEXT_SESSION_PROMPT.md
