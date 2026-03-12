@@ -4,81 +4,81 @@
 
 ---
 
-## Session Summary (Mar 11, 2026)
+## Session Summary (Mar 12, 2026 — Evening)
 
-### Completed This Session
+### Completed This Session (Quick Tasks 152-156)
 
-**Quick-150 + Quick-151: iOS Restaurant App Gap Closure — ALL 7 GAPS COMPLETE**
+**11 bugs fixed, 3 CR tickets, 5 iOS builds uploaded:**
 
-| GAP | What | CR | Commit | Repo |
-|-----|------|----|--------|------|
-| 1 | Promotions CRUD (PromotionsView + ViewModel) | — | 37216705 | doordash-p2p |
-| 2 | Menu add/delete sync to P2P backend | CR-0012 | 8a120f4b | doordash-p2p |
-| 3 | Operating hours save to P2P | CR-0013 | 8a120f4b | doordash-p2p |
-| 4 | Document upload UI (progress ring, badges) | CR-0014 | 8a120f4b | doordash-p2p |
-| 5 | Notification settings @AppStorage + P2P sync | CR-0015 | 8a120f4b | doordash-p2p |
-| 6 | pending_delivery_proof flow — verified complete | — | (no changes) | — |
-| 7 | Android promo codes → API validation | CR-0016 | 95d22bd9 | eatfair-android |
+| Quick | What | Commits |
+|-------|------|---------|
+| 152 | Demand forecast graph not showing — sample forecast data fallback | `c8fab1c0`, `904d44f9` |
+| 153 | Earnings $0.00 + recommendations empty + promotions decode crash (missing vendor_id) | `0fe85ee8`, `cb7f7937` |
+| 154 | Promotions quick-create decode crash + smart recommendations now tappable | `dbdf0862`, `9d1bcee4` |
+| 155 | (merged into 156) | — |
+| 156 | Business hours not saving + promotion edit response + delivery photo E2E investigation | `6f859382`, `dea9cf37` |
 
-### New Infrastructure Added
-- `P2PAPIService.patchVendorSettings()` — reusable PATCH wrapper for vendor settings (used by GAPs 3+5)
-- `PromoCodeValidator` — Android object for promo API calls from checkout composables (uses HttpURLConnection, no ViewModel needed)
+**Deployments:**
+- Backend staging + production: Both succeeded (runs 22983744090, 22983968002)
+- iOS Restaurant builds 197-200 all uploaded to TestFlight
+- **Build 200** is the latest on TestFlight with ALL fixes
 
-### Key Files Modified
-- **doordash-p2p:** P2PAPIService.swift (+59), EnhancedMenuView.swift (+76), RestaurantDocumentsView.swift (+187), RestaurantSettingsView.swift (+67)
-- **eatfair-android:** V3CheckoutScreen.kt, MultiRestaurantCheckoutScreen.kt
+**CR Tickets Created:**
+- CR-0017: Promotion edit update_promotion response fix (Verified)
+- CR-0018: Delivery photo E2E investigation — customer app display gap (Verified)
+- CR-0019: Business hours save — Firebase guard removed (Verified)
 
-### CR Tickets Status
-- CR-0012 through CR-0016: all at **"In Progress"** — need approval + deploy transitions
+### Key Findings
 
----
+**Delivery Photo Gap (CR-0018):**
+- Driver capture + backend storage EXISTS and WORKS (12-hour retention, proof gate)
+- Customer apps (iOS + Android) have NO UI to display delivery photo
+- Added as item 8 in `.planning/todos/pending/2026-03-09-apple-app-store-ios-cleanup-for-next-builds.md`
 
-## PRIORITY 1: Push + Deploy + Distribute
-
-**Both repos have uncommitted changes pushed to local only — must push to remote before deploy.**
-
-```bash
-# 1. Push both repos
-git push origin main
-cd /Users/jeet/StudioProjects/eatfair-android && git push origin main
-
-# 2. Deploy backend
-gh workflow run deploy-staging.yml --ref main
-# Smoke test staging
-gh workflow run deploy-dollar-ai.yml
-
-# 3. Transition CR tickets (CR-0012 to CR-0016)
-ADMIN_KEY="DollorProductionSecretKey2024Admin"
-for CR in CR-0012 CR-0013 CR-0014 CR-0015 CR-0016; do
-  # Approve → In Progress → Staging → Production → Verified
-  curl -s -X POST "https://api.dollor.ai/api/admin/change-requests/$CR/transition?secret_key=$ADMIN_KEY" \
-    -H "Content-Type: application/json" \
-    -d '{"new_status":"Approved","actor_email":"system@dollor.ai","role":"super_admin"}'
-done
-
-# 4. Build + distribute
-# iOS Restaurant → TestFlight (build 194+)
-# Android Customer → Firebase (vC=38+)
-```
-
-### After deploy
-- Write 150-SUMMARY.md to close out quick-150
-- Remove .continue-here.md
+**Promotion Backend Fixes (all deployed):**
+- `list_promotions` — was missing `vendor_id` field → iOS decode crash
+- `create_promotion` — was returning success message, not full promotion object → quick-create crash
+- `update_promotion` — same issue, returning minimal dict → edit not saving
+- All 3 now return full promotion object matching `P2PPromotion` iOS model
 
 ---
 
-## PRIORITY 2: iOS Restaurant App — Complete ASC Setup + Submit
+## PRIORITY 1: Apple App Store Cleanup → TestFlight (NOT submit)
 
-**Status:** Quick-126 plan created but executor was interrupted.
-**Plan:** `.planning/quick/124-get-ios-restaurant-app-ready-for-app-sto/124-PLAN.md`
+User wants to prepare the next Customer app build addressing Apple requirements, upload to TestFlight only, do NOT submit for review yet.
 
-The Restaurant app ASC metadata is **almost completely empty** — needs description, keywords, categories, age rating, build attachment, demo credentials, screenshots.
+**Items from todo** (`.planning/todos/pending/2026-03-09-apple-app-store-ios-cleanup-for-next-builds.md`):
+
+Code changes (need new build):
+1. Remove `NSContactsUsageDescription` from Info.plist (unused)
+2. Remove `NSLocationAlwaysAndWhenInUseUsageDescription` from Info.plist (unused)
+3. Set `ENABLE_AI_FEATURES=NO` in Production.xcconfig (dead flag)
+4. Delete `ACHPaymentService.swift` (dead code)
+
+ASC metadata (no build needed):
+5. Verify ASC privacy labels match actual SDK data collection
+6. Fill "What's New" text in ASC
+7. Set privacy URL in version localization
+
+Feature gap (needs implementation):
+8. Add delivery photo display to Customer app order tracking + history
+
+**Approach:** Run items 1-4 as `/gsd:quick`, bump Customer build, archive → TestFlight. Then do items 5-7 via ASC API. Item 8 is a larger feature task.
+
+---
+
+## PRIORITY 2: iOS Restaurant Screenshots + Submit
+
+**Screenshots are the ONLY blocker** for Restaurant app submission. 0 screenshot sets exist.
+- Build 200 on TestFlight has all fixes from this session
+- Minimum: iPhone 6.7" display screenshots
+- Key screens: Dashboard, Menu, Orders, Settings, Documents, Promotions
 
 ---
 
 ## PRIORITY 3: iOS Driver App — Prepare + Submit
 
-Same ASC metadata audit + fill needed for Driver app (com.dollorai.delivery, build 215).
+Same ASC metadata audit needed for Driver app (com.dollorai.delivery, build 215).
 - Demo: demo.driver@dollor.ai / DemoDriver2025!
 - State: PREPARE_FOR_SUBMISSION
 
@@ -86,29 +86,11 @@ Same ASC metadata audit + fill needed for Driver app (com.dollorai.delivery, bui
 
 ## PRIORITY 4: Release iOS Customer App
 
-Build 1111 is approved (PENDING_DEVELOPER_RELEASE). Before releasing:
-1. Fill "What's New" text in ASC
-2. Set privacy URL in version localization
-3. Click "Release This Version"
-
-**Wait for Apple's business papers confirmation first.**
+Build 1111 is approved (PENDING_DEVELOPER_RELEASE). Wait for Apple's business papers confirmation.
 
 ---
 
-## PRIORITY 5: Apple Cleanup TODO (for next iOS builds)
-
-Saved at `.planning/todos/pending/2026-03-09-apple-app-store-ios-cleanup-for-next-builds.md`:
-1. Remove NSContactsUsageDescription (unused)
-2. Remove NSLocationAlwaysAndWhenInUseUsageDescription (unused)
-3. Set ENABLE_AI_FEATURES=NO in Production.xcconfig
-4. Delete ACHPaymentService.swift (dead code)
-5. Verify ASC privacy labels match SDK data collection
-6. Fill What's New text
-7. Set privacy URL in version localization
-
----
-
-## PRIORITY 6: Continue v1.5 Roadmap
+## PRIORITY 5: Continue v1.5 Roadmap
 
 | Phase | Status | Next Step |
 |-------|--------|-----------|
@@ -119,26 +101,16 @@ Saved at `.planning/todos/pending/2026-03-09-apple-app-store-ios-cleanup-for-nex
 
 ---
 
-## Current Build Versions
+## Current Build Versions (Updated Mar 12, 2026)
 
 | Platform | App | Build | Distribution |
 |----------|-----|-------|-------------|
 | iOS | Customer | 1113 | TestFlight Mar 6, **Build 1111 APPROVED** |
 | iOS | Driver | 215 | TestFlight Mar 6 |
-| iOS | Restaurant | 193 | TestFlight Mar 11 |
-| Android | Customer | vC=37 (1.0.36) | Firebase + Play Store Mar 6 |
+| iOS | Restaurant | **200** | TestFlight Mar 12 |
+| Android | Customer | vC=38 (1.0.37) | Firebase Mar 11 |
 | Android | Driver | vC=33 (1.0.32) | Firebase Mar 6 |
 | Android | Partner | vC=33 (1.0.32) | Firebase Mar 11 |
-
----
-
-## Key Facts for Next Session
-
-- ADMIN_SECRET_KEY: `DollorProductionSecretKey2024Admin` (AWS `dollor/production/admin`)
-- CR transitions need `role: "super_admin"` (not `system`)
-- iOS simulator: use `iPhone 17 Pro` (iPhone 16 removed from Xcode)
-- All Android promo stash changes already popped and committed
-- Change Management lifecycle: Draft → Submitted → Under Review → Approved → In Progress → Staging → Production → Verified → Closed
 
 ---
 
@@ -146,10 +118,10 @@ Saved at `.planning/todos/pending/2026-03-09-apple-app-store-ios-cleanup-for-nex
 
 ```
 /gsd:resume-work
-→ Push both repos + deploy backend (Priority 1)
-→ Build + distribute iOS Restaurant + Android Customer
-→ Transition CRs to Verified
-→ Complete Restaurant app ASC metadata + submit (Priority 2)
-→ Prepare Driver app ASC metadata + submit (Priority 3)
+→ /gsd:quick "Apple cleanup items 1-4 for iOS Customer app"
+→ Bump Customer build → archive → TestFlight (DO NOT submit)
+→ ASC metadata items 5-7 via API
+→ Take Restaurant screenshots → upload to ASC
+→ Submit Restaurant app for review
 → /gsd:pause-work
 ```
