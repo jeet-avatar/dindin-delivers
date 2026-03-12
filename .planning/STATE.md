@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-12 - Completed quick task 158: Fix restaurant ID blank + sample earnings label
+Last activity: 2026-03-12 - Completed quick task 159: Fix AI Tab recommendation dead-ends and polish Clover POS for Apple submission
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -164084,6 +164084,7 @@ None
 | 156 | Fix business hours + promotion edit + delivery photo audit — CR tickets + CI/CD | 2026-03-12 | a039a9bd | [156-fix-business-hours-promotion-edit-delive](./quick/156-fix-business-hours-promotion-edit-delive/) |
 | 157 | Fix 7 iOS Restaurant bugs — promotion button, earnings, POS, legal pages | 2026-03-12 | 45fa75db | [157-fix-7-ios-restaurant-app-bugs-promotion-](./quick/157-fix-7-ios-restaurant-app-bugs-promotion-/) |
 | 158 | Fix restaurant ID blank — P2P vendor ID instead of Firebase UID + sample earnings label | 2026-03-12 | f93006ad | [158-fix-restaurant-id-blank-use-p2p-vendor-i](./quick/158-fix-restaurant-id-blank-use-p2p-vendor-i/) |
+| 159 | Fix AI Tab recommendation dead-ends and polish Clover POS for Apple submission | 2026-03-12 | cc578176 | [159-fix-ai-tab-recommendation-dead-ends-and-](./quick/159-fix-ai-tab-recommendation-dead-ends-and-/) |
 
 ## Session Continuity
 
