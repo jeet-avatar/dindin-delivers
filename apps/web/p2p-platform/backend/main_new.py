@@ -346,7 +346,7 @@ _PUBLIC_EXACT_PATHS = {
 
 _PUBLIC_PREFIXES = [
     "/api/public/",           # Public restaurant listings
-    "/api/promotions/suggestions/",  # AI promotion suggestions (vendor_id in path)
+    # "/api/promotions/suggestions/" removed — promotions_router uses require_any_auth
     "/api/webhooks/",         # Stripe webhooks (signature-verified)
     "/api/verification/webhook/",  # Verification provider webhooks (Persona/Onfido/Veriff — signature-verified)
     "/api/legal/",            # Legal pages
@@ -21625,70 +21625,6 @@ def get_vendor_ai_insights(
     )
 
 
-
-# =============================================================================
-# PROMOTION SUGGESTIONS — AI-powered suggestions for vendor dashboard
-# =============================================================================
-@app.get("/api/promotions/suggestions/{vendor_id}")
-def get_promotion_suggestions(vendor_id: int, db: Session = Depends(get_db)):
-    """AI-powered promotion suggestions for vendor dashboard (Apple review demo)"""
-    week_ago = datetime.utcnow() - timedelta(days=7)
-    recent_orders = db.query(Order).filter(
-        Order.vendor_id == vendor_id,
-        Order.created_at >= week_ago
-    ).all()
-
-    total_revenue = sum(o.total_amount for o in recent_orders if o.status == OrderStatus.DELIVERED)
-    order_count = len(recent_orders)
-    avg_order = total_revenue / max(order_count, 1)
-
-    suggestions = []
-
-    suggestions.append({
-        "suggestion_type": "happy_hour",
-        "name": "Happy Hour Special",
-        "description": "Offer 15% off orders between 2-5 PM to boost slow afternoon traffic. Restaurants see 40% more orders during promoted hours.",
-        "expected_impact": "+40% afternoon orders",
-        "recommended_value": 15.0
-    })
-
-    if avg_order < 25:
-        suggestions.append({
-            "suggestion_type": "bundle_deal",
-            "name": "Combo Meal Bundle",
-            "description": "Create a combo deal (entree + side + drink) at 10% savings. Increases average order value by $5-8.",
-            "expected_impact": "+$6 avg order value",
-            "recommended_value": 10.0
-        })
-    else:
-        suggestions.append({
-            "suggestion_type": "loyalty_reward",
-            "name": "Loyalty Rewards",
-            "description": "Reward repeat customers with $5 off their 5th order. Increases return rate by 25%.",
-            "expected_impact": "+25% repeat customers",
-            "recommended_value": 5.0
-        })
-
-    suggestions.append({
-        "suggestion_type": "free_delivery",
-        "name": "Free Delivery Weekend",
-        "description": "Waive delivery fees on Saturday and Sunday. Weekend promos drive 30% more first-time orders.",
-        "expected_impact": "+30% weekend orders",
-        "recommended_value": 0.0
-    })
-
-    suggestions.append({
-        "suggestion_type": "featured_item",
-        "name": "Feature Your Top Seller",
-        "description": "Highlight your most popular item with a 'Chef\\'s Pick' badge. Featured items get 2x more views.",
-        "expected_impact": "2x item visibility",
-        "recommended_value": None
-    })
-
-    return {
-        "success": True,
-        "suggestions": suggestions
-    }
 
 
 # =============================================================================
