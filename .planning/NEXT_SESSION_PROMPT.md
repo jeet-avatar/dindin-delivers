@@ -4,52 +4,48 @@
 
 ---
 
-## Session Summary (Mar 12, 2026 — Evening)
+## Session Summary (Mar 12, 2026 — Night Session)
 
-### Completed This Session (Quick Tasks 152-156)
+### Completed This Session (Quick Tasks 157-158)
 
-**11 bugs fixed, 3 CR tickets, 5 iOS builds uploaded:**
+**9 bugs fixed, 2 CR tickets, backend deployed to production, iOS Restaurant build 201 on TestFlight:**
 
-| Quick | What | Commits |
-|-------|------|---------|
-| 152 | Demand forecast graph not showing — sample forecast data fallback | `c8fab1c0`, `904d44f9` |
-| 153 | Earnings $0.00 + recommendations empty + promotions decode crash (missing vendor_id) | `0fe85ee8`, `cb7f7937` |
-| 154 | Promotions quick-create decode crash + smart recommendations now tappable | `dbdf0862`, `9d1bcee4` |
-| 155 | (merged into 156) | — |
-| 156 | Business hours not saving + promotion edit response + delivery photo E2E investigation | `6f859382`, `dea9cf37` |
+| Quick | CR | What | Commits |
+|-------|-----|------|---------|
+| 157 | CR-0020 | 7 iOS Restaurant bugs: promotion save button white-on-white, earnings $0 fallback, Toast POS "coming soon" removed, online/offline backend sync, legal pages 404 (Dockerfile fix) | `45fa75db` |
+| 158 | CR-0021 | Restaurant ID blank (Firebase UID → P2P vendor ID), "Estimated" earnings label, EnhancedMenuView Firebase UID hardcode | `f93006ad`, `4e389b1e` |
 
 **Deployments:**
-- Backend staging + production: Both succeeded (runs 22983744090, 22983968002)
-- iOS Restaurant builds 197-200 all uploaded to TestFlight
-- **Build 200** is the latest on TestFlight with ALL fixes
+- Backend staging: Succeeded (run 22987175534) — legal pages return 200
+- Backend production: Succeeded (run 22987503974) — `api.dollor.ai/terms` + `/privacy` both 200
+- iOS Restaurant build 201: Uploaded to TestFlight
 
-**CR Tickets Created:**
-- CR-0017: Promotion edit update_promotion response fix (Verified)
-- CR-0018: Delivery photo E2E investigation — customer app display gap (Verified)
-- CR-0019: Business hours save — Firebase guard removed (Verified)
+**GSD Verification:**
+- All 8 original fixes verified by GSD recheck agent — ALL PASS
+- 1 additional bug found during verification: `EnhancedMenuView.swift:799` hardcoded Firebase UID — fixed in `4e389b1e`
+- Phase 10 (Automated Support System) fully audited — all components implemented, no gaps
 
-### Key Findings
-
-**Delivery Photo Gap (CR-0018):**
-- Driver capture + backend storage EXISTS and WORKS (12-hour retention, proof gate)
-- Customer apps (iOS + Android) have NO UI to display delivery photo
-- Added as item 8 in `.planning/todos/pending/2026-03-09-apple-app-store-ios-cleanup-for-next-builds.md`
-
-**Promotion Backend Fixes (all deployed):**
-- `list_promotions` — was missing `vendor_id` field → iOS decode crash
-- `create_promotion` — was returning success message, not full promotion object → quick-create crash
-- `update_promotion` — same issue, returning minimal dict → edit not saving
-- All 3 now return full promotion object matching `P2PPromotion` iOS model
+**Key Root Causes Found & Fixed:**
+- **Restaurant ID blank**: `RestaurantSettingsView.swift:670` used `Auth.auth().currentUser?.uid` — nil for OAuth users. Fixed to use P2P vendor ID first.
+- **Legal pages 404**: `Dockerfile.optimized` production stage only copied `*.py` files — `legal/` directory never in container. Added `COPY legal/ ./legal/`.
+- **Promotion button invisible**: `.listRowBackground()` was inside button label HStack, not on the row level.
 
 ---
 
-## PRIORITY 1: Apple App Store Cleanup → TestFlight (NOT submit)
+## PRIORITY 1: Build iOS Restaurant 202 → TestFlight
 
-User wants to prepare the next Customer app build addressing Apple requirements, upload to TestFlight only, do NOT submit for review yet.
+**Build 201 on TestFlight has ALL fixes EXCEPT the EnhancedMenuView Firebase UID fix** (`4e389b1e`).
+- Bump to build 202, archive, upload to TestFlight
+- This ensures menu loading works correctly for OAuth-logged-in users
+- Quick task: bump version in project.pbxproj, archive, export+upload
 
-**Items from todo** (`.planning/todos/pending/2026-03-09-apple-app-store-ios-cleanup-for-next-builds.md`):
+---
 
-Code changes (need new build):
+## PRIORITY 2: Apple App Store Cleanup → Customer Build → TestFlight (NOT submit)
+
+From `.planning/todos/pending/2026-03-09-apple-app-store-ios-cleanup-for-next-builds.md`:
+
+Code changes (need new Customer build):
 1. Remove `NSContactsUsageDescription` from Info.plist (unused)
 2. Remove `NSLocationAlwaysAndWhenInUseUsageDescription` from Info.plist (unused)
 3. Set `ENABLE_AI_FEATURES=NO` in Production.xcconfig (dead flag)
@@ -63,20 +59,18 @@ ASC metadata (no build needed):
 Feature gap (needs implementation):
 8. Add delivery photo display to Customer app order tracking + history
 
-**Approach:** Run items 1-4 as `/gsd:quick`, bump Customer build, archive → TestFlight. Then do items 5-7 via ASC API. Item 8 is a larger feature task.
-
 ---
 
-## PRIORITY 2: iOS Restaurant Screenshots + Submit
+## PRIORITY 3: iOS Restaurant Screenshots + Submit
 
 **Screenshots are the ONLY blocker** for Restaurant app submission. 0 screenshot sets exist.
-- Build 200 on TestFlight has all fixes from this session
+- Build 202 (once uploaded) will have ALL fixes
 - Minimum: iPhone 6.7" display screenshots
 - Key screens: Dashboard, Menu, Orders, Settings, Documents, Promotions
 
 ---
 
-## PRIORITY 3: iOS Driver App — Prepare + Submit
+## PRIORITY 4: iOS Driver App — Prepare + Submit
 
 Same ASC metadata audit needed for Driver app (com.dollorai.delivery, build 215).
 - Demo: demo.driver@dollor.ai / DemoDriver2025!
@@ -84,20 +78,23 @@ Same ASC metadata audit needed for Driver app (com.dollorai.delivery, build 215)
 
 ---
 
-## PRIORITY 4: Release iOS Customer App
+## PRIORITY 5: Release iOS Customer App
 
 Build 1111 is approved (PENDING_DEVELOPER_RELEASE). Wait for Apple's business papers confirmation.
 
 ---
 
-## PRIORITY 5: Continue v1.5 Roadmap
+## PRIORITY 6: Continue v1.5 Roadmap
 
 | Phase | Status | Next Step |
 |-------|--------|-----------|
-| 07 Play Store | 1/3 plans | Customer on internal, need production track |
+| 06 SSL Pinning | Complete | — |
+| 07 Play Store | Not started | `/gsd:plan-phase 7` |
 | 08 DB Rotation | Not started | `/gsd:plan-phase 8` |
 | 09 Rideshare E2E | Not started | `/gsd:plan-phase 9` |
-| 10 Support System | 2/3 plans | Plan 10-03 remaining |
+| 10 Support System | **Complete** (audited this session) | — |
+| 11 Change Mgmt | Complete | — |
+| 12 Admin Portal | Complete | — |
 
 ---
 
@@ -107,7 +104,7 @@ Build 1111 is approved (PENDING_DEVELOPER_RELEASE). Wait for Apple's business pa
 |----------|-----|-------|-------------|
 | iOS | Customer | 1113 | TestFlight Mar 6, **Build 1111 APPROVED** |
 | iOS | Driver | 215 | TestFlight Mar 6 |
-| iOS | Restaurant | **200** | TestFlight Mar 12 |
+| iOS | Restaurant | **201** | TestFlight Mar 12 (needs 202 for menu fix) |
 | Android | Customer | vC=38 (1.0.37) | Firebase Mar 11 |
 | Android | Driver | vC=33 (1.0.32) | Firebase Mar 6 |
 | Android | Partner | vC=33 (1.0.32) | Firebase Mar 11 |
@@ -118,10 +115,11 @@ Build 1111 is approved (PENDING_DEVELOPER_RELEASE). Wait for Apple's business pa
 
 ```
 /gsd:resume-work
+→ Bump iOS Restaurant to 202, archive, upload TestFlight
 → /gsd:quick "Apple cleanup items 1-4 for iOS Customer app"
 → Bump Customer build → archive → TestFlight (DO NOT submit)
 → ASC metadata items 5-7 via API
 → Take Restaurant screenshots → upload to ASC
 → Submit Restaurant app for review
-→ /gsd:pause-work
+→ /gsd:plan-phase 7 (Play Store Publishing)
 ```
