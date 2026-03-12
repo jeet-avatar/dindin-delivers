@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-12 - Completed quick task 156: Fix business hours, promotion edit, delivery photo investigation + deploy + iOS Restaurant build 200
+Last activity: 2026-03-12 - Completed quick task 157: Fix 7 iOS Restaurant bugs (promotion button, earnings, POS, legal pages)
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -164081,9 +164081,10 @@ None
 | 153 | Fix earnings fallback, smart recommendations, promotions decode error | 2026-03-12 | aa22bdcd | [153-fix-earnings-fallback-smart-recommendati](./quick/153-fix-earnings-fallback-smart-recommendati/) |
 | 154 | Fix promotions quick-create decode + actionable smart recommendations | 2026-03-12 | 2de6cbe7 | [154-fix-promotions-quick-create-decode-actio](./quick/154-fix-promotions-quick-create-decode-actio/) |
 | 156 | Fix business hours + promotion edit + delivery photo audit — CR tickets + CI/CD | 2026-03-12 | a039a9bd | [156-fix-business-hours-promotion-edit-delive](./quick/156-fix-business-hours-promotion-edit-delive/) |
+| 157 | Fix 7 iOS Restaurant bugs — promotion button, earnings, POS, legal pages | 2026-03-12 | 45fa75db | [157-fix-7-ios-restaurant-app-bugs-promotion-](./quick/157-fix-7-ios-restaurant-app-bugs-promotion-/) |
 
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Completed quick-156: business hours + promo edit deployed, delivery photo gap identified
+Stopped at: Completed quick-157: 7 iOS Restaurant bugs fixed, needs deploy + rebuild
 Resume file: .planning/NEXT_SESSION_PROMPT.md
