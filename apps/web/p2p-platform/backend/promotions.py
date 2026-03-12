@@ -414,6 +414,7 @@ async def list_promotions(
         "promotions": [{
             "id": p.id,
             "promotion_code": p.promotion_code,
+            "vendor_id": p.vendor_id,
             "name": p.name,
             "description": p.description,
             "type": p.type.value,
