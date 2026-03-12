@@ -8859,6 +8859,14 @@ public struct P2PDemandForecast: Codable, Identifiable {
         case minOrders = "min_orders"
         case maxOrders = "max_orders"
     }
+
+    public init(hour: String, hour24: Int, predicted: Int, minOrders: Int, maxOrders: Int) {
+        self.hour = hour
+        self.hour24 = hour24
+        self.predicted = predicted
+        self.minOrders = minOrders
+        self.maxOrders = maxOrders
+    }
 }
 
 /// Popular item analytics
