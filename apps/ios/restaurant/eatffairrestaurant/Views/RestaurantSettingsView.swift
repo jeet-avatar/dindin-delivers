@@ -656,6 +656,7 @@ class SettingsViewModel: ObservableObject {
     @Published var aiMenuSuggestions = true
     @Published var operatingHours: [DayHours] = []
     @Published var monthlyEarnings: Double = 0.0
+    @Published var isSampleEarnings: Bool = false
 
     // P2P backend data
     @Published var cuisineType: String = ""
@@ -900,7 +901,14 @@ class SettingsViewModel: ObservableObject {
                     // totalRevenue from backend is gross revenue; subtract platform fee ($1/order)
                     let platformFee = AppConfig.shared.restaurantPlatformFee
                     let earnings = response.totalRevenue - (Double(response.totalOrders) * platformFee)
-                    self?.monthlyEarnings = max(0, earnings)
+                    if response.totalOrders == 0 {
+                        // Show sample earnings when no real order data
+                        self?.monthlyEarnings = 847.50
+                        self?.isSampleEarnings = true
+                    } else {
+                        self?.monthlyEarnings = max(0, earnings)
+                        self?.isSampleEarnings = false
+                    }
                 case .failure:
                     // Silently keep $0.00 on failure — not critical
                     break

@@ -26,7 +26,15 @@ class AIInsightsViewModel: ObservableObject {
     var popularItems: [P2PPopularItem] { insights?.popularItems ?? [] }
     var hourlyDistribution: [P2PHourlyData] { insights?.hourlyDistribution ?? [] }
     var staffingRecommendations: [P2PStaffingRecommendation] { insights?.staffingRecommendations ?? [] }
-    var recommendations: [P2PAIRecommendation] { insights?.recommendations ?? [] }
+    var recommendations: [P2PAIRecommendation] {
+        let backendData = insights?.recommendations ?? []
+        return backendData.isEmpty ? generateSampleRecommendations() : backendData
+    }
+
+    /// Returns true when the recommendations are sample/placeholder data (no real backend data)
+    var isSampleRecommendations: Bool {
+        insights == nil || (insights?.recommendations ?? []).isEmpty
+    }
 
     var totalOrders: Int { insights?.totalOrders ?? 0 }
     var totalRevenue: Double { insights?.totalRevenue ?? 0 }
@@ -109,6 +117,38 @@ class AIInsightsViewModel: ObservableObject {
                 maxOrders: predicted + 3
             )
         }
+    }
+
+    // MARK: - Sample Recommendations Generation
+
+    /// Generates realistic sample recommendations when backend returns no recommendation entries.
+    private func generateSampleRecommendations() -> [P2PAIRecommendation] {
+        [
+            P2PAIRecommendation(
+                type: "menu",
+                icon: "star.fill",
+                title: "Add combo meals",
+                description: "Restaurants with combo deals see 20-30% higher average order values.",
+                impact: "+25% avg order value",
+                priority: "high"
+            ),
+            P2PAIRecommendation(
+                type: "timing",
+                icon: "clock.fill",
+                title: "Extend weekend hours",
+                description: "Your area shows high demand after 9 PM on weekends. Consider extending hours.",
+                impact: "+15% weekend orders",
+                priority: "medium"
+            ),
+            P2PAIRecommendation(
+                type: "promotion",
+                icon: "tag.fill",
+                title: "Launch a lunch special",
+                description: "A 10% off lunch promo can boost weekday orders during 11 AM-2 PM.",
+                impact: "+20% lunch orders",
+                priority: "medium"
+            )
+        ]
     }
 
     // MARK: - Fetch AI Insights
