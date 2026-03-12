@@ -796,7 +796,7 @@ class MenuViewModel: ObservableObject {
     }
 
     private func fetchMenuFromFirebase() {
-        guard let restaurantId = Auth.auth().currentUser?.uid else {
+        guard let restaurantId = self.restaurantId, !restaurantId.isEmpty else {
             isLoading = false
             return
         }
