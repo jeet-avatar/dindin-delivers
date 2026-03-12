@@ -164078,6 +164078,7 @@ None
 | 150 | iOS Restaurant app gap closure — Promotions CRUD + 5 fixes | 2026-03-11 | 8a120f4b | [150-ios-restaurant-app-gap-closure-promotion](./quick/150-ios-restaurant-app-gap-closure-promotion/) |
 | 151 | Android checkout promo code API validation (GAP 7) | 2026-03-11 | 044352e9 | [151-complete-quick-150-gap-7-replace-hardcod](./quick/151-complete-quick-150-gap-7-replace-hardcod/) |
 | 152 | Fix iOS Restaurant demand forecast graph + monthly earnings display | 2026-03-12 | 81727a19 | [152-fix-ios-restaurant-demand-forecast-graph](./quick/152-fix-ios-restaurant-demand-forecast-graph/) |
+| 153 | Fix earnings fallback, smart recommendations, promotions decode error | 2026-03-12 | aa22bdcd | [153-fix-earnings-fallback-smart-recommendati](./quick/153-fix-earnings-fallback-smart-recommendati/) |
 
 ## Session Continuity
 
