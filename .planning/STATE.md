@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-12 - Completed quick task 159: Fix AI Tab recommendation dead-ends and polish Clover POS for Apple submission
+Last activity: 2026-03-12 - Completed quick task 160: Populate restaurant app with demo data for Apple review
 
 Progress: [##########] 100% (10/12 plans)
 
