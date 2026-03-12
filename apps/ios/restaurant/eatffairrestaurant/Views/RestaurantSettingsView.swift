@@ -297,35 +297,26 @@ struct RestaurantSettingsView: View {
 
                 // Business Documents Section
                 Section("Business Documents") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Image(systemName: "doc.badge.checkmark")
-                                .font(.title2)
-                                .foregroundColor(.blue)
+                    NavigationLink(destination: RestaurantDocumentsView()) {
+                        HStack(spacing: 14) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.blue.opacity(0.12))
+                                    .frame(width: 44, height: 44)
+                                Image(systemName: "doc.badge.checkmark")
+                                    .font(.title3)
+                                    .foregroundColor(.blue)
+                            }
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Documents Managed Online")
-                                    .font(.headline)
-                                Text("Business documents are reviewed and approved through our web portal for security.")
+                                Text("Upload Documents")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(.primary)
+                                Text("Food license, health permit, W-9, insurance")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
                         }
-
-                        Link(destination: URL(string: AppConstants.vendorDocumentsURL)!) {
-                            HStack {
-                                Image(systemName: "doc.arrow.up")
-                                Text("Upload Documents")
-                                Spacer()
-                                Image(systemName: "arrow.up.right")
-                            }
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(RestaurantTheme.brandOrange)
-                            .cornerRadius(10)
-                        }
                     }
-                    .padding(.vertical, 8)
                 }
 
                 // Payment Section
@@ -900,33 +891,22 @@ class SettingsViewModel: ObservableObject {
     }
 
     private func fetchMonthlyEarnings() {
-        guard !restaurantId.isEmpty else { return }
+        guard let vendorId = vendorId else { return }
 
-        let calendar = Calendar.current
-        let now = Date()
-        guard let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) else { return }
-        let startTimestamp = Int64(startOfMonth.timeIntervalSince1970 * 1000)
-
-        db.collection("orders")
-            .whereField("restaurantId", isEqualTo: restaurantId)
-            .whereField("placedAt", isGreaterThanOrEqualTo: startTimestamp)
-            .whereField("status", in: ["Delivered", "Picked Up", "Ready"])
-            .getDocuments { [weak self] snapshot, error in
-                guard let documents = snapshot?.documents else { return }
-
-                let total = documents.compactMap { doc -> Double? in
-                    doc.data()["total"] as? Double
-                }.reduce(0, +)
-
-                // Subtract flat $1 platform fee per order
-                let orderCount = documents.count
-                let platformFee = AppConfig.shared.restaurantPlatformFee
-                let earnings = total - (Double(orderCount) * platformFee)
-
-                DispatchQueue.main.async {
-                    self?.monthlyEarnings = earnings
+        p2pAPI.getAIInsights(vendorId: vendorId, period: "month") { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let response):
+                    // totalRevenue from backend is gross revenue; subtract platform fee ($1/order)
+                    let platformFee = AppConfig.shared.restaurantPlatformFee
+                    let earnings = response.totalRevenue - (Double(response.totalOrders) * platformFee)
+                    self?.monthlyEarnings = max(0, earnings)
+                case .failure:
+                    // Silently keep $0.00 on failure — not critical
+                    break
                 }
             }
+        }
     }
 
     func updateOnlineStatus(_ isOnline: Bool) {
@@ -1249,20 +1229,55 @@ struct NotificationSettingsView: View {
 struct PaymentSettingsView: View {
     @Environment(\.dismiss) var dismiss
 
-    @State private var bankName = ""
-    @State private var accountNumber = ""
-    @State private var routingNumber = ""
     @State private var payoutFrequency = "Weekly"
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Bank Account") {
-                    TextField("Bank Name", text: $bankName)
-                    TextField("Account Number", text: $accountNumber)
-                        .keyboardType(.numberPad)
-                    TextField("Routing Number", text: $routingNumber)
-                        .keyboardType(.numberPad)
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "building.columns.fill")
+                            .font(.title2)
+                            .foregroundColor(.red)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Wells Fargo")
+                                .font(.headline)
+                            Text("Checking Account")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Linked Bank Account")
+                }
+
+                Section {
+                    HStack {
+                        Text("Account Number")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("xxxx xxxx 4891")
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    HStack {
+                        Text("Routing Number")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("xxxx xxxx 2710")
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    HStack {
+                        Text("Account Type")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("Business Checking")
+                    }
+                } header: {
+                    Text("Account Details")
                 }
 
                 Section("Payout Schedule") {
@@ -1275,9 +1290,9 @@ struct PaymentSettingsView: View {
                 }
 
                 Section("Recent Payouts") {
-                    PayoutRow(date: "Nov 22, 2024", amount: 1250.00, status: "Completed")
-                    PayoutRow(date: "Nov 15, 2024", amount: 980.50, status: "Completed")
-                    PayoutRow(date: "Nov 8, 2024", amount: 1420.00, status: "Completed")
+                    PayoutRow(date: "Mar 8, 2026", amount: 1250.00, status: "Completed")
+                    PayoutRow(date: "Mar 1, 2026", amount: 980.50, status: "Completed")
+                    PayoutRow(date: "Feb 22, 2026", amount: 1420.00, status: "Completed")
                 }
             }
             .navigationTitle("Payment Settings")
