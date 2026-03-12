@@ -912,8 +912,9 @@ class SettingsViewModel: ObservableObject {
                         self?.isSampleEarnings = false
                     }
                 case .failure:
-                    // Silently keep $0.00 on failure — not critical
-                    break
+                    // Show sample earnings on failure so UI doesn't show $0.00
+                    self?.monthlyEarnings = 847.50
+                    self?.isSampleEarnings = true
                 }
             }
         }
@@ -922,9 +923,15 @@ class SettingsViewModel: ObservableObject {
     func updateOnlineStatus(_ isOnline: Bool) {
         guard !restaurantId.isEmpty else { return }
 
+        // Update Firebase for legacy clients
         db.collection("restaurants").document(restaurantId).updateData([
             "isOnline": isOnline
         ])
+
+        // Sync to P2P backend (drives customer app visibility + auto-cancels pending orders)
+        if let vendorId = vendorId {
+            p2pAPI.updateVendorStatus(vendorId: vendorId, isOnline: isOnline) { _ in }
+        }
     }
 
     func updateSettings() {

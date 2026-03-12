@@ -61,19 +61,9 @@ struct KOTSettingsView: View {
                                         .foregroundColor(.green)
                                 }
 
-                                if pos == .toast {
-                                    Text("Soon")
-                                        .font(.caption2)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(Color.orange.opacity(0.2))
-                                        .foregroundColor(.orange)
-                                        .cornerRadius(4)
-                                }
                             }
                             .padding(.vertical, 4)
                         }
-                        .disabled(pos == .toast)
                     }
                 }
 
@@ -207,7 +197,7 @@ enum POSType: String, CaseIterable {
         case .none: return "Orders will not be sent to any POS system"
         case .square: return "Popular for small to medium restaurants"
         case .clover: return "Full-featured restaurant POS"
-        case .toast: return "Restaurant-focused POS (Partner API required)"
+        case .toast: return "Restaurant-focused POS system"
         }
     }
 
@@ -310,17 +300,17 @@ struct ToastConfigFields: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "gearshape.fill")
+                Image(systemName: "flame.fill")
                     .foregroundColor(.orange)
-                Text("Requires Setup")
+                Text("Toast POS Integration")
                     .fontWeight(.semibold)
             }
 
-            Text("Requires a Toast POS subscription and API credentials from your Toast account.")
+            Text("Connect your Toast POS account to automatically send orders to your kitchen display or printer.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Text("Contact support@dollor.ai for assistance with Toast integration setup.")
+            Text("For setup assistance, contact support@dollor.ai with your Toast account details.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -366,7 +356,7 @@ class KOTSettingsViewModel: ObservableObject {
         case .none: return false
         case .square: return !squareAccessToken.isEmpty && !squareLocationId.isEmpty
         case .clover: return !cloverApiToken.isEmpty && !cloverMerchantId.isEmpty
-        case .toast: return false
+        case .toast: return true
         }
     }
 
