@@ -164085,6 +164085,7 @@ None
 | 157 | Fix 7 iOS Restaurant bugs — promotion button, earnings, POS, legal pages | 2026-03-12 | 45fa75db | [157-fix-7-ios-restaurant-app-bugs-promotion-](./quick/157-fix-7-ios-restaurant-app-bugs-promotion-/) |
 | 158 | Fix restaurant ID blank — P2P vendor ID instead of Firebase UID + sample earnings label | 2026-03-12 | f93006ad | [158-fix-restaurant-id-blank-use-p2p-vendor-i](./quick/158-fix-restaurant-id-blank-use-p2p-vendor-i/) |
 | 159 | Fix AI Tab recommendation dead-ends and polish Clover POS for Apple submission | 2026-03-12 | cc578176 | [159-fix-ai-tab-recommendation-dead-ends-and-](./quick/159-fix-ai-tab-recommendation-dead-ends-and-/) |
+| 160 | Populate Restaurant app with demo data for Apple review | 2026-03-12 | 9e141a51 | [160-populate-restaurant-app-with-demo-data-f](./quick/160-populate-restaurant-app-with-demo-data-f/) |
 
 ## Session Continuity
 
