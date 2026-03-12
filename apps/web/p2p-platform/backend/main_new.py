@@ -1993,11 +1993,18 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
 
     # Seed demo orders for Apple review — ensures dashboard looks populated
     try:
-        existing_delivered = db.query(Order).filter(
+        existing_active_demo = db.query(Order).filter(
             Order.vendor_id == user.vendor_id,
-            Order.status == OrderStatus.DELIVERED
+            Order.order_number.like("ORD-DEMO-%"),
+            Order.status.in_([
+                OrderStatus.PREPARING,
+                OrderStatus.READY_FOR_PICKUP,
+                OrderStatus.OUT_FOR_DELIVERY,
+                OrderStatus.PENDING_RESTAURANT,
+                OrderStatus.CONFIRMED
+            ])
         ).count()
-        if existing_delivered < 5:
+        if existing_active_demo < 5:
             # Clear old demo orders and seed fresh ones
             db.query(Order).filter(
                 Order.vendor_id == user.vendor_id,
