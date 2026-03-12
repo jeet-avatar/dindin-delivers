@@ -692,11 +692,11 @@ struct CreatePromotionSheet: View {
                         }
                         .foregroundColor(.white)
                         .padding(.vertical, 8)
-                        .listRowBackground(
-                            isFormValid ? RestaurantTheme.brandOrange : Color.gray
-                        )
                     }
                     .disabled(!isFormValid || viewModel.isLoading)
+                    .listRowBackground(
+                        isFormValid ? RestaurantTheme.brandOrange : Color.gray
+                    )
                 }
             }
             .navigationTitle(isEditing ? "Edit Promotion" : "Create Promotion")

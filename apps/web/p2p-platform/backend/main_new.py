@@ -10616,10 +10616,8 @@ async def update_vendor_kot_config(
                 detail="Clover integration requires api_key and merchant_id"
             )
     elif config.integration_type == "toast":
-        raise HTTPException(
-            status_code=400,
-            detail="Toast integration requires partner certification. Contact support@dollor.ai"
-        )
+        # Toast integration is accepted — actual POS sends will show setup instructions
+        pass
 
     # Update vendor KOT settings
     vendor.kot_integration_type = config.integration_type
