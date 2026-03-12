@@ -71,6 +71,7 @@ struct OrdersDashboardView: View {
         case preparing = "Preparing"
         case ready = "Ready"
         case delivering = "Delivering"
+        case history = "History"
     }
 
     var body: some View {
@@ -165,6 +166,11 @@ struct OrdersDashboardView: View {
             return ordersVM.readyOrders
         case .delivering:
             return ordersVM.deliveringOrders
+        case .history:
+            return ordersVM.allOrders.filter { order in
+                let status = order.status.lowercased()
+                return status == "delivered" || status == "cancelled" || status == "delivery_failed"
+            }.sorted { $0.placedAt > $1.placedAt }
         }
     }
 
@@ -265,6 +271,7 @@ struct OrdersDashboardView: View {
         case .preparing: return ordersVM.preparingOrders.count
         case .ready: return ordersVM.readyOrders.count
         case .delivering: return ordersVM.deliveringOrders.count
+        case .history: return ordersVM.allOrders.filter { ["delivered", "cancelled", "delivery_failed"].contains($0.status.lowercased()) }.count
         }
     }
 }
@@ -1430,15 +1437,15 @@ struct EmptyOrdersView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "tray")
+            Image(systemName: filter == .history ? "clock" : "tray")
                 .font(.system(size: 50))
                 .foregroundColor(.gray.opacity(0.5))
 
-            Text("No \(filter == .all ? "" : filter.rawValue.lowercased() + " ")orders")
+            Text(filter == .history ? "No order history yet" : "No \(filter == .all ? "" : filter.rawValue.lowercased() + " ")orders")
                 .font(.headline)
                 .foregroundColor(.secondary)
 
-            Text("New orders will appear here automatically")
+            Text(filter == .history ? "Completed and cancelled orders will appear here" : "New orders will appear here automatically")
                 .font(.subheadline)
                 .foregroundColor(.gray)
         }
