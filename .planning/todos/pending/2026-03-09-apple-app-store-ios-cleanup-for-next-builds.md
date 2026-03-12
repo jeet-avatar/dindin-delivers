@@ -24,7 +24,10 @@ Apple is currently checking business papers/agreements — will confirm if anyth
 6. **Fill What's New text in ASC** — currently empty, update before releasing
 7. **Set privacy URL in version localization** — set at app info level but None in version-level en-US localization
 
+8. **Add delivery photo display to Customer app** — Driver photo capture + backend storage (12-hour retention, proof gate) already exist, but Customer app (iOS + Android) has NO UI to show the delivery photo. Add photo display in order tracking and order history views. (Ref: CR-0018, quick-156 investigation)
+
 ## Solution
 
 Items 1-4: Code changes in a single quick task, then rebuild iOS apps
 Items 5-7: ASC metadata updates via API or web UI (no build needed)
+Item 8: Add AsyncImage/photo view to OrderTrackingView + OrderDetailView on both iOS and Android customer apps
