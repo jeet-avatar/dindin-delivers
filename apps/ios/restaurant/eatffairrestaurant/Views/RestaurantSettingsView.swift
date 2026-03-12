@@ -832,46 +832,48 @@ class SettingsViewModel: ObservableObject {
     }
 
     func saveOperatingHours(_ hours: [DayHours]) {
-        guard !restaurantId.isEmpty else { return }
+        // Always update local state immediately
+        operatingHours = hours
+        let hoursString = formatHoursForP2P(hours)
+        operatingHoursText = hoursString
 
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        // Save to Firebase (if logged in via Firebase)
+        if !restaurantId.isEmpty {
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: Date())
 
-        let hoursData: [[String: Any]] = hours.map { dayHour in
-            let openMinutes = calendar.dateComponents([.hour, .minute], from: today, to: dayHour.openTime)
-            let closeMinutes = calendar.dateComponents([.hour, .minute], from: today, to: dayHour.closeTime)
+            let hoursData: [[String: Any]] = hours.map { dayHour in
+                let openMinutes = calendar.dateComponents([.hour, .minute], from: today, to: dayHour.openTime)
+                let closeMinutes = calendar.dateComponents([.hour, .minute], from: today, to: dayHour.closeTime)
 
-            return [
-                "day": dayHour.day,
-                "isOpen": dayHour.isOpen,
-                "openTime": (openMinutes.hour ?? 0) * 60 + (openMinutes.minute ?? 0),
-                "closeTime": (closeMinutes.hour ?? 0) * 60 + (closeMinutes.minute ?? 0)
-            ]
-        }
-
-        // Save to Firebase
-        db.collection("restaurants").document(restaurantId).updateData([
-            "operatingHours": hoursData
-        ]) { [weak self] error in
-            if error == nil {
-                DispatchQueue.main.async {
-                    self?.operatingHours = hours
-                }
+                return [
+                    "day": dayHour.day,
+                    "isOpen": dayHour.isOpen,
+                    "openTime": (openMinutes.hour ?? 0) * 60 + (openMinutes.minute ?? 0),
+                    "closeTime": (closeMinutes.hour ?? 0) * 60 + (closeMinutes.minute ?? 0)
+                ]
             }
+
+            db.collection("restaurants").document(restaurantId).updateData([
+                "operatingHours": hoursData
+            ])
         }
 
-        // Also sync to P2P backend via PATCH /api/vendors/{id}
+        // Save to P2P backend (primary source of truth)
         if let vendorId = vendorId {
-            let hoursString = formatHoursForP2P(hours)
-            p2pAPI.patchVendorSettings(vendorId: vendorId, updates: ["operating_hours": hoursString]) { result in
-                #if DEBUG
-                switch result {
-                case .success:
-                    logger.info("[Settings] P2P operating hours saved successfully")
-                case .failure(let error):
-                    logger.info("[Settings] P2P operating hours save failed: \(error.localizedDescription)")
+            p2pAPI.patchVendorSettings(vendorId: vendorId, updates: ["operating_hours": hoursString]) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        #if DEBUG
+                        logger.info("[Settings] P2P operating hours saved successfully")
+                        #endif
+                    case .failure:
+                        // Revert local state on failure
+                        self?.operatingHoursText = ""
+                        self?.operatingHours = []
+                    }
                 }
-                #endif
             }
         }
     }
