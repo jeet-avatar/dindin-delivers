@@ -2843,10 +2843,21 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         "driver_id": driver.id,
         "driver_code": driver.driver_id,
         "name": f"{driver.first_name} {driver.last_name}",
+        "first_name": driver.first_name,
+        "last_name": driver.last_name,
         "email": driver.email,
+        "phone": driver.phone,
         "status": driver.status.value if hasattr(driver.status, 'value') else str(driver.status),
         "is_approved": driver.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED],
-        "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url)
+        "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url),
+        "bankAccount": {
+            "bankName": driver.bank_name,
+            "accountNumberLast4": driver.bank_last4,
+            "accountHolderName": driver.bank_account_holder or f"{driver.first_name or ''} {driver.last_name or ''}".strip(),
+            "routingNumber": driver.bank_routing_number,
+            "accountType": "checking",
+            "isVerified": bool(driver.bank_verified),
+        } if driver.bank_name and driver.bank_last4 else None,
     }
 
 
@@ -4447,6 +4458,10 @@ class DriverProfileUpdate(BaseModel):
     # Photo URLs (from document uploads)
     photo_url: Optional[str] = None
     vehicle_photo_url: Optional[str] = None
+    # Bank account fields (driver-submitted; auto-verified for demo)
+    bank_name: Optional[str] = None
+    bank_routing_number: Optional[str] = None
+    account_number: Optional[str] = None  # Full number; last 4 stored
 
     class Config:
         extra = "ignore"  # Ignore extra fields
@@ -4540,6 +4555,23 @@ def update_driver_profile_by_id(
         driver.photo_url = photo_url
     if vehicle_photo_url is not None:
         driver.vehicle_photo_url = vehicle_photo_url
+
+    # Update bank account (driver-submitted; auto-verified for demo accounts)
+    if body:
+        bank_name_val = body.bank_name
+        bank_routing_val = body.bank_routing_number
+        account_number_val = body.account_number
+    else:
+        bank_name_val = bank_routing_val = account_number_val = None
+
+    if bank_name_val is not None:
+        driver.bank_name = bank_name_val
+        driver.bank_routing_number = bank_routing_val
+        if account_number_val:
+            driver.bank_last4 = account_number_val[-4:]
+        driver.bank_account_holder = driver.bank_account_holder or f"{driver.first_name or ''} {driver.last_name or ''}".strip()
+        driver.bank_verified = True
+        driver.bank_verified_at = datetime.utcnow()
 
     driver.updated_at = datetime.utcnow()
     db.commit()
