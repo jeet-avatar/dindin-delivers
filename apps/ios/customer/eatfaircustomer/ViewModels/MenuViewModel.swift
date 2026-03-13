@@ -82,9 +82,15 @@ class MenuViewModel: ObservableObject {
             }
             self.menuItems = items
 
-            // Sort by category then by name
+            // Sort by category, then bestsellers first, then combos, then by name
             self.menuItems.sort { item1, item2 in
                 if item1.category == item2.category {
+                    if item1.isBestsellerItem != item2.isBestsellerItem {
+                        return item1.isBestsellerItem
+                    }
+                    if item1.isComboItem != item2.isComboItem {
+                        return item1.isComboItem
+                    }
                     return item1.name < item2.name
                 }
                 return (item1.category ?? "") < (item2.category ?? "")
@@ -223,9 +229,15 @@ class MenuViewModel: ObservableObject {
                         menuLogger.warning("MenuViewModel: \(decodeFailures)/\(documents.count) items failed to decode")
                     }
 
-                    // Sort by category then by name
+                    // Sort by category, then bestsellers first, then combos, then by name
                     self.menuItems.sort { item1, item2 in
                         if item1.category == item2.category {
+                            if item1.isBestsellerItem != item2.isBestsellerItem {
+                                return item1.isBestsellerItem
+                            }
+                            if item1.isComboItem != item2.isComboItem {
+                                return item1.isComboItem
+                            }
                             return item1.name < item2.name
                         }
                         return (item1.category ?? "") < (item2.category ?? "")
