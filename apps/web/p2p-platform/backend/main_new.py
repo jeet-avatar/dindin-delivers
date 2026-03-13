@@ -13550,6 +13550,10 @@ class MenuItemCreate(BaseModel):
     in_stock: bool = True
     daily_limit: Optional[int] = None
     customizations: Optional[List[MenuItemCustomization]] = None
+    is_bestseller: bool = False
+    is_combo: bool = False
+    combo_items: Optional[List[dict]] = None
+    combo_savings: Optional[float] = None
 
 class MenuItemResponse(BaseModel):
     id: int
@@ -13571,6 +13575,10 @@ class MenuItemResponse(BaseModel):
     daily_limit: Optional[int]
     items_sold_today: int
     customizations: Optional[List[dict]] = None
+    is_bestseller: bool = False
+    is_combo: bool = False
+    combo_items: Optional[List[dict]] = None
+    combo_savings: Optional[float] = 0.0
     created_at: datetime
 
     class Config:
@@ -13618,7 +13626,11 @@ def create_menu_item(
         "image_url": menu_item.get("image_url"),
         "in_stock": menu_item.get("in_stock", True),
         "daily_limit": menu_item.get("daily_limit"),
-        "customizations": menu_item.get("customizations")
+        "customizations": menu_item.get("customizations"),
+        "is_bestseller": menu_item.get("is_bestseller", False),
+        "is_combo": menu_item.get("is_combo", False),
+        "combo_items": menu_item.get("combo_items", []),
+        "combo_savings": float(menu_item.get("combo_savings", 0)) if menu_item.get("combo_savings") else 0.0
     }
 
     db_menu_item = VendorMenuItem(**item_data)
@@ -13706,6 +13718,10 @@ def get_vendor_menu(
                 "daily_limit": item.daily_limit,
                 "items_sold_today": int(item.items_sold_today) if item.items_sold_today is not None else 0,
                 "customizations": item.customizations if hasattr(item, 'customizations') and item.customizations else None,
+                "is_bestseller": bool(item.is_bestseller) if item.is_bestseller is not None else False,
+                "is_combo": bool(item.is_combo) if item.is_combo is not None else False,
+                "combo_items": item.combo_items if hasattr(item, 'combo_items') and item.combo_items else [],
+                "combo_savings": float(item.combo_savings) if item.combo_savings else 0.0,
                 "created_at": item.created_at.isoformat() if item.created_at else None
             })
 
@@ -13719,6 +13735,100 @@ def get_vendor_menu(
             status_code=500,
             content={"error": "Internal server error"}
         )
+
+@app.post("/api/vendors/{vendor_id}/menu/combo")
+def create_combo_item(
+    vendor_id: int,
+    combo_data: Optional[dict] = Body(None),
+    db: Session = Depends(get_db),
+    _auth_vendor: Vendor = Depends(require_vendor)
+):
+    """Create a combo deal from existing menu items"""
+    from models import Vendor, VendorMenuItem
+
+    if _auth_vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
+
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    if not combo_data:
+        raise HTTPException(status_code=400, detail="Combo data required")
+
+    item_name = combo_data.get("item_name") or combo_data.get("name")
+    if not item_name:
+        raise HTTPException(status_code=400, detail="item_name is required")
+
+    combo_item_ids = combo_data.get("combo_item_ids", [])
+    if len(combo_item_ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 items required for a combo")
+
+    combo_price = combo_data.get("combo_price")
+    if not combo_price or float(combo_price) <= 0:
+        raise HTTPException(status_code=400, detail="combo_price must be greater than 0")
+    combo_price = float(combo_price)
+
+    # Lookup each item in vendor's menu
+    combo_items_list = []
+    total_original_price = 0.0
+    for item_id in combo_item_ids:
+        menu_item = db.query(VendorMenuItem).filter(
+            VendorMenuItem.id == int(item_id),
+            VendorMenuItem.vendor_id == vendor_id
+        ).first()
+        if not menu_item:
+            raise HTTPException(status_code=404, detail=f"Menu item {item_id} not found")
+        combo_items_list.append({
+            "item_id": menu_item.id,
+            "item_name": menu_item.item_name,
+            "original_price": float(menu_item.price) if menu_item.price else 0.0
+        })
+        total_original_price += float(menu_item.price) if menu_item.price else 0.0
+
+    combo_savings = total_original_price - combo_price
+    if combo_savings < 0:
+        raise HTTPException(status_code=400, detail="Combo price cannot exceed sum of individual item prices")
+
+    item_data = {
+        "vendor_id": vendor_id,
+        "item_name": item_name,
+        "description": combo_data.get("description", f"Combo: {', '.join([ci['item_name'] for ci in combo_items_list])}"),
+        "category": combo_data.get("category", "Combos"),
+        "price": combo_price,
+        "is_available": True,
+        "in_stock": True,
+        "is_combo": True,
+        "combo_items": combo_items_list,
+        "combo_savings": combo_savings,
+        "image_url": combo_data.get("image_url")
+    }
+
+    db_combo = VendorMenuItem(**item_data)
+    db.add(db_combo)
+    db.commit()
+    db.refresh(db_combo)
+
+    # Invalidate menu cache
+    try:
+        from cache import cache_json_set
+        for cat_key in [f"menu:{vendor_id}:all:True", f"menu:{vendor_id}:all:False"]:
+            cache_json_set(cat_key, None, ttl=1)
+    except Exception:
+        pass  # Cache invalidation is best-effort
+
+    return {
+        "id": db_combo.id,
+        "vendor_id": db_combo.vendor_id,
+        "item_name": db_combo.item_name,
+        "description": db_combo.description,
+        "category": db_combo.category,
+        "price": float(db_combo.price),
+        "is_combo": True,
+        "combo_items": db_combo.combo_items,
+        "combo_savings": float(db_combo.combo_savings) if db_combo.combo_savings else 0.0,
+        "success": True
+    }
 
 @app.put("/api/vendors/{vendor_id}/menu/{item_id}", response_model=MenuItemResponse)
 def update_menu_item(

@@ -369,6 +369,12 @@ class VendorMenuItem(Base):
     # Format: [{"name": "Spice Level", "type": "single", "required": true, "options": [{"name": "Mild", "price": 0}, ...]}]
     customizations = Column(JSON, default=list)
 
+    # Bestseller / Combo fields
+    is_bestseller = Column(Boolean, default=False)
+    is_combo = Column(Boolean, default=False)
+    combo_items = Column(JSON, default=list)  # [{"item_id": int, "item_name": str, "original_price": float}]
+    combo_savings = Column(Float, default=0.0)  # Dollar amount saved vs buying individually
+
     # Admin Review/Approval Fields
     # review_status: 'pending', 'approved', 'rejected', 'flagged'
     review_status = Column(String(50), default='pending')
