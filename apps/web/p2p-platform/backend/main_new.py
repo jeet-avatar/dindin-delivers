@@ -181,6 +181,15 @@ async def fix_cors_and_security_headers(request, call_next):
         response.headers["server"] = "Dollor"
     return response
 
+@app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    """Reject oversized request bodies to prevent memory exhaustion (DoS)."""
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > 10_485_760:  # 10MB
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=413, content={"detail": "Request body too large (max 10MB)"})
+    return await call_next(request)
+
 # ===================== ADMIN AUTH MIDDLEWARE =====================
 # SECURITY: All /api/admin/* endpoints require admin authentication by default.
 # This is a safety net — even if an endpoint forgets Depends(get_current_user),
@@ -4912,6 +4921,16 @@ async def stripe_connect_webhook(
     except stripe.error.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid signature")
 
+    # Idempotency: prevent duplicate processing on Stripe retries
+    event_id = event.get("id")
+    if event_id:
+        from cache import redis_client, REDIS_AVAILABLE
+        if REDIS_AVAILABLE and redis_client:
+            redis_key = f"dollor:stripe:event:{event_id}"
+            if redis_client.get(redis_key):
+                # Already processed — return 200 immediately (Stripe needs 2xx to stop retrying)
+                return {"success": True, "event_type": event.get("type", "unknown"), "duplicate": True}
+
     event_type = event["type"]
     event_data = event["data"]["object"]
 
@@ -4961,6 +4980,9 @@ async def stripe_connect_webhook(
         driver = db.query(Driver).filter(Driver.stripe_account_id == account_id).first()
         if driver:
             print(f"Payout failed for driver {driver.id}: {event_data.get('failure_message')}")
+
+    if event_id and REDIS_AVAILABLE and redis_client:
+        redis_client.setex(f"dollor:stripe:event:{event_id}", 86400, "1")
 
     return {"success": True, "event_type": event_type}
 
@@ -8311,12 +8333,12 @@ def get_coupa_dashboard_counts(
     # Get PO data
     pos = db.query(CoupaPurchaseOrder).filter(
         CoupaPurchaseOrder.created_at >= start_date
-    ).all()
+    ).limit(10000).all()
 
     # Get Requisition data
     reqs = db.query(CoupaRequisition).filter(
         CoupaRequisition.created_at >= start_date
-    ).all()
+    ).limit(10000).all()
 
     # Calculate metrics
     total_spend = sum(po.total_amount or 0 for po in pos if po.status in [
@@ -8360,7 +8382,7 @@ def get_coupa_budget_overview(
             CoupaPOStatus.APPROVED, CoupaPOStatus.ORDERED,
             CoupaPOStatus.RECEIVED, CoupaPOStatus.INVOICED, CoupaPOStatus.CLOSED
         ])
-    ).all()
+    ).limit(10000).all()
 
     # Group by month
     monthly_data = defaultdict(float)
@@ -8405,7 +8427,7 @@ def get_coupa_status_distribution(
 
     pos = db.query(CoupaPurchaseOrder).filter(
         CoupaPurchaseOrder.created_at >= start_date
-    ).all()
+    ).limit(10000).all()
 
     # Count by status
     status_counts = Counter(po.status.value if po.status else "draft" for po in pos)
@@ -8448,10 +8470,10 @@ def get_coupa_cost_center_distribution(
             CoupaPOStatus.APPROVED, CoupaPOStatus.ORDERED,
             CoupaPOStatus.RECEIVED, CoupaPOStatus.INVOICED, CoupaPOStatus.CLOSED
         ])
-    ).all()
+    ).limit(10000).all()
 
     # Get cost centers
-    cost_centers = {cc.id: cc.name for cc in db.query(CoupaCostCenter).all()}
+    cost_centers = {cc.id: cc.name for cc in db.query(CoupaCostCenter).limit(10000).all()}
 
     # Group by cost center
     cc_spend = defaultdict(float)
@@ -8496,10 +8518,10 @@ def get_coupa_spend_by_department(
             CoupaPOStatus.APPROVED, CoupaPOStatus.ORDERED,
             CoupaPOStatus.RECEIVED, CoupaPOStatus.INVOICED, CoupaPOStatus.CLOSED
         ])
-    ).all()
+    ).limit(10000).all()
 
     # Get departments
-    departments = {dept.id: dept.name for dept in db.query(CoupaDepartment).all()}
+    departments = {dept.id: dept.name for dept in db.query(CoupaDepartment).limit(10000).all()}
 
     # Group by department
     dept_spend = defaultdict(float)
@@ -8545,10 +8567,10 @@ def get_coupa_commodity_distribution(
             CoupaPOStatus.APPROVED, CoupaPOStatus.ORDERED,
             CoupaPOStatus.RECEIVED, CoupaPOStatus.INVOICED, CoupaPOStatus.CLOSED
         ])
-    ).all()
+    ).limit(10000).all()
 
     # Get commodities
-    commodities = {c.id: c.name for c in db.query(CoupaCommodity).all()}
+    commodities = {c.id: c.name for c in db.query(CoupaCommodity).limit(10000).all()}
 
     # Group by commodity
     commodity_spend = defaultdict(float)
@@ -8614,7 +8636,7 @@ def get_coupa_suppliers_filter(db: Session = Depends(get_db), _user = Depends(re
 
     suppliers = db.query(CoupaSupplier).filter(
         CoupaSupplier.status == "active"
-    ).order_by(CoupaSupplier.name).all()
+    ).order_by(CoupaSupplier.name).limit(10000).all()
 
     return {
         "suppliers": [
@@ -8633,7 +8655,7 @@ def get_coupa_cost_centers_filter(db: Session = Depends(get_db), _user = Depends
 
     cost_centers = db.query(CoupaCostCenter).filter(
         CoupaCostCenter.is_active == True
-    ).order_by(CoupaCostCenter.name).all()
+    ).order_by(CoupaCostCenter.name).limit(10000).all()
 
     return {
         "costCenters": [
@@ -8652,7 +8674,7 @@ def get_coupa_departments_filter(db: Session = Depends(get_db), _user = Depends(
 
     departments = db.query(CoupaDepartment).filter(
         CoupaDepartment.is_active == True
-    ).order_by(CoupaDepartment.name).all()
+    ).order_by(CoupaDepartment.name).limit(10000).all()
 
     return {
         "departments": [
