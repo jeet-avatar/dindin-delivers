@@ -7,6 +7,7 @@ If Redis is unavailable, operations return None/False — the app continues work
 import os
 import json
 import logging
+import random
 import time
 from typing import Optional
 
@@ -108,21 +109,22 @@ def _memory_rate_limit_check(key: str, max_requests: int, window_seconds: int) -
     """In-memory sliding window rate limiter (fallback when Redis unavailable)."""
     global _memory_rate_limits
     now = time.time()
+    window_cutoff = now - window_seconds
 
-    # Evict stale keys periodically (when dict grows too large)
-    if len(_memory_rate_limits) > _MEMORY_RL_MAX_KEYS:
-        cutoff = now - 3600  # Keep only last hour
+    # Lightweight per-key cleanup: always trim expired timestamps for this key first
+    if key in _memory_rate_limits:
+        _memory_rate_limits[key] = [t for t in _memory_rate_limits[key] if t > window_cutoff]
+
+    # Probabilistic full cleanup: ~1% of requests, only when dict is large
+    if len(_memory_rate_limits) > _MEMORY_RL_MAX_KEYS and random.random() < 0.01:
+        cutoff = now - 3600
         _memory_rate_limits = {
-            k: [t for t in v if t > cutoff]
-            for k, v in _memory_rate_limits.items()
-            if any(t > cutoff for t in v)
+            k: v for k, v in _memory_rate_limits.items()
+            if v and v[-1] > cutoff  # keep only keys with a recent timestamp
         }
 
     if key not in _memory_rate_limits:
         _memory_rate_limits[key] = []
-
-    # Remove timestamps outside the window
-    _memory_rate_limits[key] = [t for t in _memory_rate_limits[key] if t > now - window_seconds]
 
     if len(_memory_rate_limits[key]) >= max_requests:
         retry_after = max(0, int(window_seconds - (now - _memory_rate_limits[key][0])))
