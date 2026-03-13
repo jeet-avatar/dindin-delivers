@@ -24,7 +24,7 @@ public class AIEmployeeService: ObservableObject {
     private let auditLogCollection = "ai_audit_log"
 
     // TechCloudRPO Configuration
-    private let techCloudRPOBaseURL = "https://www.vibingticket.com/api"
+    private let techCloudRPOBaseURL = "https://api.vibingticket.com"
 
     @Published public var employees: [AIEmployee] = []
     @Published public var pendingTasks: [AITask] = []

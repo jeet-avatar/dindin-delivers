@@ -4053,6 +4053,9 @@ public class P2PAPIService: ObservableObject {
         licensePlate: String? = nil,
         licenseExpiry: Date? = nil,
         insuranceExpiry: Date? = nil,
+        bankName: String? = nil,
+        bankRoutingNumber: String? = nil,
+        accountNumber: String? = nil,
         completion: @escaping (Result<[String: Any], Error>) -> Void
     ) {
         guard let url = URL(string: "\(baseURL)/drivers/\(driverId)") else {
@@ -4093,6 +4096,16 @@ public class P2PAPIService: ObservableObject {
         if let insuranceExpiry = insuranceExpiry {
             let formatter = ISO8601DateFormatter()
             body["insurance_expiry"] = formatter.string(from: insuranceExpiry)
+        }
+
+        if let bankName = bankName, !bankName.isEmpty {
+            body["bank_name"] = bankName
+        }
+        if let bankRoutingNumber = bankRoutingNumber, !bankRoutingNumber.isEmpty {
+            body["bank_routing_number"] = bankRoutingNumber
+        }
+        if let accountNumber = accountNumber, !accountNumber.isEmpty {
+            body["account_number"] = accountNumber
         }
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -9331,6 +9344,7 @@ public struct P2PDriverLoginResponse: Codable {
     public let isApproved: Bool?  // True if driver is approved and can accept jobs
     public let requiresDocuments: Bool?  // True if driver still needs to upload documents
     public let message: String?  // Only present in registration response
+    public let bankAccount: P2PBankAccountInfo?  // Included in login response for immediate display
 
     /// Computed property that returns full name from either format
     public var name: String {
@@ -9354,7 +9368,18 @@ public struct P2PDriverLoginResponse: Codable {
         case isApproved = "is_approved"
         case requiresDocuments = "requires_documents"
         case message
+        case bankAccount = "bankAccount"
     }
+}
+
+// MARK: - Bank Account Info Model
+public struct P2PBankAccountInfo: Codable {
+    public let bankName: String?
+    public let accountNumberLast4: String?
+    public let accountHolderName: String?
+    public let routingNumber: String?
+    public let accountType: String?
+    public let isVerified: Bool?
 }
 
 // MARK: - Driver Document Models
