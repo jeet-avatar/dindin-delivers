@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-13 - Completed quick task 166: Remove bestseller from AI tab recommendations
+Last activity: 2026-03-13 - Completed quick task 167: add router-level auth to all unprotected P0 endpoints
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -197,6 +197,7 @@ None
 | 165 | Deploy SSL fix + Stripe webhook secret + demo password fix to staging and production | 2026-03-13 | 4514e509 | [165-deploy-ssl-fix-stripe-webhook-secret-dem](./quick/165-deploy-ssl-fix-stripe-webhook-secret-dem/) |
 | 166 | Remove bestseller from promotions and AI tab in iOS Restaurant app | 2026-03-13 | 8fc9836c | [166-remove-bestseller-from-promotions-and-ai](./quick/166-remove-bestseller-from-promotions-and-ai/) |
 | 165 | Deploy SSL fix + Stripe webhook secret + demo password fix | 2026-03-13 | 94ab703d | [165-deploy-ssl-fix-stripe-webhook-secret-dem](./quick/165-deploy-ssl-fix-stripe-webhook-secret-dem/) |
+| 167 | add router-level auth to all unprotected P0 endpoints | 2026-03-13 | 60b048e3 | [167-add-router-level-auth-to-all-unprotected](./quick/167-add-router-level-auth-to-all-unprotected/) |
 | 167 | Add auth to unprotected P0 endpoints — rides/available + Firebase startup validation | 2026-03-13 | 60b048e3 | [167-add-router-level-auth-to-all-unprotected](./quick/167-add-router-level-auth-to-all-unprotected/) |
 
 ## Session Continuity
