@@ -194,9 +194,10 @@ None
 | 162 | Fix demo order seeding + AI recommendations fallback for iOS Restaurant | 2026-03-12 | be1c6620 | [162-fix-demo-order-seeding-ai-recommendation](./quick/162-fix-demo-order-seeding-ai-recommendation/) |
 | 163 | Fix STATE.md bloat — deduplicate Decisions section (164K lines to ~200) | 2026-03-13 | fd0f2039 | [163-fix-state-md-bloat-deduplicate-decisions](./quick/163-fix-state-md-bloat-deduplicate-decisions/) |
 | 164 | Add combo deals and bestseller features to menu system | 2026-03-13 | b00f7358 | [164-add-combo-deals-and-bestseller-features-](./quick/164-add-combo-deals-and-bestseller-features-/) |
+| 165 | Deploy SSL fix + Stripe webhook secret + demo password fix | 2026-03-13 | 94ab703d | [165-deploy-ssl-fix-stripe-webhook-secret-dem](./quick/165-deploy-ssl-fix-stripe-webhook-secret-dem/) |
 
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed quick task 164: Add combo deals and bestseller features
+Stopped at: Completed quick task 165: Deploy SSL fix + Stripe webhook secret + demo password fix
 Resume file: .planning/NEXT_SESSION_PROMPT.md
