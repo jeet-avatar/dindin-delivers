@@ -207,10 +207,10 @@ async def limit_request_size(request: Request, call_next):
             if len(body) > MAX_BODY:
                 return JSONResponse(status_code=413, content={"detail": "Request body too large (max 10MB)"})
 
-        # Reconstruct receive callable so downstream handlers can read the body
-        async def receive():
-            return {"type": "http.request", "body": body, "more_body": False}
-        request._receive = receive
+        # Cache body so downstream handlers can still read it.
+        # Starlette's Request.body() / Request.stream() check _body first,
+        # bypassing the exhausted stream (_stream_consumed=True).
+        request._body = body
 
     return await call_next(request)
 
