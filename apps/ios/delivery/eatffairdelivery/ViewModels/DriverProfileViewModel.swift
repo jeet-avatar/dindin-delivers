@@ -450,11 +450,19 @@ class DriverProfileViewModel: ObservableObject {
             }
         }
 
-        // Bank Account
+        // Bank Account — try profile response first, fall back to login cache in UserDefaults
         if let bankData = data["bankAccount"] as? [String: Any] {
             bankName = bankData["bankName"] as? String ?? ""
             accountHolderName = bankData["accountHolderName"] as? String ?? ""
             accountType = bankData["accountType"] as? String ?? "checking"
+        } else {
+            // Fallback: login response stored bank data in UserDefaults
+            let cached = UserDefaults.standard.string(forKey: "driver_bank_name") ?? ""
+            if !cached.isEmpty {
+                bankName = cached
+                accountHolderName = UserDefaults.standard.string(forKey: "driver_bank_holder") ?? ""
+                accountType = "checking"
+            }
         }
 
         // Preferences
@@ -581,8 +589,10 @@ class DriverProfileViewModel: ObservableObject {
                 bankName: bankName,
                 accountHolderName: accountHolderName,
                 accountType: accountType,
-                accountNumberLast4: (data["bankAccount"] as? [String: Any])?["accountNumberLast4"] as? String ?? "",
-                isVerified: (data["bankAccount"] as? [String: Any])?["isVerified"] as? Bool ?? false
+                accountNumberLast4: (data["bankAccount"] as? [String: Any])?["accountNumberLast4"] as? String
+                    ?? UserDefaults.standard.string(forKey: "driver_bank_last4") ?? "",
+                isVerified: (data["bankAccount"] as? [String: Any])?["isVerified"] as? Bool
+                    ?? UserDefaults.standard.bool(forKey: "driver_bank_verified")
             ),
             isOnline: data["isOnline"] as? Bool ?? false,
             isApproved: data["isApproved"] as? Bool ?? false,
@@ -695,7 +705,10 @@ class DriverProfileViewModel: ObservableObject {
             vehicleColor: vehicleColor.isEmpty ? nil : vehicleColor,
             licensePlate: licensePlate.isEmpty ? nil : licensePlate,
             licenseExpiry: licenseExpiration,
-            insuranceExpiry: insuranceExpiration
+            insuranceExpiry: insuranceExpiration,
+            bankName: bankName.isEmpty ? nil : bankName,
+            bankRoutingNumber: routingNumber.isEmpty ? nil : routingNumber,
+            accountNumber: accountNumber.isEmpty ? nil : accountNumber
         ) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
