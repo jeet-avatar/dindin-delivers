@@ -1274,6 +1274,14 @@ def _run_startup_migrations():
         ("drivers", "fcm_token_updated_at", "TIMESTAMP"),
         ("drivers", "photo_url", "VARCHAR(500)"),
         ("drivers", "vehicle_photo_url", "VARCHAR(500)"),
+        # Driver bank account columns (admin portal verified)
+        ("drivers", "bank_name", "VARCHAR(255)"),
+        ("drivers", "bank_last4", "VARCHAR(4)"),
+        ("drivers", "bank_routing_number", "VARCHAR(20)"),
+        ("drivers", "bank_account_holder", "VARCHAR(255)"),
+        ("drivers", "bank_verified", "BOOLEAN DEFAULT FALSE"),
+        ("drivers", "bank_verified_at", "TIMESTAMP"),
+        ("drivers", "bank_verified_by", "INTEGER"),
         # Driver verification columns
         ("drivers", "verification_id", "VARCHAR(255)"),
         ("drivers", "verification_status", "VARCHAR(50) DEFAULT 'not_started'"),
