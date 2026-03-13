@@ -707,6 +707,14 @@ async def run_migrations(request: Request, secret_key: str = Query(...), db: Ses
         ("verification_provider", "VARCHAR(50)"),
         # Vehicle photo for customer tracking view
         ("vehicle_photo_url", "VARCHAR(500)"),
+        # Bank account (stored in DB, verified via admin portal)
+        ("bank_name", "VARCHAR(255)"),
+        ("bank_last4", "VARCHAR(4)"),
+        ("bank_routing_number", "VARCHAR(20)"),
+        ("bank_account_holder", "VARCHAR(255)"),
+        ("bank_verified", "BOOLEAN DEFAULT FALSE"),
+        ("bank_verified_at", "TIMESTAMP"),
+        ("bank_verified_by", "INTEGER"),
     ]
 
     for col_name, col_type in driver_columns:
@@ -4800,23 +4808,22 @@ def get_driver_stripe_status(
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
-    # Demo driver: return mock verified bank account for App Store review
-    if driver.email == "demo.driver@dollor.ai":
+    # If driver has a bank account stored in DB (added via admin portal), return it directly
+    if driver.bank_name and driver.bank_last4:
         return {
             "success": True,
-            "has_stripe_account": True,
-            "stripe_account_id": "acct_demo_marcus_johnson",
-            "onboarded": True,
-            "charges_enabled": True,
-            "payouts_enabled": True,
+            "has_stripe_account": driver.stripe_account_id is not None,
+            "onboarded": driver.bank_verified,
+            "charges_enabled": driver.bank_verified,
+            "payouts_enabled": driver.bank_verified,
             "bank_account_linked": True,
             "bank_account": {
-                "bank_name": "Wells Fargo",
-                "last4": "4242",
-                "routing_number": "121042882",
-                "account_holder_name": "Marcus Johnson",
+                "bank_name": driver.bank_name,
+                "last4": driver.bank_last4,
+                "routing_number": driver.bank_routing_number,
+                "account_holder_name": driver.bank_account_holder or f"{driver.first_name} {driver.last_name}",
                 "account_holder_type": "individual",
-                "status": "verified"
+                "status": "verified" if driver.bank_verified else "new"
             },
             "details_submitted": True,
             "requirements": {
@@ -19097,6 +19104,12 @@ def setup_demo_accounts(secret_key: Optional[str] = Query(None), db: Session = D
                 documents_verified_at=datetime(2024, 1, 12),
                 stripe_account_id="acct_demo_marcus_johnson",
                 stripe_onboarded=True,
+                bank_name="Wells Fargo",
+                bank_last4="4242",
+                bank_routing_number="121042882",
+                bank_account_holder="Marcus Johnson",
+                bank_verified=True,
+                bank_verified_at=datetime(2024, 1, 15),
                 created_at=datetime.utcnow()
             )
             db.add(demo_driver)
@@ -19132,6 +19145,12 @@ def setup_demo_accounts(secret_key: Optional[str] = Query(None), db: Session = D
             existing_driver.documents_verified = True
             existing_driver.stripe_account_id = "acct_demo_marcus_johnson"
             existing_driver.stripe_onboarded = True
+            existing_driver.bank_name = "Wells Fargo"
+            existing_driver.bank_last4 = "4242"
+            existing_driver.bank_routing_number = "121042882"
+            existing_driver.bank_account_holder = "Marcus Johnson"
+            existing_driver.bank_verified = True
+            existing_driver.bank_verified_at = datetime(2024, 1, 15)
             db.commit()
 
             # Ensure User record exists for existing driver
@@ -21236,6 +21255,56 @@ def admin_verify_driver(
         "status": driver.status.value if hasattr(driver.status, 'value') else str(driver.status),
         "documents_verified": driver.documents_verified,
         "verification_status": driver.verification_status
+    }
+
+
+class AdminDriverBankAccountRequest(BaseModel):
+    bank_name: str
+    account_number: str  # Full account number — last4 stored, rest discarded
+    routing_number: str
+    account_holder_name: str
+
+
+@app.post("/api/admin/drivers/{driver_id}/bank-account")
+def admin_set_driver_bank_account(
+    request: Request,
+    driver_id: int,
+    body: AdminDriverBankAccountRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
+    """
+    Admin endpoint to add and verify a driver's bank account.
+    Stores bank details in DB and marks as verified (approved).
+    """
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
+
+    from models import Driver
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Store bank account — only keep last 4 digits of account number
+    driver.bank_name = body.bank_name
+    driver.bank_last4 = body.account_number[-4:]
+    driver.bank_routing_number = body.routing_number
+    driver.bank_account_holder = body.account_holder_name
+    driver.bank_verified = True
+    driver.bank_verified_at = datetime.utcnow()
+    driver.bank_verified_by = admin.id
+    driver.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(driver)
+
+    return {
+        "success": True,
+        "message": "Bank account added and verified",
+        "driver_id": driver.id,
+        "driver_name": f"{driver.first_name} {driver.last_name}",
+        "bank_name": driver.bank_name,
+        "last4": driver.bank_last4,
+        "bank_verified": driver.bank_verified
     }
 
 
