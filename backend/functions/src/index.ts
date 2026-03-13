@@ -519,7 +519,9 @@ export const onAIEmployeeCreated = functions.firestore
  * Trigger: When a new task is added to the queue
  * Action: Process the task based on type
  */
-export const onAITaskCreated = functions.firestore
+export const onAITaskCreated = functions
+  .runWith({ timeoutSeconds: 540, memory: "512MB" })
+  .firestore
   .document('ai_tasks/{taskId}')
   .onCreate(async (snap, context) => {
     const task = snap.data();
@@ -1599,7 +1601,9 @@ async function createAITask(
 /**
  * Run every hour to process queued tasks
  */
-export const processQueuedTasksV1 = functions.pubsub
+export const processQueuedTasksV1 = functions
+  .runWith({ timeoutSeconds: 540, memory: "512MB" })
+  .pubsub
   .schedule('every 60 minutes')
   .onRun(async () => {
     console.log('Processing queued tasks...');
