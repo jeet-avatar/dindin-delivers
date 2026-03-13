@@ -42,12 +42,36 @@ const config = {
   sendgridApiKey: process.env.SENDGRID_API_KEY || '',
   // TechCloudRPO Ollama/Qwen Integration (self-hosted = FREE)
   techCloudRPO: {
-    baseUrl: process.env.TECHCLOUDRPO_URL || 'https://vibingticket.com/api',
-    ollamaUrl: process.env.OLLAMA_URL || 'https://vibingticket.com/ollama',
+    baseUrl: process.env.TECHCLOUDRPO_URL || 'https://api.vibingticket.com',
+    ollamaUrl: process.env.OLLAMA_URL || 'https://api.vibingticket.com/ollama',
     model: process.env.AI_MODEL || 'qwen', // qwen, llama, mistral
     apiKey: process.env.TECHCLOUDRPO_API_KEY || '',
   }
 };
+
+// =============================================================================
+// STARTUP ENV VAR VALIDATION
+// =============================================================================
+
+function validateEnvVars(): void {
+  const required: Array<{ key: string; description: string }> = [
+    { key: 'STRIPE_SECRET_KEY', description: 'Stripe payment processing' },
+    { key: 'STRIPE_WEBHOOK_SECRET', description: 'Stripe webhook signature verification' },
+    { key: 'SENDGRID_API_KEY', description: 'Transactional email (SendGrid)' },
+  ];
+
+  const missing = required.filter(({ key }) => !process.env[key]);
+
+  if (missing.length > 0) {
+    const details = missing.map(({ key, description }) => `  - ${key}: ${description}`).join('\n');
+    const message = `Cloud Functions startup failed — missing required env vars:\n${details}`;
+    console.error(message);
+    throw new Error(message);
+  }
+}
+
+// Validate at module load time (cold start) — fails fast before any function runs
+validateEnvVars();
 
 // =============================================================================
 // TECHCLOUDRPO OLLAMA/QWEN AI INTEGRATION (FREE LOCAL LLM)
@@ -2023,7 +2047,12 @@ export const getPaymentMethods = functions.https.onCall(async (_data, context) =
  */
 export const stripeWebhook = functions.https.onRequest(async (req, res) => {
   const sig = req.headers['stripe-signature'];
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error('STRIPE_WEBHOOK_SECRET not configured — rejecting webhook');
+    res.status(500).send('Webhook secret not configured');
+    return;
+  }
 
   if (!sig) {
     res.status(400).send('Missing signature');
