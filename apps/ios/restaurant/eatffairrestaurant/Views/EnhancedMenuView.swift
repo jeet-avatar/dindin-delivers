@@ -38,6 +38,30 @@ struct EnhancedMenuView: View {
                             MenuSuggestionBanner(suggestion: suggestion)
                         }
 
+                        // Create Combo Deal Button
+                        Button(action: { showCreateCombo = true }) {
+                            HStack {
+                                Image(systemName: "rectangle.stack.badge.plus")
+                                    .font(.title3)
+                                Text("Create Combo Deal")
+                                    .font(.headline)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.green.opacity(0.1))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .strokeBorder(Color.green.opacity(0.3), lineWidth: 1)
+                                    )
+                            )
+                            .foregroundColor(.green)
+                        }
+
                         // Menu Items
                         ForEach(filteredItems) { item in
                             MenuItemCard(
