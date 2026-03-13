@@ -15,6 +15,7 @@ struct EnhancedMenuView: View {
     @State private var selectedCategory: String? = nil
     @State private var showAddItem = false
     @State private var showEditItem: MenuItem?
+    @State private var showCreateCombo = false
     @State private var searchText = ""
 
     var body: some View {
@@ -66,12 +67,21 @@ struct EnhancedMenuView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showAddItem = true }) {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundColor(RestaurantTheme.brandOrange)
+                    HStack(spacing: 12) {
+                        Button(action: { showCreateCombo = true }) {
+                            Image(systemName: "rectangle.stack.badge.plus")
+                                .foregroundColor(RestaurantTheme.brandGreen)
+                        }
+                        .accessibilityLabel("Create combo deal")
+                        .accessibilityHint("Opens form to create a combo from existing items")
+
+                        Button(action: { showAddItem = true }) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(RestaurantTheme.brandOrange)
+                        }
+                        .accessibilityLabel("Add menu item")
+                        .accessibilityHint("Opens form to add a new menu item")
                     }
-                    .accessibilityLabel("Add menu item")
-                    .accessibilityHint("Opens form to add a new menu item")
                 }
             }
             .sheet(isPresented: $showAddItem) {
@@ -79,6 +89,9 @@ struct EnhancedMenuView: View {
             }
             .sheet(item: $showEditItem) { item in
                 AddEditMenuItemView(viewModel: viewModel, item: item)
+            }
+            .sheet(isPresented: $showCreateCombo) {
+                CreateComboSheet(viewModel: viewModel)
             }
             .onAppear {
                 viewModel.fetchMenu()
@@ -333,6 +346,28 @@ struct MenuItemCard: View {
                                 .background(RestaurantTheme.brandOrange)
                                 .clipShape(Capsule())
                         }
+
+                        if item.isBestseller {
+                            Text("Bestseller")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.orange.opacity(0.15))
+                                .foregroundColor(.orange)
+                                .cornerRadius(4)
+                        }
+
+                        if item.isCombo {
+                            Text("Combo Deal")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.green.opacity(0.15))
+                                .foregroundColor(.green)
+                                .cornerRadius(4)
+                        }
                     }
 
                     Text(item.description)
@@ -340,11 +375,26 @@ struct MenuItemCard: View {
                         .foregroundColor(.secondary)
                         .lineLimit(2)
 
+                    // Combo items list
+                    if item.isCombo, let comboItems = item.comboItems, !comboItems.isEmpty {
+                        Text("Includes: \(comboItems.map { $0.itemName }.joined(separator: ", "))")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+
                     HStack {
                         Text("$\(String(format: "%.2f", item.price))")
                             .font(.subheadline)
                             .fontWeight(.bold)
                             .foregroundColor(RestaurantTheme.brandGreen)
+
+                        if item.isCombo, let savings = item.comboSavings, savings > 0 {
+                            Text("Save $\(String(format: "%.2f", savings))")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.green)
+                        }
 
                         Text("•")
                             .foregroundColor(.gray)
@@ -435,6 +485,7 @@ struct AddEditMenuItemView: View {
     @State private var category = ""
     @State private var isAvailable = true
     @State private var isPopular = false
+    @State private var isBestseller = false
     @State private var prepTime = "15"
     @State private var showCategoryPicker = false
     @State private var newCategory = ""
@@ -556,6 +607,7 @@ struct AddEditMenuItemView: View {
 
                     Toggle("Available", isOn: $isAvailable)
                     Toggle("Mark as Popular", isOn: $isPopular)
+                    Toggle("Mark as Bestseller", isOn: $isBestseller)
                 }
 
                 if isEditing {
@@ -604,6 +656,7 @@ struct AddEditMenuItemView: View {
                     category = item.category ?? ""
                     isAvailable = item.isAvailable
                     isPopular = item.isPopular
+                    isBestseller = item.isBestseller
                     prepTime = "\(item.prepTime)"
                     existingImageUrl = item.imageUrl
                 }
@@ -673,7 +726,8 @@ struct AddEditMenuItemView: View {
                     category: finalCategory,
                     isAvailable: isAvailable,
                     isPopular: isPopular,
-                    prepTime: prepTimeValue
+                    prepTime: prepTimeValue,
+                    isBestseller: isBestseller
                 ) {
                     isUploadingImage = false
                     dismiss()
@@ -689,7 +743,8 @@ struct AddEditMenuItemView: View {
                     isAvailable: isAvailable,
                     isPopular: isPopular,
                     prepTime: prepTimeValue,
-                    imageUrl: imageUrlToSave
+                    imageUrl: imageUrlToSave,
+                    isBestseller: isBestseller
                 )
                 isUploadingImage = false
                 dismiss()
@@ -705,7 +760,8 @@ struct AddEditMenuItemView: View {
                     category: finalCategory,
                     isAvailable: isAvailable,
                     isPopular: isPopular,
-                    prepTime: prepTimeValue
+                    prepTime: prepTimeValue,
+                    isBestseller: isBestseller
                 ) {
                     isUploadingImage = false
                     dismiss()
@@ -719,7 +775,8 @@ struct AddEditMenuItemView: View {
                     isAvailable: isAvailable,
                     isPopular: isPopular,
                     prepTime: prepTimeValue,
-                    imageUrl: ""
+                    imageUrl: "",
+                    isBestseller: isBestseller
                 )
                 isUploadingImage = false
                 dismiss()
@@ -772,7 +829,11 @@ class MenuViewModel: ObservableObject {
                                 isAvailable: p2pItem.inStock,
                                 category: p2pItem.category ?? "Main Course",
                                 isPopular: false,
-                                prepTime: p2pItem.prepTime ?? 15
+                                prepTime: p2pItem.prepTime ?? 15,
+                                isBestseller: p2pItem.isBestseller,
+                                isCombo: p2pItem.isCombo,
+                                comboItems: p2pItem.comboItems,
+                                comboSavings: p2pItem.comboSavings
                             )
                         }
                         // Extract unique categories
@@ -858,7 +919,7 @@ class MenuViewModel: ObservableObject {
         }
     }
 
-    func addItem(name: String, description: String, price: Double, category: String, isAvailable: Bool, isPopular: Bool, prepTime: Int, imageUrl: String = "") {
+    func addItem(name: String, description: String, price: Double, category: String, isAvailable: Bool, isPopular: Bool, prepTime: Int, imageUrl: String = "", isBestseller: Bool = false) {
         guard let restaurantId = restaurantId else { return }
 
         let firebaseItem: [String: Any] = [
@@ -869,6 +930,7 @@ class MenuViewModel: ObservableObject {
             "imageUrl": imageUrl,
             "isAvailable": isAvailable,
             "isPopular": isPopular,
+            "isBestseller": isBestseller,
             "prepTime": prepTime,
             "createdAt": Int64(Date().timeIntervalSince1970 * 1000)
         ]
@@ -883,7 +945,8 @@ class MenuViewModel: ObservableObject {
                 isAvailable: isAvailable,
                 prepTime: prepTime,
                 imageUrl: imageUrl.isEmpty ? nil : imageUrl,
-                inStock: isAvailable
+                inStock: isAvailable,
+                isBestseller: isBestseller
             )
 
             p2pAPI.createMenuItem(vendorId: vendorId, menuItem: p2pItem) { [weak self] result in
@@ -914,7 +977,7 @@ class MenuViewModel: ObservableObject {
         }
     }
 
-    func updateItem(_ item: MenuItem, name: String, description: String, price: Double, category: String, isAvailable: Bool, isPopular: Bool, prepTime: Int, imageUrl: String? = nil) {
+    func updateItem(_ item: MenuItem, name: String, description: String, price: Double, category: String, isAvailable: Bool, isPopular: Bool, prepTime: Int, imageUrl: String? = nil, isBestseller: Bool = false) {
         guard let restaurantId = restaurantId, let itemId = item.id else { return }
 
         var updateData: [String: Any] = [
@@ -924,6 +987,7 @@ class MenuViewModel: ObservableObject {
             "category": category,
             "isAvailable": isAvailable,
             "isPopular": isPopular,
+            "isBestseller": isBestseller,
             "prepTime": prepTime,
             "updatedAt": Int64(Date().timeIntervalSince1970 * 1000)
         ]
@@ -942,7 +1006,8 @@ class MenuViewModel: ObservableObject {
                 "price": price,
                 "category": category,
                 "in_stock": isAvailable,
-                "prep_time": prepTime
+                "prep_time": prepTime,
+                "is_bestseller": isBestseller
             ]
             if let imageUrl = imageUrl {
                 p2pUpdates["image_url"] = imageUrl
@@ -980,7 +1045,7 @@ class MenuViewModel: ObservableObject {
 
     // MARK: - Image Upload Functions
 
-    func uploadImageAndAddItem(image: UIImage, name: String, description: String, price: Double, category: String, isAvailable: Bool, isPopular: Bool, prepTime: Int, completion: @escaping () -> Void) {
+    func uploadImageAndAddItem(image: UIImage, name: String, description: String, price: Double, category: String, isAvailable: Bool, isPopular: Bool, prepTime: Int, isBestseller: Bool = false, completion: @escaping () -> Void) {
         guard let restaurantId = restaurantId else {
             completion()
             return
@@ -995,13 +1060,14 @@ class MenuViewModel: ObservableObject {
                 isAvailable: isAvailable,
                 isPopular: isPopular,
                 prepTime: prepTime,
-                imageUrl: imageUrl ?? ""
+                imageUrl: imageUrl ?? "",
+                isBestseller: isBestseller
             )
             completion()
         }
     }
 
-    func uploadImageAndUpdateItem(_ item: MenuItem, image: UIImage, name: String, description: String, price: Double, category: String, isAvailable: Bool, isPopular: Bool, prepTime: Int, completion: @escaping () -> Void) {
+    func uploadImageAndUpdateItem(_ item: MenuItem, image: UIImage, name: String, description: String, price: Double, category: String, isAvailable: Bool, isPopular: Bool, prepTime: Int, isBestseller: Bool = false, completion: @escaping () -> Void) {
         guard let restaurantId = restaurantId else {
             completion()
             return
@@ -1017,7 +1083,8 @@ class MenuViewModel: ObservableObject {
                 isAvailable: isAvailable,
                 isPopular: isPopular,
                 prepTime: prepTime,
-                imageUrl: imageUrl
+                imageUrl: imageUrl,
+                isBestseller: isBestseller
             )
             completion()
         }
@@ -1120,9 +1187,206 @@ class MenuViewModel: ObservableObject {
     }
 }
 
+// MARK: - Create Combo Sheet
+struct CreateComboSheet: View {
+    @ObservedObject var viewModel: MenuViewModel
+    @Environment(\.dismiss) var dismiss
+
+    @State private var comboName = ""
+    @State private var comboDescription = ""
+    @State private var comboCategory = "Combos"
+    @State private var comboPriceText = ""
+    @State private var selectedItemIds: Set<String> = []
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+
+    private var nonComboItems: [MenuItem] {
+        viewModel.menuItems.filter { !$0.isCombo }
+    }
+
+    private var selectedItems: [MenuItem] {
+        nonComboItems.filter { selectedItemIds.contains($0.id ?? "") }
+    }
+
+    private var totalOriginalPrice: Double {
+        selectedItems.reduce(0) { $0 + $1.price }
+    }
+
+    private var suggestedPrice: Double {
+        (totalOriginalPrice * 0.85 * 100).rounded() / 100
+    }
+
+    private var comboPrice: Double {
+        Double(comboPriceText) ?? 0
+    }
+
+    private var savings: Double {
+        max(0, totalOriginalPrice - comboPrice)
+    }
+
+    private var isValid: Bool {
+        !comboName.isEmpty && selectedItemIds.count >= 2 && comboPrice > 0 && comboPrice <= totalOriginalPrice
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Combo Details") {
+                    TextField("Combo Name", text: $comboName)
+                    TextField("Description (optional)", text: $comboDescription, axis: .vertical)
+                        .lineLimit(2...4)
+                    TextField("Category", text: $comboCategory)
+                }
+
+                Section("Select Items (min 2)") {
+                    ForEach(nonComboItems) { item in
+                        HStack {
+                            Image(systemName: selectedItemIds.contains(item.id ?? "") ? "checkmark.circle.fill" : "circle")
+                                .foregroundColor(selectedItemIds.contains(item.id ?? "") ? .green : .gray)
+
+                            VStack(alignment: .leading) {
+                                Text(item.name)
+                                    .font(.subheadline)
+                                Text("$\(String(format: "%.2f", item.price))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if let id = item.id {
+                                if selectedItemIds.contains(id) {
+                                    selectedItemIds.remove(id)
+                                } else {
+                                    selectedItemIds.insert(id)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if selectedItemIds.count >= 2 {
+                    Section("Pricing") {
+                        HStack {
+                            Text("Items Total")
+                            Spacer()
+                            Text("$\(String(format: "%.2f", totalOriginalPrice))")
+                                .foregroundColor(.secondary)
+                        }
+
+                        HStack {
+                            Text("Suggested Price (15% off)")
+                            Spacer()
+                            Text("$\(String(format: "%.2f", suggestedPrice))")
+                                .foregroundColor(.blue)
+                        }
+                        .onTapGesture {
+                            comboPriceText = String(format: "%.2f", suggestedPrice)
+                        }
+
+                        HStack {
+                            Text("$")
+                            TextField("Combo Price", text: $comboPriceText)
+                                .keyboardType(.decimalPad)
+                        }
+
+                        if comboPrice > 0 {
+                            HStack {
+                                Text("Customer Saves")
+                                Spacer()
+                                Text("$\(String(format: "%.2f", savings))")
+                                    .foregroundColor(.green)
+                                    .fontWeight(.bold)
+                            }
+                        }
+
+                        if comboPrice > totalOriginalPrice {
+                            Text("Combo price cannot exceed total of individual items")
+                                .foregroundColor(.red)
+                                .font(.caption)
+                        }
+                    }
+                }
+
+                if let error = errorMessage {
+                    Section {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
+            }
+            .navigationTitle("Create Combo")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Create") {
+                        createCombo()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(!isValid || isSaving)
+                }
+            }
+            .overlay {
+                if isSaving {
+                    ZStack {
+                        Color.black.opacity(0.4)
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("Creating combo...")
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .ignoresSafeArea()
+                }
+            }
+        }
+    }
+
+    private func createCombo() {
+        guard let vendorId = viewModel.vendorId else {
+            errorMessage = "Vendor ID not available"
+            return
+        }
+
+        isSaving = true
+        errorMessage = nil
+
+        let itemIds = selectedItems.compactMap { Int($0.id ?? "") }
+
+        let comboData: [String: Any] = [
+            "item_name": comboName,
+            "description": comboDescription.isEmpty ? "Combo: \(selectedItems.map { $0.name }.joined(separator: ", "))" : comboDescription,
+            "category": comboCategory,
+            "combo_item_ids": itemIds,
+            "combo_price": comboPrice
+        ]
+
+        P2PAPIService.shared.createComboItem(vendorId: vendorId, comboData: comboData) { [self] result in
+            DispatchQueue.main.async {
+                isSaving = false
+                switch result {
+                case .success:
+                    viewModel.fetchMenu()
+                    dismiss()
+                case .failure(let error):
+                    errorMessage = "Failed to create combo: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+}
+
 // MenuItem model is now in EatFairShared with full support for:
 // - isPopular, prepTime, createdAt, updatedAt
 // - calories, allergens, dietaryTags (future features)
+// - isBestseller, isCombo, comboItems, comboSavings (combo deals)
 
 #Preview {
     EnhancedMenuView()

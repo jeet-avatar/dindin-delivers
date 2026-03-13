@@ -358,6 +358,68 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Create a combo deal from existing menu items (Restaurant App)
+    public func createComboItem(
+        vendorId: Int,
+        comboData: [String: Any],
+        completion: @escaping (Result<[String: Any], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/menu/combo") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: comboData)
+        } catch {
+            completion(.failure(error))
+            return
+        }
+
+        secureSession.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.error = error.localizedDescription
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    completion(.failure(P2PAPIError.noData))
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                    if let errorResponse = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(errorResponse.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Failed to create combo item")))
+                    }
+                    return
+                }
+
+                do {
+                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        completion(.success(json))
+                    } else {
+                        completion(.failure(P2PAPIError.noData))
+                    }
+                } catch {
+                    self?.error = "Failed to decode combo response: \(error.localizedDescription)"
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     /// Update a menu item (Restaurant App)
     public func updateMenuItem(
         vendorId: Int,
@@ -8478,6 +8540,10 @@ public struct P2PDetailMenuItem: Identifiable, Codable {
     public let calories: Int?
     public let inStock: Bool
     public let customizations: [P2PMenuItemCustomization]?
+    public let isBestseller: Bool
+    public let isCombo: Bool
+    public let comboItems: [ComboItemInfo]?
+    public let comboSavings: Double?
 
     enum CodingKeys: String, CodingKey {
         case id, name, description, price, customizations
@@ -8490,6 +8556,10 @@ public struct P2PDetailMenuItem: Identifiable, Codable {
         case prepTime = "prep_time"
         case calories
         case inStock = "in_stock"
+        case isBestseller = "is_bestseller"
+        case isCombo = "is_combo"
+        case comboItems = "combo_items"
+        case comboSavings = "combo_savings"
     }
 
     /// Custom decoder with safe defaults to prevent crashes when API omits optional fields
@@ -8510,6 +8580,10 @@ public struct P2PDetailMenuItem: Identifiable, Codable {
         calories = try container.decodeIfPresent(Int.self, forKey: .calories)
         inStock = try container.decodeIfPresent(Bool.self, forKey: .inStock) ?? true
         customizations = try container.decodeIfPresent([P2PMenuItemCustomization].self, forKey: .customizations)
+        isBestseller = try container.decodeIfPresent(Bool.self, forKey: .isBestseller) ?? false
+        isCombo = try container.decodeIfPresent(Bool.self, forKey: .isCombo) ?? false
+        comboItems = try container.decodeIfPresent([ComboItemInfo].self, forKey: .comboItems)
+        comboSavings = try container.decodeIfPresent(Double.self, forKey: .comboSavings)
     }
 }
 
@@ -8642,6 +8716,10 @@ public struct P2PMenuItem: Identifiable, Codable {
     public let calories: Int?
     public let inStock: Bool
     public let customizations: [P2PMenuItemCustomization]?
+    public let isBestseller: Bool
+    public let isCombo: Bool
+    public let comboItems: [ComboItemInfo]?
+    public let comboSavings: Double?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -8657,6 +8735,33 @@ public struct P2PMenuItem: Identifiable, Codable {
         case calories
         case inStock = "in_stock"
         case customizations
+        case isBestseller = "is_bestseller"
+        case isCombo = "is_combo"
+        case comboItems = "combo_items"
+        case comboSavings = "combo_savings"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        category = try container.decodeIfPresent(String.self, forKey: .category)
+        price = try container.decode(Double.self, forKey: .price)
+        imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
+        isVegetarian = try container.decodeIfPresent(Bool.self, forKey: .isVegetarian) ?? false
+        isVegan = try container.decodeIfPresent(Bool.self, forKey: .isVegan) ?? false
+        isGlutenFree = try container.decodeIfPresent(Bool.self, forKey: .isGlutenFree) ?? false
+        isSpicy = try container.decodeIfPresent(Bool.self, forKey: .isSpicy) ?? false
+        spiceLevel = try container.decodeIfPresent(Int.self, forKey: .spiceLevel) ?? 0
+        prepTime = try container.decodeIfPresent(Int.self, forKey: .prepTime)
+        calories = try container.decodeIfPresent(Int.self, forKey: .calories)
+        inStock = try container.decodeIfPresent(Bool.self, forKey: .inStock) ?? true
+        customizations = try container.decodeIfPresent([P2PMenuItemCustomization].self, forKey: .customizations)
+        isBestseller = try container.decodeIfPresent(Bool.self, forKey: .isBestseller) ?? false
+        isCombo = try container.decodeIfPresent(Bool.self, forKey: .isCombo) ?? false
+        comboItems = try container.decodeIfPresent([ComboItemInfo].self, forKey: .comboItems)
+        comboSavings = try container.decodeIfPresent(Double.self, forKey: .comboSavings)
     }
 }
 
@@ -8698,6 +8803,26 @@ public struct P2PMenuItemCreate: Codable {
     public let imageUrl: String?
     public let inStock: Bool
     public let dailyLimit: Int?
+    public let isBestseller: Bool
+    public let isCombo: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case itemName = "item_name"
+        case description, category, price
+        case isAvailable = "is_available"
+        case isVegetarian = "is_vegetarian"
+        case isVegan = "is_vegan"
+        case isGlutenFree = "is_gluten_free"
+        case isSpicy = "is_spicy"
+        case spiceLevel = "spice_level"
+        case prepTime = "prep_time"
+        case calories
+        case imageUrl = "image_url"
+        case inStock = "in_stock"
+        case dailyLimit = "daily_limit"
+        case isBestseller = "is_bestseller"
+        case isCombo = "is_combo"
+    }
 
     public init(
         itemName: String,
@@ -8714,7 +8839,9 @@ public struct P2PMenuItemCreate: Codable {
         calories: Int? = nil,
         imageUrl: String? = nil,
         inStock: Bool = true,
-        dailyLimit: Int? = nil
+        dailyLimit: Int? = nil,
+        isBestseller: Bool = false,
+        isCombo: Bool = false
     ) {
         self.itemName = itemName
         self.description = description
@@ -8731,6 +8858,8 @@ public struct P2PMenuItemCreate: Codable {
         self.imageUrl = imageUrl
         self.inStock = inStock
         self.dailyLimit = dailyLimit
+        self.isBestseller = isBestseller
+        self.isCombo = isCombo
     }
 }
 

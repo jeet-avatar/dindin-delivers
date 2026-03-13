@@ -67,6 +67,19 @@ public struct Restaurant: Identifiable, Codable, Sendable {
     }
 }
 
+/// Info about an item included in a combo deal
+public struct ComboItemInfo: Codable, Sendable {
+    public let itemId: Int
+    public let itemName: String
+    public let originalPrice: Double
+
+    enum CodingKeys: String, CodingKey {
+        case itemId = "item_id"
+        case itemName = "item_name"
+        case originalPrice = "original_price"
+    }
+}
+
 public struct MenuItem: Identifiable, Codable, Sendable {
     @DocumentID public var id: String?
     public var name: String
@@ -91,6 +104,12 @@ public struct MenuItem: Identifiable, Codable, Sendable {
     public var customizations: [MenuItemCustomization]?
     public var selectedCustomizations: [SelectedCustomization]?
 
+    // Bestseller / Combo fields
+    public var isBestseller: Bool
+    public var isCombo: Bool
+    public var comboItems: [ComboItemInfo]?
+    public var comboSavings: Double?
+
     public init(
         id: String? = nil,
         name: String,
@@ -106,7 +125,11 @@ public struct MenuItem: Identifiable, Codable, Sendable {
         calories: Int? = nil,
         allergens: [String]? = nil,
         dietaryTags: [String]? = nil,
-        customizations: [MenuItemCustomization]? = nil
+        customizations: [MenuItemCustomization]? = nil,
+        isBestseller: Bool = false,
+        isCombo: Bool = false,
+        comboItems: [ComboItemInfo]? = nil,
+        comboSavings: Double? = nil
     ) {
         self.id = id
         self.name = name
@@ -123,6 +146,10 @@ public struct MenuItem: Identifiable, Codable, Sendable {
         self.allergens = allergens
         self.dietaryTags = dietaryTags
         self.customizations = customizations
+        self.isBestseller = isBestseller
+        self.isCombo = isCombo
+        self.comboItems = comboItems
+        self.comboSavings = comboSavings
     }
 
     public init(from decoder: Decoder) throws {
@@ -142,12 +169,19 @@ public struct MenuItem: Identifiable, Codable, Sendable {
         calories = try container.decodeIfPresent(Int.self, forKey: .calories)
         allergens = try container.decodeIfPresent([String].self, forKey: .allergens)
         dietaryTags = try container.decodeIfPresent([String].self, forKey: .dietaryTags)
+        isBestseller = try container.decodeIfPresent(Bool.self, forKey: .isBestseller) ?? false
+        isCombo = try container.decodeIfPresent(Bool.self, forKey: .isCombo) ?? false
+        comboItems = try container.decodeIfPresent([ComboItemInfo].self, forKey: .comboItems)
+        comboSavings = try container.decodeIfPresent(Double.self, forKey: .comboSavings)
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name, description, price, imageUrl, isAvailable, category
         case isPopular, prepTime, createdAt, updatedAt
         case calories, allergens, dietaryTags, customizations
+        case isBestseller, isCombo
+        case comboItems = "combo_items"
+        case comboSavings = "combo_savings"
     }
 }
 
