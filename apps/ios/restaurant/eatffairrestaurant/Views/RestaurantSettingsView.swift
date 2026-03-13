@@ -4,6 +4,7 @@ import PhotosUI
 import UserNotifications
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseStorage
 import EatFairShared
 import os
 
@@ -992,6 +993,7 @@ struct EditRestaurantProfileView: View {
     @State private var cuisine = ""
     @State private var showImagePicker = false
     @State private var selectedLogoData: Data?
+    @State private var isSaving = false
 
     var body: some View {
         NavigationStack {
@@ -1027,6 +1029,22 @@ struct EditRestaurantProfileView: View {
                                     .scaledToFill()
                                     .frame(width: 100, height: 100)
                                     .clipShape(Circle())
+                            } else if let urlString = viewModel.restaurantImageUrl,
+                                      let url = URL(string: urlString) {
+                                AsyncImage(url: url) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 100, height: 100)
+                                            .clipShape(Circle())
+                                    default:
+                                        Image(systemName: "camera.fill")
+                                            .font(.title)
+                                            .foregroundColor(.gray)
+                                    }
+                                }
                             } else {
                                 Image(systemName: "camera.fill")
                                     .font(.title)
@@ -1063,18 +1081,106 @@ struct EditRestaurantProfileView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        // Save changes
-                        dismiss()
+                        saveProfile()
                     }
                     .accessibilityLabel("Save profile changes")
                     .accessibilityHint("Saves your restaurant profile updates")
                     .fontWeight(.semibold)
+                    .disabled(isSaving)
                 }
             }
             .onAppear {
                 name = viewModel.restaurantName
                 address = viewModel.restaurantAddress
+                phone = viewModel.phone
+                email = viewModel.email
+                cuisine = viewModel.cuisineType
             }
+            .overlay {
+                if isSaving {
+                    ZStack {
+                        Color.black.opacity(0.4)
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("Saving...")
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .ignoresSafeArea()
+                }
+            }
+        }
+    }
+
+    private func saveProfile() {
+        guard let vendorId = viewModel.vendorId else {
+            dismiss()
+            return
+        }
+
+        isSaving = true
+
+        // Build updates dict
+        var updates: [String: Any] = [:]
+        if name != viewModel.restaurantName { updates["restaurant_name"] = name }
+        if address != viewModel.restaurantAddress { updates["address"] = address }
+        if phone != viewModel.phone { updates["phone"] = phone }
+        if email != viewModel.email { updates["email"] = email }
+        if cuisine != viewModel.cuisineType { updates["cuisine_type"] = cuisine }
+
+        // If logo was selected, upload first then save URL
+        if let logoData = selectedLogoData,
+           let image = UIImage(data: logoData),
+           let jpegData = image.jpegData(compressionQuality: 0.7) {
+            let storage = Storage.storage()
+            let ref = storage.reference()
+                .child("restaurants")
+                .child(String(vendorId))
+                .child("logo.jpg")
+            let metadata = StorageMetadata()
+            metadata.contentType = "image/jpeg"
+
+            ref.putData(jpegData, metadata: metadata) { (_: StorageMetadata?, error: Error?) in
+                if error != nil {
+                    DispatchQueue.main.async { isSaving = false }
+                    return
+                }
+                ref.downloadURL { (url: URL?, _: Error?) in
+                    if let url = url {
+                        updates["image_url"] = url.absoluteString
+                    }
+                    self.patchAndDismiss(vendorId: vendorId, updates: updates)
+                }
+            }
+        } else if updates.isEmpty {
+            isSaving = false
+            dismiss()
+        } else {
+            patchAndDismiss(vendorId: vendorId, updates: updates)
+        }
+    }
+
+    private func patchAndDismiss(vendorId: Int, updates: [String: Any]) {
+        guard !updates.isEmpty else {
+            isSaving = false
+            dismiss()
+            return
+        }
+
+        P2PAPIService.shared.patchVendorSettings(vendorId: vendorId, updates: updates) { result in
+            isSaving = false
+            switch result {
+            case .success:
+                viewModel.restaurantName = name
+                viewModel.restaurantAddress = address
+                viewModel.phone = phone
+                viewModel.email = email
+                viewModel.cuisineType = cuisine
+            case .failure:
+                break
+            }
+            dismiss()
         }
     }
 }
