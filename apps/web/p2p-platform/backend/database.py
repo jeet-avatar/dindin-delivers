@@ -47,6 +47,36 @@ def get_db():
     finally:
         db.close()
 
+
+def get_pool_stats() -> dict:
+    """Return connection pool utilization stats. Logs a WARNING when >= 90% utilized."""
+    if _is_sqlite:
+        return {"pool_type": "StaticPool (sqlite)", "checked_out": 0, "overflow": 0, "total": 0, "utilization_pct": 0, "status": "ok"}
+    try:
+        pool = engine.pool
+        checked_out = pool.checkedout()
+        overflow = pool.overflow()
+        pool_size = pool.size()
+        total_capacity = pool_size + engine.pool._max_overflow
+        utilization_pct = round((checked_out / total_capacity) * 100, 1) if total_capacity > 0 else 0
+
+        if utilization_pct >= 90:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"DB pool HIGH UTILIZATION: {checked_out}/{total_capacity} connections ({utilization_pct}%)"
+            )
+
+        return {
+            "pool_size": pool_size,
+            "checked_out": checked_out,
+            "overflow": overflow,
+            "total_capacity": total_capacity,
+            "utilization_pct": utilization_pct,
+            "status": "warning" if utilization_pct >= 90 else "ok",
+        }
+    except Exception as e:
+        return {"error": str(e), "status": "unknown"}
+
 def init_db():
     # Import extended models to ensure they're registered
     # Note: Customer is already imported from models.py - don't reimport to avoid mapper conflict
