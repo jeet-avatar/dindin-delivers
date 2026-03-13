@@ -8188,25 +8188,25 @@ def get_consolidated_dashboard(
     start_date = now - timedelta(days=days_back)
 
     # Orders Metrics
-    all_orders = db.query(Order).filter(Order.created_at >= start_date).all()
+    all_orders = db.query(Order).filter(Order.created_at >= start_date).limit(10000).all()
     pending_orders = len([o for o in all_orders if o.status in [OrderStatus.PENDING_PAYMENT, OrderStatus.CONFIRMED, OrderStatus.PREPARING]])
     completed_orders = len([o for o in all_orders if o.status == OrderStatus.DELIVERED])
     total_revenue = sum(o.total_amount or 0 for o in all_orders if o.payment_status == "succeeded")
     platform_fees = sum(o.platform_fee or 0 for o in all_orders if o.payment_status == "succeeded")
 
     # Vendor Metrics
-    all_vendors = db.query(Vendor).all()
+    all_vendors = db.query(Vendor).limit(10000).all()
     active_vendors = len([v for v in all_vendors if v.onboarding_status == VendorStatus.APPROVED])
     pending_vendors = len([v for v in all_vendors if v.onboarding_status in [VendorStatus.PENDING, VendorStatus.IN_REVIEW]])
 
     # Driver Metrics
-    all_drivers = db.query(Driver).all()
+    all_drivers = db.query(Driver).limit(10000).all()
     active_drivers = len([d for d in all_drivers if d.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED]])
     online_drivers = len([d for d in all_drivers if d.is_online])
 
     # Support Ticket Metrics
     try:
-        all_tickets = db.query(SupportTicket).filter(SupportTicket.created_at >= start_date).all()
+        all_tickets = db.query(SupportTicket).filter(SupportTicket.created_at >= start_date).limit(10000).all()
         active_tickets = len([t for t in all_tickets if t.status in [TicketStatus.OPEN, TicketStatus.IN_PROGRESS]])
         resolved_tickets = len([t for t in all_tickets if t.status in [TicketStatus.RESOLVED, TicketStatus.CLOSED]])
     except Exception:
@@ -10223,6 +10223,8 @@ def create_vendor(vendor: VendorCreate, db: Session = Depends(get_db), admin: Us
 def get_vendors(
     status: Optional[str] = None,
     risk_rating: Optional[str] = None,
+    offset: int = 0,
+    limit: int = 1000,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -10252,7 +10254,7 @@ def get_vendors(
         except KeyError:
             raise HTTPException(status_code=400, detail=f"Invalid risk_rating: {risk_rating}")
 
-    vendors = query.order_by(Vendor.created_at.desc()).all()
+    vendors = query.order_by(Vendor.created_at.desc()).offset(offset).limit(min(limit, 1000)).all()
 
     # Return with iOS compatibility fields
     result = []
