@@ -82,6 +82,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-93]: require_driver auth; leave-at-door -> DELIVERED, no-leave -> DELIVERY_FAILED + refund; 5-min timer
 - [Phase quick-97]: Android DeliveryAddressDict missing lat/lng was BREAKING -- fixed before Wave 2 deploy
 - [Phase quick-99]: Mock stripe.Refund.create directly (not order_flow.stripe) since stripe is imported inside function body
+- [Phase quick-164]: Used ComboItemInfo struct for combo references; safe decoders for backward compat
 
 ### Blockers
 
@@ -192,9 +193,10 @@ None
 | 161 | Fix promotion suggestions JSON mismatch between backend and iOS | 2026-03-12 | 2cc46b9a | [161-fix-promotion-suggestions-json-mismatch-](./quick/161-fix-promotion-suggestions-json-mismatch-/) |
 | 162 | Fix demo order seeding + AI recommendations fallback for iOS Restaurant | 2026-03-12 | be1c6620 | [162-fix-demo-order-seeding-ai-recommendation](./quick/162-fix-demo-order-seeding-ai-recommendation/) |
 | 163 | Fix STATE.md bloat — deduplicate Decisions section (164K lines to ~200) | 2026-03-13 | fd0f2039 | [163-fix-state-md-bloat-deduplicate-decisions](./quick/163-fix-state-md-bloat-deduplicate-decisions/) |
+| 164 | Add combo deals and bestseller features to menu system | 2026-03-13 | b00f7358 | [164-add-combo-deals-and-bestseller-features-](./quick/164-add-combo-deals-and-bestseller-features-/) |
 
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed quick task 163: Fix STATE.md bloat (164K → 200 lines)
+Stopped at: Completed quick task 164: Add combo deals and bestseller features
 Resume file: .planning/NEXT_SESSION_PROMPT.md
