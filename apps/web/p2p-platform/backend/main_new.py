@@ -21719,14 +21719,6 @@ def get_vendor_ai_insights(
     # Ensure at least 3 recommendations for demo/new vendors
     fallback_recommendations = [
         {
-            "type": "trending",
-            "icon": "star.fill",
-            "title": "Highlight Best Sellers",
-            "description": "Feature your most popular items at the top of your menu to attract more orders.",
-            "impact": "Increase order frequency",
-            "priority": "medium"
-        },
-        {
             "type": "bundle",
             "icon": "bag.badge.plus",
             "title": "Create Combo Deals",
