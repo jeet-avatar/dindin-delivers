@@ -4,110 +4,175 @@
 
 ---
 
-## Session Summary (Mar 12, 2026 — Night Session)
+## Session Summary (Mar 13, 2026 — Late Night Session)
 
-### Completed This Session (Quick Tasks 157-158)
+### Completed This Session
 
-**9 bugs fixed, 2 CR tickets, backend deployed to production, iOS Restaurant build 201 on TestFlight:**
-
-| Quick | CR | What | Commits |
-|-------|-----|------|---------|
-| 157 | CR-0020 | 7 iOS Restaurant bugs: promotion save button white-on-white, earnings $0 fallback, Toast POS "coming soon" removed, online/offline backend sync, legal pages 404 (Dockerfile fix) | `45fa75db` |
-| 158 | CR-0021 | Restaurant ID blank (Firebase UID → P2P vendor ID), "Estimated" earnings label, EnhancedMenuView Firebase UID hardcode | `f93006ad`, `4e389b1e` |
+| Quick | What | Commits |
+|-------|------|---------|
+| 140 | Verify STATE.md deduplication — 164→143 lines, 1490 tests pass | `3b5e7a45` |
+| 164 | Combo deals + bestseller features (backend + iOS restaurant + iOS customer) | `4d6b0831` |
+| 141 | Build + upload all 3 iOS apps to TestFlight v1.1 (Customer 1114, Driver 216, Restaurant 206) | `ea2b07c9` |
+| — | Fix prominent Create Combo Deal button (was icon-only, now green banner) | `93560806` |
+| — | CRITICAL FIX: Add combo/bestseller columns to startup migrations (menu 500 fix) | `4dcbec4a` |
 
 **Deployments:**
-- Backend staging: Succeeded (run 22987175534) — legal pages return 200
-- Backend production: Succeeded (run 22987503974) — `api.dollor.ai/terms` + `/privacy` both 200
-- iOS Restaurant build 201: Uploaded to TestFlight
+- Backend staging: Succeeded (run 23033779943) — includes migration fix
+- Backend production: Succeeded (run 23033982090) — includes migration fix
+- iOS Customer 1114 v1.1: TestFlight (uploaded)
+- iOS Driver 216 v1.1: TestFlight (uploaded)
+- iOS Restaurant 206 v1.1: TestFlight (uploaded)
 
-**GSD Verification:**
-- All 8 original fixes verified by GSD recheck agent — ALL PASS
-- 1 additional bug found during verification: `EnhancedMenuView.swift:799` hardcoded Firebase UID — fixed in `4e389b1e`
-- Phase 10 (Automated Support System) fully audited — all components implemented, no gaps
-
-**Key Root Causes Found & Fixed:**
-- **Restaurant ID blank**: `RestaurantSettingsView.swift:670` used `Auth.auth().currentUser?.uid` — nil for OAuth users. Fixed to use P2P vendor ID first.
-- **Legal pages 404**: `Dockerfile.optimized` production stage only copied `*.py` files — `legal/` directory never in container. Added `COPY legal/ ./legal/`.
-- **Promotion button invisible**: `.listRowBackground()` was inside button label HStack, not on the row level.
+**New Features Deployed:**
+- **Combo Deals**: Vendors create combos from existing menu items, auto-pricing suggestions (10-15% discount), customer sees "Combo Deal" badge + included items + savings
+- **Bestseller**: Vendors toggle bestseller on items, customer sees "Bestseller" badge, sorted first per category
+- **Marketing version bumped**: 1.0 → 1.1 (Apple required it — v1.0 was previously approved)
 
 ---
 
-## PRIORITY 1: Build iOS Restaurant 202 → TestFlight
+## PRIORITY 0 — CRITICAL: SSL Certificate Issue (BLOCKING)
 
-**Build 201 on TestFlight has ALL fixes EXCEPT the EnhancedMenuView Firebase UID fix** (`4e389b1e`).
-- Bump to build 202, archive, upload to TestFlight
-- This ensures menu loading works correctly for OAuth-logged-in users
-- Quick task: bump version in project.pbxproj, archive, export+upload
+**Symptom:** Apple is flagging the website as "unsafe connection" — certificate appears invalid/expired.
+
+**Anti-hallucination investigation steps (MANDATORY):**
+```bash
+# Check SSL cert expiry for dollor.ai
+openssl s_client -connect api.dollor.ai:443 -servername api.dollor.ai 2>/dev/null | openssl x509 -noout -dates -subject -issuer
+
+# Check www.dollor.ai too
+openssl s_client -connect www.dollor.ai:443 -servername www.dollor.ai 2>/dev/null | openssl x509 -noout -dates -subject -issuer
+
+# Check bare domain
+openssl s_client -connect dollor.ai:443 -servername dollor.ai 2>/dev/null | openssl x509 -noout -dates -subject -issuer
+
+# Check ACM cert in AWS (if above shows expired)
+aws acm list-certificates --region us-east-1 --query 'CertificateSummaryList[?DomainName==`dollor.ai` || DomainName==`*.dollor.ai`]'
+
+# Check CloudFront distribution cert
+aws cloudfront get-distribution --id E3LB9SMG1YD9ZL --query 'Distribution.DistributionConfig.ViewerCertificate'
+```
+
+**Context from memory:**
+- SSL pinning uses root CA pins ONLY (Amazon Root CA 1-4 + Starfield Services Root G2)
+- ACM cert was set to expire Dec 31, 2026 with auto-renewal ~Nov 1, 2026
+- Root-only pinning means ACM renewals should NOT require app updates
+- Runbook: `.planning/runbooks/ssl-pinning-rotation.md`
+- If cert actually expired early or was revoked, this breaks ALL iOS API calls (182 calls go through secureSession with SSL pinning)
+
+**Fix approach:**
+```
+/gsd:debug "Apple showing unsafe connection — SSL certificate appears invalid on dollor.ai"
+```
 
 ---
 
-## PRIORITY 2: Apple App Store Cleanup → Customer Build → TestFlight (NOT submit)
+## PRIORITY 1 — CRITICAL: Stripe Payment Not Working on Demo Account
 
-From `.planning/todos/pending/2026-03-09-apple-app-store-ios-cleanup-for-next-builds.md`:
+**Symptom:** Stripe payment fails when trying to complete an order on the demo customer account.
 
-Code changes (need new Customer build):
+**Anti-hallucination investigation steps (MANDATORY):**
+```bash
+# Verify demo customer can login
+curl -s -X POST "https://api.dollor.ai/api/auth/customer/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo.customer@dollor.ai","password":"DemoCustomer2025!"}' \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); print("Token:", d.get("access_token","FAIL")[:20])'
+
+# Check if Stripe key is live or test
+grep -n "STRIPE" apps/web/p2p-platform/backend/main_new.py | head -10
+
+# Check Stripe payment intent creation endpoint
+grep -n "payment.intent\|create_payment\|stripe.*payment" apps/web/p2p-platform/backend/main_new.py | head -10
+
+# Verify Stripe secret is loaded (staging vs production)
+curl -s "https://api.dollor.ai/api/health" 2>&1 | head -5
+
+# Check if demo customer has Stripe customer ID
+# (need token from login above)
+curl -s "https://api.dollor.ai/api/customers/profile" \
+  -H "Authorization: Bearer TOKEN" \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); print("stripe_customer_id:", d.get("stripe_customer_id", "NONE")); print("has_payment:", d.get("has_payment_method", "NONE"))'
+```
+
+**Possible causes (verify each):**
+1. Demo account has no Stripe customer ID (never set up payment)
+2. Stripe test key on production (should be `sk_live_*`)
+3. Payment intent endpoint returns error
+4. iOS app sends wrong payment data format
+5. Stripe webhook not configured for payment confirmation
+
+**Fix approach:**
+```
+/gsd:debug "Stripe payment not working on demo customer account — cannot complete order"
+```
+
+---
+
+## PRIORITY 2: Rebuild iOS Apps After Fixes
+
+**After fixing SSL + Stripe, rebuild and re-upload to TestFlight:**
+- Customer: bump to 1115
+- Driver: bump to 217
+- Restaurant: bump to 207
+
+```
+/gsd:quick "Bump iOS builds and upload to TestFlight — Customer 1115, Driver 217, Restaurant 207"
+```
+
+---
+
+## PRIORITY 3: Verify Combo + Bestseller Features on Device
+
+**Runtime testing from Quick-164 verification (4 items need manual check):**
+
+| # | Test | How |
+|---|------|-----|
+| 1 | Bestseller toggle persists | Restaurant app → Menu → Edit item → toggle Bestseller → save → re-open |
+| 2 | Create Combo end-to-end | Restaurant app → Menu → Create Combo Deal → select 2+ items → save |
+| 3 | Bestseller sort in Customer app | Customer app → restaurant → verify bestseller item at top of category |
+| 4 | Combo display in Customer app | Customer app → restaurant → verify Combo Deal badge + items list + savings |
+
+**If any fail:**
+```
+/gsd:debug "Combo/bestseller feature [#] fails — [describe]"
+```
+
+---
+
+## PRIORITY 4: Previous Session Carryover
+
+From previous session (still pending):
+
+### Apple App Store Cleanup → Customer Build
 1. Remove `NSContactsUsageDescription` from Info.plist (unused)
 2. Remove `NSLocationAlwaysAndWhenInUseUsageDescription` from Info.plist (unused)
 3. Set `ENABLE_AI_FEATURES=NO` in Production.xcconfig (dead flag)
 4. Delete `ACHPaymentService.swift` (dead code)
-
-ASC metadata (no build needed):
 5. Verify ASC privacy labels match actual SDK data collection
 6. Fill "What's New" text in ASC
 7. Set privacy URL in version localization
 
-Feature gap (needs implementation):
-8. Add delivery photo display to Customer app order tracking + history
-
----
-
-## PRIORITY 3: iOS Restaurant Screenshots + Submit
-
-**Screenshots are the ONLY blocker** for Restaurant app submission. 0 screenshot sets exist.
-- Build 202 (once uploaded) will have ALL fixes
+### iOS Restaurant Screenshots + Submit
+- Build 206 on TestFlight has ALL fixes (combo, bestseller, seeding, recommendations)
 - Minimum: iPhone 6.7" display screenshots
-- Key screens: Dashboard, Menu, Orders, Settings, Documents, Promotions
+- Key screens: Dashboard, Menu (with combo badge), Orders, AI Tab, Settings, Promotions
 
----
-
-## PRIORITY 4: iOS Driver App — Prepare + Submit
-
-Same ASC metadata audit needed for Driver app (com.dollorai.delivery, build 215).
+### iOS Driver App — Prepare + Submit
 - Demo: demo.driver@dollor.ai / DemoDriver2025!
 - State: PREPARE_FOR_SUBMISSION
 
 ---
 
-## PRIORITY 5: Release iOS Customer App
+## Current Build Versions (Updated Mar 13, 2026)
 
-Build 1111 is approved (PENDING_DEVELOPER_RELEASE). Wait for Apple's business papers confirmation.
-
----
-
-## PRIORITY 6: Continue v1.5 Roadmap
-
-| Phase | Status | Next Step |
-|-------|--------|-----------|
-| 06 SSL Pinning | Complete | — |
-| 07 Play Store | Not started | `/gsd:plan-phase 7` |
-| 08 DB Rotation | Not started | `/gsd:plan-phase 8` |
-| 09 Rideshare E2E | Not started | `/gsd:plan-phase 9` |
-| 10 Support System | **Complete** (audited this session) | — |
-| 11 Change Mgmt | Complete | — |
-| 12 Admin Portal | Complete | — |
-
----
-
-## Current Build Versions (Updated Mar 12, 2026)
-
-| Platform | App | Build | Distribution |
-|----------|-----|-------|-------------|
-| iOS | Customer | 1113 | TestFlight Mar 6, **Build 1111 APPROVED** |
-| iOS | Driver | 215 | TestFlight Mar 6 |
-| iOS | Restaurant | **201** | TestFlight Mar 12 (needs 202 for menu fix) |
-| Android | Customer | vC=38 (1.0.37) | Firebase Mar 11 |
-| Android | Driver | vC=33 (1.0.32) | Firebase Mar 6 |
-| Android | Partner | vC=33 (1.0.32) | Firebase Mar 11 |
+| Platform | App | Build | Version | Distribution |
+|----------|-----|-------|---------|-------------|
+| iOS | Customer | 1114 | 1.1 | TestFlight Mar 13 |
+| iOS | Driver | 216 | 1.1 | TestFlight Mar 13 |
+| iOS | Restaurant | 206 | 1.1 | TestFlight Mar 13 |
+| Android | Customer | vC=38 | 1.0.37 | Firebase Mar 11 |
+| Android | Driver | vC=33 | 1.0.32 | Firebase Mar 6 |
+| Android | Partner | vC=33 | 1.0.32 | Firebase Mar 11 |
 
 ---
 
@@ -115,11 +180,15 @@ Build 1111 is approved (PENDING_DEVELOPER_RELEASE). Wait for Apple's business pa
 
 ```
 /gsd:resume-work
-→ Bump iOS Restaurant to 202, archive, upload TestFlight
-→ /gsd:quick "Apple cleanup items 1-4 for iOS Customer app"
-→ Bump Customer build → archive → TestFlight (DO NOT submit)
-→ ASC metadata items 5-7 via API
-→ Take Restaurant screenshots → upload to ASC
-→ Submit Restaurant app for review
-→ /gsd:plan-phase 7 (Play Store Publishing)
+→ PRIORITY 0: /gsd:debug "SSL cert unsafe connection"
+  → Run openssl checks, verify ACM, fix cert if expired
+  → If root CA changed: update SSL pins in NetworkSecurity.swift
+→ PRIORITY 1: /gsd:debug "Stripe payment not working demo account"
+  → Run anti-hallucination curl commands
+  → Fix payment flow
+  → Verify order completion end-to-end
+→ Deploy backend if any fixes needed
+→ PRIORITY 2: Rebuild iOS apps → TestFlight
+→ PRIORITY 3: Test combo + bestseller on device
+→ PRIORITY 4: Apple cleanup + screenshots if time permits
 ```
