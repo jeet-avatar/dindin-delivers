@@ -843,7 +843,8 @@ async def estimate_ride_fare_endpoint(
 async def get_available_rides(
     driver_lat: Optional[float] = None,
     driver_lng: Optional[float] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: dict = Depends(require_any_auth),
 ):
     """
     Get available P2P rides for drivers
