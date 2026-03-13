@@ -26,6 +26,12 @@ struct MenuItem: Identifiable, Codable, Sendable {
     var customizations: [MenuItemCustomization]?
     var selectedCustomizations: [SelectedCustomization]?
 
+    // Bestseller / Combo fields
+    var isBestseller: Bool?
+    var isCombo: Bool?
+    var comboItems: [ComboItemDetail]?
+    var comboSavings: Double?
+
     enum CodingKeys: String, CodingKey {
         case id
         case name
@@ -46,6 +52,10 @@ struct MenuItem: Identifiable, Codable, Sendable {
         case dietaryTags = "dietary_tags"
         case customizations
         case selectedCustomizations
+        case isBestseller = "is_bestseller"
+        case isCombo = "is_combo"
+        case comboItems = "combo_items"
+        case comboSavings = "combo_savings"
     }
 
     // Dietary display helpers
@@ -64,6 +74,19 @@ struct MenuItem: Identifiable, Codable, Sendable {
 
     var hasDietaryInfo: Bool {
         isVegetarian == true || isVegan == true || isGlutenFree == true || (spiceLevel ?? 0) > 0
+    }
+}
+
+// MARK: - Combo Item Detail
+struct ComboItemDetail: Codable, Sendable {
+    var itemId: Int
+    var itemName: String
+    var originalPrice: Double
+
+    enum CodingKeys: String, CodingKey {
+        case itemId = "item_id"
+        case itemName = "item_name"
+        case originalPrice = "original_price"
     }
 }
 
@@ -114,5 +137,19 @@ extension MenuItem {
     var customizationSummary: String? {
         guard let customizations = selectedCustomizations, !customizations.isEmpty else { return nil }
         return customizations.flatMap { $0.selectedOptions }.joined(separator: ", ")
+    }
+
+    // Bestseller / Combo display helpers
+    var isBestsellerItem: Bool { isBestseller == true }
+    var isComboItem: Bool { isCombo == true }
+
+    var comboItemNames: String? {
+        guard let items = comboItems, !items.isEmpty else { return nil }
+        return items.map { $0.itemName }.joined(separator: ", ")
+    }
+
+    var savingsDisplay: String? {
+        guard let savings = comboSavings, savings > 0 else { return nil }
+        return String(format: "Save $%.2f", savings)
     }
 }

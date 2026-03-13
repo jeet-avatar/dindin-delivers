@@ -487,21 +487,64 @@ struct MenuItemCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 5) {
-                Text(item.name.uppercased())
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(Theme.brandBlack)
+                HStack(spacing: 6) {
+                    Text(item.name.uppercased())
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.brandBlack)
+                        .lineLimit(1)
+
+                    if item.isBestsellerItem {
+                        HStack(spacing: 2) {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 8))
+                            Text("Bestseller")
+                                .font(.system(size: 9, weight: .bold))
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.orange.opacity(0.15))
+                        .foregroundColor(.orange)
+                        .cornerRadius(4)
+                    }
+
+                    if item.isComboItem {
+                        Text("Combo Deal")
+                            .font(.system(size: 9, weight: .bold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Color.green.opacity(0.15))
+                            .foregroundColor(.green)
+                            .cornerRadius(4)
+                    }
+                }
 
                 Text(item.description)
                     .font(.caption)
                     .foregroundColor(Theme.textGrey)
                     .lineLimit(2)
 
-                Text("$\(String(format: "%.2f", item.price))")
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundColor(Theme.brandBlack)
-                    .padding(.top, 5)
+                // Combo items list
+                if item.isComboItem, let comboNames = item.comboItemNames {
+                    Text("Includes: \(comboNames)")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+
+                HStack(spacing: 4) {
+                    Text("$\(String(format: "%.2f", item.price))")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.brandBlack)
+
+                    if let savings = item.savingsDisplay {
+                        Text(savings)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.green)
+                    }
+                }
+                .padding(.top, 5)
 
                 // Add Button
                 Button(action: onAdd) {
