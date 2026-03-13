@@ -1306,6 +1306,10 @@ def _run_startup_migrations():
         ("vendor_menu_items", "admin_notes", "TEXT"),
         ("vendor_menu_items", "reviewed_at", "TIMESTAMP"),
         ("vendor_menu_items", "reviewed_by", "INTEGER"),
+        ("vendor_menu_items", "is_bestseller", "BOOLEAN DEFAULT FALSE"),
+        ("vendor_menu_items", "is_combo", "BOOLEAN DEFAULT FALSE"),
+        ("vendor_menu_items", "combo_items", "JSON"),
+        ("vendor_menu_items", "combo_savings", "FLOAT DEFAULT 0.0"),
         # Rides table - full schema
         ("rides", "ride_id", "VARCHAR(50)"),
         ("rides", "customer_id", "INTEGER"),
@@ -13718,10 +13722,10 @@ def get_vendor_menu(
                 "daily_limit": item.daily_limit,
                 "items_sold_today": int(item.items_sold_today) if item.items_sold_today is not None else 0,
                 "customizations": item.customizations if hasattr(item, 'customizations') and item.customizations else None,
-                "is_bestseller": bool(item.is_bestseller) if item.is_bestseller is not None else False,
-                "is_combo": bool(item.is_combo) if item.is_combo is not None else False,
-                "combo_items": item.combo_items if hasattr(item, 'combo_items') and item.combo_items else [],
-                "combo_savings": float(item.combo_savings) if item.combo_savings else 0.0,
+                "is_bestseller": bool(getattr(item, 'is_bestseller', False) or False),
+                "is_combo": bool(getattr(item, 'is_combo', False) or False),
+                "combo_items": getattr(item, 'combo_items', None) or [],
+                "combo_savings": float(getattr(item, 'combo_savings', 0) or 0),
                 "created_at": item.created_at.isoformat() if item.created_at else None
             })
 
