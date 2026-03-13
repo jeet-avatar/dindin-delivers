@@ -183,11 +183,35 @@ async def fix_cors_and_security_headers(request, call_next):
 
 @app.middleware("http")
 async def limit_request_size(request: Request, call_next):
-    """Reject oversized request bodies to prevent memory exhaustion (DoS)."""
+    """Reject oversized request bodies to prevent memory exhaustion (DoS).
+    Checks Content-Length header first (fast path), then streams the body for
+    chunked transfers where CloudFront strips Content-Length.
+    """
+    from fastapi.responses import JSONResponse
+    MAX_BODY = 10_485_760  # 10MB
+
+    # Fast path: Content-Length header present (direct connections, non-CF)
     content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > 10_485_760:  # 10MB
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=413, content={"detail": "Request body too large (max 10MB)"})
+    if content_length:
+        try:
+            if int(content_length) > MAX_BODY:
+                return JSONResponse(status_code=413, content={"detail": "Request body too large (max 10MB)"})
+        except ValueError:
+            pass
+
+    # Slow path: stream body for chunked transfers (CloudFront strips Content-Length)
+    if request.method in ("POST", "PUT", "PATCH"):
+        body = b""
+        async for chunk in request.stream():
+            body += chunk
+            if len(body) > MAX_BODY:
+                return JSONResponse(status_code=413, content={"detail": "Request body too large (max 10MB)"})
+
+        # Reconstruct receive callable so downstream handlers can read the body
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+        request._receive = receive
+
     return await call_next(request)
 
 # ===================== ADMIN AUTH MIDDLEWARE =====================
@@ -4379,6 +4403,16 @@ def get_driver_profile_by_id(driver_id: int, driver: Driver = Depends(require_dr
         # Stripe / Payouts
         "stripe_onboarded": driver.stripe_onboarded,
         "stripe_account_connected": driver.stripe_account_id is not None,
+        # Bank Account (iOS app uses camelCase keys)
+        "bankAccount": {
+            "bankName": driver.bank_name,
+            "accountNumberLast4": driver.bank_last4,
+            "accountHolderName": driver.bank_account_holder or f"{driver.first_name or ''} {driver.last_name or ''}".strip(),
+            "routingNumber": driver.bank_routing_number,
+            "accountType": "checking",
+            "isVerified": bool(driver.bank_verified),
+        } if driver.bank_name and driver.bank_last4 else None,
+        "bank_account_linked": bool(driver.bank_name and driver.bank_last4),
         # Address fields
         "street": driver.street,
         "city": driver.city,
