@@ -201,9 +201,10 @@ None
 | 167 | Add auth to unprotected P0 endpoints — rides/available + Firebase startup validation | 2026-03-13 | 60b048e3 | [167-add-router-level-auth-to-all-unprotected](./quick/167-add-router-level-auth-to-all-unprotected/) |
 | 168 | Fix 3 critical DoS vulnerabilities — bounded DB queries, WS connection caps, efficient rate limiter eviction | 2026-03-13 | 67826bbb | [168-fix-3-critical-dos-vulnerabilities-cap-d](./quick/168-fix-3-critical-dos-vulnerabilities-cap-d/) |
 | 169 | Fix 4 high DoS vulnerabilities — upload rate limit, IP pwd-reset limit, Redis scheduler lock, DB pool alert | 2026-03-13 | 24f022d5 | [169-fix-4-high-dos-vulnerabilities-per-user-](./quick/169-fix-4-high-dos-vulnerabilities-per-user-/) |
+| 170 | Fix 4 medium DoS vulnerabilities — Stripe webhook idempotency, 10MB body limit, analytics row caps, AI function timeouts | 2026-03-13 | 255cee6a | [170-fix-medium-dos-vulnerabilities-stripe-we](./quick/170-fix-medium-dos-vulnerabilities-stripe-we/) |
 
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed quick task 169: Fix 4 high DoS vulnerabilities — upload rate limit, IP pwd-reset limit, Redis scheduler lock, DB pool alert
+Stopped at: Completed quick task 170: Fix 4 medium DoS vulnerabilities — Stripe webhook idempotency, 10MB body limit, analytics row caps, AI function timeouts
 Resume file: .planning/NEXT_SESSION_PROMPT.md
