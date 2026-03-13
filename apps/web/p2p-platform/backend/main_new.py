@@ -4800,6 +4800,32 @@ def get_driver_stripe_status(
     import os
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
+    # Demo driver: return mock verified bank account for App Store review
+    if driver.email == "demo.driver@dollor.ai":
+        return {
+            "success": True,
+            "has_stripe_account": True,
+            "stripe_account_id": "acct_demo_marcus_johnson",
+            "onboarded": True,
+            "charges_enabled": True,
+            "payouts_enabled": True,
+            "bank_account_linked": True,
+            "bank_account": {
+                "bank_name": "Wells Fargo",
+                "last4": "4242",
+                "routing_number": "121042882",
+                "account_holder_name": "Marcus Johnson",
+                "account_holder_type": "individual",
+                "status": "verified"
+            },
+            "details_submitted": True,
+            "requirements": {
+                "currently_due": [],
+                "eventually_due": [],
+                "pending_verification": []
+            }
+        }
+
     if not driver.stripe_account_id:
         return {
             "success": True,
@@ -19069,6 +19095,8 @@ def setup_demo_accounts(secret_key: Optional[str] = Query(None), db: Session = D
                 verification_status="verified",
                 documents_verified=True,
                 documents_verified_at=datetime(2024, 1, 12),
+                stripe_account_id="acct_demo_marcus_johnson",
+                stripe_onboarded=True,
                 created_at=datetime.utcnow()
             )
             db.add(demo_driver)
@@ -19102,6 +19130,8 @@ def setup_demo_accounts(secret_key: Optional[str] = Query(None), db: Session = D
             existing_driver.is_online = True
             existing_driver.verification_status = "verified"
             existing_driver.documents_verified = True
+            existing_driver.stripe_account_id = "acct_demo_marcus_johnson"
+            existing_driver.stripe_onboarded = True
             db.commit()
 
             # Ensure User record exists for existing driver
