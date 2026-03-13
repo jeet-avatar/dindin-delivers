@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-12 - Completed quick task 140: Verify STATE.md deduplication — removed 21 corrupted lines, 1490 backend tests PASS
+Last activity: 2026-03-13 - Completed quick task 164: Add combo deals and bestseller features to menu system
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -136,9 +136,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 84 | Research API alignment guarantee strategy — OpenAPI CI validator recommended (~2-3 hrs to implement) | 2026-03-04 | (none) | [84-research-api-alignment-guarantee-strateg](./quick/84-research-api-alignment-guarantee-strateg/) |
 | 85 | Implement OpenAPI CI contract validator — 321 PASS, 0 FAIL, 15 EXCLUDED, CI job added | 2026-03-04 | 57358368 | [85-implement-openapi-ci-contract-validator-](./quick/85-implement-openapi-ci-contract-validator-/) |
 | 140 | Verify STATE.md deduplication — removed 21 corrupted lines, 1490 backend tests PASS | 2026-03-12 | 3b5e7a45 | [140-verify-state-md-deduplication-no-duplica](./quick/140-verify-state-md-deduplication-no-duplica/) |
+| 164 | Add combo deals and bestseller features to menu system | 2026-03-13 | 4d6b0831 | Verified | [164-add-combo-deals-and-bestseller-features-](./quick/164-add-combo-deals-and-bestseller-features-/) |
 
 ## Session Continuity
 
-Last session: 2026-03-12
-Stopped at: Completed quick-140 (STATE.md corruption cleaned: 164→143 lines, 1 Decisions header, 1490 backend tests passing).
+Last session: 2026-03-13
+Stopped at: Completed quick-164 (combo deals + bestseller — backend model/API, iOS restaurant UI, iOS customer badges+sorting). Both apps BUILD SUCCEEDED. 4 items need runtime testing.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
