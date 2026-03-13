@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-13 - Completed quick task 165: Deploy SSL fix + Stripe webhook secret + demo password fix
+Last activity: 2026-03-13 - Completed quick task 166: Remove bestseller from AI tab recommendations
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -195,6 +195,7 @@ None
 | 163 | Fix STATE.md bloat — deduplicate Decisions section (164K lines to ~200) | 2026-03-13 | fd0f2039 | [163-fix-state-md-bloat-deduplicate-decisions](./quick/163-fix-state-md-bloat-deduplicate-decisions/) |
 | 164 | Add combo deals and bestseller features to menu system | 2026-03-13 | b00f7358 | [164-add-combo-deals-and-bestseller-features-](./quick/164-add-combo-deals-and-bestseller-features-/) |
 | 165 | Deploy SSL fix + Stripe webhook secret + demo password fix to staging and production | 2026-03-13 | 4514e509 | [165-deploy-ssl-fix-stripe-webhook-secret-dem](./quick/165-deploy-ssl-fix-stripe-webhook-secret-dem/) |
+| 166 | Remove bestseller from promotions and AI tab in iOS Restaurant app | 2026-03-13 | 8fc9836c | [166-remove-bestseller-from-promotions-and-ai](./quick/166-remove-bestseller-from-promotions-and-ai/) |
 | 165 | Deploy SSL fix + Stripe webhook secret + demo password fix | 2026-03-13 | 94ab703d | [165-deploy-ssl-fix-stripe-webhook-secret-dem](./quick/165-deploy-ssl-fix-stripe-webhook-secret-dem/) |
 
 ## Session Continuity
