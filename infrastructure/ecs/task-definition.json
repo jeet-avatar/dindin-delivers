@@ -61,6 +61,10 @@
           "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/stripe-vT8WRA:STRIPE_PUBLISHABLE_KEY::"
         },
         {
+          "name": "STRIPE_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/stripe-vT8WRA:STRIPE_WEBHOOK_SECRET::"
+        },
+        {
           "name": "SMTP_USER",
           "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/smtp-credentials-eqAwat:SMTP_USER::"
         },

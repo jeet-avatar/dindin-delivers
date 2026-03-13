@@ -19181,8 +19181,8 @@ def recreate_demo_customer(secret_key: Optional[str] = Query(None), db: Session 
         db.execute(text("DELETE FROM customers WHERE email = 'demo.customer@dollor.ai'"))
         db.commit()
 
-        # Create fresh demo customer (password without special chars for compatibility)
-        demo_password = "DemoCustomer2025"
+        # Create fresh demo customer
+        demo_password = "DemoCustomer2025!"
         new_hash = get_password_hash(demo_password)
         demo_customer = Customer(
             customer_id="DEMO-CUST-001",
