@@ -2825,8 +2825,32 @@ def _should_run_scheduler() -> bool:
     causing all background jobs to run 4x per interval with separate in-memory dedup sets.
     This leads to duplicate emails, duplicate refunds, and duplicate push notifications.
 
-    Uses a file lock that only one process can acquire.
+    Strategy:
+    1. Try Redis SET NX PX (distributed lock, auto-expires after 55s if container crashes)
+    2. Fall back to fcntl file lock if Redis unavailable (single-host protection)
     """
+    global _scheduler_lock_fd
+
+    # Strategy 1: Redis distributed lock (preferred — auto-expires on container crash)
+    try:
+        from cache import redis_client, REDIS_AVAILABLE
+        if REDIS_AVAILABLE and redis_client:
+            lock_key = "dollor:scheduler:lock"
+            lock_value = str(os.getpid())
+            # SET NX PX: set only if not exists, with 55-second expiry
+            acquired = redis_client.set(lock_key, lock_value, nx=True, px=55000)
+            if acquired:
+                logger.info(f"Scheduler Redis lock acquired by PID {os.getpid()}")
+                _scheduler_lock_fd = None  # No fd needed for Redis lock
+                return True
+            else:
+                current_holder = redis_client.get(lock_key)
+                logger.info(f"Scheduler Redis lock NOT acquired by PID {os.getpid()} — held by PID {current_holder}")
+                return False
+    except Exception as e:
+        logger.warning(f"Redis scheduler lock failed ({e}), falling back to file lock")
+
+    # Strategy 2: File lock fallback (works on single host, not distributed)
     import fcntl
     lock_path = "/tmp/dollor-scheduler.lock"
     try:
@@ -2839,13 +2863,12 @@ def _should_run_scheduler() -> bool:
         os.fsync(lock_fd)
         # Keep lock_fd open (lock held for process lifetime — released on exit)
         # Store on module to prevent garbage collection
-        global _scheduler_lock_fd
         _scheduler_lock_fd = lock_fd
-        logger.info(f"Scheduler lock acquired by PID {os.getpid()}")
+        logger.info(f"Scheduler file lock acquired by PID {os.getpid()}")
         return True
     except (OSError, IOError):
         # Another process already holds the lock
-        logger.info(f"Scheduler lock NOT acquired by PID {os.getpid()} — another worker is the scheduler leader")
+        logger.info(f"Scheduler file lock NOT acquired by PID {os.getpid()} — another worker is the scheduler leader")
         return False
 
 
@@ -2899,6 +2922,24 @@ def start_timeout_scheduler():
             name="Delete S3 delivery photos older than 12 hours",
             replace_existing=True
         )
+        # Refresh Redis scheduler lock every 50s (lock TTL is 55s — keeps leader alive across job cycles)
+        try:
+            from cache import redis_client, REDIS_AVAILABLE
+            if REDIS_AVAILABLE and redis_client:
+                def _refresh_scheduler_lock():
+                    try:
+                        redis_client.expire("dollor:scheduler:lock", 55)
+                    except Exception:
+                        pass
+                restaurant_timeout_scheduler.add_job(
+                    _refresh_scheduler_lock,
+                    IntervalTrigger(seconds=50),
+                    id="scheduler_lock_refresh",
+                    name="Refresh Redis scheduler lock",
+                    replace_existing=True
+                )
+        except Exception:
+            pass  # Redis not available — file lock handles single-host protection
         restaurant_timeout_scheduler.start()
         logger.info(
             f"Timeout scheduler started. "

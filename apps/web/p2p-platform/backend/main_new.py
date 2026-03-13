@@ -263,7 +263,7 @@ import re as _re
 
 _PUBLIC_EXACT_PATHS = {
     # Health checks
-    "/health", "/api/health", "/api/health/ready", "/api/health/live",
+    "/health", "/api/health", "/api/health/ready", "/api/health/live", "/api/health/db-pool",
     "/api/erp/health/services",
 
     # Root
@@ -457,6 +457,8 @@ registration_rate_limiter = RateLimiter(max_requests=5, window_seconds=3600)  # 
 password_reset_limiter = RateLimiter(max_requests=5, window_seconds=3600)  # 5 per hour per email
 payment_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 per minute per user
 admin_mutation_limiter = RateLimiter(max_requests=30, window_seconds=60)  # 30 per minute per admin IP
+upload_limiter = RateLimiter(max_requests=10, window_seconds=3600)  # 10 uploads per hour per user
+password_reset_ip_limiter = RateLimiter(max_requests=5, window_seconds=3600)  # 5 per hour per IP (anti-SMTP-amplification)
 
 # Demo accounts exempt from auth rate limiting (Apple App Store reviewers)
 DEMO_EMAILS = frozenset({
@@ -565,6 +567,15 @@ async def health_ready(db: Session = Depends(get_db)):
 async def health_live():
     """Liveness probe - checks if service is running"""
     return {"alive": True, "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/api/health/db-pool")
+async def health_db_pool():
+    """DB connection pool utilization stats. Returns warning status when >= 90% utilized."""
+    from database import get_pool_stats
+    stats = get_pool_stats()
+    return stats
+
 
 @app.post("/api/admin/backfill-payouts")
 async def backfill_payouts(request: Request, secret_key: str = Query(...), db: Session = Depends(get_db)):
@@ -2614,6 +2625,7 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
 # Password Reset Request
 @app.post("/api/auth/password-reset/request")
 def request_password_reset(http_request: Request, request: PasswordResetRequest, db: Session = Depends(get_db)):
+    check_rate_limit(http_request, password_reset_ip_limiter, "pwd_reset_ip")
     check_rate_limit(http_request, password_reset_limiter, "pwd_reset", identifier=request.email.lower())
 
     user = db.query(User).filter(User.email == request.email).first()
@@ -5736,6 +5748,7 @@ def get_driver_documents_by_id(driver_id: int, driver: Driver = Depends(require_
 
 @app.post("/drivers/{driver_id}/documents")
 async def upload_driver_document_by_id(
+    request: Request,
     driver_id: int,
     document_type: str = Form(...),
     file: UploadFile = File(...),
@@ -5744,6 +5757,7 @@ async def upload_driver_document_by_id(
     db: Session = Depends(get_db)
 ):
     """Upload driver document with Persona verification integration"""
+    check_rate_limit(request, upload_limiter, "upload", identifier=f"driver:{driver.id}")
     # SECURITY: Verify the authenticated driver owns this account
     if driver.id != driver_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -5851,12 +5865,14 @@ async def upload_driver_document_by_id(
 
 @app.post("/api/auth/driver/documents")
 async def upload_driver_document(
+    request: Request,
     document_type: str = Form(...),
     file: UploadFile = File(...),
     driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """Upload a document for a driver (license, insurance, etc.) - supports S3 and local storage"""
+    check_rate_limit(request, upload_limiter, "upload", identifier=f"driver:{driver.id}")
     from s3_service import get_s3_service
 
     # Validate document type
@@ -6185,6 +6201,7 @@ class CustomerPasswordResetConfirm(BaseModel):
 @app.post("/api/customer/password-reset/request")
 def customer_request_password_reset(http_request: Request, request: CustomerPasswordResetRequest, db: Session = Depends(get_db)):
     """Request a password reset - sends code to email"""
+    check_rate_limit(http_request, password_reset_ip_limiter, "pwd_reset_ip")
     check_rate_limit(http_request, password_reset_limiter, "pwd_reset", identifier=request.email.lower())
     import random
 
@@ -6269,6 +6286,7 @@ class DriverPasswordResetConfirm(BaseModel):
 @app.post("/api/driver/password-reset/request")
 def driver_request_password_reset(http_request: Request, request: DriverPasswordResetRequest, db: Session = Depends(get_db)):
     """Request a driver password reset - sends code to email"""
+    check_rate_limit(http_request, password_reset_ip_limiter, "pwd_reset_ip")
     check_rate_limit(http_request, password_reset_limiter, "pwd_reset", identifier=request.email.lower())
     import random
 
@@ -6350,6 +6368,7 @@ class VendorPasswordResetConfirm(BaseModel):
 @app.post("/api/vendor/password-reset/request")
 def vendor_request_password_reset(http_request: Request, request: VendorPasswordResetRequest, db: Session = Depends(get_db)):
     """Request a vendor password reset - sends code to email"""
+    check_rate_limit(http_request, password_reset_ip_limiter, "pwd_reset_ip")
     check_rate_limit(http_request, password_reset_limiter, "pwd_reset", identifier=request.email.lower())
     import random
 
@@ -9913,6 +9932,7 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
 # Public document upload endpoint for vendor registration (no auth required)
 @app.post("/api/vendors/public/{vendor_id}/documents")
 async def upload_vendor_document_public(
+    request: Request,
     vendor_id: int,
     file: UploadFile = File(...),
     document_type: str = Form(...),
@@ -9924,6 +9944,7 @@ async def upload_vendor_document_public(
     Requires vendor_id and contact_email for verification (not JWT).
     Documents are uploaded to ZIP system for verification before approval.
     """
+    check_rate_limit(request, upload_limiter, "upload")  # IP-based (public endpoint, no JWT)
     from models import Vendor
     import uuid
 
@@ -11389,6 +11410,7 @@ def get_vendor_documents(
 
 @app.post("/api/vendors/{vendor_id}/documents")
 async def upload_vendor_document(
+    request: Request,
     vendor_id: int,
     file: UploadFile = File(...),
     document_type: str = Form(...),
@@ -11396,6 +11418,7 @@ async def upload_vendor_document(
     _auth_vendor: Vendor = Depends(require_vendor)
 ):
     """Upload a document for a vendor"""
+    check_rate_limit(request, upload_limiter, "upload", identifier=f"vendor:{_auth_vendor.id}")
     from models import Vendor
     import os
     import uuid
@@ -14536,6 +14559,7 @@ def send_sample_promo_emails(db: Session = Depends(get_db)):
 
 @app.post("/api/vendors/{vendor_id}/upload-image")
 async def upload_vendor_image(
+    request: Request,
     vendor_id: int,
     file: UploadFile = File(...),
     _auth_vendor: Vendor = Depends(require_vendor),
@@ -14545,6 +14569,7 @@ async def upload_vendor_image(
     Upload a cover image for a restaurant/vendor.
     Stores in S3 (or local fallback) and updates vendor.image_url.
     """
+    check_rate_limit(request, upload_limiter, "upload", identifier=f"vendor:{_auth_vendor.id}")
     if _auth_vendor.id != vendor_id:
         raise HTTPException(status_code=403, detail="Access denied - not your vendor account")
     from models import Vendor
