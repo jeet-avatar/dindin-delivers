@@ -197,9 +197,10 @@ None
 | 165 | Deploy SSL fix + Stripe webhook secret + demo password fix to staging and production | 2026-03-13 | 4514e509 | [165-deploy-ssl-fix-stripe-webhook-secret-dem](./quick/165-deploy-ssl-fix-stripe-webhook-secret-dem/) |
 | 166 | Remove bestseller from promotions and AI tab in iOS Restaurant app | 2026-03-13 | 8fc9836c | [166-remove-bestseller-from-promotions-and-ai](./quick/166-remove-bestseller-from-promotions-and-ai/) |
 | 165 | Deploy SSL fix + Stripe webhook secret + demo password fix | 2026-03-13 | 94ab703d | [165-deploy-ssl-fix-stripe-webhook-secret-dem](./quick/165-deploy-ssl-fix-stripe-webhook-secret-dem/) |
+| 167 | Add auth to unprotected P0 endpoints — rides/available + Firebase startup validation | 2026-03-13 | 60b048e3 | [167-add-router-level-auth-to-all-unprotected](./quick/167-add-router-level-auth-to-all-unprotected/) |
 
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed quick task 165: Deploy SSL fix + Stripe webhook secret + demo password fix
+Stopped at: Completed quick task 167: Add router-level auth to unprotected P0 endpoints
 Resume file: .planning/NEXT_SESSION_PROMPT.md
