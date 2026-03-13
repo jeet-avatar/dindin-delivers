@@ -1,194 +1,151 @@
-# Next Session Prompt
+# Next Session Prompt — Submit Restaurant App to App Store
 
-> Run `/gsd:resume-work` to restore context, then work through items below.
-
----
-
-## Session Summary (Mar 13, 2026 — Late Night Session)
-
-### Completed This Session
-
-| Quick | What | Commits |
-|-------|------|---------|
-| 140 | Verify STATE.md deduplication — 164→143 lines, 1490 tests pass | `3b5e7a45` |
-| 164 | Combo deals + bestseller features (backend + iOS restaurant + iOS customer) | `4d6b0831` |
-| 141 | Build + upload all 3 iOS apps to TestFlight v1.1 (Customer 1114, Driver 216, Restaurant 206) | `ea2b07c9` |
-| — | Fix prominent Create Combo Deal button (was icon-only, now green banner) | `93560806` |
-| — | CRITICAL FIX: Add combo/bestseller columns to startup migrations (menu 500 fix) | `4dcbec4a` |
-
-**Deployments:**
-- Backend staging: Succeeded (run 23033779943) — includes migration fix
-- Backend production: Succeeded (run 23033982090) — includes migration fix
-- iOS Customer 1114 v1.1: TestFlight (uploaded)
-- iOS Driver 216 v1.1: TestFlight (uploaded)
-- iOS Restaurant 206 v1.1: TestFlight (uploaded)
-
-**New Features Deployed:**
-- **Combo Deals**: Vendors create combos from existing menu items, auto-pricing suggestions (10-15% discount), customer sees "Combo Deal" badge + included items + savings
-- **Bestseller**: Vendors toggle bestseller on items, customer sees "Bestseller" badge, sorted first per category
-- **Marketing version bumped**: 1.0 → 1.1 (Apple required it — v1.0 was previously approved)
+> Run `/gsd:resume-work` then follow steps below.
 
 ---
 
-## PRIORITY 0 — CRITICAL: SSL Certificate Issue (BLOCKING)
+## Restaurant App — Current State
 
-**Symptom:** Apple is flagging the website as "unsafe connection" — certificate appears invalid/expired.
+- **Bundle ID:** `com.dollorai.restaurant`
+- **App ID (ASC):** `6758357924`
+- **ASC State:** `PREPARE_FOR_SUBMISSION` (version 1.0)
+- **TestFlight Build:** 206 (v1.1) — uploaded Mar 13, 2026
+- **Demo:** `demo.restaurant@dollor.ai` / `DemoRestaurant2025!`
+- **Org:** Zietra Technologies inc (Team ID: PRKZ4UVCD7)
+- **Features:** Combo deals, bestseller badges, AI insights, order management, menu CRUD
 
-**Anti-hallucination investigation steps (MANDATORY):**
+---
+
+## Step 1: Fix Version Mismatch (1.0 → 1.1)
+
+ASC has version 1.0 but build is 1.1. Update or create version 1.1:
+
 ```bash
-# Check SSL cert expiry for dollor.ai
-openssl s_client -connect api.dollor.ai:443 -servername api.dollor.ai 2>/dev/null | openssl x509 -noout -dates -subject -issuer
+# Check current ASC version + available builds
+python3 -c "
+import jwt, time, json, urllib.request
+key_path = '/Users/jeet/.appstoreconnect/private_keys/AuthKey_9K626GB728.p8'
+with open(key_path, 'r') as f: private_key = f.read()
+now = int(time.time())
+payload = {'iss': '80d10e49-f379-462f-9668-5ea53016812e', 'iat': now, 'exp': now + 1200, 'aud': 'appstoreconnect-v1'}
+token = jwt.encode(payload, private_key, algorithm='ES256', headers={'kid': '9K626GB728'})
 
-# Check www.dollor.ai too
-openssl s_client -connect www.dollor.ai:443 -servername www.dollor.ai 2>/dev/null | openssl x509 -noout -dates -subject -issuer
+req = urllib.request.Request('https://api.appstoreconnect.apple.com/v1/apps/6758357924/appStoreVersions', headers={'Authorization': f'Bearer {token}'})
+data = json.loads(urllib.request.urlopen(req).read())
+for v in data['data']:
+    a = v['attributes']
+    print(f'ID: {v[\"id\"]} | Version: {a[\"versionString\"]} | State: {a[\"appStoreState\"]}')
 
-# Check bare domain
-openssl s_client -connect dollor.ai:443 -servername dollor.ai 2>/dev/null | openssl x509 -noout -dates -subject -issuer
-
-# Check ACM cert in AWS (if above shows expired)
-aws acm list-certificates --region us-east-1 --query 'CertificateSummaryList[?DomainName==`dollor.ai` || DomainName==`*.dollor.ai`]'
-
-# Check CloudFront distribution cert
-aws cloudfront get-distribution --id E3LB9SMG1YD9ZL --query 'Distribution.DistributionConfig.ViewerCertificate'
+req2 = urllib.request.Request('https://api.appstoreconnect.apple.com/v1/builds?filter[app]=6758357924&sort=-uploadedDate&limit=5', headers={'Authorization': f'Bearer {token}'})
+data2 = json.loads(urllib.request.urlopen(req2).read())
+for b in data2['data']:
+    a = b['attributes']
+    print(f'Build: {a[\"version\"]} | v{a.get(\"cfBundleShortVersionString\",\"?\")} | State: {a[\"processingState\"]}')
+"
 ```
 
-**Context from memory:**
-- SSL pinning uses root CA pins ONLY (Amazon Root CA 1-4 + Starfield Services Root G2)
-- ACM cert was set to expire Dec 31, 2026 with auto-renewal ~Nov 1, 2026
-- Root-only pinning means ACM renewals should NOT require app updates
-- Runbook: `.planning/runbooks/ssl-pinning-rotation.md`
-- If cert actually expired early or was revoked, this breaks ALL iOS API calls (182 calls go through secureSession with SSL pinning)
+Update ASC version to 1.1 via API or web UI, then attach build 206.
 
-**Fix approach:**
+---
+
+## Step 2: Fill ASC Metadata
+
+| Field | Value |
+|-------|-------|
+| **Subtitle** | Manage orders, menu & analytics |
+| **Keywords** | restaurant,pos,orders,menu,delivery,analytics,combo,food,management |
+| **Support URL** | `https://www.dollor.ai/support` |
+| **Privacy URL** | `https://www.dollor.ai/privacy` |
+| **Category** | Food & Drink |
+| **Copyright** | 2026 Zietra Technologies inc |
+| **What's New** | Initial release |
+| **Demo Account** | `demo.restaurant@dollor.ai` / `DemoRestaurant2025!` |
+| **Review Notes** | Use demo credentials to log in. Dashboard shows sample orders and analytics. Menu management, AI insights, and promotion features are fully functional with demo data. |
+
+**Description:**
 ```
-/gsd:debug "Apple showing unsafe connection — SSL certificate appears invalid on dollor.ai"
+Dollor Restaurant is the business companion app for restaurants on the Dollor delivery platform.
+
+• Real-time order management — accept, prepare, and track orders
+• Menu management — add items, set availability, create combo deals
+• AI-powered insights — sales analytics, menu recommendations, promotion suggestions
+• Bestseller badges — highlight your top-selling items
+• Push notifications — instant alerts for new orders
+• Order history and revenue tracking
+• Kitchen Order Ticket (KOT) printing support
+
+Built for restaurant owners and managers who want to grow their delivery business.
+```
+
+```
+/gsd:quick "Fill Restaurant ASC metadata — description, keywords, URLs, demo account, review notes"
 ```
 
 ---
 
-## PRIORITY 1 — CRITICAL: Stripe Payment Not Working on Demo Account
+## Step 3: Screenshots (BLOCKING — 0 exist)
 
-**Symptom:** Stripe payment fails when trying to complete an order on the demo customer account.
+Capture 6-10 screenshots on iPhone 6.7" (required):
 
-**Anti-hallucination investigation steps (MANDATORY):**
+| # | Screen | Navigate To |
+|---|--------|-------------|
+| 1 | Login | App launch |
+| 2 | Dashboard | Login with demo |
+| 3 | Orders — New | Dashboard → New tab |
+| 4 | Menu | Bottom tab → Menu (shows Create Combo Deal button) |
+| 5 | AI Insights | Bottom tab → AI (3 recommendation cards) |
+| 6 | Promotions | AI → Slow Period → Promotions |
+| 7 | Order Detail | Tap any order |
+| 8 | Settings | Bottom tab → Settings |
+
+Upload to ASC via web UI or API after capture.
+
+---
+
+## Step 4: Pre-Submission Verification
+
 ```bash
-# Verify demo customer can login
-curl -s -X POST "https://api.dollor.ai/api/auth/customer/login" \
+# Verify demo login works on production
+curl -s -X POST "https://api.dollor.ai/api/vendors/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"demo.customer@dollor.ai","password":"DemoCustomer2025!"}' \
+  -d '{"email":"demo.restaurant@dollor.ai","password":"DemoRestaurant2025!"}' \
   | python3 -c 'import sys,json; d=json.load(sys.stdin); print("Token:", d.get("access_token","FAIL")[:20])'
 
-# Check if Stripe key is live or test
-grep -n "STRIPE" apps/web/p2p-platform/backend/main_new.py | head -10
+# Verify menu loads (vendor 40 = demo restaurant)
+curl -s "https://api.dollor.ai/api/vendors/40/menu" \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); print(f"Menu: {len(d)} items") if isinstance(d,list) else print(d)'
 
-# Check Stripe payment intent creation endpoint
-grep -n "payment.intent\|create_payment\|stripe.*payment" apps/web/p2p-platform/backend/main_new.py | head -10
-
-# Verify Stripe secret is loaded (staging vs production)
-curl -s "https://api.dollor.ai/api/health" 2>&1 | head -5
-
-# Check if demo customer has Stripe customer ID
-# (need token from login above)
-curl -s "https://api.dollor.ai/api/customers/profile" \
+# Verify AI insights
+curl -s "https://api.dollor.ai/api/vendors/40/ai-insights?period=today" \
   -H "Authorization: Bearer TOKEN" \
-  | python3 -c 'import sys,json; d=json.load(sys.stdin); print("stripe_customer_id:", d.get("stripe_customer_id", "NONE")); print("has_payment:", d.get("has_payment_method", "NONE"))'
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); print(f"Recs: {len(d.get(\"recommendations\",[]))}")'
+
+# Verify no unused permissions in Info.plist
+grep -E "NSUsageDescription" apps/ios/restaurant/eatffairrestaurant/Info.plist
+# Expected: Location, Camera, Photo Library only — NO Contacts, NO Always Location
 ```
 
-**Possible causes (verify each):**
-1. Demo account has no Stripe customer ID (never set up payment)
-2. Stripe test key on production (should be `sk_live_*`)
-3. Payment intent endpoint returns error
-4. iOS app sends wrong payment data format
-5. Stripe webhook not configured for payment confirmation
-
-**Fix approach:**
 ```
-/gsd:debug "Stripe payment not working on demo customer account — cannot complete order"
+/gsd:quick --full "Pre-submission verification for Restaurant app build 206"
 ```
 
 ---
 
-## PRIORITY 2: Rebuild iOS Apps After Fixes
-
-**After fixing SSL + Stripe, rebuild and re-upload to TestFlight:**
-- Customer: bump to 1115
-- Driver: bump to 217
-- Restaurant: bump to 207
+## Step 5: Submit for Review
 
 ```
-/gsd:quick "Bump iOS builds and upload to TestFlight — Customer 1115, Driver 217, Restaurant 207"
+/gsd:quick "Submit Restaurant app build 206 v1.1 to App Store review"
 ```
 
 ---
 
-## PRIORITY 3: Verify Combo + Bestseller Features on Device
-
-**Runtime testing from Quick-164 verification (4 items need manual check):**
-
-| # | Test | How |
-|---|------|-----|
-| 1 | Bestseller toggle persists | Restaurant app → Menu → Edit item → toggle Bestseller → save → re-open |
-| 2 | Create Combo end-to-end | Restaurant app → Menu → Create Combo Deal → select 2+ items → save |
-| 3 | Bestseller sort in Customer app | Customer app → restaurant → verify bestseller item at top of category |
-| 4 | Combo display in Customer app | Customer app → restaurant → verify Combo Deal badge + items list + savings |
-
-**If any fail:**
-```
-/gsd:debug "Combo/bestseller feature [#] fails — [describe]"
-```
-
----
-
-## PRIORITY 4: Previous Session Carryover
-
-From previous session (still pending):
-
-### Apple App Store Cleanup → Customer Build
-1. Remove `NSContactsUsageDescription` from Info.plist (unused)
-2. Remove `NSLocationAlwaysAndWhenInUseUsageDescription` from Info.plist (unused)
-3. Set `ENABLE_AI_FEATURES=NO` in Production.xcconfig (dead flag)
-4. Delete `ACHPaymentService.swift` (dead code)
-5. Verify ASC privacy labels match actual SDK data collection
-6. Fill "What's New" text in ASC
-7. Set privacy URL in version localization
-
-### iOS Restaurant Screenshots + Submit
-- Build 206 on TestFlight has ALL fixes (combo, bestseller, seeding, recommendations)
-- Minimum: iPhone 6.7" display screenshots
-- Key screens: Dashboard, Menu (with combo badge), Orders, AI Tab, Settings, Promotions
-
-### iOS Driver App — Prepare + Submit
-- Demo: demo.driver@dollor.ai / DemoDriver2025!
-- State: PREPARE_FOR_SUBMISSION
-
----
-
-## Current Build Versions (Updated Mar 13, 2026)
-
-| Platform | App | Build | Version | Distribution |
-|----------|-----|-------|---------|-------------|
-| iOS | Customer | 1114 | 1.1 | TestFlight Mar 13 |
-| iOS | Driver | 216 | 1.1 | TestFlight Mar 13 |
-| iOS | Restaurant | 206 | 1.1 | TestFlight Mar 13 |
-| Android | Customer | vC=38 | 1.0.37 | Firebase Mar 11 |
-| Android | Driver | vC=33 | 1.0.32 | Firebase Mar 6 |
-| Android | Partner | vC=33 | 1.0.32 | Firebase Mar 11 |
-
----
-
-## Suggested Session Flow
+## Session Flow
 
 ```
 /gsd:resume-work
-→ PRIORITY 0: /gsd:debug "SSL cert unsafe connection"
-  → Run openssl checks, verify ACM, fix cert if expired
-  → If root CA changed: update SSL pins in NetworkSecurity.swift
-→ PRIORITY 1: /gsd:debug "Stripe payment not working demo account"
-  → Run anti-hallucination curl commands
-  → Fix payment flow
-  → Verify order completion end-to-end
-→ Deploy backend if any fixes needed
-→ PRIORITY 2: Rebuild iOS apps → TestFlight
-→ PRIORITY 3: Test combo + bestseller on device
-→ PRIORITY 4: Apple cleanup + screenshots if time permits
+→ Step 1: Fix ASC version 1.0 → 1.1, attach build 206
+→ Step 2: Fill all metadata via API
+→ Step 3: Capture screenshots on device → upload to ASC
+→ Step 4: Run pre-submission verification
+→ Step 5: Submit for review
 ```
