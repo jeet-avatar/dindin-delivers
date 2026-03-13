@@ -21,6 +21,10 @@ from jose import jwt, JWTError
 
 logger = logging.getLogger(__name__)
 
+# Connection caps — prevent DoS via unbounded WebSocket connections
+MAX_CONNECTIONS_PER_CLIENT = 3
+MAX_TOTAL_CONNECTIONS = 10000
+
 # Redis pub/sub for cross-worker broadcast
 try:
     from cache import redis_client, REDIS_AVAILABLE
@@ -56,6 +60,24 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket, client_id: str, metadata: Optional[Dict] = None):
         """Accept a new WebSocket connection."""
+        # Global cap — reject when server is at capacity
+        if len(self.active_connections) >= MAX_TOTAL_CONNECTIONS:
+            await websocket.close(code=1008, reason="Server at capacity")
+            logger.warning(f"WebSocket rejected (global cap): {client_id}")
+            return
+
+        # Per-client cap — count connections sharing the same entity prefix
+        # client_id format: "customer:123" or "driver:456" or "order:789"
+        base_id = ":".join(client_id.split(":")[:2]) if ":" in client_id else client_id
+        existing_count = sum(
+            1 for cid in self.active_connections
+            if (":".join(cid.split(":")[:2]) if ":" in cid else cid) == base_id
+        )
+        if existing_count >= MAX_CONNECTIONS_PER_CLIENT:
+            await websocket.close(code=1008, reason="Too many connections from this client")
+            logger.warning(f"WebSocket rejected (per-client cap {existing_count}): {client_id}")
+            return
+
         await websocket.accept()
         self.active_connections[client_id] = websocket
         self.client_metadata[client_id] = metadata or {}
