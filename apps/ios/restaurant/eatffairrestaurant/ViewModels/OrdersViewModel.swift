@@ -14,8 +14,10 @@ class OrdersViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var allOrders: [Order] = []
     @Published var isLoading = false
-    @Published var errorMessage: String?
+    @Published var errorMessage = ""
     @Published var showError = false
+    @Published var successMessage = ""
+    @Published var showSuccess = false
 
     // MARK: - AI Insights
     @Published var averagePrepTime: Int = 20 // Will be updated from config or calculated
@@ -471,6 +473,8 @@ class OrdersViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
+                    self?.successMessage = "Customer has been notified you've arrived!"
+                    self?.showSuccess = true
                     self?.fetchP2POrders() // Refresh to show updated state
                 case .failure(let error):
                     let errorMsg = error.localizedDescription.lowercased()

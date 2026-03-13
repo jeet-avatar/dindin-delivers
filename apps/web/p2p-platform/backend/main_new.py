@@ -21681,18 +21681,6 @@ def get_vendor_ai_insights(
             "priority": "high"
         })
 
-    # Check for popular item trending
-    if popular_items:
-        top_item = popular_items[0]
-        recommendations.append({
-            "type": "trending",
-            "icon": "star.fill",
-            "title": f"Feature {top_item['name']}",
-            "description": f"Your top seller with {top_item['quantity']} orders. Feature it prominently.",
-            "impact": "Increase visibility",
-            "priority": "medium"
-        })
-
     # Check for slow periods
     slow_hours = [h for h in hourly_distribution if h["orders"] < 2]
     if slow_hours:
@@ -21732,6 +21720,14 @@ def get_vendor_ai_insights(
             "title": "Optimize Kitchen Flow",
             "description": "Pre-prep high-demand ingredients during slow periods to reduce wait times during rushes.",
             "impact": "Faster service, happier customers",
+            "priority": "low"
+        },
+        {
+            "type": "photos",
+            "icon": "camera.fill",
+            "title": "Add Menu Photos",
+            "description": "Items with photos get 30% more orders. Add high-quality images to your menu items.",
+            "impact": "+30% order rate",
             "priority": "low"
         },
     ]

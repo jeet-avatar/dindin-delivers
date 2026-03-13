@@ -151,6 +151,16 @@ struct OrdersDashboardView: View {
             .sheet(isPresented: $ordersVM.showDeliveryProofCamera) {
                 RestaurantDeliveryProofSheet(viewModel: ordersVM)
             }
+            .alert("Error", isPresented: $ordersVM.showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(ordersVM.errorMessage)
+            }
+            .alert("Success", isPresented: $ordersVM.showSuccess) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(ordersVM.successMessage)
+            }
         }
     }
 

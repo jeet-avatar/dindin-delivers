@@ -440,12 +440,12 @@ struct RestaurantSettingsView: View {
 
                 // Support Section
                 Section("Support") {
-                    if let helpUrl = URL(string: AppConfig.shared.supportUrl) {
-                        Link(destination: helpUrl) {
+                    if let emailUrl = URL(string: "mailto:support@dollor.ai?subject=Restaurant%20App%20Support") {
+                        Link(destination: emailUrl) {
                             HStack {
-                                Label("Help Center", systemImage: "questionmark.circle.fill")
+                                Label("Email Support", systemImage: "envelope.fill")
                                 Spacer()
-                                Image(systemName: "arrow.up.right")
+                                Text("support@dollor.ai")
                                     .font(.caption)
                                     .foregroundColor(.gray)
                             }
@@ -456,9 +456,9 @@ struct RestaurantSettingsView: View {
                     if let phoneUrl = URL(string: "tel:\(AppConfig.shared.supportPhone.replacingOccurrences(of: "-", with: ""))") {
                         Link(destination: phoneUrl) {
                             HStack {
-                                Label("Contact Support", systemImage: "phone.fill")
+                                Label("Call Support", systemImage: "phone.fill")
                                 Spacer()
-                                Image(systemName: "arrow.up.right")
+                                Text(AppConfig.shared.supportPhone)
                                     .font(.caption)
                                     .foregroundColor(.gray)
                             }
