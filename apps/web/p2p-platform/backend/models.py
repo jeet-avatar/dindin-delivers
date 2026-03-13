@@ -791,6 +791,15 @@ class Driver(Base):
     stripe_account_id = Column(String(255))
     stripe_onboarded = Column(Boolean, default=False)
 
+    # Bank Account (stored in DB, approved via admin portal)
+    bank_name = Column(String(255))
+    bank_last4 = Column(String(4))
+    bank_routing_number = Column(String(20))
+    bank_account_holder = Column(String(255))
+    bank_verified = Column(Boolean, default=False)
+    bank_verified_at = Column(DateTime)
+    bank_verified_by = Column(Integer)
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
