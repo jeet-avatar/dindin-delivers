@@ -277,18 +277,38 @@ struct LoginView: View {
 
                     // Google Sign-In Button
                     Button(action: googleLogin) {
-                        HStack {
-                            Image(systemName: "g.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.white)
+                        HStack(spacing: 12) {
+                            // Google "G" logo using brand colors
+                            ZStack {
+                                Circle()
+                                    .fill(Color.white)
+                                    .frame(width: 24, height: 24)
+                                Text("G")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.259, green: 0.522, blue: 0.957), // Google Blue
+                                                Color(red: 0.918, green: 0.263, blue: 0.208), // Google Red
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            }
                             Text("Sign in with Google")
                                 .fontWeight(.semibold)
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(Color(red: 0.18, green: 0.18, blue: 0.18))
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(RestaurantTheme.brandPrimaryBlue.opacity(0.85))
+                        .background(Color.white)
                         .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color(red: 0.741, green: 0.741, blue: 0.741), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
                     }
                     .accessibilityLabel("Sign in with Google")
                     .accessibilityHint("Uses your Google account to sign in")
