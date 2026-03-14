@@ -181,6 +181,21 @@ async def fix_cors_and_security_headers(request, call_next):
         response.headers["server"] = "Dollor"
     return response
 
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    """Serve robots.txt to instruct polite crawlers not to index the API."""
+    from fastapi.responses import PlainTextResponse
+    content = (
+        "User-agent: *\n"
+        "Disallow: /api/\n"
+        "Disallow: /admin/\n"
+        "Disallow: /uploads/\n"
+        "Allow: /\n\n"
+        "Sitemap: https://dollor.ai/sitemap.xml\n"
+    )
+    return PlainTextResponse(content, headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.middleware("http")
 async def limit_request_size(request: Request, call_next):
     """Reject oversized request bodies to prevent memory exhaustion (DoS).
@@ -212,6 +227,55 @@ async def limit_request_size(request: Request, call_next):
         # bypassing the exhausted stream (_stream_consumed=True).
         request._body = body
 
+    return await call_next(request)
+
+# ===================== BOT / CRAWLER BLOCKLIST =====================
+# SECURITY: Block known bad automated clients before hitting any handler.
+# Targets headless scrapers and automation tools that ignore robots.txt.
+# Legitimate app clients (iOS URLSession, OkHttp, Retrofit, Axios) are unaffected.
+#
+# List is intentional — do NOT add generic agents like "python" (blocks AWS Lambda health checks).
+# Only agents with no legitimate use on this API are blocked.
+
+_BAD_USER_AGENT_PREFIXES = (
+    "curl/",
+    "python-requests/",
+    "Scrapy/",
+    "Go-http-client/",
+    "libwww-perl/",
+    "Java/",
+    "node-fetch/",
+    "axios/",           # CLI abuse pattern — legitimate apps use native HTTP clients
+)
+
+_BAD_USER_AGENT_SUBSTRINGS = (
+    "HeadlessChrome",
+    "PhantomJS",
+    "Selenium",
+    "scrapy",
+    "bot/",             # generic bot marker (covers many scrapers)
+    "crawler",
+    "spider",
+)
+
+@app.middleware("http")
+async def bot_blocklist_middleware(request: Request, call_next):
+    """Block known bad user-agents. Returns 403 before auth or handler runs."""
+    ua = request.headers.get("user-agent", "")
+    if ua:
+        ua_lower = ua.lower()
+        for prefix in _BAD_USER_AGENT_PREFIXES:
+            if ua.startswith(prefix) or ua_lower.startswith(prefix.lower()):
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Automated access not permitted. See /robots.txt"},
+                )
+        for substr in _BAD_USER_AGENT_SUBSTRINGS:
+            if substr.lower() in ua_lower:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Automated access not permitted. See /robots.txt"},
+                )
     return await call_next(request)
 
 # ===================== ADMIN AUTH MIDDLEWARE =====================
@@ -301,6 +365,9 @@ _PUBLIC_EXACT_PATHS = {
 
     # Root
     "/",
+
+    # Crawler directives
+    "/robots.txt",
 
     # Legal pages
     "/privacy", "/terms",
@@ -2849,6 +2916,7 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         "phone": driver.phone,
         "status": driver.status.value if hasattr(driver.status, 'value') else str(driver.status),
         "is_approved": driver.status in [DriverStatus.ACTIVE, DriverStatus.APPROVED],
+        "is_online": driver.is_online,
         "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url),
         "bankAccount": {
             "bankName": driver.bank_name,
@@ -10689,7 +10757,7 @@ def get_published_vendors(
             "pickup_available": v.pickup_available if v.pickup_available is not None else True,
             "average_prep_time": v.average_prep_time or 25,
             "rating": v.performance_score or 4.5,
-            "is_open": True,
+            "is_open": getattr(v, 'is_online', False) or False,
             "is_active": True,
             "delivery_time": f"{v.average_prep_time or 25}-{(v.average_prep_time or 25) + 15} min",
             "delivery_time_minutes": v.average_prep_time or 30,  # iOS expects delivery_time_minutes
@@ -14282,7 +14350,7 @@ def get_public_restaurants(
                 "menu_items_count": menu_count,
                 "preview_images": preview_images,
                 "rating": vendor.average_rating if vendor.average_rating and vendor.average_rating > 0 else 4.5,
-                "is_open": True  # Placeholder - implement actual hours check
+                "is_open": getattr(vendor, 'is_online', False) or False
             })
 
         # Sort: Featured restaurants first (for App Store review), then by menu count

@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+Disallow: /uploads/
+Allow: /
+
+Sitemap: https://dollor.ai/sitemap.xml
