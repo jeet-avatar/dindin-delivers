@@ -866,12 +866,19 @@ struct EarningsPaymentSection: View {
 
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Weekly Deliveries")
+                            Text("Weekly Trips")
                                 .font(.caption)
                                 .foregroundColor(Theme.textSecondary)
-                            Text("\(earningsViewModel.weekDeliveries)")
-                                .font(.title3)
-                                .fontWeight(.bold)
+                            HStack(spacing: 4) {
+                                Text("\(earningsViewModel.weekDeliveries)")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                if earningsViewModel.weekRideshareRides > 0 {
+                                    Text("(\(earningsViewModel.weekFoodDeliveries)d + \(earningsViewModel.weekRideshareRides)r)")
+                                        .font(.caption2)
+                                        .foregroundColor(Theme.textSecondary)
+                                }
+                            }
                         }
 
                         Spacer()
@@ -1520,7 +1527,7 @@ struct PayoutHistoryView: View {
                     VStack(alignment: .leading) {
                         Text("Week Total")
                             .fontWeight(.semibold)
-                        Text("\(earningsViewModel.weekDeliveries) deliveries")
+                        Text("\(earningsViewModel.weekFoodDeliveries) deliveries · \(earningsViewModel.weekRideshareRides) rides")
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
                     }
@@ -1561,7 +1568,7 @@ struct PayoutHistoryView: View {
                     VStack(alignment: .leading) {
                         Text("Month Total")
                             .fontWeight(.semibold)
-                        Text("\(earningsViewModel.monthDeliveries) deliveries")
+                        Text("\(earningsViewModel.monthFoodDeliveries) deliveries · \(earningsViewModel.monthRideshareRides) rides")
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
                     }
