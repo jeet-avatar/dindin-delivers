@@ -34,3 +34,27 @@ Security headers are set in `fix_cors_and_security_headers` middleware at `main_
 5. **Add `Permissions-Policy` header** if not present: `camera=(), microphone=(), geolocation=(self)`
 
 6. **HSTS preload**: Consider adding `dollor.ai` to HSTS preload list (hstspreload.org)
+
+## Implemented
+
+**Audited `main_new.py:162-182` (`fix_cors_and_security_headers` middleware).** All headers verified present:
+
+| Header | Value | Status |
+|--------|-------|--------|
+| `X-Content-Type-Options` | `nosniff` | ✓ Present (`main_new.py:172`) |
+| `X-Frame-Options` | `DENY` | ✓ Present (`main_new.py:173`) |
+| `X-XSS-Protection` | `1; mode=block` | ✓ Present (`main_new.py:174`) |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | ✓ Present (`main_new.py:175`) |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(self)` | ✓ Present (`main_new.py:176`) |
+| `Content-Security-Policy` | `default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:; frame-ancestors 'none'` | ✓ Present (`main_new.py:177`) |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | ✓ Present (`main_new.py:178`) |
+| `Server` | Masked to `Dollor` | ✓ Present (`main_new.py:180`) |
+
+**CSP `unsafe-inline` analysis**: Only applies to `style-src`, NOT `script-src`. This is acceptable for an API backend — there is no inline script execution risk. The antd admin portal CSS workaround is scoped to stylesheets only.
+
+**No code changes required** — all headers were already in place. This ticket is CLOSED.
+
+**Remaining manual actions (out of scope for code change)**:
+- Verify headers pass through CloudFront in production: `curl -I https://api.dollor.ai/api/health`
+- Consider HSTS preload submission at hstspreload.org (requires `preload` directive addition)
+- Admin portal CloudFront distribution headers: configure via CloudFront Response Headers Policy
