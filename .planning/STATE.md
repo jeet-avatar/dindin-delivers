@@ -202,9 +202,10 @@ None
 | 168 | Fix 3 critical DoS vulnerabilities — bounded DB queries, WS connection caps, efficient rate limiter eviction | 2026-03-13 | 67826bbb | [168-fix-3-critical-dos-vulnerabilities-cap-d](./quick/168-fix-3-critical-dos-vulnerabilities-cap-d/) |
 | 169 | Fix 4 high DoS vulnerabilities — upload rate limit, IP pwd-reset limit, Redis scheduler lock, DB pool alert | 2026-03-13 | 24f022d5 | [169-fix-4-high-dos-vulnerabilities-per-user-](./quick/169-fix-4-high-dos-vulnerabilities-per-user-/) |
 | 170 | Fix 4 medium DoS vulnerabilities — Stripe webhook idempotency, 10MB body limit, analytics row caps, AI function timeouts | 2026-03-13 | 255cee6a | [170-fix-medium-dos-vulnerabilities-stripe-we](./quick/170-fix-medium-dos-vulnerabilities-stripe-we/) |
+| 171 | Fix earnings tab: rideshare + food combined earnings in dashboard v5, fix payout-history endpoint, iOS build 219 | 2026-03-14 | 6fb5e9d5 | [171-fix-earnings-tab-to-show-rideshare-food-](./quick/171-fix-earnings-tab-to-show-rideshare-food-/) |
 
 ## Session Continuity
 
-Last session: 2026-03-13
-Stopped at: Completed quick task 170: Fix 4 medium DoS vulnerabilities — Stripe webhook idempotency, 10MB body limit, analytics row caps, AI function timeouts
+Last session: 2026-03-14
+Stopped at: Completed quick task 171: Fix earnings tab — rideshare + food combined earnings in dashboard v5, fix payout-history endpoint, iOS Driver build 219 to TestFlight
 Resume file: .planning/NEXT_SESSION_PROMPT.md
