@@ -34,32 +34,32 @@ pytestmark = pytest.mark.skipif(
 # CONFIGURATION - STAGING ONLY
 # =========================================================================
 
-BASE_URL = "https://d34u5ixl0bulv4.cloudfront.net"
+BASE_URL = os.getenv("E2E_BASE_URL", "https://api.dollor.ai")
 API_URL = f"{BASE_URL}/api"
 
-# Test user credentials (pre-seeded in staging)
+# Test user credentials — use demo accounts on production
 TEST_USERS = {
     "ios_customer": {
-        "email": "ios.customer@test.dollor.ai",
-        "password": "TestPass123!",
+        "email": os.getenv("E2E_CUSTOMER_EMAIL", "demo.customer@dollor.ai"),
+        "password": os.getenv("E2E_CUSTOMER_PASSWORD", "DemoCustomer2025!"),
         "platform": "ios",
-        "customer_id": None  # Set after login
+        "customer_id": None
     },
     "android_customer": {
-        "email": "android.customer@test.dollor.ai",
-        "password": "TestPass123!",
+        "email": os.getenv("E2E_CUSTOMER_EMAIL", "demo.customer@dollor.ai"),
+        "password": os.getenv("E2E_CUSTOMER_PASSWORD", "DemoCustomer2025!"),
         "platform": "android",
         "customer_id": None
     },
     "ios_driver": {
-        "email": "ios.driver@test.dollor.ai",
-        "password": "TestPass123!",
+        "email": os.getenv("E2E_DRIVER_EMAIL", "demo.driver@dollor.ai"),
+        "password": os.getenv("E2E_DRIVER_PASSWORD", "DemoDriver2025!"),
         "platform": "ios",
         "driver_id": None
     },
     "android_driver": {
-        "email": "android.driver@test.dollor.ai",
-        "password": "TestPass123!",
+        "email": os.getenv("E2E_DRIVER_EMAIL", "demo.driver@dollor.ai"),
+        "password": os.getenv("E2E_DRIVER_PASSWORD", "DemoDriver2025!"),
         "platform": "android",
         "driver_id": None
     }
@@ -108,18 +108,29 @@ class RideshareTestClient:
             "Content-Type": "application/json",
             "Accept": "application/json"
         })
+        # Separate session for driver-side operations to avoid self-bid detection
+        self.driver_session = requests.Session()
+        self.driver_session.headers.update({
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        })
 
     def set_auth_token(self, token: str):
         """Set authentication token for subsequent requests"""
         self.session.headers["Authorization"] = f"Bearer {token}"
+
+    def set_driver_token(self, token: str):
+        """Set driver authentication token for driver-side operations"""
+        self.driver_session.headers["Authorization"] = f"Bearer {token}"
 
     # ===================== CUSTOMER ENDPOINTS =====================
 
     def customer_login(self, email: str, password: str) -> Dict[str, Any]:
         """Customer login - returns token and customer_id"""
         response = self.session.post(
-            f"{self.base_url}/customers/login",
-            json={"email": email, "password": password}
+            f"{self.base_url}/auth/customer/login",
+            data={"username": email, "password": password},
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
         )
         return response.json() if response.status_code == 200 else {"error": response.text, "status": response.status_code}
 
@@ -192,8 +203,9 @@ class RideshareTestClient:
     def driver_login(self, email: str, password: str) -> Dict[str, Any]:
         """Driver login - returns token and driver_id"""
         response = self.session.post(
-            f"{self.base_url}/drivers/login",
-            json={"email": email, "password": password}
+            f"{self.base_url}/auth/driver/login",
+            data={"username": email, "password": password},
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
         )
         return response.json() if response.status_code == 200 else {"error": response.text, "status": response.status_code}
 
@@ -205,7 +217,7 @@ class RideshareTestClient:
         radius_km: float = 15.0
     ) -> Dict[str, Any]:
         """Driver gets available ride requests nearby"""
-        response = self.session.get(
+        response = self.driver_session.get(
             f"{self.base_url}/rides/available",
             params={
                 "driver_id": driver_id,
@@ -225,7 +237,7 @@ class RideshareTestClient:
         estimated_arrival_minutes: int = 5
     ) -> Dict[str, Any]:
         """Driver submits a bid on a ride request"""
-        response = self.session.post(
+        response = self.driver_session.post(
             f"{self.base_url}/rides/request/{request_id}/bid",
             json={
                 "driver_id": driver_id,
@@ -238,24 +250,24 @@ class RideshareTestClient:
 
     def accept_counter_offer(self, bid_id: int) -> Dict[str, Any]:
         """Driver accepts customer's counter-offer"""
-        response = self.session.post(f"{self.base_url}/rides/bid/{bid_id}/accept-counter")
+        response = self.driver_session.post(f"{self.base_url}/rides/bid/{bid_id}/accept-counter")
         return response.json()
 
     def reject_counter_offer(self, bid_id: int) -> Dict[str, Any]:
         """Driver rejects customer's counter-offer"""
-        response = self.session.post(f"{self.base_url}/rides/bid/{bid_id}/reject-counter")
+        response = self.driver_session.post(f"{self.base_url}/rides/bid/{bid_id}/reject-counter")
         return response.json()
 
     # ===================== RIDE LIFECYCLE =====================
 
     def start_ride(self, request_id: int) -> Dict[str, Any]:
         """Driver starts the ride (picked up customer)"""
-        response = self.session.post(f"{self.base_url}/rides/request/{request_id}/start")
+        response = self.driver_session.post(f"{self.base_url}/rides/request/{request_id}/start")
         return response.json()
 
     def complete_ride(self, request_id: int) -> Dict[str, Any]:
         """Driver completes the ride (dropped off customer)"""
-        response = self.session.post(f"{self.base_url}/rides/request/{request_id}/complete")
+        response = self.driver_session.post(f"{self.base_url}/rides/request/{request_id}/complete")
         return response.json()
 
     def get_ride_status(self, request_id: int) -> Dict[str, Any]:
@@ -269,7 +281,10 @@ class RideshareTestClient:
         """Get chat messages for a ride"""
         response = self.session.get(f"{self.base_url}/p2p/ride-requests/{ride_request_id}/chat")
         if response.status_code == 200:
-            return {"success": True, "messages": response.json()}
+            data = response.json()
+            # API returns {"messages": [...], "total": N, "ride_request_id": N}
+            msgs = data.get("messages", data) if isinstance(data, dict) else data
+            return {"success": True, "messages": msgs}
         return {"success": False, "error": response.text}
 
     def send_chat_message(
@@ -325,7 +340,7 @@ class RideshareTestClient:
 
     def get_driver_earnings(self, driver_id: int) -> Dict[str, Any]:
         """Get driver's earnings summary"""
-        response = self.session.get(f"{self.base_url}/drivers/{driver_id}/earnings")
+        response = self.driver_session.get(f"{self.base_url}/drivers/{driver_id}/earnings")
         return response.json()
 
 
@@ -335,6 +350,13 @@ class RideshareTestClient:
 
 class TestRideshareCrossPlatform:
     """Cross-platform rideshare E2E tests"""
+
+    def _create_ride(self, customer_id, pickup, dropoff, max_price=None):
+        """Create ride and track the ID for teardown."""
+        result = self.client.create_ride_request(customer_id, pickup, dropoff, max_price)
+        if result.get("success") and result.get("ride_request", {}).get("id"):
+            self._created_ride_ids.append(result["ride_request"]["id"])
+        return result
 
     @pytest.fixture(autouse=True)
     def setup(self):
@@ -359,7 +381,26 @@ class TestRideshareCrossPlatform:
         if not authenticated:
             pytest.skip("Could not authenticate with staging API — no valid credentials")
 
+        # Authenticate driver session separately (prevents self-bid detection)
+        driver_result = self.client.driver_login("demo.driver@dollor.ai", "DemoDriver2025!")
+        driver_token = driver_result.get("token") or driver_result.get("access_token")
+        if driver_token:
+            self.client.set_driver_token(driver_token)
+            self.driver_id = driver_result.get("driver_id", 1)
+        else:
+            self.driver_id = 1
+
+        self._created_ride_ids: list = []
         yield
+
+        # Teardown: cancel open rides + complete any matched/in-progress rides
+        for rid in self._created_ride_ids:
+            # Try customer cancel first
+            r = self.client.session.post(f"{self.client.base_url}/rides/request/{rid}/cancel")
+            if r.status_code != 200:
+                # If matched/in-progress, start+complete via driver then cancel not needed
+                self.client.driver_session.post(f"{self.client.base_url}/rides/request/{rid}/start")
+                self.client.driver_session.post(f"{self.client.base_url}/rides/request/{rid}/complete")
 
     # =====================================================================
     # TC-RS-001: iOS Customer ↔ Android Driver (Accept Bid)
@@ -389,7 +430,7 @@ class TestRideshareCrossPlatform:
         print(f"  ✓ Fare estimate: ${suggested_price:.2f}")
 
         # Create ride request (using test customer_id=1)
-        ride_result = self.client.create_ride_request(
+        ride_result = self._create_ride(
             customer_id=1,  # Test customer
             pickup=pickup,
             dropoff=dropoff,
@@ -454,7 +495,7 @@ class TestRideshareCrossPlatform:
         dropoff = TEST_LOCATIONS["lax"]
 
         # Create ride request
-        ride_result = self.client.create_ride_request(
+        ride_result = self._create_ride(
             customer_id=2,  # Test customer 2
             pickup=pickup,
             dropoff=dropoff
@@ -524,7 +565,7 @@ class TestRideshareCrossPlatform:
         dropoff = TEST_LOCATIONS["downtown_la"]
 
         # 1. Create ride
-        ride_result = self.client.create_ride_request(
+        ride_result = self._create_ride(
             customer_id=1,
             pickup=pickup,
             dropoff=dropoff
@@ -593,7 +634,7 @@ class TestRideshareCrossPlatform:
         dropoff = TEST_LOCATIONS["hollywood"]
 
         # 1. Create ride
-        ride_result = self.client.create_ride_request(
+        ride_result = self._create_ride(
             customer_id=2,
             pickup=pickup,
             dropoff=dropoff
@@ -657,7 +698,7 @@ class TestRideshareCrossPlatform:
         dropoff = TEST_LOCATIONS["santa_monica"]
 
         # Create and match ride
-        ride_result = self.client.create_ride_request(
+        ride_result = self._create_ride(
             customer_id=1,
             pickup=pickup,
             dropoff=dropoff
@@ -733,7 +774,7 @@ class TestRideshareCrossPlatform:
         dropoff = TEST_LOCATIONS["downtown_la"]
 
         # Create and complete ride
-        ride_result = self.client.create_ride_request(
+        ride_result = self._create_ride(
             customer_id=1,
             pickup=pickup,
             dropoff=dropoff
