@@ -260,7 +260,17 @@ _BAD_USER_AGENT_SUBSTRINGS = (
 
 @app.middleware("http")
 async def bot_blocklist_middleware(request: Request, call_next):
-    """Block known bad user-agents. Returns 403 before auth or handler runs."""
+    """Block known bad user-agents. Returns 403 before auth or handler runs.
+
+    Exemption: requests from 127.0.0.1 are always passed through.
+    ECS health checks use `curl` from within the container (localhost) and
+    must not be blocked — external bots cannot spoof source IP to 127.0.0.1.
+    """
+    # Allow localhost health checks (ECS uses `curl -f http://localhost:8080/`)
+    client_host = request.client.host if request.client else None
+    if client_host == "127.0.0.1":
+        return await call_next(request)
+
     ua = request.headers.get("user-agent", "")
     if ua:
         ua_lower = ua.lower()
