@@ -5766,57 +5766,98 @@ async def complete_ride_and_pay_driver(
 async def get_driver_payout_history(
     driver_id: int,
     limit: int = Query(20, le=100),
+    period: str = Query("week", regex="^(today|week|month)$"),
     driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db)
 ):
     """
     Get driver's payout history from completed rides.
+    Returns iOS-compatible PayoutHistoryResponse shape: {summary, rides, period}.
     """
     # SECURITY: Verify the authenticated driver owns this account
     if driver.id != driver_id:
         raise HTTPException(status_code=403, detail="You can only view your own payout history")
     from models import RideRequest as RideRequestDB, RideRequestStatus
 
+    # Determine period date filter
+    now = datetime.utcnow()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=today_start.weekday())
+    month_start = today_start.replace(day=1)
+
+    period_start = None
+    if period == "today":
+        period_start = today_start
+    elif period == "week":
+        period_start = week_start
+    elif period == "month":
+        period_start = month_start
+
     try:
         # Get completed rides with payouts (use matched_driver_id which is the correct field)
-        completed_rides = db.query(RideRequestDB).filter(
+        ride_query = db.query(RideRequestDB).filter(
             RideRequestDB.matched_driver_id == driver_id,
             RideRequestDB.status == RideRequestStatus.COMPLETED
-        ).order_by(RideRequestDB.created_at.desc()).limit(limit).all()
+        )
+        if period_start:
+            ride_query = ride_query.filter(RideRequestDB.completed_at >= period_start)
+        completed_rides = ride_query.order_by(RideRequestDB.created_at.desc()).limit(limit).all()
     except Exception as e:
         # If query fails (columns don't exist yet), return empty
         logger.warning(f"Payout history query failed: {e}")
         completed_rides = []
 
-    payouts = []
-    total_earnings = 0
-    total_tips = 0
+    # Build iOS-expected summary
+    total_gross = sum(float(r.suggested_price or 0) for r in completed_rides)
+    total_fees = sum(float(r.platform_fee or 0) for r in completed_rides)
+    total_tips = sum(float(r.tip_amount or 0) for r in completed_rides)
+    total_net = sum(float(r.driver_payout or 0) for r in completed_rides)
+    avg_per_ride = total_net / max(len(completed_rides), 1)
 
-    for ride in completed_rides:
-        payout = float(ride.driver_payout or 0)
-        tip = float(ride.tip_amount or 0)
-        total_earnings += payout
-        total_tips += tip
+    rides = [{
+        "ride_id": r.id,
+        "date": r.completed_at.isoformat() if r.completed_at else None,
+        "fare": float(r.suggested_price or 0),
+        "platform_fee": float(r.platform_fee or 0),
+        "tip": float(r.tip_amount or 0),
+        "net_payout": float(r.driver_payout or 0),
+        "stripe_status": "transferred" if r.stripe_transfer_id else "pending",
+        "pickup_address": r.pickup_address,
+        "dropoff_address": r.dropoff_address,
+    } for r in completed_rides]
 
-        payouts.append({
-            "id": ride.id,
-            "request_id": ride.request_id,
-            "completed_at": ride.completed_at.isoformat() if ride.completed_at else None,
-            "pickup": ride.pickup_address,
-            "dropoff": ride.dropoff_address,
-            "ride_fare": float(ride.suggested_price or 0),
-            "platform_fee": float(ride.platform_fee or 0),
-            "tip": tip,
-            "payout": payout,
-            "stripe_transfer_id": ride.stripe_transfer_id
-        })
+    # Build flat fields for backward compat alongside new nested shape
+    payouts = [{
+        "id": r.id,
+        "request_id": r.request_id,
+        "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+        "pickup": r.pickup_address,
+        "dropoff": r.dropoff_address,
+        "ride_fare": float(r.suggested_price or 0),
+        "platform_fee": float(r.platform_fee or 0),
+        "tip": float(r.tip_amount or 0),
+        "payout": float(r.driver_payout or 0),
+        "stripe_transfer_id": r.stripe_transfer_id
+    } for r in completed_rides]
 
     return {
+        # iOS-expected nested shape (PayoutHistoryResponse)
+        "summary": {
+            "total_gross": round(total_gross, 2),
+            "total_fees": round(total_fees, 2),
+            "total_tips": round(total_tips, 2),
+            "total_net": round(total_net, 2),
+            "ride_count": len(completed_rides),
+            "avg_per_ride": round(avg_per_ride, 2),
+        },
+        "rides": rides,
+        "period": period,
+        # Flat fields for backward compatibility
         "driver_id": driver_id,
         "driver_name": f"{driver.first_name} {driver.last_name}",
         "stripe_connected": driver.stripe_account_id is not None,
         "stripe_onboarded": driver.stripe_onboarded or False,
-        "total_earnings": round(total_earnings, 2),
+        "total_earnings": round(total_net, 2),
         "total_tips": round(total_tips, 2),
         "payout_count": len(payouts),
         "payouts": payouts
@@ -7221,30 +7262,58 @@ def get_driver_dashboard_v5(
 
         # Helper function to calculate earnings for a period
         def calc_period_earnings(start_dt, end_dt=None):
-            query = db.query(Order).filter(
+            # Food delivery orders
+            food_query = db.query(Order).filter(
                 Order.driver_id == driver_id,
                 Order.status == OrderStatus.DELIVERED,
                 Order.delivered_at >= start_dt
             )
             if end_dt:
-                query = query.filter(Order.delivered_at < end_dt)
-            orders = query.all()
+                food_query = food_query.filter(Order.delivered_at < end_dt)
+            food_orders = food_query.all()
 
-            deliveries = len(orders)
-            base_pay = sum(float(o.delivery_fee or 0) for o in orders)
-            tips = sum(float(o.tip or 0) for o in orders)
-            bonuses = 0.0  # Future: add bonus tracking
+            # Rideshare rides — wrapped in try/except in case columns don't exist yet
+            try:
+                from models import RideRequest as RideRequestDB, RideRequestStatus
+                ride_query = db.query(RideRequestDB).filter(
+                    RideRequestDB.matched_driver_id == driver_id,
+                    RideRequestDB.status == RideRequestStatus.COMPLETED,
+                    RideRequestDB.completed_at >= start_dt
+                )
+                if end_dt:
+                    ride_query = ride_query.filter(RideRequestDB.completed_at < end_dt)
+                completed_rides = ride_query.all()
+            except Exception as e:
+                logger.warning(f"Rideshare earnings query failed in dashboard v5: {e}")
+                completed_rides = []
+
+            food_deliveries = len(food_orders)
+            rideshare_rides = len(completed_rides)
+            deliveries = food_deliveries + rideshare_rides  # total trips for backward compat
+
+            food_base = sum(float(o.delivery_fee or 0) for o in food_orders)
+            food_tips = sum(float(o.tip or 0) for o in food_orders)
+            ride_base = sum(float(r.driver_payout or 0) for r in completed_rides)
+            ride_tips = sum(float(r.tip_amount or 0) for r in completed_rides)
+
+            base_pay = food_base + ride_base
+            tips = food_tips + ride_tips
+            bonuses = 0.0
             gross_earnings = base_pay + tips + bonuses
-            # Estimate 30 min per delivery for active hours
-            active_hours = deliveries * 0.5
+            # Estimate 30 min per food delivery, 24 min per rideshare ride for active hours
+            active_hours = food_deliveries * 0.5 + rideshare_rides * 0.4
 
             return {
-                "deliveries": deliveries,
+                "deliveries": deliveries,             # total trips (food + ride)
+                "food_deliveries": food_deliveries,   # NEW — food count
+                "rideshare_rides": rideshare_rides,   # NEW — rideshare count
                 "gross_earnings": round(gross_earnings, 2),
                 "base_pay": round(base_pay, 2),
                 "tips": round(tips, 2),
                 "bonuses": round(bonuses, 2),
-                "active_hours": round(active_hours, 1)
+                "active_hours": round(active_hours, 1),
+                "food_base_pay": round(food_base, 2),      # NEW
+                "rideshare_base_pay": round(ride_base, 2), # NEW
             }
 
         # Calculate period boundaries
