@@ -203,9 +203,10 @@ None
 | 169 | Fix 4 high DoS vulnerabilities — upload rate limit, IP pwd-reset limit, Redis scheduler lock, DB pool alert | 2026-03-13 | 24f022d5 | [169-fix-4-high-dos-vulnerabilities-per-user-](./quick/169-fix-4-high-dos-vulnerabilities-per-user-/) |
 | 170 | Fix 4 medium DoS vulnerabilities — Stripe webhook idempotency, 10MB body limit, analytics row caps, AI function timeouts | 2026-03-13 | 255cee6a | [170-fix-medium-dos-vulnerabilities-stripe-we](./quick/170-fix-medium-dos-vulnerabilities-stripe-we/) |
 | 171 | Fix earnings tab: rideshare + food combined earnings in dashboard v5, fix payout-history endpoint, iOS build 219 | 2026-03-14 | 6fb5e9d5 | [171-fix-earnings-tab-to-show-rideshare-food-](./quick/171-fix-earnings-tab-to-show-rideshare-food-/) |
+| 172 | Fix driver pool notification filter (DriverStatus.ONLINE -> ACTIVE/APPROVED, is_active -> is_online); verify is_online in login + vendor is_open | 2026-03-14 | 52d8dced | [172-fix-3-online-offline-bugs-driver-notific](./quick/172-fix-3-online-offline-bugs-driver-notific/) |
 
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed quick task 171: Fix earnings tab — rideshare + food combined earnings in dashboard v5, fix payout-history endpoint, iOS Driver build 219 to TestFlight
+Stopped at: Completed quick task 172: Fix 3 online/offline bugs — driver notification filter, is_online in login, vendor is_open
 Resume file: .planning/NEXT_SESSION_PROMPT.md
