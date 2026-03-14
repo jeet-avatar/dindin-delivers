@@ -271,6 +271,13 @@ async def bot_blocklist_middleware(request: Request, call_next):
     if client_host == "127.0.0.1":
         return await call_next(request)
 
+    # Always serve robots.txt and health endpoints — bots must be able to read
+    # crawl directives, and monitoring tools must be able to reach health checks
+    path = request.url.path
+    if path in ("/robots.txt", "/health", "/api/health", "/api/health/ready",
+                "/api/health/live", "/api/health/db-pool"):
+        return await call_next(request)
+
     ua = request.headers.get("user-agent", "")
     if ua:
         ua_lower = ua.lower()
