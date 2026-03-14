@@ -204,10 +204,11 @@ None
 | 170 | Fix 4 medium DoS vulnerabilities — Stripe webhook idempotency, 10MB body limit, analytics row caps, AI function timeouts | 2026-03-13 | 255cee6a | [170-fix-medium-dos-vulnerabilities-stripe-we](./quick/170-fix-medium-dos-vulnerabilities-stripe-we/) |
 | 171 | Fix earnings tab: rideshare + food combined earnings in dashboard v5, fix payout-history endpoint, iOS build 219 | 2026-03-14 | 6fb5e9d5 | [171-fix-earnings-tab-to-show-rideshare-food-](./quick/171-fix-earnings-tab-to-show-rideshare-food-/) |
 | 172 | Fix driver pool notification filter (DriverStatus.ONLINE -> ACTIVE/APPROVED, is_active -> is_online); verify is_online in login + vendor is_open | 2026-03-14 | 52d8dced | [172-fix-3-online-offline-bugs-driver-notific](./quick/172-fix-3-online-offline-bugs-driver-notific/) |
-| 173 | Implement bot/crawler protection: robots.txt, user-agent blocklist middleware (exempt localhost), rate limit public vendor/ride endpoints, deployed to production | 2026-03-14 | da0825d5 | [173-implement-bot-crawler-protection-robots-](./quick/173-implement-bot-crawler-protection-robots-/) |
+| 173 | Implement bot/crawler protection: robots.txt, user-agent blocklist middleware (exempt localhost + health/robots paths), rate limit public vendor/ride endpoints, deployed to production | 2026-03-14 | be055f5c | [173-implement-bot-crawler-protection-robots-](./quick/173-implement-bot-crawler-protection-robots-/) |
+| 174 | Add delivery photo proof viewer to restaurant app history tab — deliveryPhotoUrl threaded P2PVendorOrder → Order → EnhancedDashboardView 64x64 thumbnail + fullScreenCover preview | 2026-03-14 | e5b8572e | [174-add-delivery-photo-proof-viewer-to-resta](./quick/174-add-delivery-photo-proof-viewer-to-resta/) |
 
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed quick task 172: Fix 3 online/offline bugs — driver notification filter, is_online in login, vendor is_open
+Stopped at: Completed quick task 174: Add delivery photo proof viewer to restaurant history tab
 Resume file: .planning/NEXT_SESSION_PROMPT.md
