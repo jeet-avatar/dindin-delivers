@@ -125,21 +125,17 @@ struct LoginView: View {
                 VStack(spacing: 24) {
                     // Logo and Title
                     VStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.green.opacity(0.15))
-                                .frame(width: 100, height: 100)
-
-                            Text("$")
-                                .font(.system(size: 50, weight: .bold))
-                                .foregroundColor(.green)
-                        }
+                        Image("AppIcon")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 100, height: 100)
+                            .clipShape(RoundedRectangle(cornerRadius: 22))
 
                         Text("Dollor AI Restaurant")
                             .font(.largeTitle)
                             .fontWeight(.bold)
 
-                        Text("$ online store")
+                        Text("Manage your restaurant")
                             .font(.subheadline)
                             .foregroundColor(.gray)
                     }
