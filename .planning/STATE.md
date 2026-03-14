@@ -206,9 +206,10 @@ None
 | 172 | Fix driver pool notification filter (DriverStatus.ONLINE -> ACTIVE/APPROVED, is_active -> is_online); verify is_online in login + vendor is_open | 2026-03-14 | 52d8dced | [172-fix-3-online-offline-bugs-driver-notific](./quick/172-fix-3-online-offline-bugs-driver-notific/) |
 | 173 | Implement bot/crawler protection: robots.txt, user-agent blocklist middleware (exempt localhost + health/robots paths), rate limit public vendor/ride endpoints, deployed to production | 2026-03-14 | be055f5c | [173-implement-bot-crawler-protection-robots-](./quick/173-implement-bot-crawler-protection-robots-/) |
 | 174 | Add delivery photo proof viewer to restaurant app history tab — deliveryPhotoUrl threaded P2PVendorOrder → Order → EnhancedDashboardView 64x64 thumbnail + fullScreenCover preview | 2026-03-14 | e5b8572e | [174-add-delivery-photo-proof-viewer-to-resta](./quick/174-add-delivery-photo-proof-viewer-to-resta/) |
+| 175 | Build global /handoff command + SessionStart hook — saves structured session state to ~/.claude/handoffs/, auto-injects most recent handoff (<=7 days) into new sessions | 2026-03-14 | d73670eb | [175-build-global-handoff-command-that-saves-](./quick/175-build-global-handoff-command-that-saves-/) |
 
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed quick task 174: Add delivery photo proof viewer to restaurant history tab
+Stopped at: Completed quick task 175: Build global /handoff command + SessionStart hook
 Resume file: .planning/NEXT_SESSION_PROMPT.md
