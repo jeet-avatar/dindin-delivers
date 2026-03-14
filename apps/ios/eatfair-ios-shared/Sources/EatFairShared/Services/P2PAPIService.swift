@@ -10542,6 +10542,9 @@ public struct P2PVendorOrder: Codable, Identifiable {
     public let vendorLongitude: Double?
     public let vendorName: String?
 
+    // Delivery proof photo
+    public let deliveryPhotoUrl: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case orderNumber = "order_number"
@@ -10570,6 +10573,7 @@ public struct P2PVendorOrder: Codable, Identifiable {
         case vendorLatitude = "vendor_latitude"
         case vendorLongitude = "vendor_longitude"
         case vendorName = "vendor_name"
+        case deliveryPhotoUrl = "delivery_photo_url"
     }
 
     /// Get items as dictionary array for compatibility
@@ -10714,7 +10718,8 @@ public struct P2PVendorOrder: Codable, Identifiable {
             driverAcceptedAt: driverAcceptedAt,
             driverEtaToRestaurant: driverEtaToRestaurant,
             driverEtaText: driverEtaText,
-            leaveAtDoor: leaveAtDoor
+            leaveAtDoor: leaveAtDoor,
+            deliveryPhotoUrl: deliveryPhotoUrl
         )
     }
 }
