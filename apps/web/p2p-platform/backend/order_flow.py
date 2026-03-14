@@ -255,8 +255,8 @@ def send_driver_pool_notification(order: "Order", db: Session) -> int:
 
     # Get available drivers
     available_drivers = db.query(Driver).filter(
-        Driver.status == DriverStatus.ONLINE,
-        Driver.is_active == True
+        Driver.status.in_([DriverStatus.ACTIVE, DriverStatus.APPROVED]),
+        Driver.is_online == True
     ).limit(10).all()
 
     notified = 0
@@ -293,8 +293,8 @@ def notify_drivers_new_order(order: "Order", prep_minutes: int, vendor: "Vendor"
 
     # Get available online drivers
     available_drivers = db.query(Driver).filter(
-        Driver.status == DriverStatus.ONLINE,
-        Driver.is_active == True
+        Driver.status.in_([DriverStatus.ACTIVE, DriverStatus.APPROVED]),
+        Driver.is_online == True
     ).limit(15).all()  # Notify up to 15 nearby drivers
 
     restaurant_name = vendor.restaurant_name if vendor else "Restaurant"
