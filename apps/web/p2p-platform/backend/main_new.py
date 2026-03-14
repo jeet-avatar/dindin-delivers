@@ -560,6 +560,10 @@ admin_mutation_limiter = RateLimiter(max_requests=30, window_seconds=60)  # 30 p
 upload_limiter = RateLimiter(max_requests=10, window_seconds=3600)  # 10 uploads per hour per user
 password_reset_ip_limiter = RateLimiter(max_requests=5, window_seconds=3600)  # 5 per hour per IP (anti-SMTP-amplification)
 
+# Public endpoint rate limiters — prevent scrapers from hammering unauthenticated endpoints
+public_listings_rate_limiter = RateLimiter(max_requests=30, window_seconds=60)   # 30/min per IP for vendor listings
+public_estimate_rate_limiter = RateLimiter(max_requests=20, window_seconds=60)   # 20/min per IP for fare estimates
+
 # Demo accounts exempt from auth rate limiting (Apple App Store reviewers)
 DEMO_EMAILS = frozenset({
     "demo.customer@dollor.ai",
@@ -10628,6 +10632,7 @@ def get_vendors(
 # to prevent "published" from being matched as a vendor_id
 @app.get("/api/vendors/published")
 def get_published_vendors(
+    request: Request,
     platform: str = Query("all", description="Platform filter: ios, android, web, or all"),
     search: Optional[str] = Query(None, description="Search by restaurant name or cuisine"),
     limit: int = Query(100, le=500),
@@ -10639,6 +10644,7 @@ def get_published_vendors(
     Used by iOS, Android, and Web customer apps to list restaurants.
     This endpoint is PUBLIC - no authentication required.
     """
+    check_rate_limit(request, public_listings_rate_limiter, "public_vendor_listings")
     from cache import cache_json_get, cache_json_set
 
     # Cache default requests (all platforms, first page, no search) for 30s
@@ -13944,11 +13950,13 @@ def create_menu_item(
 
 @app.get("/api/vendors/{vendor_id}/menu")
 def get_vendor_menu(
+    request: Request,
     vendor_id: int,
     category: Optional[str] = None,
     available_only: bool = False,
     db: Session = Depends(get_db)
 ):
+    check_rate_limit(request, public_listings_rate_limiter, "public_vendor_menu")
     try:
         from cache import cache_json_get, cache_json_set
 
