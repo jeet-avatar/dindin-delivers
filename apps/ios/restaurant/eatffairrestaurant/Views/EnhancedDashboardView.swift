@@ -413,6 +413,7 @@ struct EnhancedOrderCard: View {
     @State private var isExpanded = false
     @State private var deliveryDecisionSeconds: Int = 180
     @State private var deliveryTimer: Timer? = nil
+    @State private var showDeliveryPhoto = false
 
     private var orderStatus: OrderStatus {
         OrderStatus(rawValue: order.status) ?? .placed
@@ -1420,6 +1421,53 @@ struct EnhancedOrderCard: View {
                     .padding(.bottom)
                 }
             }
+
+            // Delivery photo proof (shown on delivered orders in history)
+            if order.status.lowercased() == "delivered",
+               let photoUrl = order.deliveryPhotoUrl, !photoUrl.isEmpty {
+                Divider()
+                    .padding(.horizontal)
+                Button {
+                    showDeliveryPhoto = true
+                } label: {
+                    HStack(spacing: 12) {
+                        AsyncImage(url: URL(string: photoUrl)) { phase in
+                            if case .success(let image) = phase {
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 64, height: 64)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            } else {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(width: 64, height: 64)
+                                    .overlay(
+                                        Image(systemName: "photo")
+                                            .foregroundColor(.gray)
+                                    )
+                            }
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Delivery Photo")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("Tap to view full size")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                }
+                .buttonStyle(.plain)
+                .fullScreenCover(isPresented: $showDeliveryPhoto) {
+                    DeliveryPhotoPreviewView(photoUrl: photoUrl)
+                }
+            }
         }
         .background(RestaurantTheme.backgroundPrimary)
         .cornerRadius(16)
@@ -1460,6 +1508,52 @@ struct EmptyOrdersView: View {
                 .foregroundColor(.gray)
         }
         .padding(.vertical, 60)
+    }
+}
+
+// MARK: - Delivery Photo Preview
+struct DeliveryPhotoPreviewView: View {
+    let photoUrl: String
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                AsyncImage(url: URL(string: photoUrl)) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    case .failure:
+                        VStack(spacing: 12) {
+                            Image(systemName: "photo.slash")
+                                .font(.system(size: 48))
+                                .foregroundColor(.white.opacity(0.6))
+                            Text("Photo unavailable")
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                    case .empty:
+                        ProgressView()
+                            .tint(.white)
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
+            }
+            .navigationTitle("Delivery Photo")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(.white)
+                }
+            }
+        }
     }
 }
 
