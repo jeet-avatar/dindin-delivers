@@ -380,7 +380,7 @@ struct PayoutDashboardView: View {
             return
         }
 
-        guard let url = URL(string: "\(baseURL)/api/rides/driver/\(driverId)/payout-history?period=\(selectedPeriod)") else {
+        guard let url = URL(string: "\(baseURL)/api/drivers/\(driverId)/payout-history?period=\(selectedPeriod)") else {
             errorMessage = "Invalid URL"
             isLoading = false
             return

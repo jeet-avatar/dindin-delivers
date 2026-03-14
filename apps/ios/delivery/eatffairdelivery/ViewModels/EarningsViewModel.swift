@@ -23,6 +23,13 @@ class EarningsViewModel: ObservableObject {
     @Published var weekDeliveries: Int = 0
     @Published var monthDeliveries: Int = 0
 
+    @Published var todayFoodDeliveries: Int = 0
+    @Published var todayRideshareRides: Int = 0
+    @Published var weekFoodDeliveries: Int = 0
+    @Published var weekRideshareRides: Int = 0
+    @Published var monthFoodDeliveries: Int = 0
+    @Published var monthRideshareRides: Int = 0
+
     @Published var todayHours: Double = 0.0
     @Published var weekHours: Double = 0.0
     @Published var monthHours: Double = 0.0
@@ -148,6 +155,14 @@ class EarningsViewModel: ObservableObject {
         monthEarnings = dashboard.thisMonth.grossEarnings
         monthDeliveries = dashboard.thisMonth.deliveries
         monthHours = dashboard.thisMonth.activeHours ?? 0.0
+
+        // Split counts (food vs rideshare)
+        todayFoodDeliveries = dashboard.today.foodDeliveries ?? dashboard.today.deliveries
+        todayRideshareRides = dashboard.today.rideshareRides ?? 0
+        weekFoodDeliveries = dashboard.thisWeek.foodDeliveries ?? dashboard.thisWeek.deliveries
+        weekRideshareRides = dashboard.thisWeek.rideshareRides ?? 0
+        monthFoodDeliveries = dashboard.thisMonth.foodDeliveries ?? dashboard.thisMonth.deliveries
+        monthRideshareRides = dashboard.thisMonth.rideshareRides ?? 0
 
         // Ratings - Use unified average field, fallback to overall for backward compatibility
         if let ratings = dashboard.ratings {

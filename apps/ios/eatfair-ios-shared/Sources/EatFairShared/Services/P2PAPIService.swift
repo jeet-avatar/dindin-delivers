@@ -3673,6 +3673,13 @@ public class P2PAPIService: ObservableObject {
                     UserDefaults.standard.set(loginResponse.status ?? "pending", forKey: UserDefaultsKey.driverStatus)
                     UserDefaults.standard.set(loginResponse.isApproved ?? false, forKey: UserDefaultsKey.driverIsApproved)
                     UserDefaults.standard.set(loginResponse.requiresDocuments ?? true, forKey: UserDefaultsKey.driverRequiresDocuments)
+                    // Cache bank account fields for profile fallback
+                    if let bank = loginResponse.bankAccount {
+                        UserDefaults.standard.set(bank.bankName, forKey: "driver_bank_name")
+                        UserDefaults.standard.set(bank.accountHolderName, forKey: "driver_bank_holder")
+                        UserDefaults.standard.set(bank.accountNumberLast4, forKey: "driver_bank_last4")
+                        UserDefaults.standard.set(bank.isVerified ?? false, forKey: "driver_bank_verified")
+                    }
 
                     // Force synchronize and verify
                     UserDefaults.standard.synchronize()
@@ -9485,6 +9492,10 @@ public struct DriverEarningsPeriod: Codable {
     public let activeHours: Double?
     public let effectiveHourlyRate: Double?
     public let perDeliveryAverage: Double?
+    public let foodDeliveries: Int?
+    public let rideshareRides: Int?
+    public let foodBasePay: Double?
+    public let rideshareBasePay: Double?
 
     enum CodingKeys: String, CodingKey {
         case deliveries
@@ -9496,6 +9507,10 @@ public struct DriverEarningsPeriod: Codable {
         case activeHours = "active_hours"
         case effectiveHourlyRate = "effective_hourly_rate"
         case perDeliveryAverage = "per_delivery_average"
+        case foodDeliveries = "food_deliveries"
+        case rideshareRides = "rideshare_rides"
+        case foodBasePay = "food_base_pay"
+        case rideshareBasePay = "rideshare_base_pay"
     }
 
     public init(from decoder: Decoder) throws {
@@ -9509,6 +9524,10 @@ public struct DriverEarningsPeriod: Codable {
         activeHours = try container.decodeIfPresent(Double.self, forKey: .activeHours)
         effectiveHourlyRate = try container.decodeIfPresent(Double.self, forKey: .effectiveHourlyRate)
         perDeliveryAverage = try container.decodeIfPresent(Double.self, forKey: .perDeliveryAverage)
+        foodDeliveries = try container.decodeIfPresent(Int.self, forKey: .foodDeliveries)
+        rideshareRides = try container.decodeIfPresent(Int.self, forKey: .rideshareRides)
+        foodBasePay = try container.decodeIfPresent(Double.self, forKey: .foodBasePay)
+        rideshareBasePay = try container.decodeIfPresent(Double.self, forKey: .rideshareBasePay)
     }
 }
 
