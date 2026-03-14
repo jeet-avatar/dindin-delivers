@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-13 - Completed quick task 164: Add combo deals and bestseller features to menu system
+Last activity: 2026-03-13 - Completed quick task 141: iOS TestFlight upload — Customer 1114, Driver 216, Restaurant 206 (v1.1)
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -137,9 +137,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 85 | Implement OpenAPI CI contract validator — 321 PASS, 0 FAIL, 15 EXCLUDED, CI job added | 2026-03-04 | 57358368 | [85-implement-openapi-ci-contract-validator-](./quick/85-implement-openapi-ci-contract-validator-/) |
 | 140 | Verify STATE.md deduplication — removed 21 corrupted lines, 1490 backend tests PASS | 2026-03-12 | 3b5e7a45 | [140-verify-state-md-deduplication-no-duplica](./quick/140-verify-state-md-deduplication-no-duplica/) |
 | 164 | Add combo deals and bestseller features to menu system | 2026-03-13 | 4d6b0831 | Verified | [164-add-combo-deals-and-bestseller-features-](./quick/164-add-combo-deals-and-bestseller-features-/) |
+| 141 | Build and upload all 3 iOS apps to TestFlight v1.1 — Customer 1114, Driver 216, Restaurant 206 | 2026-03-13 | ea2b07c9 | [141-build-and-upload-all-3-ios-apps-to-testf](./quick/141-build-and-upload-all-3-ios-apps-to-testf/) |
 
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed quick-164 (combo deals + bestseller — backend model/API, iOS restaurant UI, iOS customer badges+sorting). Both apps BUILD SUCCEEDED. 4 items need runtime testing.
+Stopped at: All 3 iOS apps uploaded to TestFlight v1.1 (Customer 1114, Driver 216, Restaurant 206) with combo deals + bestseller features.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
