@@ -37,10 +37,14 @@ from email_service import (
 )
 from order_flow import send_push_notification
 from auth_utils import require_customer, require_driver, require_any_auth
+from cache import check_rate_limit, RateLimiter
 import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Public endpoint rate limiter — prevents scrapers from hammering the fare estimate endpoint
+_public_estimate_rate_limiter = RateLimiter(max_requests=20, window_seconds=60)  # 20/min per IP
 
 
 def _notify_customer(db: Session, customer_id: int, title: str, message: str,
@@ -2159,7 +2163,7 @@ class FareEstimateInput(BaseModel):
 
 
 @router.post("/estimate")
-async def get_fare_estimate_endpoint(data: FareEstimateInput, db: Session = Depends(get_db)):
+async def get_fare_estimate_endpoint(request: Request, data: FareEstimateInput, db: Session = Depends(get_db)):
     """
     Get fare estimate with full breakdown and driver suggestions.
 
@@ -2171,6 +2175,7 @@ async def get_fare_estimate_endpoint(data: FareEstimateInput, db: Session = Depe
     - Bid comparison labels for customers
     - Surge/demand multiplier info
     """
+    check_rate_limit(request, _public_estimate_rate_limiter, "public_fare_estimate")
     # Calculate distance
     distance_km = calculate_distance_km(
         data.pickup_latitude, data.pickup_longitude,
