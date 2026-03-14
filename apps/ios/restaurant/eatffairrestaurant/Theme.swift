@@ -10,6 +10,7 @@ struct RestaurantTheme {
     static let brandGreen = Color(red: 6/255, green: 193/255, blue: 103/255)     // #06C167 - SUCCESS/READY
     static let brandGreenLight = Color(red: 74/255, green: 222/255, blue: 128/255) // #4ADE80
     static let brandBlue = Color(red: 33/255, green: 150/255, blue: 243/255)     // #2196F3 - Info/Preparing
+    static let brandPrimaryBlue = Color(red: 52/255, green: 96/255, blue: 231/255) // #3460E7 - Login/Brand
     static let brandPurple = Color(red: 156/255, green: 39/255, blue: 176/255)   // #9C27B0 - Revenue
 
     // MARK: - Semantic Colors

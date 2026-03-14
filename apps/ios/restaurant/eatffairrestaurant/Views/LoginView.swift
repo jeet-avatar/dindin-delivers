@@ -200,7 +200,7 @@ struct LoginView: View {
                             Button(action: { showForgotPassword = true }) {
                                 Text("Forgot Password?")
                                     .font(.subheadline)
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(RestaurantTheme.brandPrimaryBlue)
                             }
                             .accessibilityLabel("Forgot password")
                             .accessibilityHint("Opens password reset screen")
@@ -252,7 +252,7 @@ struct LoginView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.orange)
+                        .background(RestaurantTheme.brandPrimaryBlue)
                         .cornerRadius(12)
                     }
                     .accessibilityLabel("Log in to your account")
@@ -280,18 +280,15 @@ struct LoginView: View {
                         HStack {
                             Image(systemName: "g.circle.fill")
                                 .font(.title2)
+                                .foregroundColor(.white)
                             Text("Sign in with Google")
                                 .fontWeight(.semibold)
                         }
-                        .foregroundColor(.primary)
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color(.systemBackground))
+                        .background(RestaurantTheme.brandPrimaryBlue.opacity(0.85))
                         .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                        )
                     }
                     .accessibilityLabel("Sign in with Google")
                     .accessibilityHint("Uses your Google account to sign in")
@@ -330,7 +327,7 @@ struct LoginView: View {
                         Button(action: { showSignUp = true }) {
                             Text("Sign Up")
                                 .fontWeight(.semibold)
-                                .foregroundColor(.orange)
+                                .foregroundColor(RestaurantTheme.brandPrimaryBlue)
                         }
                         .accessibilityLabel("Sign up for a new account")
                         .accessibilityHint("Opens the registration screen")
