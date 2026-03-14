@@ -100,6 +100,7 @@ class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAut
 struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
+    @State private var showPassword = false
     @State private var errorMessage = ""
     @State private var successMessage = ""
     @State private var isLoading = false
@@ -176,9 +177,25 @@ struct LoginView: View {
                                 .fontWeight(.medium)
                                 .foregroundColor(.gray)
 
-                            SecureField("Enter your password", text: $password)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .textContentType(.password)
+                            HStack {
+                                if showPassword {
+                                    TextField("Enter your password", text: $password)
+                                        .textContentType(.password)
+                                        .autocapitalization(.none)
+                                        .autocorrectionDisabled()
+                                } else {
+                                    SecureField("Enter your password", text: $password)
+                                        .textContentType(.password)
+                                }
+                                Button(action: { showPassword.toggle() }) {
+                                    Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                            .padding(8)
+                            .background(Color(.systemBackground))
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(.systemGray4)))
+                            .cornerRadius(6)
                         }
 
                         // Forgot Password Link
