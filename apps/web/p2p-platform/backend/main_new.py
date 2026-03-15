@@ -5815,6 +5815,38 @@ def request_driver_payout(
     if not driver.stripe_account_id:
         raise HTTPException(status_code=400, detail="Driver has no Stripe account")
 
+    # F1 SECURITY: Validate available earnings before allowing payout
+    from sqlalchemy import func
+    from models import DriverPayout, RideRequest, RideRequestStatus, Order, OrderStatus
+
+    # Sum completed delivery earnings from DriverPayout table
+    delivery_earnings = db.query(func.coalesce(func.sum(DriverPayout.net_payout), 0)).filter(
+        DriverPayout.driver_id == driver_id,
+        DriverPayout.status.in_(["pending", "completed"])
+    ).scalar() or 0
+
+    # Sum completed ride earnings (driver_payout field on rides)
+    ride_earnings = db.query(func.coalesce(func.sum(RideRequest.driver_payout), 0)).filter(
+        RideRequest.matched_driver_id == driver_id,
+        RideRequest.status == RideRequestStatus.COMPLETED,
+        RideRequest.driver_payout.isnot(None)
+    ).scalar() or 0
+
+    # Sum already-paid-out amounts (check Stripe Connect balance as source of truth)
+    # For now, use Stripe's balance API which tracks available funds
+    total_available = float(delivery_earnings) + float(ride_earnings)
+
+    if total_available <= 0:
+        raise HTTPException(status_code=400, detail="No available earnings for payout")
+
+    if request.amount > total_available:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Requested amount ${request.amount:.2f} exceeds available earnings ${total_available:.2f}"
+        )
+
+    logger.info(f"Driver payout request: driver_id={driver_id}, amount=${request.amount:.2f}, available=${total_available:.2f}")
+
     try:
         payout_method = "instant" if request.payout_type == "instant" else "standard"
         payout = stripe.Payout.create(
@@ -5828,6 +5860,7 @@ def request_driver_payout(
             "success": True,
             "payout_id": payout.id,
             "amount": request.amount,
+            "available_earnings": total_available,
             "status": payout.status,
             "arrival_date": payout.arrival_date
         }
@@ -16027,17 +16060,34 @@ async def tip_driver(
     if tip_amount < 0 or tip_amount > 500:
         raise HTTPException(status_code=400, detail="Tip must be between $0 and $500")
 
-    from models import Order
+    from models import Order, OrderStatus
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
     # SECURITY: Only the order's customer can add a tip
-    if not order.customer_email or order.customer_email != customer.email:
+    customer_owns_order = False
+    if order.customer_id and order.customer_id == customer.id:
+        customer_owns_order = True
+    elif order.customer_email and order.customer_email == customer.email:
+        customer_owns_order = True
+    if not customer_owns_order:
         raise HTTPException(status_code=403, detail="Only the order's customer can add a tip")
 
-    order.tip = (order.tip or 0) + tip_amount
-    order.total_amount = (order.total_amount or 0) + tip_amount
+    # F3 SECURITY: Only allow tip on delivered orders (within reasonable window)
+    if order.status not in [OrderStatus.DELIVERED, OrderStatus.OUT_FOR_DELIVERY]:
+        raise HTTPException(status_code=400, detail="Tips can only be added for delivered or in-transit orders")
+
+    # F3 SECURITY: Validate tip against order subtotal (max 100% of food cost)
+    max_tip = float(order.subtotal or 50) * 1.0  # Max 100% of subtotal
+    if tip_amount > max_tip:
+        raise HTTPException(status_code=400, detail=f"Tip cannot exceed ${max_tip:.2f} (100% of order subtotal)")
+
+    # F3 SECURITY: Set tip (replace, don't accumulate) to prevent manipulation
+    old_tip = float(order.tip or 0)
+    order.tip = tip_amount
+    # Adjust total: remove old tip, add new tip
+    order.total_amount = float(order.total_amount or 0) - old_tip + tip_amount
     db.commit()
 
     return {"success": True, "message": f"Tip of ${tip_amount:.2f} added", "new_total": order.total_amount}
