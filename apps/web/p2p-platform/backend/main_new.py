@@ -226,7 +226,7 @@ async def limit_request_size(request: Request, call_next):
         async for chunk in request.stream():
             body += chunk
             if len(body) > MAX_BODY:
-                return JSONResponse(status_code=413, content={"detail": "Request body too large (max 10MB)"})
+                return JSONResponse(status_code=413, content={"detail": f"Request body too large (max {limit_mb})"})
 
         # Cache body so downstream handlers can still read it.
         # Starlette's Request.body() / Request.stream() check _body first,
@@ -404,6 +404,7 @@ _PUBLIC_EXACT_PATHS = {
     "/privacy", "/terms",
     "/api/legal/terms", "/api/legal/privacy",
     "/api/legal/tos", "/api/legal/privacy-policy",
+    "/api/legal/regulatory",
 
     # App config
     "/api/config",
@@ -4973,18 +4974,31 @@ def update_driver_status(
         if not driver.photo_url:
             missing_docs.append("Driver Photo (for ID verification)")
 
+        # TNC-06: Verify driver is at least 21 years old before approval (CPUC Decision 13-09-045)
+        if driver.date_of_birth:
+            try:
+                dob = datetime.strptime(driver.date_of_birth, "%Y-%m-%d").date()
+                today = date.today()
+                age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+                if age < 21:
+                    missing_docs.append("Age requirement (must be 21+ for TNC services)")
+            except ValueError:
+                missing_docs.append("Valid date of birth (YYYY-MM-DD format)")
+        else:
+            missing_docs.append("Date of birth (required for age verification)")
+
         if missing_docs:
             raise HTTPException(
                 status_code=400,
                 detail={
-                    "message": "Cannot approve driver - required documents missing for legal compliance",
-                    "missing_documents": missing_docs,
-                    "action_required": "Upload all required documents to ZIP system before approval",
+                    "message": "Cannot approve driver - requirements not met for TNC compliance",
+                    "missing_requirements": missing_docs,
+                    "action_required": "Upload all required documents and meet age requirements before approval",
                     "help": "Use /drivers/{driver_id}/documents endpoint to upload missing documents"
                 }
             )
 
-        print(f"✅ All required documents verified for driver {driver_id}")
+        print(f"✅ All required documents and age verified for driver {driver_id}")
 
     # Update status
     try:
@@ -20716,6 +20730,41 @@ def get_terms_of_service_android():
 def get_privacy_policy_android():
     """Android-compatible Privacy Policy endpoint (alias for /api/legal/privacy)."""
     return get_privacy_policy()
+
+
+# ==================== TNC REGULATORY INFO (CPUC Compliance) ====================
+
+@app.get("/api/legal/regulatory")
+def get_regulatory_info():
+    """TNC-14: Regulatory info for CA TNC compliance. Apps display this on help/about screens and receipts."""
+    return {
+        "tnc_operator": {
+            "carrier_name": "Zietra Technologies inc",
+            "dba": "Dollor.ai",
+            "permit_type": "TCP-P TNC",
+            "permit_number": None,  # To be filled after CPUC issues permit
+            "website": "https://dollor.ai"
+        },
+        "zero_tolerance_policy": {
+            "statement": "Dollor.ai maintains a zero-tolerance policy for drug and alcohol use by drivers during TNC services. Any driver suspected of being under the influence will be immediately suspended pending investigation.",
+            "report_email": "support@dollor.ai",
+            "report_in_app": True
+        },
+        "cpuc_consumer_complaint": {
+            "phone": "1-800-894-9444",
+            "email": "CIU_intake@cpuc.ca.gov",
+            "description": "California Public Utilities Commission - Consumer Intake Unit. File complaints about TNC service."
+        },
+        "accessibility": {
+            "wheelchair_accessible_vehicles": "Request via app when booking",
+            "service_animals": "Service animals are welcome in all Dollor.ai rides. Drivers may not refuse service to passengers with service animals.",
+            "accessibility_feedback": "support@dollor.ai"
+        },
+        "fees": {
+            "access_for_all_fee": "$0.10 per completed trip, remitted quarterly to CPUC Access for All Fund",
+            "platform_fee": "Flat $1-$3 based on fare tier (not a percentage commission)"
+        }
+    }
 
 
 # ==================== LEGAL HTML PAGES (App Store Requirement) ====================
