@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 from database import get_db, init_db
 from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus, OrderDispute, OrderDisputeReason, DisputeStatus
 from auth_utils import require_any_auth, require_customer, require_driver, require_vendor, require_admin
-from encryption import encrypt_field, decrypt_field
+from encryption import encrypt_field, decrypt_field, mask_email
 from email_service import (
     send_vendor_approval_email, send_vendor_registration_confirmation,
     send_driver_approval_email, send_driver_registration_confirmation,
@@ -205,14 +205,18 @@ async def limit_request_size(request: Request, call_next):
     chunked transfers where CloudFront strips Content-Length.
     """
     from fastapi.responses import JSONResponse
-    MAX_BODY = 10_485_760  # 10MB
+    # A4: Tiered body limits — 5MB for file uploads, 1MB for all other requests
+    path = request.url.path
+    is_upload = "/upload" in path or "/delivery-photo" in path or "/documents" in path
+    MAX_BODY = 5_242_880 if is_upload else 1_048_576  # 5MB uploads, 1MB API
 
     # Fast path: Content-Length header present (direct connections, non-CF)
     content_length = request.headers.get("content-length")
     if content_length:
         try:
             if int(content_length) > MAX_BODY:
-                return JSONResponse(status_code=413, content={"detail": "Request body too large (max 10MB)"})
+                limit_mb = "5MB" if is_upload else "1MB"
+                return JSONResponse(status_code=413, content={"detail": f"Request body too large (max {limit_mb})"})
         except ValueError:
             pass
 
@@ -3141,6 +3145,23 @@ def driver_register(http_request: Request, request: DriverRegisterRequest, db: S
     try:
         # SECURITY (NSA-009): Enforce password policy for driver registration
         _validate_password(request.password)
+
+        # TNC-06: Enforce minimum age of 21 for TNC drivers (CPUC Decision 13-09-045)
+        if request.date_of_birth:
+            try:
+                dob = datetime.strptime(request.date_of_birth, "%Y-%m-%d").date()
+                today = date.today()
+                age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+                if age < 21:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Driver must be at least 21 years old to provide TNC services."
+                    )
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid date_of_birth format. Use YYYY-MM-DD."
+                )
 
         # Check if email already exists
         existing_user = db.query(User).filter(User.email == request.email).first()
