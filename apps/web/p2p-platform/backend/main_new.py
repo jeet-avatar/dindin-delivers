@@ -17847,6 +17847,36 @@ async def web_send_chat_message(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # IDOR: verify authenticated user is an order participant
+    auth_customer_id = _auth.get("customer_id")
+    auth_driver_id = _auth.get("driver_id")
+    auth_vendor_id = _auth.get("vendor_id")
+    is_participant = (
+        (auth_customer_id and order.customer_id == auth_customer_id) or
+        (auth_driver_id and order.driver_id == auth_driver_id) or
+        (auth_vendor_id and order.vendor_id == auth_vendor_id)
+    )
+    if not is_participant:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
+
+    # Force sender identity from auth token (never trust sender_id from request body)
+    if auth_customer_id:
+        sender_id = auth_customer_id
+        sender_type_str = "customer"
+        sender_name = order.customer_name or ""
+    elif auth_driver_id:
+        sender_id = auth_driver_id
+        sender_type_str = "driver"
+        sender_name = order.driver_name or ""
+    elif auth_vendor_id:
+        sender_id = auth_vendor_id
+        sender_type_str = "vendor"
+        sender_name = ""
+    else:
+        sender_id = 0
+        sender_type_str = request.get("sender_type", "customer")
+        sender_name = request.get("sender_name", "")
+
     conversation = db.query(ChatConversation).filter(
         ChatConversation.order_id == order_id
     ).first()
@@ -17865,9 +17895,6 @@ async def web_send_chat_message(
         db.refresh(conversation)
 
     message_text = request.get("message", "")
-    sender_type_str = request.get("sender_type", "customer")
-    sender_id = request.get("sender_id", 0)
-    sender_name = request.get("sender_name", "")
 
     sender_type_enum = MessageSenderType.CUSTOMER if sender_type_str == "customer" else MessageSenderType.DRIVER
 
@@ -17905,7 +17932,21 @@ async def web_get_chat_messages(
     _auth: dict = Depends(require_any_auth),
 ):
     """Get chat messages for an order - Production Web Frontend endpoint"""
-    from models import ChatConversation, ChatMessage
+    from models import ChatConversation, ChatMessage, Order
+
+    # IDOR: verify authenticated user is an order participant
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if order:
+        auth_customer_id = _auth.get("customer_id")
+        auth_driver_id = _auth.get("driver_id")
+        auth_vendor_id = _auth.get("vendor_id")
+        is_participant = (
+            (auth_customer_id and order.customer_id == auth_customer_id) or
+            (auth_driver_id and order.driver_id == auth_driver_id) or
+            (auth_vendor_id and order.vendor_id == auth_vendor_id)
+        )
+        if not is_participant:
+            raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     conversation = db.query(ChatConversation).filter(
         ChatConversation.order_id == order_id

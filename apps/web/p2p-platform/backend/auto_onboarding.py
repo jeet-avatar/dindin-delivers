@@ -18,7 +18,7 @@ No manual data entry required!
 """
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from auth_utils import require_any_auth
+from auth_utils import require_any_auth, require_admin
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -94,7 +94,7 @@ async def send_invitation(
     request: SendInvitationRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    _admin = Depends(require_admin),
 ):
     """
     Send invitation to a restaurant to join the platform
