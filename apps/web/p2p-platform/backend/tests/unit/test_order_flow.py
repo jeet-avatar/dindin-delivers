@@ -61,7 +61,7 @@ from main_new import FCMTokenRequest
 from models import (
     Order, OrderStatus, Vendor, VendorStatus, VendorMenuItem,
     Driver, DriverStatus, VendorPayout, DriverPayout,
-    JournalEntry, JournalEntryLine
+    JournalEntry, JournalEntryLine, Customer
 )
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -96,6 +96,17 @@ def mock_vendor():
     vendor.longitude = -122.4194
     vendor.contact_phone = "+14155551234"
     return vendor
+
+
+@pytest.fixture
+def mock_customer():
+    """Mock customer for RBAC tests"""
+    customer = MagicMock(spec=Customer)
+    customer.id = 1
+    customer.email = "customer@test.com"
+    customer.name = "John Customer"
+    customer.push_token = "test-push-token"
+    return customer
 
 
 @pytest.fixture
@@ -373,7 +384,7 @@ class TestOrderCreation:
     """Test order creation endpoint"""
 
     @pytest.mark.asyncio
-    async def test_create_order_success(self, mock_db_session, mock_vendor, mock_menu_item):
+    async def test_create_order_success(self, mock_db_session, mock_vendor, mock_menu_item, mock_customer):
         """Test successful order creation"""
         # Create a simple menu item with real values (not MagicMock)
         class SimpleMenuItem:
@@ -417,7 +428,7 @@ class TestOrderCreation:
         )
 
         from order_flow import create_order
-        result = await create_order(order_data, mock_db_session)
+        result = await create_order(order_data, mock_db_session, mock_customer)
 
         assert result["success"] is True
         assert "order_id" in result
@@ -429,7 +440,7 @@ class TestOrderCreation:
         mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_order_vendor_not_found(self, mock_db_session):
+    async def test_create_order_vendor_not_found(self, mock_db_session, mock_customer):
         """Test order creation with non-existent vendor"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
@@ -444,12 +455,12 @@ class TestOrderCreation:
 
         from order_flow import create_order
         with pytest.raises(HTTPException) as exc_info:
-            await create_order(order_data, mock_db_session)
+            await create_order(order_data, mock_db_session, mock_customer)
         assert exc_info.value.status_code == 404
         assert "not found" in str(exc_info.value.detail).lower()
 
     @pytest.mark.asyncio
-    async def test_create_order_vendor_not_approved(self, mock_db_session, mock_vendor):
+    async def test_create_order_vendor_not_approved(self, mock_db_session, mock_vendor, mock_customer):
         """Test order creation with non-approved vendor"""
         mock_vendor.onboarding_status = MagicMock()
         mock_vendor.onboarding_status.value = "pending"
@@ -466,12 +477,12 @@ class TestOrderCreation:
 
         from order_flow import create_order
         with pytest.raises(HTTPException) as exc_info:
-            await create_order(order_data, mock_db_session)
+            await create_order(order_data, mock_db_session, mock_customer)
         assert exc_info.value.status_code == 400
         assert "not accepting orders" in str(exc_info.value.detail).lower()
 
     @pytest.mark.asyncio
-    async def test_create_order_with_items_not_in_menu(self, mock_db_session, mock_vendor):
+    async def test_create_order_with_items_not_in_menu(self, mock_db_session, mock_vendor, mock_customer):
         """Test order creation with items not in menu (uses provided data)"""
         mock_vendor.onboarding_status = MagicMock()
         mock_vendor.onboarding_status.value = "approved"
@@ -510,7 +521,7 @@ class TestOrderCreation:
         )
 
         from order_flow import create_order
-        result = await create_order(order_data, mock_db_session)
+        result = await create_order(order_data, mock_db_session, mock_customer)
 
         assert result["success"] is True
         assert result["subtotal"] == 15.99
@@ -522,17 +533,17 @@ class TestPaymentConfirmation:
     """Test payment confirmation endpoint"""
 
     @pytest.mark.asyncio
-    async def test_confirm_payment_success(self, mock_db_session, mock_order):
+    async def test_confirm_payment_success(self, mock_db_session, mock_order, mock_customer):
         """Test successful payment confirmation - auto sends to restaurant"""
         from unittest.mock import MagicMock, patch
         from models import Order, Vendor, Customer
 
+        # Set customer_id so IDOR check passes
+        mock_order.customer_id = mock_customer.id
+
         # Create mock vendor and customer for GAP-1 notification queries
-        mock_vendor = MagicMock()
-        mock_vendor.restaurant_name = "Test Restaurant"
-        mock_customer = MagicMock()
-        mock_customer.id = 1
-        mock_customer.push_token = "test-token"
+        mock_vendor_obj = MagicMock()
+        mock_vendor_obj.restaurant_name = "Test Restaurant"
 
         # Return different objects based on which model is queried
         def query_side_effect(model):
@@ -540,7 +551,7 @@ class TestPaymentConfirmation:
             if model == Order or model is type(mock_order):
                 mock_query.filter.return_value.first.return_value = mock_order
             elif model == Vendor:
-                mock_query.filter.return_value.first.return_value = mock_vendor
+                mock_query.filter.return_value.first.return_value = mock_vendor_obj
             elif model == Customer:
                 mock_query.filter.return_value.first.return_value = mock_customer
             else:
@@ -552,11 +563,10 @@ class TestPaymentConfirmation:
         mock_request.headers = {}
         mock_request.client = MagicMock()
         mock_request.client.host = "127.0.0.1"
-        mock_auth = {"user_id": 1, "role": "customer"}
 
         from order_flow import confirm_payment
         with patch("order_flow.send_push_notification"):
-            result = await confirm_payment(mock_request, 1, mock_db_session, mock_auth)
+            result = await confirm_payment(mock_request, 1, mock_db_session, mock_customer)
 
         assert result["success"] is True
         assert result["order_id"] == 1
@@ -570,7 +580,7 @@ class TestPaymentConfirmation:
         mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_confirm_payment_order_not_found(self, mock_db_session):
+    async def test_confirm_payment_order_not_found(self, mock_db_session, mock_customer):
         """Test payment confirmation for non-existent order"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
@@ -579,11 +589,10 @@ class TestPaymentConfirmation:
         mock_request.headers = {}
         mock_request.client = MagicMock()
         mock_request.client.host = "127.0.0.1"
-        mock_auth = {"user_id": 1, "role": "customer"}
 
         from order_flow import confirm_payment
         with pytest.raises(HTTPException) as exc_info:
-            await confirm_payment(mock_request, 999, mock_db_session, mock_auth)
+            await confirm_payment(mock_request, 999, mock_db_session, mock_customer)
         assert exc_info.value.status_code == 404
 
 
@@ -593,12 +602,13 @@ class TestRestaurantFlow:
     """Test restaurant order management endpoints"""
 
     @pytest.mark.asyncio
-    async def test_start_preparing(self, mock_db_session, mock_order):
+    async def test_start_preparing(self, mock_db_session, mock_order, mock_vendor):
         """Test restaurant starts preparing order"""
+        mock_order.vendor_id = mock_vendor.id
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order
 
         from order_flow import start_preparing
-        result = await start_preparing(1, mock_db_session)
+        result = await start_preparing(1, mock_db_session, mock_vendor)
 
         assert result["success"] is True
         assert mock_order.status == OrderStatus.PREPARING
@@ -606,13 +616,14 @@ class TestRestaurantFlow:
         mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_ready_for_pickup(self, mock_db_session, mock_order):
+    async def test_ready_for_pickup(self, mock_db_session, mock_order, mock_vendor):
         """Test marking order ready for pickup - starts delivery decision window"""
         mock_order.status = OrderStatus.PREPARING  # Required prerequisite status
+        mock_order.vendor_id = mock_vendor.id
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order
 
         from order_flow import ready_for_pickup
-        result = await ready_for_pickup(1, mock_db_session)
+        result = await ready_for_pickup(1, mock_db_session, mock_vendor)
 
         assert result["success"] is True
         assert result["status"] == "pending_delivery_decision"
@@ -621,7 +632,7 @@ class TestRestaurantFlow:
         mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_vendor_orders(self, mock_db_session, mock_order):
+    async def test_get_vendor_orders(self, mock_db_session, mock_order, mock_vendor):
         """Test getting vendor orders"""
         mock_order.status = MagicMock()
         mock_order.status.value = "confirmed"
@@ -631,7 +642,7 @@ class TestRestaurantFlow:
         mock_db_session.query.return_value = query_mock
 
         from order_flow import get_vendor_orders
-        result = await get_vendor_orders(1, mock_db_session)
+        result = await get_vendor_orders(1, mock_db_session, mock_vendor)
 
         assert result["success"] is True
         assert "orders" in result
@@ -641,9 +652,10 @@ class TestRestaurantFlow:
     async def test_update_order_status(self, mock_db_session, mock_order):
         """Test updating order status"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order
+        mock_admin = MagicMock()
 
         from order_flow import update_order_status
-        result = await update_order_status(1, "preparing", mock_db_session)
+        result = await update_order_status(1, "preparing", mock_db_session, mock_admin)
 
         assert result["success"] is True
         assert mock_order.status == OrderStatus.PREPARING
@@ -653,10 +665,11 @@ class TestRestaurantFlow:
     async def test_update_order_status_invalid(self, mock_db_session, mock_order):
         """Test updating order with invalid status"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order
+        mock_admin = MagicMock()
 
         from order_flow import update_order_status
         with pytest.raises(HTTPException) as exc_info:
-            await update_order_status(1, "invalid_status", mock_db_session)
+            await update_order_status(1, "invalid_status", mock_db_session, mock_admin)
         assert exc_info.value.status_code == 400
 
 
@@ -688,7 +701,7 @@ class TestDriverFlow:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import get_available_orders
-        result = await get_available_orders(mock_db_session)
+        result = await get_available_orders(mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert "orders" in result
@@ -798,9 +811,9 @@ class TestDriverFlow:
         assert "not active" in str(exc_info.value.detail).lower()
 
     @pytest.mark.asyncio
-    async def test_order_picked_up(self, mock_db_session, mock_order):
+    async def test_order_picked_up(self, mock_db_session, mock_order, mock_driver):
         """Test order picked up by driver"""
-        mock_order.driver_id = 1
+        mock_order.driver_id = mock_driver.id
         mock_order.driver_name = "John Driver"
         mock_order.customer_id = 1
         mock_order.driver_en_route = True
@@ -828,7 +841,7 @@ class TestDriverFlow:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import order_picked_up
-        result = await order_picked_up(1, mock_db_session)
+        result = await order_picked_up(1, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert mock_order.status == OrderStatus.OUT_FOR_DELIVERY
@@ -836,7 +849,7 @@ class TestDriverFlow:
     @pytest.mark.asyncio
     async def test_order_delivered(self, mock_db_session, mock_order, mock_vendor, mock_driver):
         """Test order delivered - triggers accounting"""
-        mock_order.driver_id = 1
+        mock_order.driver_id = mock_driver.id
         mock_order.delivery_photo_url = "https://s3.amazonaws.com/delivery_proofs/1/photo.jpg"
 
         order_query = MagicMock()
@@ -876,7 +889,7 @@ class TestDriverFlow:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import order_delivered
-        result = await order_delivered(1, mock_db_session)
+        result = await order_delivered(1, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert result["status"] == "Delivered"
@@ -909,7 +922,7 @@ class TestDriverFlow:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import get_driver_active_orders
-        result = await get_driver_active_orders(1, mock_db_session)
+        result = await get_driver_active_orders(1, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert len(result["orders"]) == 1
@@ -922,7 +935,7 @@ class TestDriverFlow:
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order
 
         from order_flow import unassign_driver
-        result = await unassign_driver(1, mock_db_session)
+        result = await unassign_driver(1, mock_db_session, MagicMock())
 
         assert result["success"] is True
         assert mock_order.driver_id is None
@@ -936,7 +949,7 @@ class TestDriverFlow:
 
         from order_flow import unassign_driver
         with pytest.raises(HTTPException) as exc_info:
-            await unassign_driver(1, mock_db_session)
+            await unassign_driver(1, mock_db_session, MagicMock())
         assert exc_info.value.status_code == 400
 
 
@@ -978,7 +991,7 @@ class TestRideSharing:
         mock_db_session.query.return_value = query_mock
 
         from order_flow import get_available_rides
-        result = await get_available_rides(None, None, mock_db_session)
+        result = await get_available_rides(None, None, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert "rides" in result
@@ -1010,7 +1023,7 @@ class TestRideSharing:
 
         request = AssignDriverRequest(driver_id=1)
         from order_flow import accept_ride
-        result = await accept_ride(1, request, mock_db_session)
+        result = await accept_ride(1, request, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert mock_ride.matched_driver_id == 1
@@ -1027,7 +1040,7 @@ class TestRideSharing:
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_ride
 
         from order_flow import ride_picked_up
-        result = await ride_picked_up(1, mock_db_session)
+        result = await ride_picked_up(1, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert result["status"] == "in_progress"
@@ -1051,7 +1064,7 @@ class TestRideSharing:
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_ride
 
         from order_flow import ride_completed
-        result = await ride_completed(1, mock_db_session)
+        result = await ride_completed(1, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert result["status"] == "completed"
@@ -1123,7 +1136,7 @@ class TestAutoDispatch:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import auto_dispatch_driver
-        result = await auto_dispatch_driver(1, None, mock_db_session)
+        result = await auto_dispatch_driver(1, None, mock_db_session, MagicMock())
 
         assert result["success"] is True
         assert "assigned_driver" in result
@@ -1137,7 +1150,7 @@ class TestAutoDispatch:
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order
 
         from order_flow import auto_dispatch_driver
-        result = await auto_dispatch_driver(1, None, mock_db_session)
+        result = await auto_dispatch_driver(1, None, mock_db_session, MagicMock())
 
         assert result["success"] is False
         assert "already has a driver" in result["message"]
@@ -1169,7 +1182,7 @@ class TestAutoDispatch:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import auto_dispatch_driver
-        result = await auto_dispatch_driver(1, None, mock_db_session)
+        result = await auto_dispatch_driver(1, None, mock_db_session, MagicMock())
 
         assert result["success"] is False
         assert "No drivers available" in result["message"]
@@ -1199,7 +1212,7 @@ class TestAutoDispatch:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import broadcast_order_to_drivers
-        result = await broadcast_order_to_drivers(1, 5.0, mock_db_session)
+        result = await broadcast_order_to_drivers(1, 5.0, mock_db_session, MagicMock())
 
         assert result["success"] is True
         assert result["drivers_notified"] >= 0
@@ -1305,7 +1318,7 @@ class TestLocationTracking:
         )
 
         from order_flow import update_driver_location
-        result = await update_driver_location(1, location, mock_db_session)
+        result = await update_driver_location(1, location, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert mock_order.driver_location is not None
@@ -1367,7 +1380,7 @@ class TestLocationTracking:
         )
 
         from order_flow import update_driver_current_location
-        result = await update_driver_current_location(1, location, mock_db_session)
+        result = await update_driver_current_location(1, location, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert mock_driver.current_latitude == 37.7849
@@ -1379,7 +1392,7 @@ class TestLocationTracking:
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_driver
 
         from order_flow import update_driver_status
-        result = await update_driver_status(1, True, mock_db_session)
+        result = await update_driver_status(1, True, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert mock_driver.is_online is True
@@ -1430,7 +1443,7 @@ class TestPayouts:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import get_pending_payouts
-        result = await get_pending_payouts(mock_db_session)
+        result = await get_pending_payouts(mock_db_session, MagicMock())
 
         assert result["success"] is True
         assert len(result["restaurant_payouts"]) == 1
@@ -1449,7 +1462,7 @@ class TestPayouts:
         mock_db_session.query.return_value.filter.return_value.first.return_value = payout
 
         from order_flow import process_payout
-        result = await process_payout(1, "vendor", mock_db_session)
+        result = await process_payout(1, "vendor", mock_db_session, MagicMock())
 
         assert result["success"] is True
         assert payout.status == "completed"
@@ -1467,7 +1480,7 @@ class TestPayouts:
         mock_db_session.query.return_value.filter.return_value.first.return_value = payout
 
         from order_flow import process_payout
-        result = await process_payout(1, "driver", mock_db_session)
+        result = await process_payout(1, "driver", mock_db_session, MagicMock())
 
         assert result["success"] is True
         assert payout.status == "completed"
@@ -1520,7 +1533,7 @@ class TestAnalytics:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import get_realtime_analytics
-        result = await get_realtime_analytics(mock_db_session)
+        result = await get_realtime_analytics(mock_db_session, MagicMock())
 
         assert result["success"] is True
         assert "orders" in result
@@ -1536,7 +1549,7 @@ class TestAnalytics:
         mock_db_session.query.return_value = count_query
 
         from order_flow import get_ai_employee_stats
-        result = await get_ai_employee_stats(mock_db_session)
+        result = await get_ai_employee_stats(mock_db_session, MagicMock())
 
         assert result["success"] is True
         assert "ai_employees" in result
@@ -1655,7 +1668,7 @@ class TestJournalEntries:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import get_journal_entries
-        result = await get_journal_entries(50, mock_db_session)
+        result = await get_journal_entries(50, mock_db_session, MagicMock())
 
         assert result["success"] is True
         assert "entries" in result
@@ -1676,7 +1689,7 @@ class TestDriverCRUD:
         mock_db_session.query.return_value.all.return_value = [mock_driver]
 
         from order_flow import get_drivers
-        result = await get_drivers(mock_db_session)
+        result = await get_drivers(mock_db_session, MagicMock())
 
         assert result["success"] is True
         assert len(result["drivers"]) == 1
@@ -1694,7 +1707,7 @@ class TestDriverCRUD:
         }
 
         from order_flow import create_driver
-        result = await create_driver(driver_data, mock_db_session)
+        result = await create_driver(driver_data, mock_db_session, MagicMock())
 
         assert result["success"] is True
         assert "driver_id" in result
@@ -1712,7 +1725,7 @@ class TestEdgeCases:
 
         from order_flow import start_preparing
         with pytest.raises(HTTPException) as exc_info:
-            await start_preparing(999, mock_db_session)
+            await start_preparing(999, mock_db_session, MagicMock())
         assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
@@ -1723,7 +1736,7 @@ class TestEdgeCases:
         location = DriverLocationUpdate(latitude=37.7849, longitude=-122.4094)
         from order_flow import update_driver_current_location
         with pytest.raises(HTTPException) as exc_info:
-            await update_driver_current_location(999, location, mock_db_session)
+            await update_driver_current_location(999, location, mock_db_session, mock_driver)
         assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
@@ -1749,7 +1762,7 @@ class TestEdgeCases:
         mock_db_session.query.return_value = query_mock
 
         from order_flow import get_vendor_orders
-        result = await get_vendor_orders(1, mock_db_session)
+        result = await get_vendor_orders(1, mock_db_session, mock_vendor)
 
         assert result["success"] is True
         # Should handle gracefully with empty lists
@@ -1835,7 +1848,7 @@ class TestEdgeCases:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import complete_delivery
-        result = await complete_delivery(1, mock_db_session)
+        result = await complete_delivery(1, mock_db_session, mock_driver)
 
         assert result["success"] is True
 
@@ -1957,12 +1970,12 @@ class TestDeliveryProofPhoto:
     # --- HAPPY PATH: Photo Gate ---
 
     @pytest.mark.asyncio
-    async def test_order_delivered_requires_photo_when_no_photo(self, mock_db_session, mock_order_no_photo):
+    async def test_order_delivered_requires_photo_when_no_photo(self, mock_db_session, mock_order_no_photo, mock_driver):
         """When driver marks delivered with no photo, should return requires_photo=True"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order_no_photo
 
         from order_flow import order_delivered
-        result = await order_delivered(1, mock_db_session)
+        result = await order_delivered(1, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert result["requires_photo"] is True
@@ -1972,13 +1985,13 @@ class TestDeliveryProofPhoto:
         assert "accounting" not in result
 
     @pytest.mark.asyncio
-    async def test_order_delivered_proof_gate_handles_db_error(self, mock_db_session, mock_order_no_photo):
+    async def test_order_delivered_proof_gate_handles_db_error(self, mock_db_session, mock_order_no_photo, mock_driver):
         """When proof gate db.commit() fails (e.g., invalid enum value), should still return clean response"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order_no_photo
         mock_db_session.commit.side_effect = Exception("invalid input value for enum orderstatus")
 
         from order_flow import order_delivered
-        result = await order_delivered(1, mock_db_session)
+        result = await order_delivered(1, mock_db_session, mock_driver)
 
         # Should return clean response even when DB commit fails
         assert result["success"] is True
@@ -2028,7 +2041,7 @@ class TestDeliveryProofPhoto:
         mock_db_session.query.side_effect = query_side_effect
 
         from order_flow import order_delivered
-        result = await order_delivered(1, mock_db_session)
+        result = await order_delivered(1, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert result["status"] == "Delivered"
@@ -2037,13 +2050,13 @@ class TestDeliveryProofPhoto:
         assert "accounting" in result
 
     @pytest.mark.asyncio
-    async def test_order_delivered_not_found(self, mock_db_session):
+    async def test_order_delivered_not_found(self, mock_db_session, mock_driver):
         """Should raise 404 for non-existent order"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
         from order_flow import order_delivered
         with pytest.raises(HTTPException) as exc_info:
-            await order_delivered(999, mock_db_session)
+            await order_delivered(999, mock_db_session, mock_driver)
         assert exc_info.value.status_code == 404
 
     # --- HAPPY PATH: Photo Upload ---
@@ -2064,7 +2077,7 @@ class TestDeliveryProofPhoto:
 
         from order_flow import upload_delivery_photo
         with patch("s3_service.get_s3_service", return_value=mock_s3):
-            result = await upload_delivery_photo(1, mock_file, mock_db_session)
+            result = await upload_delivery_photo(1, mock_file, mock_db_session, mock_driver)
 
         assert result["success"] is True
         assert result["requires_photo"] is False
@@ -2126,7 +2139,7 @@ class TestDeliveryProofPhoto:
 
         from order_flow import upload_delivery_photo
         with patch("s3_service.get_s3_service", return_value=mock_s3):
-            result = await upload_delivery_photo(1, mock_file, mock_db_session)
+            result = await upload_delivery_photo(1, mock_file, mock_db_session, mock_driver)
 
         # Should have completed the delivery after photo upload
         assert result["success"] is True
@@ -2146,7 +2159,7 @@ class TestDeliveryProofPhoto:
 
         from order_flow import upload_delivery_photo
         with pytest.raises(HTTPException) as exc_info:
-            await upload_delivery_photo(1, mock_file, mock_db_session)
+            await upload_delivery_photo(1, mock_file, mock_db_session, mock_driver)
         assert exc_info.value.status_code == 400
         assert "Invalid file type" in exc_info.value.detail
 
@@ -2163,7 +2176,7 @@ class TestDeliveryProofPhoto:
 
         from order_flow import upload_delivery_photo
         with pytest.raises(HTTPException) as exc_info:
-            await upload_delivery_photo(1, mock_file, mock_db_session)
+            await upload_delivery_photo(1, mock_file, mock_db_session, mock_driver)
         assert exc_info.value.status_code == 400
         assert "too large" in exc_info.value.detail
 
@@ -2179,7 +2192,7 @@ class TestDeliveryProofPhoto:
 
         from order_flow import upload_delivery_photo
         with pytest.raises(HTTPException) as exc_info:
-            await upload_delivery_photo(1, mock_file, mock_db_session)
+            await upload_delivery_photo(1, mock_file, mock_db_session, mock_driver)
         assert exc_info.value.status_code == 400
         assert "Empty file" in exc_info.value.detail
 
@@ -2193,7 +2206,7 @@ class TestDeliveryProofPhoto:
 
         from order_flow import upload_delivery_photo
         with pytest.raises(HTTPException) as exc_info:
-            await upload_delivery_photo(999, mock_file, mock_db_session)
+            await upload_delivery_photo(999, mock_file, mock_db_session, mock_driver)
         assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
@@ -2207,7 +2220,7 @@ class TestDeliveryProofPhoto:
 
         from order_flow import upload_delivery_photo
         with pytest.raises(HTTPException) as exc_info:
-            await upload_delivery_photo(1, mock_file, mock_db_session)
+            await upload_delivery_photo(1, mock_file, mock_db_session, mock_driver)
         assert exc_info.value.status_code == 400
         assert "already delivered" in exc_info.value.detail
 
@@ -2227,7 +2240,7 @@ class TestDeliveryProofPhoto:
         from order_flow import upload_delivery_photo
         with patch("s3_service.get_s3_service", return_value=mock_s3):
             with pytest.raises(HTTPException) as exc_info:
-                await upload_delivery_photo(1, mock_file, mock_db_session)
+                await upload_delivery_photo(1, mock_file, mock_db_session, mock_driver)
         assert exc_info.value.status_code == 500
         assert "Upload failed" in exc_info.value.detail
 
@@ -2246,7 +2259,7 @@ class TestDeliveryProofPhoto:
 
         from order_flow import upload_delivery_photo
         with patch("s3_service.get_s3_service", return_value=mock_s3):
-            result = await upload_delivery_photo(1, mock_file, mock_db_session)
+            result = await upload_delivery_photo(1, mock_file, mock_db_session, mock_driver)
 
         assert result["success"] is True
 
@@ -2338,7 +2351,7 @@ class TestDeliveryProofPhoto:
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order_no_photo
 
         from order_flow import order_delivered
-        result1 = await order_delivered(1, mock_db_session)
+        result1 = await order_delivered(1, mock_db_session, mock_driver)
 
         assert result1["requires_photo"] is True
         assert mock_order_no_photo.status == OrderStatus.PENDING_DELIVERY_PROOF
@@ -2389,7 +2402,7 @@ class TestDeliveryProofPhoto:
 
         from order_flow import upload_delivery_photo
         with patch("s3_service.get_s3_service", return_value=mock_s3):
-            result2 = await upload_delivery_photo(1, mock_file, mock_db_session)
+            result2 = await upload_delivery_photo(1, mock_file, mock_db_session, mock_driver)
 
         assert result2["success"] is True
         assert result2["status"] == "Delivered"
