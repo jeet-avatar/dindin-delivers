@@ -618,6 +618,23 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
         ride_request.final_price = bid.proposed_price
         ride_request.matched_at = now
 
+        # Insurance: Period 1 END + Period 2 START — ride matched
+        try:
+            from insurance.events import log_insurance_event, get_or_create_session_id
+            _session_id = get_or_create_session_id(db, bid.driver_id)
+            log_insurance_event(
+                db=db, driver_id=bid.driver_id, trip_type="rideshare",
+                trip_id=ride_request.id, session_id=_session_id, period=1,
+                event_type="period_end",
+            )
+            log_insurance_event(
+                db=db, driver_id=bid.driver_id, trip_type="rideshare",
+                trip_id=ride_request.id, session_id=_session_id, period=2,
+                event_type="period_start",
+            )
+        except Exception as e:
+            logging.warning(f"Insurance event (bid accept) failed: {e}")
+
         # Reject all other pending bids
         other_bids = db.query(RideBid).filter(
             and_(
@@ -1690,6 +1707,23 @@ async def driver_arrived(request_id: int, request: Request, auth_driver: Driver 
 
     ride_request.driver_arrived_at = datetime.utcnow()
 
+    # Insurance: Period 2 END + Period 3 START — passenger pickup
+    try:
+        from insurance.events import log_insurance_event, get_or_create_session_id
+        _session_id = get_or_create_session_id(db, ride_request.matched_driver_id)
+        log_insurance_event(
+            db=db, driver_id=ride_request.matched_driver_id, trip_type="rideshare",
+            trip_id=ride_request.id, session_id=_session_id, period=2,
+            event_type="period_end",
+        )
+        log_insurance_event(
+            db=db, driver_id=ride_request.matched_driver_id, trip_type="rideshare",
+            trip_id=ride_request.id, session_id=_session_id, period=3,
+            event_type="period_start",
+        )
+    except Exception as e:
+        logging.warning(f"Insurance event (driver arrived) failed: {e}")
+
     # In-app notification: driver arrived
     driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
     driver_name = f"{driver.first_name}".strip() if driver and driver.first_name else "Your driver"
@@ -2012,6 +2046,18 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
 
     ride_request.status = RideRequestStatus.COMPLETED
     ride_request.completed_at = datetime.utcnow()
+
+    # Insurance: Period 3 END — ride complete
+    try:
+        from insurance.events import log_insurance_event, get_or_create_session_id
+        _session_id = get_or_create_session_id(db, ride_request.matched_driver_id)
+        log_insurance_event(
+            db=db, driver_id=ride_request.matched_driver_id, trip_type="rideshare",
+            trip_id=ride_request.id, session_id=_session_id, period=3,
+            event_type="period_end",
+        )
+    except Exception as e:
+        logging.warning(f"Insurance event (ride complete) failed: {e}")
 
     # Calculate and persist platform fee + driver payout (fare-tiered Model A)
     final_price = float(ride_request.final_price or ride_request.suggested_price or 0)

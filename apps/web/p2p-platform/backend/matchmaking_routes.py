@@ -18,7 +18,7 @@ FIRST LAUNCH STATE: Wyoming (LOW regulatory risk)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from auth_utils import require_any_auth
+from auth_utils import require_any_auth, require_customer, require_driver, require_admin
 from cache import check_rate_limit, RateLimiter
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
@@ -211,7 +211,7 @@ async def calculate_connection_fee(
 async def create_matchmaking_request(
     request: MatchmakingRequest,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Create a matchmaking request.
@@ -233,6 +233,12 @@ async def create_matchmaking_request(
             status_code=400,
             detail=f"{request.state_code} does not use matchmaking model"
         )
+
+    # IDOR: verify customer_id matches authenticated customer
+    if request.customer_id and request.customer_id != customer.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this resource")
+    # Use authenticated customer's ID
+    request.customer_id = customer.id
 
     # Calculate connection fee based on DISTANCE (not fare)
     connection_fee = get_connection_fee(request.state_code, request.distance_miles)
@@ -283,7 +289,7 @@ async def create_matchmaking_request(
 
 
 @router.post("/bid")
-async def submit_driver_bid(bid: DriverBidRequest, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
+async def submit_driver_bid(bid: DriverBidRequest, db: Session = Depends(get_db), driver: Driver = Depends(require_driver)):
     """
     Driver submits a fare proposal (bid).
 
@@ -299,10 +305,9 @@ async def submit_driver_bid(bid: DriverBidRequest, db: Session = Depends(get_db)
     if ride.status not in [RideRequestStatus.OPEN, RideRequestStatus.BIDDING]:
         raise HTTPException(status_code=400, detail="This request is no longer accepting bids")
 
-    # Get driver
-    driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # IDOR: verify authenticated driver matches bid.driver_id
+    if bid.driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this resource")
 
     # Create bid
     bid_id = f"BID-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
@@ -342,11 +347,15 @@ async def submit_driver_bid(bid: DriverBidRequest, db: Session = Depends(get_db)
 
 
 @router.get("/request/{request_id}/bids")
-async def get_bids_for_request(request_id: str, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
+async def get_bids_for_request(request_id: str, db: Session = Depends(get_db), customer: Customer = Depends(require_customer)):
     """Get all bids for a matchmaking request."""
     ride = db.query(RideRequest).filter(RideRequest.request_id == request_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Request not found")
+
+    # IDOR: verify authenticated customer owns this request
+    if ride.customer_id != customer.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this request")
 
     bids = db.query(RideBid).filter(
         and_(
@@ -378,7 +387,7 @@ async def get_bids_for_request(request_id: str, db: Session = Depends(get_db), _
 
 
 @router.post("/accept-bid")
-async def accept_driver_bid(http_request: Request, request: AcceptBidRequest, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
+async def accept_driver_bid(http_request: Request, request: AcceptBidRequest, db: Session = Depends(get_db), customer: Customer = Depends(require_customer)):
     """
     Customer accepts a driver's bid.
 
@@ -387,7 +396,7 @@ async def accept_driver_bid(http_request: Request, request: AcceptBidRequest, db
     2. Match confirmation
     3. Driver payment info provided to customer for direct fare payment
     """
-    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(_auth.get("user_id", _auth.get("customer_id", _auth.get("driver_id", "unknown")))))
+    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(customer.id))
     bid = db.query(RideBid).filter(RideBid.id == request.bid_id).first()
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
@@ -399,8 +408,9 @@ async def accept_driver_bid(http_request: Request, request: AcceptBidRequest, db
     if not ride:
         raise HTTPException(status_code=404, detail="Ride request not found")
 
-    if ride.customer_id != request.customer_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    # IDOR: verify authenticated customer owns this ride request
+    if ride.customer_id != customer.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this request")
 
     driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
     if not driver:
@@ -440,6 +450,23 @@ async def accept_driver_bid(http_request: Request, request: AcceptBidRequest, db
     ride.matched_driver_id = driver.id
     ride.final_price = bid.proposed_price  # Driver's agreed fare
     ride.matched_at = datetime.utcnow()
+
+    # Insurance: Period 1 END + Period 2 START — ride matched
+    try:
+        from insurance.events import log_insurance_event, get_or_create_session_id
+        _session_id = get_or_create_session_id(db, driver.id)
+        log_insurance_event(
+            db=db, driver_id=driver.id, trip_type="rideshare",
+            trip_id=ride.id, session_id=_session_id, period=1,
+            event_type="period_end",
+        )
+        log_insurance_event(
+            db=db, driver_id=driver.id, trip_type="rideshare",
+            trip_id=ride.id, session_id=_session_id, period=2,
+            event_type="period_start",
+        )
+    except Exception as e:
+        logging.warning(f"Insurance event (bid accept) failed: {e}")
 
     if payment_intent:
         ride.stripe_payment_intent_id = payment_intent.id
@@ -494,16 +521,16 @@ async def accept_driver_bid(http_request: Request, request: AcceptBidRequest, db
 
 
 @router.post("/driver/payment-info")
-async def update_driver_payment_info(info: DriverPaymentInfo, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
+async def update_driver_payment_info(info: DriverPaymentInfo, db: Session = Depends(get_db), driver: Driver = Depends(require_driver)):
     """
     Update driver's direct payment information.
 
     Drivers receive fares directly from customers via these payment methods.
     The platform does NOT process fare payments.
     """
-    driver = db.query(Driver).filter(Driver.id == info.driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # IDOR: verify authenticated driver matches request
+    if info.driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this resource")
 
     # Store payment info (these fields need to be added to Driver model)
     # For now, store in a JSON field or separate table
@@ -527,7 +554,8 @@ async def update_driver_payment_info(info: DriverPaymentInfo, db: Session = Depe
 async def validate_driver_for_matchmaking(
     driver_id: int,
     state_code: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Validate if a driver meets requirements to operate in a state.
@@ -537,9 +565,9 @@ async def validate_driver_for_matchmaking(
     - Background check (verified)
     - Meeting state-specific minimums
     """
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # IDOR: verify authenticated driver matches path parameter
+    if driver.id != driver_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this resource")
 
     # Validate against state requirements
     validation = validate_driver_for_state(
@@ -573,7 +601,7 @@ async def complete_matchmaking_ride(
     payment_method: str = Query(..., description="How customer paid driver (cash, venmo, zelle, cashapp)"),
     tip_amount: float = Query(0, description="Tip amount paid to driver"),
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Mark a ride as completed with proper CFO-level accounting.
@@ -590,11 +618,28 @@ async def complete_matchmaking_ride(
     if ride.status != RideRequestStatus.MATCHED:
         raise HTTPException(status_code=400, detail="Ride is not in matched status")
 
+    # IDOR: verify authenticated driver is assigned to this ride
+    if ride.matched_driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this ride")
+
     # Update ride
     ride.status = RideRequestStatus.COMPLETED
     ride.final_price = fare_paid
     ride.tip = tip_amount
     ride.completed_at = datetime.utcnow()
+
+    # Insurance: Period 3 END — ride complete
+    try:
+        from insurance.events import log_insurance_event, get_or_create_session_id
+        _session_id = get_or_create_session_id(db, ride.matched_driver_id)
+        log_insurance_event(
+            db=db, driver_id=ride.matched_driver_id, trip_type="rideshare",
+            trip_id=ride.id, session_id=_session_id, period=3,
+            event_type="period_end",
+        )
+    except Exception as e:
+        logging.warning(f"Insurance event (ride complete) failed: {e}")
+
     db.flush()
 
     # ==================== CREATE JOURNAL ENTRY (CFO Compliant) ====================
@@ -717,7 +762,7 @@ async def complete_matchmaking_ride(
 # =============================================================================
 
 @router.get("/analytics/state/{state_code}")
-async def get_state_analytics(state_code: str, db: Session = Depends(get_db)):
+async def get_state_analytics(state_code: str, db: Session = Depends(get_db), _admin = Depends(require_admin)):
     """Get analytics for matchmaking in a specific state."""
     if not is_state_live(state_code):
         raise HTTPException(status_code=400, detail=f"State {state_code} not live")
