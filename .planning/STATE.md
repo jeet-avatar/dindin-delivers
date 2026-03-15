@@ -208,9 +208,10 @@ None
 | 174 | Add delivery photo proof viewer to restaurant app history tab — deliveryPhotoUrl threaded P2PVendorOrder → Order → EnhancedDashboardView 64x64 thumbnail + fullScreenCover preview | 2026-03-14 | e5b8572e | [174-add-delivery-photo-proof-viewer-to-resta](./quick/174-add-delivery-photo-proof-viewer-to-resta/) |
 | 175 | Build global /handoff command + SessionStart hook — saves structured session state to ~/.claude/handoffs/, auto-injects most recent handoff (<=7 days) into new sessions | 2026-03-14 | d73670eb | [175-build-global-handoff-command-that-saves-](./quick/175-build-global-handoff-command-that-saves-/) |
 | 176 | Demo payment bypass for App Store review — demo.customer@dollor.ai at vendor IDs 1/40/134 skip Stripe, auto-advance to PENDING_RESTAURANT | 2026-03-14 | e52372e8 | [176-implement-demo-payment-bypass-for-demo-o](./quick/176-implement-demo-payment-bypass-for-demo-o/) |
+| 177 | Fix READY_FOR_PICKUP state machine bug (was writing PENDING_DELIVERY_DECISION), add demo delivery_decision_sent_at timer fix, add out_for_delivery "Delivering now" card to iOS restaurant app | 2026-03-15 | c7aa880d | [177-fix-order-flow-ready-for-pickup-and-deli](./quick/177-fix-order-flow-ready-for-pickup-and-deli/) |
 
 ## Session Continuity
 
-Last session: 2026-03-14
-Stopped at: Completed quick task 176: implement demo payment bypass for App Store review orders
+Last session: 2026-03-15
+Stopped at: Completed quick task 177: fix order flow READY_FOR_PICKUP and delivering now UI
 Resume file: .planning/NEXT_SESSION_PROMPT.md
