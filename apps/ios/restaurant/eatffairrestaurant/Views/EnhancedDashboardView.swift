@@ -1859,6 +1859,66 @@ struct OrderDetailSheet: View {
                             }
                         }
                         .padding()
+                    } else if order.status.lowercased() == "out_for_delivery" {
+                        // Driver picked up the order — show "Delivering now" card
+                        VStack(spacing: 12) {
+                            HStack {
+                                Image(systemName: "shippingbox.fill")
+                                    .foregroundColor(RestaurantTheme.brandGreen)
+                                Text("Delivering now")
+                                    .font(.headline)
+                                    .foregroundColor(RestaurantTheme.brandGreen)
+                            }
+                            if let driverName = order.driverName, !driverName.isEmpty {
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(RestaurantTheme.brandBlue.opacity(0.2))
+                                            .frame(width: 50, height: 50)
+                                        Image(systemName: "person.fill")
+                                            .foregroundColor(RestaurantTheme.brandBlue)
+                                    }
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(driverName)
+                                            .font(.headline)
+                                        if let phone = order.driverPhone {
+                                            Text(phone)
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                    if let driverPhone = order.driverPhone {
+                                        Button(action: {
+                                            let cleanPhone = driverPhone
+                                                .replacingOccurrences(of: "-", with: "")
+                                                .replacingOccurrences(of: " ", with: "")
+                                                .replacingOccurrences(of: "(", with: "")
+                                                .replacingOccurrences(of: ")", with: "")
+                                            if let url = URL(string: "tel:\(cleanPhone)") {
+                                                UIApplication.shared.open(url)
+                                            }
+                                        }) {
+                                            Image(systemName: "phone.fill")
+                                                .foregroundColor(.white)
+                                                .padding(12)
+                                                .background(RestaurantTheme.brandGreen)
+                                                .clipShape(Circle())
+                                        }
+                                        .accessibilityLabel("Call driver")
+                                    }
+                                }
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                            } else {
+                                Text("Driver is on the way to the customer")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                        }
+                        .padding()
                     } else if order.status.lowercased() == "restaurant_will_deliver" {
                         Button(action: {
                             ordersVM.markOrderDelivered(order)
