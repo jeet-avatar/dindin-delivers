@@ -16901,27 +16901,31 @@ async def tip_ride_driver(
     if ride.status != RideRequestStatus.COMPLETED:
         raise HTTPException(status_code=400, detail=f"Can only tip on completed rides (current: {ride.status.value})")
 
-    # Update tip amount on ride
-    current_tip = getattr(ride, 'tip_amount', 0) or 0
-    ride.tip_amount = current_tip + actual_tip
-    db.commit()
+    # F6 SECURITY: Validate tip amount against ride fare (max 100% of fare)
+    ride_fare = float(ride.final_price or ride.suggested_price or 50)
+    if actual_tip > ride_fare:
+        raise HTTPException(status_code=400, detail=f"Tip cannot exceed ride fare (${ride_fare:.2f})")
 
-    # Transfer tip to driver via Stripe Connect (only if main payout already happened)
+    # F6 SECURITY: Attempt Stripe transfer FIRST, only save to DB if successful
+    # This prevents the accounting mismatch where tip is in DB but driver never receives it
     tip_transferred = False
+    tip_transfer_id = None
+
     if ride.stripe_transfer_id:
-        try:
-            driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first()
-            if driver and getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
-                import stripe as stripe_lib
-                import os
-                stripe_lib.api_key = os.getenv("STRIPE_SECRET_KEY")
-                tip_cents = int(actual_tip * 100)
-                if tip_cents > 0:
-                    stripe_lib.Transfer.create(
+        driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first()
+        if driver and getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
+            import stripe as stripe_lib
+            import os
+            stripe_lib.api_key = os.getenv("STRIPE_SECRET_KEY")
+            tip_cents = int(actual_tip * 100)
+            if tip_cents > 0:
+                try:
+                    transfer = stripe_lib.Transfer.create(
                         amount=tip_cents,
                         currency="usd",
                         destination=driver.stripe_account_id,
                         description=f"Ride {ride.request_id} tip",
+                        idempotency_key=f"ride_tip_{ride_id}_{int(actual_tip * 100)}",
                         metadata={
                             "ride_id": str(ride_id),
                             "type": "tip",
@@ -16929,9 +16933,19 @@ async def tip_ride_driver(
                         }
                     )
                     tip_transferred = True
-                    logger.info(f"Ride {ride_id} tip ${actual_tip:.2f} transferred to driver {driver.id}")
-        except Exception as e:
-            logger.error(f"Ride {ride_id} tip transfer failed (tip still saved): {e}")
+                    tip_transfer_id = transfer.id
+                    logger.info(f"Ride {ride_id} tip ${actual_tip:.2f} transferred to driver {driver.id}, transfer={transfer.id}")
+                except stripe_lib.error.StripeError as e:
+                    logger.error(f"Ride {ride_id} tip transfer FAILED: {e}")
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"Tip transfer to driver failed. Please try again. Error: {str(e)}"
+                    )
+
+    # F6: Only save tip to DB AFTER successful Stripe transfer (or if no Stripe transfer needed)
+    # Use replace (not accumulate) to prevent tip manipulation
+    ride.tip_amount = actual_tip
+    db.commit()
 
     return {
         "success": True,
@@ -16939,6 +16953,7 @@ async def tip_ride_driver(
         "ride_id": ride_id,
         "tip_amount": actual_tip,
         "tip_transferred": tip_transferred,
+        "tip_transfer_id": tip_transfer_id,
         "driver_new_earnings": actual_tip  # 100% to driver
     }
 
