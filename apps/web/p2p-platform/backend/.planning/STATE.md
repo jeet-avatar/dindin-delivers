@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-15 - Completed quick task 176: implement demo payment bypass for demo orders to test restaurants
+Last activity: 2026-03-15 - Completed quick task 177: fix order flow ready-for-pickup and delivering-now restaurant status
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -139,9 +139,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 164 | Add combo deals and bestseller features to menu system | 2026-03-13 | 4d6b0831 | Verified | [164-add-combo-deals-and-bestseller-features-](./quick/164-add-combo-deals-and-bestseller-features-/) |
 | 141 | Build and upload all 3 iOS apps to TestFlight v1.1 — Customer 1114, Driver 216, Restaurant 206 | 2026-03-13 | ea2b07c9 | [141-build-and-upload-all-3-ios-apps-to-testf](./quick/141-build-and-upload-all-3-ios-apps-to-testf/) |
 | 176 | implement demo payment bypass for demo orders to test restaurants | 2026-03-15 | b44dbfdd | [176-implement-demo-payment-bypass-for-demo-o](./quick/176-implement-demo-payment-bypass-for-demo-o/) |
+| 177 | fix order flow ready-for-pickup and delivering-now restaurant status | 2026-03-15 | f571864f | [177-fix-order-flow-ready-for-pickup-and-deli](./quick/177-fix-order-flow-ready-for-pickup-and-deli/) |
 
 ## Session Continuity
 
 Last session: 2026-03-15
-Stopped at: Demo payment bypass implemented — orders from demo.customer@dollor.ai to vendor IDs 1/40/134 auto-advance to PENDING_RESTAURANT with payment_status="succeeded".
+Stopped at: Order flow fixed — READY_FOR_PICKUP no longer wrongly opens 2nd decision window; demo orders start 3-min timer on arrival; restaurant app shows "Delivering now" for out_for_delivery.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
