@@ -2168,7 +2168,7 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"Created demo vendor: {demo_email}")
+        print(f"Created demo vendor: {mask_email(demo_email)}")
     else:
         # Demo user exists - ensure password and vendor info are correct
         from models import VendorStatus
@@ -2184,7 +2184,7 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
                 vendor.onboarding_status = VendorStatus.APPROVED
                 vendor.is_published = True
         db.commit()
-        print(f"Updated demo vendor credentials: {demo_email}")
+        print(f"Updated demo vendor credentials: {mask_email(demo_email)}")
 
     # Seed demo orders for Apple review — ensures dashboard looks populated
     try:
@@ -2329,13 +2329,13 @@ def customer_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(g
         db.add(customer)
         db.commit()
         db.refresh(customer)
-        print(f"Created demo customer: {demo_email}")
+        print(f"Created demo customer: {mask_email(demo_email)}")
     else:
         # Update password to ensure it's correct
         customer.password_hash = get_password_hash(demo_password)
         customer.is_active = True
         db.commit()
-        print(f"Updated demo customer credentials: {demo_email}")
+        print(f"Updated demo customer credentials: {mask_email(demo_email)}")
 
     full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
     access_token = create_access_token(data={"sub": customer.email, "role": "customer", "customer_id": customer.id})
@@ -2395,12 +2395,12 @@ def driver_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"Created demo driver: {demo_email}")
+        print(f"Created demo driver: {mask_email(demo_email)}")
     else:
         # Demo user exists - ensure password is correct
         user.password_hash = get_password_hash(demo_password)
         db.commit()
-        print(f"Updated demo driver credentials: {demo_email}")
+        print(f"Updated demo driver credentials: {mask_email(demo_email)}")
 
     # Get driver record
     driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
@@ -2445,7 +2445,7 @@ class PasswordResetConfirm(BaseModel):
 @app.post("/api/auth/vendor/register")
 def vendor_register(http_request: Request, request: VendorRegisterRequest, db: Session = Depends(get_db)):
     check_rate_limit(http_request, registration_rate_limiter, "register")
-    print(f"Vendor registration attempt for: {request.email}")
+    print(f"Vendor registration attempt for: {mask_email(request.email)}")
 
     try:
         # Get names using flexible getters (accept both field name variants)
@@ -2524,7 +2524,7 @@ def vendor_register(http_request: Request, request: VendorRegisterRequest, db: S
         db.refresh(new_user)
         print(f"User record created: {new_user.id}")
 
-        print(f"Vendor registration successful for: {new_user.email}, vendor_id: {new_vendor.id}")
+        print(f"Vendor registration successful for: {mask_email(new_user.email)}, vendor_id: {new_vendor.id}")
         access_token = create_access_token(data={"sub": new_user.email, "role": "vendor", "vendor_id": new_vendor.id})
 
         # Send registration confirmation email (non-blocking)
@@ -2534,7 +2534,7 @@ def vendor_register(http_request: Request, request: VendorRegisterRequest, db: S
                 vendor_name=owner_name,
                 restaurant_name=rest_name
             )
-            print(f"Vendor registration email sent to: {request.email}")
+            print(f"Vendor registration email sent to: {mask_email(request.email)}")
         except Exception as e:
             print(f"Failed to send vendor registration email: {str(e)}")
 
@@ -2660,7 +2660,7 @@ def _verify_apple_jwt(token: str) -> dict:
             algorithms=['RS256'],
             options={"verify_aud": False}  # audience is app bundle ID (varies)
         )
-        logger.info(f"Apple JWT verified: sub={payload.get('sub')} email={payload.get('email')}")
+        logger.info(f"Apple JWT verified: sub={payload.get('sub')} email={mask_email(payload.get('email'))}")
         return payload
     except Exception as e:
         logger.warning(f"Apple JWT verification failed: {e}")
@@ -2682,7 +2682,7 @@ def _verify_google_jwt(token: str) -> dict:
             google_requests.Request(),
             audience=google_client_id  # None = skip audience check (still verifies signature)
         )
-        logger.info(f"Google JWT verified: sub={payload.get('sub')} email={payload.get('email')}")
+        logger.info(f"Google JWT verified: sub={payload.get('sub')} email={mask_email(payload.get('email'))}")
         return payload
     except Exception as e:
         logger.warning(f"Google JWT verification failed: {e}")
@@ -2714,7 +2714,7 @@ def vendor_google_auth(http_request: Request, request: VendorGoogleAuthRequest, 
         if not name:
             name = email.split('@')[0]  # Use email prefix as fallback name
 
-        print(f"Vendor Google auth for: {email}")
+        print(f"Vendor Google auth for: {mask_email(email)}")
 
         # Check if user exists with this email (any role)
         existing_user = db.query(User).filter(User.email == email).first()
@@ -2723,7 +2723,7 @@ def vendor_google_auth(http_request: Request, request: VendorGoogleAuthRequest, 
             user = existing_user
             if user.vendor_id:
                 # User already has a vendor account — allow login
-                print(f"Existing user {email} (role={user.role.value}) logging in as vendor")
+                print(f"Existing user {mask_email(email)} (role={user.role.value}) logging in as vendor")
             else:
                 # User exists but has no vendor account — direct them to register
                 return JSONResponse(
@@ -2749,7 +2749,7 @@ def vendor_google_auth(http_request: Request, request: VendorGoogleAuthRequest, 
         vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first() if user.vendor_id else None
         business_name = vendor.restaurant_name or vendor.company_name if vendor else name
 
-        print(f"Vendor Google auth successful for: {user.email}")
+        print(f"Vendor Google auth successful for: {mask_email(user.email)}")
         access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
         return {
             "access_token": access_token,
@@ -2842,7 +2842,7 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
             user = existing_user
             if user.vendor_id:
                 # User already has a vendor account — allow login
-                print(f"Existing user {email} (role={user.role.value}) logging in as vendor via Apple")
+                print(f"Existing user {mask_email(email)} (role={user.role.value}) logging in as vendor via Apple")
                 # Store apple_id on vendor if not already set
                 if not vendor and user.vendor_id:
                     vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
@@ -2875,7 +2875,7 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
             vendor = db.query(Vendor).filter(Vendor.id == user.vendor_id).first()
         business_name = vendor.restaurant_name or vendor.company_name if vendor else name
 
-        print(f"Vendor Apple auth successful for: {user.email}")
+        print(f"Vendor Apple auth successful for: {mask_email(user.email)}")
         access_token = create_access_token(data={"sub": user.email, "role": "vendor", "vendor_id": user.vendor_id})
         return {
             "access_token": access_token,
@@ -3136,7 +3136,7 @@ def driver_refresh_token(driver: Driver = Depends(require_driver), db: Session =
 def driver_register(http_request: Request, request: DriverRegisterRequest, db: Session = Depends(get_db)):
     """Register a new driver account"""
     check_rate_limit(http_request, registration_rate_limiter, "register")
-    print(f"Driver registration attempt for: {request.email}")
+    print(f"Driver registration attempt for: {mask_email(request.email)}")
 
     try:
         # SECURITY (NSA-009): Enforce password policy for driver registration
@@ -3199,7 +3199,7 @@ def driver_register(http_request: Request, request: DriverRegisterRequest, db: S
         db.refresh(new_user)
         print(f"User record created: {new_user.id}")
 
-        print(f"Driver registration successful for: {new_user.email}, driver_id: {new_driver.id}")
+        print(f"Driver registration successful for: {mask_email(new_user.email)}, driver_id: {new_driver.id}")
         access_token = create_access_token(data={"sub": new_user.email, "role": "driver", "driver_id": new_driver.id})
 
         # Send registration confirmation email (non-blocking)
@@ -3209,7 +3209,7 @@ def driver_register(http_request: Request, request: DriverRegisterRequest, db: S
                 driver_name=f"{new_driver.first_name} {new_driver.last_name}",
                 driver_code=driver_code
             )
-            print(f"Driver registration email sent to: {new_driver.email}")
+            print(f"Driver registration email sent to: {mask_email(new_driver.email)}")
         except Exception as e:
             print(f"Failed to send driver registration email: {str(e)}")
 
@@ -3270,7 +3270,7 @@ def driver_google_auth(http_request: Request, request: DriverGoogleAuthRequest, 
     if not name:
         name = email.split('@')[0]  # Use email prefix as fallback name
 
-    print(f"Driver Google auth for: {email}")
+    print(f"Driver Google auth for: {mask_email(email)}")
 
     # Check if user exists with this email (any role)
     existing_user = db.query(User).filter(User.email == email).first()
@@ -3285,7 +3285,7 @@ def driver_google_auth(http_request: Request, request: DriverGoogleAuthRequest, 
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Driver account is suspended. Please contact support@dollor.ai"
                 )
-            print(f"Existing user {email} (role={user.role.value}) logging in as driver")
+            print(f"Existing user {mask_email(email)} (role={user.role.value}) logging in as driver")
         else:
             # User exists but has no driver account — direct them to register
             return JSONResponse(
@@ -3310,7 +3310,7 @@ def driver_google_auth(http_request: Request, request: DriverGoogleAuthRequest, 
     # Get driver info
     driver = db.query(Driver).filter(Driver.id == user.driver_id).first() if user.driver_id else None
 
-    print(f"Driver Google auth successful for: {user.email} (status: {driver.status.value if driver else 'unknown'})")
+    print(f"Driver Google auth successful for: {mask_email(user.email)} (status: {driver.status.value if driver else 'unknown'})")
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id if driver else None})
     return {
         "access_token": access_token,
@@ -3398,7 +3398,7 @@ def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db
             if driver and not driver.apple_id:
                 driver.apple_id = request.apple_id
                 db.commit()
-            print(f"Existing user {email} (role={user.role.value}) logging in as driver via Apple")
+            print(f"Existing user {mask_email(email)} (role={user.role.value}) logging in as driver via Apple")
         else:
             # User exists but has no driver account — direct them to register
             return JSONResponse(
@@ -3424,7 +3424,7 @@ def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db
     if not driver and user and user.driver_id:
         driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
 
-    print(f"Driver Apple auth successful for: {user.email} (status: {driver.status.value if driver else 'unknown'})")
+    print(f"Driver Apple auth successful for: {mask_email(user.email)} (status: {driver.status.value if driver else 'unknown'})")
     access_token = create_access_token(data={"sub": user.email, "role": "driver", "driver_id": driver.id if driver else None})
     return {
         "access_token": access_token,
@@ -3706,7 +3706,7 @@ def customer_auth_register(http_request: Request, request: CustomerRegisterReque
     """Register a new customer account for rideshare"""
     # SECURITY: Rate limit registration attempts
     check_rate_limit(http_request, registration_rate_limiter, "customer_register")
-    print(f"Customer registration attempt for: {request.email}")
+    print(f"Customer registration attempt for: {mask_email(request.email)}")
 
     try:
         # Check if email already exists
@@ -3754,7 +3754,7 @@ def customer_auth_register(http_request: Request, request: CustomerRegisterReque
         db.refresh(new_customer)
 
         full_name = f"{new_customer.first_name} {new_customer.last_name}".strip()
-        print(f"Customer registration successful for: {new_customer.email}, customer_id: {new_customer.id}")
+        print(f"Customer registration successful for: {mask_email(new_customer.email)}, customer_id: {new_customer.id}")
         access_token = create_access_token(data={"sub": new_customer.email, "role": "customer", "customer_id": new_customer.id})
 
         # Send welcome email (non-blocking, don't fail registration if email fails)
@@ -3764,7 +3764,7 @@ def customer_auth_register(http_request: Request, request: CustomerRegisterReque
                 customer_name=full_name,
                 customer_code=customer_code
             )
-            print(f"Welcome email sent to: {new_customer.email}")
+            print(f"Welcome email sent to: {mask_email(new_customer.email)}")
         except Exception as e:
             print(f"Failed to send customer welcome email: {str(e)}")
 
@@ -3830,7 +3830,7 @@ def customer_google_auth(http_request: Request, request: CustomerGoogleAuthReque
     if not name:
         name = email.split('@')[0]  # Use email prefix as fallback name
 
-    print(f"Customer Google auth for: {email}")
+    print(f"Customer Google auth for: {mask_email(email)}")
 
     # Check if customer exists
     customer = db.query(Customer).filter(Customer.email == email).first()
@@ -3864,7 +3864,7 @@ def customer_google_auth(http_request: Request, request: CustomerGoogleAuthReque
         db.add(customer)
         db.commit()
         db.refresh(customer)
-        print(f"Created new customer via Google auth: {email}")
+        print(f"Created new customer via Google auth: {mask_email(email)}")
 
         # Send welcome email for new Google signup
         try:
@@ -3872,12 +3872,12 @@ def customer_google_auth(http_request: Request, request: CustomerGoogleAuthReque
                 to_email=email,
                 customer_name=name
             )
-            print(f"Welcome email sent to Google signup: {email}")
+            print(f"Welcome email sent to Google signup: {mask_email(email)}")
         except Exception as e:
             print(f"Failed to send welcome email to Google signup: {str(e)}")
 
     full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or name
-    print(f"Customer Google auth successful for: {customer.email}")
+    print(f"Customer Google auth successful for: {mask_email(customer.email)}")
     access_token = create_access_token(data={"sub": customer.email, "role": "customer", "customer_id": customer.id})
     return {
         "access_token": access_token,
@@ -4075,7 +4075,7 @@ def send_verification_email(
     )
 
     if not email_sent:
-        logger.warning(f"Failed to send verification email to {customer.email}")
+        logger.warning(f"Failed to send verification email to {mask_email(customer.email)}")
         # Don't fail the request - code is saved, can try again
 
     return {
@@ -4132,7 +4132,7 @@ def verify_customer_email(
     customer.email_verification_expires = None
     db.commit()
 
-    logger.info(f"Customer {customer.email} verified their email successfully")
+    logger.info(f"Customer {mask_email(customer.email)} verified their email successfully")
 
     return {
         "success": True,
@@ -6495,7 +6495,7 @@ def get_driver_verification_status(driver: Driver = Depends(require_driver)):
 def customer_food_register(http_request: Request, request: CustomerRegisterRequest, db: Session = Depends(get_db)):
     """Register a new customer account"""
     check_rate_limit(http_request, registration_rate_limiter, "register")
-    print(f"Customer registration attempt for: {request.email}")
+    print(f"Customer registration attempt for: {mask_email(request.email)}")
 
     try:
         # Check if customer already exists
@@ -6563,7 +6563,7 @@ def customer_food_register(http_request: Request, request: CustomerRegisterReque
         db.refresh(new_user)
 
         full_name = f"{new_customer.first_name} {new_customer.last_name}".strip()
-        print(f"Customer registration successful for: {new_user.email}, customer_id: {new_customer.id}")
+        print(f"Customer registration successful for: {mask_email(new_user.email)}, customer_id: {new_customer.id}")
         access_token = create_access_token(data={"sub": new_user.email, "role": "customer", "customer_id": new_customer.id})
 
         return {
@@ -6679,7 +6679,7 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"Created new user for Apple auth: {email}")
+        print(f"Created new user for Apple auth: {mask_email(email)}")
 
     # Check if customer record exists (may have been found earlier by apple_id)
     if not customer:
@@ -6707,7 +6707,7 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
         db.add(customer)
         db.commit()
         db.refresh(customer)
-        print(f"Created new customer record for: {email} with ID: {customer_id}, apple_id stored")
+        print(f"Created new customer record for: {mask_email(email)} with ID: {customer_id}, apple_id stored")
 
         # Send welcome email for new Apple signup
         try:
@@ -6715,7 +6715,7 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
                 to_email=email,
                 customer_name=display_name
             )
-            print(f"Welcome email sent to Apple signup: {email}")
+            print(f"Welcome email sent to Apple signup: {mask_email(email)}")
         except Exception as e:
             print(f"Failed to send welcome email to Apple signup: {str(e)}")
 
@@ -6723,7 +6723,7 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
         # Update existing customer with apple_id if not set (for users who signed up before this change)
         customer.apple_id = request.apple_id
         db.commit()
-        print(f"Updated existing customer {customer.email} with apple_id")
+        print(f"Updated existing customer {mask_email(customer.email)} with apple_id")
 
     # Generate token
     access_token = create_access_token(data={"sub": user.email, "role": "customer", "customer_id": customer.id})
@@ -10407,7 +10407,7 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
 
         existing_user = db.query(User).filter(User.email == vendor.contact_email).first()
         if existing_user:
-            print(f"⚠️ User account exists: {vendor.contact_email}")
+            print(f"⚠️ User account exists: {mask_email(vendor.contact_email)}")
             raise HTTPException(
                 status_code=409,
                 detail=f"An account with email '{vendor.contact_email}' already exists. Please login using your credentials at /vendor/login"
@@ -10451,7 +10451,7 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
                 vendor_id=db_vendor.id
             )
             db.add(vendor_user)
-            print(f"✅ User account created for: {vendor.contact_email}")
+            print(f"✅ User account created for: {mask_email(vendor.contact_email)}")
 
         # Save menu items if provided
         menu_count = 0
@@ -10490,7 +10490,7 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
                 contact_name=vendor.contact_name or "Partner",
                 vendor_id=db_vendor.id  # Fixed: use db_vendor.id instead of undefined vendor_id
             )
-            print(f"📧 Registration confirmation email sent to: {vendor.contact_email}")
+            print(f"📧 Registration confirmation email sent to: {mask_email(vendor.contact_email)}")
         except Exception as e:
             print(f"⚠️ Failed to send confirmation email: {str(e)}")
 
@@ -10668,7 +10668,7 @@ async def create_vendor_public_with_menu(
         # Parse the JSON data
         vendor_data = json.loads(data)
         print(f"Restaurant: {vendor_data.get('restaurant_name')}")
-        print(f"Contact: {vendor_data.get('contact_email')}")
+        print(f"Contact: {mask_email(vendor_data.get('contact_email'))}")
         print(f"Menu file: {menu_file.filename}")
         print("=" * 60)
 
@@ -10746,7 +10746,7 @@ async def create_vendor_public_with_menu(
                 vendor_id=db_vendor.id
             )
             db.add(vendor_user)
-            print(f"✅ User account created for: {vendor_data['contact_email']}")
+            print(f"✅ User account created for: {mask_email(vendor_data['contact_email'])}")
 
         # Save any scraped menu items
         menu_count = 0
@@ -10784,7 +10784,7 @@ async def create_vendor_public_with_menu(
                 contact_name=vendor_data.get('contact_name') or "Partner",
                 vendor_id=db_vendor.id
             )
-            print(f"📧 Registration confirmation email sent to: {vendor_data.get('contact_email')}")
+            print(f"📧 Registration confirmation email sent to: {mask_email(vendor_data.get('contact_email'))}")
         except Exception as e:
             print(f"⚠️ Failed to send confirmation email: {str(e)}")
 
@@ -12267,7 +12267,7 @@ async def admin_upload_vendor_document(
         f.write(content)
 
     print(f"📄 Admin uploaded document: {document_type} for vendor {vendor_id}")
-    print(f"   Admin: {admin.email}")
+    print(f"   Admin: {mask_email(admin.email)}")
     print(f"   File: {unique_filename}")
 
     # Map document type to DB fields
@@ -18926,7 +18926,7 @@ async def proxy_create_payment_intent(
 
     customer = get_current_customer_from_token(authorization, db) if authorization else None
     if customer and customer.email and customer.email.lower() in [e.lower() for e in DEMO_CUSTOMER_EMAILS]:
-        logger.info(f"Demo account detected: {customer.email} - bypassing Stripe payment")
+        logger.info(f"Demo account detected: {mask_email(customer.email)} - bypassing Stripe payment")
         # Return demo payment response - app will detect 'demo' flag and skip actual payment
         return {
             "clientSecret": "demo_pi_appstore_review_secret",
