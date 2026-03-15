@@ -198,8 +198,9 @@ def mock_auth():
 def mock_order(db_session, mock_vendor):
     """Create a mock order (Dollor.ai $1 flat fee model)"""
     import uuid
+    _uid = uuid.uuid4().hex[:12]
     order = Order(
-        order_number=f"ORD-{uuid.uuid4().hex[:12]}",
+        order_number=f"ORD-{_uid}",
         customer_name="John Doe",
         customer_email="john@example.com",
         customer_phone="+14155559999",
@@ -223,7 +224,7 @@ def mock_order(db_session, mock_vendor):
         delivery_longitude=-122.4194,
         status=OrderStatus.PENDING_PAYMENT,
         payment_status="pending",
-        stripe_payment_intent_id="pi_test123"
+        stripe_payment_intent_id=f"pi_test_{_uid}"
     )
     db_session.add(order)
     db_session.commit()
@@ -608,13 +609,14 @@ class TestStripeWebhook:
     @patch('stripe_integration.stripe.Webhook.construct_event')
     def test_webhook_payment_intent_failed(self, mock_construct_event, db_session, mock_order):
         """Should handle payment_intent.payment_failed webhook"""
+        import uuid as _uuid
         # Arrange
         webhook_event = {
-            'id': 'evt_test456',
+            'id': f'evt_fail_{_uuid.uuid4().hex[:8]}',
             'type': 'payment_intent.payment_failed',
             'data': {
                 'object': {
-                    'id': 'pi_test123',
+                    'id': mock_order.stripe_payment_intent_id,
                     'amount': 3795,
                     'currency': 'usd',
                     'status': 'failed'
@@ -749,15 +751,16 @@ class TestStripeWebhook:
     def test_webhook_invoice_generation_error(self, mock_generate_invoice,
                                               mock_construct_event, db_session, mock_order):
         """Should not fail webhook if invoice generation fails"""
+        import uuid as _uuid
         # Arrange
         mock_generate_invoice.side_effect = Exception("Invoice error")
 
         webhook_event = {
-            'id': 'evt_test999',
+            'id': f'evt_inv_{_uuid.uuid4().hex[:8]}',
             'type': 'payment_intent.succeeded',
             'data': {
                 'object': {
-                    'id': 'pi_test123',
+                    'id': mock_order.stripe_payment_intent_id,
                     'amount': 3795,
                     'currency': 'usd',
                     'status': 'succeeded',
@@ -1436,13 +1439,14 @@ class TestEdgeCases:
     @patch('stripe_integration.stripe.Webhook.construct_event')
     def test_webhook_with_missing_charge_data(self, mock_construct_event, db_session, mock_order):
         """Should handle webhook without charge data"""
+        import uuid as _uuid
         # Arrange
         webhook_event = {
-            'id': 'evt_no_charge',
+            'id': f'evt_nochg_{_uuid.uuid4().hex[:8]}',
             'type': 'payment_intent.succeeded',
             'data': {
                 'object': {
-                    'id': 'pi_test123',
+                    'id': mock_order.stripe_payment_intent_id,
                     'amount': 3795,
                     'currency': 'usd',
                     'status': 'succeeded',
