@@ -3299,6 +3299,18 @@ async def update_order_status(
     elif new_status == OrderStatus.DELIVERED:
         order.status = new_status
         order.delivered_at = datetime.now()
+        # Insurance: Period 3 END — delivered
+        try:
+            from insurance.events import log_insurance_event, get_or_create_session_id
+            if order.driver_id:
+                _session_id = get_or_create_session_id(db, order.driver_id)
+                log_insurance_event(
+                    db=db, driver_id=order.driver_id, trip_type="delivery",
+                    trip_id=order.id, session_id=_session_id, period=3,
+                    event_type="period_end",
+                )
+        except Exception as e:
+            logging.warning(f"Insurance event (delivered) failed: {e}")
     else:
         order.status = new_status
 
@@ -3592,6 +3604,23 @@ async def assign_driver(
     order.driver_accepted_at = datetime.now()
     order.dispatched_at = datetime.now()
 
+    # Insurance: Period 1 END + Period 2 START — driver accepted delivery
+    try:
+        from insurance.events import log_insurance_event, get_or_create_session_id
+        _session_id = get_or_create_session_id(db, driver.id)
+        log_insurance_event(
+            db=db, driver_id=driver.id, trip_type="delivery",
+            trip_id=order.id, session_id=_session_id, period=1,
+            event_type="period_end",
+        )
+        log_insurance_event(
+            db=db, driver_id=driver.id, trip_type="delivery",
+            trip_id=order.id, session_id=_session_id, period=2,
+            event_type="period_start",
+        )
+    except Exception as e:
+        logging.warning(f"Insurance event (driver accept order) failed: {e}")
+
     # Store driver's ETA to restaurant if provided
     if request.driver_eta_minutes:
         order.driver_eta_to_restaurant = request.driver_eta_minutes
@@ -3748,6 +3777,23 @@ async def order_picked_up(
     order.picked_up_at = datetime.now()
     order.driver_en_route = False  # Driver has picked up, no longer en-route
 
+    # Insurance: Period 2 END + Period 3 START — food in transit
+    try:
+        from insurance.events import log_insurance_event, get_or_create_session_id
+        _session_id = get_or_create_session_id(db, order.driver_id)
+        log_insurance_event(
+            db=db, driver_id=order.driver_id, trip_type="delivery",
+            trip_id=order.id, session_id=_session_id, period=2,
+            event_type="period_end",
+        )
+        log_insurance_event(
+            db=db, driver_id=order.driver_id, trip_type="delivery",
+            trip_id=order.id, session_id=_session_id, period=3,
+            event_type="period_start",
+        )
+    except Exception as e:
+        logging.warning(f"Insurance event (food pickup) failed: {e}")
+
     # In-app notification for customer
     if order.customer_id:
         driver_name = order.driver_name or "Your driver"
@@ -3866,6 +3912,19 @@ async def order_delivered(
     # Update order status FIRST (this must succeed regardless of accounting)
     order.status = OrderStatus.DELIVERED
     order.delivered_at = datetime.now()
+
+    # Insurance: Period 3 END — delivered
+    try:
+        from insurance.events import log_insurance_event, get_or_create_session_id
+        if order.driver_id:
+            _session_id = get_or_create_session_id(db, order.driver_id)
+            log_insurance_event(
+                db=db, driver_id=order.driver_id, trip_type="delivery",
+                trip_id=order.id, session_id=_session_id, period=3,
+                event_type="period_end",
+            )
+    except Exception as e:
+        logging.warning(f"Insurance event (delivered) failed: {e}")
 
     # Get vendor
     vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
