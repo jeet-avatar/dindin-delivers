@@ -12,7 +12,7 @@ Features:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from auth_utils import require_any_auth
+from auth_utils import require_any_auth, require_vendor, require_customer
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -101,7 +101,7 @@ async def create_promotion(
     request: CreatePromotionRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Create a new promotion
@@ -116,10 +116,9 @@ async def create_promotion(
     """
     ai_employee = AI_EMPLOYEES["MARKETING_MAESTRO"]
 
-    # Verify vendor
-    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Restaurant not found")
+    # IDOR: verify authenticated vendor owns this vendor_id
+    if vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this restaurant")
 
     # Generate promotion code
     promo_code = f"PROMO{uuid.uuid4().hex[:6].upper()}"
@@ -282,7 +281,7 @@ def get_promotion_message(promotion: Promotion) -> str:
 async def get_ai_suggested_promotions(
     vendor_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     AI-generated promotion suggestions based on restaurant data
@@ -297,9 +296,9 @@ async def get_ai_suggested_promotions(
     ai_employee = AI_EMPLOYEES["MARKETING_MAESTRO"]
     analytics_ai = AI_EMPLOYEES["ANALYTICS_ADVISOR"]
 
-    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Restaurant not found")
+    # IDOR: verify authenticated vendor owns this vendor_id
+    if vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this restaurant")
 
     # Get recent orders
     last_30_days = datetime.now() - timedelta(days=30)
@@ -432,9 +431,13 @@ async def list_promotions(
     vendor_id: int,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """Get all promotions for a vendor"""
+    # IDOR: verify authenticated vendor owns this vendor_id
+    if vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this restaurant")
+
     query = db.query(Promotion).filter(Promotion.vendor_id == vendor_id)
 
     if status:
@@ -479,7 +482,7 @@ async def update_promotion(
     request: UpdatePromotionRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """Update an existing promotion"""
     ai_employee = AI_EMPLOYEES["MARKETING_MAESTRO"]
@@ -487,6 +490,10 @@ async def update_promotion(
     promotion = db.query(Promotion).filter(Promotion.id == promotion_id).first()
     if not promotion:
         raise HTTPException(status_code=404, detail="Promotion not found")
+
+    # IDOR: verify authenticated vendor owns this promotion
+    if promotion.vendor_id != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this promotion")
 
     # Update fields
     if request.name:
@@ -751,13 +758,17 @@ async def get_promotion_analytics(
     vendor_id: int,
     days: int = 30,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Get promotion performance analytics
     AI Employee: Sage
     """
     ai_employee = AI_EMPLOYEES["ANALYTICS_ADVISOR"]
+
+    # IDOR: verify authenticated vendor owns this vendor_id
+    if vendor.id != vendor_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this restaurant")
 
     # Get all promotions for vendor
     promotions = db.query(Promotion).filter(Promotion.vendor_id == vendor_id).all()
@@ -840,12 +851,16 @@ def generate_promotion_insights(promo_stats: List[Dict]) -> List[str]:
 async def delete_promotion(
     promotion_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """Delete a promotion (sets status to cancelled)"""
     promotion = db.query(Promotion).filter(Promotion.id == promotion_id).first()
     if not promotion:
         raise HTTPException(status_code=404, detail="Promotion not found")
+
+    # IDOR: verify authenticated vendor owns this promotion
+    if promotion.vendor_id != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this promotion")
 
     promotion.status = PromotionStatus.CANCELLED
     db.commit()
@@ -864,7 +879,7 @@ async def quick_create_promotion(
     promo_type: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Quick create common promotion types
@@ -933,4 +948,4 @@ async def quick_create_promotion(
         push_to_app=True
     )
 
-    return await create_promotion(vendor_id, request, background_tasks, db)
+    return await create_promotion(vendor_id, request, background_tasks, db, vendor)

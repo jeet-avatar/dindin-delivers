@@ -4,7 +4,7 @@ Handles payment intents, webhooks, and invoice generation
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
-from auth_utils import require_any_auth
+from auth_utils import require_any_auth, require_customer, require_admin
 from cache import check_rate_limit, RateLimiter
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
@@ -26,7 +26,7 @@ def _sanitize_text(text):
     return _HTML_TAG_RE.sub('', text).strip()
 
 from database import get_db
-from models import Order, OrderStatus, StripePaymentLog, Vendor, VendorMenuItem, VendorPayout, Customer, RideRequest
+from models import Order, OrderStatus, StripePaymentLog, Vendor, VendorMenuItem, VendorPayout, Customer, RideRequest, User
 from order_flow import get_tax_rate, DEFAULT_TAX_RATE, calculate_delivery_fee, CUSTOMER_SERVICE_FEE
 from email_service import (
     send_order_confirmation_email,
@@ -123,7 +123,7 @@ class SimplePaymentIntentResponse(BaseModel):
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_your_key_here")
 
 @router.post("/payments/create-intent", response_model=SimplePaymentIntentResponse)
-async def create_simple_payment_intent(http_request: Request, request: SimplePaymentIntentRequest, _auth: dict = Depends(require_any_auth)):
+async def create_simple_payment_intent(http_request: Request, request: SimplePaymentIntentRequest, customer: Customer = Depends(require_customer)):
     """
     Create a simple Stripe PaymentIntent for Apple Pay, Google Pay, or Card payments.
 
@@ -135,7 +135,7 @@ async def create_simple_payment_intent(http_request: Request, request: SimplePay
     - Google Pay
     - Card payments via PaymentSheet
     """
-    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(_auth.get("user_id", _auth.get("customer_id", _auth.get("driver_id", "unknown")))))
+    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(customer.id))
     # Validate amount
     if request.amount < 50:  # Stripe minimum is $0.50
         raise HTTPException(status_code=400, detail="Amount must be at least 50 cents")
@@ -173,13 +173,13 @@ async def create_simple_payment_intent(http_request: Request, request: SimplePay
 async def create_order(
     order_data: CreateOrderRequest,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Step 1: Create order and Stripe Payment Intent
     Called from mobile app when user places order
     """
-    
+
     # Verify vendor exists
     vendor = db.query(Vendor).filter(Vendor.id == order_data.vendor_id).first()
     if not vendor:
@@ -281,12 +281,8 @@ async def create_order(
     order_count = db.query(Order).count()
     order_number = f"DOLL{datetime.now().year}{order_count + 1:03d}"
 
-    # Look up customer_id from email for order tracking
-    customer_id = None
-    if order_data.customer_email:
-        customer = db.query(Customer).filter(Customer.email == order_data.customer_email).first()
-        if customer:
-            customer_id = customer.id
+    # Use authenticated customer's ID for order tracking
+    customer_id = customer.id
 
     # Create order
     new_order = Order(
@@ -529,11 +525,27 @@ def generate_customer_invoice(order: Order, db: Session):
 @router.get("/orders/{order_id}", response_model=OrderResponse)
 def get_order(order_id: int, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
     """
-    Get order details for mobile app tracking
+    Get order details for mobile app tracking.
+    Any authenticated order participant (customer, vendor, driver) can view.
     """
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify authenticated user is an order participant
+    auth_sub = _auth.get("sub", "")
+    auth_customer_id = _auth.get("customer_id")
+    auth_driver_id = _auth.get("driver_id")
+    auth_vendor_id = _auth.get("vendor_id")
+    auth_role = _auth.get("role", "")
+    is_participant = (
+        (auth_customer_id and order.customer_id == auth_customer_id) or
+        (auth_driver_id and order.driver_id == auth_driver_id) or
+        (auth_vendor_id and order.vendor_id == auth_vendor_id) or
+        auth_role == "admin"
+    )
+    if not is_participant:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
     
     vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
     
@@ -560,7 +572,7 @@ def list_orders(
     status: Optional[str] = None,
     limit: int = 50,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    _admin: User = Depends(require_admin),
 ):
     """
     List orders with filters (admin dashboard)
@@ -591,10 +603,10 @@ def update_order_status(
     order_id: int,
     status_update: dict,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    _admin: User = Depends(require_admin),
 ):
     """
-    Update order status (vendor app or admin)
+    Update order status (admin only)
     """
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -624,10 +636,10 @@ def sync_vendor_payouts(
     period_start: str,
     period_end: str,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    _admin: User = Depends(require_admin),
 ):
     """
-    Calculate and sync vendor payouts to Coupa
+    Calculate and sync vendor payouts to Coupa (admin only)
     Run this weekly/monthly for vendor accounting
     """
     
@@ -717,10 +729,10 @@ def get_vendor_payouts(
     vendor_id: Optional[int] = None,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    _admin: User = Depends(require_admin),
 ):
     """
-    Get vendor payout history
+    Get vendor payout history (admin only)
     """
     query = db.query(VendorPayout)
     
