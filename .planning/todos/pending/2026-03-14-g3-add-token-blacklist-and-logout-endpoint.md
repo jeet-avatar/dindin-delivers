@@ -32,3 +32,16 @@ There is no way to invalidate a JWT after issuance. If a token is stolen, it rem
 5. **FCM unregister** on logout: Call existing `/api/notifications/unregister-token` (`main_new.py:19064`) inside logout handler.
 
 Note: Redis fallback (in-memory) is acceptable for blacklist — worst case a revoked token stays valid in one worker until Redis reconnects.
+
+## Implemented
+
+- Added `jti: secrets.token_hex(16)` claim to `create_access_token()` at `main_new.py:1210`
+- Added to `cache.py`: `blacklist_token(jti, ttl)`, `is_token_blacklisted(jti)` with Redis + in-memory fallback
+- Added blacklist check to `auth_utils.py:require_any_auth()` — 401 "Token has been revoked" if JTI in blacklist
+- Added 3 logout endpoints to `main_new.py`:
+  - `POST /api/auth/customer/logout`
+  - `POST /api/auth/driver/logout`
+  - `POST /api/auth/vendor/logout`
+  - Each requires valid JWT, revokes it via `_revoke_current_token()` with remaining TTL
+- Logout paths NOT in allowlist (require auth before revoking — correct behavior)
+- Old tokens (without JTI, from before this change) are not affected by blacklist check

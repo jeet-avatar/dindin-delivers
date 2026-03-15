@@ -28,6 +28,7 @@ import logging
 
 from database import get_db
 from models import User, UserRole, Customer, Driver, Vendor
+from cache import is_token_blacklisted
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,14 @@ async def require_any_auth(token: str = Depends(_oauth2_scheme)) -> dict:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token: missing subject",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        # G3: Check token blacklist (logout/revocation)
+        jti = payload.get("jti")
+        if jti and is_token_blacklisted(jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return payload

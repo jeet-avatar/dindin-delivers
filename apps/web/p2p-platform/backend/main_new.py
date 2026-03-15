@@ -579,6 +579,7 @@ from cache import (
     rate_limit_check, RateLimiter, check_rate_limit,
     record_login_failure, clear_login_failures, get_login_failure_count,
     LOCKOUT_THRESHOLD, LOCKOUT_WINDOW,
+    blacklist_token, is_token_blacklisted,
 )
 
 # Rate limiters for different endpoints
@@ -1206,7 +1207,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+    # G3: Add JTI (JWT ID) for token revocation support
+    to_encode.update({"exp": expire, "jti": secrets.token_hex(16)})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
@@ -3629,6 +3631,39 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
 
 # REMOVED: /api/auth/customer/login/json - Dead endpoint (no platform uses it)
 # All platforms use OAuth2 form-based /api/auth/customer/login or /auth/customer/login
+
+
+# ── Logout Endpoints (G3: Token Revocation) ───────────────────────────────────
+
+def _revoke_current_token(token_payload: dict) -> None:
+    """Add the current token's JTI to the blacklist."""
+    import time
+    jti = token_payload.get("jti")
+    exp = token_payload.get("exp", 0)
+    if jti:
+        ttl = max(int(exp - time.time()), 1)
+        blacklist_token(jti, ttl)
+
+
+@app.post("/api/auth/customer/logout")
+def customer_logout(_auth: dict = Depends(require_any_auth)):
+    """Invalidate the current customer JWT (token blacklist)."""
+    _revoke_current_token(_auth)
+    return {"success": True, "message": "Logged out successfully"}
+
+
+@app.post("/api/auth/driver/logout")
+def driver_logout(_auth: dict = Depends(require_any_auth)):
+    """Invalidate the current driver JWT (token blacklist)."""
+    _revoke_current_token(_auth)
+    return {"success": True, "message": "Logged out successfully"}
+
+
+@app.post("/api/auth/vendor/logout")
+def vendor_logout(_auth: dict = Depends(require_any_auth)):
+    """Invalidate the current vendor JWT (token blacklist)."""
+    _revoke_current_token(_auth)
+    return {"success": True, "message": "Logged out successfully"}
 
 
 @app.post("/api/auth/customer/register")
