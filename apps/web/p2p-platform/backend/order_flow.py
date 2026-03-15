@@ -1400,6 +1400,7 @@ async def create_order(
         new_order.payment_status = "succeeded"
         new_order.status = OrderStatus.PENDING_RESTAURANT
         new_order.sent_to_restaurant_at = datetime.now()
+        new_order.delivery_decision_sent_at = datetime.now()
         db.commit()
         db.refresh(new_order)
         logging.info(f"Demo payment bypass applied for order {new_order.order_number}")
@@ -3229,9 +3230,9 @@ async def update_order_status(
         order.status = new_status
         order.preparing_at = datetime.now()
     elif new_status == OrderStatus.READY_FOR_PICKUP:
-        # When marked ready, automatically start the 3-minute delivery decision window
-        # This allows restaurant to choose "I will deliver" or "Send to driver pool"
-        order.status = OrderStatus.PENDING_DELIVERY_DECISION
+        # Set status to READY_FOR_PICKUP and start the 3-minute delivery decision window
+        # delivery_decision_sent_at is set here so the auto-advance timer fires correctly
+        order.status = OrderStatus.READY_FOR_PICKUP
         order.ready_for_pickup_at = datetime.now()
         order.delivery_decision_sent_at = datetime.now()
 
