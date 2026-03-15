@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 from database import get_db, init_db
 from models import User, Client, Invoice, InvoiceItem, Payment, UserRole, InvoiceStatus, PaymentStatus, Vendor, Driver, DriverStatus, Customer, CustomerStatus, Order, OrderStatus, OrderDispute, OrderDisputeReason, DisputeStatus
 from auth_utils import require_any_auth, require_customer, require_driver, require_vendor, require_admin
+from encryption import encrypt_field, decrypt_field
 from email_service import (
     send_vendor_approval_email, send_vendor_registration_confirmation,
     send_driver_approval_email, send_driver_registration_confirmation,
@@ -3095,10 +3096,10 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         "is_online": driver.is_online,
         "requires_documents": not (driver.drivers_license and driver.insurance and driver.photo_url),
         "bankAccount": {
-            "bankName": driver.bank_name,
+            "bankName": decrypt_field(driver.bank_name),
             "accountNumberLast4": driver.bank_last4,
-            "accountHolderName": driver.bank_account_holder or f"{driver.first_name or ''} {driver.last_name or ''}".strip(),
-            "routingNumber": driver.bank_routing_number,
+            "accountHolderName": decrypt_field(driver.bank_account_holder) or f"{driver.first_name or ''} {driver.last_name or ''}".strip(),
+            "routingNumber": decrypt_field(driver.bank_routing_number),
             "accountType": "checking",
             "isVerified": bool(driver.bank_verified),
         } if driver.bank_name and driver.bank_last4 else None,
@@ -4739,12 +4740,12 @@ def get_driver_profile_by_id(driver_id: int, driver: Driver = Depends(require_dr
         # Stripe / Payouts
         "stripe_onboarded": driver.stripe_onboarded,
         "stripe_account_connected": driver.stripe_account_id is not None,
-        # Bank Account (iOS app uses camelCase keys)
+        # Bank Account (iOS app uses camelCase keys) — decrypt sensitive fields
         "bankAccount": {
-            "bankName": driver.bank_name,
+            "bankName": decrypt_field(driver.bank_name),
             "accountNumberLast4": driver.bank_last4,
-            "accountHolderName": driver.bank_account_holder or f"{driver.first_name or ''} {driver.last_name or ''}".strip(),
-            "routingNumber": driver.bank_routing_number,
+            "accountHolderName": decrypt_field(driver.bank_account_holder) or f"{driver.first_name or ''} {driver.last_name or ''}".strip(),
+            "routingNumber": decrypt_field(driver.bank_routing_number),
             "accountType": "checking",
             "isVerified": bool(driver.bank_verified),
         } if driver.bank_name and driver.bank_last4 else None,
@@ -4890,11 +4891,13 @@ def update_driver_profile_by_id(
         bank_name_val = bank_routing_val = account_number_val = None
 
     if bank_name_val is not None:
-        driver.bank_name = bank_name_val
-        driver.bank_routing_number = bank_routing_val
+        from encryption import encrypt_field
+        driver.bank_name = encrypt_field(bank_name_val)
+        driver.bank_routing_number = encrypt_field(bank_routing_val)
         if account_number_val:
-            driver.bank_last4 = account_number_val[-4:]
-        driver.bank_account_holder = driver.bank_account_holder or f"{driver.first_name or ''} {driver.last_name or ''}".strip()
+            driver.bank_last4 = account_number_val[-4:]  # Last 4 stays plaintext for display
+        account_holder = driver.bank_account_holder or f"{driver.first_name or ''} {driver.last_name or ''}".strip()
+        driver.bank_account_holder = encrypt_field(account_holder)
         driver.bank_verified = True
         driver.bank_verified_at = datetime.utcnow()
 
@@ -5217,10 +5220,10 @@ def get_driver_stripe_status(
             "payouts_enabled": driver.bank_verified,
             "bank_account_linked": True,
             "bank_account": {
-                "bank_name": driver.bank_name,
+                "bank_name": decrypt_field(driver.bank_name),
                 "last4": driver.bank_last4,
-                "routing_number": driver.bank_routing_number,
-                "account_holder_name": driver.bank_account_holder or f"{driver.first_name} {driver.last_name}",
+                "routing_number": decrypt_field(driver.bank_routing_number),
+                "account_holder_name": decrypt_field(driver.bank_account_holder) or f"{driver.first_name} {driver.last_name}",
                 "account_holder_type": "individual",
                 "status": "verified" if driver.bank_verified else "new"
             },
@@ -11322,9 +11325,9 @@ async def update_vendor_kot_config(
     vendor.kot_auto_print = config.auto_print
 
     if config.api_key:
-        vendor.kot_api_key = config.api_key
+        vendor.kot_api_key = encrypt_field(config.api_key)
     if config.api_secret:
-        vendor.kot_api_secret = config.api_secret
+        vendor.kot_api_secret = encrypt_field(config.api_secret)
     if config.location_id:
         vendor.kot_location_id = config.location_id
     if config.merchant_id:
@@ -11395,14 +11398,14 @@ async def test_vendor_kot_integration(
         if vendor.kot_integration_type == "square":
             from kot_integrations import SquareIntegration
             integration = SquareIntegration(
-                vendor.kot_api_key,
+                decrypt_field(vendor.kot_api_key),
                 vendor.kot_location_id
             )
             result = await integration.create_order(test_kot)
         elif vendor.kot_integration_type == "clover":
             from kot_integrations import CloverIntegration
             integration = CloverIntegration(
-                vendor.kot_api_key,
+                decrypt_field(vendor.kot_api_key),
                 vendor.kot_merchant_id
             )
             result = await integration.create_order(test_kot)
@@ -19667,6 +19670,7 @@ def setup_demo_accounts(secret_key: Optional[str] = Query(None), db: Session = D
         results["errors"].append(f"customer: {str(e)}")
 
     # --- Demo Driver (Driver + User) ---
+    from encryption import encrypt_field
     try:
         driver_email = "demo.driver@dollor.ai"
         existing_driver = db.query(Driver).filter(Driver.email == driver_email).first()
@@ -19711,10 +19715,10 @@ def setup_demo_accounts(secret_key: Optional[str] = Query(None), db: Session = D
                 documents_verified_at=datetime(2024, 1, 12),
                 stripe_account_id="acct_demo_marcus_johnson",
                 stripe_onboarded=True,
-                bank_name="Wells Fargo",
+                bank_name=encrypt_field("Wells Fargo"),
                 bank_last4="4242",
-                bank_routing_number="121042882",
-                bank_account_holder="Marcus Johnson",
+                bank_routing_number=encrypt_field("121042882"),
+                bank_account_holder=encrypt_field("Marcus Johnson"),
                 bank_verified=True,
                 bank_verified_at=datetime(2024, 1, 15),
                 created_at=datetime.utcnow()
@@ -19752,10 +19756,10 @@ def setup_demo_accounts(secret_key: Optional[str] = Query(None), db: Session = D
             existing_driver.documents_verified = True
             existing_driver.stripe_account_id = "acct_demo_marcus_johnson"
             existing_driver.stripe_onboarded = True
-            existing_driver.bank_name = "Wells Fargo"
+            existing_driver.bank_name = encrypt_field("Wells Fargo")
             existing_driver.bank_last4 = "4242"
-            existing_driver.bank_routing_number = "121042882"
-            existing_driver.bank_account_holder = "Marcus Johnson"
+            existing_driver.bank_routing_number = encrypt_field("121042882")
+            existing_driver.bank_account_holder = encrypt_field("Marcus Johnson")
             existing_driver.bank_verified = True
             existing_driver.bank_verified_at = datetime(2024, 1, 15)
             db.commit()
@@ -21892,11 +21896,12 @@ def admin_set_driver_bank_account(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    # Store bank account — only keep last 4 digits of account number
-    driver.bank_name = body.bank_name
-    driver.bank_last4 = body.account_number[-4:]
-    driver.bank_routing_number = body.routing_number
-    driver.bank_account_holder = body.account_holder_name
+    # Store bank account — encrypt sensitive fields, only keep last 4 plaintext
+    from encryption import encrypt_field
+    driver.bank_name = encrypt_field(body.bank_name)
+    driver.bank_last4 = body.account_number[-4:]  # Last 4 stays plaintext for display
+    driver.bank_routing_number = encrypt_field(body.routing_number)
+    driver.bank_account_holder = encrypt_field(body.account_holder_name)
     driver.bank_verified = True
     driver.bank_verified_at = datetime.utcnow()
     driver.bank_verified_by = admin.id
@@ -21909,7 +21914,7 @@ def admin_set_driver_bank_account(
         "message": "Bank account added and verified",
         "driver_id": driver.id,
         "driver_name": f"{driver.first_name} {driver.last_name}",
-        "bank_name": driver.bank_name,
+        "bank_name": decrypt_field(driver.bank_name),
         "last4": driver.bank_last4,
         "bank_verified": driver.bank_verified
     }
