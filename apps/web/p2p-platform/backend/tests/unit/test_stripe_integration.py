@@ -197,8 +197,9 @@ def mock_auth():
 @pytest.fixture
 def mock_order(db_session, mock_vendor):
     """Create a mock order (Dollor.ai $1 flat fee model)"""
+    import uuid
     order = Order(
-        order_number="ORD-20231215-00001",
+        order_number=f"ORD-{uuid.uuid4().hex[:12]}",
         customer_name="John Doe",
         customer_email="john@example.com",
         customer_phone="+14155559999",
