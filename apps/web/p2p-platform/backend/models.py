@@ -775,6 +775,7 @@ class Driver(Base):
     location_updated_at = Column(DateTime)   # Primary field for GPS updates
     went_online_at = Column(DateTime)  # When driver came online
     went_offline_at = Column(DateTime)  # When driver went offline
+    insurance_session_id = Column(String(36), nullable=True)  # Current insurance session UUID
 
     # Mobile App & Push Notifications
     # push_token: Generic push token for basic notifications

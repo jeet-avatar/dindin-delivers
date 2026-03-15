@@ -3506,6 +3506,32 @@ def set_driver_online(
     driver.location_updated_at = datetime.utcnow()
     if online_status:
         driver.went_online_at = datetime.utcnow()
+        # Insurance: Period 1 START — driver is now available
+        try:
+            import uuid as _uuid
+            from insurance.events import log_insurance_event
+            _session_id = str(_uuid.uuid4())
+            driver.insurance_session_id = _session_id
+            log_insurance_event(
+                db=db, driver_id=driver.id, trip_type="available",
+                trip_id=None, session_id=_session_id, period=1,
+                event_type="period_start",
+            )
+        except Exception as e:
+            logging.warning(f"Insurance event (online) failed: {e}")
+    else:
+        driver.went_offline_at = datetime.utcnow()
+        # Insurance: Period 1 END — driver going offline
+        try:
+            from insurance.events import log_insurance_event, get_or_create_session_id
+            _session_id = get_or_create_session_id(db, driver.id)
+            log_insurance_event(
+                db=db, driver_id=driver.id, trip_type="available",
+                trip_id=None, session_id=_session_id, period=1,
+                event_type="period_end",
+            )
+        except Exception as e:
+            logging.warning(f"Insurance event (offline) failed: {e}")
     db.commit()
 
     return {"success": True, "is_online": driver.is_online}
@@ -3520,6 +3546,14 @@ def update_driver_location(latitude: float, longitude: float, driver: Driver = D
     driver.current_latitude = latitude
     driver.current_longitude = longitude
     driver.location_updated_at = datetime.utcnow()
+    # Insurance: accumulate mileage for UBI tracking
+    try:
+        from insurance.events import accumulate_mileage
+        if driver.insurance_session_id and driver.current_latitude and driver.current_longitude:
+            accumulate_mileage(driver.id, driver.insurance_session_id,
+                               driver.current_latitude, driver.current_longitude)
+    except Exception as e:
+        logging.warning(f"Insurance mileage accumulation failed: {e}")
     db.commit()
 
     _check_driver_proximity_to_delivery(driver.id, latitude, longitude, db)
@@ -15775,6 +15809,10 @@ from change_management import change_management_router, approval_rules_router, d
 app.include_router(change_management_router)
 app.include_router(approval_rules_router)
 app.include_router(delegation_router)
+
+# Insurance UBI tracking
+from insurance.routes import router as insurance_router
+app.include_router(insurance_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create
