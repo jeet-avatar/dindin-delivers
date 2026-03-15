@@ -2573,24 +2573,116 @@ class VendorGoogleAuthRequest(BaseModel):
     credential: Optional[str] = None  # Alternative field name
 
 def decode_google_jwt(token: str) -> dict:
-    """Decode Google JWT to extract user info (without signature verification for dev)"""
-    import base64
-    import json
+    """
+    Decode and VERIFY a Google or Apple identity token.
+
+    Google tokens: verified using google-auth library (fetches Google's public keys,
+    verifies RS256 signature, checks expiry and issuer).
+
+    Apple tokens: verified using Apple's JWKS endpoint (RS256 signature check).
+
+    SECURITY (G1): Replaces the old insecure base64-decode-only implementation that
+    did NOT verify signatures, allowing forged tokens to authenticate as any user.
+    """
+    if not token:
+        return {}
+
+    # Determine token type by decoding header (header is safe to decode unverified)
+    import base64, json
     try:
-        # JWT has 3 parts: header.payload.signature
-        parts = token.split('.')
-        if len(parts) != 3:
+        header_part = token.split('.')[0]
+        pad = 4 - len(header_part) % 4
+        header = json.loads(base64.urlsafe_b64decode(header_part + ('=' * pad if pad != 4 else '')))
+        alg = header.get('alg', '')
+        kid = header.get('kid', '')
+    except Exception:
+        logger.warning("OAuth token: failed to decode header")
+        return {}
+
+    # Apple tokens have issuer https://appleid.apple.com — check kid prefix patterns
+    # or fall through to Google verification first
+    is_apple = False
+    try:
+        payload_part = token.split('.')[1]
+        pad = 4 - len(payload_part) % 4
+        raw_payload = json.loads(base64.urlsafe_b64decode(payload_part + ('=' * pad if pad != 4 else '')))
+        iss = raw_payload.get('iss', '')
+        if 'appleid.apple.com' in iss:
+            is_apple = True
+    except Exception:
+        pass
+
+    if is_apple:
+        return _verify_apple_jwt(token)
+    else:
+        return _verify_google_jwt(token)
+
+
+# Apple JWKS cache (1-hour TTL)
+_apple_jwks_cache: dict = {"keys": None, "expires": 0}
+
+
+def _verify_apple_jwt(token: str) -> dict:
+    """Verify Apple Sign-In identity token signature using Apple's JWKS."""
+    import time, base64, json, requests as _requests
+    global _apple_jwks_cache
+
+    try:
+        # Fetch Apple JWKS (cached)
+        if not _apple_jwks_cache["keys"] or time.time() > _apple_jwks_cache["expires"]:
+            resp = _requests.get("https://appleid.apple.com/auth/keys", timeout=5)
+            resp.raise_for_status()
+            _apple_jwks_cache["keys"] = resp.json()["keys"]
+            _apple_jwks_cache["expires"] = time.time() + 3600
+
+        from jose import jwt as jose_jwt
+        # Decode header to find matching key
+        header_part = token.split('.')[0]
+        pad = 4 - len(header_part) % 4
+        header = json.loads(base64.urlsafe_b64decode(header_part + ('=' * pad if pad != 4 else '')))
+        kid = header.get('kid')
+
+        # Find matching key
+        jwk = next((k for k in _apple_jwks_cache["keys"] if k.get('kid') == kid), None)
+        if not jwk:
+            logger.warning(f"Apple JWT: no matching key for kid={kid}")
             return {}
-        # Decode the payload (second part)
-        payload = parts[1]
-        # Add padding if needed
-        padding = 4 - len(payload) % 4
-        if padding != 4:
-            payload += '=' * padding
-        decoded = base64.urlsafe_b64decode(payload)
-        return json.loads(decoded)
+
+        from jose.backends import RSAKey
+        public_key = RSAKey(jwk, 'RS256')
+
+        payload = jose_jwt.decode(
+            token,
+            public_key.public_key().to_pem().decode(),
+            algorithms=['RS256'],
+            options={"verify_aud": False}  # audience is app bundle ID (varies)
+        )
+        logger.info(f"Apple JWT verified: sub={payload.get('sub')} email={payload.get('email')}")
+        return payload
     except Exception as e:
-        print(f"Error decoding Google JWT: {e}")
+        logger.warning(f"Apple JWT verification failed: {e}")
+        return {}
+
+
+def _verify_google_jwt(token: str) -> dict:
+    """Verify Google identity token signature using google-auth library."""
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+
+        # GOOGLE_CLIENT_ID in env enables audience verification (recommended)
+        # If not set, signature is still verified but audience is not checked
+        google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+
+        payload = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            audience=google_client_id  # None = skip audience check (still verifies signature)
+        )
+        logger.info(f"Google JWT verified: sub={payload.get('sub')} email={payload.get('email')}")
+        return payload
+    except Exception as e:
+        logger.warning(f"Google JWT verification failed: {e}")
         return {}
 
 @app.post("/api/auth/vendor/google-auth", response_model=Token)
@@ -2688,6 +2780,7 @@ class VendorAppleAuthRequest(BaseModel):
     name: str
     apple_id: str
     identity_token: Optional[str] = None  # JWT token containing real email for returning users
+    nonce_hash: Optional[str] = None  # SHA256 hash of nonce sent to Apple (G2: replay protection)
 
 @app.post("/api/auth/vendor/apple-auth", response_model=Token)
 def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db: Session = Depends(get_db)):
@@ -2702,13 +2795,21 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
         # Try to decode identity_token first (Apple JWT contains email for returning users)
         if request.identity_token:
             try:
-                decoded = decode_google_jwt(request.identity_token)  # Same JWT decode works for Apple
+                decoded = decode_google_jwt(request.identity_token)  # Verifies Apple RS256 signature
+                # G2: Validate nonce if provided by iOS (replay attack protection)
+                if request.nonce_hash and decoded.get('nonce') != request.nonce_hash:
+                    logger.warning(f"Apple nonce mismatch for vendor auth: expected={request.nonce_hash[:8]}...")
+                    raise HTTPException(status_code=401, detail="Invalid Apple identity token")
+                elif not request.nonce_hash:
+                    logger.warning("Apple vendor auth: no nonce provided — replay protection disabled")
                 # Token email takes priority over request.email
                 token_email = decoded.get('email')
                 if token_email:
                     email = token_email
                 if not name and email:
                     name = email.split('@')[0]
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.debug(f"Apple identity token decode failed for vendor auth")
 
@@ -3227,6 +3328,7 @@ class DriverAppleAuthRequest(BaseModel):
     name: Optional[str] = None
     apple_id: str
     identity_token: Optional[str] = None  # JWT from Apple containing email for returning users
+    nonce_hash: Optional[str] = None  # SHA256 hash of nonce sent to Apple (G2: replay protection)
 
 @app.post("/api/auth/driver/apple-auth")
 def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db: Session = Depends(get_db)):
@@ -3239,7 +3341,13 @@ def driver_apple_auth(http_request: Request, request: DriverAppleAuthRequest, db
     # Try to decode identity_token first (Apple JWT contains email for returning users)
     if request.identity_token:
         try:
-            decoded = decode_google_jwt(request.identity_token)  # Same JWT decode works for Apple
+            decoded = decode_google_jwt(request.identity_token)  # Verifies Apple RS256 signature
+            # G2: Validate nonce if provided by iOS (replay attack protection)
+            if request.nonce_hash and decoded.get('nonce') != request.nonce_hash:
+                logger.warning(f"Apple nonce mismatch for driver auth")
+                raise HTTPException(status_code=401, detail="Invalid Apple identity token")
+            elif not request.nonce_hash:
+                logger.warning("Apple driver auth: no nonce provided — replay protection disabled")
             token_email = decoded.get('email')
             if token_email:
                 email = token_email
@@ -6396,6 +6504,7 @@ class CustomerAppleAuthRequest(BaseModel):
     name: Optional[str] = None   # Apple only provides on first sign-in
     apple_id: str
     identity_token: Optional[str] = None  # JWT from Apple
+    nonce_hash: Optional[str] = None  # SHA256 hash of nonce sent to Apple (G2: replay protection)
 
 @app.post("/api/customer/apple-auth")
 def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends(get_db)):
@@ -6408,7 +6517,13 @@ def customer_apple_auth(request: CustomerAppleAuthRequest, db: Session = Depends
     # Always try to decode identity_token first (Apple JWT contains email)
     if request.identity_token:
         try:
-            decoded = decode_google_jwt(request.identity_token)  # Same JWT decode works for Apple
+            decoded = decode_google_jwt(request.identity_token)  # Verifies Apple RS256 signature
+            # G2: Validate nonce if provided by iOS (replay attack protection)
+            if request.nonce_hash and decoded.get('nonce') != request.nonce_hash:
+                logger.warning(f"Apple nonce mismatch for customer auth")
+                raise HTTPException(status_code=401, detail="Invalid Apple identity token")
+            elif not request.nonce_hash:
+                logger.warning("Apple customer auth: no nonce provided — replay protection disabled")
             # Token email takes priority over request.email
             token_email = decoded.get('email')
             if token_email:
