@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-13 - Completed quick task 141: iOS TestFlight upload — Customer 1114, Driver 216, Restaurant 206 (v1.1)
+Last activity: 2026-03-15 - Completed quick task 176: implement demo payment bypass for demo orders to test restaurants
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -138,9 +138,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 140 | Verify STATE.md deduplication — removed 21 corrupted lines, 1490 backend tests PASS | 2026-03-12 | 3b5e7a45 | [140-verify-state-md-deduplication-no-duplica](./quick/140-verify-state-md-deduplication-no-duplica/) |
 | 164 | Add combo deals and bestseller features to menu system | 2026-03-13 | 4d6b0831 | Verified | [164-add-combo-deals-and-bestseller-features-](./quick/164-add-combo-deals-and-bestseller-features-/) |
 | 141 | Build and upload all 3 iOS apps to TestFlight v1.1 — Customer 1114, Driver 216, Restaurant 206 | 2026-03-13 | ea2b07c9 | [141-build-and-upload-all-3-ios-apps-to-testf](./quick/141-build-and-upload-all-3-ios-apps-to-testf/) |
+| 176 | implement demo payment bypass for demo orders to test restaurants | 2026-03-15 | b44dbfdd | [176-implement-demo-payment-bypass-for-demo-o](./quick/176-implement-demo-payment-bypass-for-demo-o/) |
 
 ## Session Continuity
 
-Last session: 2026-03-13
-Stopped at: All 3 iOS apps uploaded to TestFlight v1.1 (Customer 1114, Driver 216, Restaurant 206) with combo deals + bestseller features.
+Last session: 2026-03-15
+Stopped at: Demo payment bypass implemented — orders from demo.customer@dollor.ai to vendor IDs 1/40/134 auto-advance to PENDING_RESTAURANT with payment_status="succeeded".
 Resume file: .planning/NEXT_SESSION_PROMPT.md
