@@ -18,7 +18,7 @@ AI Employees:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Request
-from auth_utils import require_any_auth, require_driver
+from auth_utils import require_any_auth, require_driver, require_customer, require_vendor, require_admin
 from cache import check_rate_limit, RateLimiter
 from sqlalchemy.orm import Session
 from sqlalchemy import text, or_, and_, func
@@ -367,7 +367,7 @@ def estimate_delivery_eta(order: "Order") -> Optional[str]:
 from models import (
     Order, OrderStatus, Vendor, VendorMenuItem, Driver, DriverStatus,
     VendorPayout, DriverPayout, JournalEntry, JournalEntryLine, VendorStatus,
-    Customer, RideRequest as RideRequestModel, RideRequestStatus
+    Customer, User, RideRequest as RideRequestModel, RideRequestStatus
 )
 
 router = APIRouter(prefix="/api/erp", tags=["erp"])
@@ -844,7 +844,7 @@ async def get_available_rides(
     driver_lat: Optional[float] = None,
     driver_lng: Optional[float] = None,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Get available P2P rides for drivers
@@ -911,7 +911,7 @@ async def accept_ride(
     ride_id: int,
     request: AssignDriverRequest,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Driver accepts a P2P ride
@@ -925,9 +925,9 @@ async def accept_ride(
     if ride.matched_driver_id:
         raise HTTPException(status_code=400, detail="Ride already accepted by another driver")
 
-    driver = db.query(Driver).filter(Driver.id == request.driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # IDOR: driver can only assign themselves
+    if request.driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this resource")
 
     if driver.status not in [DriverStatus.ACTIVE, DriverStatus.APPROVED, DriverStatus.ONLINE]:
         raise HTTPException(status_code=400, detail="Driver is not active")
@@ -953,7 +953,7 @@ async def accept_ride(
 async def ride_picked_up(
     ride_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Driver picked up customer
@@ -961,6 +961,10 @@ async def ride_picked_up(
     ride = db.query(RideRequestModel).filter(RideRequestModel.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
+
+    # IDOR: verify driver is assigned to this ride
+    if ride.matched_driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this ride")
 
     # Mark as in progress
     ride.status = RideRequestStatus.IN_PROGRESS
@@ -981,7 +985,7 @@ async def ride_picked_up(
 async def ride_completed(
     ride_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Ride completed - customer dropped off.
@@ -994,6 +998,10 @@ async def ride_completed(
     ride = db.query(RideRequestModel).filter(RideRequestModel.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
+
+    # IDOR: verify driver is assigned to this ride
+    if ride.matched_driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this ride")
 
     if ride.status == RideRequestStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Ride already completed")
@@ -1191,7 +1199,7 @@ async def get_ride_receipt(
 async def create_order(
     order_data: CreateOrderRequest,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Create a new order - Called from iOS Customer App
@@ -1351,12 +1359,8 @@ async def create_order(
     order_count = db.query(Order).count()
     order_number = f"DOLL{datetime.now().year}{order_count + 1:03d}"
 
-    # Look up customer_id from email for order tracking
-    customer_id = None
-    if order_data.customer_email:
-        customer = db.query(Customer).filter(Customer.email == order_data.customer_email).first()
-        if customer:
-            customer_id = customer.id
+    # Use authenticated customer's ID for order tracking
+    customer_id = customer.id
 
     # Create order
     # platform_fee stores customer service fee (charged to customer)
@@ -1486,19 +1490,23 @@ async def confirm_payment(
     http_request: Request,
     order_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Confirm payment received - Called after Stripe webhook
     Automatically sends order to restaurant for acceptance (3-min window)
     AI Employee: OrderBot Alpha
     """
-    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(_auth.get("user_id", _auth.get("customer_id", _auth.get("driver_id", "unknown")))))
+    check_rate_limit(http_request, payment_limiter, "payment", identifier=str(customer.id))
     ai_employee = AI_EMPLOYEES["ORDER_PROCESSOR"]
 
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify customer owns this order
+    if order.customer_id != customer.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     order.payment_status = "succeeded"
     order.status = OrderStatus.CONFIRMED
@@ -1643,7 +1651,7 @@ async def restaurant_accept(
     order_id: int,
     request: Optional[RestaurantAcceptRequest] = None,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Restaurant accepts the order within acceptance window.
@@ -1657,6 +1665,10 @@ async def restaurant_accept(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify vendor owns this order
+    if order.vendor_id != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     if order.status != OrderStatus.PENDING_RESTAURANT:
         raise HTTPException(
@@ -1755,7 +1767,7 @@ async def restaurant_decline(
     order_id: int,
     request: RestaurantDeclineRequest,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Restaurant declines the order within acceptance window.
@@ -1767,6 +1779,10 @@ async def restaurant_decline(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify vendor owns this order
+    if order.vendor_id != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     if order.status != OrderStatus.PENDING_RESTAURANT:
         raise HTTPException(
@@ -1859,9 +1875,8 @@ async def check_restaurant_timeout(
 
 @router.get("/orders/pending-restaurant")
 async def get_pending_restaurant_orders(
-    vendor_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Get all orders pending restaurant acceptance.
@@ -1870,8 +1885,8 @@ async def get_pending_restaurant_orders(
     """
     query = db.query(Order).filter(Order.status == OrderStatus.PENDING_RESTAURANT)
 
-    if vendor_id:
-        query = query.filter(Order.vendor_id == vendor_id)
+    # RBAC: vendor can only see their own orders
+    query = query.filter(Order.vendor_id == vendor.id)
 
     orders = query.order_by(Order.sent_to_restaurant_at.desc()).all()
 
@@ -1953,7 +1968,7 @@ async def request_delivery_decision(
 async def restaurant_accept_delivery(
     order_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Restaurant accepts to self-deliver the order.
@@ -1965,6 +1980,10 @@ async def restaurant_accept_delivery(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify vendor owns this order
+    if order.vendor_id != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     # Allow delivery decision from multiple statuses (for "Accept & I'll Deliver" flow)
     # Auto-transition to PENDING_DELIVERY_DECISION if in preparation states
@@ -2048,7 +2067,7 @@ async def restaurant_accept_delivery(
 async def restaurant_decline_delivery(
     order_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Restaurant declines to self-deliver. Order goes to driver pool.
@@ -2059,6 +2078,10 @@ async def restaurant_decline_delivery(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify vendor owns this order
+    if order.vendor_id != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     # Allow decline from multiple statuses (for "Accept & Send to Driver" flow)
     allowed_statuses = [
@@ -2097,9 +2120,8 @@ async def restaurant_decline_delivery(
 
 @router.get("/orders/pending-delivery-decision")
 async def get_pending_delivery_decision_orders(
-    vendor_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Get all orders pending delivery decision from restaurant.
@@ -2108,8 +2130,8 @@ async def get_pending_delivery_decision_orders(
     """
     query = db.query(Order).filter(Order.status == OrderStatus.PENDING_DELIVERY_DECISION)
 
-    if vendor_id:
-        query = query.filter(Order.vendor_id == vendor_id)
+    # RBAC: vendor can only see their own orders
+    query = query.filter(Order.vendor_id == vendor.id)
 
     orders = query.order_by(Order.delivery_decision_sent_at.desc()).all()
 
@@ -2984,7 +3006,7 @@ def stop_timeout_scheduler():
 async def start_preparing(
     order_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Restaurant starts preparing order - Called from iOS Restaurant App
@@ -2995,6 +3017,10 @@ async def start_preparing(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify vendor owns this order
+    if order.vendor_id != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     order.status = OrderStatus.PREPARING
     order.preparing_at = datetime.now()
@@ -3014,7 +3040,7 @@ async def start_preparing(
 async def ready_for_pickup(
     order_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Order ready for driver pickup - Called from iOS Restaurant App.
@@ -3027,6 +3053,10 @@ async def ready_for_pickup(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify vendor owns this order
+    if order.vendor_id != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     if order.status not in [OrderStatus.PREPARING, OrderStatus.RESTAURANT_WILL_DELIVER]:
         raise HTTPException(
@@ -3067,13 +3097,17 @@ async def ready_for_pickup(
 async def get_vendor_orders(
     vendor_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Get orders for a vendor - Called from iOS Restaurant App.
     Returns active orders + delivered/terminal orders from last 90 days.
     Includes driver details (name, phone, vehicle) for pickup coordination.
     """
+    # IDOR: verify vendor_id path param matches authenticated vendor
+    if int(vendor_id) != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this resource")
+
     cutoff_90d = datetime.now() - timedelta(days=90)
 
     # Fetch recent orders (last 90 days), which covers all active + recent terminal
@@ -3200,7 +3234,7 @@ async def update_order_status(
     order_id: int,
     status: str,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Update order status - Called from iOS Restaurant App
@@ -3426,7 +3460,7 @@ def _build_delivery_address_dict(delivery_addr: dict, order) -> dict:
 @router.get("/orders/available-for-delivery")
 async def get_available_orders(
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Get orders ready for driver pickup - Called from iOS Driver App
@@ -3684,7 +3718,7 @@ async def assign_driver(
 async def order_picked_up(
     order_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Driver picked up order - Called from iOS Driver App
@@ -3700,6 +3734,10 @@ async def order_picked_up(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify driver is assigned to this order
+    if order.driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     # Validate order has a driver assigned
     if not order.driver_id:
@@ -3784,7 +3822,7 @@ async def order_picked_up(
 async def order_delivered(
     order_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Order delivered - Called from iOS Driver App
@@ -3797,6 +3835,10 @@ async def order_delivered(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify driver is assigned to this order (CRITICAL: triggers payout)
+    if order.driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     # ==================== DELIVERY PROOF PHOTO GATE ====================
     # If no proof photo uploaded, hold payment and require photo first
@@ -4188,7 +4230,7 @@ async def order_delivered(
 @router.get("/payouts/pending")
 async def get_pending_payouts(
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Get all pending payouts - Restaurant & Driver
@@ -4230,7 +4272,7 @@ async def process_payout(
     payout_id: int,
     payout_type: str,  # "vendor" or "driver"
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Process a payout - Mark as completed
@@ -4268,7 +4310,7 @@ async def process_payout(
 async def get_journal_entries(
     limit: int = 50,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Get journal entries for accounting dashboard
@@ -4308,7 +4350,7 @@ async def get_journal_entries(
 @router.get("/drivers")
 async def get_drivers(
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Get all drivers
@@ -4335,7 +4377,7 @@ async def get_drivers(
 async def create_driver(
     driver_data: Dict[str, Any],
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Create a new driver
@@ -4503,12 +4545,16 @@ async def driver_register(
 async def get_driver_active_orders(
     driver_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Get driver's active deliveries - Called from iOS Driver App
     Excludes delivered and cancelled orders to show only active work
     """
+    # IDOR: verify driver_id path param matches authenticated driver
+    if int(driver_id) != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this resource")
+
     # Filter out completed orders - only show active deliveries
     excluded_statuses = [OrderStatus.DELIVERED, OrderStatus.CANCELLED]
     orders = db.query(Order).filter(
@@ -4578,7 +4624,7 @@ async def get_driver_active_orders(
 async def get_driver_pending_orders(
     driver_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Get available delivery orders for Android Driver App.
@@ -4586,6 +4632,10 @@ async def get_driver_pending_orders(
     Android uses: /api/erp/orders/driver/{driverId}/pending
     Android model: AvailableDeliveriesResponse { success, count, orders: [AvailableDelivery] }
     """
+    # IDOR: verify driver_id path param matches authenticated driver
+    if int(driver_id) != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this resource")
+
     import math
     # Get orders available for pickup (no driver assigned yet)
     orders = db.query(Order).filter(
@@ -4664,13 +4714,13 @@ async def get_driver_pending_orders(
 async def complete_delivery(
     order_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Complete delivery - Called from iOS Driver App
     Wrapper for the delivered endpoint
     """
-    return await order_delivered(order_id, db, _auth)
+    return await order_delivered(order_id, db, driver)
 
 
 @router.post("/orders/{order_id}/delivery-photo")
@@ -4678,7 +4728,7 @@ async def upload_delivery_photo(
     order_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Upload delivery proof photo - Called from iOS Driver/Restaurant App
@@ -4689,6 +4739,10 @@ async def upload_delivery_photo(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify driver is assigned to this order
+    if order.driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     if order.status == OrderStatus.DELIVERED:
         raise HTTPException(status_code=400, detail="Order already delivered")
@@ -4727,7 +4781,7 @@ async def upload_delivery_photo(
 
     # If order was waiting for proof, complete the delivery now
     if order.status == OrderStatus.PENDING_DELIVERY_PROOF:
-        return await order_delivered(order_id, db, _auth)
+        return await order_delivered(order_id, db, driver)
 
     return {
         "success": True,
@@ -4802,7 +4856,7 @@ async def driver_arrived_at_delivery(
 async def vendor_arrived_at_delivery(
     order_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    vendor: Vendor = Depends(require_vendor),
 ):
     """
     Restaurant marks arrival at customer's delivery location during self-delivery.
@@ -4812,6 +4866,10 @@ async def vendor_arrived_at_delivery(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify vendor owns this order
+    if order.vendor_id != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     # Verify this is a self-delivery order
     if not getattr(order, 'restaurant_will_deliver', False):
@@ -5016,7 +5074,7 @@ async def report_address_unreachable(
 async def unassign_driver(
     order_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Driver unassigns from order - Called from iOS Driver App
@@ -5052,7 +5110,7 @@ async def update_driver_location(
     order_id: int,
     location: DriverLocationUpdate,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Update driver location for order tracking - Called from iOS Driver App
@@ -5060,6 +5118,10 @@ async def update_driver_location(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify driver is assigned to this order
+    if order.driver_id != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     # Store location in order metadata
     order.driver_location = json.dumps({
@@ -5088,7 +5150,7 @@ async def auto_dispatch_driver(
     order_id: int,
     config: Optional[AutoDispatchConfig] = None,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Uber-like Auto-Dispatch System
@@ -5243,7 +5305,7 @@ async def broadcast_order_to_drivers(
     order_id: int,
     radius_km: float = 5.0,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Broadcast order to all nearby drivers (DoorDash/Uber style)
@@ -5374,14 +5436,14 @@ async def update_driver_current_location(
     driver_id: int,
     location: DriverLocationUpdate,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Update driver's current location (called periodically by driver app)
     """
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # IDOR: verify driver_id path param matches authenticated driver
+    if int(driver_id) != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this resource")
 
     driver.current_latitude = location.latitude
     driver.current_longitude = location.longitude
@@ -5415,14 +5477,14 @@ async def update_driver_status(
     driver_id: int,
     is_online: bool,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
 ):
     """
     Toggle driver online/offline status
     """
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
+    # IDOR: verify driver_id path param matches authenticated driver
+    if int(driver_id) != driver.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this resource")
 
     driver.is_online = is_online
     if is_online:
@@ -5444,7 +5506,7 @@ async def update_driver_status(
 @router.get("/analytics/realtime")
 async def get_realtime_analytics(
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Enterprise real-time dashboard data
@@ -5554,7 +5616,7 @@ async def get_realtime_analytics(
 @router.get("/analytics/ai-employees")
 async def get_ai_employee_stats(
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     AI Employee performance dashboard
@@ -5785,7 +5847,7 @@ async def update_order_delivery_location(
     latitude: float = Query(..., description="Delivery latitude"),
     longitude: float = Query(..., description="Delivery longitude"),
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    customer: Customer = Depends(require_customer),
 ):
     """
     Update order delivery coordinates.
@@ -5794,6 +5856,10 @@ async def update_order_delivery_location(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify customer owns this order
+    if order.customer_id != customer.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     # Update dedicated columns
     order.delivery_latitude = latitude
@@ -5827,7 +5893,7 @@ async def cleanup_test_orders(
     vendor_id: Optional[int] = Query(None, description="Optional vendor ID to filter"),
     confirm: bool = Query(False, description="Set to true to actually delete"),
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Delete test orders by status. Use confirm=true to actually delete.
@@ -5869,7 +5935,7 @@ async def cleanup_test_orders(
 async def refund_order(
     order_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    admin: User = Depends(require_admin),
 ):
     """
     Refund an order via Stripe.
