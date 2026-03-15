@@ -207,9 +207,10 @@ None
 | 173 | Implement bot/crawler protection: robots.txt, user-agent blocklist middleware (exempt localhost + health/robots paths), rate limit public vendor/ride endpoints, deployed to production | 2026-03-14 | be055f5c | [173-implement-bot-crawler-protection-robots-](./quick/173-implement-bot-crawler-protection-robots-/) |
 | 174 | Add delivery photo proof viewer to restaurant app history tab — deliveryPhotoUrl threaded P2PVendorOrder → Order → EnhancedDashboardView 64x64 thumbnail + fullScreenCover preview | 2026-03-14 | e5b8572e | [174-add-delivery-photo-proof-viewer-to-resta](./quick/174-add-delivery-photo-proof-viewer-to-resta/) |
 | 175 | Build global /handoff command + SessionStart hook — saves structured session state to ~/.claude/handoffs/, auto-injects most recent handoff (<=7 days) into new sessions | 2026-03-14 | d73670eb | [175-build-global-handoff-command-that-saves-](./quick/175-build-global-handoff-command-that-saves-/) |
+| 176 | Demo payment bypass for App Store review — demo.customer@dollor.ai at vendor IDs 1/40/134 skip Stripe, auto-advance to PENDING_RESTAURANT | 2026-03-14 | e52372e8 | [176-implement-demo-payment-bypass-for-demo-o](./quick/176-implement-demo-payment-bypass-for-demo-o/) |
 
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed quick task 175: Build global /handoff command + SessionStart hook
+Stopped at: Completed quick task 176: implement demo payment bypass for App Store review orders
 Resume file: .planning/NEXT_SESSION_PROMPT.md
