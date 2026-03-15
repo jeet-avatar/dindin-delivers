@@ -296,6 +296,37 @@ def clear_login_failures(email: str) -> None:
     _login_fail_counts.pop(email, None)
 
 
+# ── Token Blacklist (G3) ──────────────────────────────────────────────────────
+# Invalidate JWTs on logout. Key: revoked:{jti}, TTL = remaining token lifetime.
+# In-memory fallback: bound to single worker (acceptable — worst case: revoked
+# token valid in other workers until Redis reconnects, max 30 days).
+
+_revoked_tokens: set = set()  # in-memory fallback
+
+
+def blacklist_token(jti: str, ttl_seconds: int) -> None:
+    """Mark a token as revoked. ttl_seconds = remaining lifetime."""
+    key = f"revoked:{jti}"
+    if redis_client:
+        try:
+            redis_client.setex(key, ttl_seconds, "1")
+            return
+        except Exception:
+            pass
+    _revoked_tokens.add(jti)
+
+
+def is_token_blacklisted(jti: str) -> bool:
+    """Return True if token has been revoked."""
+    key = f"revoked:{jti}"
+    if redis_client:
+        try:
+            return bool(redis_client.exists(key))
+        except Exception:
+            pass
+    return jti in _revoked_tokens
+
+
 def get_login_failure_count(email: str) -> int:
     """Return current consecutive failure count for email."""
     import time
