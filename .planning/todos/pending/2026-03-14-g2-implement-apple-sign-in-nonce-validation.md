@@ -31,3 +31,19 @@ Files to change:
 - iOS Driver app: Apple auth call
 
 Related: G1 (signature verification) should be done first — nonce in an unverified token provides no security.
+
+## Implemented
+
+**Backend (this commit)**:
+- Added optional `nonce_hash: Optional[str]` field to all 3 Apple request models:
+  - `VendorAppleAuthRequest`, `DriverAppleAuthRequest`, `CustomerAppleAuthRequest`
+- Added nonce validation logic in all 3 Apple auth endpoints:
+  - If `nonce_hash` provided: verify `token.nonce == nonce_hash` → 401 on mismatch
+  - If `nonce_hash` missing: `logger.warning(...)` — backwards compatible with old iOS builds
+- Validation runs after G1 signature verification (nonce in verified token)
+
+**Remaining: iOS changes needed for full protection**:
+- iOS apps need to generate a random nonce, SHA256-hash it, pass hash to `ASAuthorizationAppleIDRequest.nonce`
+- Then send the raw nonce as `nonce_hash` to the backend (Apple embeds SHA256 hash in token)
+- Until iOS is updated, warning logs will fire but auth will not be blocked
+- Files: `apps/ios/customer/`, `apps/ios/delivery/` — Apple auth call sites

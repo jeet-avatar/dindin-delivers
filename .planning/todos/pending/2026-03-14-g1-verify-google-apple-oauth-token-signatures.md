@@ -29,3 +29,15 @@ Steps:
 3. For Apple, fetch JWKS and verify RS256 signature
 4. Cache JWKS in Redis/memory with TTL
 5. Deploy and test with real Google/Apple tokens
+
+## Implemented
+
+- Replaced `decode_google_jwt()` (insecure base64-decode-only) with full signature verification:
+  - **Google**: `_verify_google_jwt()` uses `google-auth` library `id_token.verify_oauth2_token()` — fetches Google's public keys, verifies RS256 signature, checks expiry and issuer. `GOOGLE_CLIENT_ID` env var enables audience verification.
+  - **Apple**: `_verify_apple_jwt()` fetches Apple's JWKS from `https://appleid.apple.com/auth/keys`, finds matching key by `kid`, verifies RS256 signature using `python-jose`. JWKS cached in memory for 1 hour.
+  - Token issuer auto-detection (Apple if `iss` contains `appleid.apple.com`, else Google)
+- Added `google-auth==2.38.0` to `requirements.txt`
+- `python-jose[cryptography]` already in requirements — no new dep
+- All 6 OAuth endpoints (vendor/driver/customer × Google/Apple) now go through verified `decode_google_jwt()` automatically
+- Forged tokens (missing valid RS256 signature) now return empty dict → auth fails
+- **Pending**: Set `GOOGLE_CLIENT_ID` env var in AWS Secrets Manager to enable audience verification
