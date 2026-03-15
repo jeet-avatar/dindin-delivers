@@ -101,6 +101,13 @@ async def require_customer(
         )
     try:
         payload = jwt.decode(token, _SECRET_KEY, algorithms=[_ALGORITHM])
+        jti = payload.get("jti")
+        if jti and is_token_blacklisted(jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
         # Try customer_id first (set during customer registration)
         customer_id = payload.get("customer_id")
@@ -147,6 +154,13 @@ async def require_driver(
         )
     try:
         payload = jwt.decode(token, _SECRET_KEY, algorithms=[_ALGORITHM])
+        jti = payload.get("jti")
+        if jti and is_token_blacklisted(jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
         # Try driver_id first
         driver_id = payload.get("driver_id")
@@ -196,6 +210,13 @@ async def require_vendor(
         )
     try:
         payload = jwt.decode(token, _SECRET_KEY, algorithms=[_ALGORITHM])
+        jti = payload.get("jti")
+        if jti and is_token_blacklisted(jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
         # Try vendor_id first
         vendor_id = payload.get("vendor_id")
@@ -243,6 +264,13 @@ async def require_admin(
         )
     try:
         payload = jwt.decode(token, _SECRET_KEY, algorithms=[_ALGORITHM])
+        jti = payload.get("jti")
+        if jti and is_token_blacklisted(jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         email = payload.get("sub")
         if not email:
             raise HTTPException(
