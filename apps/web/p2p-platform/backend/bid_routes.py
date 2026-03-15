@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_
 from datetime import datetime, timedelta
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 import math
 import re
 import uuid
@@ -89,6 +89,47 @@ class CreateRideRequestInput(BaseModel):
     special_requests: Optional[str] = None
     bidding_duration_minutes: int = 5  # How long to accept bids
 
+    # A1/A6/A7: Input validation for API security
+    @field_validator('pickup_latitude', 'dropoff_latitude')
+    @classmethod
+    def validate_latitude(cls, v):
+        if v < -90 or v > 90:
+            raise ValueError('Latitude must be between -90 and 90')
+        return v
+
+    @field_validator('pickup_longitude', 'dropoff_longitude')
+    @classmethod
+    def validate_longitude(cls, v):
+        if v < -180 or v > 180:
+            raise ValueError('Longitude must be between -180 and 180')
+        return v
+
+    @field_validator('bidding_duration_minutes')
+    @classmethod
+    def validate_bidding_duration(cls, v):
+        if v < 1 or v > 120:
+            raise ValueError('Bidding duration must be between 1 and 120 minutes')
+        return v
+
+    @field_validator('customer_max_price', 'customer_preferred_price')
+    @classmethod
+    def validate_price_positive(cls, v):
+        if v is not None and v < 0:
+            raise ValueError('Price cannot be negative')
+        if v is not None and v > 10000:
+            raise ValueError('Price cannot exceed $10,000')
+        return v
+
+    @field_validator('special_requests')
+    @classmethod
+    def sanitize_special_requests(cls, v):
+        if v:
+            import re
+            v = re.sub(r'<[^>]+>', '', v).strip()  # Strip HTML tags
+            if len(v) > 500:
+                v = v[:500]
+        return v
+
 
 class SubmitBidInput(BaseModel):
     driver_id: int
@@ -96,16 +137,52 @@ class SubmitBidInput(BaseModel):
     message: Optional[str] = None
     estimated_arrival_minutes: Optional[int] = None
 
+    # A1: Prevent negative prices
+    @field_validator('proposed_price')
+    @classmethod
+    def validate_proposed_price(cls, v):
+        if v <= 0:
+            raise ValueError('Proposed price must be greater than zero')
+        if v > 10000:
+            raise ValueError('Proposed price cannot exceed $10,000')
+        return v
+
+    @field_validator('estimated_arrival_minutes')
+    @classmethod
+    def validate_eta(cls, v):
+        if v is not None and (v < 1 or v > 180):
+            raise ValueError('ETA must be between 1 and 180 minutes')
+        return v
+
 
 class RespondToBidInput(BaseModel):
     action: str  # "accept", "reject", "counter"
     counter_price: Optional[float] = None
     message: Optional[str] = None
 
+    # A1: Prevent negative counter price
+    @field_validator('counter_price')
+    @classmethod
+    def validate_counter_price(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError('Counter price must be greater than zero')
+        if v is not None and v > 10000:
+            raise ValueError('Counter price cannot exceed $10,000')
+        return v
+
 
 class UpdateBidInput(BaseModel):
     proposed_price: float
     message: Optional[str] = None
+
+    @field_validator('proposed_price')
+    @classmethod
+    def validate_proposed_price(cls, v):
+        if v <= 0:
+            raise ValueError('Proposed price must be greater than zero')
+        if v > 10000:
+            raise ValueError('Proposed price cannot exceed $10,000')
+        return v
 
 
 # =========================================================================
@@ -2501,6 +2578,19 @@ async def get_ride_receipt(request_id: int, request: Request, _auth: dict = Depe
             "rating": {
                 "customer_rating": ride.customer_rating,
                 "customer_comment": ride.customer_comment
+            },
+            "regulatory": {
+                "zero_tolerance_policy": "Dollor.ai maintains a zero-tolerance policy for drug and alcohol use by drivers. If you suspect your driver was under the influence, please report immediately.",
+                "report_safety_concern": {
+                    "dollor_email": "support@dollor.ai",
+                    "dollor_phone": "Report via app or email"
+                },
+                "cpuc_consumer_complaint": {
+                    "phone": "1-800-894-9444",
+                    "email": "CIU_intake@cpuc.ca.gov",
+                    "note": "California Public Utilities Commission Consumer Intake Unit"
+                },
+                "access_for_all_fee": "$0.10 per trip collected for the CPUC Access for All Fund"
             }
         }
     }
