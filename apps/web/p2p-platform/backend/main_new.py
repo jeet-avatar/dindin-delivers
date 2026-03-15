@@ -10069,8 +10069,8 @@ def get_team_performance(db: Session = Depends(get_db), _user = Depends(require_
 
 
 @app.post("/api/tickets")
-def create_ticket(ticket_data: TicketCreate, db: Session = Depends(get_db), _user = Depends(require_admin)):
-    """Create a new support ticket."""
+def create_ticket(ticket_data: TicketCreate, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
+    """Create a new support ticket. Any authenticated user can create tickets."""
     from models import SupportTicket, TicketPriority, TicketType, TicketStatus
 
     # Generate ticket ID
@@ -16685,9 +16685,14 @@ async def track_customer_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # SECURITY: Verify the customer owns this order
-    if order.customer_email and order.customer_email != customer.email:
-        raise HTTPException(status_code=403, detail="Access denied")
+    # SECURITY: Verify the customer owns this order (check both customer_id and email)
+    customer_owns_order = False
+    if order.customer_id and order.customer_id == customer.id:
+        customer_owns_order = True
+    elif order.customer_email and order.customer_email == customer.email:
+        customer_owns_order = True
+    if not customer_owns_order:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
 
     # Get driver details if assigned
     driver_info = None
