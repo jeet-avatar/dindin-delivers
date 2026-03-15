@@ -25,8 +25,39 @@ sys.path.insert(0, backend_dir)
 from models import (
     Vendor, VendorMenuItem, Order, OrderStatus, Customer, Driver,
     VendorStatus, OnboardingPhase, VendorPayout, DriverPayout,
-    RideRequest, RideRequestStatus
+    RideRequest, RideRequestStatus, User, UserRole
 )
+from main_new import app
+from auth_utils import require_customer, require_admin, require_any_auth
+
+
+# ===================== AUTH OVERRIDE FIXTURES =====================
+# The RBAC commit added require_customer/require_admin/require_vendor
+# Depends() to endpoints. These overrides provide mock users so tests
+# can call endpoints via TestClient without real JWT + DB lookups.
+
+@pytest.fixture(autouse=True)
+def _override_auth_deps(db_session):
+    """Override RBAC auth dependencies with mock users for all payment safety tests."""
+    mock_customer = MagicMock(spec=Customer)
+    mock_customer.id = 999
+    mock_customer.email = "mock_customer@test.com"
+
+    mock_admin = MagicMock(spec=User)
+    mock_admin.id = 999
+    mock_admin.email = "mock_admin@test.com"
+    mock_admin.role = UserRole.ADMIN
+
+    app.dependency_overrides[require_customer] = lambda: mock_customer
+    app.dependency_overrides[require_admin] = lambda: mock_admin
+    app.dependency_overrides[require_any_auth] = lambda: {"sub": "mock@test.com", "role": "admin"}
+
+    yield
+
+    # Clean up — conftest client fixture also clears overrides, but be safe
+    app.dependency_overrides.pop(require_customer, None)
+    app.dependency_overrides.pop(require_admin, None)
+    app.dependency_overrides.pop(require_any_auth, None)
 
 
 # ===================== GAP-1: IDEMPOTENCY KEY TESTS =====================
@@ -106,7 +137,7 @@ class TestRefundEndpoint:
     """Test POST /api/erp/orders/{order_id}/refund."""
 
     @patch('stripe.Refund.create')
-    def test_refund_endpoint_success(self, mock_refund, client, db_session, auth_headers, test_vendor):
+    def test_refund_endpoint_success(self, mock_refund, client, db_session, admin_auth_headers, test_vendor):
         """Successful refund returns 200 with refund_id."""
         order = Order(
             order_number="DOLL2026TEST001",
@@ -132,7 +163,7 @@ class TestRefundEndpoint:
 
         response = client.post(
             f"/api/erp/orders/{order.id}/refund",
-            headers=auth_headers
+            headers=admin_auth_headers
         )
 
         assert response.status_code == 200
@@ -147,7 +178,7 @@ class TestRefundEndpoint:
             idempotency_key=f"refund_{order.id}"
         )
 
-    def test_refund_already_refunded_returns_400(self, client, db_session, auth_headers, test_vendor):
+    def test_refund_already_refunded_returns_400(self, client, db_session, admin_auth_headers, test_vendor):
         """Order with payment_status='refunded' returns 400."""
         order = Order(
             order_number="DOLL2026TEST002",
@@ -171,13 +202,13 @@ class TestRefundEndpoint:
 
         response = client.post(
             f"/api/erp/orders/{order.id}/refund",
-            headers=auth_headers
+            headers=admin_auth_headers
         )
 
         assert response.status_code == 400
         assert "already refunded" in response.json()["detail"]
 
-    def test_refund_completed_order_returns_400(self, client, db_session, auth_headers, test_vendor):
+    def test_refund_completed_order_returns_400(self, client, db_session, admin_auth_headers, test_vendor):
         """DELIVERED order returns 400 'Cannot refund completed order'."""
         order = Order(
             order_number="DOLL2026TEST003",
@@ -201,7 +232,7 @@ class TestRefundEndpoint:
 
         response = client.post(
             f"/api/erp/orders/{order.id}/refund",
-            headers=auth_headers
+            headers=admin_auth_headers
         )
 
         assert response.status_code == 400
@@ -225,8 +256,7 @@ class TestPriceChangeDetection:
     """Test checkout rejects stale prices with 409."""
 
     def test_checkout_rejects_stale_prices_stripe_integration(
-        self, client, db_session, auth_headers, test_vendor
-    ):
+        self, client, db_session, auth_headers, test_vendor    ):
         """Submit order with expected_price=10.99 but menu_item.price=12.99, expect 409."""
         test_vendor.is_online = True
         db_session.commit()
@@ -265,8 +295,7 @@ class TestPriceChangeDetection:
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_checkout_accepts_matching_prices(
-        self, mock_pi_create, client, db_session, auth_headers, test_vendor
-    ):
+        self, mock_pi_create, client, db_session, auth_headers, test_vendor    ):
         """Submit with matching prices, expect 200/201."""
         menu_item = VendorMenuItem(
             vendor_id=test_vendor.id,
@@ -305,8 +334,7 @@ class TestPriceChangeDetection:
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_checkout_accepts_no_expected_price(
-        self, mock_pi_create, client, db_session, auth_headers, test_vendor
-    ):
+        self, mock_pi_create, client, db_session, auth_headers, test_vendor    ):
         """Backward compat: no expected_price field, normal flow."""
         menu_item = VendorMenuItem(
             vendor_id=test_vendor.id,
@@ -344,8 +372,7 @@ class TestPriceChangeDetection:
         assert response.status_code != 409
 
     def test_price_change_response_includes_item_details(
-        self, client, db_session, auth_headers, test_vendor
-    ):
+        self, client, db_session, auth_headers, test_vendor    ):
         """Verify 409 body has item name, expected price, current price."""
         test_vendor.is_online = True
         db_session.commit()
@@ -396,8 +423,7 @@ class TestVendorOfflineBlocking:
     """Test checkout blocks when vendor is offline, and auto-cancel on go-offline."""
 
     def test_checkout_blocks_offline_vendor(
-        self, client, db_session, auth_headers, test_vendor
-    ):
+        self, client, db_session, auth_headers, test_vendor    ):
         """Set vendor.is_online=False, expect 400 'currently offline'."""
         test_vendor.is_online = False
         db_session.commit()
@@ -434,8 +460,7 @@ class TestVendorOfflineBlocking:
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_checkout_allows_online_vendor(
-        self, mock_pi_create, client, db_session, auth_headers, test_vendor
-    ):
+        self, mock_pi_create, client, db_session, auth_headers, test_vendor    ):
         """Set vendor.is_online=True, expect normal flow."""
         test_vendor.is_online = True
         db_session.commit()
