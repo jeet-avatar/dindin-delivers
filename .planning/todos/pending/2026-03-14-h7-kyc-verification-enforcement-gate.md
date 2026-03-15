@@ -28,3 +28,14 @@ Risk: unverified individuals can provide rides, creating safety and legal liabil
 5. **Grace period**: Allow drivers to register and be on-boarded before requiring KYC — but block active operations until verified
 
 6. **Admin override**: Allow admin to manually mark driver as verified (`/api/admin/drivers/{id}/verify`)
+
+## Implemented
+
+- **KYC gate** added to `bid_routes.py` before the APPROVED/ACTIVE check:
+  - Uses `verification_status == "verified"` (Persona/Onfido/Veriff webhook) OR `documents_verified == True` (manual admin approval)
+  - Returns HTTP 403 "Identity verification required before you can accept rides."
+- **`GET /api/driver/verification-status`** endpoint added at `main_new.py` (after line 6200):
+  - Returns `verification_status`, `documents_verified`, `kyc_verified`, `can_accept_rides`
+  - Protected by `require_driver`
+- **Admin override** already exists at `main_new.py:21450`: `POST /api/admin/drivers/{id}/verify` — sets `documents_verified=True`, `verification_status="verified"`, status `APPROVED`
+- No `is_identity_verified` field was added — existing `verification_status`/`documents_verified` fields from `models.py:815-816` are used directly

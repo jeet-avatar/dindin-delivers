@@ -25,3 +25,14 @@ files:
    - Verify admin login still works
 3. **Usage review**: Grep all uses of `secret_key` query param check in main_new.py — ensure only truly necessary endpoints use it (some may be legacy/unused)
 4. **Consider removing**: For most admin operations, JWT login is sufficient. `ADMIN_SECRET_KEY` should only be for emergency ops/recovery. Remove from any endpoint that doesn't need it.
+
+## Implemented
+
+- Added `logger.info()` when valid admin JWT accepted at `main_new.py:341` (path, IP, email)
+- Added `logger.warning()` when `ADMIN_SECRET_KEY` query param used at `main_new.py:356` (IP, path)
+- Created `.planning/runbooks/admin-secret-key-rotation.md` with full rotation procedure:
+  - When to rotate (quarterly + incident triggers)
+  - How to rotate (generate key → update Secrets Manager `dollor/production/admin-yCDIFY` → deploy)
+  - CloudWatch Logs Insights query for monitoring usage
+  - Alert threshold: >5 uses/hour from same IP
+- Audited all 17+ usages of `ADMIN_SECRET_KEY` — documented in runbook

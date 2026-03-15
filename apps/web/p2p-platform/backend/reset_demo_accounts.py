@@ -19,7 +19,7 @@ from models import Customer, Driver, Vendor, User
 from passlib.context import CryptContext
 from sqlalchemy import text
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=13, deprecated="auto")
 
 # Demo account credentials
 DEMO_ACCOUNTS = {

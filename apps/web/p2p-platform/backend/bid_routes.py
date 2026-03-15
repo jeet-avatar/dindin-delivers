@@ -1122,6 +1122,17 @@ async def submit_bid(request_id: int, data: SubmitBidInput, request: Request, dr
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
+    # KYC gate: driver must be identity-verified before submitting bids
+    kyc_verified = (
+        getattr(driver, 'verification_status', None) == "verified" or
+        getattr(driver, 'documents_verified', False)
+    )
+    if not kyc_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Identity verification required before you can accept rides. Please complete verification in your profile."
+        )
+
     # Verify driver is approved/active
     driver_status = driver.status if isinstance(driver.status, DriverStatus) else DriverStatus(driver.status) if driver.status else None
     if driver_status not in [DriverStatus.APPROVED, DriverStatus.ACTIVE]:

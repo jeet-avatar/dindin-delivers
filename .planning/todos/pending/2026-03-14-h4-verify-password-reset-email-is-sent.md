@@ -24,3 +24,16 @@ The customer/driver reset (`main_new.py:6460–6492`) may have the same issue �
 6. Monitor SMTP logs for delivery failures
 
 Note: Until this is fixed, vendor/admin accounts CANNOT reset their passwords. This is a functional blocker.
+
+## Implemented
+
+- Added `send_password_reset_link_email()` to `email_service.py` (after `send_password_reset_email`):
+  - Subject: "Reset your Dollor.AI password"
+  - HTML email with Reset Password button linking to `https://dollor.ai/reset-password?token={token}`
+  - "Link expires in 1 hour" warning
+- Fixed `main_new.py:2779-2780`: replaced TODO comment with actual call:
+  ```python
+  send_password_reset_link_email(user.email, user.email.split("@")[0], reset_token)
+  ```
+- Added `send_password_reset_link_email` to `email_service` import at `main_new.py:38`
+- Customer/driver reset (`main_new.py:6484-6490`) was already working — no change needed

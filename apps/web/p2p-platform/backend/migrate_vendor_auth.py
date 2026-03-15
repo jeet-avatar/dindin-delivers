@@ -36,7 +36,7 @@ def migrate():
             from models import User, Vendor, UserRole
             from passlib.context import CryptContext
             
-            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=13, deprecated="auto")
             
             # Check if any approved vendors exist
             approved_vendor = db.query(Vendor).filter(Vendor.onboarding_status == "approved").first()

@@ -40,3 +40,17 @@ Manual setup (no Terraform module exists in current repo — add Terraform later
 7. **Future**: Add Terraform `aws_wafv2_web_acl` resource to `infrastructure/terraform/`
 
 See: `.planning/quick/173-implement-bot-crawler-protection-robots-/173-SUMMARY.md` for context.
+
+## Implemented
+
+- Created `infrastructure/terraform/waf.tf`:
+  - `aws_wafv2_web_acl.dollor_bot_protection` (CLOUDFRONT scope, us-east-1 provider alias)
+  - IP Reputation List rule in **Block** mode (safe immediately)
+  - Bot Control rule in **Count** mode (switch to `none {}` after 24-48h review)
+  - `waf_web_acl_arn` output for CloudFront association
+- Created `.planning/runbooks/aws-waf-bot-control-activation.md` with:
+  - Terraform apply steps
+  - CloudFront manual association steps (CF not in Terraform)
+  - Count → Block switchover procedure
+  - Cost estimate (~$15-20/month)
+- **Manual step required**: `terraform apply -target=aws_wafv2_web_acl.dollor_bot_protection` then associate with CloudFront via AWS Console

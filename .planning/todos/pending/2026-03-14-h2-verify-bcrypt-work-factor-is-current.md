@@ -19,3 +19,14 @@ files:
 4. Run benchmark: `time get_password_hash("testpassword")` — should take ~100–300ms at cost 13
 
 No breaking changes — passlib auto-upgrades hashes transparently.
+
+## Implemented
+
+- **Finding**: Default was passlib's implicit 12 rounds (not explicitly set)
+- **Action**: Upgraded to explicit `bcrypt__rounds=13` across 6 files:
+  - `main_new.py:1038`
+  - `reset_demo_accounts.py:22`
+  - `reset_admin.py:11`
+  - `migrate_vendor_auth.py:39`
+  - `order_flow.py:4379` and `4435`
+- `deprecated="auto"` means existing hashes (at rounds < 13) are transparently rehashed on next successful login — no user lockout
