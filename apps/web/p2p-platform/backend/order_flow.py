@@ -1392,6 +1392,18 @@ async def create_order(
     db.commit()
     db.refresh(new_order)
 
+    # Demo payment bypass: skip Stripe for demo orders at known demo vendors
+    DEMO_CUSTOMER_EMAIL = "demo.customer@dollor.ai"
+    DEMO_VENDOR_IDS = {1, 40, 134}
+    if (order_data.customer_email == DEMO_CUSTOMER_EMAIL and
+            order_data.vendor_id in DEMO_VENDOR_IDS):
+        new_order.payment_status = "succeeded"
+        new_order.status = OrderStatus.PENDING_RESTAURANT
+        new_order.sent_to_restaurant_at = datetime.now()
+        db.commit()
+        db.refresh(new_order)
+        logging.info(f"Demo payment bypass applied for order {new_order.order_number}")
+
     # Track promo redemption if discount was applied
     if applied_promo_code and discount_amount > 0:
         try:
@@ -4376,7 +4388,7 @@ async def driver_login(
     from datetime import datetime, timedelta
     import os
 
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=13, deprecated="auto")
     SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")  # SECURITY: No hardcoded fallback
     ALGORITHM = "HS256"
 
@@ -4432,7 +4444,7 @@ async def driver_register(
     from datetime import datetime, timedelta
     import os
 
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=13, deprecated="auto")
     SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")  # SECURITY: No hardcoded fallback
     ALGORITHM = "HS256"
 
