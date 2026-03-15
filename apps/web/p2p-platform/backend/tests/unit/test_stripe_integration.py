@@ -198,7 +198,6 @@ def mock_auth():
 def mock_order(db_session, mock_vendor):
     """Create a mock order (Dollor.ai $1 flat fee model)"""
     order = Order(
-        id=1,
         order_number="ORD-20231215-00001",
         customer_name="John Doe",
         customer_email="john@example.com",
