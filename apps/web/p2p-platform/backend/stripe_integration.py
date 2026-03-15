@@ -398,7 +398,16 @@ async def stripe_webhook(
         raw_data=json.dumps(event['data']['object'], default=str)
     )
     db.add(stripe_log)
-    db.commit()
+    # F7 SECURITY: Use try/except to handle race condition where two webhook
+    # deliveries pass the SELECT check simultaneously. If IntegrityError on
+    # unique stripe_event_id, the event was already processed.
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        if "unique" in str(e).lower() or "duplicate" in str(e).lower():
+            return {"status": "already_processed", "event_type": event_type}
+        raise
 
     # Handle payment_intent.succeeded event
     if event_type == 'payment_intent.succeeded':
@@ -645,7 +654,21 @@ def sync_vendor_payouts(
     
     start_date = datetime.fromisoformat(period_start)
     end_date = datetime.fromisoformat(period_end)
-    
+
+    # F4 SECURITY: Check for existing payouts in this period to prevent duplicates
+    existing_payouts = db.query(VendorPayout).filter(
+        VendorPayout.period_start == start_date,
+        VendorPayout.period_end == end_date
+    ).all()
+    if existing_payouts:
+        existing_vendor_ids = [p.vendor_id for p in existing_payouts]
+        return {
+            "message": "Payouts already exist for this period",
+            "already_processed_vendors": existing_vendor_ids,
+            "total_vendors": len(existing_vendor_ids),
+            "payouts": [{"vendor_id": p.vendor_id, "payout_number": p.payout_number, "net_payout": p.net_payout} for p in existing_payouts]
+        }
+
     # Get all successful orders in period
     orders = db.query(Order).filter(
         Order.payment_status == "succeeded",

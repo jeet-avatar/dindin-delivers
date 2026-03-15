@@ -3886,6 +3886,18 @@ async def order_delivered(
     if order.driver_id != driver.id:
         raise HTTPException(status_code=403, detail="Not authorized for this order")
 
+    # F2 SECURITY: Prevent double payout — if already delivered, return idempotent response
+    if order.delivered_at is not None or order.status == OrderStatus.DELIVERED:
+        return {
+            "success": True,
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "status": "delivered",
+            "message": "Order already marked as delivered",
+            "already_delivered": True,
+            "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
+        }
+
     # ==================== DELIVERY PROOF PHOTO GATE ====================
     # If no proof photo uploaded, hold payment and require photo first
     if not order.delivery_photo_url:
@@ -6030,7 +6042,8 @@ async def refund_order(
         order.status = OrderStatus.CANCELLED
         db.commit()
 
-        logger.info(f"Order {order.order_number} refunded: {refund.id}")
+        # F5 SECURITY: Audit log with admin identity
+        logger.info(f"REFUND AUDIT: Order {order.order_number} refunded by admin {admin.email} (id={admin.id}), refund_id={refund.id}, amount=${refund.amount / 100.0:.2f}")
 
         # Notify customer about refund
         try:
