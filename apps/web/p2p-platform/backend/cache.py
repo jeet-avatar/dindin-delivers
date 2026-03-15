@@ -248,3 +248,66 @@ def get_reset_code(email: str) -> Optional[str]:
 def delete_reset_code(email: str) -> bool:
     """Delete a used reset code."""
     return cache_delete(f"reset:{email}")
+
+
+# ── Per-Account Login Lockout (G5) ────────────────────────────────────────────
+# Tracks consecutive login failures per email. After LOCKOUT_THRESHOLD failures
+# within LOCKOUT_WINDOW, the account is temporarily locked.
+# Short lockout (15 min) to avoid DoS where attacker intentionally locks real users.
+
+LOCKOUT_THRESHOLD = 10    # failures before lockout
+LOCKOUT_WINDOW = 900      # 15 minutes (seconds)
+
+# In-memory fallback when Redis is unavailable
+_login_fail_counts: dict = {}  # email -> {"count": int, "expires": float}
+
+
+def record_login_failure(email: str) -> int:
+    """Increment failed login counter for email. Returns new count."""
+    import time
+    key = f"login_fails:{email}"
+    if redis_client:
+        try:
+            count = redis_client.incr(key)
+            if count == 1:
+                redis_client.expire(key, LOCKOUT_WINDOW)
+            return int(count)
+        except Exception:
+            pass
+    # In-memory fallback
+    now = time.time()
+    entry = _login_fail_counts.get(email)
+    if entry and now < entry["expires"]:
+        entry["count"] += 1
+    else:
+        _login_fail_counts[email] = {"count": 1, "expires": now + LOCKOUT_WINDOW}
+    return _login_fail_counts[email]["count"]
+
+
+def clear_login_failures(email: str) -> None:
+    """Clear failed login counter on successful login."""
+    key = f"login_fails:{email}"
+    if redis_client:
+        try:
+            redis_client.delete(key)
+            return
+        except Exception:
+            pass
+    _login_fail_counts.pop(email, None)
+
+
+def get_login_failure_count(email: str) -> int:
+    """Return current consecutive failure count for email."""
+    import time
+    key = f"login_fails:{email}"
+    if redis_client:
+        try:
+            val = redis_client.get(key)
+            return int(val) if val else 0
+        except Exception:
+            pass
+    now = time.time()
+    entry = _login_fail_counts.get(email)
+    if entry and now < entry["expires"]:
+        return entry["count"]
+    return 0

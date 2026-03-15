@@ -35,3 +35,16 @@ Current rate limit: `main_new.py:572` — per-IP, not per-email.
 6. **Demo accounts exempt**: Add demo emails to lockout exemption (same as rate limit exemption `main_new.py:585–590`)
 
 Note: Per-email lockout is safer than per-IP. Keep lockout short (15 min) to avoid DoS where attacker intentionally locks legitimate users out.
+
+## Implemented
+
+- Added to `cache.py`: `record_login_failure()`, `clear_login_failures()`, `get_login_failure_count()` functions with Redis backend + in-memory fallback
+  - `LOCKOUT_THRESHOLD = 10`, `LOCKOUT_WINDOW = 900` (15 min)
+  - Redis key: `login_fails:{email}`, expires after 15 min
+- Added `_check_login_lockout(email)` helper to `main_new.py` — raises 429 + `Retry-After: 900`
+- Wired into all 4 login endpoints:
+  - On failure (wrong email or wrong password): `record_login_failure(email)`
+  - On success: `clear_login_failures(email)`
+  - Pre-check before DB query: `_check_login_lockout(email)`
+- DEMO_EMAILS exempted from lockout tracking
+- Short 15-min lockout prevents DoS (attacker intentionally locking real users)

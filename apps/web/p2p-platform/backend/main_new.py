@@ -575,7 +575,11 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ===================== RATE LIMITING =====================
 # SECURITY: Protect auth endpoints from brute force attacks (Redis-backed, shared across workers/tasks)
-from cache import rate_limit_check, RateLimiter, check_rate_limit
+from cache import (
+    rate_limit_check, RateLimiter, check_rate_limit,
+    record_login_failure, clear_login_failures, get_login_failure_count,
+    LOCKOUT_THRESHOLD, LOCKOUT_WINDOW,
+)
 
 # Rate limiters for different endpoints
 auth_rate_limiter = RateLimiter(max_requests=10, window_seconds=60)  # 10 attempts per minute
@@ -590,6 +594,9 @@ password_reset_ip_limiter = RateLimiter(max_requests=5, window_seconds=3600)  # 
 public_listings_rate_limiter = RateLimiter(max_requests=30, window_seconds=60)   # 30/min per IP for vendor listings
 public_estimate_rate_limiter = RateLimiter(max_requests=20, window_seconds=60)   # 20/min per IP for fare estimates
 
+# Per-email rate limiter (G7): complement per-IP to block VPN rotation attacks
+email_auth_rate_limiter = RateLimiter(max_requests=20, window_seconds=3600)  # 20 attempts/hr per email
+
 # Demo accounts exempt from auth rate limiting (Apple App Store reviewers)
 DEMO_EMAILS = frozenset({
     "demo.customer@dollor.ai",
@@ -602,6 +609,16 @@ DEMO_EMAILS = frozenset({
 # SECURITY: Strip HTML/script tags from user-supplied text to prevent stored XSS
 import re
 _HTML_TAG_RE = re.compile(r'<[^>]+>')
+
+def _check_login_lockout(email: str) -> None:
+    """(G5) Raise 429 if account is temporarily locked after too many failed attempts."""
+    if get_login_failure_count(email) >= LOCKOUT_THRESHOLD:
+        raise HTTPException(
+            status_code=429,
+            detail="Account temporarily locked due to too many failed attempts. Try again in 15 minutes.",
+            headers={"Retry-After": str(LOCKOUT_WINDOW)}
+        )
+
 
 def sanitize_text(text: Optional[str]) -> Optional[str]:
     """Strip HTML tags from user input to prevent stored XSS attacks"""
@@ -1995,8 +2012,12 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
     # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
     if form_data.username not in DEMO_EMAILS:
         check_rate_limit(request, auth_rate_limiter, "admin_login")
+        check_rate_limit(request, email_auth_rate_limiter, "admin_login_email", identifier=form_data.username.lower())
+        _check_login_lockout(form_data.username.lower())
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
+        if form_data.username not in DEMO_EMAILS:
+            record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -2004,11 +2025,14 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
         )
 
     if not verify_password(form_data.password, user.password_hash):
+        if form_data.username not in DEMO_EMAILS:
+            record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    clear_login_failures(form_data.username.lower())
     access_token = create_access_token(data={"sub": user.email})
     return {
         "access_token": access_token,
@@ -2023,14 +2047,18 @@ def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
     if form_data.username not in DEMO_EMAILS:
         check_rate_limit(request, auth_rate_limiter, "vendor_login")
+        check_rate_limit(request, email_auth_rate_limiter, "vendor_login_email", identifier=form_data.username.lower())
+        _check_login_lockout(form_data.username.lower())
 
     # Find user with VENDOR role
     user = db.query(User).filter(
         User.email == form_data.username,
         User.role == UserRole.VENDOR
     ).first()
-    
+
     if not user:
+        if form_data.username not in DEMO_EMAILS:
+            record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -2038,11 +2066,14 @@ def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         )
 
     if not verify_password(form_data.password, user.password_hash):
+        if form_data.username not in DEMO_EMAILS:
+            record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    clear_login_failures(form_data.username.lower())
 
     # Check if vendor account is active
     if user.vendor_id:
@@ -2889,6 +2920,8 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
     if form_data.username not in DEMO_EMAILS:
         check_rate_limit(request, auth_rate_limiter, "driver_login")
+        check_rate_limit(request, email_auth_rate_limiter, "driver_login_email", identifier=form_data.username.lower())
+        _check_login_lockout(form_data.username.lower())
 
     # Find user with DRIVER role first
     user = db.query(User).filter(
@@ -2903,12 +2936,16 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         if any_user and any_user.driver_id:
             user = any_user
         elif any_user:
+            if form_data.username not in DEMO_EMAILS:
+                record_login_failure(form_data.username.lower())
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         else:
+            if form_data.username not in DEMO_EMAILS:
+                record_login_failure(form_data.username.lower())
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password",
@@ -2916,11 +2953,14 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
             )
 
     if not verify_password(form_data.password, user.password_hash):
+        if form_data.username not in DEMO_EMAILS:
+            record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    clear_login_failures(form_data.username.lower())
 
     # Get driver record
     driver = db.query(Driver).filter(Driver.id == user.driver_id).first()
@@ -3433,6 +3473,8 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
     # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
     if form_data.username not in DEMO_EMAILS:
         check_rate_limit(request, auth_rate_limiter, "customer_login")
+        check_rate_limit(request, email_auth_rate_limiter, "customer_login_email", identifier=form_data.username.lower())
+        _check_login_lockout(form_data.username.lower())
     print(f"Customer login attempt for: {form_data.username}")
 
     # Find customer by email
@@ -3440,6 +3482,8 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
 
     if not customer:
         print(f"Customer not found: {form_data.username}")
+        if form_data.username not in DEMO_EMAILS:
+            record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -3447,11 +3491,14 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
         )
 
     if not customer.password_hash or not verify_password(form_data.password, customer.password_hash):
+        if form_data.username not in DEMO_EMAILS:
+            record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    clear_login_failures(form_data.username.lower())
 
     if not customer.is_active:
         raise HTTPException(
