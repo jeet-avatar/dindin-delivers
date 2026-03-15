@@ -3,7 +3,9 @@
   "networkMode": "awsvpc",
   "executionRoleArn": "arn:aws:iam::134607809447:role/DollorECSTaskExecutionRole",
   "taskRoleArn": "arn:aws:iam::134607809447:role/DollorECSTaskRole",
-  "requiresCompatibilities": ["FARGATE"],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
   "cpu": "1024",
   "memory": "2048",
   "containerDefinitions": [
@@ -18,14 +20,38 @@
         }
       ],
       "environment": [
-        {"name": "PORT", "value": "8080"},
-        {"name": "DUMMY_PAYMENT_MODE", "value": "false"},
-        {"name": "ENVIRONMENT", "value": "production"},
-        {"name": "SMTP_HOST", "value": "email-smtp.us-east-1.amazonaws.com"},
-        {"name": "SMTP_PORT", "value": "587"},
-        {"name": "FROM_EMAIL", "value": "noreply@dollor.ai"},
-        {"name": "DOCUMENT_VERIFICATION_PROVIDER", "value": "persona"},
-        {"name": "REDIS_URL", "value": "redis://dollor-redis.uwva3u.0001.use1.cache.amazonaws.com:6379/0"}
+        {
+          "name": "PORT",
+          "value": "8080"
+        },
+        {
+          "name": "DUMMY_PAYMENT_MODE",
+          "value": "false"
+        },
+        {
+          "name": "ENVIRONMENT",
+          "value": "production"
+        },
+        {
+          "name": "SMTP_HOST",
+          "value": "email-smtp.us-east-1.amazonaws.com"
+        },
+        {
+          "name": "SMTP_PORT",
+          "value": "587"
+        },
+        {
+          "name": "FROM_EMAIL",
+          "value": "noreply@dollor.ai"
+        },
+        {
+          "name": "DOCUMENT_VERIFICATION_PROVIDER",
+          "value": "persona"
+        },
+        {
+          "name": "REDIS_URL",
+          "value": "redis://dollor-redis.uwva3u.0001.use1.cache.amazonaws.com:6379/0"
+        }
       ],
       "secrets": [
         {
@@ -75,6 +101,10 @@
         {
           "name": "FIREBASE_CREDENTIALS_JSON",
           "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/firebase-creds-DG9fC5"
+        },
+        {
+          "name": "ENCRYPTION_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/encryption-key-31sAkk"
         }
       ],
       "logConfiguration": {
@@ -86,7 +116,10 @@
         }
       },
       "healthCheck": {
-        "command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"],
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:8080/health || exit 1"
+        ],
         "interval": 30,
         "timeout": 5,
         "retries": 3,
