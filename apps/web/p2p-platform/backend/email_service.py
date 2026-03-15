@@ -2003,6 +2003,74 @@ def send_password_reset_email(
     return send_email(to_email, subject, html_body, text_body)
 
 
+def send_password_reset_link_email(
+    to_email: str,
+    recipient_name: str,
+    reset_token: str
+) -> bool:
+    """
+    Send password reset link to vendor/admin users (link-based flow).
+    """
+    reset_url = f"https://dollor.ai/reset-password?token={reset_token}"
+    subject = "Reset your Dollor.AI password"
+
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #FF6B35, #FF8C42); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .header h1 {{ color: white; margin: 0; font-size: 24px; }}
+            .content {{ background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; }}
+            .btn {{ display: inline-block; background: #FF6B35; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 20px 0; }}
+            .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 10px 10px; }}
+            .warning {{ background: #FFF3CD; border: 1px solid #FFEEBA; padding: 15px; border-radius: 8px; margin: 20px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Password Reset</h1>
+            </div>
+            <div class="content">
+                <p>Hi {recipient_name},</p>
+                <p>We received a request to reset your Dollor.AI password. Click the button below to set a new password:</p>
+                <p style="text-align: center;">
+                    <a href="{reset_url}" class="btn">Reset Password</a>
+                </p>
+                <div class="warning">
+                    <strong>This link expires in 1 hour.</strong><br>
+                    If you didn't request a password reset, please ignore this email or contact support.
+                </div>
+                <p>Thanks,<br>The Dollor.AI Team</p>
+            </div>
+            <div class="footer">
+                <p>2026 Dollor.AI by Zietra Technologies Inc.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Password Reset - Dollor.AI
+
+    Hi {recipient_name},
+
+    Click this link to reset your password (expires in 1 hour):
+    {reset_url}
+
+    If you didn't request this, please ignore this email.
+
+    Thanks,
+    The Dollor.AI Team
+    """
+
+    return send_email(to_email, subject, html_body, text_body)
+
+
 def send_new_order_vendor_email(
     to_email: str,
     restaurant_name: str,

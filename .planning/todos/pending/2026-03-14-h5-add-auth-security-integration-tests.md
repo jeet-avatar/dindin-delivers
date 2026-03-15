@@ -48,3 +48,17 @@ Create `tests/security/test_auth_security.py` with test cases:
 6. **WebSocket auth**:
    - Connect without token → close code 4001
    - Connect with wrong client_id → close code 4003
+
+## Implemented
+
+Created `tests/security/__init__.py` and `tests/security/test_auth_security.py` with 6 test classes:
+
+1. **`TestCrossRoleAccess`**: customer token → driver earnings → 401/403; driver token → ride request → 401/403; customer → admin users → 401/403
+2. **`TestEnumerationProtection`**: non-existent email → generic error (no "not found" leak); wrong password → same generic error
+3. **`TestTokenManipulation`**: tampered JWT → 401; expired JWT (created with past `exp`) → 401; missing header → 401; garbage token → 401
+4. **`TestRateLimiting`**: 11 attempts → 429 + Retry-After header (skipped by default via `SKIP_RATE_LIMIT_TESTS=1`)
+5. **`TestPasswordReset`**: unknown email → 200 (no enumeration); one-time-use test skipped pending email interception setup
+6. **`TestWebSocketAuth`**: connect without token → connection rejected
+
+Run: `pytest tests/security/test_auth_security.py -v`
+Rate limit tests: `SKIP_RATE_LIMIT_TESTS=0 pytest tests/security/test_auth_security.py::TestRateLimiting -v`

@@ -22,6 +22,7 @@ from jose import jwt, JWTError
 import os
 import json
 import logging
+import secrets
 from dotenv import load_dotenv
 
 # Configure logging
@@ -35,7 +36,7 @@ from email_service import (
     send_vendor_approval_email, send_vendor_registration_confirmation,
     send_driver_approval_email, send_driver_registration_confirmation,
     send_customer_welcome_email, send_email_verification_code,
-    send_password_reset_email,
+    send_password_reset_email, send_password_reset_link_email,
     # Order lifecycle emails
     send_order_confirmation_email, send_order_ready_email,
     send_driver_assigned_email, send_order_delivered_email,
@@ -339,6 +340,10 @@ async def admin_auth_middleware(request: Request, call_next):
                 try:
                     user = db.query(User).filter(User.email == email).first()
                     if user and user.role == UserRole.ADMIN:
+                        logger.info(
+                            f"Admin JWT access from IP={request.client.host} "
+                            f"path={request.url.path} email={payload.get('sub', 'unknown')}"
+                        )
                         return await call_next(request)
                 finally:
                     db.close()
@@ -354,6 +359,10 @@ async def admin_auth_middleware(request: Request, call_next):
     secret_key = request.query_params.get("secret_key")
     expected_key = os.getenv("ADMIN_SECRET_KEY")
     if expected_key and secret_key and secret_key == expected_key:
+        logger.warning(
+            f"ADMIN_SECRET_KEY used for admin access (bypasses JWT) "
+            f"from IP={request.client.host} path={request.url.path}"
+        )
         return await call_next(request)
 
     # No valid auth provided
@@ -1035,7 +1044,7 @@ async def run_migrations(request: Request, secret_key: str = Query(...), db: Ses
     }
 
 # Security
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=13, deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 # SOC 2 Compliant - JWT secret MUST be set via environment variable
@@ -2776,8 +2785,11 @@ def request_password_reset(http_request: Request, request: PasswordResetRequest,
         expires_delta=timedelta(hours=1)
     )
 
-    # TODO: Integrate with email service (SendGrid, SES, etc.)
-    # send_password_reset_email(user.email, reset_token)
+    # Send reset link via email
+    try:
+        send_password_reset_link_email(user.email, user.email.split("@")[0], reset_token)
+    except Exception as e:
+        logger.error(f"Failed to send vendor/admin password reset email: {str(e)}")
 
     return {"message": "If this email exists, a password reset link has been sent"}
 
@@ -6200,6 +6212,22 @@ def get_driver_documents(driver: Driver = Depends(require_driver), db: Session =
     }
 
 
+@app.get("/api/driver/verification-status")
+def get_driver_verification_status(driver: Driver = Depends(require_driver)):
+    """Get driver's current KYC/identity verification state."""
+    kyc_verified = (
+        getattr(driver, 'verification_status', None) == "verified" or
+        getattr(driver, 'documents_verified', False)
+    )
+    return {
+        "verification_status": driver.verification_status or "not_started",
+        "documents_verified": driver.documents_verified or False,
+        "kyc_verified": kyc_verified,
+        "can_accept_rides": kyc_verified,
+        "verification_provider": getattr(driver, 'verification_provider', None),
+    }
+
+
 # ==================== CUSTOMER AUTHENTICATION (FOOD DELIVERY) ====================
 # Note: CustomerRegisterRequest is already defined above for rideshare
 
@@ -6470,8 +6498,8 @@ def customer_request_password_reset(http_request: Request, request: CustomerPass
         # Don't reveal whether email exists for security
         return {"success": True, "message": "If an account exists with this email, a reset code has been sent."}
 
-    # Generate 6-digit code
-    code = str(random.randint(100000, 999999))
+    # Generate high-entropy reset code (256-bit)
+    code = secrets.token_urlsafe(32)
 
     # Store code in Redis (15 min TTL), fall back to in-memory
     if not store_reset_code(request.email, code, 900):
@@ -6547,16 +6575,14 @@ def driver_request_password_reset(http_request: Request, request: DriverPassword
     """Request a driver password reset - sends code to email"""
     check_rate_limit(http_request, password_reset_ip_limiter, "pwd_reset_ip")
     check_rate_limit(http_request, password_reset_limiter, "pwd_reset", identifier=request.email.lower())
-    import random
-
     # Check if user exists with driver role (must match role used by login)
     user = db.query(User).filter(User.email == request.email, User.role == UserRole.DRIVER).first()
     if not user or not user.driver_id:
         # Don't reveal whether email exists for security
         return {"success": True, "message": "If a driver account exists with this email, a reset code has been sent."}
 
-    # Generate 6-digit code
-    code = str(random.randint(100000, 999999))
+    # Generate high-entropy reset code (256-bit)
+    code = secrets.token_urlsafe(32)
 
     # Store code in Redis (15 min TTL), fall back to in-memory
     if not store_reset_code(request.email, code, 900):
@@ -6629,13 +6655,12 @@ def vendor_request_password_reset(http_request: Request, request: VendorPassword
     """Request a vendor password reset - sends code to email"""
     check_rate_limit(http_request, password_reset_ip_limiter, "pwd_reset_ip")
     check_rate_limit(http_request, password_reset_limiter, "pwd_reset", identifier=request.email.lower())
-    import random
-
     user = db.query(User).filter(User.email == request.email).first()
     if not user or not user.vendor_id:
         return {"success": True, "message": "If a partner account exists with this email, a reset code has been sent."}
 
-    code = str(random.randint(100000, 999999))
+    # Generate high-entropy reset code (256-bit)
+    code = secrets.token_urlsafe(32)
 
     # Store code in Redis (15 min TTL), fall back to in-memory
     if not store_reset_code(request.email, code, 900):

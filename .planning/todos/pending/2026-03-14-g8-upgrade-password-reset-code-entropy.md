@@ -34,3 +34,14 @@ Replace 6-digit code with `secrets.token_urlsafe(32)` (43-character URL-safe bas
 5. Confirm endpoints: accept the full token string instead of 6-digit code
 
 Note: Unifies the reset mechanism with the vendor/admin JWT approach (stateless + high entropy).
+
+## Implemented
+
+- Added `import secrets` at `main_new.py:25`
+- Replaced `str(random.randint(100000, 999999))` with `secrets.token_urlsafe(32)` in 3 flows:
+  - Customer reset: `main_new.py:6474` (comment: "Generate high-entropy reset code (256-bit)")
+  - Driver reset: `main_new.py:6559` (also removed inline `import random`)
+  - Vendor reset: `main_new.py:6638` (also removed inline `import random`)
+- Token is 43-character URL-safe base64 string (~256 bits entropy vs ~20 bits for 6-digit)
+- Storage (Redis + in-memory fallback) unchanged — token stored as string, 15-min TTL
+- iOS/Android apps must accept full token string (not 6 digits) in reset confirm endpoint
