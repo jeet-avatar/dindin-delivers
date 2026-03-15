@@ -32,3 +32,15 @@ Apply **dual rate limiting** on login endpoints — both per-IP (existing) AND p
 5. Exempt demo emails (same exemption list `main_new.py:585–590`)
 
 Note: Per-email limits should be higher than per-IP (IPs are shared, emails are specific). 20/hr is loose enough for legitimate users, tight enough to block password spraying.
+
+## Implemented
+
+- Added `email_auth_rate_limiter = RateLimiter(max_requests=20, window_seconds=3600)` at `main_new.py` (after public_estimate_rate_limiter)
+- Added dual rate limit check (IP + email) to all 4 login endpoints:
+  - `POST /api/auth/login` (admin/generic): `check_rate_limit(..., "admin_login_email", identifier=email)`
+  - `POST /api/auth/vendor/login`: `check_rate_limit(..., "vendor_login_email", identifier=email)`
+  - `POST /api/auth/driver/login`: `check_rate_limit(..., "driver_login_email", identifier=email)`
+  - `POST /api/auth/customer/login`: `check_rate_limit(..., "customer_login_email", identifier=email)`
+- All 4 use `form_data.username.lower()` as identifier (normalized)
+- DEMO_EMAILS exempted from both per-IP and per-email limits
+- Uses existing `check_rate_limit` function with `identifier=` parameter — no new infrastructure needed
