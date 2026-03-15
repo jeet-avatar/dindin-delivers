@@ -3187,7 +3187,9 @@ async def get_vendor_orders(
             "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
             "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
             "picked_up_at": (getattr(order, 'picked_up_at', None).isoformat() + "Z") if getattr(order, 'picked_up_at', None) else None,
-            "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None
+            "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
+            "payment_status": getattr(order, 'payment_status', None),
+            "delivery_decision_sent_at": (order.delivery_decision_sent_at.isoformat() + "Z") if getattr(order, 'delivery_decision_sent_at', None) else None,
         })
 
     return {"success": True, "orders": result}
