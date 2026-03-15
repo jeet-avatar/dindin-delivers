@@ -899,7 +899,7 @@ class TestDriverFlow:
         assert "journal_entry" in result["accounting"]
 
     @pytest.mark.asyncio
-    async def test_get_driver_active_orders(self, mock_db_session, mock_order, mock_vendor):
+    async def test_get_driver_active_orders(self, mock_db_session, mock_order, mock_vendor, mock_driver):
         """Test getting driver's active orders"""
         mock_order.driver_id = 1
         mock_order.status = MagicMock()
@@ -1030,12 +1030,13 @@ class TestRideSharing:
         assert result["status"] == "matched"
 
     @pytest.mark.asyncio
-    async def test_ride_picked_up(self, mock_db_session):
+    async def test_ride_picked_up(self, mock_db_session, mock_driver):
         """Test marking ride as picked up"""
         # ride_picked_up queries RideRequestModel, not Order
         mock_ride = MagicMock()
         mock_ride.id = 1
         mock_ride.request_id = "RR-20231215-001"
+        mock_ride.matched_driver_id = mock_driver.id  # IDOR check requires driver match
 
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_ride
 
@@ -1046,7 +1047,7 @@ class TestRideSharing:
         assert result["status"] == "in_progress"
 
     @pytest.mark.asyncio
-    async def test_ride_completed(self, mock_db_session):
+    async def test_ride_completed(self, mock_db_session, mock_driver):
         """Test completing a ride"""
         from models import RideRequestStatus
         # ride_completed queries RideRequestModel, not Order
@@ -1308,8 +1309,9 @@ class TestLocationTracking:
     """Test driver location tracking"""
 
     @pytest.mark.asyncio
-    async def test_update_driver_location(self, mock_db_session, mock_order):
+    async def test_update_driver_location(self, mock_db_session, mock_order, mock_driver):
         """Test updating driver location for an order"""
+        mock_order.driver_id = mock_driver.id  # IDOR check requires driver match
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order
 
         location = DriverLocationUpdate(
@@ -1729,18 +1731,18 @@ class TestEdgeCases:
         assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_driver_not_found(self, mock_db_session):
-        """Test driver endpoints with non-existent driver"""
+    async def test_driver_not_found(self, mock_db_session, mock_driver):
+        """Test driver endpoints with mismatched driver_id returns 403 (IDOR protection)"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
         location = DriverLocationUpdate(latitude=37.7849, longitude=-122.4094)
         from order_flow import update_driver_current_location
         with pytest.raises(HTTPException) as exc_info:
             await update_driver_current_location(999, location, mock_db_session, mock_driver)
-        assert exc_info.value.status_code == 404
+        assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_vendor_orders_with_json_errors(self, mock_db_session, mock_order):
+    async def test_vendor_orders_with_json_errors(self, mock_db_session, mock_order, mock_vendor):
         """Test vendor orders with invalid JSON in items/address"""
         mock_order.items = "invalid json"
         mock_order.delivery_address = "not json"
@@ -2062,7 +2064,7 @@ class TestDeliveryProofPhoto:
     # --- HAPPY PATH: Photo Upload ---
 
     @pytest.mark.asyncio
-    async def test_upload_photo_success_not_pending(self, mock_db_session, mock_order_no_photo):
+    async def test_upload_photo_success_not_pending(self, mock_db_session, mock_order_no_photo, mock_driver):
         """Upload photo for order NOT yet in pending_delivery_proof status"""
         mock_order_no_photo.status = OrderStatus.OUT_FOR_DELIVERY
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order_no_photo
@@ -2149,7 +2151,7 @@ class TestDeliveryProofPhoto:
     # --- UNHAPPY PATH: Photo Upload Validation ---
 
     @pytest.mark.asyncio
-    async def test_upload_photo_invalid_content_type(self, mock_db_session, mock_order_no_photo):
+    async def test_upload_photo_invalid_content_type(self, mock_db_session, mock_order_no_photo, mock_driver):
         """Reject non-image file types (e.g. PDF)"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order_no_photo
 
@@ -2164,7 +2166,7 @@ class TestDeliveryProofPhoto:
         assert "Invalid file type" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_upload_photo_too_large(self, mock_db_session, mock_order_no_photo):
+    async def test_upload_photo_too_large(self, mock_db_session, mock_order_no_photo, mock_driver):
         """Reject files larger than 10MB"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order_no_photo
 
@@ -2181,7 +2183,7 @@ class TestDeliveryProofPhoto:
         assert "too large" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_upload_photo_empty_file(self, mock_db_session, mock_order_no_photo):
+    async def test_upload_photo_empty_file(self, mock_db_session, mock_order_no_photo, mock_driver):
         """Reject empty files"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order_no_photo
 
@@ -2197,7 +2199,7 @@ class TestDeliveryProofPhoto:
         assert "Empty file" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_upload_photo_order_not_found(self, mock_db_session):
+    async def test_upload_photo_order_not_found(self, mock_db_session, mock_driver):
         """Reject upload for non-existent order"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
@@ -2210,7 +2212,7 @@ class TestDeliveryProofPhoto:
         assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_upload_photo_already_delivered(self, mock_db_session, mock_order_with_photo):
+    async def test_upload_photo_already_delivered(self, mock_db_session, mock_order_with_photo, mock_driver):
         """Reject upload for already-delivered order"""
         mock_order_with_photo.status = OrderStatus.DELIVERED
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order_with_photo
@@ -2225,7 +2227,7 @@ class TestDeliveryProofPhoto:
         assert "already delivered" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_upload_photo_s3_failure(self, mock_db_session, mock_order_no_photo):
+    async def test_upload_photo_s3_failure(self, mock_db_session, mock_order_no_photo, mock_driver):
         """Should return 500 when S3 upload fails"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order_no_photo
 
@@ -2245,7 +2247,7 @@ class TestDeliveryProofPhoto:
         assert "Upload failed" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_upload_photo_heic_accepted(self, mock_db_session, mock_order_no_photo):
+    async def test_upload_photo_heic_accepted(self, mock_db_session, mock_order_no_photo, mock_driver):
         """HEIC files (iPhone default) should be accepted"""
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_order_no_photo
 

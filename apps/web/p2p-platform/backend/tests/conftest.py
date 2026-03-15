@@ -40,8 +40,9 @@ if _original_db_url and "postgresql" in _original_db_url:
         TEST_DATABASE_URL = _original_db_url
     os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 else:
-    # Use in-memory SQLite with unique identifier to avoid any caching
-    TEST_DATABASE_URL = f"sqlite:///:memory:?cache=shared&uri=true"
+    # Use in-memory SQLite with cache=shared so multiple connections can access
+    # the same database (needed for TestClient which runs in a different thread)
+    TEST_DATABASE_URL = "sqlite:///file::memory:?cache=shared&uri=true"
     os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
 from fastapi.testclient import TestClient
@@ -51,6 +52,7 @@ from sqlalchemy.pool import StaticPool, NullPool
 
 # Now import app and models (they will use the TEST_DATABASE_URL)
 from main_new import app, get_db, create_access_token, get_password_hash
+from auth_utils import require_any_auth, require_customer, require_admin, require_driver, require_vendor
 from database import Base
 from models import User, Vendor, Driver, Customer, VendorStatus, OnboardingPhase, UserRole
 
@@ -66,6 +68,15 @@ else:
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+
+# Replace the engine that database.py created during import — it shares the same
+# in-memory SQLite (cache=shared) but with a different pool, causing "database is locked"
+# when the test engine tries to DROP/CREATE tables. By pointing database.py at our
+# test engine (StaticPool), all code paths use a single connection.
+import database as _database_module
+_database_module.engine.dispose()
+_database_module.engine = engine
+_database_module.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -34,7 +34,8 @@ sys.path.insert(0, backend_dir)
 from sqlalchemy.orm import Session
 from models import (
     Vendor, VendorMenuItem, Order, OrderStatus,
-    StripePaymentLog, VendorPayout, OnboardingPhase, VendorStatus
+    StripePaymentLog, VendorPayout, OnboardingPhase, VendorStatus,
+    Customer, User, UserRole
 )
 import stripe_integration
 from stripe_integration import (
@@ -155,6 +156,45 @@ def sample_order_data(mock_vendor, mock_menu_item):
 
 
 @pytest.fixture
+def mock_customer(db_session):
+    """Create a mock customer for RBAC auth"""
+    customer = Customer(
+        email="customer@test.com",
+        password_hash="hashed",
+        first_name="Test",
+        last_name="Customer",
+        phone="+14155550000",
+        is_active=True,
+    )
+    db_session.add(customer)
+    db_session.commit()
+    db_session.refresh(customer)
+    return customer
+
+
+@pytest.fixture
+def mock_admin(db_session):
+    """Create a mock admin user for RBAC auth"""
+    from main_new import get_password_hash
+    admin = User(
+        email="admin@test.com",
+        password_hash=get_password_hash("AdminPassword123!"),
+        full_name="Test Admin",
+        role=UserRole.ADMIN,
+    )
+    db_session.add(admin)
+    db_session.commit()
+    db_session.refresh(admin)
+    return admin
+
+
+@pytest.fixture
+def mock_auth():
+    """Create a mock auth dict for require_any_auth endpoints"""
+    return {"sub": "john@example.com", "role": "customer"}
+
+
+@pytest.fixture
 def mock_order(db_session, mock_vendor):
     """Create a mock order (Dollor.ai $1 flat fee model)"""
     order = Order(
@@ -199,7 +239,7 @@ class TestCreateOrder:
     @patch('email_service.IS_PRODUCTION', False)
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_create_order_success(self, mock_stripe_create, db_session,
-                                  mock_vendor, mock_menu_item, sample_order_data):
+                                  mock_vendor, mock_menu_item, sample_order_data, mock_customer):
         """Should successfully create order and payment intent"""
         # Arrange
         # Dollor.ai pricing: $1 flat fee, distance-based delivery ($4.99 default)
@@ -233,7 +273,7 @@ class TestCreateOrder:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
 
-            result = loop.run_until_complete(create_order(order_request, db_session))
+            result = loop.run_until_complete(create_order(order_request, db_session, mock_customer))
 
         # Assert
         assert result is not None
@@ -263,7 +303,7 @@ class TestCreateOrder:
 
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
-    def test_create_order_vendor_not_found(self, mock_stripe_create, db_session, sample_order_data):
+    def test_create_order_vendor_not_found(self, mock_stripe_create, db_session, sample_order_data, mock_customer):
         """Should raise 404 when vendor doesn't exist"""
         # Arrange
         sample_order_data['vendor_id'] = 9999  # Non-existent vendor
@@ -281,7 +321,7 @@ class TestCreateOrder:
             asyncio.set_event_loop(loop)
 
         with pytest.raises(HTTPException) as exc_info:
-            loop.run_until_complete(create_order(order_request, db_session))
+            loop.run_until_complete(create_order(order_request, db_session, mock_customer))
 
         assert exc_info.value.status_code == 404
         assert "Vendor not found" in str(exc_info.value.detail)
@@ -290,7 +330,7 @@ class TestCreateOrder:
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_create_order_vendor_not_approved(self, mock_stripe_create, db_session,
-                                              mock_pending_vendor, mock_menu_item, sample_order_data):
+                                              mock_pending_vendor, mock_menu_item, sample_order_data, mock_customer):
         """Should raise 400 when vendor is not approved"""
         # Arrange
         sample_order_data['vendor_id'] = mock_pending_vendor.id
@@ -321,7 +361,7 @@ class TestCreateOrder:
             asyncio.set_event_loop(loop)
 
         with pytest.raises(HTTPException) as exc_info:
-            loop.run_until_complete(create_order(order_request, db_session))
+            loop.run_until_complete(create_order(order_request, db_session, mock_customer))
 
         assert exc_info.value.status_code == 400
         assert "not approved" in str(exc_info.value.detail).lower()
@@ -330,7 +370,7 @@ class TestCreateOrder:
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_create_order_menu_item_not_found(self, mock_stripe_create, db_session,
-                                              mock_vendor, sample_order_data):
+                                              mock_vendor, sample_order_data, mock_customer):
         """Should raise 404 when menu item doesn't exist"""
         # Arrange
         sample_order_data['items'][0]['menu_item_id'] = 9999
@@ -348,7 +388,7 @@ class TestCreateOrder:
             asyncio.set_event_loop(loop)
 
         with pytest.raises(HTTPException) as exc_info:
-            loop.run_until_complete(create_order(order_request, db_session))
+            loop.run_until_complete(create_order(order_request, db_session, mock_customer))
 
         assert exc_info.value.status_code == 404
         assert "Menu item" in str(exc_info.value.detail)
@@ -357,7 +397,7 @@ class TestCreateOrder:
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_create_order_menu_item_unavailable(self, mock_stripe_create, db_session,
-                                                mock_vendor, mock_unavailable_menu_item, sample_order_data):
+                                                mock_vendor, mock_unavailable_menu_item, sample_order_data, mock_customer):
         """Should raise 400 when menu item is not available"""
         # Arrange
         sample_order_data['items'][0]['menu_item_id'] = mock_unavailable_menu_item.id
@@ -375,7 +415,7 @@ class TestCreateOrder:
             asyncio.set_event_loop(loop)
 
         with pytest.raises(HTTPException) as exc_info:
-            loop.run_until_complete(create_order(order_request, db_session))
+            loop.run_until_complete(create_order(order_request, db_session, mock_customer))
 
         assert exc_info.value.status_code == 400
         assert "not available" in str(exc_info.value.detail)
@@ -384,7 +424,7 @@ class TestCreateOrder:
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_create_order_stripe_error_rollback(self, mock_stripe_create, db_session,
-                                                mock_vendor, mock_menu_item, sample_order_data):
+                                                mock_vendor, mock_menu_item, sample_order_data, mock_customer):
         """Should rollback order creation when Stripe API fails"""
         # Arrange
         import stripe
@@ -405,7 +445,7 @@ class TestCreateOrder:
             asyncio.set_event_loop(loop)
 
         with pytest.raises(HTTPException) as exc_info:
-            loop.run_until_complete(create_order(order_request, db_session))
+            loop.run_until_complete(create_order(order_request, db_session, mock_customer))
 
         assert exc_info.value.status_code == 500
         assert "Payment processing failed" in str(exc_info.value.detail)
@@ -417,7 +457,7 @@ class TestCreateOrder:
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_create_order_calculates_fees_correctly(self, mock_stripe_create, db_session,
-                                                    mock_vendor, mock_menu_item, sample_order_data):
+                                                    mock_vendor, mock_menu_item, sample_order_data, mock_customer):
         """Should correctly calculate tax, delivery fee, and platform fee"""
         # Arrange
         # Dollor.ai: $1 flat fee, $4.99 default delivery
@@ -442,7 +482,7 @@ class TestCreateOrder:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        result = loop.run_until_complete(create_order(order_request, db_session))
+        result = loop.run_until_complete(create_order(order_request, db_session, mock_customer))
 
         # Assert - verify Dollor.ai $1 flat fee model
         # Subtotal: 12.99 * 2 = 25.98
@@ -461,7 +501,7 @@ class TestCreateOrder:
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_create_order_no_delivery_address(self, mock_stripe_create, db_session,
-                                              mock_vendor, mock_menu_item, sample_order_data):
+                                              mock_vendor, mock_menu_item, sample_order_data, mock_customer):
         """Should not charge delivery fee when no delivery address"""
         # Arrange
         sample_order_data['delivery_address'] = None
@@ -486,7 +526,7 @@ class TestCreateOrder:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        result = loop.run_until_complete(create_order(order_request, db_session))
+        result = loop.run_until_complete(create_order(order_request, db_session, mock_customer))
 
         # Assert
         order = db_session.query(Order).filter_by(stripe_payment_intent_id='pi_test123').first()
@@ -809,8 +849,9 @@ class TestGetOrder:
 
     def test_get_order_success(self, db_session, mock_order, mock_vendor):
         """Should return order details"""
-        # Act
-        result = get_order(mock_order.id, db_session)
+        # Act - use admin role to pass IDOR check
+        admin_auth = {"sub": "admin@test.com", "role": "admin"}
+        result = get_order(mock_order.id, db_session, admin_auth)
 
         # Assert
         assert result.id == mock_order.id
@@ -1262,7 +1303,7 @@ class TestEdgeCases:
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_create_order_with_multiple_items(self, mock_stripe_create, db_session,
-                                              mock_vendor, sample_order_data):
+                                              mock_vendor, sample_order_data, mock_customer):
         """Should handle orders with multiple different items"""
         # Arrange
         items = []
@@ -1308,7 +1349,7 @@ class TestEdgeCases:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        result = loop.run_until_complete(create_order(order_request, db_session))
+        result = loop.run_until_complete(create_order(order_request, db_session, mock_customer))
 
         # Assert
         assert result is not None
@@ -1345,7 +1386,7 @@ class TestEdgeCases:
 
     @patch('stripe_integration.stripe.PaymentIntent.create')
     def test_create_order_exact_zero_delivery_fee(self, mock_stripe_create, db_session,
-                                                   mock_vendor, mock_menu_item, sample_order_data):
+                                                   mock_vendor, mock_menu_item, sample_order_data, mock_customer):
         """Should handle pickup orders with zero delivery fee"""
         # Arrange
         sample_order_data['delivery_address'] = {}  # Empty dict should result in 0 fee
@@ -1370,7 +1411,7 @@ class TestEdgeCases:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        result = loop.run_until_complete(create_order(order_request, db_session))
+        result = loop.run_until_complete(create_order(order_request, db_session, mock_customer))
 
         # Assert
         order = db_session.query(Order).filter_by(stripe_payment_intent_id='pi_pickup').first()
@@ -1443,7 +1484,7 @@ class TestOrderLifecycle:
     @patch('stripe_integration.generate_customer_invoice')
     def test_complete_order_flow(self, mock_generate_invoice, mock_construct_event,
                                  mock_stripe_create, db_session, mock_vendor,
-                                 mock_menu_item, sample_order_data):
+                                 mock_menu_item, sample_order_data, mock_customer):
         """Should handle complete order flow: create -> payment -> webhook -> invoice"""
         # Step 1: Create order
         mock_payment_intent = {
@@ -1465,7 +1506,7 @@ class TestOrderLifecycle:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        create_result = loop.run_until_complete(create_order(order_request, db_session))
+        create_result = loop.run_until_complete(create_order(order_request, db_session, mock_customer))
 
         assert create_result.client_secret == 'secret_lifecycle'
 
