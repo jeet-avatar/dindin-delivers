@@ -481,6 +481,8 @@ _PUBLIC_PREFIXES = [
     # "/api/promotions/suggestions/" removed — promotions_router uses require_any_auth
     "/api/webhooks/",         # Stripe webhooks (signature-verified)
     "/api/verification/webhook/",  # Verification provider webhooks (Persona/Onfido/Veriff — signature-verified)
+    "/api/tnc/background-check/webhook",  # TNC-07: Persona background check webhook
+    "/api/tnc/dmv-check/webhook",         # TNC-08: Persona DMV check webhook
     "/api/legal/",            # Legal pages
     "/api/customer/password-reset/",  # Password reset flows
     "/api/driver/password-reset/",
@@ -15919,6 +15921,10 @@ app.include_router(delegation_router)
 # Insurance UBI tracking
 from insurance.routes import router as insurance_router
 app.include_router(insurance_router)
+
+# TNC Compliance (CPUC) — background checks, DMV, inspections, zero-tolerance, reporting
+from tnc_compliance import router as tnc_compliance_router
+app.include_router(tnc_compliance_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create

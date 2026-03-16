@@ -55,6 +55,7 @@ class PaymentResponse(BaseModel):
     success: bool
     fare: float
     tier_fee: float
+    access_for_all_fee: float = 0.10  # TNC-13: CPUC $0.10/trip — $0.05 from customer + $0.05 from driver
     customer_pays: float
     driver_receives: float
     platform_earns: float
@@ -92,8 +93,9 @@ async def create_payment_intent(http_request: Request, data: CreatePaymentIntent
             success=True,
             fare=fare,
             tier_fee=tier_fee,
-            customer_pays=fare + tier_fee,
-            driver_receives=fare - tier_fee,
+            access_for_all_fee=0.10,
+            customer_pays=fare + tier_fee + 0.05,
+            driver_receives=fare - tier_fee - 0.05,
             platform_earns=tier_fee * 2,
             payment_intent_id=ride.stripe_payment_intent_id,
             client_secret=None  # Cannot retrieve secret after creation
@@ -101,9 +103,13 @@ async def create_payment_intent(http_request: Request, data: CreatePaymentIntent
 
     fare = ride.final_price or ride.suggested_price
     tier_fee = get_tier_fee(fare)
-    customer_pays = fare + tier_fee
-    driver_receives = fare - tier_fee
-    platform_earns = tier_fee * 2
+    # TNC-13: Access for All fee — $0.10/trip split: $0.05 customer + $0.05 driver
+    access_for_all_fee = 0.10
+    customer_a4a_share = 0.05
+    driver_a4a_share = 0.05
+    customer_pays = fare + tier_fee + customer_a4a_share
+    driver_receives = fare - tier_fee - driver_a4a_share
+    platform_earns = tier_fee * 2  # Platform fee unchanged; A4A is pass-through to CPUC
 
     # Check for demo account - bypass Stripe for App Store review
     if ride.customer_id:
@@ -120,6 +126,7 @@ async def create_payment_intent(http_request: Request, data: CreatePaymentIntent
                 success=True,
                 fare=fare,
                 tier_fee=tier_fee,
+                access_for_all_fee=access_for_all_fee,
                 customer_pays=customer_pays,
                 driver_receives=driver_receives,
                 platform_earns=platform_earns,
@@ -135,6 +142,9 @@ async def create_payment_intent(http_request: Request, data: CreatePaymentIntent
                 "ride_id": ride.id,
                 "fare": str(fare),
                 "tier_fee": str(tier_fee),
+                "access_for_all_fee": str(access_for_all_fee),
+                "customer_a4a_share": str(customer_a4a_share),
+                "driver_a4a_share": str(driver_a4a_share),
                 "customer_pays": str(customer_pays),
                 "driver_payout": str(driver_receives),
                 "platform_earns": str(platform_earns)
@@ -151,6 +161,7 @@ async def create_payment_intent(http_request: Request, data: CreatePaymentIntent
             success=True,
             fare=fare,
             tier_fee=tier_fee,
+            access_for_all_fee=access_for_all_fee,
             customer_pays=customer_pays,
             driver_receives=driver_receives,
             platform_earns=platform_earns,
@@ -179,30 +190,44 @@ async def get_driver_earnings(driver_id: int, db: Session = Depends(get_db), dri
     ).all()
 
     total_earnings = 0.0
+    total_a4a_deducted = 0.0
     for r in rides:
         fare = r.final_price or r.suggested_price or 0
         tier_fee = get_tier_fee(fare)
-        total_earnings += fare - tier_fee
+        driver_a4a = 0.05  # TNC-13: driver's share of Access for All fee
+        total_earnings += fare - tier_fee - driver_a4a
+        total_a4a_deducted += driver_a4a
 
     return {
         "driver_id": driver_id,
         "total_rides": len(rides),
-        "total_earnings": round(total_earnings, 2)
+        "total_earnings": round(total_earnings, 2),
+        "total_platform_fees": round(sum(get_tier_fee(r.final_price or r.suggested_price or 0) for r in rides), 2),
+        "total_access_for_all_fees": round(total_a4a_deducted, 2),
+        "access_for_all_note": "$0.05/trip — supports wheelchair-accessible vehicle services (CPUC mandate, not a Dollor.ai fee)"
     }
 
 
 @router.get("/pricing-info")
 async def get_pricing_info():
-    """Platform tiered pricing info."""
+    """Platform tiered pricing info with Access for All fee transparency."""
     return {
         "tiers": [
             {"max_fare": 35.00, "fee": 1.00, "platform_total": 2.00},
             {"min_fare": 35.01, "max_fare": 70.00, "fee": 2.00, "platform_total": 4.00},
             {"min_fare": 70.01, "fee": 3.00, "platform_total": 6.00}
         ],
+        "access_for_all_fee": {
+            "total": 0.10,
+            "customer_share": 0.05,
+            "driver_share": 0.05,
+            "description": "CPUC Access for All Fund — supports wheelchair-accessible vehicle services in California",
+            "authority": "CPUC Decision 19-06-033"
+        },
         "examples": [
-            {"fare": 25.00, "tier_fee": 1.00, "customer_pays": 26.00, "driver_receives": 24.00, "platform_earns": 2.00},
-            {"fare": 50.00, "tier_fee": 2.00, "customer_pays": 52.00, "driver_receives": 48.00, "platform_earns": 4.00},
-            {"fare": 100.00, "tier_fee": 3.00, "customer_pays": 103.00, "driver_receives": 97.00, "platform_earns": 6.00}
-        ]
+            {"fare": 25.00, "tier_fee": 1.00, "a4a_fee": 0.10, "customer_pays": 26.05, "driver_receives": 23.95, "platform_earns": 2.00},
+            {"fare": 50.00, "tier_fee": 2.00, "a4a_fee": 0.10, "customer_pays": 52.05, "driver_receives": 47.95, "platform_earns": 4.00},
+            {"fare": 100.00, "tier_fee": 3.00, "a4a_fee": 0.10, "customer_pays": 103.05, "driver_receives": 96.95, "platform_earns": 6.00}
+        ],
+        "transparency_note": "The $0.10 Access for All fee is split equally ($0.05 each) between rider and driver. 100% is remitted quarterly to the CPUC — Dollor.ai keeps none of it."
     }

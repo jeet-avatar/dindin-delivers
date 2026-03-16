@@ -1701,6 +1701,11 @@ def send_order_delivered_with_receipt_email(
                     <p style="font-size: 24px; margin: 10px 0;">&#127829; &#128663; &#127881;</p>
                 </div>
             </div>
+            <div style="background: #f1f5f9; padding: 15px 30px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+                <p style="margin: 5px 0;"><strong>Safety:</strong> Dollor.ai maintains a zero-tolerance policy for drug and alcohol use by drivers.</p>
+                <p style="margin: 5px 0;">To report a safety concern: support@dollor.ai</p>
+                <p style="margin: 5px 0;">CPUC Consumer Complaints: 1-800-894-9444 | CIU_intake@cpuc.ca.gov</p>
+            </div>
             <div class="footer">
                 <p>Questions about your order? Contact us at support@dollor.ai</p>
                 <p>&copy; 2026 Dollor.AI by Zietra Technologies Inc.</p>
@@ -1747,6 +1752,11 @@ def send_order_delivered_with_receipt_email(
     Drivers keep 100% of tips on Dollor.AI.
 
     Thank you for choosing Dollor!
+
+    ---
+    SAFETY: Dollor.ai maintains a zero-tolerance policy for drug and alcohol use by drivers.
+    Report a safety concern: support@dollor.ai
+    CPUC Consumer Complaints: 1-800-894-9444 | CIU_intake@cpuc.ca.gov
 
     Questions? support@dollor.ai
     — The Dollor.AI Team
@@ -2763,9 +2773,14 @@ def send_ride_completed_email(
                     <a href="https://dollor.ai/customer/rides/{request_id}/rate" style="color: #6366f1;">Rate your ride</a>
                 </p>
             </div>
+            <div style="background: #f1f5f9; padding: 15px 30px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+                <p style="margin: 5px 0;"><strong>Safety:</strong> Dollor.ai maintains a zero-tolerance policy for drug and alcohol use by drivers.</p>
+                <p style="margin: 5px 0;">To report a safety concern: support@dollor.ai</p>
+                <p style="margin: 5px 0;">CPUC Consumer Complaints: 1-800-894-9444 | CIU_intake@cpuc.ca.gov</p>
+            </div>
             <div class="footer">
                 <p>Request ID: {request_id}</p>
-                <p>© 2025 Dollor.AI - Fair Rideshare Platform</p>
+                <p>&copy; 2026 Dollor.AI by Zietra Technologies Inc.</p>
             </div>
         </div>
     </body>
@@ -2800,7 +2815,12 @@ def send_ride_completed_email(
     Add a tip for your driver at:
     https://dollor.ai/customer/rides/{request_id}/tip
 
-    © 2025 Dollor.AI
+    ---
+    SAFETY: Dollor.ai maintains a zero-tolerance policy for drug and alcohol use by drivers.
+    Report a safety concern: support@dollor.ai
+    CPUC Consumer Complaints: 1-800-894-9444 | CIU_intake@cpuc.ca.gov
+
+    © 2026 Dollor.AI by Zietra Technologies Inc.
     """
 
     return send_email(to_email, subject, html_body, text_body)
