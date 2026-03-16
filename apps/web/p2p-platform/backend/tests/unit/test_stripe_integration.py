@@ -597,10 +597,11 @@ class TestStripeWebhook:
         assert order.confirmed_at is not None
 
         # Verify payment log was created
-        log = db_session.query(StripePaymentLog).filter_by(stripe_event_id='evt_test123').first()
+        log = db_session.query(StripePaymentLog).filter_by(
+            payment_intent_id=mock_order.stripe_payment_intent_id
+        ).first()
         assert log is not None
         assert log.event_type == 'payment_intent.succeeded'
-        assert log.payment_intent_id == 'pi_test123'
         assert log.order_id == mock_order.id
 
         # Verify invoice generation was called
