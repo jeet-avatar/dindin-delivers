@@ -544,13 +544,14 @@ class TestStripeWebhook:
     def test_webhook_payment_intent_succeeded(self, mock_generate_invoice,
                                               mock_construct_event, db_session, mock_order):
         """Should handle payment_intent.succeeded webhook"""
+        import uuid as _uuid
         # Arrange
         webhook_event = {
-            'id': 'evt_test123',
+            'id': f'evt_succ_{_uuid.uuid4().hex[:8]}',
             'type': 'payment_intent.succeeded',
             'data': {
                 'object': {
-                    'id': 'pi_test123',
+                    'id': mock_order.stripe_payment_intent_id,
                     'amount': 3795,
                     'currency': 'usd',
                     'status': 'succeeded',
