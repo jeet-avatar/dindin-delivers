@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-16 - Completed quick task 179: Fix all issues making offerletter.ai look unfinished or fake
+Last activity: 2026-03-16 - Completed quick task 180: Add cookie consent banner to all pages, terms+age checkbox to signup, passive reminder to login
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -141,6 +141,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 176 | implement demo payment bypass for demo orders to test restaurants | 2026-03-15 | b44dbfdd | [176-implement-demo-payment-bypass-for-demo-o](./quick/176-implement-demo-payment-bypass-for-demo-o/) |
 | 177 | fix order flow ready-for-pickup and delivering-now restaurant status | 2026-03-15 | f571864f | [177-fix-order-flow-ready-for-pickup-and-deli](./quick/177-fix-order-flow-ready-for-pickup-and-deli/) |
 | 179 | Fix all issues making offerletter.ai look unfinished or fake | 2026-03-16 | 133db81 | [179-fix-all-issues-making-offerletter-ai-loo](./quick/179-fix-all-issues-making-offerletter-ai-loo/) |
+| 180 | Add cookie consent banner to all pages, terms+age checkbox to signup, passive reminder to login | 2026-03-16 | e05ca4b | [180-add-cookie-consent-banner-to-all-pages-v](./quick/180-add-cookie-consent-banner-to-all-pages-v/) |
 
 ## Session Continuity
 
