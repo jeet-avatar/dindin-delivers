@@ -714,7 +714,8 @@ async def health_ready(db: Session = Depends(get_db)):
         db.execute(text("SELECT 1"))
         return {"ready": True, "timestamp": datetime.utcnow().isoformat()}
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Service not ready: {str(e)[:50]}")
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(status_code=503, detail="Service not ready")
 
 
 @app.get("/api/health/live")
@@ -959,6 +960,21 @@ async def run_migrations(request: Request, secret_key: str = Query(...), db: Ses
     ]
 
     for col_name, col_type in ride_request_negotiation_columns:
+        try:
+            db.execute(text(f"ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
+            db.commit()
+            migrations_run.append(f"ride_requests.{col_name}")
+        except Exception as e:
+            db.rollback()
+            errors.append(f"ride_requests.{col_name}: {str(e)}")
+
+    # TNC-12/13: Add accessibility request + Access for All fee columns to ride_requests
+    tnc_columns = [
+        ("accessibility_requested", "BOOLEAN DEFAULT FALSE"),
+        ("accessibility_notes", "TEXT"),
+        ("access_for_all_fee", "FLOAT DEFAULT 0.10"),
+    ]
+    for col_name, col_type in tnc_columns:
         try:
             db.execute(text(f"ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))  # nosemgrep: avoid-sqlalchemy-text
             db.commit()
@@ -2569,7 +2585,8 @@ def vendor_register(http_request: Request, request: VendorRegisterRequest, db: S
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}"
+            # A2: Log error internally, return generic message
+            detail="Registration failed. Please try again or contact support."
         )
 
 # Vendor Google OAuth
@@ -2779,7 +2796,7 @@ def vendor_google_auth(http_request: Request, request: VendorGoogleAuthRequest, 
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Google auth failed: {str(e)}"
+            detail="Authentication failed. Please try again."
         )
 
 # Vendor Apple OAuth
@@ -2905,7 +2922,7 @@ def vendor_apple_auth(http_request: Request, request: VendorAppleAuthRequest, db
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Apple auth failed: {str(e)}"
+            detail="Authentication failed. Please try again."
         )
 
 # Password Reset Request
@@ -3256,7 +3273,8 @@ def driver_register(http_request: Request, request: DriverRegisterRequest, db: S
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}"
+            # A2: Log error internally, return generic message
+            detail="Registration failed. Please try again or contact support."
         )
 
 
@@ -3819,7 +3837,8 @@ def customer_auth_register(http_request: Request, request: CustomerRegisterReque
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Registration failed: {str(e)}"
+                # A2: Log error internally, return generic message
+                detail="Registration failed. Please try again or contact support."
             )
 
 
@@ -4602,7 +4621,7 @@ def get_ride_full_tracking(ride_id: str, db: Session = Depends(get_db), _auth: d
         raise
     except Exception as e:
         logger.error(f"Error fetching ride tracking: {e}")
-        raise HTTPException(status_code=500, detail=f"Error fetching ride tracking: {str(e)}")
+        raise HTTPException(status_code=500, detail="Unable to fetch ride tracking. Please try again.")
 
 
 # Ride rating endpoint
@@ -5154,7 +5173,8 @@ def create_driver_stripe_account(
         }
 
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+        logger.error(f"API error at line 5160: {e}")
+        raise HTTPException(status_code=500, detail="Payment processing error. Please try again or contact support.")
 
 
 @app.get("/api/drivers/{driver_id}/stripe/onboarding-link")
@@ -5206,7 +5226,8 @@ def get_driver_stripe_onboarding_link(
             driver.stripe_account_id = account.id
             db.commit()
         except stripe.error.StripeError as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create Stripe account: {str(e)}")
+            logger.error(f"API error at line 5212: {e}")
+            raise HTTPException(status_code=500, detail="Failed to set up payment account. Please try again or contact support.")
 
     try:
         # Create Account Link for onboarding
@@ -5225,7 +5246,8 @@ def get_driver_stripe_onboarding_link(
         }
 
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+        logger.error(f"API error at line 5231: {e}")
+        raise HTTPException(status_code=500, detail="Payment processing error. Please try again or contact support.")
 
 
 @app.get("/api/drivers/{driver_id}/stripe/status")
@@ -5326,7 +5348,8 @@ def get_driver_stripe_status(
         }
 
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+        logger.error(f"API error at line 5332: {e}")
+        raise HTTPException(status_code=500, detail="Payment processing error. Please try again or contact support.")
 
 
 @app.post("/api/drivers/{driver_id}/stripe/dashboard-link")
@@ -5361,7 +5384,8 @@ def get_driver_stripe_dashboard_link(
         }
 
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+        logger.error(f"API error at line 5367: {e}")
+        raise HTTPException(status_code=500, detail="Payment processing error. Please try again or contact support.")
 
 
 @app.post("/api/webhooks/stripe-connect")
@@ -5528,7 +5552,8 @@ def create_vendor_stripe_account(
         }
 
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+        logger.error(f"API error at line 5534: {e}")
+        raise HTTPException(status_code=500, detail="Payment processing error. Please try again or contact support.")
 
 
 @app.get("/api/vendors/{vendor_id}/stripe/onboarding-link")
@@ -5580,7 +5605,8 @@ def get_vendor_stripe_onboarding_link(
             vendor.stripe_account_id = account.id
             db.commit()
         except stripe.error.StripeError as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create Stripe account: {str(e)}")
+            logger.error(f"API error at line 5586: {e}")
+            raise HTTPException(status_code=500, detail="Failed to set up payment account. Please try again or contact support.")
 
     try:
         # Create Account Link for onboarding
@@ -5599,7 +5625,8 @@ def get_vendor_stripe_onboarding_link(
         }
 
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+        logger.error(f"API error at line 5605: {e}")
+        raise HTTPException(status_code=500, detail="Payment processing error. Please try again or contact support.")
 
 
 @app.get("/api/vendors/{vendor_id}/stripe/status")
@@ -5678,7 +5705,8 @@ def get_vendor_stripe_status(
         }
 
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+        logger.error(f"API error at line 5684: {e}")
+        raise HTTPException(status_code=500, detail="Payment processing error. Please try again or contact support.")
 
 
 @app.post("/api/vendors/{vendor_id}/stripe/dashboard-link")
@@ -5716,7 +5744,8 @@ def get_vendor_stripe_dashboard_link(
         }
 
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+        logger.error(f"API error at line 5722: {e}")
+        raise HTTPException(status_code=500, detail="Payment processing error. Please try again or contact support.")
 
 
 # ==================== ANDROID FINANCIAL ENDPOINTS ====================
@@ -5818,7 +5847,8 @@ def link_driver_bank_account(
             "bank_name": bank_account.bank_name
         }
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+        logger.error(f"API error at line 5824: {e}")
+        raise HTTPException(status_code=400, detail="Payment processing error. Please try again or contact support.")
 
 
 @app.post("/api/drivers/{driver_id}/payouts")
@@ -5903,7 +5933,8 @@ def request_driver_payout(
             "arrival_date": payout.arrival_date
         }
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+        logger.error(f"API error at line 5909: {e}")
+        raise HTTPException(status_code=400, detail="Payment processing error. Please try again or contact support.")
 
 
 @app.post("/api/vendors/{vendor_id}/bank-account")
@@ -5952,7 +5983,8 @@ def link_vendor_bank_account(
             "bank_name": bank_account.bank_name
         }
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+        logger.error(f"API error at line 5958: {e}")
+        raise HTTPException(status_code=400, detail="Payment processing error. Please try again or contact support.")
 
 
 @app.get("/api/erp/payouts/vendor/{vendor_id}")
@@ -6150,7 +6182,7 @@ async def complete_ride_and_pay_driver(
 
     except stripe.error.StripeError as e:
         logger.error(f"Stripe transfer failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Payment transfer failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Payment transfer failed. Please try again or contact support.")
 
 
 
@@ -6631,7 +6663,8 @@ def customer_food_register(http_request: Request, request: CustomerRegisterReque
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Registration failed: {str(e)}"
+                # A2: Log error internally, return generic message
+                detail="Registration failed. Please try again or contact support."
             )
 
 
@@ -10541,7 +10574,8 @@ def create_vendor_public(vendor: VendorCreate, db: Session = Depends(get_db)):
         traceback.print_exc()
         print("=" * 60)
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create vendor: {str(e)}")
+        logger.error(f"API error at line 10548: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create vendor account. Please try again or contact support.")
 
 # Public document upload endpoint for vendor registration (no auth required)
 @app.post("/api/vendors/public/{vendor_id}/documents")
@@ -10836,7 +10870,8 @@ async def create_vendor_public_with_menu(
         traceback.print_exc()
         print("=" * 60)
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create vendor: {str(e)}")
+        logger.error(f"API error at line 10843: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create vendor account. Please try again or contact support.")
 
 @app.post("/api/vendors", response_model=VendorResponse)
 def create_vendor(vendor: VendorCreate, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
@@ -16424,7 +16459,7 @@ async def resolve_order_dispute(
                 logger.info(f"Stripe refund {refund.id} created for order dispute {dispute_id}")
             except Exception as e:
                 logger.error(f"Stripe refund failed for order dispute {dispute_id}: {e}")
-                raise HTTPException(status_code=500, detail=f"Stripe refund failed: {str(e)}")
+                raise HTTPException(status_code=500, detail="Refund processing failed. Please try again or contact support.")
 
         dispute.status = DisputeStatus.RESOLVED_REFUND
         dispute.refund_amount = refund_amount
@@ -16977,7 +17012,7 @@ async def tip_ride_driver(
                     logger.error(f"Ride {ride_id} tip transfer FAILED: {e}")
                     raise HTTPException(
                         status_code=502,
-                        detail=f"Tip transfer to driver failed. Please try again. Error: {str(e)}"
+                        detail="Tip transfer failed. Please try again."
                     )
 
     # F6: Only save tip to DB AFTER successful Stripe transfer (or if no Stripe transfer needed)
@@ -18503,7 +18538,7 @@ async def add_payment_card(
 
     except stripe.error.StripeError as e:
         logger.error(f"Stripe error adding card: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed. Please try again.")
 
 
 @app.delete("/api/customers/{customer_id}/cards/{card_id}")
@@ -18531,7 +18566,7 @@ async def delete_payment_card(
 
     except stripe.error.StripeError as e:
         logger.error(f"Stripe error deleting card: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed. Please try again.")
 
 
 @app.post("/api/customers/{customer_id}/cards/{card_id}/default")
@@ -18562,7 +18597,7 @@ async def set_default_card(
 
     except stripe.error.StripeError as e:
         logger.error(f"Stripe error setting default card: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Request failed. Please try again.")
 
 
 @app.post("/api/customer/orders/{order_id}/rate-driver")
