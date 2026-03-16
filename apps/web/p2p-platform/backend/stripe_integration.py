@@ -165,7 +165,9 @@ async def create_simple_payment_intent(http_request: Request, request: SimplePay
         )
 
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=500, detail=f"Payment processing error: {str(e)}")
+        import logging
+        logging.error(f"Stripe payment intent error: {e}")
+        raise HTTPException(status_code=500, detail="Payment processing error. Please try again or contact support.")
 
 # ===================== ORDER CREATION =====================
 

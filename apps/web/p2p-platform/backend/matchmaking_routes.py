@@ -438,7 +438,9 @@ async def accept_driver_bid(http_request: Request, request: AcceptBidRequest, db
                 idempotency_key=f"conn_fee_{ride.request_id}_{bid.id}"
             )
         except stripe.error.StripeError as e:
-            raise HTTPException(status_code=400, detail=f"Payment failed: {str(e)}")
+            import logging
+            logging.error(f"Matchmaking payment failed for ride {ride.request_id}: {e}")
+            raise HTTPException(status_code=400, detail="Payment processing failed. Please try again or contact support.")
 
     # Update bid status
     bid.status = BidStatus.ACCEPTED

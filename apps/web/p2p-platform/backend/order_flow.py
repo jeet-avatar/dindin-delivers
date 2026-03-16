@@ -1179,11 +1179,19 @@ async def get_ride_receipt(
 
         # Legal footer
         "legal": {
-            "company_name": "Dollor.ai (TechCloudPro Inc.)",
-            "tax_id": "XX-XXXXXXX",  # Placeholder - replace with real EIN
-            "address": "123 Main Street, San Francisco, CA 94102",
+            "company_name": "Dollor.ai by Zietra Technologies inc",
             "support_email": "support@dollor.ai",
             "terms_url": "https://dollor.ai/terms"
+        },
+
+        # TNC-14: Regulatory info (CPUC compliance)
+        "regulatory": {
+            "zero_tolerance_policy": "Dollor.ai maintains a zero-tolerance policy for drug and alcohol use by drivers.",
+            "report_safety_concern": "support@dollor.ai",
+            "cpuc_consumer_complaint": {
+                "phone": "1-800-894-9444",
+                "email": "CIU_intake@cpuc.ca.gov"
+            }
         }
     }
 
@@ -6067,4 +6075,4 @@ async def refund_order(
         }
     except stripe.error.StripeError as e:
         logger.error(f"Refund failed for order {order.order_number}: {e}")
-        raise HTTPException(status_code=500, detail=f"Refund failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Refund processing failed. Please try again or contact support.")
