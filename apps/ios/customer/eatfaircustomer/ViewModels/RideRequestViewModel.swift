@@ -16,6 +16,8 @@ class RideRequestViewModel: ObservableObject {
     @Published var dropoffAddress: RideAddressInput?
     @Published var notes: String = ""
     @Published var tip: Double = 0.0
+    @Published var accessibilityRequested: Bool = false
+    @Published var accessibilityNotes: String = ""
 
     @Published var isLoading = false
     @Published var isEstimatingFare = false

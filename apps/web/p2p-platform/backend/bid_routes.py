@@ -87,6 +87,8 @@ class CreateRideRequestInput(BaseModel):
     customer_max_price: Optional[float] = None
     customer_preferred_price: Optional[float] = None
     special_requests: Optional[str] = None
+    accessibility_requested: bool = False  # TNC-12: Passenger needs wheelchair-accessible or disability-accessible vehicle
+    accessibility_notes: Optional[str] = None  # TNC-12: Specific accessibility needs
     bidding_duration_minutes: int = 5  # How long to accept bids
 
     # A1/A6/A7: Input validation for API security
@@ -348,6 +350,8 @@ def serialize_ride_request(request: RideRequest, include_bids: bool = False) -> 
         "status": request.status.value,
         "bidding_expires_at": request.bidding_expires_at.isoformat() if request.bidding_expires_at else None,
         "special_requests": request.special_requests,
+        "accessibility_requested": getattr(request, 'accessibility_requested', False),
+        "accessibility_notes": getattr(request, 'accessibility_notes', None),
         "created_at": request.created_at.isoformat() if request.created_at else None,
         "matched_at": request.matched_at.isoformat() if request.matched_at else None,
         "completed_at": request.completed_at.isoformat() if getattr(request, 'completed_at', None) else None,
@@ -472,6 +476,9 @@ async def create_ride_request(data: CreateRideRequestInput, request: Request, cu
         customer_max_price=data.customer_max_price,
         customer_preferred_price=data.customer_preferred_price,
         special_requests=_strip_html(data.special_requests),
+        accessibility_requested=data.accessibility_requested,
+        accessibility_notes=_strip_html(data.accessibility_notes) if data.accessibility_notes else None,
+        access_for_all_fee=0.10,
         status=RideRequestStatus.OPEN,
         bidding_expires_at=datetime.utcnow() + timedelta(minutes=data.bidding_duration_minutes)
     )
@@ -2555,8 +2562,11 @@ async def get_ride_receipt(request_id: int, request: Request, _auth: dict = Depe
             "fare_breakdown": {
                 "base_fare": final_price,
                 "platform_fee": platform_fee,
+                "access_for_all_fee": 0.10,
+                "access_for_all_customer_share": 0.05,
+                "access_for_all_driver_share": 0.05,
                 "tip": tip,
-                "total": round(final_price + platform_fee + tip, 2)
+                "total": round(final_price + platform_fee + 0.05 + tip, 2)
             },
             "payment": {
                 "status": ride.payment_status or "pending",
@@ -2638,6 +2648,67 @@ async def email_ride_receipt(request_id: int, request: Request, _auth: dict = De
     )
 
     return {"success": sent, "message": "Receipt email sent" if sent else "Failed to send email"}
+
+
+# =========================================================================
+# TNC-15: DIGITAL WAYBILL (CPUC Compliance)
+# =========================================================================
+
+@router.get("/request/{request_id}/waybill")
+async def get_ride_waybill(request_id: int, request: Request, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+    """TNC-15: Digital waybill for active/completed rides. Driver must have this during trip.
+    Contains all CPUC-required trip information for TNC compliance."""
+    ride = db.query(RideRequest).filter(RideRequest.id == request_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride request not found")
+
+    # SECURITY: Only ride participants or admin
+    jwt_driver_id = _auth.get("driver_id")
+    jwt_customer_id = _auth.get("customer_id")
+    jwt_role = _auth.get("role", "")
+    if jwt_role != "admin" and jwt_customer_id != ride.customer_id and jwt_driver_id != ride.matched_driver_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this waybill")
+
+    driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first() if ride.matched_driver_id else None
+
+    return {
+        "success": True,
+        "waybill": {
+            "tnc_operator": {
+                "carrier_name": "Zietra Technologies inc",
+                "dba": "Dollor.ai",
+                "permit_type": "TCP-P TNC",
+                "permit_number": None  # To be filled after CPUC issues permit
+            },
+            "trip_id": ride.request_id,
+            "status": ride.status.value,
+            "passenger": {
+                "name": ride.customer_name,
+                "phone": ride.customer_phone
+            },
+            "driver": {
+                "name": f"{driver.first_name} {driver.last_name}".strip() if driver else None,
+                "license_number": driver.license_number if driver else None,
+                "vehicle": f"{driver.vehicle_year or ''} {driver.vehicle_make or ''} {driver.vehicle_model or ''}".strip() if driver else None,
+                "license_plate": driver.license_plate if driver else None
+            },
+            "route": {
+                "pickup_address": ride.pickup_address,
+                "pickup_time": ride.matched_at.isoformat() if ride.matched_at else None,
+                "dropoff_address": ride.dropoff_address,
+                "dropoff_time": ride.completed_at.isoformat() if ride.completed_at else None
+            },
+            "fare": {
+                "amount": float(ride.final_price or ride.suggested_price or 0),
+                "platform_fee": float(ride.platform_fee or 0),
+                "access_for_all_fee": 0.10,
+                "payment_method": "card"
+            },
+            "accessibility_requested": getattr(ride, 'accessibility_requested', False),
+            "prearranged": True,  # All TNC rides are prearranged by definition
+            "created_at": ride.created_at.isoformat() if ride.created_at else None
+        }
+    }
 
 
 # =========================================================================
@@ -2908,7 +2979,7 @@ async def resolve_dispute(dispute_id: int, data: ResolveDisputeInput, request: R
                 logger.info(f"Stripe refund {refund.id} created for dispute {dispute_id}")
             except Exception as e:
                 logger.error(f"Stripe refund failed for dispute {dispute_id}: {e}")
-                raise HTTPException(status_code=500, detail=f"Stripe refund failed: {str(e)}")
+                raise HTTPException(status_code=500, detail="Refund processing failed. Please try again or contact support.")
 
         dispute.status = DisputeStatus.RESOLVED_REFUND
         dispute.refund_amount = refund_amount

@@ -1357,6 +1357,13 @@ class RideRequest(Base):
     # Notes
     special_requests = Column(Text)  # "Need car seat", "Wheelchair accessible"
 
+    # TNC-12: Accessibility (CPUC compliance)
+    accessibility_requested = Column(Boolean, default=False)  # Passenger needs WAV or accessible vehicle
+    accessibility_notes = Column(Text)  # Specific accessibility needs
+
+    # TNC-13: Access for All fee (CPUC Decision 19-06-033)
+    access_for_all_fee = Column(Float, default=0.10)  # $0.10/trip — $0.05 customer + $0.05 driver
+
     # Payment (Stripe integration)
     stripe_payment_intent_id = Column(String(255))
     payment_status = Column(String(50), default="pending")  # pending, processing, completed, failed

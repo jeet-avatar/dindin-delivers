@@ -371,14 +371,21 @@ def get_fare_estimate(
         },
         "subtotal": estimate.subtotal,
         "platform_fee": estimate.platform_fee,
-        "total": estimate.total,
+        "access_for_all_fee": {
+            "total": 0.10,
+            "customer_share": 0.05,
+            "driver_share": 0.05,
+            "description": "CPUC Access for All Fund"
+        },
+        "total": round(estimate.total + 0.05, 2),  # Customer total includes A4A share
         "tier": estimate.tier,
         "tier_label": estimate.tier_label,
         "driver_info": {
-            "earnings": estimate.driver_earnings,
+            "earnings": round(estimate.driver_earnings - 0.05, 2),  # Driver A4A share deducted
             "per_mile": estimate.driver_earnings_per_mile,
             "per_hour": estimate.driver_earnings_per_hour,
-            "percentage": estimate.driver_percentage
+            "percentage": estimate.driver_percentage,
+            "a4a_deduction": 0.05
         },
         "suggested_bids": [
             {
