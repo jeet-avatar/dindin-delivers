@@ -744,6 +744,49 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
 
         db.commit()
 
+        # Create Stripe PaymentIntent for customer charge (authorize now, capture on completion)
+        try:
+            import stripe
+            import os
+            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+            customer_obj = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+            if customer_obj and stripe.api_key:
+                # Ensure customer has Stripe customer ID
+                stripe_customer_id = getattr(customer_obj, 'stripe_customer_id', None)
+                if not stripe_customer_id:
+                    stripe_cust = stripe.Customer.create(
+                        email=customer_obj.email,
+                        name=getattr(customer_obj, 'name', None) or getattr(customer_obj, 'full_name', None) or customer_obj.email,
+                        metadata={"dollor_customer_id": str(customer_obj.id)},
+                        idempotency_key=f"ride-cust-{customer_obj.id}"
+                    )
+                    customer_obj.stripe_customer_id = stripe_cust.id
+                    stripe_customer_id = stripe_cust.id
+                    db.commit()
+
+                final_price_cents = int(float(bid.proposed_price) * 100)
+                if final_price_cents > 0:
+                    payment_intent = stripe.PaymentIntent.create(
+                        amount=final_price_cents,
+                        currency="usd",
+                        customer=stripe_customer_id,
+                        description=f"Rideshare #{ride_request.request_id}",
+                        metadata={
+                            "ride_request_id": str(ride_request.id),
+                            "request_id": ride_request.request_id,
+                            "driver_id": str(bid.driver_id),
+                            "type": "rideshare"
+                        },
+                        capture_method="manual",
+                        idempotency_key=f"ride-pi-{ride_request.id}"
+                    )
+                    ride_request.stripe_payment_intent_id = payment_intent.id
+                    db.commit()
+                    logger.info(f"Ride {ride_request.id} PaymentIntent {payment_intent.id} created (${bid.proposed_price:.2f})")
+        except Exception as e:
+            logger.error(f"Ride {ride_request.id} Stripe PaymentIntent creation failed (non-blocking): {e}")
+
         # Send WebSocket update - ride matched
         try:
             asyncio.create_task(broadcast_ride_matched(
@@ -1043,6 +1086,20 @@ async def cancel_ride_request(request_id: int, request: Request, customer: Custo
 
     ride_request.status = RideRequestStatus.CANCELLED
     ride_request.cancelled_at = datetime.utcnow()
+
+    # Cancel Stripe PaymentIntent if one was created
+    if ride_request.stripe_payment_intent_id and not ride_request.stripe_payment_intent_id.startswith("demo_"):
+        try:
+            import stripe
+            import os
+            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+            stripe.PaymentIntent.cancel(
+                ride_request.stripe_payment_intent_id,
+                idempotency_key=f"ride-cancel-{ride_request.id}"
+            )
+            logger.info(f"Ride {ride_request.id} PaymentIntent cancelled on customer cancel")
+        except Exception as e:
+            logger.error(f"Ride {ride_request.id} PaymentIntent cancel failed: {e}")
 
     # Expire all pending bids
     pending_bids = db.query(RideBid).filter(
@@ -1879,6 +1936,21 @@ async def driver_cancel_ride(request_id: int, request: Request, data: DriverCanc
     if ride_request.status not in [RideRequestStatus.MATCHED]:
         raise HTTPException(status_code=400, detail=f"Can only cancel matched rides (current: {ride_request.status.value})")
 
+    # Cancel Stripe PaymentIntent if one was created
+    if ride_request.stripe_payment_intent_id and not ride_request.stripe_payment_intent_id.startswith("demo_"):
+        try:
+            import stripe
+            import os
+            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+            stripe.PaymentIntent.cancel(
+                ride_request.stripe_payment_intent_id,
+                idempotency_key=f"ride-cancel-{ride_request.id}"
+            )
+            ride_request.stripe_payment_intent_id = None
+            logger.info(f"Ride {ride_request.id} PaymentIntent cancelled on driver cancel")
+        except Exception as e:
+            logger.error(f"Ride {ride_request.id} PaymentIntent cancel failed: {e}")
+
     # Revert ride to OPEN so other drivers can bid
     ride_request.status = RideRequestStatus.OPEN
     cancelled_driver_id = ride_request.matched_driver_id
@@ -2162,6 +2234,24 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
                      "ride", ride_request.id, "ride")
 
     db.commit()
+
+    # Capture the customer's PaymentIntent (authorized at bid acceptance)
+    try:
+        import stripe
+        import os
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+        if ride_request.stripe_payment_intent_id and not ride_request.stripe_payment_intent_id.startswith("demo_"):
+            stripe.PaymentIntent.capture(
+                ride_request.stripe_payment_intent_id,
+                idempotency_key=f"ride-capture-{ride_request.id}"
+            )
+            ride_request.payment_status = "captured"
+            ride_request.payment_completed_at = datetime.utcnow()
+            db.commit()
+            logger.info(f"Ride {ride_request.id} PaymentIntent {ride_request.stripe_payment_intent_id} captured")
+    except Exception as e:
+        logger.error(f"Ride {ride_request.id} PaymentIntent capture failed (non-blocking): {e}")
 
     # Auto-trigger driver payout via Stripe Connect (non-blocking)
     try:
