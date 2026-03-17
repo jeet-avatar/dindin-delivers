@@ -825,6 +825,10 @@ class Driver(Base):
     veriff_session_id = Column(String(255))  # Veriff session ID
     verification_provider = Column(String(50))  # persona, onfido, veriff
 
+    # TNC-12: Driver accessibility capability
+    accessibility_capable = Column(Boolean, default=False)
+    accessibility_features = Column(Text)  # JSON: {"wheelchair": false, "service_animal": false, "mobility_storage": false}
+
     # Relationships
     payouts = relationship("DriverPayout", back_populates="driver")
 
