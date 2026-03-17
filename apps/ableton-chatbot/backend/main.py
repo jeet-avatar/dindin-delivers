@@ -187,6 +187,7 @@ async def register(req: RegisterRequest, request: Request):
             "name": user["name"],
             "subscription_status": user["subscription_status"],
             "trial_ends_at": user["trial_ends_at"],
+            "subscribed": is_subscribed(user),
         },
     }
 
