@@ -189,24 +189,37 @@ struct ProfileView: View {
                         }
                         .padding(.horizontal)
 
-                        // Logout Button
-                        Button(action: {
-                            // Use the authViewModel to properly logout
-                            authViewModel.logout()
-                            // Also sign out from Firebase
-                            try? Auth.auth().signOut()
-                        }) {
-                            Text("Log Out")
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Theme.brandBlack)
-                                .cornerRadius(12)
-                                .shadow(radius: 5)
+                        // Login / Logout Button
+                        if authViewModel.isAuthenticated {
+                            Button(action: {
+                                authViewModel.logout()
+                                try? Auth.auth().signOut()
+                            }) {
+                                Text("Log Out")
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Theme.brandBlack)
+                                    .cornerRadius(12)
+                                    .shadow(radius: 5)
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 10)
+                        } else {
+                            NavigationLink(destination: LoginView()) {
+                                Text("Log In")
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Theme.brandGreen)
+                                    .cornerRadius(12)
+                                    .shadow(radius: 5)
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 10)
                         }
-                        .padding(.horizontal)
-                        .padding(.top, 10)
 
                         // Debug Section - Only in DEBUG builds
                         #if DEBUG
