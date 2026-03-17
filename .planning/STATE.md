@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-14 - Completed quick task 173: implement bot/crawler protection (robots.txt, UA blocklist, public endpoint rate limits)
+Last activity: 2026-03-17 - Completed quick task 182: Take BeatMind.io fully live — Stripe live keys, Musai→BeatMind rebrand, CI/CD deployed
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -210,6 +210,7 @@ None
 | 175 | Build global /handoff command + SessionStart hook — saves structured session state to ~/.claude/handoffs/, auto-injects most recent handoff (<=7 days) into new sessions | 2026-03-14 | d73670eb | [175-build-global-handoff-command-that-saves-](./quick/175-build-global-handoff-command-that-saves-/) |
 | 176 | Demo payment bypass for App Store review — demo.customer@dollor.ai at vendor IDs 1/40/134 skip Stripe, auto-advance to PENDING_RESTAURANT | 2026-03-14 | e52372e8 | [176-implement-demo-payment-bypass-for-demo-o](./quick/176-implement-demo-payment-bypass-for-demo-o/) |
 | 177 | Fix READY_FOR_PICKUP state machine bug (was writing PENDING_DELIVERY_DECISION), add demo delivery_decision_sent_at timer fix, add out_for_delivery "Delivering now" card to iOS restaurant app | 2026-03-15 | c7aa880d | [177-fix-order-flow-ready-for-pickup-and-deli](./quick/177-fix-order-flow-ready-for-pickup-and-deli/) |
+| 182 | Take BeatMind.io fully live: Stripe live keys, Musai→BeatMind rebrand, CI/CD deploy | 2026-03-17 | 619fec86 | [182-take-beatmind-io-fully-live-switch-strip](./quick/182-take-beatmind-io-fully-live-switch-strip/) |
 
 ## Session Continuity
 

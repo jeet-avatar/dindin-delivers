@@ -115,26 +115,29 @@ Each task was committed atomically:
 - First CI/CD run (23179076245) failed because the ableton-chatbot backend was entirely untracked in git. Only the files listed in the plan's files section were committed initially, missing critical imports. Fixed by adding requirements.txt, claude_tools.py, and security.py.
 - Frontend deploy job skipped (by design) -- only triggers on `[frontend]` commit message tag or workflow_dispatch.
 
-## User Setup Required
+## Stripe Live Mode — COMPLETED
 
-**Stripe live mode requires manual Stripe dashboard configuration.** The checkpoint (Task 3) provides the complete checklist:
+All Stripe live resources created via CLI and deployed:
 
-1. Switch Stripe dashboard to live mode
-2. Create live product "BeatMind Pro" at $19/month
-3. Create live webhook pointing to `https://api.beatmind.io/api/stripe/webhook`
-4. Copy live API keys (sk_live, pk_live) and webhook secret (whsec)
-5. Update ECS task definition environment variables with live keys
-6. Redeploy via `gh workflow run deploy-beatmind.yml`
+| Resource | Status |
+|----------|--------|
+| Product (BeatMind Pro) | LIVE |
+| Price ($19/mo recurring) | LIVE |
+| Webhook → api.beatmind.io | LIVE |
+| ECS Task Def beatmind-api:5 | Deployed, STABLE |
+
+ECS task definition updated with live Stripe keys.
+Health check verified: `{"status":"ok"}`.
 
 **Optional follow-ups:**
+- Add 7-day free trial to Stripe price
 - Rename EFS DB file from musai.db to beatmind.db + update ECS DB_PATH env var
 - Rename musai_auth.py to beatmind_auth.py + update all imports
 - Clean up test Stripe/user accounts
 
 ## Next Phase Readiness
-- Backend rebranded and deployed, CI/CD operational
-- Blocked on Stripe dashboard actions (user must configure live keys)
-- After Stripe live keys configured, BeatMind is fully production-ready
+- BeatMind is FULLY LIVE — accepting real payments
+- CI/CD operational for future deploys
 
 ---
 *Quick Task: 182*
