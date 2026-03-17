@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 10 of 10 (Automated Support System)
 Plan: 3 of 3 in current phase
 Status: Phase 10 complete (iOS + Android) — All 6 apps distributed
-Last activity: 2026-03-16 - Completed quick task 180: Add cookie consent banner to all pages, terms+age checkbox to signup, passive reminder to login
+Last activity: 2026-03-17 - Completed quick task 181: Dashboard auth guard + real user display + Lambda offer analysis endpoint
 
 Progress: [#####░░░░░] 50% (5/10 plans)
 
@@ -142,6 +142,7 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 177 | fix order flow ready-for-pickup and delivering-now restaurant status | 2026-03-15 | f571864f | [177-fix-order-flow-ready-for-pickup-and-deli](./quick/177-fix-order-flow-ready-for-pickup-and-deli/) |
 | 179 | Fix all issues making offerletter.ai look unfinished or fake | 2026-03-16 | 133db81 | [179-fix-all-issues-making-offerletter-ai-loo](./quick/179-fix-all-issues-making-offerletter-ai-loo/) |
 | 180 | Add cookie consent banner to all pages, terms+age checkbox to signup, passive reminder to login | 2026-03-16 | e05ca4b | [180-add-cookie-consent-banner-to-all-pages-v](./quick/180-add-cookie-consent-banner-to-all-pages-v/) |
+| 181 | Dashboard auth guard + real user display + Lambda offer analysis endpoint | 2026-03-17 | b6099e5 | [181-fix-dashboard-auth-guard-and-real-user-d](./quick/181-fix-dashboard-auth-guard-and-real-user-d/) |
 
 ## Session Continuity
 
