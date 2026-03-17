@@ -18,6 +18,30 @@ class RideRequestViewModel: ObservableObject {
     @Published var tip: Double = 0.0
     @Published var accessibilityRequested: Bool = false
     @Published var accessibilityNotes: String = ""
+    @Published var selectedAccessibilityOptions: Set<AccessibilityOption> = []
+
+    func toggleAccessibilityOption(_ option: AccessibilityOption) {
+        if selectedAccessibilityOptions.contains(option) {
+            selectedAccessibilityOptions.remove(option)
+        } else {
+            selectedAccessibilityOptions.insert(option)
+        }
+    }
+
+    var structuredAccessibilityNotes: String? {
+        guard accessibilityRequested else { return nil }
+        var dict: [String: Any] = [:]
+        for option in AccessibilityOption.allCases {
+            dict[option.rawValue] = selectedAccessibilityOptions.contains(option)
+        }
+        let freeText = accessibilityNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !freeText.isEmpty { dict["notes"] = freeText }
+        if let data = try? JSONSerialization.data(withJSONObject: dict),
+           let json = String(data: data, encoding: .utf8) {
+            return json
+        }
+        return accessibilityNotes.isEmpty ? nil : accessibilityNotes
+    }
 
     @Published var isLoading = false
     @Published var isEstimatingFare = false
@@ -376,7 +400,9 @@ class RideRequestViewModel: ObservableObject {
             pickupAddress: pickup,
             dropoffAddress: dropoff,
             notes: notes.isEmpty ? nil : notes,
-            preferredPrice: initialFareOffer
+            preferredPrice: initialFareOffer,
+            accessibilityRequested: accessibilityRequested,
+            accessibilityNotes: structuredAccessibilityNotes
         ) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
@@ -1135,6 +1161,23 @@ class RideRequestViewModel: ObservableObject {
                     logger.error("Payment confirmation error: \(error.localizedDescription)")
                 }
             }
+        }
+    }
+}
+
+// MARK: - Accessibility Options (TNC-12)
+enum AccessibilityOption: String, CaseIterable {
+    case wheelchair = "wheelchair"
+    case serviceAnimal = "service_animal"
+    case mobilityStorage = "mobility_storage"
+    case audioVisual = "audio_visual"
+
+    var label: String {
+        switch self {
+        case .wheelchair: return "Wheelchair accessible vehicle"
+        case .serviceAnimal: return "Service animal"
+        case .mobilityStorage: return "Mobility aid storage"
+        case .audioVisual: return "Audio/visual assistance"
         }
     }
 }

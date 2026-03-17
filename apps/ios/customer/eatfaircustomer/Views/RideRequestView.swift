@@ -394,6 +394,54 @@ struct RideBottomSheet: View {
 
             Divider()
 
+            // TNC-12: Accessibility Request
+            if viewModel.canRequestRide {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle(isOn: $viewModel.accessibilityRequested) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "figure.roll")
+                                .foregroundColor(.blue)
+                            Text("I need an accessible vehicle")
+                                .font(.subheadline.weight(.medium))
+                        }
+                    }
+                    .tint(.blue)
+
+                    if viewModel.accessibilityRequested {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Select your needs:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            ForEach(AccessibilityOption.allCases, id: \.self) { option in
+                                HStack {
+                                    Image(systemName: viewModel.selectedAccessibilityOptions.contains(option) ? "checkmark.square.fill" : "square")
+                                        .foregroundColor(viewModel.selectedAccessibilityOptions.contains(option) ? .blue : .gray)
+                                    Text(option.label)
+                                        .font(.subheadline)
+                                    Spacer()
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    viewModel.toggleAccessibilityOption(option)
+                                }
+                            }
+
+                            TextField("Additional accessibility notes (optional)", text: $viewModel.accessibilityNotes, axis: .vertical)
+                                .textFieldStyle(.roundedBorder)
+                                .lineLimit(2...4)
+                                .font(.subheadline)
+                        }
+                        .padding(.leading, 4)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+                .padding(.horizontal)
+                .animation(.easeInOut(duration: 0.2), value: viewModel.accessibilityRequested)
+
+                Divider()
+            }
+
             // Notes (optional)
             if viewModel.canRequestRide {
                 HStack(spacing: 12) {
