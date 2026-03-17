@@ -83,6 +83,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-97]: Android DeliveryAddressDict missing lat/lng was BREAKING -- fixed before Wave 2 deploy
 - [Phase quick-99]: Mock stripe.Refund.create directly (not order_flow.stripe) since stripe is imported inside function body
 - [Phase quick-164]: Used ComboItemInfo struct for combo references; safe decoders for backward compat
+- [Phase quick-182]: Kept musai_auth.py filename to avoid breaking imports; only updated docstring
 
 ### Blockers
 
