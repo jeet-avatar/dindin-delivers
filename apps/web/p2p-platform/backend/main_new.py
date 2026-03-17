@@ -863,6 +863,9 @@ async def run_migrations(request: Request, secret_key: str = Query(...), db: Ses
         ("bank_verified", "BOOLEAN DEFAULT FALSE"),
         ("bank_verified_at", "TIMESTAMP"),
         ("bank_verified_by", "INTEGER"),
+        # TNC-12: Driver accessibility capability
+        ("accessibility_capable", "BOOLEAN DEFAULT FALSE"),
+        ("accessibility_features", "TEXT"),
     ]
 
     for col_name, col_type in driver_columns:
