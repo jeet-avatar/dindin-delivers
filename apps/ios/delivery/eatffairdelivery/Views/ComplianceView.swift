@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import EatFairShared
 
 // MARK: - Compliance & Safety Screen (TNC)
