@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-17 - Completed quick task 182: Take BeatMind.io fully live — Stripe live keys, Musai→BeatMind rebrand, CI/CD deployed
+Last activity: 2026-03-17 - Completed quick task 183: Fix BeatMind professional-grade issues (favicon, OG tags, SEO, subscription fix)
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -84,6 +84,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-99]: Mock stripe.Refund.create directly (not order_flow.stripe) since stripe is imported inside function body
 - [Phase quick-164]: Used ComboItemInfo struct for combo references; safe decoders for backward compat
 - [Phase quick-182]: Kept musai_auth.py filename to avoid breaking imports; only updated docstring
+- [Phase quick-183]: Used static files in public/ instead of route handlers because output: export mode does not support route handlers
 
 ### Blockers
 
@@ -211,9 +212,10 @@ None
 | 176 | Demo payment bypass for App Store review — demo.customer@dollor.ai at vendor IDs 1/40/134 skip Stripe, auto-advance to PENDING_RESTAURANT | 2026-03-14 | e52372e8 | [176-implement-demo-payment-bypass-for-demo-o](./quick/176-implement-demo-payment-bypass-for-demo-o/) |
 | 177 | Fix READY_FOR_PICKUP state machine bug (was writing PENDING_DELIVERY_DECISION), add demo delivery_decision_sent_at timer fix, add out_for_delivery "Delivering now" card to iOS restaurant app | 2026-03-15 | c7aa880d | [177-fix-order-flow-ready-for-pickup-and-deli](./quick/177-fix-order-flow-ready-for-pickup-and-deli/) |
 | 182 | Take BeatMind.io fully live: Stripe live keys, Musai→BeatMind rebrand, CI/CD deploy | 2026-03-17 | 619fec86 | [182-take-beatmind-io-fully-live-switch-strip](./quick/182-take-beatmind-io-fully-live-switch-strip/) |
+| 183 | Fix BeatMind professional-grade issues: favicon, OG tags, SEO, subscription fix, cleanup | 2026-03-17 | af501369 | [183-fix-beatmind-professional-grade-issues-f](./quick/183-fix-beatmind-professional-grade-issues-f/) |
 
 ## Session Continuity
 
-Last session: 2026-03-15
-Stopped at: Completed quick task 177: fix order flow READY_FOR_PICKUP and delivering now UI
+Last session: 2026-03-17
+Stopped at: Completed quick task 183: fix BeatMind professional-grade issues (favicon, OG tags, SEO, subscription fix)
 Resume file: .planning/NEXT_SESSION_PROMPT.md
