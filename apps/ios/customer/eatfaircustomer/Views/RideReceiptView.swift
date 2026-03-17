@@ -133,6 +133,7 @@ struct RideReceiptView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var showDisputeSheet = false
+    @State private var showSafetyReport = false
     @State private var emailSent = false
     @State private var isSendingEmail = false
 
@@ -480,6 +481,27 @@ struct RideReceiptView: View {
                 .padding()
                 .background(Color.red.opacity(0.1))
                 .cornerRadius(12)
+            }
+
+            // TNC-10: Safety Report
+            if let driverId = receipt?.driver?.id {
+                Button {
+                    showSafetyReport = true
+                } label: {
+                    HStack {
+                        Image(systemName: "shield.lefthalf.filled")
+                        Text("Report Safety Concern")
+                    }
+                    .font(.subheadline)
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.red.opacity(0.05))
+                    .cornerRadius(12)
+                }
+                .sheet(isPresented: $showSafetyReport) {
+                    SafetyReportSheet(driverId: driverId, rideRequestId: rideId)
+                }
             }
         }
     }

@@ -5346,6 +5346,8 @@ public class P2PAPIService: ObservableObject {
         dropoffAddress: RideAddressInput,
         notes: String? = nil,
         preferredPrice: Double? = nil,
+        accessibilityRequested: Bool = false,
+        accessibilityNotes: String? = nil,
         completion: @escaping (Result<RideRequestResponse, Error>) -> Void
     ) {
         guard let url = URL(string: "\(baseURL)/rides/request") else {
@@ -5380,6 +5382,13 @@ public class P2PAPIService: ObservableObject {
         }
         if let price = preferredPrice, price > 0 {
             body["customer_preferred_price"] = price
+        }
+        // TNC-12: Accessibility request
+        if accessibilityRequested {
+            body["accessibility_requested"] = true
+            if let accessNotes = accessibilityNotes, !accessNotes.isEmpty {
+                body["accessibility_notes"] = accessNotes
+            }
         }
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -6247,6 +6256,258 @@ public class P2PAPIService: ObservableObject {
                 } else {
                     completion(.failure(P2PAPIError.serverError("Failed to cancel ride")))
                 }
+            }
+        }.resume()
+    }
+
+    // MARK: - TNC Compliance
+
+    /// Report a safety concern (zero-tolerance) for a driver
+    /// Calls POST /api/tnc/zero-tolerance/report
+    public func reportSafetyConcern(
+        driverId: Int,
+        rideRequestId: Int?,
+        description: String,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/tnc/zero-tolerance/report") else {
+            completion(false)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [
+            "driver_id": driverId,
+            "description": description,
+            "reporter_type": "customer"
+        ]
+        if let rideId = rideRequestId {
+            body["ride_request_id"] = rideId
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        secureSession.dataTask(with: request) { data, _, _ in
+            DispatchQueue.main.async {
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      json["success"] as? Bool == true else {
+                    completion(false)
+                    return
+                }
+                completion(true)
+            }
+        }.resume()
+    }
+
+    /// Get ride waybill (TNC-15)
+    /// Calls GET /api/rides/request/{id}/waybill
+    public func getRideWaybill(
+        rideRequestId: Int,
+        completion: @escaping ([String: Any]?) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/request/\(rideRequestId)/waybill") else {
+            completion(nil)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = driverToken ?? customerToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        secureSession.dataTask(with: request) { data, _, _ in
+            DispatchQueue.main.async {
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let waybill = json["waybill"] as? [String: Any] else {
+                    completion(nil)
+                    return
+                }
+                completion(waybill)
+            }
+        }.resume()
+    }
+
+    /// Get background check status (TNC-07)
+    /// Calls GET /api/tnc/background-check/{driver_id}/status
+    public func getBackgroundCheckStatus(
+        driverId: Int,
+        completion: @escaping ([String: Any]?) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/tnc/background-check/\(driverId)/status") else {
+            completion(nil)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        secureSession.dataTask(with: request) { data, _, _ in
+            DispatchQueue.main.async {
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    completion(nil)
+                    return
+                }
+                completion(json)
+            }
+        }.resume()
+    }
+
+    /// Get vehicle inspection status (TNC-09)
+    /// Calls GET /api/tnc/vehicle-inspection/{driver_id}/status
+    public func getVehicleInspectionStatus(
+        driverId: Int,
+        completion: @escaping ([String: Any]?) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/tnc/vehicle-inspection/\(driverId)/status") else {
+            completion(nil)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        secureSession.dataTask(with: request) { data, _, _ in
+            DispatchQueue.main.async {
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    completion(nil)
+                    return
+                }
+                completion(json)
+            }
+        }.resume()
+    }
+
+    /// Submit vehicle inspection (TNC-09)
+    /// Calls POST /api/tnc/vehicle-inspection/submit
+    public func submitVehicleInspection(
+        driverId: Int,
+        inspectionDate: String,
+        facilityName: String,
+        barLicense: String?,
+        mileage: Int?,
+        documentUrl: String,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/tnc/vehicle-inspection/submit") else {
+            completion(false)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body: [String: Any] = [
+            "driver_id": driverId,
+            "inspection_date": inspectionDate,
+            "facility_name": facilityName,
+            "document_url": documentUrl
+        ]
+        if let bar = barLicense { body["facility_bar_license"] = bar }
+        if let m = mileage { body["mileage_at_inspection"] = m }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        secureSession.dataTask(with: request) { data, _, _ in
+            DispatchQueue.main.async {
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      json["success"] as? Bool == true else {
+                    completion(false)
+                    return
+                }
+                completion(true)
+            }
+        }.resume()
+    }
+
+    /// Get driver accessibility settings
+    /// Calls GET /api/tnc/driver/accessibility
+    public func getDriverAccessibility(
+        completion: @escaping ([String: Any]?) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/tnc/driver/accessibility") else {
+            completion(nil)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        secureSession.dataTask(with: request) { data, _, _ in
+            DispatchQueue.main.async {
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    completion(nil)
+                    return
+                }
+                completion(json)
+            }
+        }.resume()
+    }
+
+    /// Update driver accessibility settings
+    /// Calls PATCH /api/tnc/driver/accessibility
+    public func updateDriverAccessibility(
+        capable: Bool,
+        features: [String: Bool],
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/tnc/driver/accessibility") else {
+            completion(false)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let body: [String: Any] = [
+            "accessibility_capable": capable,
+            "accessibility_features": features
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        secureSession.dataTask(with: request) { data, _, _ in
+            DispatchQueue.main.async {
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      json["success"] as? Bool == true else {
+                    completion(false)
+                    return
+                }
+                completion(true)
             }
         }.resume()
     }
