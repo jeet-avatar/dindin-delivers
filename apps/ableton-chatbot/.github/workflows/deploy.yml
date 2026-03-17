@@ -1,0 +1,19 @@
+# DEPRECATED: This workflow is no longer used.
+# The active workflow is at .github/workflows/deploy-beatmind.yml (repo root).
+name: "[DEPRECATED] Deploy BeatMind (old)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "This workflow is deprecated. Use .github/workflows/deploy-beatmind.yml instead."
+        required: true
+
+jobs:
+  deprecated:
+    name: This workflow is deprecated
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "This workflow is deprecated. Use .github/workflows/deploy-beatmind.yml instead."
+          exit 1
