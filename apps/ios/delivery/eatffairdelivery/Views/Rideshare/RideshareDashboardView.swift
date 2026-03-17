@@ -188,7 +188,7 @@ struct RideshareDashboardView: View {
         case .available:
             return viewModel.availableRequests.count
         case .myBids:
-            return viewModel.myBids.count
+            return viewModel.pendingBids.count + viewModel.counteredBids.count
         case .active:
             return viewModel.activeRides.count
         }
