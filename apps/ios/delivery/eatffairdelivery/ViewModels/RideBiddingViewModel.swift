@@ -22,6 +22,9 @@ class RideBiddingViewModel: ObservableObject {
     /// Active/matched rides
     @Published var activeRides: [RideBid] = []
 
+    /// Signals that a bid was newly accepted — triggers auto-navigation to Active tab
+    @Published var hasNewAcceptedRide: Bool = false
+
     /// Loading states
     @Published var isLoading = false
     @Published var isSubmittingBid = false
@@ -204,8 +207,8 @@ class RideBiddingViewModel: ObservableObject {
         let latitude = location?.coordinate.latitude ?? 0.0
         let longitude = location?.coordinate.longitude ?? 0.0
 
-        // Use large radius if location unavailable to show all requests
-        let radiusKm: Double = (location == nil) ? 50000.0 : 100.0
+        // Cap radius at 100km — prevents fetching ALL rides globally when location unavailable
+        let radiusKm: Double = 100.0
 
         p2pService.fetchAvailableRideRequests(
             latitude: latitude,
@@ -246,12 +249,23 @@ class RideBiddingViewModel: ObservableObject {
                     let previousCountered = Set(self.pendingCounterOffers.map { $0.id })
                     let newCountered = bids.filter { $0.status == "countered" && !previousCountered.contains($0.id) }
 
+                    // Detect newly accepted rides (bid was pending/countered, now accepted)
+                    let previousActiveIds = Set(self.activeRides.map { $0.id })
+                    let newActiveRides = bids.filter { $0.status == "accepted" }
+                    let hasNewActive = newActiveRides.contains(where: { !previousActiveIds.contains($0.id) })
+
                     // Update state
                     self.myBids = bids
                     self.pendingCounterOffers = bids.filter { $0.status == "countered" }
-                    self.activeRides = bids.filter { $0.status == "accepted" }
+                    self.activeRides = newActiveRides
                     self.pollingFailureCount = 0  // Reset on success
                     self.showConnectionWarning = false
+
+                    // Auto-navigate to Active tab when a bid is newly accepted
+                    if hasNewActive && !self.hasNewAcceptedRide {
+                        self.hasNewAcceptedRide = true
+                        logger.info("[AutoNav] New accepted ride detected — triggering tab switch")
+                    }
 
                     // Auto-show counter-offer sheet for new counter-offers
                     if let firstNew = newCountered.first, !self.showCounterOfferSheet {

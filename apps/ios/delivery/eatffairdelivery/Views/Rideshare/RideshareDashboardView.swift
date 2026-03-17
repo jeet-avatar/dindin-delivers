@@ -106,6 +106,14 @@ struct RideshareDashboardView: View {
             .onAppear {
                 viewModel.refreshData()
             }
+            .onChange(of: viewModel.hasNewAcceptedRide) { _, isNew in
+                if isNew {
+                    withAnimation(.spring(response: 0.3)) {
+                        selectedTab = .active
+                    }
+                    viewModel.hasNewAcceptedRide = false
+                }
+            }
             .alert(alertTitle, isPresented: $viewModel.showError) {
                 if isBlockingError {
                     Button("View Active Work") {

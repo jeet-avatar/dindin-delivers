@@ -3451,6 +3451,63 @@ def check_ride_matched_timeout_job():
         db.commit()
         logger.info(f"Ride matched timeout check: {reopened_count} rides reopened")
 
+        # Second pass: MATCHED rides where driver arrived but never started (>30 min)
+        stale_arrived = db.query(RideRequest).filter(
+            RideRequest.status == RideRequestStatus.MATCHED,
+            RideRequest.driver_arrived_at.isnot(None),
+            RideRequest.driver_arrived_at < now - timedelta(minutes=30)
+        ).all()
+
+        cancelled_count = 0
+        for ride in stale_arrived:
+            elapsed_min = (now - ride.driver_arrived_at).total_seconds() / 60
+            old_driver_id = ride.matched_driver_id
+
+            ride.status = RideRequestStatus.CANCELLED
+            ride.cancelled_at = now
+            ride.updated_at = now
+            ride.cancellation_reason = "Auto-cancelled: driver arrived but never started ride within 30 minutes"
+            cancelled_count += 1
+
+            # Mark the accepted bid as expired
+            if old_driver_id:
+                accepted_bid = db.query(RideBid).filter(
+                    RideBid.ride_request_id == ride.id,
+                    RideBid.driver_id == old_driver_id,
+                    RideBid.status == BidStatus.ACCEPTED
+                ).first()
+                if accepted_bid:
+                    accepted_bid.status = BidStatus.EXPIRED
+                    accepted_bid.updated_at = now
+
+            logger.warning(
+                f"Ride {ride.request_id} auto-cancelled: driver {old_driver_id} arrived "
+                f"{elapsed_min:.0f} min ago but never started ride (limit: 30 min)"
+            )
+
+            # Notify both customer and driver
+            try:
+                from order_flow import send_push_notification
+                send_push_notification(
+                    "customer", ride.customer_id,
+                    "Ride Cancelled",
+                    "Your ride was automatically cancelled because the driver didn't start the trip. Please request a new ride.",
+                    {"type": "ride_auto_cancelled", "ride_id": str(ride.id)}
+                )
+                if old_driver_id:
+                    send_push_notification(
+                        "driver", old_driver_id,
+                        "Ride Cancelled",
+                        "The ride was auto-cancelled because it was not started within 30 minutes of arrival.",
+                        {"type": "ride_auto_cancelled", "ride_id": str(ride.id)}
+                    )
+            except Exception as push_err:
+                logger.warning(f"Failed to send push for stale arrived ride {ride.request_id}: {push_err}")
+
+        if cancelled_count > 0:
+            db.commit()
+            logger.info(f"Stale arrived ride cleanup: {cancelled_count} rides auto-cancelled")
+
     except Exception as e:
         logger.error(f"Error in ride matched timeout check: {e}")
         db.rollback()
