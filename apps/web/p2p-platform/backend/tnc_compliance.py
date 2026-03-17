@@ -928,3 +928,79 @@ async def get_discrimination_monitoring_report(
                    if (flagged_drivers or customer_flagged)
                    else "No discrimination patterns detected"
     }
+
+
+# =============================================================================
+# DRIVER ACCESSIBILITY CAPABILITY
+# =============================================================================
+
+class DriverAccessibilityUpdate(BaseModel):
+    accessibility_capable: bool = False
+    accessibility_features: Optional[Dict[str, bool]] = None
+
+    @field_validator('accessibility_features')
+    @classmethod
+    def validate_features(cls, v):
+        if v is None:
+            return v
+        allowed_keys = {"wheelchair", "service_animal", "mobility_storage", "audio_visual"}
+        for key in v:
+            if key not in allowed_keys:
+                raise ValueError(f"Unknown accessibility feature: {key}. Allowed: {allowed_keys}")
+        return v
+
+
+@router.patch("/driver/accessibility")
+async def update_driver_accessibility(
+    data: DriverAccessibilityUpdate,
+    driver: Driver = Depends(require_driver),
+    db: Session = Depends(get_db),
+):
+    """Update driver's accessibility capability settings.
+    Driver can only update their own profile (enforced by require_driver)."""
+    import json
+
+    driver.accessibility_capable = data.accessibility_capable
+    if data.accessibility_features is not None:
+        driver.accessibility_features = json.dumps(data.accessibility_features)
+    elif not data.accessibility_capable:
+        driver.accessibility_features = None
+
+    db.commit()
+    db.refresh(driver)
+
+    features = {}
+    if driver.accessibility_features:
+        try:
+            features = json.loads(driver.accessibility_features)
+        except (json.JSONDecodeError, TypeError):
+            features = {}
+
+    return {
+        "success": True,
+        "driver_id": driver.id,
+        "accessibility_capable": driver.accessibility_capable,
+        "accessibility_features": features,
+    }
+
+
+@router.get("/driver/accessibility")
+async def get_driver_accessibility(
+    driver: Driver = Depends(require_driver),
+    db: Session = Depends(get_db),
+):
+    """Get driver's current accessibility capability settings."""
+    import json
+
+    features = {}
+    if driver.accessibility_features:
+        try:
+            features = json.loads(driver.accessibility_features)
+        except (json.JSONDecodeError, TypeError):
+            features = {}
+
+    return {
+        "driver_id": driver.id,
+        "accessibility_capable": driver.accessibility_capable,
+        "accessibility_features": features,
+    }

@@ -393,6 +393,7 @@ def serialize_bid(bid: RideBid) -> dict:
         "driver_vehicle_year": driver.vehicle_year if driver else None,
         "driver_vehicle_color": driver.vehicle_color if driver else None,
         "driver_license_plate": driver.license_plate if driver else None,
+        "driver_accessibility_capable": driver.accessibility_capable if driver else False,
         "driver_trips": driver.total_deliveries if driver else None,
         "proposed_price": bid.proposed_price,
         "message": bid.message,
