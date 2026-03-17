@@ -361,6 +361,7 @@ def serialize_ride_request(request: RideRequest, include_bids: bool = False) -> 
         "customer_comment": request.customer_comment if getattr(request, 'customer_comment', None) else None,
         "platform_fee": float(request.platform_fee) if getattr(request, 'platform_fee', None) else None,
         "driver_payout": float(request.driver_payout) if getattr(request, 'driver_payout', None) else None,
+        "driver_arrived_at": request.driver_arrived_at.isoformat() if getattr(request, 'driver_arrived_at', None) else None,
     }
 
     if include_bids and request.bids:

@@ -206,8 +206,12 @@ struct ActiveRideView: View {
                 case "completed":
                     rideStatus = .completed
                 default:
-                    // "matched", "open", "bidding" — driver is en route or arrived
-                    rideStatus = .matched
+                    // "matched", "open", "bidding" — check if driver already arrived
+                    if rideRequest.driver_arrived_at != nil {
+                        rideStatus = .arrivedAtPickup
+                    } else {
+                        rideStatus = .matched
+                    }
                 }
             }
             updateMapPosition()
