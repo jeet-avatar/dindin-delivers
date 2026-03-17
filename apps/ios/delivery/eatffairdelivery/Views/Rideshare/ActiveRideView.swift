@@ -25,6 +25,7 @@ struct ActiveRideView: View {
     @State private var passengerComment: String = ""
     @State private var hasSubmittedRating = false
     @State private var showSOSAlert = false
+    @State private var showWaybill = false
 
     private let cancelReasons = [
         "Passenger not at pickup",
@@ -118,6 +119,13 @@ struct ActiveRideView: View {
                             .foregroundColor(.blue)
                     }
 
+                    // TNC-15: Waybill
+                    Button(action: { showWaybill = true }) {
+                        Image(systemName: "doc.text")
+                            .foregroundColor(.blue)
+                    }
+                    .accessibilityLabel("Trip Information")
+
                     Button(action: { showSOSAlert = true }) {
                         Text("SOS")
                             .font(.caption2)
@@ -140,6 +148,11 @@ struct ActiveRideView: View {
                     riderName: request.customer_name ?? "Rider",
                     riderPhone: request.customer_phone
                 )
+            }
+        }
+        .sheet(isPresented: $showWaybill) {
+            if let request = request {
+                WaybillSheet(rideRequestId: request.id)
             }
         }
         .alert("Complete Ride?", isPresented: $showCompleteAlert) {

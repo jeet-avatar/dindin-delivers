@@ -1038,6 +1038,22 @@ struct SettingsSection: View {
 
     var body: some View {
         VStack(spacing: 16) {
+            // TNC Compliance & Safety
+            NavigationLink(destination: ComplianceView(driverId: UserDefaults.standard.integer(forKey: "p2p_driver_id"))) {
+                ProfileCard(title: "Compliance & Safety", icon: "shield.checkered") {
+                    HStack {
+                        Text("Background check, vehicle inspection, accessibility")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
             // Preferences
             ProfileCard(title: "Preferences", icon: "gearshape.fill") {
                 VStack(spacing: 16) {
