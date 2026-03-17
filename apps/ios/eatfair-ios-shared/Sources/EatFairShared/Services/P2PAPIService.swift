@@ -10294,6 +10294,8 @@ public struct RideRequestForBidding: Identifiable, Codable {
     public let status: String
     public let bidding_expires_at: String?
     public let special_requests: String?
+    public let accessibility_requested: Bool?
+    public let accessibility_notes: String?
     public let created_at: String?
     public let bid_count: Int?
     public let distance_to_pickup_km: Double?

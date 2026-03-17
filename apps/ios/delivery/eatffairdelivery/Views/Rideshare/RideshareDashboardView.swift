@@ -746,6 +746,10 @@ struct RideRequestCard: View {
                 if let specialRequests = request.special_requests, !specialRequests.isEmpty {
                     TripStatBadge(icon: "note.text", text: "Notes", label: "Special")
                 }
+
+                if request.accessibility_requested == true {
+                    TripStatBadge(icon: "figure.roll", text: "Access", label: "Needed")
+                }
             }
             .padding(.horizontal)
             .padding(.bottom, 12)

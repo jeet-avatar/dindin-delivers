@@ -365,9 +365,19 @@ struct ActiveRideView: View {
                         Text(request.customer_name ?? "Rider")
                             .font(.headline)
                             .foregroundColor(Theme.textPrimary)
-                        Text("Passenger")
-                            .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
+                        if request.accessibility_requested == true {
+                            HStack(spacing: 4) {
+                                Image(systemName: "figure.roll")
+                                    .font(.caption2)
+                                Text("Accessibility requested")
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.blue)
+                        } else {
+                            Text("Passenger")
+                                .font(.caption)
+                                .foregroundColor(Theme.textSecondary)
+                        }
                     }
 
                     Spacer()
