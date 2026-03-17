@@ -10302,6 +10302,7 @@ public struct RideRequestForBidding: Identifiable, Codable {
     public let bid_count: Int?
     public let distance_to_pickup_km: Double?
     public let already_bid: Bool?
+    public let driver_arrived_at: String?
     // Note: my_bid removed to avoid circular reference - fetch separately if needed
 }
 
