@@ -5599,9 +5599,11 @@ public class P2PAPIService: ObservableObject {
         }
 
         var urlComponents = URLComponents(string: "\(baseURL)/rides/driver/\(driverId)/bids")
+        var queryItems: [URLQueryItem] = [URLQueryItem(name: "days", value: "1")]
         if let status = status {
-            urlComponents?.queryItems = [URLQueryItem(name: "status", value: status)]
+            queryItems.append(URLQueryItem(name: "status", value: status))
         }
+        urlComponents?.queryItems = queryItems
 
         guard let url = urlComponents?.url else {
             completion(.failure(P2PAPIError.invalidURL))
