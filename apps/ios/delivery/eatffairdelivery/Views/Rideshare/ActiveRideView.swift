@@ -9,6 +9,7 @@ struct ActiveRideView: View {
     let bid: RideBid
     @ObservedObject var viewModel: RideBiddingViewModel
     @StateObject private var locationManager = LocationManager.shared
+    @Environment(\.dismiss) private var dismiss
     @State private var showChat = false
     @State private var rideStatus: RideStatus = .matched
     @State private var showCompleteAlert = false
@@ -476,28 +477,23 @@ struct ActiveRideView: View {
     private var actionButton: some View {
         switch rideStatus {
         case .matched, .enRouteToPickup:
-            Button(action: {
-                let previousStatus = rideStatus
-                rideStatus = .arrivedAtPickup
-                viewModel.driverArrived(bid)
-                // Revert on error (driverArrived is non-blocking, but watch for showError)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    if viewModel.showError {
-                        rideStatus = previousStatus
+            SwipeToConfirmButton(
+                label: "Slide — I've Arrived",
+                accentColor: .green,
+                onConfirm: {
+                    let previousStatus = rideStatus
+                    rideStatus = .arrivedAtPickup
+                    viewModel.driverArrived(bid)
+                    // Revert on error (driverArrived is non-blocking, but watch for showError)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        if viewModel.showError {
+                            rideStatus = previousStatus
+                        }
                     }
                 }
-            }) {
-                HStack {
-                    Image(systemName: "mappin.circle.fill")
-                    Text("I've Arrived")
-                }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.green)
-                .cornerRadius(16)
-            }
+            )
+            .padding(.horizontal, 24)
+            .padding(.vertical, 8)
 
         case .arrivedAtPickup:
             VStack(spacing: 10) {
@@ -520,24 +516,14 @@ struct ActiveRideView: View {
                     .padding(.horizontal, 4)
                 }
 
-                Button(action: startRide) {
-                    HStack {
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Image(systemName: "car.fill")
-                            Text("Start Ride")
-                        }
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.purple)
-                    .cornerRadius(16)
-                }
-                .disabled(viewModel.isLoading)
+                SwipeToConfirmButton(
+                    label: "Slide to Start Ride",
+                    accentColor: .purple,
+                    isDisabled: viewModel.isLoading,
+                    onConfirm: startRide
+                )
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
 
                 // No-show button appears after timer expires
                 if noShowTimerSeconds <= 0 {
@@ -558,24 +544,14 @@ struct ActiveRideView: View {
             }
 
         case .inProgress:
-            Button(action: { showCompleteAlert = true }) {
-                HStack {
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .tint(.white)
-                    } else {
-                        Image(systemName: "flag.checkered")
-                        Text("Complete Ride")
-                    }
-                }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.green)
-                .cornerRadius(16)
-            }
-            .disabled(viewModel.isLoading)
+            SwipeToConfirmButton(
+                label: "Slide to Complete Ride",
+                accentColor: .orange,
+                isDisabled: viewModel.isLoading,
+                onConfirm: completeRide
+            )
+            .padding(.horizontal, 24)
+            .padding(.vertical, 8)
 
         case .completed:
             rideCompletionSummary
@@ -673,12 +649,22 @@ struct ActiveRideView: View {
 
             // Rate Passenger
             if hasSubmittedRating {
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("Passenger rated \(passengerRating)/5")
-                        .font(.subheadline)
-                        .foregroundColor(Theme.textSecondary)
+                VStack(spacing: 12) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Passenger rated \(passengerRating)/5")
+                            .font(.subheadline)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                    // Done — navigate back to dashboard after ride completion
+                    SwipeToConfirmButton(
+                        label: "Slide to Done",
+                        accentColor: .gray,
+                        onConfirm: { dismiss() }
+                    )
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
                 }
             } else {
                 VStack(spacing: 12) {
@@ -700,17 +686,14 @@ struct ActiveRideView: View {
                         .textFieldStyle(.roundedBorder)
                         .font(.caption)
 
-                    Button(action: submitPassengerRating) {
-                        Text("Submit Rating")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(passengerRating > 0 ? Color.blue : Color.gray)
-                            .cornerRadius(8)
-                    }
-                    .disabled(passengerRating == 0)
+                    SwipeToConfirmButton(
+                        label: "Slide to Submit Rating",
+                        accentColor: .yellow,
+                        isDisabled: passengerRating == 0,
+                        onConfirm: submitPassengerRating
+                    )
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
                 }
             }
         }

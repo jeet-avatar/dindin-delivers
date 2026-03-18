@@ -371,27 +371,17 @@ struct CounterOfferResponseSheet: View {
         VStack(spacing: 12) {
             if showNewCounterInput {
                 // Send New Counter
-                Button(action: {
-                    isPriceFocused = false
-                    viewModel.submitNewCounterOffer(bid, newPrice: newCounterAmount)
-                }) {
-                    HStack {
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Image(systemName: "paperplane.fill")
-                            Text("Send $\(String(format: "%.0f", newCounterAmount)) Offer")
-                        }
+                SwipeToConfirmButton(
+                    label: "Slide to Send $\(String(format: "%.0f", newCounterAmount)) Offer",
+                    accentColor: .orange,
+                    isDisabled: newCounterAmount <= 0 || viewModel.isLoading,
+                    onConfirm: {
+                        isPriceFocused = false
+                        viewModel.submitNewCounterOffer(bid, newPrice: newCounterAmount)
                     }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(newCounterAmount > 0 ? Color.blue : Color.gray)
-                    .cornerRadius(16)
-                }
-                .disabled(newCounterAmount <= 0 || viewModel.isLoading)
+                )
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
 
                 // Cancel Counter
                 Button(action: {
@@ -408,26 +398,14 @@ struct CounterOfferResponseSheet: View {
                 }
             } else {
                 // Accept Counter-Offer
-                Button(action: {
-                    viewModel.acceptCounterOffer(bid)
-                }) {
-                    HStack {
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("Accept $\(String(format: "%.0f", customerCounterPrice))")
-                        }
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.green)
-                    .cornerRadius(16)
-                }
-                .disabled(viewModel.isLoading)
+                SwipeToConfirmButton(
+                    label: "Slide to Accept $\(String(format: "%.0f", customerCounterPrice))",
+                    accentColor: .green,
+                    isDisabled: viewModel.isLoading,
+                    onConfirm: { viewModel.acceptCounterOffer(bid) }
+                )
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
 
                 // Counter with New Price
                 Button(action: {

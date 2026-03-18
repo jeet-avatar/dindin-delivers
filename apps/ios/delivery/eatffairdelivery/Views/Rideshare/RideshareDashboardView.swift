@@ -321,14 +321,22 @@ struct AvailableRequestsContent: View {
         ScrollView {
             LazyVStack(spacing: 16) {
                 ForEach(viewModel.availableRequests) { request in
-                    RideRequestCard(
-                        request: request,
-                        locationManager: locationManager,
-                        onBid: {
+                    TinderSwipeCard(
+                        onAccept: {
                             selectedRequest = request
                             showBidSheet = true
-                        }
-                    )
+                        },
+                        onDecline: { /* skip to next card — no-op */ }
+                    ) {
+                        RideRequestCard(
+                            request: request,
+                            locationManager: locationManager,
+                            onBid: {
+                                selectedRequest = request
+                                showBidSheet = true
+                            }
+                        )
+                    }
                 }
             }
             .padding()
