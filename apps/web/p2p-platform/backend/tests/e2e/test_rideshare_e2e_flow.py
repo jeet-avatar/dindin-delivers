@@ -615,3 +615,266 @@ class TestRideshareEdgeCases:
             assert data["customer_pays"] == fare + expected_fee
             assert data["driver_receives"] == fare - expected_fee
             assert data["platform_earns"] == expected_fee * 2
+
+    # ride_id verified: iOS passes Int (P2PAPIService.swift:5471 rideId: Int interpolated into URL)
+    # backend expects int PK (main_new.py:15646 ride_id: int path param) — MATCH, no fix needed
+
+    def test_wav_filter_excludes_non_capable_driver(
+        self, client, db_session, test_customer, test_driver,
+        customer_headers, driver_headers, mock_notifications,
+    ):
+        """bid_routes.py:1204-1207: WAV filter — driver with accessibility_capable=False must NOT see
+        accessibility_requested=True rides; driver with accessibility_capable=True must see them."""
+        import uuid
+        customer = test_customer
+
+        # Create a WAV ride request (accessibility_requested=True)
+        resp = client.post("/api/rides/request", json={
+            "customer_id": customer.id,
+            "pickup_address": "123 Market St",
+            "pickup_latitude": PICKUP_LAT,
+            "pickup_longitude": PICKUP_LNG,
+            "dropoff_address": "SFO Airport",
+            "dropoff_latitude": DROPOFF_LAT,
+            "dropoff_longitude": DROPOFF_LNG,
+            "bidding_duration_minutes": 5,
+            "accessibility_requested": True,
+        }, headers=customer_headers)
+        assert resp.status_code == 200
+        wav_ride_id = resp.json()["ride_request"]["id"]
+
+        # Verify WAV field was stored
+        db_session.expire_all()
+        ride_obj = db_session.query(RideRequest).get(wav_ride_id)
+        assert ride_obj.accessibility_requested is True
+
+        # Non-WAV driver (test_driver has accessibility_capable=False by default)
+        non_wav_driver = test_driver
+        assert non_wav_driver.accessibility_capable is False or getattr(non_wav_driver, 'accessibility_capable', False) is False
+
+        resp = client.get("/api/rides/available", params={
+            "driver_id": non_wav_driver.id,
+            "latitude": PICKUP_LAT,
+            "longitude": PICKUP_LNG,
+        }, headers=driver_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        wav_ride_ids = [r["id"] for r in data["available_requests"]]
+        assert wav_ride_id not in wav_ride_ids, (
+            "Non-WAV driver should NOT see accessibility_requested rides"
+        )
+
+        # WAV-capable driver should see the ride
+        from models import DriverStatus
+        wav_driver = Driver(
+            driver_id=f"drv_{uuid.uuid4().hex[:8]}",
+            email=f"wav_driver_{datetime.now().timestamp()}@test.com",
+            password_hash=get_password_hash("DriverPass123!"),
+            first_name="WAV",
+            last_name="Driver",
+            phone="+14155550999",
+            is_active=True,
+            is_online=True,
+            status=DriverStatus.ACTIVE,
+            accessibility_capable=True,
+        )
+        db_session.add(wav_driver)
+        db_session.commit()
+        db_session.refresh(wav_driver)
+
+        wav_token = create_access_token(data={
+            "sub": wav_driver.email,
+            "driver_id": wav_driver.id,
+        })
+        wav_headers = {"Authorization": f"Bearer {wav_token}"}
+
+        resp = client.get("/api/rides/available", params={
+            "driver_id": wav_driver.id,
+            "latitude": PICKUP_LAT,
+            "longitude": PICKUP_LNG,
+        }, headers=wav_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        wav_ride_ids = [r["id"] for r in data["available_requests"]]
+        assert wav_ride_id in wav_ride_ids, (
+            "WAV-capable driver SHOULD see accessibility_requested rides"
+        )
+
+    def test_stripe_payment_failure_rollback(
+        self, client, db_session, test_customer, test_driver,
+        customer_headers, driver_headers, mock_notifications,
+    ):
+        """When Stripe.PaymentIntent.create raises StripeError during bid acceptance,
+        the ride is still matched (non-blocking) but no payment intent ID is stored.
+        The customer is NOT silently charged (no intent = no capture later).
+        bid_routes.py:748-789: Stripe failure is caught as non-blocking exception."""
+        import stripe as stripe_lib
+
+        customer = test_customer
+        driver = test_driver
+
+        # Create ride request
+        resp = client.post("/api/rides/request", json={
+            "customer_id": customer.id,
+            "pickup_address": "123 Market St",
+            "pickup_latitude": PICKUP_LAT,
+            "pickup_longitude": PICKUP_LNG,
+            "dropoff_address": "SFO Airport",
+            "dropoff_latitude": DROPOFF_LAT,
+            "dropoff_longitude": DROPOFF_LNG,
+            "bidding_duration_minutes": 5,
+        }, headers=customer_headers)
+        assert resp.status_code == 200
+        ride_id = resp.json()["ride_request"]["id"]
+
+        # Driver bids
+        resp = client.post(f"/api/rides/request/{ride_id}/bid", json={
+            "driver_id": driver.id,
+            "proposed_price": 25.00,
+        }, headers=driver_headers)
+        assert resp.status_code == 200
+        bid_id = resp.json()["bid"]["id"]
+
+        # Customer accepts bid — with Stripe failing
+        with patch("bid_routes.stripe") as mock_stripe_module:
+            mock_stripe_module.PaymentIntent.create.side_effect = Exception(
+                "StripeError: Your card was declined"
+            )
+            mock_stripe_module.Customer.list.return_value = MagicMock(data=[])
+            mock_stripe_module.Customer.create.return_value = MagicMock(id="cus_test_fail")
+
+            resp = client.post(f"/api/rides/bid/{bid_id}/respond", json={
+                "action": "accept",
+            }, headers=customer_headers)
+
+        # Ride is still matched (Stripe failure is non-blocking per bid_routes.py:788-789)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["driver"] is not None
+
+        # No payment intent stored — customer NOT silently charged
+        db_session.expire_all()
+        ride_obj = db_session.query(RideRequest).get(ride_id)
+        assert ride_obj.status == RideRequestStatus.MATCHED
+        assert ride_obj.stripe_payment_intent_id is None, (
+            "No payment intent should be stored when Stripe fails"
+        )
+
+    def test_driver_cancel_mid_ride(
+        self, client, db_session, test_customer, test_driver,
+        customer_headers, driver_headers, mock_notifications,
+    ):
+        """POST /api/rides/request/{id}/driver-cancel:
+        - Requires driver auth and matched driver only (403 for wrong driver)
+        - Requires MATCHED status
+        - Transitions ride to OPEN (so other drivers can re-bid)
+        - Matched bid transitions to WITHDRAWN
+        bid_routes.py:1957-2041
+        """
+        import uuid
+        customer = test_customer
+        driver = test_driver
+
+        # Create ride request
+        resp = client.post("/api/rides/request", json={
+            "customer_id": customer.id,
+            "pickup_address": "123 Market St",
+            "pickup_latitude": PICKUP_LAT,
+            "pickup_longitude": PICKUP_LNG,
+            "dropoff_address": "SFO Airport",
+            "dropoff_latitude": DROPOFF_LAT,
+            "dropoff_longitude": DROPOFF_LNG,
+            "bidding_duration_minutes": 5,
+        }, headers=customer_headers)
+        assert resp.status_code == 200
+        ride_id = resp.json()["ride_request"]["id"]
+
+        # Driver bids
+        resp = client.post(f"/api/rides/request/{ride_id}/bid", json={
+            "driver_id": driver.id,
+            "proposed_price": 25.00,
+        }, headers=driver_headers)
+        assert resp.status_code == 200
+        bid_id = resp.json()["bid"]["id"]
+
+        # Customer accepts bid (mock Stripe to avoid network calls)
+        with patch("bid_routes.stripe") as mock_stripe_module:
+            mock_stripe_module.PaymentIntent.create.return_value = MagicMock(id="pi_test_cancel")
+            mock_stripe_module.Customer.list.return_value = MagicMock(data=[])
+            mock_stripe_module.Customer.create.return_value = MagicMock(id="cus_test_cancel")
+
+            resp = client.post(f"/api/rides/bid/{bid_id}/respond", json={
+                "action": "accept",
+            }, headers=customer_headers)
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+        db_session.expire_all()
+        ride_obj = db_session.query(RideRequest).get(ride_id)
+        assert ride_obj.status == RideRequestStatus.MATCHED
+
+        # A different driver (not the matched one) tries to cancel — expect 403
+        from models import DriverStatus
+        other_driver = Driver(
+            driver_id=f"drv_{uuid.uuid4().hex[:8]}",
+            email=f"other_driver_{datetime.now().timestamp()}@test.com",
+            password_hash=get_password_hash("DriverPass123!"),
+            first_name="Other",
+            last_name="Driver",
+            phone="+14155550888",
+            is_active=True,
+            is_online=True,
+            status=DriverStatus.ACTIVE,
+        )
+        db_session.add(other_driver)
+        db_session.commit()
+        db_session.refresh(other_driver)
+
+        other_token = create_access_token(data={
+            "sub": other_driver.email,
+            "driver_id": other_driver.id,
+        })
+        other_headers = {"Authorization": f"Bearer {other_token}"}
+
+        resp = client.post(
+            f"/api/rides/request/{ride_id}/driver-cancel",
+            json={"reason": "Change of plans"},
+            headers=other_headers,
+        )
+        assert resp.status_code == 403, (
+            f"Non-matched driver should get 403, got {resp.status_code}: {resp.json()}"
+        )
+
+        # Unauthenticated call — expect 401 or 403
+        resp = client.post(
+            f"/api/rides/request/{ride_id}/driver-cancel",
+            json={"reason": "No auth"},
+        )
+        assert resp.status_code in (401, 403), (
+            f"Unauthenticated cancel should be rejected, got {resp.status_code}"
+        )
+
+        # Matched driver cancels — ride reverts to OPEN, bid to WITHDRAWN
+        with patch("bid_routes.stripe") as mock_stripe_module:
+            mock_stripe_module.PaymentIntent.cancel.return_value = MagicMock()
+            resp = client.post(
+                f"/api/rides/request/{ride_id}/driver-cancel",
+                json={"reason": "Emergency"},
+                headers=driver_headers,
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+
+        db_session.expire_all()
+        ride_obj = db_session.query(RideRequest).get(ride_id)
+        assert ride_obj.status == RideRequestStatus.OPEN, (
+            f"Ride should revert to OPEN after driver cancel, got {ride_obj.status}"
+        )
+        assert ride_obj.matched_driver_id is None
+
+        bid_obj = db_session.query(RideBid).get(bid_id)
+        assert bid_obj.status == BidStatus.WITHDRAWN, (
+            f"Bid should be WITHDRAWN after driver cancel, got {bid_obj.status}"
+        )
