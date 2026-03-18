@@ -216,9 +216,10 @@ None
 | 184 | Fix OfferLetter.ai signup and forgot-password — double initCookieConsent causing duplicate banners | 2026-03-17 | 0f288f6 | [184-fix-offerletter-ai-signup-and-forgot-pas](./quick/184-fix-offerletter-ai-signup-and-forgot-pas/) |
 | 185 | Fix 8 rideshare E2E bugs — auto-navigate, stale cleanup, Stripe PaymentIntent, Android re-accept, location 5s | 2026-03-17 | 11d77e50 | [185-fix-8-rideshare-e2e-bugs-auto-navigate-o](./quick/185-fix-8-rideshare-e2e-bugs-auto-navigate-o/) |
 | 186 | Refactor iOS Driver App online/offline state — OnlineStatusManager singleton, AppConfig constants, eliminate split-brain bug | 2026-03-17 | fbdf26dd | [186-refactor-ios-driver-app-online-offline-s](./quick/186-refactor-ios-driver-app-online-offline-s/) |
+| 187 | Fix wheelchair/accessibility ride flow — real fields in /api/rides/available, WAV filter for non-capable drivers, fetchMyActiveRides + /rides/driver/active endpoint | 2026-03-17 | dfec559e | [187-fix-wheelchair-accessibility-ride-flow-e](./quick/187-fix-wheelchair-accessibility-ride-flow-e/) |
 
 ## Session Continuity
 
 Last session: 2026-03-17
-Stopped at: Completed quick task 186: iOS Driver App online/offline state refactor — OnlineStatusManager singleton
+Stopped at: Completed quick task 187: wheelchair/accessibility ride flow — WAV filter, real fields, fetchMyActiveRides
 Resume file: .planning/NEXT_SESSION_PROMPT.md
