@@ -641,21 +641,14 @@ struct RideBottomSheet: View {
             // Action Buttons
             VStack(spacing: 12) {
                 // Find Driver with Suggested Offer
-                Button(action: onRequestRide) {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                        Text("Find Driver • Offer $\(String(format: "%.2f", viewModel.estimatedFare))")
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(viewModel.canRequestRide ? Theme.brandGreen : Color.gray)
-                    .cornerRadius(12)
-                }
-                .disabled(!viewModel.canRequestRide)
-                .accessibilityLabel("Find driver with offer of \(String(format: "$%.2f", viewModel.estimatedFare))")
-                .accessibilityHint("Searches for available drivers near your pickup location")
+                SwipeToConfirmButton(
+                    label: "Slide to Find Driver • $\(String(format: "%.2f", viewModel.estimatedFare))",
+                    accentColor: Theme.brandGreen,
+                    isDisabled: !viewModel.canRequestRide,
+                    onConfirm: onRequestRide
+                )
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
 
                 // Make Custom Offer Button
                 Button(action: { showNegotiateSheet = true }) {
@@ -917,25 +910,18 @@ struct PreRequestNegotiationSheet: View {
             }
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 12) {
-                    Button(action: {
-                        if let offer = currentOffer {
-                            onRequestWithOffer(offer)
+                    SwipeToConfirmButton(
+                        label: currentOffer != nil ? "Slide to Request with $\(String(format: "%.0f", currentOffer!)) Offer" : "Enter an Amount",
+                        accentColor: Theme.brandOrange,
+                        isDisabled: currentOffer == nil,
+                        onConfirm: {
+                            if let offer = currentOffer {
+                                onRequestWithOffer(offer)
+                            }
                         }
-                    }) {
-                        HStack {
-                            Image(systemName: "paperplane.fill")
-                            Text(currentOffer != nil ? "Request with $\(String(format: "%.0f", currentOffer!)) Offer" : "Enter an Amount")
-                        }
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(currentOffer != nil ? Theme.brandOrange : Color.gray)
-                        .cornerRadius(12)
-                    }
-                    .disabled(currentOffer == nil)
-                    .accessibilityLabel(currentOffer != nil ? "Request ride with \(String(format: "$%.0f", currentOffer!)) offer" : "Enter an amount to request")
-                    .accessibilityHint("Sends your custom fare offer to drivers")
+                    )
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
                 }
                 .padding()
                 .background(Color(.systemBackground))
@@ -1849,22 +1835,14 @@ struct RideStatusCard: View {
                                 Spacer()
                             }
 
-                            HStack(spacing: 12) {
-                                Button(action: { viewModel.acceptDriverOffer() }) {
-                                    HStack {
-                                        Image(systemName: "checkmark.circle.fill")
-                                        Text("Accept")
-                                    }
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(Color.green)
-                                    .cornerRadius(10)
-                                }
-                                .accessibilityLabel("Accept driver's offer")
-                                .accessibilityHint("Confirms the driver's fare and books the ride")
+                            VStack(spacing: 12) {
+                                SwipeToConfirmButton(
+                                    label: "Slide to Accept Offer",
+                                    accentColor: .green,
+                                    onConfirm: { viewModel.acceptDriverOffer() }
+                                )
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 8)
 
                                 Button(action: { showNegotiateSheet = true }) {
                                     HStack {
@@ -2328,27 +2306,14 @@ struct RideStatusCard: View {
                             .cornerRadius(10)
 
                         // Submit Rating Button
-                        Button(action: submitRating) {
-                            HStack {
-                                if isSubmittingRating {
-                                    ProgressView()
-                                        .tint(.white)
-                                } else {
-                                    Image(systemName: "paperplane.fill")
-                                    Text("Submit \(selectedRating)-Star Rating")
-                                }
-                            }
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color.blue)
-                            .cornerRadius(10)
-                        }
-                        .disabled(isSubmittingRating)
-                        .accessibilityLabel("Submit rating")
-                        .accessibilityHint("Sends your \(selectedRating)-star rating to the driver")
+                        SwipeToConfirmButton(
+                            label: "Slide to Submit \(selectedRating)-Star Rating",
+                            accentColor: .yellow,
+                            isDisabled: isSubmittingRating,
+                            onConfirm: submitRating
+                        )
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 8)
                     }
                 }
                 .padding()
@@ -2444,27 +2409,14 @@ struct RideStatusCard: View {
                     // Submit Tip Button
                     let tipAmount = showCustomTip ? (Double(customTipAmount) ?? 0) : selectedTipAmount
                     if tipAmount > 0 {
-                        Button(action: submitTip) {
-                            HStack {
-                                if isSubmittingTip {
-                                    ProgressView()
-                                        .tint(.white)
-                                } else {
-                                    Image(systemName: "heart.fill")
-                                    Text("Add $\(String(format: "%.2f", tipAmount)) Tip")
-                                }
-                            }
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color.orange)
-                            .cornerRadius(10)
-                        }
-                        .disabled(isSubmittingTip)
-                        .accessibilityLabel("Add tip")
-                        .accessibilityHint("Sends $\(String(format: "%.2f", tipAmount)) tip to your driver")
+                        SwipeToConfirmButton(
+                            label: "Slide to Add $\(String(format: "%.2f", tipAmount)) Tip",
+                            accentColor: .green,
+                            isDisabled: isSubmittingTip,
+                            onConfirm: submitTip
+                        )
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 8)
                     }
 
                     // Skip Tip Button
@@ -2499,18 +2451,13 @@ struct RideStatusCard: View {
             }
 
             // Done Button
-            Button(action: { viewModel.resetRide() }) {
-                Text("Done")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.green)
-                    .cornerRadius(12)
-            }
-            .padding(.horizontal)
-            .accessibilityLabel("Complete ride")
-            .accessibilityHint("Closes this ride and returns to home screen")
+            SwipeToConfirmButton(
+                label: "Slide to Done",
+                accentColor: .gray,
+                onConfirm: { viewModel.resetRide() }
+            )
+            .padding(.horizontal, 24)
+            .padding(.vertical, 8)
         }
     }
 
@@ -2691,24 +2638,14 @@ struct CustomerNegotiationSheet: View {
                 Spacer()
 
                 // Submit button
-                Button(action: submitOffer) {
-                    HStack {
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Text("Submit Offer")
-                        }
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(customerOfferAmount.isEmpty ? Color.gray : Color.blue)
-                    .cornerRadius(12)
-                }
-                .disabled(customerOfferAmount.isEmpty || viewModel.isLoading)
-                .padding(.horizontal)
+                SwipeToConfirmButton(
+                    label: customerOfferAmount.isEmpty ? "Enter an Amount" : "Slide to Submit $\(customerOfferAmount) Offer",
+                    accentColor: .orange,
+                    isDisabled: customerOfferAmount.isEmpty || viewModel.isLoading,
+                    onConfirm: submitOffer
+                )
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
                 .padding(.bottom)
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -2769,20 +2706,29 @@ struct DriverBidsSheet: View {
                     ScrollView {
                         LazyVStack(spacing: 12) {
                             ForEach(viewModel.incomingBids, id: \.id) { bid in
-                                DriverBidCard(
-                                    bid: bid,
-                                    isLoading: viewModel.isLoading,
+                                TinderSwipeCard(
                                     onAccept: {
                                         viewModel.acceptBid(bid)
                                         // Don't dismiss here - let acceptBid handle it
                                     },
-                                    onCounter: {
-                                        viewModel.showCounterOffer(for: bid)
-                                    },
-                                    onReject: {
+                                    onDecline: {
                                         viewModel.rejectBid(bid)
                                     }
-                                )
+                                ) {
+                                    DriverBidCard(
+                                        bid: bid,
+                                        isLoading: viewModel.isLoading,
+                                        onAccept: {
+                                            viewModel.acceptBid(bid)
+                                        },
+                                        onCounter: {
+                                            viewModel.showCounterOffer(for: bid)
+                                        },
+                                        onReject: {
+                                            viewModel.rejectBid(bid)
+                                        }
+                                    )
+                                }
                             }
                         }
                         .padding()
@@ -2897,21 +2843,14 @@ struct BidCounterSheet: View {
                 Spacer()
 
                 // Submit button
-                Button(action: submitCounter) {
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    } else {
-                        Text("Submit Counter Offer")
-                            .fontWeight(.semibold)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(isValidPrice ? Color.blue : Color.gray)
-                .foregroundColor(.white)
-                .cornerRadius(12)
-                .disabled(!isValidPrice || viewModel.isLoading)
+                SwipeToConfirmButton(
+                    label: "Slide to Submit Counter",
+                    accentColor: .purple,
+                    isDisabled: !isValidPrice || viewModel.isLoading,
+                    onConfirm: submitCounter
+                )
+                .padding(.horizontal, 24)
+                .padding(.vertical, 8)
             }
             .padding()
             .navigationBarTitleDisplayMode(.inline)
