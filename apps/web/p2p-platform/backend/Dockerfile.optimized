@@ -111,6 +111,9 @@ RUN groupadd --gid 1000 appgroup && \
 # Copy all Python source files (main_new.py imports 20+ modules)
 COPY --chown=appuser:appgroup *.py ./
 
+# Copy Python sub-packages
+COPY --chown=appuser:appgroup insurance/ ./insurance/
+
 # Copy legal HTML pages (served at /privacy and /terms for App Store compliance)
 COPY --chown=appuser:appgroup legal/ ./legal/
 
