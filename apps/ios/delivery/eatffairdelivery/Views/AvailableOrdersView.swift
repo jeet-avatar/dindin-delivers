@@ -63,13 +63,27 @@ struct AvailableOrdersView: View {
                         }
                     } else {
                         // Rideshare Mode
-                        if viewModel.availableRides.isEmpty {
-                            rideEmptyStateView
-                        } else {
-                            if viewMode == .list {
-                                ridesList
+                        VStack(spacing: 0) {
+                            // Active ride banner — always shown at top when driver has MATCHED/IN_PROGRESS ride
+                            if !viewModel.myActiveRides.isEmpty {
+                                activeRideBanner
+                                    .padding(.horizontal)
+                                    .padding(.top, 12)
+                            }
+
+                            if viewModel.availableRides.isEmpty {
+                                // Only show empty state if no active ride is covering the screen
+                                if viewModel.myActiveRides.isEmpty {
+                                    rideEmptyStateView
+                                } else {
+                                    Spacer()
+                                }
                             } else {
-                                ridesMapView
+                                if viewMode == .list {
+                                    ridesList
+                                } else {
+                                    ridesMapView
+                                }
                             }
                         }
                     }
@@ -399,6 +413,106 @@ struct AvailableOrdersView: View {
             Spacer()
         }
         .padding()
+    }
+
+    // MARK: - Active Ride Banner (shown when driver has MATCHED or IN_PROGRESS ride)
+    private var activeRideBanner: some View {
+        let ride = viewModel.myActiveRides[0]
+        let isInProgress = ride.status == "in_progress"
+        let statusLabel = isInProgress ? "In Progress" : "Matched"
+        let statusColor: Color = isInProgress ? .purple : .green
+        let statusIcon = isInProgress ? "arrow.right.circle.fill" : "checkmark.circle.fill"
+
+        return VStack(spacing: 0) {
+            // Status header
+            HStack(spacing: 8) {
+                Image(systemName: statusIcon)
+                    .foregroundColor(statusColor)
+                Text("Active Ride — \(statusLabel)")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(statusColor)
+                Spacer()
+                if ride.accessibility_requested == true {
+                    HStack(spacing: 4) {
+                        Image(systemName: "figure.roll")
+                            .font(.caption2)
+                        Text("WAV")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.12))
+                    .cornerRadius(8)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(statusColor.opacity(0.1))
+
+            Divider()
+
+            // Route
+            VStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    Circle().fill(Color.green).frame(width: 8, height: 8)
+                    Text(ride.pickup.address)
+                        .font(.caption)
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(1)
+                    Spacer()
+                }
+                HStack(spacing: 10) {
+                    Circle().fill(Color.red).frame(width: 8, height: 8)
+                    Text(ride.dropoff.address)
+                        .font(.caption)
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(1)
+                    Spacer()
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+
+            // Passenger name + navigate action
+            HStack {
+                if let name = ride.customer_name {
+                    Label(name, systemImage: "person.fill")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                }
+                Spacer()
+                Button(action: {
+                    let dest = isInProgress ? ride.dropoff : ride.pickup
+                    guard dest.latitude != 0, dest.longitude != 0 else { return }
+                    let coordinate = CLLocationCoordinate2D(latitude: dest.latitude, longitude: dest.longitude)
+                    let placemark = MKPlacemark(coordinate: coordinate)
+                    let mapItem = MKMapItem(placemark: placemark)
+                    mapItem.name = dest.address
+                    mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
+                        Text(isInProgress ? "Navigate to Dropoff" : "Navigate to Pickup")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(statusColor)
+                    .cornerRadius(10)
+                }
+                .accessibilityLabel(isInProgress ? "Navigate to dropoff" : "Navigate to pickup")
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 14)
+        }
+        .background(Theme.cardBackground)
+        .cornerRadius(16)
+        .shadow(color: statusColor.opacity(0.2), radius: 8, x: 0, y: 4)
     }
 
     // MARK: - Rideshare Empty State
