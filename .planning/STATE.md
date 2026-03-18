@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-18 - Completed quick task 188: Rideshare production release — 3 E2E tests, iOS Customer 1120 + Driver 226 to TestFlight, backend deployed to production
+Last activity: 2026-03-18 - Completed quick task 189: fix race condition duplicate bids in RideBid model
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -219,6 +219,7 @@ None
 | 187 | Fix wheelchair/accessibility ride flow — ERP alias real fields, WAV driver filter, fetchMyActiveRides, duplicate endpoint audit | 2026-03-18 | 16115a53 | [187-fix-wheelchair-accessibility-ride-flow-e](./quick/187-fix-wheelchair-accessibility-ride-flow-e/) |
 | 187 | Fix wheelchair/accessibility ride flow — real fields in /api/rides/available, WAV filter for non-capable drivers, fetchMyActiveRides + /rides/driver/active endpoint | 2026-03-17 | dfec559e | [187-fix-wheelchair-accessibility-ride-flow-e](./quick/187-fix-wheelchair-accessibility-ride-flow-e/) |
 | 188 | Rideshare production release: 3 E2E tests (WAV filter, Stripe rollback, driver-cancel), ride_id type verified, backend prod deploy CI/CD 23234175091, iOS Customer 1120 + Driver 226 to TestFlight | 2026-03-18 | d30e3a66 | [188-rideshare-production-release-fix-3-criti](./quick/188-rideshare-production-release-fix-3-criti/) |
+| 189 | fix race condition duplicate bids in RideBid model — UniqueConstraint + SELECT FOR UPDATE + IntegrityError handler + Alembic migration, deployed to staging + production | 2026-03-18 | 3fc0a90f | [189-fix-race-condition-duplicate-bids-in-rid](./quick/189-fix-race-condition-duplicate-bids-in-rid/) |
 | 189 | Fix race condition duplicate bids — UniqueConstraint(ride_request_id, driver_id) in RideBid model, SELECT FOR UPDATE duplicate check, IntegrityError HTTP 400 handler, Alembic migration, deployed to production | 2026-03-18 | ce7384dd | [189-fix-race-condition-duplicate-bids-in-rid](./quick/189-fix-race-condition-duplicate-bids-in-rid/) |
 
 ## Session Continuity
