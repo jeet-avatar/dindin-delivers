@@ -35,7 +35,8 @@ class EarningsViewModel: ObservableObject {
     @Published var monthHours: Double = 0.0
 
     @Published var dailyEarnings: [DailyEarning] = []
-    @Published var isOnline: Bool = false
+    /// Computed proxy — reads from OnlineStatusManager.shared (single source of truth).
+    var isOnline: Bool { OnlineStatusManager.shared.isOnline }
 
     @Published var todayBreakdown: EarningsBreakdown = EarningsBreakdown()
     @Published var weekBreakdown: EarningsBreakdown = EarningsBreakdown()
@@ -384,43 +385,42 @@ class EarningsViewModel: ObservableObject {
     func updateOnlineStatus(_ status: Bool) {
         guard let uid = currentDriverId else { return }
 
-        // Update P2P backend first (primary source of truth)
-        P2PAPIService.shared.setDriverOnlineStatus(isOnline: status) { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success:
-                    self?.isOnline = status
-                    #if DEBUG
-                    logger.info("[Earnings] P2P online status updated to: \(status)")
-                    #endif
-                case .failure(let error):
-                    #if DEBUG
-                    logger.info("[Earnings] P2P online status update failed: \(error.localizedDescription)")
-                    #endif
-                    // Still try Firebase as backup
-                }
+        // Delegate the API call + location tracking to OnlineStatusManager (single source of truth).
+        // This replaces the direct P2PAPIService call that previously caused duplicate API calls
+        // when both DeliveryViewModel and EarningsViewModel toggled online independently.
+        OnlineStatusManager.shared.setOnlineStatus(status)
 
-                // Also update Firebase for backward compatibility
-                let driverData: [String: Any] = [
-                    "isOnline": status,
-                    "lastActive": Int64(Date().timeIntervalSince1970 * 1000)
-                ]
-
-                self?.db.collection("drivers").document(uid).setData(driverData, merge: true) { error in
-                    if error == nil {
-                        self?.isOnline = status
-                    }
-                }
+        // Also write to Firebase for session tracking backward compatibility.
+        // This is a best-effort cache write — OnlineStatusManager.shared.isOnline is authoritative.
+        let driverData: [String: Any] = [
+            "isOnline": status,
+            "lastActive": Int64(Date().timeIntervalSince1970 * 1000)
+        ]
+        db.collection("drivers").document(uid).setData(driverData, merge: true) { error in
+            // isOnline is now read from OnlineStatusManager.shared — no separate assignment needed.
+            #if DEBUG
+            if let error = error {
+                logger.error("[Earnings] Firebase status cache write failed: \(error.localizedDescription)")
             }
+            #endif
         }
     }
     
     func fetchOnlineStatus() {
         guard let uid = currentDriverId else { return }
-        
+
+        // Only syncs Firebase→manager for the "true" (online) state on cold launch.
+        // Manager is authoritative; this is a one-way bootstrap if the manager is still false.
         db.collection("drivers").document(uid).getDocument { snapshot, error in
-            if let data = snapshot?.data() {
-                self.isOnline = data["isOnline"] as? Bool ?? false
+            if let data = snapshot?.data(),
+               let fbOnline = data["isOnline"] as? Bool {
+                // Only apply Firebase value if no backend call has been made yet
+                // (avoids overwriting a more recent backend-confirmed state)
+                DispatchQueue.main.async {
+                    if !OnlineStatusManager.shared.isOnline && fbOnline {
+                        OnlineStatusManager.shared.markOnlineLocally()
+                    }
+                }
             }
         }
     }
@@ -450,7 +450,7 @@ class EarningsViewModel: ObservableObject {
             DailyEarning(day: "Sun", amount: 127.50)
         ]
 
-        self.isOnline = true
+        OnlineStatusManager.shared.markOnlineLocally()
     }
     #endif
     
@@ -525,7 +525,8 @@ class EarningsViewModel: ObservableObject {
             try db.collection("driver_sessions").document(sessionId).setData(from: session)
             currentSessionId = sessionId
             sessionStartTime = Date()
-            isOnline = true
+            // Mark online in shared manager without redundant API call (updateOnlineStatus handles the API call)
+            OnlineStatusManager.shared.markOnlineLocally()
 
             // Update driver status
             db.collection("drivers").document(uid).updateData([
@@ -573,7 +574,8 @@ class EarningsViewModel: ObservableObject {
         
         currentSessionId = nil
         sessionStartTime = nil
-        isOnline = false
+        // Mark offline in shared manager without redundant API call (endSession caller handles the API call)
+        OnlineStatusManager.shared.markOfflineLocally()
     }
     
     private func updateDriverStats(driverId: String, session: DriverSession) {

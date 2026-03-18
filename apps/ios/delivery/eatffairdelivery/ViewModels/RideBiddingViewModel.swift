@@ -73,8 +73,8 @@ class RideBiddingViewModel: ObservableObject {
     // Connection Status (for polling failure detection)
     @Published var showConnectionWarning = false
 
-    /// Driver online/offline status
-    @Published var isOnline: Bool = false
+    /// Computed proxy — reads from OnlineStatusManager.shared (single source of truth).
+    var isOnline: Bool { OnlineStatusManager.shared.isOnline }
 
     // MARK: - Private Properties
 
@@ -82,7 +82,7 @@ class RideBiddingViewModel: ObservableObject {
     private let wsManager = WebSocketManager.shared
     private var refreshTimer: Timer?
     private var pollingFailureCount = 0
-    private let maxFailuresBeforeWarning = 3
+    private var maxFailuresBeforeWarning: Int { AppConfig.shared.maxPollingFailuresBeforeWarning }
 
     // MARK: - Initialization
 
@@ -103,40 +103,22 @@ class RideBiddingViewModel: ObservableObject {
 
     // MARK: - Online Status Toggle
 
+    /// Delegates to OnlineStatusManager — single API call, single location tracking start/stop.
     func setOnlineStatus(_ online: Bool) {
-        isOnline = online
-
-        // Start/stop background location tracking
-        if online {
-            LocationManager.shared.startTracking()
-        } else {
-            LocationManager.shared.stopTracking()
-        }
-
-        p2pService.setDriverOnlineStatus(isOnline: online) { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success:
-                    break
-                case .failure:
-                    self?.isOnline = !online // Revert on failure
-                    if !online { LocationManager.shared.startTracking() }
-                    else { LocationManager.shared.stopTracking() }
-                    self?.errorMessage = "Failed to update online status"
-                    self?.showError = true
-                }
-            }
-        }
+        OnlineStatusManager.shared.setOnlineStatus(online)
     }
 
     // MARK: - Refresh Timer
 
     private func setupRefreshTimer() {
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        // Poll on driverPollingInterval (5s by default, matches Android standard — Quick-64)
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: AppConfig.shared.driverPollingInterval, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             // Only poll when app is active
             guard UIApplication.shared.applicationState == .active else { return }
-            // Skip poll if driver is offline
+            // Skip poll if driver is offline — reads OnlineStatusManager.shared.isOnline via computed proxy.
+            // This intentionally guards both the timer-based poll and the wsManager.onNewBid WS handler
+            // (see connectWebSocket — both paths check self.isOnline via the same computed proxy).
             guard self.isOnline else { return }
             // Skip poll if WebSocket is delivering real-time updates
             if self.wsManager.isConnected { return }
@@ -151,6 +133,8 @@ class RideBiddingViewModel: ObservableObject {
         wsManager.onNewBid = { [weak self] data in
             // "new_bid" here means new ride request available
             guard let self = self else { return }
+            // self.isOnline is a computed proxy for OnlineStatusManager.shared.isOnline — intentional.
+            // Both the timer-based poll (setupRefreshTimer) and this WS handler use the same shared state.
             guard self.isOnline else { return }
             logger.info("[WS] New ride request received")
             self.fetchAvailableRequests()
@@ -210,8 +194,8 @@ class RideBiddingViewModel: ObservableObject {
         let latitude = location?.coordinate.latitude ?? 0.0
         let longitude = location?.coordinate.longitude ?? 0.0
 
-        // Cap radius at 100km — prevents fetching ALL rides globally when location unavailable
-        let radiusKm: Double = 100.0
+        // Cap radius — prevents fetching ALL rides globally when location unavailable
+        let radiusKm: Double = AppConfig.shared.rideshareSearchRadiusKm
 
         p2pService.fetchAvailableRideRequests(
             latitude: latitude,
