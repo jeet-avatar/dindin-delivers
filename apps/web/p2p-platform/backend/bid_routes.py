@@ -1201,6 +1201,11 @@ async def get_available_ride_requests(
         )
     ).all()
 
+    # WAV filter: if driver is not accessibility_capable, exclude accessibility_requested rides
+    # (TNC-12 compliance: only WAV-capable drivers see WAV ride requests)
+    if not getattr(driver, 'accessibility_capable', False):
+        open_requests = [r for r in open_requests if not getattr(r, 'accessibility_requested', False)]
+
     # Batch check: which of these rides does the driver already have an active bid on?
     request_ids = [r.id for r in open_requests]
     driver_existing_bids = {}
@@ -1244,6 +1249,28 @@ async def get_available_ride_requests(
         "success": True,
         "available_requests": nearby_requests,
         "count": len(nearby_requests)
+    }
+
+
+@router.get("/driver/active")
+async def get_driver_active_rides(
+    driver: Driver = Depends(require_driver),
+    db: Session = Depends(get_db)
+):
+    """Get MATCHED and IN_PROGRESS rides for the authenticated driver.
+    Used by iOS DeliveryViewModel.fetchMyActiveRides() to populate myActiveRides.
+    """
+    active_statuses = [RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS]
+    rides = db.query(RideRequest).filter(
+        and_(
+            RideRequest.matched_driver_id == driver.id,
+            RideRequest.status.in_(active_statuses)
+        )
+    ).order_by(RideRequest.matched_at.desc()).limit(10).all()
+    return {
+        "success": True,
+        "active_rides": [serialize_ride_request(r) for r in rides],
+        "count": len(rides)
     }
 
 

@@ -5174,6 +5174,46 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// Get MATCHED and IN_PROGRESS rides for the authenticated driver.
+    /// Calls GET /api/rides/driver/active — populates DeliveryViewModel.myActiveRides.
+    public func fetchDriverActiveRides(
+        completion: @escaping (Result<[RideRequestForBidding], Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/rides/driver/active") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        if let token = driverToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        secureSession.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                guard let data = data, !data.isEmpty else {
+                    completion(.success([]))
+                    return
+                }
+
+                do {
+                    let response = try JSONDecoder().decode(DriverActiveRidesResponse.self, from: data)
+                    completion(.success(response.active_rides))
+                } catch {
+                    #if DEBUG
+                    logger.error("fetchDriverActiveRides decode error: \(error)")
+                    #endif
+                    completion(.success([]))
+                }
+            }
+        }.resume()
+    }
+
     /// Accept a ride (driver picks up passenger)
     public func acceptRide(
         rideId: Int,
@@ -10304,6 +10344,13 @@ public struct RideRequestForBidding: Identifiable, Codable {
     public let already_bid: Bool?
     public let driver_arrived_at: String?
     // Note: my_bid removed to avoid circular reference - fetch separately if needed
+}
+
+/// Response from GET /api/rides/driver/active
+public struct DriverActiveRidesResponse: Codable {
+    public let success: Bool
+    public let active_rides: [RideRequestForBidding]
+    public let count: Int
 }
 
 /// Response from POST /api/rides/request/{id}/complete
