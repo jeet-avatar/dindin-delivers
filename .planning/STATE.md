@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-18 - Completed quick task 190: build SwipeToConfirmButton shared component for iOS SwiftUI and wire all 19 rideshare swipe buttons (10 customer + 9 driver)
+Last activity: 2026-03-18 - Completed quick task 191: Android swipe-mode — TinderSwipeCard composable + 16 swipe buttons wired (6 driver, 10 customer)
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -87,6 +87,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-183]: Used static files in public/ instead of route handlers because output: export mode does not support route handlers
 - [Phase quick-190]: SwipeToConfirmButton 80% threshold with spring snap-back; swipe IS the confirmation for Complete Ride (no secondary alert needed)
 - [Phase quick-190]: TinderSwipeCard wraps entire RideRequestCard in ForEach — retain onBid tap inside card for direct access
+- [Phase quick-191]: CounterOfferResponseSheet Accept+Split row restructured — SwipeToConfirmButton needs full width; Split kept as tap Button; TinderSwipeCard wraps bid cards (swipe-right=accept, swipe-left=reject)
 
 ### Blockers
 
@@ -224,9 +225,10 @@ None
 | 189 | fix race condition duplicate bids in RideBid model — UniqueConstraint + SELECT FOR UPDATE + IntegrityError handler + Alembic migration, deployed to staging + production | 2026-03-18 | 3fc0a90f | [189-fix-race-condition-duplicate-bids-in-rid](./quick/189-fix-race-condition-duplicate-bids-in-rid/) |
 | 189 | Fix race condition duplicate bids — UniqueConstraint(ride_request_id, driver_id) in RideBid model, SELECT FOR UPDATE duplicate check, IntegrityError HTTP 400 handler, Alembic migration, deployed to production | 2026-03-18 | ce7384dd | [189-fix-race-condition-duplicate-bids-in-rid](./quick/189-fix-race-condition-duplicate-bids-in-rid/) |
 | 190 | Build SwipeToConfirmButton shared component — 2 SwiftUI views (pill + Tinder card), 8 customer + 9 driver swipe buttons, 5 iOS files | 2026-03-18 | 1421ba03 | [190-build-swipetoconfirmbutton-shared-compon](./quick/190-build-swipetoconfirmbutton-shared-compon/) |
+| 191 | Android swipe-mode — TinderSwipeCard composable (driver + customer), SwipeToConfirmButton (customer), 6 driver + 10 customer swipe buttons wired, both modules BUILD SUCCESSFUL | 2026-03-18 | ea618c67 | [191-build-swipetoconfirmbutton-composable-fo](./quick/191-build-swipetoconfirmbutton-composable-fo/) |
 
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Completed quick task 190: Build SwipeToConfirmButton shared component — 2 SwiftUI components (SwipeToConfirmButton + TinderSwipeCard), 5 iOS files modified, 19 rideshare action points converted
+Stopped at: Completed quick task 191: Android swipe-mode — TinderSwipeCard composable + 16 swipe buttons wired (6 driver, 10 customer)
 Resume file: .planning/NEXT_SESSION_PROMPT.md
