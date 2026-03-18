@@ -218,9 +218,10 @@ None
 | 186 | Refactor iOS Driver App online/offline state — OnlineStatusManager singleton, AppConfig constants, eliminate split-brain bug | 2026-03-17 | fbdf26dd | [186-refactor-ios-driver-app-online-offline-s](./quick/186-refactor-ios-driver-app-online-offline-s/) |
 | 187 | Fix wheelchair/accessibility ride flow — ERP alias real fields, WAV driver filter, fetchMyActiveRides, duplicate endpoint audit | 2026-03-18 | 16115a53 | [187-fix-wheelchair-accessibility-ride-flow-e](./quick/187-fix-wheelchair-accessibility-ride-flow-e/) |
 | 187 | Fix wheelchair/accessibility ride flow — real fields in /api/rides/available, WAV filter for non-capable drivers, fetchMyActiveRides + /rides/driver/active endpoint | 2026-03-17 | dfec559e | [187-fix-wheelchair-accessibility-ride-flow-e](./quick/187-fix-wheelchair-accessibility-ride-flow-e/) |
+| 188 | Rideshare production release: 3 E2E tests (WAV filter, Stripe rollback, driver-cancel), ride_id type verified, backend prod deploy CI/CD 23234175091, iOS Customer 1120 + Driver 226 to TestFlight | 2026-03-18 | d30e3a66 | [188-rideshare-production-release-fix-3-criti](./quick/188-rideshare-production-release-fix-3-criti/) |
 
 ## Session Continuity
 
-Last session: 2026-03-17
-Stopped at: Completed quick task 187: wheelchair/accessibility ride flow — WAV filter, real fields, fetchMyActiveRides
+Last session: 2026-03-18
+Stopped at: Completed quick task 188: rideshare production release — 3 E2E tests, iOS Customer 1120 + Driver 226 to TestFlight, backend deployed
 Resume file: .planning/NEXT_SESSION_PROMPT.md
