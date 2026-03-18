@@ -2264,7 +2264,8 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
     else:
         platform_fee = 3.00
     ride_request.platform_fee = platform_fee
-    ride_request.driver_payout = round(final_price - platform_fee, 2)
+    driver_a4a_share = 0.05  # TNC-13: driver's share of Access for All fee
+    ride_request.driver_payout = round(final_price - platform_fee - driver_a4a_share, 2)
 
     # In-app notification: ride completed
     _notify_customer(db, ride_request.customer_id,
@@ -2307,44 +2308,48 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
         else:
             driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
             if driver and getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
-                payout_cents = int(ride_request.driver_payout * 100)
-                if payout_cents > 0:
-                    transfer = stripe.Transfer.create(
-                        amount=payout_cents,
-                        currency="usd",
-                        destination=driver.stripe_account_id,
-                        description=f"Ride {ride_request.request_id} payout",
-                        metadata={
-                            "ride_id": str(ride_request.id),
-                            "ride_request_id": ride_request.request_id,
-                            "driver_id": str(driver.id),
-                            "fare": str(final_price),
-                            "platform_fee": str(platform_fee),
-                        },
-                        idempotency_key=f"bid_driver_xfer_{ride_request.id}_{bid.id if hasattr(bid, 'id') else ride_request.matched_bid_id}"
-                    )
-                    ride_request.stripe_transfer_id = transfer.id
-                    ride_request.driver_paid_at = datetime.utcnow()
-                    db.commit()
-                    logger.info(f"Ride {ride_request.id} auto-payout ${ride_request.driver_payout:.2f} to driver {driver.id}")
-
-                    # Push notification to driver — payment received
-                    try:
-                        send_push_notification(
-                            user_type="driver",
-                            user_id=driver.id,
-                            title="Payment Received!",
-                            body=f"${ride_request.driver_payout:.2f} from ride {ride_request.request_id} has been transferred to your account.",
-                            data={
-                                "type": "payment_processed",
-                                "ride_request_id": str(ride_request.id),
-                                "request_id": ride_request.request_id,
-                                "amount": str(ride_request.driver_payout)
+                # Idempotency: skip if transfer already created
+                if ride_request.stripe_transfer_id:
+                    logger.info(f"Ride {ride_request.id} transfer already exists ({ride_request.stripe_transfer_id}), skipping")
+                else:
+                    payout_cents = int(ride_request.driver_payout * 100)
+                    if payout_cents > 0:
+                        transfer = stripe.Transfer.create(
+                            amount=payout_cents,
+                            currency="usd",
+                            destination=driver.stripe_account_id,
+                            description=f"Ride {ride_request.request_id} payout",
+                            metadata={
+                                "ride_id": str(ride_request.id),
+                                "ride_request_id": ride_request.request_id,
+                                "driver_id": str(driver.id),
+                                "fare": str(final_price),
+                                "platform_fee": str(platform_fee),
                             },
-                            db=db
+                            idempotency_key=f"ride_xfer_{ride_request.id}"
                         )
-                    except Exception as e:
-                        logger.error(f"Failed to send payment push to driver: {e}")
+                        ride_request.stripe_transfer_id = transfer.id
+                        ride_request.driver_paid_at = datetime.utcnow()
+                        db.commit()
+                        logger.info(f"Ride {ride_request.id} auto-payout ${ride_request.driver_payout:.2f} to driver {driver.id}")
+
+                        # Push notification to driver — payment received
+                        try:
+                            send_push_notification(
+                                user_type="driver",
+                                user_id=driver.id,
+                                title="Payment Received!",
+                                body=f"${ride_request.driver_payout:.2f} from ride {ride_request.request_id} has been transferred to your account.",
+                                data={
+                                    "type": "payment_processed",
+                                    "ride_request_id": str(ride_request.id),
+                                    "request_id": ride_request.request_id,
+                                    "amount": str(ride_request.driver_payout)
+                                },
+                                db=db
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to send payment push to driver: {e}")
             else:
                 logger.info(f"Ride {ride_request.id} driver not Stripe-onboarded, skipping auto-payout")
     except Exception as e:
