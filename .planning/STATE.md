@@ -215,9 +215,10 @@ None
 | 183 | Fix BeatMind professional-grade issues: favicon, OG tags, SEO, subscription fix, cleanup | 2026-03-17 | af501369 | [183-fix-beatmind-professional-grade-issues-f](./quick/183-fix-beatmind-professional-grade-issues-f/) |
 | 184 | Fix OfferLetter.ai signup and forgot-password — double initCookieConsent causing duplicate banners | 2026-03-17 | 0f288f6 | [184-fix-offerletter-ai-signup-and-forgot-pas](./quick/184-fix-offerletter-ai-signup-and-forgot-pas/) |
 | 185 | Fix 8 rideshare E2E bugs — auto-navigate, stale cleanup, Stripe PaymentIntent, Android re-accept, location 5s | 2026-03-17 | 11d77e50 | [185-fix-8-rideshare-e2e-bugs-auto-navigate-o](./quick/185-fix-8-rideshare-e2e-bugs-auto-navigate-o/) |
+| 186 | Refactor iOS Driver App online/offline state — OnlineStatusManager singleton, AppConfig constants, eliminate split-brain bug | 2026-03-17 | fbdf26dd | [186-refactor-ios-driver-app-online-offline-s](./quick/186-refactor-ios-driver-app-online-offline-s/) |
 
 ## Session Continuity
 
 Last session: 2026-03-17
-Stopped at: Completed quick task 185: Fix 8 rideshare E2E bugs (auto-navigate, stale cleanup, Stripe, Android fixes)
+Stopped at: Completed quick task 186: iOS Driver App online/offline state refactor — OnlineStatusManager singleton
 Resume file: .planning/NEXT_SESSION_PROMPT.md
