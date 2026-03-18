@@ -136,6 +136,8 @@ class RideBiddingViewModel: ObservableObject {
             guard let self = self else { return }
             // Only poll when app is active
             guard UIApplication.shared.applicationState == .active else { return }
+            // Skip poll if driver is offline
+            guard self.isOnline else { return }
             // Skip poll if WebSocket is delivering real-time updates
             if self.wsManager.isConnected { return }
             self.refreshData()
@@ -149,6 +151,7 @@ class RideBiddingViewModel: ObservableObject {
         wsManager.onNewBid = { [weak self] data in
             // "new_bid" here means new ride request available
             guard let self = self else { return }
+            guard self.isOnline else { return }
             logger.info("[WS] New ride request received")
             self.fetchAvailableRequests()
         }

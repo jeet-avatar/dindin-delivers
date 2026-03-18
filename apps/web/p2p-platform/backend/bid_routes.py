@@ -1176,6 +1176,10 @@ async def get_available_ride_requests(
     """
     Get available ride requests near the driver for bidding. Requires driver auth.
     """
+    # Only online drivers receive bids
+    if not driver.is_online:
+        return {"success": True, "available_requests": [], "count": 0}
+
     # If driver_id provided, verify it matches the authenticated driver
     if driver_id and driver.id != driver_id:
         raise HTTPException(status_code=403, detail="driver_id does not match authenticated user")
