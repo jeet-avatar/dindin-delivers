@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text, Enum as SQLEnum, JSON, Computed
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text, Enum as SQLEnum, JSON, Computed, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
@@ -1453,6 +1453,11 @@ class RideBid(Base):
     ride_request = relationship("RideRequest", back_populates="bids", foreign_keys=[ride_request_id])
     driver = relationship("Driver")
     counter_to = relationship("RideBid", remote_side=[id], foreign_keys=[counter_to_bid_id])
+
+    # Table constraints
+    __table_args__ = (
+        UniqueConstraint('ride_request_id', 'driver_id', name='uq_bid_per_driver_per_request'),
+    )
 
 
 # ============================================================================
