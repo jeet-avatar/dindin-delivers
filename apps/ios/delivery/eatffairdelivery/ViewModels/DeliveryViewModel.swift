@@ -21,7 +21,9 @@ class DeliveryViewModel: ObservableObject {
 
     // MARK: - Rideshare Support
     @Published var availableRides: [P2PRide] = []
-    @Published var myActiveRides: [P2PRide] = []
+    /// Driver's currently MATCHED and IN_PROGRESS rideshare rides.
+    /// Populated from GET /api/rides/driver/active via fetchMyActiveRides().
+    @Published var myActiveRides: [RideRequestForBidding] = []
     @Published var driverMode: DriverMode = .foodDelivery
 
     // MARK: - Negotiation Support (Rideshare Only)
@@ -130,6 +132,7 @@ class DeliveryViewModel: ObservableObject {
         fetchTodayCompleted()
         if driverMode == .rideShare {
             fetchAvailableRides()
+            fetchMyActiveRides()
         }
     }
 
@@ -671,6 +674,22 @@ class DeliveryViewModel: ObservableObject {
 
                 case .failure(let error):
                     self?.handleError(error)
+                }
+            }
+        }
+    }
+
+    /// Fetch MATCHED and IN_PROGRESS rides for this driver (populates myActiveRides).
+    /// Calls GET /api/rides/driver/active — only runs when driverMode == .rideShare.
+    func fetchMyActiveRides() {
+        p2pService.fetchDriverActiveRides { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let rides):
+                    self?.myActiveRides = rides
+                case .failure(let error):
+                    logger.error("fetchMyActiveRides error: \(error.localizedDescription)")
+                    // Silently fail — myActiveRides stays at last-known value
                 }
             }
         }
