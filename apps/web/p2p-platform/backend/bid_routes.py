@@ -5,7 +5,8 @@ Enables price negotiation between riders and drivers
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, select
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
 from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator
@@ -1369,17 +1370,19 @@ async def submit_bid(request_id: int, data: SubmitBidInput, request: Request, dr
             detail="You have an active delivery in progress. Complete your current delivery before bidding on rides."
         )
 
-    # Check if driver already has a pending bid
-    existing_bid = db.query(RideBid).filter(
-        and_(
-            RideBid.ride_request_id == request_id,
-            RideBid.driver_id == data.driver_id,
-            RideBid.status == BidStatus.PENDING
-        )
-    ).first()
+    # Check if driver already has any bid (PENDING or otherwise) using SELECT FOR UPDATE
+    # to prevent race conditions where two concurrent requests both see NULL and both INSERT.
+    existing_bid = db.execute(
+        select(RideBid).where(
+            and_(
+                RideBid.ride_request_id == request_id,
+                RideBid.driver_id == data.driver_id,
+            )
+        ).with_for_update()
+    ).scalars().first()
 
     if existing_bid:
-        raise HTTPException(status_code=400, detail="You already have a pending bid on this request. Update or withdraw it first.")
+        raise HTTPException(status_code=400, detail="You already have a bid on this request. Update or withdraw it first.")
 
     # Check max bids limit (default 10)
     # First, auto-expire old pending bids (older than 10 minutes)
@@ -1440,16 +1443,20 @@ async def submit_bid(request_id: int, data: SubmitBidInput, request: Request, dr
         expires_at=datetime.utcnow() + timedelta(minutes=10)  # Bid valid for 10 minutes
     )
 
-    db.add(bid)
+    try:
+        db.add(bid)
 
-    # Update ride request status to BIDDING if first bid
-    if ride_request.status == RideRequestStatus.OPEN:
-        ride_request.status = RideRequestStatus.BIDDING
+        # Update ride request status to BIDDING if first bid
+        if ride_request.status == RideRequestStatus.OPEN:
+            ride_request.status = RideRequestStatus.BIDDING
 
-    db.flush()  # Gets auto-incremented id without committing
-    bid.bid_id = generate_clean_bid_id(bid.id)
-    db.commit()
-    db.refresh(bid)
+        db.flush()  # Gets auto-incremented id without committing
+        bid.bid_id = generate_clean_bid_id(bid.id)
+        db.commit()
+        db.refresh(bid)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Bid already submitted. Please refresh and try again.")
 
     # Send WebSocket update to customer about new bid
     try:
