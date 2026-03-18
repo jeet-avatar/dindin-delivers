@@ -36,7 +36,8 @@ class DeliveryViewModel: ObservableObject {
     @Published var hoursOnline: Double = 0.0
     @Published var weeklyEarnings: Double = 0.0
     @Published var weeklyDeliveries: Int = 0
-    @Published var isOnline: Bool = false
+    /// Computed proxy — reads from OnlineStatusManager.shared (single source of truth).
+    var isOnline: Bool { OnlineStatusManager.shared.isOnline }
 
     // MARK: - Delivery Proof Photo
     @Published var showDeliveryProofCamera = false
@@ -60,11 +61,11 @@ class DeliveryViewModel: ObservableObject {
 
     // Issue #36: Rate limiting for order acceptance (prevent double-tap)
     private var orderAcceptanceInProgress: Set<String> = []
-    private let rateLimitInterval: TimeInterval = 2.0 // seconds between accepting orders
+    private var rateLimitInterval: TimeInterval { AppConfig.shared.orderAcceptanceRateLimitInterval }
 
     // Issue #41: Location update throttling
     private var lastLocationUpdate: Date = .distantPast
-    private let locationUpdateMinInterval: TimeInterval = 3.0 // seconds
+    private var locationUpdateMinInterval: TimeInterval { AppConfig.shared.locationUpdateMinInterval }
 
     // Issue #42: Offline mode handling
     private var isNetworkAvailable: Bool = true
@@ -117,8 +118,8 @@ class DeliveryViewModel: ObservableObject {
 
     // MARK: - Refresh Timer for Real-time Updates
     private func setupRefreshTimer() {
-        // Poll every 5 seconds for updates (standardized across iOS and Android)
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+        // Poll on driverPollingInterval (5s by default, matches Android standard — Quick-64)
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: AppConfig.shared.driverPollingInterval, repeats: true) { [weak self] _ in
             self?.refreshAllData()
         }
     }
@@ -139,30 +140,9 @@ class DeliveryViewModel: ObservableObject {
     }
 
     // MARK: - Online Status Toggle
+    /// Delegates to OnlineStatusManager — single API call, single location tracking start/stop.
     func setOnlineStatus(_ online: Bool) {
-        isOnline = online
-
-        // Start/stop background location tracking
-        if online {
-            LocationManager.shared.startTracking()
-        } else {
-            LocationManager.shared.stopTracking()
-        }
-
-        // Use authenticated driver endpoint
-        p2pService.setDriverOnlineStatus(isOnline: online) { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success:
-                    VoiceAssistantManager.shared.speak(online ? "You are now online and receiving orders" : "You are now offline")
-                case .failure(let error):
-                    self?.isOnline = !online // Revert on failure
-                    if !online { LocationManager.shared.startTracking() } // Re-start if revert
-                    else { LocationManager.shared.stopTracking() }
-                    self?.handleError(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]))
-                }
-            }
-        }
+        OnlineStatusManager.shared.setOnlineStatus(online)
     }
 
     private func clearData() {
