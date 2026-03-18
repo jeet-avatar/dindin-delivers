@@ -17150,6 +17150,18 @@ def get_available_ride_requests(
             )
         ).order_by(RideRequest.created_at.desc()).limit(50).all()
 
+    # Batch-check which rides the authenticated driver has already bid on
+    from models import RideBid, BidStatus as BS
+    request_ids = [r.id for r in requests]
+    driver_bid_ids = set()
+    if request_ids:
+        existing_bids = db.query(RideBid.ride_request_id).filter(
+            RideBid.ride_request_id.in_(request_ids),
+            RideBid.driver_id == _auth_driver.id,
+            RideBid.status.in_([BS.PENDING, BS.COUNTERED])
+        ).all()
+        driver_bid_ids = {b.ride_request_id for b in existing_bids}
+
     available_requests = []
     for req in requests:
         # Calculate distance to pickup if driver location provided
@@ -17202,9 +17214,9 @@ def get_available_ride_requests(
             "accessibility_requested": getattr(req, 'accessibility_requested', False),
             "accessibility_notes": getattr(req, 'accessibility_notes', None),
             "created_at": req.created_at.isoformat() if req.created_at else None,
-            "bid_count": 0,
+            "bid_count": len(req.bids) if req.bids else 0,
             "distance_to_pickup_km": distance_to_pickup_km,
-            "already_bid": False
+            "already_bid": req.id in driver_bid_ids
         })
 
     return {
