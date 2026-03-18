@@ -569,24 +569,14 @@ struct SubmitBidSheet: View {
 
     private var submitButton: some View {
         VStack(spacing: 12) {
-            Button(action: submitBid) {
-                HStack {
-                    if viewModel.isSubmittingBid {
-                        ProgressView()
-                            .tint(.white)
-                    } else {
-                        Image(systemName: "hand.raised.fill")
-                        Text("Submit Bid - $\(String(format: "%.0f", proposedAmount))")
-                    }
-                }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(isValidBid && !viewModel.isSubmittingBid ? Color.blue : Color.gray)
-                .cornerRadius(16)
-            }
-            .disabled(!isValidBid || viewModel.isSubmittingBid)
+            SwipeToConfirmButton(
+                label: "Slide to Submit Bid $\(String(format: "%.0f", proposedAmount))",
+                accentColor: .blue,
+                isDisabled: !isValidBid || viewModel.isSubmittingBid,
+                onConfirm: submitBid
+            )
+            .padding(.horizontal, 24)
+            .padding(.vertical, 8)
 
             if !isValidBid && proposedAmount > 0 {
                 Text("Price must be greater than $\(String(format: "%.0f", platformFee)) platform fee")
