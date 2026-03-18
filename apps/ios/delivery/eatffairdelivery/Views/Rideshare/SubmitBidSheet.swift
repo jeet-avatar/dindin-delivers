@@ -196,6 +196,21 @@ struct SubmitBidSheet: View {
                 Spacer()
             }
 
+            // TNC-12: Accessibility notice
+            if request.accessibility_requested == true {
+                HStack(spacing: 8) {
+                    Image(systemName: "figure.roll")
+                        .foregroundColor(.blue)
+                    Text("Passenger needs accessible vehicle")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.blue)
+                    Spacer()
+                }
+                .padding(10)
+                .background(Color.blue.opacity(0.08))
+                .cornerRadius(8)
+            }
+
             // Trip Stats
             HStack(spacing: 20) {
                 if let distance = request.estimated_distance_km {
