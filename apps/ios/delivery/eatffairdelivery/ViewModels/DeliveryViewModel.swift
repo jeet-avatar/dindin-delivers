@@ -706,6 +706,8 @@ class DeliveryViewModel: ObservableObject {
                 case .success:
                     // Start location tracking for this ride
                     LocationManager.shared.startDeliveryTracking(orderId: ride.rideId)
+                    // Fetch active rides immediately so banner appears without waiting for next poll
+                    self?.fetchMyActiveRides()
                     self?.refreshAllData()
 
                 case .failure(let error):
