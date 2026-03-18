@@ -243,6 +243,18 @@ public class AppConfig: ObservableObject {
     @Published public var nearbyDistanceMeters: Double = 3218.69 // 2 miles
     @Published public var maxDeliveryDistanceMiles: Double = 15.0  // Max distance (matches DELIVERY_FEE_CONFIG.max_delivery_distance)
 
+    // MARK: - Driver Polling + Location Constants
+    /// How often the delivery/rideshare polling timers fire (seconds). Matches Android 5s standard (Quick-64).
+    @Published public var driverPollingInterval: TimeInterval = 5.0
+    /// Minimum gap between location updates sent to the backend (seconds). Prevents excessive PUT /auth/driver/location calls.
+    @Published public var locationUpdateMinInterval: TimeInterval = 3.0
+    /// Rate-limit window for order acceptance (seconds). Prevents double-tap race conditions.
+    @Published public var orderAcceptanceRateLimitInterval: TimeInterval = 2.0
+    /// Consecutive polling failures before showing connection warning in RideBiddingViewModel.
+    public let maxPollingFailuresBeforeWarning: Int = 3
+    /// Maximum rideshare search radius in kilometers. Caps global ride fetches when location unavailable.
+    public let rideshareSearchRadiusKm: Double = 100.0
+
     // Tip options (in dollars for rideshare, percentages for delivery)
     @Published public var rideTipOptions: [Double] = [0.0, 2.0, 5.0, 10.0]  // Dollar amounts
     @Published public var deliveryTipPercentages: [Int] = [0, 15, 20, 25]   // Percentages
