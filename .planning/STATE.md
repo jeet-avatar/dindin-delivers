@@ -85,6 +85,8 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-164]: Used ComboItemInfo struct for combo references; safe decoders for backward compat
 - [Phase quick-182]: Kept musai_auth.py filename to avoid breaking imports; only updated docstring
 - [Phase quick-183]: Used static files in public/ instead of route handlers because output: export mode does not support route handlers
+- [Phase quick-190]: SwipeToConfirmButton 80% threshold with spring snap-back; swipe IS the confirmation for Complete Ride (no secondary alert needed)
+- [Phase quick-190]: TinderSwipeCard wraps entire RideRequestCard in ForEach — retain onBid tap inside card for direct access
 
 ### Blockers
 
@@ -221,9 +223,10 @@ None
 | 188 | Rideshare production release: 3 E2E tests (WAV filter, Stripe rollback, driver-cancel), ride_id type verified, backend prod deploy CI/CD 23234175091, iOS Customer 1120 + Driver 226 to TestFlight | 2026-03-18 | d30e3a66 | [188-rideshare-production-release-fix-3-criti](./quick/188-rideshare-production-release-fix-3-criti/) |
 | 189 | fix race condition duplicate bids in RideBid model — UniqueConstraint + SELECT FOR UPDATE + IntegrityError handler + Alembic migration, deployed to staging + production | 2026-03-18 | 3fc0a90f | [189-fix-race-condition-duplicate-bids-in-rid](./quick/189-fix-race-condition-duplicate-bids-in-rid/) |
 | 189 | Fix race condition duplicate bids — UniqueConstraint(ride_request_id, driver_id) in RideBid model, SELECT FOR UPDATE duplicate check, IntegrityError HTTP 400 handler, Alembic migration, deployed to production | 2026-03-18 | ce7384dd | [189-fix-race-condition-duplicate-bids-in-rid](./quick/189-fix-race-condition-duplicate-bids-in-rid/) |
+| 190 | Build SwipeToConfirmButton shared component — 2 SwiftUI views (pill + Tinder card), 8 customer + 9 driver swipe buttons, 5 iOS files | 2026-03-18 | 1421ba03 | [190-build-swipetoconfirmbutton-shared-compon](./quick/190-build-swipetoconfirmbutton-shared-compon/) |
 
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Completed quick task 189: Fix race condition duplicate bids — UniqueConstraint + SELECT FOR UPDATE + IntegrityError handler, Alembic migration, deployed to production
+Stopped at: Completed quick task 190: Build SwipeToConfirmButton shared component — 2 SwiftUI components (SwipeToConfirmButton + TinderSwipeCard), 5 iOS files modified, 19 rideshare action points converted
 Resume file: .planning/NEXT_SESSION_PROMPT.md
