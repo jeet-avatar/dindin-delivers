@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-18 - Completed quick task 192: Fix 3 driver auto-payout bugs in complete_ride (bid NameError, idempotency guard, A4A deduction)
+Last activity: 2026-03-19 - Completed phase 08.1 plan 02: Payment capture failure recovery — explicit capture_failed flag, payment_retry_count column, check_capture_retry_job (5-min retry, 3-attempt max)
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -41,6 +41,7 @@ Progress: [##########] 100% (10/12 plans)
 ### Roadmap Evolution
 
 - Phase 12 added: Fix Admin Portal UI — Fix broken admin portal screens (restaurants not loading, design issues, mock dashboards), make admin portal production-ready
+- Phase 8.1 inserted after Phase 8 (URGENT): Fix rideshare failure paths — no-show fee enforcement, bid race condition, payment failure recovery, no-drivers expiry flow, driver cancel handling
 
 ### Decisions
 
@@ -88,6 +89,10 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-190]: SwipeToConfirmButton 80% threshold with spring snap-back; swipe IS the confirmation for Complete Ride (no secondary alert needed)
 - [Phase quick-190]: TinderSwipeCard wraps entire RideRequestCard in ForEach — retain onBid tap inside card for direct access
 - [Phase quick-191]: CounterOfferResponseSheet Accept+Split row restructured — SwipeToConfirmButton needs full width; Split kept as tap Button; TinderSwipeCard wraps bid cards (swipe-right=accept, swipe-left=reject)
+- [Phase 08.1-01]: Non-blocking Stripe no-show block: DB commit always persists first; payment_method= resolved from saved_cards[is_default=True].id
+- [Phase 08.1-02]: payment_retry_count nullable in Alembic (existing NULL rows treated as 0 via or-0 guard); MAX_RETRIES=3 hardcoded per spec; driver payout guarded with if/else on capture_failed status
+- [Phase 08.1-03]: Banner placed inside ZStack with zIndex(100); viewModel.resetRide() for Try Again; 10s auto-dismiss; notification fires even when view is not visible
+- [Phase 08.1-03]: Banner placed inside ZStack with zIndex(100); viewModel.resetRide() for Try Again; 10s auto-dismiss; notification fires even when view is not visible
 
 ### Blockers
 
@@ -231,6 +236,10 @@ None
 | 194 | Fix iOS silent rating and tip failure — alert on failure, submitted only on success; ratingSubmitted/tipSubmitted gated to .success branch only | 2026-03-18 | cafacbb6 | [194-fix-ios-silent-rating-and-tip-failure-sh](./quick/194-fix-ios-silent-rating-and-tip-failure-sh/) |
 | 195 | Remove AlertDialog gate from Android complete-ride swipe — wire onSwipeConfirm directly to viewModel.completeRide() (matches iOS UX) | 2026-03-18 | 0839d412 | [195-android-complete-ride-dialog-gate](./quick/195-android-complete-ride-dialog-gate/) |
 | 196 | Fix iOS startRide() no-show timer restart bug — capture previousTimerActive before cancel, restore flag only on API failure | 2026-03-18 | 78c8b55d | [196-ios-start-ride-timer-restart-fix](./quick/196-ios-start-ride-timer-restart-fix/) |
+| Phase 08.1 P01 | 50 | 2 tasks | 1 files |
+| Phase 08.1 P02 | 45 | 3 tasks | 4 files |
+| Phase 08.1 P03 | 8 | 1 tasks | 1 files |
+| Phase 08.1 P03 | 8 | 1 tasks | 1 files |
 
 ## Session Continuity
 
