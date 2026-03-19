@@ -19,7 +19,8 @@ from models import (
     RideRequest, RideBid, RideRequestStatus, BidStatus,
     Customer, Driver, DriverStatus,
     RideDispute, DisputeStatus, DisputeReason,
-    RecurringRide
+    RecurringRide,
+    SupportTicket, TicketType, TicketPriority, TicketStatus
 )
 from websocket_server import (
     broadcast_new_ride_request, broadcast_new_bid, broadcast_bid_response,
@@ -2152,6 +2153,7 @@ async def mark_passenger_no_show(request_id: int, request: Request, auth_driver:
 
     db.commit()
 
+    charge_succeeded = False
     # --- Stripe no-show fee charge (non-blocking) ---
     try:
         import stripe, os
@@ -2200,6 +2202,7 @@ async def mark_passenger_no_show(request_id: int, request: Request, auth_driver:
                 ride_request.payment_status = "captured"
                 db.commit()
                 logger.info(f"Ride {ride_request.id} no-show fee $5.00 charged, intent {fee_intent.id}")
+                charge_succeeded = True
 
                 # Step 3: Pay driver $4.00 via Stripe Connect transfer
                 matched_driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
@@ -2228,12 +2231,90 @@ async def mark_passenger_no_show(request_id: int, request: Request, auth_driver:
                 logger.warning(f"Ride {ride_request.id} no-show charge failed ({type(stripe_charge_err).__name__}): {stripe_charge_err} — flagged for manual review")
                 ride_request.payment_status = "manual_review"
                 db.commit()
+                # Notify customer: charge failed
+                send_push_notification(
+                    user_type="customer",
+                    user_id=ride_request.customer_id,
+                    title="No-show fee couldn't be collected",
+                    body="We were unable to charge the $5.00 no-show fee. Please ensure you have a valid payment method on file. Our team will follow up.",
+                    data={"type": "noshow_charge_failed", "ride_request_id": str(ride_request.id), "request_id": ride_request.request_id},
+                    db=db
+                )
+                _notify_customer(
+                    db, ride_request.customer_id,
+                    "No-show fee couldn't be collected",
+                    f"We couldn't charge the $5.00 no-show fee for ride {ride_request.request_id}. Please add a valid payment method. Our support team will follow up.",
+                    notification_type="payment",
+                    reference_id=ride_request.id,
+                    reference_type="ride"
+                )
+                # Auto-create P1 support ticket for manual follow-up
+                try:
+                    last_ticket = db.query(SupportTicket).order_by(SupportTicket.id.desc()).first()
+                    next_ticket_num = (last_ticket.id + 1) if last_ticket else 1
+                    support_ticket = SupportTicket(
+                        ticket_id=f"DOLLOR-{next_ticket_num}",
+                        title=f"No-show charge failed — Ride {ride_request.request_id}",
+                        description=f"Stripe charge for $5.00 no-show fee failed ({type(stripe_charge_err).__name__}) on ride {ride_request.request_id}. Customer ID: {ride_request.customer_id}. Manual collection required.",
+                        ticket_type=TicketType.SUPPORT,
+                        priority=TicketPriority.P1_HIGH,
+                        status=TicketStatus.OPEN,
+                        customer_id=ride_request.customer_id,
+                        driver_id=ride_request.matched_driver_id,
+                        component="Payment",
+                        labels=["no-show", "payment-failed"],
+                        reporter="system"
+                    )
+                    db.add(support_ticket)
+                    db.commit()
+                    logger.info(f"Ride {ride_request.id} no-show charge failure — support ticket {support_ticket.ticket_id} created")
+                except Exception as ticket_err:
+                    logger.warning(f"Ride {ride_request.id} failed to create support ticket: {ticket_err}")
         else:
             # No stripe_customer_id OR no default card in saved_cards — log for manual follow-up
             reason = "no stripe_customer_id" if not stripe_customer_id else "no default card in saved_cards"
             logger.warning(f"Ride {ride_request.id} no-show: {reason} — flagged for manual review")
             ride_request.payment_status = "manual_review"
             db.commit()
+            # Notify customer: charge failed
+            send_push_notification(
+                user_type="customer",
+                user_id=ride_request.customer_id,
+                title="No-show fee couldn't be collected",
+                body="We were unable to charge the $5.00 no-show fee. Please ensure you have a valid payment method on file. Our team will follow up.",
+                data={"type": "noshow_charge_failed", "ride_request_id": str(ride_request.id), "request_id": ride_request.request_id},
+                db=db
+            )
+            _notify_customer(
+                db, ride_request.customer_id,
+                "No-show fee couldn't be collected",
+                f"We couldn't charge the $5.00 no-show fee for ride {ride_request.request_id}. Please add a valid payment method. Our support team will follow up.",
+                notification_type="payment",
+                reference_id=ride_request.id,
+                reference_type="ride"
+            )
+            # Auto-create P1 support ticket for manual follow-up
+            try:
+                last_ticket = db.query(SupportTicket).order_by(SupportTicket.id.desc()).first()
+                next_ticket_num = (last_ticket.id + 1) if last_ticket else 1
+                support_ticket = SupportTicket(
+                    ticket_id=f"DOLLOR-{next_ticket_num}",
+                    title=f"No-show charge failed — Ride {ride_request.request_id}",
+                    description=f"No-show $5.00 fee could not be charged ({reason}) for ride {ride_request.request_id}. Customer ID: {ride_request.customer_id}. Manual collection required.",
+                    ticket_type=TicketType.SUPPORT,
+                    priority=TicketPriority.P1_HIGH,
+                    status=TicketStatus.OPEN,
+                    customer_id=ride_request.customer_id,
+                    driver_id=ride_request.matched_driver_id,
+                    component="Payment",
+                    labels=["no-show", "payment-failed"],
+                    reporter="system"
+                )
+                db.add(support_ticket)
+                db.commit()
+                logger.info(f"Ride {ride_request.id} no-show charge failure ({reason}) — support ticket {support_ticket.ticket_id} created")
+            except Exception as ticket_err:
+                logger.warning(f"Ride {ride_request.id} failed to create support ticket: {ticket_err}")
 
     except Exception as e:
         # Non-blocking: no-show is already recorded in DB, Stripe failure should not undo it
@@ -2252,7 +2333,7 @@ async def mark_passenger_no_show(request_id: int, request: Request, auth_driver:
                 user_type="customer",
                 user_id=ride_request.customer_id,
                 title="Ride cancelled — No show",
-                body=f"{driver_name} waited at the pickup but you didn't show up. A ${cancellation_fee:.2f} fee has been applied.",
+                body=f"{driver_name} waited at the pickup but you didn't show up. A ${cancellation_fee:.2f} fee has been applied." if charge_succeeded else f"{driver_name} waited at the pickup but you didn't show up. We couldn't process the no-show fee — our team will follow up.",
                 data={
                     "type": "ride_cancelled",
                     "ride_request_id": str(ride_request.id),
