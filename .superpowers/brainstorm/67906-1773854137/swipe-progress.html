@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dollor.ai — Swipe Mode Progress Board</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#010409;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:24px;font-size:13px;max-width:1400px;margin:0 auto}
+
+/* HEADER */
+.page-header{margin-bottom:28px;padding-bottom:16px;border-bottom:1px solid #21262d}
+.page-header h1{font-size:22px;font-weight:800;color:#58a6ff;margin-bottom:4px}
+.page-header .meta{font-size:11px;color:#6e7681;display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}
+.page-header .meta span{display:flex;align-items:center;gap:4px}
+.updated-badge{background:#0d2818;border:1px solid #238636;color:#56d364;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+
+/* PROGRESS BAR */
+.progress-section{margin-bottom:28px}
+.progress-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.progress-header h2{font-size:14px;font-weight:700;color:#e6edf3}
+.pct{font-size:20px;font-weight:800;color:#56d364}
+.progress-bar-wrap{background:#161b22;border-radius:20px;height:10px;overflow:hidden;margin-bottom:8px}
+.progress-bar-fill{background:linear-gradient(to right,#238636,#56d364);height:100%;border-radius:20px;transition:width 0.5s ease}
+.phase-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.phase-chip{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:5px}
+.chip-done{background:#0d2818;border:1px solid #238636;color:#56d364}
+.chip-active{background:#0d1f38;border:1px solid #1f6feb;color:#58a6ff}
+.chip-todo{background:#161b22;border:1px solid #21262d;color:#6e7681}
+
+/* STATUS GRID */
+.status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.stat-card{background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:16px;text-align:center}
+.stat-num{font-size:32px;font-weight:800;margin-bottom:4px}
+.stat-label{font-size:11px;color:#6e7681}
+.stat-green .stat-num{color:#56d364}
+.stat-blue .stat-num{color:#58a6ff}
+.stat-yellow .stat-num{color:#e3b341}
+.stat-purple .stat-num{color:#bc8cff}
+
+/* SECTION HEADERS */
+section{margin-bottom:28px}
+.section-title{font-size:15px;font-weight:700;color:#e6edf3;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:8px}
+.section-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:#238636;color:#56d364}
+.section-badge.blue{background:#0d419d;color:#58a6ff}
+.section-badge.yellow{background:#6e5619;color:#e3b341}
+
+/* TIMELINE */
+.timeline{position:relative;padding-left:24px}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:#21262d}
+.tl-item{position:relative;margin-bottom:20px}
+.tl-dot{position:absolute;left:-20px;top:2px;width:14px;height:14px;border-radius:50%;border:2px solid}
+.tl-dot.done{background:#238636;border-color:#56d364}
+.tl-dot.active{background:#1f6feb;border-color:#58a6ff;box-shadow:0 0 8px #1f6feb66}
+.tl-dot.todo{background:#161b22;border-color:#30363d}
+.tl-title{font-size:13px;font-weight:700;color:#e6edf3;margin-bottom:4px}
+.tl-desc{font-size:11px;color:#8b949e;line-height:1.5}
+.tl-meta{font-size:10px;color:#6e7681;margin-top:4px;font-family:monospace}
+.tl-commit{background:#0d1f38;border:1px solid #0d419d;color:#58a6ff;padding:2px 8px;border-radius:6px;font-size:10px;font-family:monospace;margin-right:4px}
+
+/* BUG FIX CARD */
+.bug-fixed{background:#0d2818;border:1px solid #238636;border-radius:12px;padding:16px;margin-bottom:14px}
+.bug-fixed-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.bug-fixed-title{font-size:13px;font-weight:700;color:#56d364}
+.fix-badge{background:#238636;color:#56d364;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700}
+.bug-row{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid #0f3a1f;font-size:11px}
+.bug-row:last-child{border:none}
+.bug-layer{font-size:10px;font-weight:700;color:#56d364;width:80px;flex-shrink:0;margin-top:1px}
+.bug-desc{color:#8b949e;flex:1}
+.bug-file{font-family:monospace;font-size:9px;color:#444;margin-top:2px}
+
+/* SWIPE BUTTON TABLES */
+.swipe-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px}
+.swipe-table th{background:#161b22;color:#8b949e;text-align:left;padding:9px 10px;border-bottom:2px solid #21262d;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase}
+.swipe-table td{padding:8px 10px;border-bottom:1px solid #161b22;vertical-align:middle}
+.swipe-table tr:last-child td{border:none}
+.swipe-table tr:hover td{background:#0d1117}
+.file-ref{font-family:monospace;font-size:9px;color:#444}
+.api-ref{font-family:monospace;font-size:10px;color:#58a6ff}
+.swipe-label-pill{display:inline-flex;align-items:center;gap:5px;background:#0d2818;border:1px solid #238636;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:600;color:#56d364}
+.swipe-label-card{display:inline-flex;align-items:center;gap:5px;background:#1a0d2a;border:1px solid #6e40c9;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:600;color:#bc8cff}
+.safe-tag{display:inline-flex;align-items:center;gap:4px;background:#3d1f00;border:1px solid #6e3d00;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:600;color:#d29922}
+.status-built{display:inline-flex;align-items:center;gap:4px;background:#0d2818;color:#56d364;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700}
+.status-pending{display:inline-flex;align-items:center;gap:4px;background:#161b22;color:#6e7681;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700}
+.status-na{display:inline-flex;align-items:center;gap:4px;background:#3d1f00;color:#d29922;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700}
+
+/* APP TABS */
+.app-tabs{display:flex;gap:8px;margin-bottom:16px}
+.app-tab{padding:6px 16px;border-radius:8px;font-size:12px;font-weight:700;border:1px solid}
+.tab-customer{background:#0d1f38;border-color:#1f6feb;color:#58a6ff}
+.tab-driver{background:#0d2818;border-color:#238636;color:#56d364}
+
+/* COMPONENT CARD */
+.component-card{background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:16px;margin-bottom:14px}
+.component-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.component-name{font-size:14px;font-weight:700;font-family:monospace;color:#bc8cff}
+.component-file{font-family:monospace;font-size:10px;color:#444;margin-top:2px}
+.prop-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #161b22;font-size:11px}
+.prop-row:last-child{border:none}
+.prop-name{font-family:monospace;color:#e3b341;width:120px;flex-shrink:0}
+.prop-type{font-family:monospace;color:#bc8cff;width:100px;flex-shrink:0}
+.prop-desc{color:#8b949e}
+
+/* PHONE MOCKUPS */
+.mockup-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.phone-mock{background:#010409;border:2px solid #21262d;border-radius:20px;overflow:hidden;aspect-ratio:9/19.5;display:flex;flex-direction:column;position:relative}
+.phone-notch{background:#010409;height:20px;display:flex;align-items:center;justify-content:center}
+.phone-notch::after{content:'';width:40px;height:6px;background:#21262d;border-radius:10px}
+.phone-screen{flex:1;padding:8px;display:flex;flex-direction:column;overflow:hidden}
+.phone-screen-label{font-size:8px;font-weight:700;letter-spacing:1px;color:#6e7681;text-align:center;text-transform:uppercase;margin-bottom:6px}
+.phone-content{flex:1;display:flex;flex-direction:column;gap:4px}
+.pmock-map{flex:1;background:#0a1a0a;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;position:relative;min-height:60px}
+.pmock-route{position:absolute;width:2px;height:50%;background:linear-gradient(to bottom,#58a6ff,#56d364);left:50%;transform:translateX(-50%)}
+.pmock-a{position:absolute;top:12%;left:50%;transform:translateX(-50%);font-size:14px}
+.pmock-b{position:absolute;bottom:12%;left:50%;transform:translateX(-50%);font-size:12px}
+.pmock-sheet{background:#0d1117;border-radius:8px;padding:8px;border-top:1px solid #21262d}
+.pmock-sheet-title{font-size:9px;font-weight:700;color:#e6edf3;margin-bottom:4px}
+.pmock-row{display:flex;justify-content:space-between;font-size:8px;color:#6e7681;padding:2px 0}
+.pmock-total{display:flex;justify-content:space-between;font-size:10px;font-weight:800;color:#56d364;margin-top:4px}
+.pmock-swipe-pill{background:linear-gradient(to right,#0d2818,#1a3a2a);border-radius:30px;height:32px;display:flex;align-items:center;padding:0 3px;margin-top:4px;gap:3px}
+.pmock-thumb{width:26px;height:26px;border-radius:50%;background:#56d364;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+.pmock-swipe-text{flex:1;text-align:center;font-size:8px;font-weight:700;color:#56d364}
+.pmock-bids{display:flex;flex-direction:column;gap:3px;margin-bottom:4px}
+.pmock-bid{background:#161b22;border-radius:6px;padding:5px;display:flex;align-items:center;gap:5px;font-size:8px;border:1px solid #21262d;position:relative}
+.pmock-bid.selected{background:#0d2818;border-color:#238636}
+.pmock-avatar{width:18px;height:18px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px}
+.pmock-bid-info{flex:1;color:#6e7681}
+.pmock-price{font-size:10px;font-weight:800;color:#56d364}
+.pmock-swipe-arrows{display:flex;justify-content:space-between;font-size:8px;color:#6e7681;padding:0 4px;margin-top:2px}
+.tinder-card{background:#161b22;border-radius:8px;padding:8px;border:1px solid #21262d;margin-bottom:3px;font-size:8px}
+.tc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.tc-swipe-hint{display:flex;justify-content:space-between;font-size:8px;color:#6e7681;margin-top:3px}
+.pmock-arrive-pill{background:linear-gradient(to right,#1a0d2a,#2a1a3a);border-radius:30px;height:32px;display:flex;align-items:center;padding:0 3px;margin-top:4px;gap:3px}
+.pmock-arrive-thumb{width:26px;height:26px;border-radius:50%;background:#bc8cff;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+.pmock-arrive-text{flex:1;text-align:center;font-size:8px;font-weight:700;color:#bc8cff}
+
+/* NEXT STEPS */
+.next-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.next-card{background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:14px}
+.next-card.priority-high{border-color:#1f6feb}
+.next-card.priority-med{border-color:#6e5619}
+.next-card.priority-low{border-color:#21262d}
+.next-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.next-card-title{font-size:12px;font-weight:700;color:#e6edf3}
+.priority-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px}
+.pb-high{background:#0d1f38;color:#58a6ff}
+.pb-med{background:#6e5619;color:#e3b341}
+.pb-low{background:#21262d;color:#8b949e}
+.next-desc{font-size:11px;color:#8b949e;line-height:1.5}
+.next-cmd{font-family:monospace;font-size:10px;background:#161b22;color:#56d364;padding:4px 8px;border-radius:6px;margin-top:6px;display:inline-block}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h1>Dollor.ai — Swipe Mode Progress Board</h1>
+    <span class="updated-badge">Updated Mar 19, 2026 · Q-193 Complete</span>
+  </div>
+  <div class="meta">
+    <span>📱 iOS SwiftUI · Android Jetpack Compose</span>
+    <span>🔄 Pattern: Hybrid C (pill + Tinder card)</span>
+    <span>🛣️ Route: RSM → LAX · $71.95 fare</span>
+    <span>Quick-189 + Quick-190 + Quick-191 + Quick-192 complete</span>
+  </div>
+</div>
+
+<!-- PROGRESS -->
+<section class="progress-section">
+  <div class="progress-header">
+    <h2>Overall Implementation Progress</h2>
+    <span class="pct">91%</span>
+  </div>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" style="width:91%"></div>
+  </div>
+  <div class="phase-row">
+    <span class="phase-chip chip-done">✓ Research &amp; Design</span>
+    <span class="phase-chip chip-done">✓ Race Condition Fix (Q-189)</span>
+    <span class="phase-chip chip-done">✓ iOS Component Built (Q-190)</span>
+    <span class="phase-chip chip-done">✓ iOS Customer Wired (10 buttons)</span>
+    <span class="phase-chip chip-done">✓ iOS Driver Wired (9 buttons)</span>
+    <span class="phase-chip chip-done">✓ Android Component (Q-191)</span>
+    <span class="phase-chip chip-done">✓ Android Customer (10 buttons)</span>
+    <span class="phase-chip chip-done">✓ Android Driver (9 buttons)</span>
+    <span class="phase-chip chip-done">✓ Stripe Connect Automation (Q-192)</span>
+    <span class="phase-chip chip-done">✓ WAV Count Fix (Q-193)</span>
+    <span class="phase-chip chip-active">→ iOS Builds 1121/227 → TestFlight</span>
+    <span class="phase-chip chip-todo">Android Builds → Firebase</span>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="status-grid">
+  <div class="stat-card stat-green">
+    <div class="stat-num">19</div>
+    <div class="stat-label">iOS Swipe Buttons Wired</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-num">19</div>
+    <div class="stat-label">Android Swipe Buttons Wired</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-num">3</div>
+    <div class="stat-label">Race Condition Defense Layers</div>
+  </div>
+  <div class="stat-card stat-purple">
+    <div class="stat-num">2</div>
+    <div class="stat-label">SwiftUI Components Built</div>
+  </div>
+</div>
+
+<!-- TIMELINE -->
+<section>
+  <div class="section-title">Implementation Timeline</div>
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-dot done"></div>
+      <div class="tl-title">Research &amp; Full Button Inventory</div>
+      <div class="tl-desc">Mapped 63 interactive elements across customer + driver apps (iOS + Android), every one with file:line citation and API endpoint. RSM → LAX E2E scenario simulated. Race condition discovered.</div>
+      <div class="tl-meta">Mar 18 · docs/superpowers/specs/2026-03-18-swipe-mode-ride-flow-design.md</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot done"></div>
+      <div class="tl-title">Quick-189 — Race Condition Fix (DEPLOYED to production)</div>
+      <div class="tl-desc">3-layer defense: UniqueConstraint on (ride_request_id, driver_id), SELECT FOR UPDATE on duplicate check, IntegrityError → HTTP 400 handler. Alembic migration cleans duplicates before adding constraint.</div>
+      <div class="tl-meta">
+        <span class="tl-commit">878fc30f</span>
+        <span class="tl-commit">ce7384dd</span>
+        CI/CD staging #23261360382 + prod #23261676795
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot done"></div>
+      <div class="tl-title">Quick-190 — SwipeToConfirmButton + 19 iOS buttons wired</div>
+      <div class="tl-desc">SwipeToConfirmButton (pill, 80% threshold, spring snap-back, haptic, VoiceOver) + TinderSwipeCard (L/R, 100pt threshold). 5 iOS files modified. SOS + Cancel untouched.</div>
+      <div class="tl-meta">
+        <span class="tl-commit">dab34868</span>
+        <span class="tl-commit">6ae04663</span>
+        <span class="tl-commit">1421ba03</span>
+        + import UIKit fix 3b1fbe02
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot done"></div>
+      <div class="tl-title">Android — SwipeToConfirmButton Compose + 19 buttons</div>
+      <div class="tl-desc">Build Draggable pill in Jetpack Compose. Wire RideRequestScreen.kt (10 customer) + ActiveRideScreen.kt + bid/counter sheets (9 driver). Mirror iOS Hybrid C pattern exactly.</div>
+      <div class="tl-meta">Q-191 · commits b0122a21 · 85b3854f · ea618c67</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot done"></div>
+      <div class="tl-title">Quick-192 — Stripe Connect Auto-Payout (DEPLOYED to production)</div>
+      <div class="tl-desc">Fixed 3 silent bugs blocking every driver payout: (1) NameError on <code>bid.id</code> swallowed by outer except, (2) no idempotency guard allowed duplicate Stripe Transfers on retry, (3) A4A $0.05 deduction missing from payout calc. All 3 fixed in <code>bid_routes.py</code>. Post-transfer block re-indented inside <code>if payout_cents &gt; 0</code> guard to prevent secondary UnboundLocalError.</div>
+      <div class="tl-meta">
+        <span class="tl-commit">7cd4acec</span>
+        CI/CD staging #23272880266 · prod #23272879677 — all jobs green
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot done"></div>
+      <div class="tl-title">Quick-193 — WAV Count in Quarterly Report (DEPLOYED)</div>
+      <div class="tl-desc">Replaced hardcoded <code>wav_vehicles_available: 0</code> in <code>tnc_compliance.py:781</code> with live DB query: <code>or_(Driver.accessibility_capable == True, Driver.accessibility_features.like('%"wheelchair": true%'))</code>. CPUC TNC-23 quarterly report now returns real WAV-capable driver count.</div>
+      <div class="tl-meta">
+        <span class="tl-commit">8e7b2100</span>
+        tnc_compliance.py · syntax verified · py_compile pass
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot active"></div>
+      <div class="tl-title">iOS Builds — Customer 1121 + Driver 227 → TestFlight</div>
+      <div class="tl-desc">Archive both iOS apps with latest swipe components + Stripe + WAV fixes and upload to TestFlight. Same xcodebuild + ExportOptions.plist pattern.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot todo"></div>
+      <div class="tl-title">Android Builds — Bump versionCode all 3 → Firebase</div>
+      <div class="tl-desc">Build release APKs for Customer/Driver/Partner, bump versionCode, distribute to jeetnair.in@gmail.com via Firebase App Distribution.</div>
+    </div>
+  </div>
+</section>
+
+<!-- BUG FIX -->
+<section>
+  <div class="section-title">
+    Critical Bug Fix — Race Condition
+    <span class="section-badge">DEPLOYED ✓</span>
+  </div>
+  <div class="bug-fixed">
+    <div class="bug-fixed-header">
+      <div class="bug-fixed-title">RideBid Duplicate Submission — TOCTOU Race Condition</div>
+      <span class="fix-badge">FIXED · Q-189</span>
+    </div>
+    <div class="bug-row">
+      <div class="bug-layer">DB Layer</div>
+      <div>
+        <div class="bug-desc">UniqueConstraint('ride_request_id', 'driver_id', name='uq_bid_per_driver_per_request') — absolute invariant, cannot be bypassed</div>
+        <div class="bug-file">models.py:1456 · Alembic migration 20260318_ride_bid_unique</div>
+      </div>
+    </div>
+    <div class="bug-row">
+      <div class="bug-layer">App Layer</div>
+      <div>
+        <div class="bug-desc">SELECT FOR UPDATE on duplicate check — acquires row-level lock, prevents two concurrent requests both reading NULL</div>
+        <div class="bug-file">bid_routes.py:1372</div>
+      </div>
+    </div>
+    <div class="bug-row">
+      <div class="bug-layer">Safety Net</div>
+      <div>
+        <div class="bug-desc">except IntegrityError → HTTP 400 "Bid already submitted" — catches any remaining edge cases after lock</div>
+        <div class="bug-file">bid_routes.py (around INSERT)</div>
+      </div>
+    </div>
+    <div class="bug-row">
+      <div class="bug-layer">Migration</div>
+      <div>
+        <div class="bug-desc">Deduplicates existing rows (keeping MIN(id)) before adding constraint — safe on live data</div>
+        <div class="bug-file">alembic/versions/20260318_ride_bid_unique.py</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPONENT SPEC -->
+<section>
+  <div class="section-title">
+    iOS Component Architecture
+    <span class="section-badge">BUILT ✓</span>
+  </div>
+  <div class="component-card">
+    <div class="component-header">
+      <div>
+        <div class="component-name">SwipeToConfirmButton</div>
+        <div class="component-file">EatFairShared/Views/SwipeToConfirmButton.swift · public struct · 228 lines</div>
+      </div>
+      <span class="status-built">✓ Built</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-name">label</span>
+      <span class="prop-type">String</span>
+      <span class="prop-desc">Track text ("Slide to Find Driver", "Slide to Pay $X.XX"…)</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-name">accentColor</span>
+      <span class="prop-type">Color</span>
+      <span class="prop-desc">Thumb + glow color. Default .green. Purple for driver actions.</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-name">isDisabled</span>
+      <span class="prop-type">Bool</span>
+      <span class="prop-desc">Grays out pill, blocks drag gesture</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-name">onConfirm</span>
+      <span class="prop-type">() → Void</span>
+      <span class="prop-desc">Fires at 80% drag threshold + haptic impact + spring completion</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-name">Accessibility</span>
+      <span class="prop-type">—</span>
+      <span class="prop-desc">accessibilityLabel(label) + accessibilityHint("Double-tap to confirm") + .isButton trait on thumb</span>
+    </div>
+  </div>
+  <div class="component-card">
+    <div class="component-header">
+      <div>
+        <div class="component-name">TinderSwipeCard&lt;Content: View&gt;</div>
+        <div class="component-file">EatFairShared/Views/SwipeToConfirmButton.swift · public struct · generic wrapper</div>
+      </div>
+      <span class="status-built">✓ Built</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-name">content</span>
+      <span class="prop-type">() → Content</span>
+      <span class="prop-desc">Any SwiftUI View — wraps the existing bid/ride card</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-name">onSwipeLeft</span>
+      <span class="prop-type">() → Void</span>
+      <span class="prop-desc">Decline action (100pt threshold left)</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-name">onSwipeRight</span>
+      <span class="prop-type">() → Void</span>
+      <span class="prop-desc">Accept action (100pt threshold right)</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-name">Rotation</span>
+      <span class="prop-type">—</span>
+      <span class="prop-desc">Card rotates ±8° with swipe direction + color overlay (red = decline, green = accept)</span>
+    </div>
+  </div>
+</section>
+
+<!-- PHONE MOCKUPS -->
+<section>
+  <div class="section-title">Live Screen Mockups — After Swipe Wiring</div>
+  <div class="mockup-grid">
+    <!-- Customer: Fare Review -->
+    <div class="phone-mock">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="phone-screen-label">Customer · Fare Review</div>
+        <div class="phone-content">
+          <div class="pmock-map">
+            <div class="pmock-route"></div>
+            <div class="pmock-a">📍</div>
+            <div class="pmock-b">✈️</div>
+          </div>
+          <div class="pmock-sheet">
+            <div class="pmock-sheet-title">RSM → LAX</div>
+            <div class="pmock-row"><span>Fare (0.9x surge)</span><span>$68.95</span></div>
+            <div class="pmock-row"><span>Platform fee</span><span>$3.00</span></div>
+            <div class="pmock-row"><span>A4A fee</span><span>$0.05</span></div>
+            <div class="pmock-total"><span>Total</span><span>$71.95</span></div>
+          </div>
+          <div class="pmock-swipe-pill">
+            <div class="pmock-thumb">→</div>
+            <div class="pmock-swipe-text">Slide to Find Driver</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Customer: Bid List (Tinder cards) -->
+    <div class="phone-mock">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="phone-screen-label">Customer · Bid List</div>
+        <div class="phone-content">
+          <div style="font-size:9px;color:#8b949e;margin-bottom:4px">5 offers · Swipe to decide</div>
+          <div class="pmock-bids">
+            <div class="pmock-bid selected">
+              <div class="pmock-avatar" style="background:#1a3a1a">🏆</div>
+              <div class="pmock-bid-info">Chen · ⭐ 4.9 · 3 min</div>
+              <div class="pmock-price">$65</div>
+            </div>
+            <div class="pmock-bid">
+              <div class="pmock-avatar" style="background:#1a2a3a">M</div>
+              <div class="pmock-bid-info">Marcus · ⭐ 4.8 · 5 min</div>
+              <div class="pmock-price">$69</div>
+            </div>
+            <div class="pmock-bid">
+              <div class="pmock-avatar" style="background:#2a1a2a">S</div>
+              <div class="pmock-bid-info">Sofia · ⭐ 4.7 · 7 min</div>
+              <div class="pmock-price">$72</div>
+            </div>
+          </div>
+          <div class="pmock-swipe-arrows">
+            <span>← Decline</span>
+            <span>Accept →</span>
+          </div>
+          <div style="font-size:8px;color:#6e7681;text-align:center;margin-top:4px">TinderSwipeCard</div>
+        </div>
+      </div>
+    </div>
+    <!-- Driver: Submit Bid -->
+    <div class="phone-mock">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="phone-screen-label">Driver · Submit Bid</div>
+        <div class="phone-content">
+          <div class="tinder-card">
+            <div class="tc-header">
+              <span style="color:#e6edf3;font-weight:700;font-size:9px">RSM → LAX · 45mi</span>
+              <span style="color:#56d364;font-weight:800;font-size:10px">$68.95</span>
+            </div>
+            <div style="color:#6e7681;font-size:8px">~145 min · Est. earn $65.90</div>
+            <div class="tc-swipe-hint">
+              <span>← Skip</span>
+              <span>Bid →</span>
+            </div>
+          </div>
+          <div style="font-size:8px;color:#8b949e;margin:4px 0">Your offer:</div>
+          <div style="background:#161b22;border-radius:6px;padding:6px;font-size:11px;font-weight:700;color:#56d364;text-align:center;margin-bottom:4px">$65.00</div>
+          <div class="pmock-arrive-pill">
+            <div class="pmock-arrive-thumb">→</div>
+            <div class="pmock-arrive-text">Slide to Submit Bid $65</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Driver: Active Ride -->
+    <div class="phone-mock">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="phone-screen-label">Driver · Active Ride</div>
+        <div class="phone-content">
+          <div class="pmock-map">
+            <div class="pmock-route"></div>
+            <div class="pmock-a">📍</div>
+            <div class="pmock-b">🏠</div>
+            <div style="position:absolute;top:45%;left:55%;font-size:14px">🚗</div>
+          </div>
+          <div class="pmock-sheet">
+            <div class="pmock-sheet-title" style="font-size:8px;display:flex;justify-content:space-between">
+              <span>En Route to Pickup</span>
+              <span style="color:#e3b341">3 min away</span>
+            </div>
+          </div>
+          <div class="pmock-arrive-pill">
+            <div class="pmock-arrive-thumb">→</div>
+            <div class="pmock-arrive-text">Slide — I've Arrived</div>
+          </div>
+          <div style="background:#200d0d;border-radius:6px;padding:4px;text-align:center;font-size:8px;color:#6e7681;margin-top:3px">🚨 SOS · Stay as tap</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CUSTOMER SWIPE TABLE -->
+<section>
+  <div class="section-title">
+    Customer iOS — 10 Swipe Buttons
+    <span class="section-badge">ALL WIRED ✓</span>
+  </div>
+  <div class="app-tabs">
+    <span class="app-tab tab-customer">Customer App</span>
+  </div>
+  <table class="swipe-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Screen</th>
+        <th>Component</th>
+        <th>Label / Action</th>
+        <th>API / Handler</th>
+        <th>File:Line</th>
+        <th>iOS Status</th>
+        <th>Android</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Fare Review</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Find Driver</td>
+        <td><span class="api-ref">POST /api/rides/request</span></td>
+        <td><span class="file-ref">RideRequestView.swift:644</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Fare Review (custom)</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Request with $X</td>
+        <td><span class="api-ref">POST /api/rides/request</span></td>
+        <td><span class="file-ref">RideRequestView.swift:920</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Bid Counter Sheet</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Submit Counter</td>
+        <td><span class="api-ref">POST /api/rides/bid/{id}/respond</span></td>
+        <td><span class="file-ref">RideRequestView.swift:2900</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Bid List Card</td>
+        <td><span class="swipe-label-card">Tinder Card</span></td>
+        <td>Swipe Right = Accept, Left = Decline</td>
+        <td><span class="api-ref">POST /api/rides/bid/{id}/respond</span></td>
+        <td><span class="file-ref">RideRequestView.swift:3162</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>Negotiation Card</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Accept Offer</td>
+        <td><span class="api-ref">acceptDriverOffer()</span></td>
+        <td><span class="file-ref">RideRequestView.swift:1853</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>Negotiation R4/R5</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Submit Counter</td>
+        <td><span class="api-ref">POST /api/rides/bid/{id}/respond</span></td>
+        <td><span class="file-ref">RideRequestView.swift:920</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>Payment Phase</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Pay $71.95</td>
+        <td><span class="api-ref">Stripe PaymentSheet trigger</span></td>
+        <td><span class="file-ref">RideRequestView.swift (PaymentSheet)</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>Completion</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Submit Rating</td>
+        <td><span class="api-ref">POST /api/rides/{id}/rating</span></td>
+        <td><span class="file-ref">RideStatusCard.swift:2331</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td>Completion</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Add $X Tip</td>
+        <td><span class="api-ref">POST /api/rides/{id}/tip</span></td>
+        <td><span class="file-ref">RideStatusCard.swift:2447</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>10</td>
+        <td>Completion</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Done</td>
+        <td><span class="api-ref">resetRide()</span></td>
+        <td><span class="file-ref">RideStatusCard.swift:2501</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- DRIVER SWIPE TABLE -->
+<section>
+  <div class="section-title">
+    Driver iOS — 9 Swipe Buttons
+    <span class="section-badge">ALL WIRED ✓</span>
+  </div>
+  <div class="app-tabs">
+    <span class="app-tab tab-driver">Driver App</span>
+  </div>
+  <table class="swipe-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Screen</th>
+        <th>Component</th>
+        <th>Label / Action</th>
+        <th>API / Handler</th>
+        <th>File:Line</th>
+        <th>iOS Status</th>
+        <th>Android</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Bid Sheet</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Submit Bid $X</td>
+        <td><span class="api-ref">POST /api/rides/request/{id}/bid</span></td>
+        <td><span class="file-ref">SubmitBidSheet.swift:572</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Available Ride Cards</td>
+        <td><span class="swipe-label-card">Tinder Card</span></td>
+        <td>Swipe Right = Open Bid Sheet</td>
+        <td><span class="api-ref">→ opens SubmitBidSheet</span></td>
+        <td><span class="file-ref">RideshareDashboardView.swift:769</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Counter Response</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Accept $X</td>
+        <td><span class="api-ref">POST /api/rides/bid/{id}/accept-counter</span></td>
+        <td><span class="file-ref">CounterOfferResponseSheet.swift:411</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Counter Input</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Send $X Offer</td>
+        <td><span class="api-ref">POST /api/rides/bid/{id}/driver-counter</span></td>
+        <td><span class="file-ref">CounterOfferResponseSheet.swift:374</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>Active Ride (en route)</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide — I've Arrived</td>
+        <td><span class="api-ref">POST /api/rides/request/{id}/arrived</span></td>
+        <td><span class="file-ref">ActiveRideView.swift:479</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>Active Ride (arrived)</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Start Ride</td>
+        <td><span class="api-ref">POST /api/rides/request/{id}/start</span></td>
+        <td><span class="file-ref">ActiveRideView.swift:523</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>Active Ride (in progress)</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Complete Ride</td>
+        <td><span class="api-ref">POST /api/rides/request/{id}/complete</span></td>
+        <td><span class="file-ref">ActiveRideView.swift:561</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>Post-Completion</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Submit Rating</td>
+        <td><span class="api-ref">POST /api/rides/request/{id}/rate-passenger</span></td>
+        <td><span class="file-ref">ActiveRideView.swift:703</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td>Post-Completion</td>
+        <td><span class="swipe-label-pill">Pill</span></td>
+        <td>Slide to Done</td>
+        <td><span class="api-ref">navigates to dashboard</span></td>
+        <td><span class="file-ref">ActiveRideView.swift (nav)</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+        <td><span class="status-built">✓ Built</span></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- SAFETY TABLE -->
+<section>
+  <div class="section-title">
+    Safety Buttons — NEVER Swipe
+    <span class="section-badge yellow">Protected ✓</span>
+  </div>
+  <table class="swipe-table">
+    <thead>
+      <tr><th>Button</th><th>Reason</th><th>iOS</th><th>Android</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="safe-tag">⚠ SOS / Emergency</span></td>
+        <td>CPUC TNC safety requirement — must be immediate single tap</td>
+        <td><span class="status-na">Stay Tap</span></td>
+        <td><span class="status-na">Stay Tap</span></td>
+      </tr>
+      <tr>
+        <td><span class="safe-tag">⚠ Cancel Ride</span></td>
+        <td>Reversible action, accidental swipe risk, cancellation fee implications</td>
+        <td><span class="status-na">Stay Tap</span></td>
+        <td><span class="status-na">Stay Tap</span></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- NEXT STEPS -->
+<section>
+  <div class="section-title">Next Steps</div>
+  <div class="next-grid">
+    <div class="next-card priority-low">
+      <div class="next-card-header">
+        <div class="next-card-title">Stripe Connect Auto-Payout (Q-192)</div>
+        <span class="priority-badge pb-low">DONE ✓</span>
+      </div>
+      <div class="next-desc">
+        Fixed 3 bugs in <code>bid_routes.py</code> that silently blocked every payout:
+        <br>· NameError on <code>bid.id</code> → replaced with idempotency key <code>ride_xfer_{ride_request.id}</code>
+        <br>· No idempotency guard → skip if <code>stripe_transfer_id</code> already set
+        <br>· Missing A4A $0.05 deduction → <code>driver_payout = fare - platform_fee - 0.05</code>
+        <br>Deployed to production CI/CD #23272879677.
+      </div>
+      <span class="next-cmd">commit 7cd4acec · prod deployed ✓</span>
+    </div>
+    <div class="next-card priority-high">
+      <div class="next-card-header">
+        <div class="next-card-title">WAV Count in Quarterly Report (Q-193)</div>
+        <span class="priority-badge pb-low">DONE ✓</span>
+      </div>
+      <div class="next-desc">
+        <code>tnc_compliance.py:781</code> TODO resolved. Live DB query using <code>Driver.accessibility_capable</code> and <code>accessibility_features</code> JSON field. CPUC TNC-23 quarterly report now returns real WAV count.
+      </div>
+      <span class="next-cmd">commit 8e7b2100 · deployed ✓</span>
+    </div>
+    <div class="next-card priority-med">
+      <div class="next-card-header">
+        <div class="next-card-title">iOS Builds → TestFlight</div>
+        <span class="priority-badge pb-high">NEXT UP</span>
+      </div>
+      <div class="next-desc">
+        After WAV fix: archive Customer (build 1121) and Driver (build 227) iOS apps.
+        Upload to TestFlight via xcodebuild + ExportOptions.plist (destination:upload).
+        Notify jeetnair.in@gmail.com as internal tester.
+      </div>
+      <span class="next-cmd">Customer 1121 · Driver 227 · xcodebuild archive</span>
+    </div>
+    <div class="next-card priority-low">
+      <div class="next-card-header">
+        <div class="next-card-title">Android Builds → Firebase</div>
+        <span class="priority-badge pb-low">AFTER iOS</span>
+      </div>
+      <div class="next-desc">
+        Bump versionCode on all 3 Android modules. Build release APKs (Customer/Driver/Partner).
+        Distribute to jeetnair.in@gmail.com via Firebase App Distribution.
+      </div>
+      <span class="next-cmd">./gradlew assembleRelease → firebase appdistribution:distribute</span>
+    </div>
+  </div>
+</section>
+
+<!-- FARE REFERENCE -->
+<section>
+  <div class="section-title">E2E Reference — RSM → LAX Verified Numbers</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+    <div style="background:#0d1117;border:1px solid #21262d;border-radius:10px;padding:14px">
+      <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Fare Breakdown</div>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:5px">
+        <div style="display:flex;justify-content:space-between"><span style="color:#6e7681">Base fare</span><span>$2.50</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#6e7681">Distance (45mi × $1.15)</span><span>$51.75</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#6e7681">Time (145min × $0.18)</span><span>$26.10</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#6e7681">Promo discount</span><span style="color:#f85149">−$3.74</span></div>
+        <div style="display:flex;justify-content:space-between;padding-top:5px;border-top:1px solid #21262d"><span style="color:#6e7681">Surge (0.9×)</span><span style="color:#56d364">$68.95</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#6e7681">Platform fee (Tier 3)</span><span>$3.00</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#6e7681">A4A fee</span><span>$0.05</span></div>
+        <div style="display:flex;justify-content:space-between;padding-top:5px;border-top:1px solid #21262d;font-size:13px;font-weight:800"><span style="color:#56d364">Customer pays</span><span style="color:#56d364">$71.95</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#8b949e">Driver receives</span><span style="color:#8b949e">$65.90</span></div>
+      </div>
+    </div>
+    <div style="background:#0d1117;border:1px solid #21262d;border-radius:10px;padding:14px">
+      <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Bid Order (5 of 10 drivers)</div>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px;background:#0d2818;border-radius:6px;padding:5px 8px;border:1px solid #238636">
+          <span style="font-size:14px">🏆</span>
+          <div style="flex:1"><div style="color:#e6edf3;font-weight:700">Chen</div><div style="color:#6e7681;font-size:9px">⭐ 4.9 · 3 min</div></div>
+          <span style="color:#56d364;font-weight:800">$65</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 8px">
+          <span>M</span>
+          <div style="flex:1"><div style="color:#e6edf3">Marcus</div><div style="color:#6e7681;font-size:9px">⭐ 4.8 · 5 min</div></div>
+          <span style="color:#8b949e">$69</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 8px">
+          <span>S</span>
+          <div style="flex:1"><div style="color:#e6edf3">Sofia</div><div style="color:#6e7681;font-size:9px">⭐ 4.7 · 7 min</div></div>
+          <span style="color:#8b949e">$72</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 8px">
+          <span>J</span>
+          <div style="flex:1"><div style="color:#e6edf3">James</div><div style="color:#6e7681;font-size:9px">⭐ 4.6 · 9 min</div></div>
+          <span style="color:#8b949e">$75</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 8px">
+          <span>♿</span>
+          <div style="flex:1"><div style="color:#e6edf3">Priya (WAV)</div><div style="color:#6e7681;font-size:9px">⭐ 4.9 · 12 min</div></div>
+          <span style="color:#8b949e">$78</span>
+        </div>
+      </div>
+    </div>
+    <div style="background:#0d1117;border:1px solid #21262d;border-radius:10px;padding:14px">
+      <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Negotiation Limits</div>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;padding:5px;background:#161b22;border-radius:6px">
+          <span style="color:#6e7681">Customer max counters</span>
+          <span style="font-weight:700">3</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:5px;background:#161b22;border-radius:6px">
+          <span style="color:#6e7681">Driver max rounds</span>
+          <span style="font-weight:700">2</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:5px;background:#161b22;border-radius:6px">
+          <span style="color:#6e7681">Bid timeout</span>
+          <span style="font-weight:700">10 min</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:5px;background:#161b22;border-radius:6px">
+          <span style="color:#6e7681">Max bids / request</span>
+          <span style="font-weight:700">10</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:5px;background:#161b22;border-radius:6px">
+          <span style="color:#6e7681">Driver broadcast radius</span>
+          <span style="font-weight:700">25 km</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:5px;background:#0d2818;border-radius:6px;border:1px solid #238636">
+          <span style="color:#56d364">Race condition</span>
+          <span style="font-weight:700;color:#56d364">FIXED ✓</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div style="text-align:center;padding:20px 0;font-size:10px;color:#444">
+  Dollor.ai · Swipe Mode Progress Board · Updated 2026-03-19 · Quick-189 through Quick-193 complete · Next: iOS builds 1121/227 → TestFlight
+</div>
+
+</body>
+</html>
