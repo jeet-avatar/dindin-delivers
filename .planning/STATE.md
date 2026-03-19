@@ -91,6 +91,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-191]: CounterOfferResponseSheet Accept+Split row restructured — SwipeToConfirmButton needs full width; Split kept as tap Button; TinderSwipeCard wraps bid cards (swipe-right=accept, swipe-left=reject)
 - [Phase 08.1-01]: Non-blocking Stripe no-show block: DB commit always persists first; payment_method= resolved from saved_cards[is_default=True].id
 - [Phase 08.1-02]: payment_retry_count nullable in Alembic (existing NULL rows treated as 0 via or-0 guard); MAX_RETRIES=3 hardcoded per spec; driver payout guarded with if/else on capture_failed status
+- [Phase 08.1-03]: Banner placed inside ZStack with zIndex(100); viewModel.resetRide() for Try Again; 10s auto-dismiss; notification fires even when view is not visible
 
 ### Blockers
 
@@ -236,6 +237,7 @@ None
 | 196 | Fix iOS startRide() no-show timer restart bug — capture previousTimerActive before cancel, restore flag only on API failure | 2026-03-18 | 78c8b55d | [196-ios-start-ride-timer-restart-fix](./quick/196-ios-start-ride-timer-restart-fix/) |
 | Phase 08.1 P01 | 50 | 2 tasks | 1 files |
 | Phase 08.1 P02 | 45 | 3 tasks | 4 files |
+| Phase 08.1 P03 | 8 | 1 tasks | 1 files |
 
 ## Session Continuity
 
