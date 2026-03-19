@@ -4074,6 +4074,51 @@ def admin_delete_customer_by_email(
     return {"success": True, "message": f"Customer {email} deleted successfully"}
 
 
+@app.get("/api/admin/customers")
+def admin_list_customers(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+    blocked_only: bool = False
+):
+    """Admin endpoint to list customers with unpaid balance status"""
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
+    query = db.query(Customer)
+    if blocked_only:
+        query = query.filter(Customer.has_unpaid_balance == True)
+    customers = query.order_by(Customer.id.desc()).limit(500).all()
+    return [
+        {
+            "id": c.id,
+            "email": c.email,
+            "name": getattr(c, "name", None) or getattr(c, "full_name", None) or "",
+            "phone": getattr(c, "phone", ""),
+            "has_unpaid_balance": c.has_unpaid_balance,
+            "is_active": c.is_active,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        }
+        for c in customers
+    ]
+
+
+@app.post("/api/admin/customers/{customer_id}/clear-unpaid-balance")
+def admin_clear_unpaid_balance(
+    request: Request,
+    customer_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
+    """Admin endpoint to clear has_unpaid_balance flag — unblocks customer from booking"""
+    check_rate_limit(request, admin_mutation_limiter, "admin_mutation")
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail=f"Customer {customer_id} not found")
+    customer.has_unpaid_balance = False
+    db.commit()
+    logger.info(f"Admin {admin.email} cleared has_unpaid_balance for customer {customer_id}")
+    return {"success": True, "customer_id": customer_id, "message": "Unpaid balance flag cleared"}
+
+
 # ==================== EMAIL VERIFICATION ====================
 # Required by App Store / Play Store for account security
 
