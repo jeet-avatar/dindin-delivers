@@ -2095,6 +2095,93 @@ async def mark_passenger_no_show(request_id: int, request: Request, auth_driver:
 
     db.commit()
 
+    # --- Stripe no-show fee charge (non-blocking) ---
+    try:
+        import stripe, os
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+        # Step 1: Cancel the original pre-auth PaymentIntent (full fare amount)
+        if ride_request.stripe_payment_intent_id and not ride_request.stripe_payment_intent_id.startswith("demo_"):
+            try:
+                stripe.PaymentIntent.cancel(
+                    ride_request.stripe_payment_intent_id,
+                    idempotency_key=f"ride-noshow-cancel-{ride_request.id}"
+                )
+                logger.info(f"Ride {ride_request.id} pre-auth cancelled for no-show")
+            except Exception as cancel_err:
+                # Intent may already be cancelled or in uncancellable state — log and continue
+                logger.warning(f"Ride {ride_request.id} pre-auth cancel warning: {cancel_err}")
+            ride_request.stripe_payment_intent_id = None
+            db.commit()
+
+        # Step 2: Charge customer $5.00 via new PaymentIntent (off-session, requires saved default PM)
+        customer_obj = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        stripe_customer_id = getattr(customer_obj, 'stripe_customer_id', None) if customer_obj else None
+
+        # Resolve default payment_method ID from saved_cards JSON
+        # saved_cards schema (models.py:640): [{id, brand, last4, exp_month, exp_year, is_default}]
+        default_pm_id = None
+        if customer_obj and customer_obj.saved_cards:
+            for card in (customer_obj.saved_cards or []):
+                if card.get('is_default'):
+                    default_pm_id = card.get('id')
+                    break
+
+        if stripe_customer_id and default_pm_id:
+            try:
+                fee_intent = stripe.PaymentIntent.create(
+                    amount=500,  # $5.00 in cents
+                    currency="usd",
+                    customer=stripe_customer_id,
+                    payment_method=default_pm_id,
+                    description=f"No-show fee — Ride {ride_request.request_id}",
+                    confirm=True,
+                    off_session=True,
+                    idempotency_key=f"ride-noshow-fee-{ride_request.id}"
+                )
+                ride_request.stripe_payment_intent_id = fee_intent.id
+                ride_request.payment_status = "captured"
+                db.commit()
+                logger.info(f"Ride {ride_request.id} no-show fee $5.00 charged, intent {fee_intent.id}")
+
+                # Step 3: Pay driver $4.00 via Stripe Connect transfer
+                matched_driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
+                if matched_driver and getattr(matched_driver, 'stripe_account_id', None) and getattr(matched_driver, 'stripe_onboarded', False):
+                    if not ride_request.stripe_transfer_id:
+                        transfer = stripe.Transfer.create(
+                            amount=400,  # $4.00 in cents
+                            currency="usd",
+                            destination=matched_driver.stripe_account_id,
+                            description=f"No-show compensation — Ride {ride_request.request_id}",
+                            metadata={"ride_id": str(ride_request.id), "type": "noshow_compensation"},
+                            idempotency_key=f"ride-noshow-xfer-{ride_request.id}"
+                        )
+                        ride_request.stripe_transfer_id = transfer.id
+                        ride_request.driver_paid_at = datetime.utcnow()
+                        db.commit()
+                        logger.info(f"Ride {ride_request.id} no-show driver compensation $4.00 transferred to {matched_driver.stripe_account_id}")
+                    else:
+                        logger.info(f"Ride {ride_request.id} driver transfer already exists, skipping")
+                else:
+                    logger.info(f"Ride {ride_request.id} driver not Stripe-onboarded — skipping Connect transfer")
+
+            except (stripe.error.CardError, stripe.error.InvalidRequestError) as stripe_charge_err:
+                # Card declined, requires_action, or no default PM attached to Stripe customer object
+                # Either way: no-show is recorded, flag for manual follow-up
+                logger.warning(f"Ride {ride_request.id} no-show charge failed ({type(stripe_charge_err).__name__}): {stripe_charge_err} — flagged for manual review")
+                ride_request.payment_status = "manual_review"
+                db.commit()
+        else:
+            # No stripe_customer_id OR no default card in saved_cards — log for manual follow-up
+            reason = "no stripe_customer_id" if not stripe_customer_id else "no default card in saved_cards"
+            logger.warning(f"Ride {ride_request.id} no-show: {reason} — flagged for manual review")
+            ride_request.payment_status = "manual_review"
+            db.commit()
+
+    except Exception as e:
+        # Non-blocking: no-show is already recorded in DB, Stripe failure should not undo it
+        logger.error(f"Ride {ride_request.id} no-show Stripe processing error: {e}")
+
     # Notify customer
     try:
         customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
@@ -2292,68 +2379,79 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
             logger.info(f"Ride {ride_request.id} PaymentIntent {ride_request.stripe_payment_intent_id} captured")
     except Exception as e:
         logger.error(f"Ride {ride_request.id} PaymentIntent capture failed (non-blocking): {e}")
+        try:
+            ride_request.payment_status = "capture_failed"
+            ride_request.payment_retry_count = (ride_request.payment_retry_count or 0) + 1
+            db.commit()
+        except Exception as db_err:
+            logger.error(f"Ride {ride_request.id} failed to write capture_failed status: {db_err}")
+            db.rollback()
 
     # Auto-trigger driver payout via Stripe Connect (non-blocking)
-    try:
-        import stripe
-        import os
-        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    # Skip payout if capture failed — payout requires a successful charge source
+    if ride_request.payment_status == "capture_failed":
+        logger.warning(f"Ride {ride_request.id} skipping driver payout — capture failed")
+    else:
+        try:
+            import stripe
+            import os
+            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
-        # Demo rides: skip Stripe, just mark payment status
-        if ride_request.stripe_payment_intent_id and ride_request.stripe_payment_intent_id.startswith("demo_"):
-            ride_request.payment_status = "demo"
-            ride_request.payment_completed_at = datetime.utcnow()
-            db.commit()
-            logger.info(f"Ride {ride_request.id} is demo — skipping Stripe payout")
-        else:
-            driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
-            if driver and getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
-                # Idempotency: skip if transfer already created
-                if ride_request.stripe_transfer_id:
-                    logger.info(f"Ride {ride_request.id} transfer already exists ({ride_request.stripe_transfer_id}), skipping")
-                else:
-                    payout_cents = int(ride_request.driver_payout * 100)
-                    if payout_cents > 0:
-                        transfer = stripe.Transfer.create(
-                            amount=payout_cents,
-                            currency="usd",
-                            destination=driver.stripe_account_id,
-                            description=f"Ride {ride_request.request_id} payout",
-                            metadata={
-                                "ride_id": str(ride_request.id),
-                                "ride_request_id": ride_request.request_id,
-                                "driver_id": str(driver.id),
-                                "fare": str(final_price),
-                                "platform_fee": str(platform_fee),
-                            },
-                            idempotency_key=f"ride_xfer_{ride_request.id}"
-                        )
-                        ride_request.stripe_transfer_id = transfer.id
-                        ride_request.driver_paid_at = datetime.utcnow()
-                        db.commit()
-                        logger.info(f"Ride {ride_request.id} auto-payout ${ride_request.driver_payout:.2f} to driver {driver.id}")
-
-                        # Push notification to driver — payment received
-                        try:
-                            send_push_notification(
-                                user_type="driver",
-                                user_id=driver.id,
-                                title="Payment Received!",
-                                body=f"${ride_request.driver_payout:.2f} from ride {ride_request.request_id} has been transferred to your account.",
-                                data={
-                                    "type": "payment_processed",
-                                    "ride_request_id": str(ride_request.id),
-                                    "request_id": ride_request.request_id,
-                                    "amount": str(ride_request.driver_payout)
-                                },
-                                db=db
-                            )
-                        except Exception as e:
-                            logger.error(f"Failed to send payment push to driver: {e}")
+            # Demo rides: skip Stripe, just mark payment status
+            if ride_request.stripe_payment_intent_id and ride_request.stripe_payment_intent_id.startswith("demo_"):
+                ride_request.payment_status = "demo"
+                ride_request.payment_completed_at = datetime.utcnow()
+                db.commit()
+                logger.info(f"Ride {ride_request.id} is demo — skipping Stripe payout")
             else:
-                logger.info(f"Ride {ride_request.id} driver not Stripe-onboarded, skipping auto-payout")
-    except Exception as e:
-        logger.error(f"Ride {ride_request.id} auto-payout failed (non-blocking): {e}")
+                driver = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
+                if driver and getattr(driver, 'stripe_account_id', None) and getattr(driver, 'stripe_onboarded', False):
+                    # Idempotency: skip if transfer already created
+                    if ride_request.stripe_transfer_id:
+                        logger.info(f"Ride {ride_request.id} transfer already exists ({ride_request.stripe_transfer_id}), skipping")
+                    else:
+                        payout_cents = int(ride_request.driver_payout * 100)
+                        if payout_cents > 0:
+                            transfer = stripe.Transfer.create(
+                                amount=payout_cents,
+                                currency="usd",
+                                destination=driver.stripe_account_id,
+                                description=f"Ride {ride_request.request_id} payout",
+                                metadata={
+                                    "ride_id": str(ride_request.id),
+                                    "ride_request_id": ride_request.request_id,
+                                    "driver_id": str(driver.id),
+                                    "fare": str(final_price),
+                                    "platform_fee": str(platform_fee),
+                                },
+                                idempotency_key=f"ride_xfer_{ride_request.id}"
+                            )
+                            ride_request.stripe_transfer_id = transfer.id
+                            ride_request.driver_paid_at = datetime.utcnow()
+                            db.commit()
+                            logger.info(f"Ride {ride_request.id} auto-payout ${ride_request.driver_payout:.2f} to driver {driver.id}")
+
+                            # Push notification to driver — payment received
+                            try:
+                                send_push_notification(
+                                    user_type="driver",
+                                    user_id=driver.id,
+                                    title="Payment Received!",
+                                    body=f"${ride_request.driver_payout:.2f} from ride {ride_request.request_id} has been transferred to your account.",
+                                    data={
+                                        "type": "payment_processed",
+                                        "ride_request_id": str(ride_request.id),
+                                        "request_id": ride_request.request_id,
+                                        "amount": str(ride_request.driver_payout)
+                                    },
+                                    db=db
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to send payment push to driver: {e}")
+                else:
+                    logger.info(f"Ride {ride_request.id} driver not Stripe-onboarded, skipping auto-payout")
+        except Exception as e:
+            logger.error(f"Ride {ride_request.id} auto-payout failed (non-blocking): {e}")
 
     # Send ride completed email with receipt to customer
     try:
@@ -3703,6 +3801,62 @@ def check_ride_in_progress_timeout_job():
 
     except Exception as e:
         logger.error(f"Error in ride in-progress timeout check: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def check_capture_retry_job():
+    """Retry Stripe PaymentIntent capture for COMPLETED rides where capture failed or was skipped."""
+    from sqlalchemy.orm import Session as SASession
+    db: SASession = SessionLocal()
+    try:
+        import stripe, os
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+        now = datetime.utcnow()
+        MAX_RETRIES = 3
+
+        # Find rides completed in the last 48 hours where capture did not succeed
+        failed_rides = db.query(RideRequest).filter(
+            RideRequest.status == RideRequestStatus.COMPLETED,
+            (RideRequest.payment_status.is_(None)) | (RideRequest.payment_status == "capture_failed"),
+            RideRequest.stripe_payment_intent_id.isnot(None),
+            RideRequest.completed_at > now - timedelta(hours=48)
+        ).all()
+
+        for ride in failed_rides:
+            # Skip demo rides
+            if ride.stripe_payment_intent_id.startswith("demo_"):
+                continue
+
+            retry_count = ride.payment_retry_count or 0
+
+            if retry_count >= MAX_RETRIES:
+                if ride.payment_status != "capture_failed":
+                    ride.payment_status = "capture_failed"
+                    db.commit()
+                logger.warning(f"Ride {ride.id} capture retry exhausted ({retry_count}/{MAX_RETRIES}) — flagged for manual review")
+                continue
+
+            try:
+                # Idempotent: same key as original capture attempt
+                stripe.PaymentIntent.capture(
+                    ride.stripe_payment_intent_id,
+                    idempotency_key=f"ride-capture-{ride.id}"
+                )
+                ride.payment_status = "captured"
+                ride.payment_completed_at = datetime.utcnow()
+                ride.payment_retry_count = retry_count + 1
+                db.commit()
+                logger.info(f"Ride {ride.id} capture retry succeeded on attempt {retry_count + 1}")
+            except Exception as retry_err:
+                ride.payment_retry_count = retry_count + 1
+                ride.payment_status = "capture_failed"
+                db.commit()
+                logger.error(f"Ride {ride.id} capture retry {retry_count + 1}/{MAX_RETRIES} failed: {retry_err}")
+
+    except Exception as e:
+        logger.error(f"check_capture_retry_job error: {e}")
         db.rollback()
     finally:
         db.close()
