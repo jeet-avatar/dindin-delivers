@@ -19,6 +19,7 @@ struct RideRequestView: View {
     @State private var showPickupSearch = false
     @State private var showDropoffSearch = false
     @State private var mapPosition: MapCameraPosition = .userLocation(fallback: .automatic)
+    @State private var showRideExpiredBanner: Bool = false
 
     var body: some View {
         ZStack {
@@ -67,6 +68,45 @@ struct RideRequestView: View {
                     .background(Color.white)
                     .cornerRadius(12)
             }
+
+            // Ride Expired Banner
+            if showRideExpiredBanner {
+                VStack {
+                    HStack(spacing: 12) {
+                        Image(systemName: "clock.badge.exclamationmark")
+                            .foregroundColor(.orange)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("No drivers available")
+                                .font(.subheadline).fontWeight(.semibold)
+                            Text("No drivers accepted your request. Try again?")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Button("Try Again") {
+                            withAnimation {
+                                showRideExpiredBanner = false
+                            }
+                            viewModel.resetRide()
+                        }
+                        .font(.caption).fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(Color.orange)
+                        .cornerRadius(8)
+                    }
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .cornerRadius(12)
+                    .shadow(color: .black.opacity(0.15), radius: 8)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    Spacer()
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .animation(.spring(response: 0.3), value: showRideExpiredBanner)
+                .zIndex(100)
+            }
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showPickupSearch) {
@@ -108,6 +148,17 @@ struct RideRequestView: View {
         }
         .fullScreenCover(isPresented: $viewModel.isRideActive) {
             RideTrackingView(viewModel: viewModel)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RideRequestExpired"))) { _ in
+            withAnimation {
+                showRideExpiredBanner = true
+            }
+            // Auto-dismiss after 10 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                withAnimation {
+                    showRideExpiredBanner = false
+                }
+            }
         }
     }
 
