@@ -124,6 +124,17 @@ Plans:
 - [ ] 08-01: Configure rotation Lambda and staging validation
 - [ ] 08-02: Enable production rotation and write runbook
 
+### Phase 08.1: Fix rideshare failure paths — no-show fee enforcement, bid race condition, payment failure recovery, no-drivers expiry flow, driver cancel handling (INSERTED)
+
+**Goal:** Fix all open rideshare failure paths so rides degrade gracefully instead of silently failing
+**Depends on:** Phase 8
+**Plans:** 3 plans (Wave 1 parallel: 08.1-01 + 08.1-02, Wave 2: 08.1-03)
+
+Plans:
+- [ ] 08.1-01-PLAN.md -- Enforce $5.00 no-show fee via Stripe: cancel pre-auth intent, create off-session $5 charge, transfer $4 to driver via Connect
+- [ ] 08.1-02-PLAN.md -- Replace silent payment capture failure with capture_failed flag + 5-min retry background job (3 attempts)
+- [ ] 08.1-03-PLAN.md -- Wire RideRequestExpired push notification to in-app banner in iOS customer app with "Try Again" CTA
+
 ### Phase 09: Rideshare E2E Validation
 **Goal**: Rideshare business logic is continuously validated through automated lifecycle testing
 **Depends on**: Phase 06, Phase 08 (runs after infrastructure changes are stable)
@@ -199,6 +210,7 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 | 06. SSL Pinning Rotation Fix | 2/2 | Complete    | 2026-02-27 | - |
 | 07. Play Store Publishing | 1/3 | In Progress|  | - |
 | 08. DB Password Rotation | v1.5 | 0/2 | Not started | - |
+| 08.1. Fix Rideshare Failure Paths | v1.5 | 0/3 | Planning complete | - |
 | 09. Rideshare E2E Validation | v1.5 | 0/1 | Not started | - |
 | 10. Automated Support System | 2/3 | In Progress|  | - |
 | 11. Change Management Workflow | 3/3 | Complete    | 2026-03-07 | - |
@@ -206,4 +218,4 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 
 ---
 *Roadmap created: 2026-02-21*
-*Last updated: 2026-03-07 -- Phase 12 plans created*
+*Last updated: 2026-03-18 -- Phase 08.1 plans created (3 plans)*
