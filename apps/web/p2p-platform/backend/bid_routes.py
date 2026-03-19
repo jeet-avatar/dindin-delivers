@@ -786,6 +786,56 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
                     ride_request.stripe_payment_intent_id = payment_intent.id
                     db.commit()
                     logger.info(f"Ride {ride_request.id} PaymentIntent {payment_intent.id} created (${bid.proposed_price:.2f})")
+        except stripe.error.StripeError as stripe_err:
+            # Blocking failure: card declined / Stripe error — auto-cancel the ride
+            logger.error(f"Ride {ride_request.id} Stripe pre-auth FAILED ({type(stripe_err).__name__}): {stripe_err} — auto-cancelling")
+            ride_request.status = RideRequestStatus.CANCELLED
+            ride_request.cancelled_at = datetime.utcnow()
+            ride_request.payment_status = "pre_auth_failed"
+            ride_request.matched_bid_id = None
+            ride_request.matched_driver_id = None
+            ride_request.final_price = None
+            db.commit()
+
+            # Notify customer
+            try:
+                send_push_notification(
+                    "customer", ride_request.customer_id,
+                    "Payment Failed",
+                    "Your card could not be pre-authorized. Please update your payment method and try booking again.",
+                    data={"type": "payment_failed", "ride_request_id": str(ride_request.id)},
+                    db=db
+                )
+                _notify_customer(
+                    db, ride_request.customer_id,
+                    "Payment Failed",
+                    "Your card could not be pre-authorized for this ride. Please update your payment method.",
+                    "ride", ride_request.id, "ride"
+                )
+            except Exception as notify_err:
+                logger.warning(f"Ride {ride_request.id} customer payment-failed notification error: {notify_err}")
+
+            # Notify driver
+            try:
+                send_push_notification(
+                    "driver", bid.driver_id,
+                    "Ride Cancelled",
+                    "The customer's payment method failed. The ride has been cancelled.",
+                    data={"type": "payment_failed", "ride_request_id": str(ride_request.id)},
+                    db=db
+                )
+            except Exception as notify_err:
+                logger.warning(f"Ride {ride_request.id} driver payment-failed notification error: {notify_err}")
+
+            try:
+                db.commit()
+            except Exception:
+                pass
+
+            raise HTTPException(
+                status_code=402,
+                detail={"error": "payment_failed", "message": "Your card was declined. Please update your payment method and try again."}
+            )
         except Exception as e:
             logger.error(f"Ride {ride_request.id} Stripe PaymentIntent creation failed (non-blocking): {e}")
 
