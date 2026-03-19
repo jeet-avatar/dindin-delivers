@@ -41,6 +41,7 @@ Progress: [##########] 100% (10/12 plans)
 ### Roadmap Evolution
 
 - Phase 12 added: Fix Admin Portal UI — Fix broken admin portal screens (restaurants not loading, design issues, mock dashboards), make admin portal production-ready
+- Phase 8.1 inserted after Phase 8 (URGENT): Fix rideshare failure paths — no-show fee enforcement, bid race condition, payment failure recovery, no-drivers expiry flow, driver cancel handling
 
 ### Decisions
 
@@ -88,6 +89,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase quick-190]: SwipeToConfirmButton 80% threshold with spring snap-back; swipe IS the confirmation for Complete Ride (no secondary alert needed)
 - [Phase quick-190]: TinderSwipeCard wraps entire RideRequestCard in ForEach — retain onBid tap inside card for direct access
 - [Phase quick-191]: CounterOfferResponseSheet Accept+Split row restructured — SwipeToConfirmButton needs full width; Split kept as tap Button; TinderSwipeCard wraps bid cards (swipe-right=accept, swipe-left=reject)
+- [Phase 08.1-01]: Non-blocking Stripe no-show block: DB commit always persists first; payment_method= resolved from saved_cards[is_default=True].id
 
 ### Blockers
 
@@ -231,6 +233,7 @@ None
 | 194 | Fix iOS silent rating and tip failure — alert on failure, submitted only on success; ratingSubmitted/tipSubmitted gated to .success branch only | 2026-03-18 | cafacbb6 | [194-fix-ios-silent-rating-and-tip-failure-sh](./quick/194-fix-ios-silent-rating-and-tip-failure-sh/) |
 | 195 | Remove AlertDialog gate from Android complete-ride swipe — wire onSwipeConfirm directly to viewModel.completeRide() (matches iOS UX) | 2026-03-18 | 0839d412 | [195-android-complete-ride-dialog-gate](./quick/195-android-complete-ride-dialog-gate/) |
 | 196 | Fix iOS startRide() no-show timer restart bug — capture previousTimerActive before cancel, restore flag only on API failure | 2026-03-18 | 78c8b55d | [196-ios-start-ride-timer-restart-fix](./quick/196-ios-start-ride-timer-restart-fix/) |
+| Phase 08.1 P01 | 50 | 2 tasks | 1 files |
 
 ## Session Continuity
 
