@@ -230,9 +230,10 @@ None
 | 193 | Fix WAV count in quarterly compliance report — replace hardcoded 0 with live DB query (accessibility_capable OR wheelchair JSON field) | 2026-03-18 | 8e7b2100 | [193-fix-wav-count-in-quarterly-compliance-re](./quick/193-fix-wav-count-in-quarterly-compliance-re/) |
 | 194 | Fix iOS silent rating and tip failure — alert on failure, submitted only on success; ratingSubmitted/tipSubmitted gated to .success branch only | 2026-03-18 | cafacbb6 | [194-fix-ios-silent-rating-and-tip-failure-sh](./quick/194-fix-ios-silent-rating-and-tip-failure-sh/) |
 | 195 | Remove AlertDialog gate from Android complete-ride swipe — wire onSwipeConfirm directly to viewModel.completeRide() (matches iOS UX) | 2026-03-18 | 0839d412 | [195-android-complete-ride-dialog-gate](./quick/195-android-complete-ride-dialog-gate/) |
+| 196 | Fix iOS startRide() no-show timer restart bug — capture previousTimerActive before cancel, restore flag only on API failure | 2026-03-18 | 78c8b55d | [196-ios-start-ride-timer-restart-fix](./quick/196-ios-start-ride-timer-restart-fix/) |
 
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Completed quick task 195: Remove AlertDialog gate from Android complete-ride swipe — direct viewModel.completeRide() wiring
+Stopped at: Completed quick task 196: Fix iOS startRide() no-show timer restart bug — capture previousTimerActive, restore flag only on error
 Resume file: .planning/NEXT_SESSION_PROMPT.md
