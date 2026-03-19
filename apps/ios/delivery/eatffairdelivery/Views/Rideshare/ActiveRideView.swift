@@ -736,6 +736,7 @@ struct ActiveRideView: View {
     }
 
     private func startRide() {
+        let previousTimerActive = noShowTimerActive
         timerCancellable?.cancel()
         noShowTimerActive = false
         let previousStatus = rideStatus
@@ -745,8 +746,11 @@ struct ActiveRideView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             if viewModel.showError {
                 rideStatus = previousStatus
-                noShowTimerActive = true
-                startNoShowTimer()
+                noShowTimerActive = previousTimerActive
+                // Do NOT call startNoShowTimer() — the timer was already cancelled
+                // before this attempt. Restoring the flag alone is sufficient to
+                // reflect pre-attempt state. A fresh timer start only happens via
+                // the normal startNoShowTimer() call path (on successful arrival).
             }
         }
     }
