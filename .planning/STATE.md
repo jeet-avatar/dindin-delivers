@@ -228,9 +228,10 @@ None
 | 191 | Android swipe-mode — TinderSwipeCard composable (driver + customer), SwipeToConfirmButton (customer), 6 driver + 10 customer swipe buttons wired, both modules BUILD SUCCESSFUL | 2026-03-18 | ea618c67 | [191-build-swipetoconfirmbutton-composable-fo](./quick/191-build-swipetoconfirmbutton-composable-fo/) |
 | 192 | Fix 3 auto-payout bugs in complete_ride — NameError bid.id, idempotency guard, A4A $0.05 deduction; deployed to staging + production CI/CD run 23272879677 | 2026-03-18 | 7cd4acec | [192-automate-driver-payouts-via-stripe-conne](./quick/192-automate-driver-payouts-via-stripe-conne/) |
 | 193 | Fix WAV count in quarterly compliance report — replace hardcoded 0 with live DB query (accessibility_capable OR wheelchair JSON field) | 2026-03-18 | 8e7b2100 | [193-fix-wav-count-in-quarterly-compliance-re](./quick/193-fix-wav-count-in-quarterly-compliance-re/) |
+| 194 | Fix iOS silent rating and tip failure — alert on failure, submitted only on success; ratingSubmitted/tipSubmitted gated to .success branch only | 2026-03-18 | cafacbb6 | [194-fix-ios-silent-rating-and-tip-failure-sh](./quick/194-fix-ios-silent-rating-and-tip-failure-sh/) |
 
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Completed quick task 193: Fix WAV count in quarterly compliance report — live DB query replacing hardcoded 0
+Stopped at: Completed quick task 194: Fix iOS silent rating and tip failure — alert on failure, submitted only on success
 Resume file: .planning/NEXT_SESSION_PROMPT.md
