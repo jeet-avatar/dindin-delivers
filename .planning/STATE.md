@@ -229,9 +229,10 @@ None
 | 192 | Fix 3 auto-payout bugs in complete_ride — NameError bid.id, idempotency guard, A4A $0.05 deduction; deployed to staging + production CI/CD run 23272879677 | 2026-03-18 | 7cd4acec | [192-automate-driver-payouts-via-stripe-conne](./quick/192-automate-driver-payouts-via-stripe-conne/) |
 | 193 | Fix WAV count in quarterly compliance report — replace hardcoded 0 with live DB query (accessibility_capable OR wheelchair JSON field) | 2026-03-18 | 8e7b2100 | [193-fix-wav-count-in-quarterly-compliance-re](./quick/193-fix-wav-count-in-quarterly-compliance-re/) |
 | 194 | Fix iOS silent rating and tip failure — alert on failure, submitted only on success; ratingSubmitted/tipSubmitted gated to .success branch only | 2026-03-18 | cafacbb6 | [194-fix-ios-silent-rating-and-tip-failure-sh](./quick/194-fix-ios-silent-rating-and-tip-failure-sh/) |
+| 195 | Remove AlertDialog gate from Android complete-ride swipe — wire onSwipeConfirm directly to viewModel.completeRide() (matches iOS UX) | 2026-03-18 | 0839d412 | [195-android-complete-ride-dialog-gate](./quick/195-android-complete-ride-dialog-gate/) |
 
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Completed quick task 194: Fix iOS silent rating and tip failure — alert on failure, submitted only on success
+Stopped at: Completed quick task 195: Remove AlertDialog gate from Android complete-ride swipe — direct viewModel.completeRide() wiring
 Resume file: .planning/NEXT_SESSION_PROMPT.md
