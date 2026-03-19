@@ -1377,6 +1377,9 @@ class RideRequest(Base):
     driver_paid_at = Column(DateTime)  # When driver received payout
     stripe_transfer_id = Column(String(255))  # Stripe Connect transfer ID
 
+    # Payment retry tracking
+    payment_retry_count = Column(Integer, default=0)  # Number of capture retry attempts
+
     # Tip
     tip_amount = Column(Float, default=0.0)  # Customer tip for driver (100% to driver)
 
