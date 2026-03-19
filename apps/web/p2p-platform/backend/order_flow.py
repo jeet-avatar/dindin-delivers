@@ -2925,6 +2925,7 @@ def start_timeout_scheduler():
             check_ride_matched_timeout_job,
             check_ride_in_progress_timeout_job,
             check_individual_bid_expiry_job,
+            check_capture_retry_job,
             RIDE_CLEANUP_CHECK_INTERVAL_SECONDS,
             RIDE_BIDDING_EXPIRY_MINUTES,
             RIDE_MATCHED_TIMEOUT_MINUTES,
@@ -2956,6 +2957,13 @@ def start_timeout_scheduler():
             IntervalTrigger(seconds=RIDE_CLEANUP_CHECK_INTERVAL_SECONDS),
             id="individual_bid_expiry_checker",
             name="Auto-expire individual bids past their expires_at",
+            replace_existing=True
+        )
+        restaurant_timeout_scheduler.add_job(
+            check_capture_retry_job,
+            IntervalTrigger(seconds=300),  # every 5 minutes
+            id="ride_capture_retry",
+            name="Retry failed Stripe payment captures",
             replace_existing=True
         )
         restaurant_timeout_scheduler.add_job(
