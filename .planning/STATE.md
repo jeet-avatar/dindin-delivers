@@ -227,9 +227,10 @@ None
 | 190 | Build SwipeToConfirmButton shared component — 2 SwiftUI views (pill + Tinder card), 8 customer + 9 driver swipe buttons, 5 iOS files | 2026-03-18 | 1421ba03 | [190-build-swipetoconfirmbutton-shared-compon](./quick/190-build-swipetoconfirmbutton-shared-compon/) |
 | 191 | Android swipe-mode — TinderSwipeCard composable (driver + customer), SwipeToConfirmButton (customer), 6 driver + 10 customer swipe buttons wired, both modules BUILD SUCCESSFUL | 2026-03-18 | ea618c67 | [191-build-swipetoconfirmbutton-composable-fo](./quick/191-build-swipetoconfirmbutton-composable-fo/) |
 | 192 | Fix 3 auto-payout bugs in complete_ride — NameError bid.id, idempotency guard, A4A $0.05 deduction; deployed to staging + production CI/CD run 23272879677 | 2026-03-18 | 7cd4acec | [192-automate-driver-payouts-via-stripe-conne](./quick/192-automate-driver-payouts-via-stripe-conne/) |
+| 193 | Fix WAV count in quarterly compliance report — replace hardcoded 0 with live DB query (accessibility_capable OR wheelchair JSON field) | 2026-03-18 | 8e7b2100 | [193-fix-wav-count-in-quarterly-compliance-re](./quick/193-fix-wav-count-in-quarterly-compliance-re/) |
 
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Completed quick task 192: Fix 3 driver auto-payout bugs in complete_ride (bid NameError, idempotency guard, A4A deduction)
+Stopped at: Completed quick task 193: Fix WAV count in quarterly compliance report — live DB query replacing hardcoded 0
 Resume file: .planning/NEXT_SESSION_PROMPT.md
