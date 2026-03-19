@@ -239,6 +239,7 @@ None
 | 197 | Stripe pre-auth failure auto-cancels ride — CANCELLED status, pre_auth_failed, push to customer + driver, HTTP 402 | 2026-03-18 | cb567272 | [197-stripe-pre-auth-failure-auto-cancel-ride](./quick/197-stripe-pre-auth-failure-auto-cancel-ride/) |
 | 198 | Account block after capture retries exhausted — has_unpaid_balance on Customer, Alembic migration, scheduler flag-set, 402 guard at ride request | 2026-03-19 | f022b8e4 | [198-account-block-after-capture-retries-exhausted](./quick/198-account-block-after-capture-retries-exhausted/) |
 | 199 | Fix misleading payout push for non-onboarded drivers — "Complete your payout setup" push with earned amount instead of silence | 2026-03-19 | eea28def | [199-fix-misleading-payout-push-for-non-onboa](./quick/199-fix-misleading-payout-push-for-non-onboa/) |
+| 200 | Add admin clear-unpaid-balance endpoint — GET /api/admin/customers + POST /api/admin/customers/{id}/clear-unpaid-balance, CustomersAdmin screen with Popconfirm-gated Clear Balance button | 2026-03-19 | 744cee18 | [200-add-admin-clear-unpaid-balance-endpoint](./quick/200-add-admin-clear-unpaid-balance-endpoint/) |
 | Phase 08.1 P01 | 50 | 2 tasks | 1 files |
 | Phase 08.1 P02 | 45 | 3 tasks | 4 files |
 | Phase 08.1 P03 | 8 | 1 tasks | 1 files |
@@ -247,5 +248,5 @@ None
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Completed quick task 199: Fix misleading payout push for non-onboarded drivers — "Complete your payout setup" push with earned amount, deployed staging run 23305442309 + prod run 23305824412 (all green)
+Stopped at: Completed quick task 200: Add admin clear-unpaid-balance endpoint — GET /api/admin/customers + POST /api/admin/customers/{id}/clear-unpaid-balance, CustomersAdmin screen with Popconfirm-gated Clear Balance button
 Resume file: .planning/NEXT_SESSION_PROMPT.md
