@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-18 - Completed quick task 191: Android swipe-mode — TinderSwipeCard composable + 16 swipe buttons wired (6 driver, 10 customer)
+Last activity: 2026-03-18 - Completed quick task 192: Fix 3 driver auto-payout bugs in complete_ride (bid NameError, idempotency guard, A4A deduction)
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -226,9 +226,10 @@ None
 | 189 | Fix race condition duplicate bids — UniqueConstraint(ride_request_id, driver_id) in RideBid model, SELECT FOR UPDATE duplicate check, IntegrityError HTTP 400 handler, Alembic migration, deployed to production | 2026-03-18 | ce7384dd | [189-fix-race-condition-duplicate-bids-in-rid](./quick/189-fix-race-condition-duplicate-bids-in-rid/) |
 | 190 | Build SwipeToConfirmButton shared component — 2 SwiftUI views (pill + Tinder card), 8 customer + 9 driver swipe buttons, 5 iOS files | 2026-03-18 | 1421ba03 | [190-build-swipetoconfirmbutton-shared-compon](./quick/190-build-swipetoconfirmbutton-shared-compon/) |
 | 191 | Android swipe-mode — TinderSwipeCard composable (driver + customer), SwipeToConfirmButton (customer), 6 driver + 10 customer swipe buttons wired, both modules BUILD SUCCESSFUL | 2026-03-18 | ea618c67 | [191-build-swipetoconfirmbutton-composable-fo](./quick/191-build-swipetoconfirmbutton-composable-fo/) |
+| 192 | Fix 3 auto-payout bugs in complete_ride — NameError bid.id, idempotency guard, A4A $0.05 deduction; deployed to staging + production CI/CD run 23272879677 | 2026-03-18 | 7cd4acec | [192-automate-driver-payouts-via-stripe-conne](./quick/192-automate-driver-payouts-via-stripe-conne/) |
 
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Completed quick task 191: Android swipe-mode — TinderSwipeCard composable + 16 swipe buttons wired (6 driver, 10 customer)
+Stopped at: Completed quick task 192: Fix 3 driver auto-payout bugs in complete_ride (bid NameError, idempotency guard, A4A deduction)
 Resume file: .planning/NEXT_SESSION_PROMPT.md
