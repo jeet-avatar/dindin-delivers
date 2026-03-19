@@ -93,6 +93,7 @@ const MainLayout: React.FC = () => {
       children: [
         { name: 'Restaurants', href: '/admin/vendor-management', icon: Utensils },
         { name: 'Drivers', href: '/admin/drivers', icon: Truck },
+        { name: 'Customers', href: '/admin/customers', icon: Users },
         { name: 'Document Review', href: '/admin/document-review', icon: FileCheck },
         { name: 'Onboarding (ZIP)', href: '/admin/zip-dashboard', icon: ClipboardCheck },
       ],

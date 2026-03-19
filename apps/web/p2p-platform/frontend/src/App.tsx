@@ -26,6 +26,9 @@ import ActiveRides from './app/screens/rideshare/ActiveRides';
 // Admin - Drivers
 import DriversAdmin from './app/screens/drivers/DriversAdmin';
 
+// Admin - Customers
+import CustomersAdmin from './app/screens/customer/CustomersAdmin';
+
 // Public Pages
 import LandingPage from './app/screens/public/LandingPage';
 import TermsOfService from './app/screens/public/TermsOfService';
@@ -239,6 +242,7 @@ function App() {
           <Route path="rideshare/requests" element={<RideRequests />} />
           <Route path="rideshare/active" element={<ActiveRides />} />
           <Route path="drivers" element={<DriversAdmin />} />
+          <Route path="customers" element={<CustomersAdmin />} />
           <Route path="accounting/vendor-payouts" element={<VendorPayouts />} />
           <Route path="accounting/platform-revenue" element={<PlatformRevenue />} />
           <Route path="accounting/reports" element={<AccountingReports />} />
