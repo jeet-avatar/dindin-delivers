@@ -441,6 +441,13 @@ async def create_ride_request(data: CreateRideRequestInput, request: Request, cu
             detail="You already have 3 open ride requests. Please wait or cancel existing ones."
         )
 
+    # Block customers with unpaid balance from new bookings
+    if customer.has_unpaid_balance:
+        raise HTTPException(
+            status_code=402,
+            detail="You have an unpaid balance from a previous ride. Please contact support to resolve it before booking again."
+        )
+
     # Calculate distance and duration
     distance_km = calculate_distance_km(
         data.pickup_latitude, data.pickup_longitude,
@@ -3885,6 +3892,12 @@ def check_capture_retry_job():
                 if ride.payment_status != "capture_failed":
                     ride.payment_status = "capture_failed"
                     db.commit()
+                # Block customer from new bookings until unpaid balance is resolved
+                customer_record = db.query(Customer).filter(Customer.id == ride.customer_id).first()
+                if customer_record and not customer_record.has_unpaid_balance:
+                    customer_record.has_unpaid_balance = True
+                    db.commit()
+                    logger.warning(f"Customer {ride.customer_id} flagged has_unpaid_balance=True (ride {ride.id} retries exhausted)")
                 logger.warning(f"Ride {ride.id} capture retry exhausted ({retry_count}/{MAX_RETRIES}) — flagged for manual review")
                 continue
 
