@@ -1510,6 +1510,10 @@ struct RideStatusCard: View {
     @State private var ratingSubmitted = false
     @State private var tipSubmitted = false
     @State private var showChatSheet = false
+    @State private var showRatingError = false
+    @State private var ratingErrorMessage = ""
+    @State private var showTipError = false
+    @State private var tipErrorMessage = ""
 
     var statusText: String {
         switch viewModel.currentStep {
@@ -2459,6 +2463,16 @@ struct RideStatusCard: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 8)
         }
+        .alert("Rating Failed", isPresented: $showRatingError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(ratingErrorMessage)
+        }
+        .alert("Tip Failed", isPresented: $showTipError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(tipErrorMessage)
+        }
     }
 
     // MARK: - Rating & Tip Actions
@@ -2484,11 +2498,8 @@ struct RideStatusCard: View {
                 case .success:
                     ratingSubmitted = true
                 case .failure(let error):
-                    // Log error but still allow dismissing
-                    #if DEBUG
-                    print("Rating submission failed: \(error.localizedDescription)")
-                    #endif
-                    ratingSubmitted = true // Allow user to proceed
+                    ratingErrorMessage = error.localizedDescription
+                    showRatingError = true
                 }
             }
         }
@@ -2515,11 +2526,8 @@ struct RideStatusCard: View {
                 case .success:
                     tipSubmitted = true
                 case .failure(let error):
-                    // Log error but still allow dismissing
-                    #if DEBUG
-                    print("Tip submission failed: \(error.localizedDescription)")
-                    #endif
-                    tipSubmitted = true // Allow user to proceed
+                    tipErrorMessage = error.localizedDescription
+                    showTipError = true
                 }
             }
         }
