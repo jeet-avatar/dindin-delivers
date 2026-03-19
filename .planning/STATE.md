@@ -237,6 +237,7 @@ None
 | 195 | Remove AlertDialog gate from Android complete-ride swipe — wire onSwipeConfirm directly to viewModel.completeRide() (matches iOS UX) | 2026-03-18 | 0839d412 | [195-android-complete-ride-dialog-gate](./quick/195-android-complete-ride-dialog-gate/) |
 | 196 | Fix iOS startRide() no-show timer restart bug — capture previousTimerActive before cancel, restore flag only on API failure | 2026-03-18 | 78c8b55d | [196-ios-start-ride-timer-restart-fix](./quick/196-ios-start-ride-timer-restart-fix/) |
 | 197 | Stripe pre-auth failure auto-cancels ride — CANCELLED status, pre_auth_failed, push to customer + driver, HTTP 402 | 2026-03-18 | cb567272 | [197-stripe-pre-auth-failure-auto-cancel-ride](./quick/197-stripe-pre-auth-failure-auto-cancel-ride/) |
+| 198 | Account block after capture retries exhausted — has_unpaid_balance on Customer, Alembic migration, scheduler flag-set, 402 guard at ride request | 2026-03-19 | f022b8e4 | [198-account-block-after-capture-retries-exhausted](./quick/198-account-block-after-capture-retries-exhausted/) |
 | Phase 08.1 P01 | 50 | 2 tasks | 1 files |
 | Phase 08.1 P02 | 45 | 3 tasks | 4 files |
 | Phase 08.1 P03 | 8 | 1 tasks | 1 files |
@@ -244,6 +245,6 @@ None
 
 ## Session Continuity
 
-Last session: 2026-03-18
-Stopped at: Completed quick task 197: Stripe pre-auth failure auto-cancel — blocking StripeError path, CANCELLED status, pre_auth_failed, HTTP 402
+Last session: 2026-03-19
+Stopped at: Completed quick task 198: Account block after capture retries exhausted — has_unpaid_balance Boolean on Customer, Alembic migration, scheduler flag-set, HTTP 402 guard at ride request
 Resume file: .planning/NEXT_SESSION_PROMPT.md
