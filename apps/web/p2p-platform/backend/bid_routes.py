@@ -2507,6 +2507,24 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
                                 logger.error(f"Failed to send payment push to driver: {e}")
                 else:
                     logger.info(f"Ride {ride_request.id} driver not Stripe-onboarded, skipping auto-payout")
+                    # Notify driver to complete payout setup — they earned money but can't receive it yet
+                    if driver:
+                        try:
+                            send_push_notification(
+                                user_type="driver",
+                                user_id=driver.id,
+                                title="Complete your payout setup",
+                                body=f"You earned ${ride_request.driver_payout:.2f} on ride {ride_request.request_id}. Connect your bank account to receive payments.",
+                                data={
+                                    "type": "payout_setup_required",
+                                    "ride_request_id": str(ride_request.id),
+                                    "request_id": ride_request.request_id,
+                                    "amount": str(ride_request.driver_payout)
+                                },
+                                db=db
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to send payout setup push to driver: {e}")
         except Exception as e:
             logger.error(f"Ride {ride_request.id} auto-payout failed (non-blocking): {e}")
 
