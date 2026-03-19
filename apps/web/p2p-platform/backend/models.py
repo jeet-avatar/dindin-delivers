@@ -650,6 +650,8 @@ class Customer(Base):
     # Status
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
+    # Unpaid balance flag (set when Stripe capture retries exhausted)
+    has_unpaid_balance = Column(Boolean, default=False)
 
     # Email Verification
     email_verified = Column(Boolean, default=False)
