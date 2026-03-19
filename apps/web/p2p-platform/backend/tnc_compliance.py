@@ -23,7 +23,7 @@ from datetime import datetime, date, timedelta
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func, case, extract
+from sqlalchemy import and_, func, case, extract, or_
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 
@@ -741,6 +741,14 @@ async def get_quarterly_report(
 
     bg_checked_drivers = db.query(Driver).filter(Driver.background_check == True).count()
 
+    # WAV-capable drivers: accessibility_capable flag OR wheelchair in accessibility_features JSON
+    wav_drivers = db.query(Driver).filter(
+        or_(
+            Driver.accessibility_capable == True,
+            Driver.accessibility_features.like('%"wheelchair": true%'),
+        )
+    ).count()
+
     # Customer stats
     unique_customers = len(set(r.customer_id for r in completed_rides))
 
@@ -778,7 +786,7 @@ async def get_quarterly_report(
         "accessibility_metrics": {
             "total_accessibility_requests": accessible_trips,
             "percentage_of_trips": round(accessible_trips / total_trips * 100, 1) if total_trips > 0 else 0,
-            "wav_vehicles_available": 0,  # TODO: track WAV-capable drivers
+            "wav_vehicles_available": wav_drivers,
         },
         "driver_metrics": {
             "total_registered_drivers": total_drivers,
