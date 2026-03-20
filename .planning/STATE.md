@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-20 - Completed quick task 207: Fix audit HTML header offset 80px→116px + main-panel scroll; bump iOS Customer 1121/Driver 227/Restaurant 218; bump Android Customer vC39/Driver vC35/Partner vC34
+Last activity: 2026-03-20 - Completed quick task 209 (partial): Upload interview-walkthrough.mp4 + poster.jpg to S3/CloudFront; embed video player in interview.html; re-uploaded to S3 + invalidated; awaiting manual YouTube upload + Google Ads negative keywords (Task 3 checkpoint)
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -247,9 +247,10 @@ None
 | 205 | Harden offerletter.ai security — Lambda DoS caps (50k/200/100), API GW throttle (10 req/day), verify-payment Lambda + DynamoDB TTL cache, server-side Stripe paywall, CSP + GTM/GA/Stripe origins | 2026-03-20 | 77e940b5 | [205-harden-offerletter-ai-security-server-si](./quick/205-harden-offerletter-ai-security-server-si/) |
 | 206 | Add update bid feature to Android driver app — UpdateBidRequest model, PUT rides/bid/{bidId} endpoint, Edit Bid button on PENDING bids, UpdateBidSheet bottom sheet with live earnings preview | 2026-03-19 | 419bef2b | [206-add-update-bid-feature-to-android-driver](./quick/206-add-update-bid-feature-to-android-driver/) |
 | 207 | Fix driver-rideshare-audit.html header offset 80px→116px + main-panel independent scroll; bump iOS builds Customer 1121, Driver 227, Restaurant 218; bump Android Customer vC39/1.0.38, Driver vC35/1.0.34, Partner vC34/1.0.33 | 2026-03-19 | 72d1b8db | [207-fix-driver-rideshare-audit-html-layout-h](./quick/207-fix-driver-rideshare-audit-html-layout-h/) |
+| 209 | Upload interview-walkthrough.mp4 (5.1MB) + poster.jpg to S3/CloudFront, embed video player in interview.html above setup steps, re-upload + invalidate; YouTube + Google Ads at checkpoint | 2026-03-20 | 9ee11259 | [209-offerletter-ai-post-launch-upload-video-](./quick/209-offerletter-ai-post-launch-upload-video-/) |
 
 ## Session Continuity
 
-Last session: 2026-03-19
-Stopped at: Completed quick task 207: Fix audit HTML header offset 80px→116px + main-panel scroll; bump iOS 1121/227/218 + Android vC39/vC35/vC34
+Last session: 2026-03-20
+Stopped at: Quick task 209 checkpoint:human-verify — Tasks 1+2 complete (S3 upload + interview.html embed live); awaiting YouTube upload + Google Ads negative keywords from user
 Resume file: .planning/NEXT_SESSION_PROMPT.md
