@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-20 - Completed quick task 205: Harden offerletter.ai security — Lambda DoS caps, verify-payment Lambda + DynamoDB, server-side Stripe paywall, API GW throttle, CSP update
+Last activity: 2026-03-19 - Completed quick task 206: Add update bid feature to Android driver app — UpdateBidRequest model, PUT rides/bid/{bidId} endpoint, updateBid repository method, Edit Bid button on pending bids, UpdateBidSheet bottom sheet, BUILD SUCCESSFUL
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -245,9 +245,10 @@ None
 | 202 | Real driver cancel rate tracking — ride_accept_count + ride_cancel_count columns, bid_routes counter increments, push warnings at 20%/30%, real acceptance_rate in earnings (default 95.0 < 5 rides) | 2026-03-19 | 6f9ba860 | [202-driver-cancel-rate-tracking](./quick/202-driver-cancel-rate-tracking/) |
 | 203 | Audit + fix offerletter.ai website — remove all free wording (6 files), $19 Stripe paywall on interview.html download, expand Mac setup steps, dashboard trial-badge -> status-badge | 2026-03-20 | (website-only) | [203-audit-and-fix-offerletter-ai-website-rem](./quick/203-audit-and-fix-offerletter-ai-website-rem/) |
 | 205 | Harden offerletter.ai security — Lambda DoS caps (50k/200/100), API GW throttle (10 req/day), verify-payment Lambda + DynamoDB TTL cache, server-side Stripe paywall, CSP + GTM/GA/Stripe origins | 2026-03-20 | 77e940b5 | [205-harden-offerletter-ai-security-server-si](./quick/205-harden-offerletter-ai-security-server-si/) |
+| 206 | Add update bid feature to Android driver app — UpdateBidRequest model, PUT rides/bid/{bidId} endpoint, Edit Bid button on PENDING bids, UpdateBidSheet bottom sheet with live earnings preview | 2026-03-19 | 419bef2b | [206-add-update-bid-feature-to-android-driver](./quick/206-add-update-bid-feature-to-android-driver/) |
 
 ## Session Continuity
 
-Last session: 2026-03-20
-Stopped at: Completed quick task 205: OfferLetter.ai security hardening — Lambda DoS caps, verify-payment Lambda, DynamoDB TTL cache, server-side Stripe paywall, CloudFront CSP update
+Last session: 2026-03-19
+Stopped at: Completed quick task 206: Add update bid feature to Android driver app — Edit Bid button on PENDING bids, UpdateBidSheet, BUILD SUCCESSFUL
 Resume file: .planning/NEXT_SESSION_PROMPT.md
