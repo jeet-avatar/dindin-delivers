@@ -268,16 +268,16 @@ pytest tests/ -v
 ./gradlew :app:testDebugUnitTest
 ```
 
-### Current Build Versions (Mar 4, 2026)
+### Current Build Versions (Mar 19, 2026)
 
 | Platform | App | Build | Version | Bundle/Package | TestFlight/Firebase |
 |----------|-----|-------|---------|----------------|---------------------|
-| iOS | Customer | 1110 | 1.0 | `com.dollorai.customer` | Uploaded 2026-03-04 |
-| iOS | Driver | 213 | 1.0 | `com.dollorai.delivery` | Uploaded 2026-03-04 |
-| iOS | Restaurant | 183 | 1.0 | `com.dollorai.restaurant` | Uploaded 2026-03-04 |
-| Android | Customer | vC=33 | 1.0.32 | `ai.dollor.customer` | Firebase 2026-03-04 |
-| Android | Driver | vC=30 | 1.0.29 | `ai.dollor.driver` | Firebase 2026-03-04 |
-| Android | Partner | vC=26 | 1.0.25 | `ai.dollor.partner` | Firebase 2026-03-04 |
+| iOS | Customer | 1122 | 1.1 | `com.dollorai.customer` | Uploaded 2026-03-19 |
+| iOS | Driver | 227 | 1.1 | `com.dollorai.delivery` | Uploaded 2026-03-19 |
+| iOS | Restaurant | 218 | 1.1 | `com.dollorai.restaurant` | Uploaded 2026-03-19 |
+| Android | Customer | vC=39 | 1.0.38 | `ai.dollor.customer` | Firebase pending reauth |
+| Android | Driver | vC=35 | 1.0.34 | `ai.dollor.driver` | Firebase pending reauth |
+| Android | Partner | vC=34 | 1.0.33 | `ai.dollor.partner` | Firebase pending reauth |
 
 ### Production Deployment Status (Feb 23, 2026)
 - **Backend**: All security fixes deployed to staging (smoke tested 12/12 pass) → production. CI/CD run `22328867724` succeeded.
