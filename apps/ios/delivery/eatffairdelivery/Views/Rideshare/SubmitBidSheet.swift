@@ -570,11 +570,12 @@ struct SubmitBidSheet: View {
     private var submitButton: some View {
         VStack(spacing: 12) {
             SwipeToConfirmButton(
-                label: "Slide to Submit Bid $\(String(format: "%.0f", proposedAmount))",
-                accentColor: .blue,
-                isDisabled: !isValidBid || viewModel.isSubmittingBid,
+                title: "Slide to Submit Bid $\(String(format: "%.0f", proposedAmount))",
+                color: .blue,
+                isLoading: viewModel.isSubmittingBid,
                 onConfirm: submitBid
             )
+            .disabled(!isValidBid)
             .padding(.horizontal, 24)
             .padding(.vertical, 8)
 
