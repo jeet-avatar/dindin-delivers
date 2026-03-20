@@ -478,8 +478,9 @@ struct ActiveRideView: View {
         switch rideStatus {
         case .matched, .enRouteToPickup:
             SwipeToConfirmButton(
-                label: "Slide — I've Arrived",
-                accentColor: .green,
+                title: "Slide — I've Arrived",
+                color: .green,
+                isLoading: false,
                 onConfirm: {
                     let previousStatus = rideStatus
                     rideStatus = .arrivedAtPickup
@@ -659,8 +660,9 @@ struct ActiveRideView: View {
                     }
                     // Done — navigate back to dashboard after ride completion
                     SwipeToConfirmButton(
-                        label: "Slide to Done",
-                        accentColor: .gray,
+                        title: "Slide to Done",
+                        color: .gray,
+                        isLoading: false,
                         onConfirm: { dismiss() }
                     )
                     .padding(.horizontal, 24)
