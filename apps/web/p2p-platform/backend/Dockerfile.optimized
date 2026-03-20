@@ -120,6 +120,10 @@ COPY --chown=appuser:appgroup legal/ ./legal/
 # Copy admin frontend (pre-built React SPA)
 COPY --chown=appuser:appgroup admin_frontend/ ./admin_frontend/
 
+# Copy Alembic migration config and scripts (needed by entrypoint.sh for alembic upgrade head)
+COPY --chown=appuser:appgroup alembic.ini ./
+COPY --chown=appuser:appgroup alembic/ ./alembic/
+
 # Create necessary directories
 RUN mkdir -p /app/uploads/driver_documents /app/uploads/vendor_documents /tmp && \
     chown -R appuser:appgroup /app /tmp
