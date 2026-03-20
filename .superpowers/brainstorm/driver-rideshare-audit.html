@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Driver Rideshare Audit Board — Dollor.ai</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
+      background: #0d1117;
+      color: #e6edf3;
+      font-size: 13px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 20px 28px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 17px;
+      font-weight: 600;
+      color: #f0f6fc;
+      letter-spacing: -0.3px;
+    }
+
+    .meta {
+      font-size: 11px;
+      color: #8b949e;
+      margin-top: 3px;
+    }
+
+    .summary-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid;
+    }
+
+    .badge.green  { background: #0d2818; border-color: #238636; color: #3fb950; }
+    .badge.amber  { background: #2a1f00; border-color: #9e6a03; color: #d29922; }
+    .badge.red    { background: #2a0a0a; border-color: #da3633; color: #f85149; }
+    .badge.na     { background: #161b22; border-color: #30363d; color: #8b949e; }
+
+    /* ── Layout ── */
+    .container {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: calc(100vh - 80px);
+    }
+
+    /* ── Left nav panel ── */
+    .left-panel {
+      background: #161b22;
+      border-right: 1px solid #21262d;
+      position: sticky;
+      top: 80px;
+      height: calc(100vh - 80px);
+      overflow-y: auto;
+      padding: 12px 0;
+    }
+
+    .left-panel::-webkit-scrollbar { width: 4px; }
+    .left-panel::-webkit-scrollbar-track { background: transparent; }
+    .left-panel::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #6e7681;
+      padding: 8px 16px 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: all 0.1s;
+      color: #8b949e;
+    }
+
+    .nav-item:hover { background: #1c2128; color: #e6edf3; }
+    .nav-item.active { border-left-color: #388bfd; color: #f0f6fc; background: #1c2128; }
+
+    .nav-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .nav-dot.green  { background: #238636; }
+    .nav-dot.amber  { background: #9e6a03; }
+    .nav-dot.red    { background: #da3633; }
+    .nav-dot.na     { background: #30363d; }
+
+    .nav-num {
+      font-size: 10px;
+      color: #6e7681;
+      min-width: 16px;
+    }
+
+    .nav-name {
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Main audit area ── */
+    .main-panel {
+      padding: 0;
+      overflow-y: auto;
+    }
+
+    .section-header {
+      background: #0d1117;
+      border-bottom: 1px solid #21262d;
+      padding: 10px 24px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #6e7681;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    /* ── Audit row ── */
+    .audit-row {
+      border-bottom: 1px solid #21262d;
+      transition: background 0.1s;
+    }
+
+    .audit-row:hover .row-header { background: #1c2128; }
+
+    .row-header {
+      display: grid;
+      grid-template-columns: 36px 200px 1fr 1fr 1fr 90px;
+      gap: 0;
+      padding: 10px 24px 10px 16px;
+      cursor: pointer;
+      align-items: center;
+    }
+
+    .row-num {
+      font-size: 11px;
+      color: #6e7681;
+      text-align: center;
+    }
+
+    .row-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: #f0f6fc;
+      padding-right: 12px;
+    }
+
+    .row-endpoint {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      color: #79c0ff;
+      padding-right: 12px;
+    }
+
+    .row-endpoint .method {
+      color: #d2a8ff;
+      margin-right: 4px;
+    }
+
+    .row-endpoint .issue {
+      color: #f85149;
+    }
+
+    .row-endpoint .warn {
+      color: #d29922;
+    }
+
+    .row-endpoint .ok {
+      color: #3fb950;
+    }
+
+    .row-endpoint .na {
+      color: #6e7681;
+    }
+
+    .verdict-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid;
+    }
+
+    .verdict-badge.green  { background: #0d2818; border-color: #238636; color: #3fb950; }
+    .verdict-badge.amber  { background: #2a1f00; border-color: #9e6a03; color: #d29922; }
+    .verdict-badge.red    { background: #2a0a0a; border-color: #da3633; color: #f85149; }
+    .verdict-badge.na     { background: #161b22; border-color: #30363d; color: #8b949e; }
+
+    .expand-btn {
+      float: right;
+      color: #6e7681;
+      font-size: 10px;
+    }
+
+    /* ── Expanded detail ── */
+    .row-detail {
+      display: none;
+      background: #0d1117;
+      border-top: 1px solid #21262d;
+      padding: 0 24px 16px 52px;
+    }
+
+    .row-detail.open { display: block; }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .detail-card {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+
+    .detail-card-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #6e7681;
+      margin-bottom: 8px;
+    }
+
+    .detail-line {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      color: #e6edf3;
+      margin-bottom: 4px;
+      line-height: 1.5;
+    }
+
+    .detail-line .label {
+      color: #6e7681;
+      font-size: 10px;
+    }
+
+    .detail-line .path { color: #79c0ff; }
+    .detail-line .method-get { color: #3fb950; }
+    .detail-line .method-post { color: #d2a8ff; }
+    .detail-line .method-put { color: #ffa657; }
+    .detail-line .method-patch { color: #d29922; }
+    .detail-line .method-delete { color: #f85149; }
+
+    .detail-line .auth-ok    { color: #3fb950; }
+    .detail-line .auth-warn  { color: #d29922; }
+    .detail-line .auth-req   { color: #3fb950; }
+    .detail-line .auth-none  { color: #f85149; }
+    .detail-line .missing    { color: #f85149; }
+
+    .detail-source {
+      font-size: 10px;
+      color: #6e7681;
+      margin-top: 6px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .issues-section {
+      margin-top: 10px;
+    }
+
+    .issue-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 5px 0;
+      font-size: 12px;
+      color: #d29922;
+      border-top: 1px solid #21262d;
+    }
+
+    .issue-item.red { color: #f85149; }
+    .issue-item.green { color: #3fb950; }
+
+    .issue-icon { flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Left border verdicts ── */
+    .audit-row.verdict-green .row-header  { border-left: 3px solid #238636; }
+    .audit-row.verdict-amber .row-header  { border-left: 3px solid #9e6a03; }
+    .audit-row.verdict-red   .row-header  { border-left: 3px solid #da3633; }
+    .audit-row.verdict-na    .row-header  { border-left: 3px solid #30363d; }
+
+    /* ── Misc ── */
+    .divider { height: 1px; background: #21262d; }
+
+    .footer {
+      padding: 20px 24px;
+      color: #6e7681;
+      font-size: 11px;
+      border-top: 1px solid #21262d;
+    }
+
+    a { color: #388bfd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div>
+      <h1>Driver Rideshare Audit Board — Dollor.ai</h1>
+      <div class="meta">Source: committed production code · iOS P2PAPIService.swift · Android DollorApiService.kt · bid_routes.py + main_new.py · Anti-hallucination verified 2026-03-19</div>
+    </div>
+    <div class="summary-bar">
+      <span class="badge green">6 ✅ Verified</span>
+      <span class="badge amber">12 ⚠️ Amber</span>
+      <span class="badge red">0 ❌ Red</span>
+      <span class="badge na">1 N/A</span>
+      <span style="font-size:11px;color:#6e7681;margin-left:8px;">Anti-hallucination verified 2026-03-19</span>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ── Left Nav ── -->
+  <nav class="left-panel" id="leftNav">
+    <div class="section-label">Online/Offline</div>
+    <div class="nav-item" data-target="s1"><span class="nav-dot green"></span><span class="nav-num">1</span><span class="nav-name">Go Online / Offline</span></div>
+
+    <div class="section-label">Browse &amp; Bid</div>
+    <div class="nav-item" data-target="s2"><span class="nav-dot amber"></span><span class="nav-num">2</span><span class="nav-name">Browse Available Rides</span></div>
+    <div class="nav-item" data-target="s3"><span class="nav-dot amber"></span><span class="nav-num">3</span><span class="nav-name">View Ride Details</span></div>
+    <div class="nav-item" data-target="s4"><span class="nav-dot amber"></span><span class="nav-num">4</span><span class="nav-name">Submit Bid</span></div>
+    <div class="nav-item" data-target="s5"><span class="nav-dot green"></span><span class="nav-num">5</span><span class="nav-name">Update Bid</span></div>
+    <div class="nav-item" data-target="s6"><span class="nav-dot amber"></span><span class="nav-num">6</span><span class="nav-name">Withdraw Bid</span></div>
+
+    <div class="section-label">Negotiation</div>
+    <div class="nav-item" data-target="s7"><span class="nav-dot amber"></span><span class="nav-num">7</span><span class="nav-name">Fetch Counter-Offer</span></div>
+    <div class="nav-item" data-target="s8"><span class="nav-dot green"></span><span class="nav-num">8</span><span class="nav-name">Accept Counter</span></div>
+    <div class="nav-item" data-target="s9"><span class="nav-dot green"></span><span class="nav-num">9</span><span class="nav-name">Reject Counter</span></div>
+    <div class="nav-item" data-target="s10"><span class="nav-dot green"></span><span class="nav-num">10</span><span class="nav-name">Driver Counter-Offer</span></div>
+
+    <div class="section-label">Active Ride</div>
+    <div class="nav-item" data-target="s11"><span class="nav-dot amber"></span><span class="nav-num">11</span><span class="nav-name">Ride Matched</span></div>
+    <div class="nav-item" data-target="s12a"><span class="nav-dot na"></span><span class="nav-num">12a</span><span class="nav-name">Navigate to Pickup</span></div>
+    <div class="nav-item" data-target="s12b"><span class="nav-dot green"></span><span class="nav-num">12b</span><span class="nav-name">Location Updates</span></div>
+    <div class="nav-item" data-target="s13"><span class="nav-dot amber"></span><span class="nav-num">13</span><span class="nav-name">Mark Arrived</span></div>
+    <div class="nav-item" data-target="s14"><span class="nav-dot amber"></span><span class="nav-num">14</span><span class="nav-name">Start Ride</span></div>
+    <div class="nav-item" data-target="s15"><span class="nav-dot amber"></span><span class="nav-num">15</span><span class="nav-name">Complete Ride</span></div>
+
+    <div class="section-label">Failure Paths</div>
+    <div class="nav-item" data-target="s16"><span class="nav-dot amber"></span><span class="nav-num">16</span><span class="nav-name">Driver Cancel</span></div>
+    <div class="nav-item" data-target="s17"><span class="nav-dot amber"></span><span class="nav-num">17</span><span class="nav-name">Mark No-Show</span></div>
+
+    <div class="section-label">Earnings</div>
+    <div class="nav-item" data-target="s18"><span class="nav-dot amber"></span><span class="nav-num">18</span><span class="nav-name">View Active Bids</span></div>
+    <div class="nav-item" data-target="s19"><span class="nav-dot amber"></span><span class="nav-num">19</span><span class="nav-name">Earnings / Payout</span></div>
+  </nav>
+
+  <!-- ── Main Panel ── -->
+  <main class="main-panel" id="mainPanel">
+
+    <!-- ═══ ONLINE / OFFLINE ═══ -->
+    <div class="section-header">Online / Offline</div>
+
+    <!-- S1: Go Online / Offline -->
+    <div class="audit-row verdict-green" id="s1">
+      <div class="row-header" onclick="toggle('s1')">
+        <span class="row-num">1</span>
+        <span class="row-name">Go Online / Go Offline</span>
+        <span class="row-endpoint"><span class="method">PUT</span> /api/auth/driver/online</span>
+        <span class="row-endpoint"><span class="method">PUT</span> /auth/driver/online <span class="ok">✅</span></span>
+        <span class="row-endpoint"><span class="method-patch">PATCH</span> /drivers/{id}/status <span class="ok">✅</span></span>
+        <span class="verdict-badge green">✅ Verified</span>
+      </div>
+      <div class="row-detail" id="detail-s1">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend (Verified)</div>
+            <div class="detail-line"><span class="label">iOS route: </span><span class="path">PUT /api/auth/driver/online</span> ✅</div>
+            <div class="detail-line"><span class="label">Android route: </span><span class="path">PATCH /drivers/{id}/status</span> ✅</div>
+            <div class="detail-line"><span class="label">Aliases: </span>/api/driver/online/toggle (PUT+POST)</div>
+            <div class="detail-source">main_new.py:3511 (iOS route) · main_new.py:5014 (Android PATCH route)</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/auth/driver/online?is_online=</span> ✅</div>
+            <div class="detail-line"><span class="label">Match: </span>main_new.py:3511 @app.put("/api/auth/driver/online") ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> — low risk</div>
+            <div class="detail-source">P2PAPIService.swift:4739</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Method: </span><span class="method-patch">PATCH</span> ✅ (backend has PATCH route)</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/drivers/{id}/status</span> ✅</div>
+            <div class="detail-line"><span class="label">Match: </span>main_new.py:5014 @app.patch("/drivers/{driver_id}/status") ✅</div>
+            <div class="detail-source">DollorApiService.kt:532 / DollorRepository.kt:1202</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item green"><span class="issue-icon">✅</span> Both paths verified against production backend. iOS → main_new.py:3511. Android PATCH → main_new.py:5014.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional pattern — low risk (driver always logged in at this point).</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ BROWSE & BID ═══ -->
+    <div class="section-header">Browse &amp; Bid</div>
+
+    <!-- S2 -->
+    <div class="audit-row verdict-amber" id="s2">
+      <div class="row-header" onclick="toggle('s2')">
+        <span class="row-num">2</span>
+        <span class="row-name">Browse Available Rides</span>
+        <span class="row-endpoint"><span class="method">GET</span> /api/rides/available</span>
+        <span class="row-endpoint"><span class="method">GET</span> /rides/available <span class="warn">⚠️ auth opt.</span></span>
+        <span class="row-endpoint"><span class="method">GET</span> /rides/available <span class="ok">✅</span></span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s2">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Method: </span><span class="method-get">GET</span></div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/available</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver</span></div>
+            <div class="detail-line"><span class="label">Params: </span>driver_id, latitude, longitude, radius_km=15.0</div>
+            <div class="detail-source">bid_routes.py:1230</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/available</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-line"><span class="label">Params: </span>driver_id, latitude, longitude, radius_km ✅</div>
+            <div class="detail-source">P2PAPIService.swift:5509</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/available</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Polling: </span>every 5s when online</div>
+            <div class="detail-source">DollorApiService.kt:664 / AvailableRidesViewModel.kt:111</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional — backend requires driver JWT. If token nil at call time, returns 401.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S3 -->
+    <div class="audit-row verdict-amber" id="s3">
+      <div class="row-header" onclick="toggle('s3')">
+        <span class="row-num">3</span>
+        <span class="row-name">View Ride Details</span>
+        <span class="row-endpoint"><span class="method">GET</span> /api/rides/request/{id}</span>
+        <span class="row-endpoint"><span class="warn">embedded in list</span></span>
+        <span class="row-endpoint"><span class="warn">embedded in list</span></span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s3">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Method: </span><span class="method-get">GET</span></div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/request/{request_id}</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_any_auth</span></div>
+            <div class="detail-line"><span class="label">Response: </span>full RideRequest + bids array</div>
+            <div class="detail-source">bid_routes.py:598</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Approach: </span><span class="auth-warn">No separate fetch</span></div>
+            <div class="detail-line"><span class="label">Source: </span>RideRequestForBidding objects from Step 2 list</div>
+            <div class="detail-line"><span class="label">Detail: </span>full ride data embedded in /rides/available response</div>
+            <div class="detail-source">P2PAPIService.swift:5509 (list response contains detail)</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Approach: </span><span class="auth-warn">No separate fetch</span></div>
+            <div class="detail-line"><span class="label">Source: </span>AvailableRide objects from Step 2 list</div>
+            <div class="detail-line"><span class="label">Detail: </span>shown in RideDetailSheet from list item</div>
+            <div class="detail-source">AvailableRidesViewModel.kt:180</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item"><span class="issue-icon">⚠️</span> Neither platform calls the dedicated detail endpoint. Both rely on list data being complete — if backend adds fields to the detail endpoint only, both apps will miss them.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S4 -->
+    <div class="audit-row verdict-amber" id="s4">
+      <div class="row-header" onclick="toggle('s4')">
+        <span class="row-num">4</span>
+        <span class="row-name">Submit Bid</span>
+        <span class="row-endpoint"><span class="method">POST</span> /api/rides/request/{id}/bid</span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/bid <span class="warn">⚠️</span></span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/bid <span class="warn">⚠️</span></span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s4">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Method: </span><span class="method-post">POST</span></div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/request/{id}/bid</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver</span></div>
+            <div class="detail-line"><span class="label">Body: </span>proposed_price, message, estimated_arrival_minutes, <span class="missing">driver_vehicle</span></div>
+            <div class="detail-source">bid_routes.py:1341</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/bid</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-line"><span class="label">Body: </span>driver_id, proposed_price, message, estimated_arrival_minutes</div>
+            <div class="detail-line"><span class="label">Missing: </span><span class="missing">driver_vehicle</span> ⚠️</div>
+            <div class="detail-source">P2PAPIService.swift:5567</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/bid</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Body: </span>driverId, proposedPrice, message, estimatedArrivalMinutes</div>
+            <div class="detail-line"><span class="label">Note: </span><span class="auth-warn">camelCase (Gson serialization needed)</span></div>
+            <div class="detail-source">DollorApiService.kt:750 / AvailableRidesViewModel.kt:235</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional — backend requires driver JWT.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS missing <code>driver_vehicle</code> field — backend may require it for bid validation.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> Android sends camelCase (<code>proposedPrice</code>) — verify @SerializedName maps to snake_case backend field.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S5 -->
+    <div class="audit-row verdict-green" id="s5">
+      <div class="row-header" onclick="toggle('s5')">
+        <span class="row-num">5</span>
+        <span class="row-name">Update Bid</span>
+        <span class="row-endpoint"><span class="method">PUT</span> /api/rides/bid/{id}</span>
+        <span class="row-endpoint"><span class="method">PUT</span> /rides/bid/{id} <span class="ok">✅</span></span>
+        <span class="row-endpoint"><span class="method">PUT</span> rides/bid/{bidId} <span class="ok">✅ fixed Q-206</span></span>
+        <span class="verdict-badge green">✅ Verified</span>
+      </div>
+      <div class="row-detail" id="detail-s5">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Method: </span><span class="method-put">PUT</span></div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/bid/{bid_id}</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver (bid owner)</span></div>
+            <div class="detail-line"><span class="label">Body: </span>proposed_price, message (optional)</div>
+            <div class="detail-line"><span class="label">Constraint: </span>bid must be PENDING status</div>
+            <div class="detail-source">bid_routes.py:1587</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/bid/{id}</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-line"><span class="label">Body: </span>proposed_price, message ✅</div>
+            <div class="detail-source">P2PAPIService.swift:6800</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Status: </span><span class="auth-req">IMPLEMENTED ✅ (Q-206, 2026-03-20)</span></div>
+            <div class="detail-line"><span class="label">Endpoint: </span><span class="path">@PUT("rides/bid/{bidId}")</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Body: </span>UpdateBidRequest { @SerializedName("proposed_price"), @SerializedName("message") }</div>
+            <div class="detail-line"><span class="label">UI: </span>"Edit Bid" button on PENDING tab → UpdateBidSheet with live earnings preview</div>
+            <div class="detail-source">DollorApiService.kt:789 · DollorRepository.kt:1492 · MyBidsViewModel.kt · RideshareTabScreen.kt</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item green"><span class="issue-icon">✅</span> Fixed in Quick-206 (2026-03-20). Android now has full parity with iOS for bid updates.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional — backend requires driver JWT. Low priority cleanup.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S6 -->
+    <div class="audit-row verdict-amber" id="s6">
+      <div class="row-header" onclick="toggle('s6')">
+        <span class="row-num">6</span>
+        <span class="row-name">Withdraw Bid</span>
+        <span class="row-endpoint"><span class="method">POST</span> /api/rides/bid/{id}/withdraw</span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/bid/{id}/withdraw <span class="warn">⚠️</span></span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/bid/{id}/withdraw ✅</span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s6">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/bid/{bid_id}/withdraw</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver (bid owner)</span></div>
+            <div class="detail-line"><span class="label">Body: </span>none</div>
+            <div class="detail-source">bid_routes.py:1615</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/bid/{id}/withdraw</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-source">P2PAPIService.swift:5684</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/bid/{id}/withdraw</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-source">DollorApiService.kt:764 / MyBidsViewModel.kt:98</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional — backend requires driver JWT.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ NEGOTIATION ═══ -->
+    <div class="section-header">Negotiation</div>
+
+    <!-- S7 -->
+    <div class="audit-row verdict-amber" id="s7">
+      <div class="row-header" onclick="toggle('s7')">
+        <span class="row-num">7</span>
+        <span class="row-name">Fetch Counter-Offer</span>
+        <span class="row-endpoint"><span class="method">GET</span> /api/rides/driver/{id}/bids</span>
+        <span class="row-endpoint"><span class="method">GET</span> /rides/driver/{id}/bids <span class="warn">⚠️</span></span>
+        <span class="row-endpoint"><span class="method">GET</span> <span class="warn">/driver/bids?driver_id=</span> ⚠️</span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s7">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/driver/{driver_id}/bids</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver</span></div>
+            <div class="detail-line"><span class="label">Params: </span>status (optional), days=7</div>
+            <div class="detail-line"><span class="label">Response: </span>bid.customer_counter_price, bid.last_offer_by</div>
+            <div class="detail-source">bid_routes.py:1884</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/driver/{id}/bids</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-line"><span class="label">Params: </span>days=1, status (optional)</div>
+            <div class="detail-source">P2PAPIService.swift:5632</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="missing">/driver/bids?driver_id={id}</span> ⚠️</div>
+            <div class="detail-line"><span class="label">Backend: </span><span class="path">/rides/driver/{id}/bids</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Polling: </span>every 10s</div>
+            <div class="detail-source">DollorApiService.kt:757 / MyBidsViewModel.kt:69</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item green"><span class="issue-icon">✅</span> Android <code>/driver/bids</code> verified — backend alias at main_new.py:22766 <code>add_api_route("/driver/bids", get_driver_bids)</code>. Not a bug.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional — backend requires driver JWT.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S8 -->
+    <div class="audit-row verdict-green" id="s8">
+      <div class="row-header" onclick="toggle('s8')">
+        <span class="row-num">8</span>
+        <span class="row-name">Accept Customer Counter</span>
+        <span class="row-endpoint"><span class="method">POST</span> /api/rides/bid/{id}/accept-counter</span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/bid/{id}/accept-counter <span class="ok">✅</span></span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/bid/{id}/accept-counter <span class="ok">✅</span></span>
+        <span class="verdict-badge green">✅ Verified</span>
+      </div>
+      <div class="row-detail" id="detail-s8">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/bid/{bid_id}/accept-counter</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver (bid owner)</span></div>
+            <div class="detail-line"><span class="label">Effect: </span>bid ACCEPTED → ride MATCHED → other bids rejected</div>
+            <div class="detail-source">bid_routes.py:1755</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/bid/{id}/accept-counter</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required (explicit) ✅</span></div>
+            <div class="detail-source">P2PAPIService.swift:5986</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/bid/{id}/accept-counter</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-source">DollorApiService.kt:770 / MyBidsViewModel.kt:118</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item green"><span class="issue-icon">✅</span> All three match — path, method, auth. Clean.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S9 -->
+    <div class="audit-row verdict-green" id="s9">
+      <div class="row-header" onclick="toggle('s9')">
+        <span class="row-num">9</span>
+        <span class="row-name">Reject Customer Counter</span>
+        <span class="row-endpoint"><span class="method">POST</span> /api/rides/bid/{id}/reject-counter</span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/bid/{id}/reject-counter <span class="ok">✅</span></span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/bid/{id}/reject-counter <span class="ok">✅</span></span>
+        <span class="verdict-badge green">✅ Verified</span>
+      </div>
+      <div class="row-detail" id="detail-s9">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/bid/{bid_id}/reject-counter</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver (bid owner)</span></div>
+            <div class="detail-line"><span class="label">Effect: </span>bid → WITHDRAWN</div>
+            <div class="detail-source">bid_routes.py:1860</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/bid/{id}/reject-counter</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required (explicit) ✅</span></div>
+            <div class="detail-source">P2PAPIService.swift:6025</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/bid/{id}/reject-counter</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-source">DollorApiService.kt:776 / MyBidsViewModel.kt:140</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item green"><span class="issue-icon">✅</span> All three match. Clean.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S10 -->
+    <div class="audit-row verdict-green" id="s10">
+      <div class="row-header" onclick="toggle('s10')">
+        <span class="row-num">10</span>
+        <span class="row-name">Driver Counter-Offer</span>
+        <span class="row-endpoint"><span class="method">POST</span> /api/rides/bid/{id}/driver-counter</span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/bid/{id}/driver-counter <span class="ok">✅</span></span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/bid/{id}/driver-counter <span class="ok">✅</span></span>
+        <span class="verdict-badge green">✅ Verified</span>
+      </div>
+      <div class="row-detail" id="detail-s10">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/bid/{bid_id}/driver-counter</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver</span></div>
+            <div class="detail-line"><span class="label">Body: </span>counter_price, message (optional)</div>
+            <div class="detail-line"><span class="label">Constraint: </span>max 2 rounds; last_offer_by must be "customer"</div>
+            <div class="detail-source">bid_routes.py:1658</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/bid/{id}/driver-counter</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required (explicit) ✅</span></div>
+            <div class="detail-line"><span class="label">Body: </span>counter_price, message ✅</div>
+            <div class="detail-source">P2PAPIService.swift:5929</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/bid/{id}/driver-counter</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Body: </span>DriverCounterRequest { counterPrice, message }</div>
+            <div class="detail-source">DollorApiService.kt:782 / MyBidsViewModel.kt:161</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item green"><span class="issue-icon">✅</span> All three match. Android camelCase body likely handled by Gson @SerializedName.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ACTIVE RIDE ═══ -->
+    <div class="section-header">Active Ride</div>
+
+    <!-- S11 -->
+    <div class="audit-row verdict-amber" id="s11">
+      <div class="row-header" onclick="toggle('s11')">
+        <span class="row-num">11</span>
+        <span class="row-name">Ride Matched</span>
+        <span class="row-endpoint"><span class="method">GET</span> /api/rides/driver/active + FCM</span>
+        <span class="row-endpoint"><span class="warn">WebSocket + GET /rides/driver/active</span></span>
+        <span class="row-endpoint"><span class="warn">FCM push only</span></span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s11">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Push: </span>FCM sent on bid accepted</div>
+            <div class="detail-line"><span class="label">Poll: </span><span class="path">GET /api/rides/driver/active</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver</span></div>
+            <div class="detail-line"><span class="label">Response: </span>MATCHED + IN_PROGRESS rides</div>
+            <div class="detail-source">bid_routes.py:1319</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Mechanism: </span>WebSocket listener + polling</div>
+            <div class="detail-line"><span class="label">Poll: </span><span class="path">GET /rides/driver/active</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">WebSocket: ?token= param; GET: optional ⚠️</span></div>
+            <div class="detail-source">P2PAPIService.swift:5179</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Mechanism: </span>FCM push only</div>
+            <div class="detail-line"><span class="label">Active ride: </span>navigates to ActiveRideScreen on FCM receipt</div>
+            <div class="detail-line"><span class="label">No polling: </span><span class="auth-warn">does not call /rides/driver/active</span> ⚠️</div>
+            <div class="detail-source">ActiveRideViewModel.kt (FCM handler)</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS and Android use different match notification mechanisms — iOS WebSocket + polling, Android FCM only.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> Android does not call <code>/rides/driver/active</code> on session start — if FCM push is missed (background kill, bad network), Android driver has no fallback to discover the active ride.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S12a -->
+    <div class="audit-row verdict-na" id="s12a">
+      <div class="row-header" onclick="toggle('s12a')">
+        <span class="row-num">12a</span>
+        <span class="row-name">Navigate to Pickup</span>
+        <span class="row-endpoint"><span class="na">N/A — no API call</span></span>
+        <span class="row-endpoint"><span class="na">Maps deep link</span></span>
+        <span class="row-endpoint"><span class="na">Google Maps intent</span></span>
+        <span class="verdict-badge na">N/A</span>
+      </div>
+      <div class="row-detail" id="detail-s12a">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">API call: </span>none required</div>
+            <div class="detail-line"><span class="label">Data source: </span>pickup_latitude / pickup_longitude from matched ride</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Action: </span>Apple Maps / Google Maps deep link</div>
+            <div class="detail-line"><span class="label">No API call</span></div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Action: </span>Intent(ACTION_VIEW, geo:lat,lng)</div>
+            <div class="detail-line"><span class="label">No API call</span></div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item green"><span class="issue-icon">✅</span> N/A — navigation is handled client-side via Maps. No backend endpoint needed.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S12b -->
+    <div class="audit-row verdict-green" id="s12b">
+      <div class="row-header" onclick="toggle('s12b')">
+        <span class="row-num">12b</span>
+        <span class="row-name">Location Updates (Active Ride)</span>
+        <span class="row-endpoint"><span class="method">PUT</span> /api/auth/driver/location</span>
+        <span class="row-endpoint"><span class="method">PUT</span> /auth/driver/location <span class="ok">✅ auth required</span></span>
+        <span class="row-endpoint"><span class="method">POST</span> /api/driver/location <span class="ok">✅</span></span>
+        <span class="verdict-badge green">✅ Verified</span>
+      </div>
+      <div class="row-detail" id="detail-s12b">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend (Verified)</div>
+            <div class="detail-line"><span class="label">iOS route: </span><span class="path">PUT /api/auth/driver/location</span> ✅</div>
+            <div class="detail-line"><span class="label">Android route: </span><span class="path">POST /api/driver/location</span> ✅</div>
+            <div class="detail-source">main_new.py:3586 (iOS) · main_new.py:20979 (Android)</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">PUT /auth/driver/location</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required — hard fail (guard let token)</span> ✅</div>
+            <div class="detail-line"><span class="label">Params: </span>latitude, longitude (query params)</div>
+            <div class="detail-line"><span class="label">Token refresh: </span>auto-retry on 401 ✅</div>
+            <div class="detail-source">P2PAPIService.swift:4672</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">POST /driver/location</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Body: </span>DriverLocationRequest { latitude, longitude }</div>
+            <div class="detail-line"><span class="label">Interval: </span>every 5s during active ride</div>
+            <div class="detail-source">DollorApiService.kt:591 / ActiveRideViewModel.kt:102</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item green"><span class="issue-icon">✅</span> Both platforms send location updates. Auth is required on both. iOS even has auto token-refresh on 401.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS sends lat/lng as query params (PUT), Android sends in body (POST) — different routes. Both verified to exist in backend.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S13 -->
+    <div class="audit-row verdict-amber" id="s13">
+      <div class="row-header" onclick="toggle('s13')">
+        <span class="row-num">13</span>
+        <span class="row-name">Mark Arrived at Pickup</span>
+        <span class="row-endpoint"><span class="method">POST</span> /api/rides/request/{id}/arrived</span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/arrived <span class="warn">⚠️</span></span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/arrived <span class="ok">✅</span></span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s13">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/request/{id}/arrived</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver (matched driver only)</span></div>
+            <div class="detail-line"><span class="label">Effect: </span>sets driver_arrived_at; insurance Period 2 END / Period 3 START</div>
+            <div class="detail-source">bid_routes.py:1938</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/arrived</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-source">P2PAPIService.swift:6107</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/arrived</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Side effect: </span>starts 5-min no-show countdown (line 219)</div>
+            <div class="detail-source">DollorApiService.kt:675 / ActiveRideViewModel.kt:204</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional — critical step: triggers insurance Period 3, must be authenticated.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S14 -->
+    <div class="audit-row verdict-amber" id="s14">
+      <div class="row-header" onclick="toggle('s14')">
+        <span class="row-num">14</span>
+        <span class="row-name">Start Ride</span>
+        <span class="row-endpoint"><span class="method">POST</span> /api/rides/request/{id}/start</span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/start <span class="warn">⚠️</span></span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/start <span class="ok">✅</span></span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s14">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/request/{id}/start</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver (matched driver)</span></div>
+            <div class="detail-line"><span class="label">Effect: </span>status → IN_PROGRESS</div>
+            <div class="detail-source">bid_routes.py:2404</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/start</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-source">P2PAPIService.swift:6140</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/start</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">UI: </span>swipe-to-confirm at Arrived screen</div>
+            <div class="detail-source">DollorApiService.kt:681 / ActiveRideViewModel.kt:231</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional — this is the ride-start state change; must be authenticated.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S15 -->
+    <div class="audit-row verdict-amber" id="s15">
+      <div class="row-header" onclick="toggle('s15')">
+        <span class="row-num">15</span>
+        <span class="row-name">Complete Ride</span>
+        <span class="row-endpoint"><span class="method">POST</span> /api/rides/request/{id}/complete</span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/complete <span class="warn">⚠️</span></span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/complete <span class="ok">✅</span></span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s15">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/request/{id}/complete</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver (matched driver)</span></div>
+            <div class="detail-line"><span class="label">Effect: </span>status → COMPLETED; Stripe capture; driver payout via Connect</div>
+            <div class="detail-line"><span class="label">Fee model: </span>≤$35→$1, $35–70→$2, &gt;$70→$3</div>
+            <div class="detail-source">bid_routes.py:2491</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/complete</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-source">P2PAPIService.swift:6173</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/complete</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Response: </span>earnings, tip, totalEarned shown in receipt</div>
+            <div class="detail-source">DollorApiService.kt:687 / ActiveRideViewModel.kt:257</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional — this triggers Stripe payment capture and driver payout. Must be authenticated. High-severity if token missing at call time.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ FAILURE PATHS ═══ -->
+    <div class="section-header">Failure Paths</div>
+
+    <!-- S16 -->
+    <div class="audit-row verdict-amber" id="s16">
+      <div class="row-header" onclick="toggle('s16')">
+        <span class="row-num">16</span>
+        <span class="row-name">Driver Cancel</span>
+        <span class="row-endpoint"><span class="method">POST</span> /api/rides/request/{id}/driver-cancel</span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/driver-cancel <span class="warn">⚠️</span></span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/driver-cancel <span class="ok">✅</span></span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s16">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/request/{id}/driver-cancel</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver</span></div>
+            <div class="detail-line"><span class="label">Body: </span>reason (optional)</div>
+            <div class="detail-line"><span class="label">Effect: </span>reopens ride; increments ride_cancel_count; push warning at 20%/30%</div>
+            <div class="detail-source">bid_routes.py:2027</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/driver-cancel</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-line"><span class="label">Body: </span>reason ✅</div>
+            <div class="detail-source">P2PAPIService.swift:6264</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/driver-cancel</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Body: </span>CancelRideRequest { reason: String? } ✅</div>
+            <div class="detail-line"><span class="label">UI: </span>reason selection dialog</div>
+            <div class="detail-source">DollorApiService.kt:706 / ActiveRideViewModel.kt:351</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional — backend increments cancel count and may send push warnings; needs to be authenticated.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S17 -->
+    <div class="audit-row verdict-amber" id="s17">
+      <div class="row-header" onclick="toggle('s17')">
+        <span class="row-num">17</span>
+        <span class="row-name">Mark No-Show</span>
+        <span class="row-endpoint"><span class="method">POST</span> /api/rides/request/{id}/no-show</span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/no-show <span class="warn">⚠️</span></span>
+        <span class="row-endpoint"><span class="method">POST</span> /rides/request/{id}/no-show <span class="ok">✅</span></span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s17">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/request/{id}/no-show</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver (must have arrived)</span></div>
+            <div class="detail-line"><span class="label">Fee: </span>$5 customer charge → $4 driver payout via Stripe</div>
+            <div class="detail-line"><span class="label">Constraint: </span>driver_arrived_at must be set; min 5-min wait</div>
+            <div class="detail-source">bid_routes.py:2153</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/no-show</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-source">P2PAPIService.swift:6561</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/request/{id}/no-show</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Gate: </span>button enabled only after 5-min countdown (line 96)</div>
+            <div class="detail-source">DollorApiService.kt:693 / ActiveRideViewModel.kt:283</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional — this triggers Stripe charge to customer ($5) and payout to driver ($4). Must be authenticated.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> Verify iOS enforces 5-minute countdown gate matching Android's behavior (ActiveRideViewModel.kt:96).</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ EARNINGS ═══ -->
+    <div class="section-header">Earnings</div>
+
+    <!-- S18 -->
+    <div class="audit-row verdict-amber" id="s18">
+      <div class="row-header" onclick="toggle('s18')">
+        <span class="row-num">18</span>
+        <span class="row-name">View Active Bids</span>
+        <span class="row-endpoint"><span class="method">GET</span> /api/rides/driver/{id}/bids</span>
+        <span class="row-endpoint"><span class="method">GET</span> /rides/driver/{id}/bids <span class="warn">⚠️</span></span>
+        <span class="row-endpoint"><span class="method">GET</span> <span class="warn">/driver/bids?driver_id=</span> ⚠️</span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s18">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/driver/{driver_id}/bids</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver</span></div>
+            <div class="detail-line"><span class="label">Params: </span>status (optional), days=7</div>
+            <div class="detail-source">bid_routes.py:1884</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/rides/driver/{id}/bids</span> ✅</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-line"><span class="label">Params: </span>days=1 (hardcoded)</div>
+            <div class="detail-source">P2PAPIService.swift:5632</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="missing">/driver/bids?driver_id={id}</span> ⚠️</div>
+            <div class="detail-line"><span class="label">Backend: </span><span class="path">/rides/driver/{id}/bids</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Polling: </span>every 10s</div>
+            <div class="detail-source">DollorApiService.kt:757 / MyBidsViewModel.kt:69</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item green"><span class="issue-icon">✅</span> Android <code>/driver/bids</code> verified — backend alias at main_new.py:22766. Not a bug.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional — backend requires driver JWT.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS hardcodes days=1 vs backend default days=7 — iOS driver sees 1 day of bid history, Android sees 7 days.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- S19 -->
+    <div class="audit-row verdict-amber" id="s19">
+      <div class="row-header" onclick="toggle('s19')">
+        <span class="row-num">19</span>
+        <span class="row-name">Earnings / Payout Dashboard</span>
+        <span class="row-endpoint"><span class="method">GET</span> /api/rides/driver/{id}/payout-history</span>
+        <span class="row-endpoint"><span class="method">GET</span> <span class="warn">/drivers/{id}/earnings (alt)</span></span>
+        <span class="row-endpoint"><span class="method">GET</span> <span class="warn">/drivers/{id}/earnings</span></span>
+        <span class="verdict-badge amber">⚠️ Amber</span>
+      </div>
+      <div class="row-detail" id="detail-s19">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">/api/rides/driver/{id}/payout-history</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">require_driver</span></div>
+            <div class="detail-line"><span class="label">Params: </span>period (today/week/month), start_date, end_date</div>
+            <div class="detail-line"><span class="label">Response: </span>summary + per-ride breakdown</div>
+            <div class="detail-source">bid_routes.py:3144</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">iOS Driver</div>
+            <div class="detail-line"><span class="label">Primary: </span><span class="path">/rides/driver/{id}/payout-history</span> ✅</div>
+            <div class="detail-line"><span class="label">Also calls: </span><span class="auth-warn">/drivers/{id}/earnings</span> ⚠️</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-warn">optional (if let token)</span> ⚠️</div>
+            <div class="detail-source">P2PAPIService.swift:12431 (payout) / :13116 (earnings)</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Android Driver</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="missing">/drivers/{id}/earnings</span></div>
+            <div class="detail-line"><span class="label">Backend match: </span><span class="auth-warn">not in bid_routes.py</span> ⚠️</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="auth-req">required ✅</span></div>
+            <div class="detail-line"><span class="label">Response: </span>DriverEarningsResponse { today, thisWeek, thisMonth, availableBalance }</div>
+            <div class="detail-source">DollorApiService.kt:793 / PayoutDashboardViewModel.kt:43</div>
+          </div>
+        </div>
+        <div class="issues-section">
+          <div class="issue-item green"><span class="issue-icon">✅</span> Android <code>/drivers/{id}/earnings</code> verified — main_new.py:21276 <code>@app.get("/api/drivers/{driver_id}/earnings")</code>. Also rideshare_payments.py:175.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS has two earnings endpoints: <code>/rides/driver/{id}/payout-history</code> (matches backend ✅) and <code>/drivers/{id}/earnings</code> (unverified). Duplicate/conflicting data sources.</div>
+          <div class="issue-item"><span class="issue-icon">⚠️</span> iOS auth optional on both earnings endpoints.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Built from committed production code · <strong>iOS</strong> P2PAPIService.swift · <strong>Android</strong> DollorApiService.kt + DollorRepository.kt · <strong>Backend</strong> bid_routes.py + order_flow.py<br>
+      Generated 2026-03-19 · Dollor.ai Driver Rideshare Audit v1
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // Toggle row detail
+  function toggle(id) {
+    const detail = document.getElementById('detail-' + id);
+    if (detail) detail.classList.toggle('open');
+  }
+
+  // Left nav: click to scroll to row + set active
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const target = item.dataset.target;
+      const el = document.getElementById(target);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Open detail
+        const detail = document.getElementById('detail-' + target);
+        if (detail && !detail.classList.contains('open')) detail.classList.add('open');
+      }
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  // Highlight nav item on scroll
+  const rows = document.querySelectorAll('.audit-row[id]');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        document.querySelectorAll('.nav-item').forEach(n => {
+          n.classList.toggle('active', n.dataset.target === id);
+        });
+      }
+    });
+  }, { threshold: 0.4 });
+
+  rows.forEach(r => observer.observe(r));
+</script>
+
+</body>
+</html>
