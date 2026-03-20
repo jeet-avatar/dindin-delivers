@@ -518,9 +518,9 @@ struct ActiveRideView: View {
                 }
 
                 SwipeToConfirmButton(
-                    label: "Slide to Start Ride",
-                    accentColor: .purple,
-                    isDisabled: viewModel.isLoading,
+                    title: "Slide to Start Ride",
+                    color: .purple,
+                    isLoading: viewModel.isLoading,
                     onConfirm: startRide
                 )
                 .padding(.horizontal, 24)
@@ -546,9 +546,9 @@ struct ActiveRideView: View {
 
         case .inProgress:
             SwipeToConfirmButton(
-                label: "Slide to Complete Ride",
-                accentColor: .orange,
-                isDisabled: viewModel.isLoading,
+                title: "Slide to Complete Ride",
+                color: .orange,
+                isLoading: viewModel.isLoading,
                 onConfirm: completeRide
             )
             .padding(.horizontal, 24)
@@ -689,11 +689,12 @@ struct ActiveRideView: View {
                         .font(.caption)
 
                     SwipeToConfirmButton(
-                        label: "Slide to Submit Rating",
-                        accentColor: .yellow,
-                        isDisabled: passengerRating == 0,
+                        title: "Slide to Submit Rating",
+                        color: .yellow,
+                        isLoading: false,
                         onConfirm: submitPassengerRating
                     )
+                    .disabled(passengerRating == 0)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 8)
                 }

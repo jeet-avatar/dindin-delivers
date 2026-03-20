@@ -372,14 +372,15 @@ struct CounterOfferResponseSheet: View {
             if showNewCounterInput {
                 // Send New Counter
                 SwipeToConfirmButton(
-                    label: "Slide to Send $\(String(format: "%.0f", newCounterAmount)) Offer",
-                    accentColor: .orange,
-                    isDisabled: newCounterAmount <= 0 || viewModel.isLoading,
+                    title: "Slide to Send $\(String(format: "%.0f", newCounterAmount)) Offer",
+                    color: .orange,
+                    isLoading: viewModel.isLoading,
                     onConfirm: {
                         isPriceFocused = false
                         viewModel.submitNewCounterOffer(bid, newPrice: newCounterAmount)
                     }
                 )
+                .disabled(newCounterAmount <= 0)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 8)
 
@@ -399,9 +400,9 @@ struct CounterOfferResponseSheet: View {
             } else {
                 // Accept Counter-Offer
                 SwipeToConfirmButton(
-                    label: "Slide to Accept $\(String(format: "%.0f", customerCounterPrice))",
-                    accentColor: .green,
-                    isDisabled: viewModel.isLoading,
+                    title: "Slide to Accept $\(String(format: "%.0f", customerCounterPrice))",
+                    color: .green,
+                    isLoading: viewModel.isLoading,
                     onConfirm: { viewModel.acceptCounterOffer(bid) }
                 )
                 .padding(.horizontal, 24)
