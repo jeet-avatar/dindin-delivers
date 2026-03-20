@@ -8,6 +8,7 @@ import { MicScene } from "./scenes/MicScene";
 import { OverlayScene } from "./scenes/OverlayScene";
 import { CoachingScene } from "./scenes/CoachingScene";
 import { BlackHoleScene } from "./scenes/BlackHoleScene";
+import { PhoneLinkScene } from "./scenes/PhoneLinkScene";
 import { EndCard } from "./scenes/EndCard";
 
 const { fontFamily } = loadFont();
@@ -32,10 +33,13 @@ export const Video: React.FC = () => (
     <Sequence from={1290} durationInFrames={540} name="Coaching">
       <CoachingScene />
     </Sequence>
-    <Sequence from={1830} durationInFrames={210} name="BlackHole">
+    <Sequence from={1830} durationInFrames={600} name="BlackHole">
       <BlackHoleScene />
     </Sequence>
-    <Sequence from={2040} durationInFrames={150} name="EndCard">
+    <Sequence from={2430} durationInFrames={240} name="PhoneLink">
+      <PhoneLinkScene />
+    </Sequence>
+    <Sequence from={2670} durationInFrames={150} name="EndCard">
       <EndCard />
     </Sequence>
   </AbsoluteFill>
