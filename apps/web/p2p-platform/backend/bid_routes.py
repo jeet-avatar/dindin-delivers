@@ -713,6 +713,11 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
         ride_request.final_price = bid.proposed_price
         ride_request.matched_at = now
 
+        # Increment driver accept count for cancel rate tracking
+        accepting_driver = db.query(Driver).filter(Driver.id == bid.driver_id).first()
+        if accepting_driver:
+            accepting_driver.ride_accept_count = (accepting_driver.ride_accept_count or 0) + 1
+
         # Insurance: Period 1 END + Period 2 START — ride matched
         try:
             from insurance.events import log_insurance_event, get_or_create_session_id
@@ -2066,6 +2071,38 @@ async def driver_cancel_ride(request_id: int, request: Request, data: DriverCanc
     if matched_bid:
         matched_bid.status = BidStatus.WITHDRAWN
         matched_bid.customer_response = f"Driver cancelled: {data.reason or 'No reason provided'}"
+
+    # Increment cancel count + send threshold push warnings
+    cancelling_driver = db.query(Driver).filter(Driver.id == cancelled_driver_id).first()
+    if cancelling_driver:
+        cancelling_driver.ride_cancel_count = (cancelling_driver.ride_cancel_count or 0) + 1
+        total = (cancelling_driver.ride_accept_count or 0) + (cancelling_driver.ride_cancel_count or 0)
+        if total >= 10:  # Enough data to compute a meaningful rate
+            cancel_rate = cancelling_driver.ride_cancel_count / total
+            if cancel_rate >= 0.30:
+                try:
+                    send_push_notification(
+                        user_type="driver",
+                        user_id=cancelled_driver_id,
+                        title="High cancellation rate",
+                        body=f"Your cancel rate is {cancel_rate*100:.0f}%. Frequent cancellations may affect your standing.",
+                        data={"type": "cancel_rate_warning", "cancel_rate": str(round(cancel_rate * 100, 1))},
+                        db=db
+                    )
+                except Exception:
+                    pass
+            elif cancel_rate >= 0.20:
+                try:
+                    send_push_notification(
+                        user_type="driver",
+                        user_id=cancelled_driver_id,
+                        title="Cancellation reminder",
+                        body=f"You've cancelled {cancelling_driver.ride_cancel_count} of your last {total} rides. Try to reduce cancellations.",
+                        data={"type": "cancel_rate_warning", "cancel_rate": str(round(cancel_rate * 100, 1))},
+                        db=db
+                    )
+                except Exception:
+                    pass
 
     db.commit()
 
