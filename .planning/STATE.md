@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-19 - Completed quick task 206: Add update bid feature to Android driver app — UpdateBidRequest model, PUT rides/bid/{bidId} endpoint, updateBid repository method, Edit Bid button on pending bids, UpdateBidSheet bottom sheet, BUILD SUCCESSFUL
+Last activity: 2026-03-20 - Completed quick task 207: Fix audit HTML header offset 80px→116px + main-panel scroll; bump iOS Customer 1121/Driver 227/Restaurant 218; bump Android Customer vC39/Driver vC35/Partner vC34
 
 Progress: [##########] 100% (10/12 plans)
 
