@@ -10,10 +10,10 @@ export const PurchaseScene: React.FC = () => {
 
   const cardScale = springEntrance(frame, fps, 0);
   const windowSlide = springEntrance(frame, fps, 15);
-  // Payment confirmed appears at frame 300 (10s in)
-  const confirmOpacity = fadeIn(frame, 300, 20);
-  // Redirect pulse at frame 420
-  const redirectOpacity = fadeIn(frame, 420, 20);
+  // Payment confirmed appears at frame 150
+  const confirmOpacity = fadeIn(frame, 150, 20);
+  // Redirect pulse at frame 200
+  const redirectOpacity = fadeIn(frame, 200, 20);
 
   return (
     <AbsoluteFill style={{ background: "#F8FAFC", padding: "80px 120px" }}>

@@ -14,19 +14,19 @@ export const OverlayScene: React.FC = () => {
   // Overlay springs in at frame 30
   const overlayScale = springEntrance(frame, fps, 30);
 
-  // ⌘⇧H demo: overlay blinks at frame 200–240 (hidden), reappears at 270
-  const overlayOpacity = frame >= 200 && frame <= 270
-    ? interpolate(frame, [200, 220, 250, 270], [1, 0, 0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+  // ⌘⇧H demo: overlay blinks at frame 100–140 (hidden), reappears at 160
+  const overlayOpacity = frame >= 100 && frame <= 160
+    ? interpolate(frame, [100, 115, 145, 160], [1, 0, 0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
     : 1;
 
-  // Hotkey badge at frame 180–320
-  const hotkeyOpacity = frame >= 180 && frame <= 320 ? fadeIn(frame, 180, 20) : fadeOut(frame, 310, 20);
+  // Hotkey badge at frame 80–180
+  const hotkeyOpacity = frame >= 80 && frame <= 180 ? fadeIn(frame, 80, 20) : fadeOut(frame, 170, 20);
 
-  // "Invisible to screen share" label appears at frame 340
-  const labelOpacity = fadeIn(frame, 340, 25);
+  // "Invisible to screen share" label appears at frame 200
+  const labelOpacity = fadeIn(frame, 200, 25);
 
-  // Drag: overlay moves from top-right (1560,80) toward center-left (80,400) at frame 420–480
-  const dragT = interpolate(frame, [420, 480], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // Drag: overlay moves from top-right (1560,80) toward center-left (80,400) at frame 250–290
+  const dragT = interpolate(frame, [250, 290], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const overlayX = interpolate(dragT, [0, 1], [1560, 80]);
   const overlayY = interpolate(dragT, [0, 1], [80, 300]);
 

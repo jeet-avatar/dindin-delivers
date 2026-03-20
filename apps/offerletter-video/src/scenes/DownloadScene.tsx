@@ -6,10 +6,10 @@ import { CursorSVG, moveCursor } from "../animations/cursor";
 import { springEntrance, fadeIn } from "../animations/spring";
 
 const CURSOR_PATH = [
-  { frame: 30, x: 960, y: 700 },   // starts center-bottom
-  { frame: 90, x: 1100, y: 460 },  // moves to download button
-  { frame: 180, x: 560, y: 480 },  // moves to DMG icon
-  { frame: 500, x: 1100, y: 480 }, // moves to Applications (end of drag)
+  { frame: 20, x: 960, y: 700 },   // starts center-bottom
+  { frame: 50, x: 1100, y: 460 },  // moves to download button
+  { frame: 80, x: 560, y: 480 },   // moves to DMG icon
+  { frame: 350, x: 1100, y: 480 }, // moves to Applications (end of drag)
 ];
 
 export const DownloadScene: React.FC = () => {
@@ -17,9 +17,9 @@ export const DownloadScene: React.FC = () => {
   const { fps } = useVideoConfig();
 
   const finderOpacity = springEntrance(frame, fps, 20);
-  // Drag starts at frame 180, ends at frame 500 (10.7s)
-  const dragProgress = interpolate(frame, [180, 500], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const showBadge = frame >= 520;
+  // Drag starts at frame 80, ends at frame 350
+  const dragProgress = interpolate(frame, [80, 350], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const showBadge = frame >= 360;
   const cursor = moveCursor(CURSOR_PATH, frame);
 
   return (
