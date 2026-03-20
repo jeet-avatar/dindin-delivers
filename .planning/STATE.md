@@ -246,9 +246,10 @@ None
 | 203 | Audit + fix offerletter.ai website — remove all free wording (6 files), $19 Stripe paywall on interview.html download, expand Mac setup steps, dashboard trial-badge -> status-badge | 2026-03-20 | (website-only) | [203-audit-and-fix-offerletter-ai-website-rem](./quick/203-audit-and-fix-offerletter-ai-website-rem/) |
 | 205 | Harden offerletter.ai security — Lambda DoS caps (50k/200/100), API GW throttle (10 req/day), verify-payment Lambda + DynamoDB TTL cache, server-side Stripe paywall, CSP + GTM/GA/Stripe origins | 2026-03-20 | 77e940b5 | [205-harden-offerletter-ai-security-server-si](./quick/205-harden-offerletter-ai-security-server-si/) |
 | 206 | Add update bid feature to Android driver app — UpdateBidRequest model, PUT rides/bid/{bidId} endpoint, Edit Bid button on PENDING bids, UpdateBidSheet bottom sheet with live earnings preview | 2026-03-19 | 419bef2b | [206-add-update-bid-feature-to-android-driver](./quick/206-add-update-bid-feature-to-android-driver/) |
+| 207 | Fix driver-rideshare-audit.html header offset 80px→116px + main-panel independent scroll; bump iOS builds Customer 1121, Driver 227, Restaurant 218; bump Android Customer vC39/1.0.38, Driver vC35/1.0.34, Partner vC34/1.0.33 | 2026-03-19 | 72d1b8db | [207-fix-driver-rideshare-audit-html-layout-h](./quick/207-fix-driver-rideshare-audit-html-layout-h/) |
 
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Completed quick task 206: Add update bid feature to Android driver app — Edit Bid button on PENDING bids, UpdateBidSheet, BUILD SUCCESSFUL
+Stopped at: Completed quick task 207: Fix audit HTML header offset 80px→116px + main-panel scroll; bump iOS 1121/227/218 + Android vC39/vC35/vC34
 Resume file: .planning/NEXT_SESSION_PROMPT.md
