@@ -7690,11 +7690,15 @@ def get_driver_dashboard(
 
     total_deliveries = driver.total_deliveries or 0
 
+    # Compute real acceptance rate from DB counters (>= 5 rides required for meaningful rate)
+    _total_rides = (driver.ride_accept_count or 0) + (driver.ride_cancel_count or 0)
+    _acceptance_rate = round(((driver.ride_accept_count or 0) / _total_rides) * 100, 1) if _total_rides >= 5 else 95.0
+
     today_stats = {
         "deliveries": today_deliveries,
         "earnings": round(today_earnings, 2),
         "hours_online": hours_online,
-        "acceptance_rate": 100
+        "acceptance_rate": _acceptance_rate
     }
 
     # Weekly stats - query real completed orders for this week
@@ -7825,6 +7829,10 @@ def get_driver_dashboard_v5(
         week_data = calc_period_earnings(week_start)
         month_data = calc_period_earnings(month_start)
 
+        # Compute real acceptance rate from DB counters (>= 5 rides required for meaningful rate)
+        _total_rides = (driver.ride_accept_count or 0) + (driver.ride_cancel_count or 0)
+        _acceptance_rate = round(((driver.ride_accept_count or 0) / _total_rides) * 100, 1) if _total_rides >= 5 else 95.0
+
         # Build iOS-compatible response with both nested AND flat fields
         return {
             "driver_id": str(driver_id),
@@ -7839,7 +7847,7 @@ def get_driver_dashboard_v5(
             "total_deliveries": month_data["deliveries"],
             "week_deliveries": week_data["deliveries"],
             "rating": driver.rating or 5.0,
-            "acceptance_rate": 95.0,  # Default acceptance rate
+            "acceptance_rate": _acceptance_rate,  # Real acceptance rate from DB counters
             "completion_rate": 98.0,  # Default completion rate
             "total_tips": week_data["tips"],
             "online_hours": week_data["active_hours"],
