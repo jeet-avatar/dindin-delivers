@@ -769,6 +769,8 @@ class Driver(Base):
     status = Column(SQLEnum(DriverStatus), default=DriverStatus.PENDING)
     rating = Column(Float, default=5.0)
     total_deliveries = Column(Integer, default=0)
+    ride_accept_count = Column(Integer, default=0)  # Rides accepted (matched)
+    ride_cancel_count = Column(Integer, default=0)   # Rides cancelled after matching
 
     # Real-time tracking
     current_latitude = Column(Float)
