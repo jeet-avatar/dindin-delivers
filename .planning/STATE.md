@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-19 - Completed phase 08.1 plan 02: Payment capture failure recovery — explicit capture_failed flag, payment_retry_count column, check_capture_retry_job (5-min retry, 3-attempt max)
+Last activity: 2026-03-20 - Completed quick task 205: Harden offerletter.ai security — Lambda DoS caps, verify-payment Lambda + DynamoDB, server-side Stripe paywall, API GW throttle, CSP update
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -244,11 +244,7 @@ None
 | 201 | Fix no-show charge failure — charge_succeeded flag, customer push + in-app notifications on both failure paths, auto-P1 SupportTicket creation in bid_routes.py | 2026-03-19 | 49369645 | [201-no-show-charge-fail-customer-notificatio](./quick/201-no-show-charge-fail-customer-notificatio/) |
 | 202 | Real driver cancel rate tracking — ride_accept_count + ride_cancel_count columns, bid_routes counter increments, push warnings at 20%/30%, real acceptance_rate in earnings (default 95.0 < 5 rides) | 2026-03-19 | 6f9ba860 | [202-driver-cancel-rate-tracking](./quick/202-driver-cancel-rate-tracking/) |
 | 203 | Audit + fix offerletter.ai website — remove all free wording (6 files), $19 Stripe paywall on interview.html download, expand Mac setup steps, dashboard trial-badge -> status-badge | 2026-03-20 | (website-only) | [203-audit-and-fix-offerletter-ai-website-rem](./quick/203-audit-and-fix-offerletter-ai-website-rem/) |
-| 205 | Harden offerletter.ai security — Lambda DoS caps (50k/200/100), API GW throttle (10 req/day), verify-payment Lambda + DynamoDB TTL cache, server-side Stripe paywall, CSP + GTM/GA/Stripe origins | 2026-03-20 | 97ed67c2 | [205-harden-offerletter-ai-security-server-si](./quick/205-harden-offerletter-ai-security-server-si/) |
-| Phase 08.1 P01 | 50 | 2 tasks | 1 files |
-| Phase 08.1 P02 | 45 | 3 tasks | 4 files |
-| Phase 08.1 P03 | 8 | 1 tasks | 1 files |
-| Phase 08.1 P03 | 8 | 1 tasks | 1 files |
+| 205 | Harden offerletter.ai security — Lambda DoS caps (50k/200/100), API GW throttle (10 req/day), verify-payment Lambda + DynamoDB TTL cache, server-side Stripe paywall, CSP + GTM/GA/Stripe origins | 2026-03-20 | 77e940b5 | [205-harden-offerletter-ai-security-server-si](./quick/205-harden-offerletter-ai-security-server-si/) |
 
 ## Session Continuity
 
