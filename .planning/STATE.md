@@ -243,6 +243,7 @@ None
 | 200 | Add admin clear-unpaid-balance endpoint — GET /api/admin/customers + POST /api/admin/customers/{id}/clear-unpaid-balance, CustomersAdmin screen with Popconfirm-gated Clear Balance button | 2026-03-19 | 744cee18 | [200-add-admin-clear-unpaid-balance-endpoint](./quick/200-add-admin-clear-unpaid-balance-endpoint/) |
 | 201 | Fix no-show charge failure — charge_succeeded flag, customer push + in-app notifications on both failure paths, auto-P1 SupportTicket creation in bid_routes.py | 2026-03-19 | 49369645 | [201-no-show-charge-fail-customer-notificatio](./quick/201-no-show-charge-fail-customer-notificatio/) |
 | 202 | Real driver cancel rate tracking — ride_accept_count + ride_cancel_count columns, bid_routes counter increments, push warnings at 20%/30%, real acceptance_rate in earnings (default 95.0 < 5 rides) | 2026-03-19 | 6f9ba860 | [202-driver-cancel-rate-tracking](./quick/202-driver-cancel-rate-tracking/) |
+| 203 | Audit + fix offerletter.ai website — remove all free wording (6 files), $19 Stripe paywall on interview.html download, expand Mac setup steps, dashboard trial-badge -> status-badge | 2026-03-20 | (website-only) | [203-audit-and-fix-offerletter-ai-website-rem](./quick/203-audit-and-fix-offerletter-ai-website-rem/) |
 | Phase 08.1 P01 | 50 | 2 tasks | 1 files |
 | Phase 08.1 P02 | 45 | 3 tasks | 4 files |
 | Phase 08.1 P03 | 8 | 1 tasks | 1 files |
@@ -250,6 +251,6 @@ None
 
 ## Session Continuity
 
-Last session: 2026-03-19
-Stopped at: Completed quick task 202: Real driver cancel rate tracking — ride_accept_count + ride_cancel_count Alembic migration, Driver model columns, bid_routes increments + push warnings, real acceptance_rate in earnings endpoints
+Last session: 2026-03-20
+Stopped at: Completed quick task 203: OfferLetter.ai website audit — removed free wording, added $19 Stripe paywall on interview.html, expanded Mac setup steps, renamed dashboard trial-badge to status-badge
 Resume file: .planning/NEXT_SESSION_PROMPT.md
