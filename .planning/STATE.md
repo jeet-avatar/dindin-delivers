@@ -93,6 +93,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase 08.1-02]: payment_retry_count nullable in Alembic (existing NULL rows treated as 0 via or-0 guard); MAX_RETRIES=3 hardcoded per spec; driver payout guarded with if/else on capture_failed status
 - [Phase 08.1-03]: Banner placed inside ZStack with zIndex(100); viewModel.resetRide() for Try Again; 10s auto-dismiss; notification fires even when view is not visible
 - [Phase 08.1-03]: Banner placed inside ZStack with zIndex(100); viewModel.resetRide() for Try Again; 10s auto-dismiss; notification fires even when view is not visible
+- [Phase quick-202]: Default acceptance_rate 95.0 when driver has < 5 total rides; push warnings only when total >= 10 (avoids misleading rates for new drivers); push failure bare-except to never block cancel transaction
 
 ### Blockers
 
@@ -241,6 +242,7 @@ None
 | 199 | Fix misleading payout push for non-onboarded drivers — "Complete your payout setup" push with earned amount instead of silence | 2026-03-19 | eea28def | [199-fix-misleading-payout-push-for-non-onboa](./quick/199-fix-misleading-payout-push-for-non-onboa/) |
 | 200 | Add admin clear-unpaid-balance endpoint — GET /api/admin/customers + POST /api/admin/customers/{id}/clear-unpaid-balance, CustomersAdmin screen with Popconfirm-gated Clear Balance button | 2026-03-19 | 744cee18 | [200-add-admin-clear-unpaid-balance-endpoint](./quick/200-add-admin-clear-unpaid-balance-endpoint/) |
 | 201 | Fix no-show charge failure — charge_succeeded flag, customer push + in-app notifications on both failure paths, auto-P1 SupportTicket creation in bid_routes.py | 2026-03-19 | 49369645 | [201-no-show-charge-fail-customer-notificatio](./quick/201-no-show-charge-fail-customer-notificatio/) |
+| 202 | Real driver cancel rate tracking — ride_accept_count + ride_cancel_count columns, bid_routes counter increments, push warnings at 20%/30%, real acceptance_rate in earnings (default 95.0 < 5 rides) | 2026-03-19 | 6f9ba860 | [202-driver-cancel-rate-tracking](./quick/202-driver-cancel-rate-tracking/) |
 | Phase 08.1 P01 | 50 | 2 tasks | 1 files |
 | Phase 08.1 P02 | 45 | 3 tasks | 4 files |
 | Phase 08.1 P03 | 8 | 1 tasks | 1 files |
@@ -249,5 +251,5 @@ None
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Completed quick task 201: Fix no-show charge failure — charge_succeeded flag, customer push + in-app notifications on both failure paths, auto-P1 SupportTicket creation in bid_routes.py
+Stopped at: Completed quick task 202: Real driver cancel rate tracking — ride_accept_count + ride_cancel_count Alembic migration, Driver model columns, bid_routes increments + push warnings, real acceptance_rate in earnings endpoints
 Resume file: .planning/NEXT_SESSION_PROMPT.md
