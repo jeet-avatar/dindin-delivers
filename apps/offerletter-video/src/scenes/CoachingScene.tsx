@@ -18,22 +18,22 @@ export const CoachingScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Sub-sequence: 0-300f manual typewriter, 300-750f AI answer, 750-1050f auto-detect, 1050-1200f 2nd answer
+  // Sub-sequence: 0-150f manual typewriter, 150-375f AI answer, 375f auto-detect, 400f Q2, 490f answer2
   const question1 = charByChar("Tell me about yourself", frame, 2);
-  const answer1 = frame >= 300 ? wordStream(AI_ANSWER_1, frame - 300, 3) : "";
+  const answer1 = frame >= 150 ? wordStream(AI_ANSWER_1, frame - 150, 3) : "";
 
-  // Auto-detect mode: show waveform from frame 750
-  const showWaveform = frame >= 750;
-  const question2 = frame >= 820 ? charByChar("What is your biggest strength?", frame - 820, 3) : "";
-  const answer2 = frame >= 1050 ? wordStream(AI_ANSWER_2, frame - 1050, 4) : "";
+  // Auto-detect mode: show waveform from frame 375
+  const showWaveform = frame >= 375;
+  const question2 = frame >= 400 ? charByChar("What is your biggest strength?", frame - 400, 3) : "";
+  const answer2 = frame >= 490 ? wordStream(AI_ANSWER_2, frame - 490, 4) : "";
 
   // Badges
-  const speedBadgeOpacity = fadeIn(frame, 600, 20);
-  const autoDetectOpacity = fadeIn(frame, 750, 25);
-  const poweredByOpacity = fadeIn(frame, 1100, 30);
+  const speedBadgeOpacity = fadeIn(frame, 150, 20);
+  const autoDetectOpacity = fadeIn(frame, 375, 25);
+  const poweredByOpacity = fadeIn(frame, 510, 30);
 
   const cursor = moveCursor(CURSOR_PATH, frame);
-  const speakerPulse = frame >= 750; // interviewer pulse during auto-detect phase
+  const speakerPulse = frame >= 375; // interviewer pulse during auto-detect phase
 
   return (
     <AbsoluteFill style={{ display: "flex" }}>

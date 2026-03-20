@@ -7,7 +7,7 @@ import { springEntrance, fadeIn } from "../animations/spring";
 
 const CURSOR_PATH = [
   { frame: 0, x: 960, y: 800 },
-  { frame: 60, x: 1100, y: 580 }, // cursor reaches Allow button
+  { frame: 30, x: 1100, y: 580 }, // cursor reaches Allow button
 ];
 
 export const MicScene: React.FC = () => {
@@ -16,9 +16,9 @@ export const MicScene: React.FC = () => {
 
   const dialogScale = springEntrance(frame, fps, 10);
   const dialogY = -40 * (1 - dialogScale);
-  const confirmOpacity = fadeIn(frame, 180, 20);
+  const confirmOpacity = fadeIn(frame, 90, 20);
   // Waveform bars: appear after clicking allow
-  const waveformOpacity = fadeIn(frame, 200, 30);
+  const waveformOpacity = fadeIn(frame, 100, 30);
   const cursor = moveCursor(CURSOR_PATH, frame);
 
   const barHeights = [0.4, 0.8, 1.0, 0.6, 0.9, 0.5, 0.7].map((base, i) =>

@@ -14,28 +14,28 @@ const { fontFamily } = loadFont();
 
 export const Video: React.FC = () => (
   <AbsoluteFill style={{ fontFamily, background: "#0F172A" }}>
-    <Sequence from={0} durationInFrames={90} name="TitleCard">
+    <Sequence from={0} durationInFrames={60} name="TitleCard">
       <TitleCard />
     </Sequence>
-    <Sequence from={90} durationInFrames={600} name="Purchase">
+    <Sequence from={60} durationInFrames={270} name="Purchase">
       <PurchaseScene />
     </Sequence>
-    <Sequence from={690} durationInFrames={900} name="Download">
+    <Sequence from={330} durationInFrames={450} name="Download">
       <DownloadScene />
     </Sequence>
-    <Sequence from={1590} durationInFrames={450} name="Microphone">
+    <Sequence from={780} durationInFrames={210} name="Microphone">
       <MicScene />
     </Sequence>
-    <Sequence from={2040} durationInFrames={600} name="Overlay">
+    <Sequence from={990} durationInFrames={300} name="Overlay">
       <OverlayScene />
     </Sequence>
-    <Sequence from={2640} durationInFrames={1200} name="Coaching">
+    <Sequence from={1290} durationInFrames={540} name="Coaching">
       <CoachingScene />
     </Sequence>
-    <Sequence from={3840} durationInFrames={450} name="BlackHole">
+    <Sequence from={1830} durationInFrames={210} name="BlackHole">
       <BlackHoleScene />
     </Sequence>
-    <Sequence from={4290} durationInFrames={300} name="EndCard">
+    <Sequence from={2040} durationInFrames={150} name="EndCard">
       <EndCard />
     </Sequence>
   </AbsoluteFill>
