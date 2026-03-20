@@ -1,0 +1,22 @@
+{
+  "name": "offerletter-video",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "npx remotion studio",
+    "render": "npx remotion render src/Root.tsx InterviewWalkthrough out/interview-walkthrough.mp4",
+    "still": "npx remotion still src/Root.tsx InterviewWalkthrough --frame=90 out/poster.jpg"
+  },
+  "dependencies": {
+    "remotion": "^4.0.0",
+    "@remotion/cli": "^4.0.0",
+    "@remotion/google-fonts": "^4.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0"
+  }
+}
