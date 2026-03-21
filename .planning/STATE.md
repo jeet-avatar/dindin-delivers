@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-21 - Completed quick task 211: Login audit P0-P2 fixed — DEMO_EMAILS gated to non-production, dead ERP allowlist removed, customer/vendor refresh endpoints added, iOS guard-let encoding, Android dead Apple auth removed, deployed to production.
+Last activity: 2026-03-21 - Completed quick task 213: Create Remotion explainer video for Rajesh — how to use BrandMonkz CRM
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -250,6 +250,8 @@ None
 | 209 | Upload interview-walkthrough.mp4 (5.1MB) + poster.jpg to S3/CloudFront, embed video player in interview.html above setup steps, re-upload + invalidate; YouTube + Google Ads at checkpoint | 2026-03-20 | 9ee11259 | [209-offerletter-ai-post-launch-upload-video-](./quick/209-offerletter-ai-post-launch-upload-video-/) |
 | 143 | CRITICAL: iOS login broken — apply pending Alembic migrations via Docker entrypoint | 2026-03-20 | bec11390 | [143-critical-ios-login-broken-apply-pending-](./quick/143-critical-ios-login-broken-apply-pending-/) |
 | 210 | Add BrandMonkz AI Assistant chatbot with full system knowledge — setup guide for new computers, CRM help, campaign guidance. Rajesh can ask anything. | 2026-03-21 | 8fbf1834 | [210-add-brandmonkz-ai-assistant-chatbot-with](./quick/210-add-brandmonkz-ai-assistant-chatbot-with/) |
+| 211 | Fix all login audit issues P0-P2 across 6 apps — DEMO_EMAILS production gate, dead ERP allowlist removed, customer/vendor refresh endpoints, iOS guard-let encoding, Android dead Apple auth removed | 2026-03-21 | 482b0b92 | [211-fix-all-login-audit-issues-p0-p2-across-](./quick/211-fix-all-login-audit-issues-p0-p2-across-/) |
+| 213 | Create Remotion explainer video for Rajesh — how to use BrandMonkz CRM | 2026-03-21 | 2b904e71 | [213-create-remotion-explainer-video-for-raje](./quick/213-create-remotion-explainer-video-for-raje/) |
 
 ## Session Continuity
 
