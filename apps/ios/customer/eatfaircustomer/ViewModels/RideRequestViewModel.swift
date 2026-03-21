@@ -431,6 +431,14 @@ class RideRequestViewModel: ObservableObject {
                         self.showErrorMessage("Unable to connect. Please check your internet connection.")
                     } else if errorMsg.contains("busy") || errorMsg.contains("unavailable") {
                         self.showErrorMessage("No drivers available in your area. Please try again later.")
+                    } else if errorMsg.contains("unpaid balance") {
+                        self.showErrorMessage("You have an outstanding balance from a previous ride. Please contact support to resolve it before requesting again.")
+                    } else if errorMsg.contains("already have 3") || errorMsg.contains("open ride requests") {
+                        self.showErrorMessage("You have open ride requests pending. Please wait or cancel them before requesting a new ride.")
+                    } else if errorMsg.contains("pre-authorized") || errorMsg.contains("card could not") {
+                        self.showErrorMessage("Your payment method could not be authorized. Please update your card in Settings.")
+                    } else if errorMsg.contains("http error: 401") || errorMsg.contains("invalid or expired token") {
+                        self.showErrorMessage("Your session has expired. Please log in again.")
                     } else {
                         self.showErrorMessage("Unable to request ride. Please try again.")
                     }
@@ -814,6 +822,12 @@ class RideRequestViewModel: ObservableObject {
         case "delivered", "completed":
             currentStep = .completed
             stopTracking()
+        case "expired":
+            stopTracking()
+            NotificationCenter.default.post(name: NSNotification.Name("RideRequestExpired"), object: nil)
+        case "cancelled":
+            stopTracking()
+            showErrorMessage("Your ride was cancelled.")
         default:
             break
         }
