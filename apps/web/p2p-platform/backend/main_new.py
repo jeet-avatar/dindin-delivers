@@ -423,8 +423,9 @@ _PUBLIC_EXACT_PATHS = {
     "/api/auth/vendor/login", "/api/auth/vendor/register",
     "/api/auth/vendor/demo-login",
     "/api/customer/demo-login",
+    "/api/auth/customer/demo-login",
     "/api/auth/driver/demo-login",
-    "/api/auth/vendor/google-auth", "/api/auth/vendor/apple-auth",
+    "/api/auth/vendor/google-auth", "/api/auth/vendor/google", "/api/auth/vendor/apple-auth",
 
     # Auth — admin
     "/api/admin/login",
@@ -444,14 +445,8 @@ _PUBLIC_EXACT_PATHS = {
     "/api/rides/surge", "/api/rides/estimate/bid-label", "/api/rides/pricing/tiers",
     "/api/payments/ride/pricing-info",
 
-    # ERP auth proxies (login/register)
-    "/api/erp/auth/login", "/api/erp/auth/register",
-    "/api/erp/drivers/login", "/api/erp/drivers/register",
-
     # Fare estimates (public — no personal data, just pricing)
     "/api/rides/estimate",
-    "/api/erp/rides/estimate-fare", "/api/erp/rides/fare-estimate",
-    "/api/erp/rides/estimate",
 
     # Matchmaking public info
     "/api/matchmaking/states/live", "/api/matchmaking/connection-fee",
@@ -627,6 +622,11 @@ def _check_login_lockout(email: str) -> None:
             detail="Account temporarily locked due to too many failed attempts. Try again in 15 minutes.",
             headers={"Retry-After": str(LOCKOUT_WINDOW)}
         )
+
+
+def _is_demo_exempt(email: str) -> bool:
+    """Demo accounts are exempt from rate limiting ONLY outside production."""
+    return not _is_production and email in DEMO_EMAILS
 
 
 def sanitize_text(text: Optional[str]) -> Optional[str]:
@@ -2039,13 +2039,13 @@ def admin_login_json(request: AdminLoginRequest, db: Session = Depends(get_db)):
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # SECURITY: Rate limit login attempts to prevent brute force
     # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
-    if form_data.username not in DEMO_EMAILS:
+    if not _is_demo_exempt(form_data.username):
         check_rate_limit(request, auth_rate_limiter, "admin_login")
         check_rate_limit(request, email_auth_rate_limiter, "admin_login_email", identifier=form_data.username.lower())
         _check_login_lockout(form_data.username.lower())
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
-        if form_data.username not in DEMO_EMAILS:
+        if not _is_demo_exempt(form_data.username):
             record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -2054,7 +2054,7 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
         )
 
     if not verify_password(form_data.password, user.password_hash):
-        if form_data.username not in DEMO_EMAILS:
+        if not _is_demo_exempt(form_data.username):
             record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -2074,7 +2074,7 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
 def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # SECURITY: Rate limit login attempts to prevent brute force
     # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
-    if form_data.username not in DEMO_EMAILS:
+    if not _is_demo_exempt(form_data.username):
         check_rate_limit(request, auth_rate_limiter, "vendor_login")
         check_rate_limit(request, email_auth_rate_limiter, "vendor_login_email", identifier=form_data.username.lower())
         _check_login_lockout(form_data.username.lower())
@@ -2086,7 +2086,7 @@ def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     ).first()
 
     if not user:
-        if form_data.username not in DEMO_EMAILS:
+        if not _is_demo_exempt(form_data.username):
             record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -2095,7 +2095,7 @@ def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         )
 
     if not verify_password(form_data.password, user.password_hash):
-        if form_data.username not in DEMO_EMAILS:
+        if not _is_demo_exempt(form_data.username):
             record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -2326,7 +2326,8 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
     }
 
 # Customer Demo Login - for App Store review testing (Android calls POST /api/customer/demo-login)
-@app.post("/api/customer/demo-login")
+@app.post("/api/auth/customer/demo-login")
+@app.post("/api/customer/demo-login")   # kept for Android backward compat
 def customer_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db), secret_key: Optional[str] = Query(None)):
     """Demo login for customer - creates or finds demo customer account for App Store review"""
     _require_admin_secret(secret_key)
@@ -2715,7 +2716,8 @@ def _verify_google_jwt(token: str) -> dict:
         logger.warning(f"Google JWT verification failed: {e}")
         return {}
 
-@app.post("/api/auth/vendor/google-auth", response_model=Token)
+@app.post("/api/auth/vendor/google")       # new canonical path (matches driver/customer pattern)
+@app.post("/api/auth/vendor/google-auth", response_model=Token)  # kept for backward compat
 def vendor_google_auth(http_request: Request, request: VendorGoogleAuthRequest, db: Session = Depends(get_db)):
     """Google OAuth authentication for vendors - handles both login and registration"""
     check_rate_limit(http_request, registration_rate_limiter, "register")
@@ -3049,7 +3051,7 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     """Driver login - authenticates driver and returns token"""
     # SECURITY: Rate limit login attempts to prevent brute force
     # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
-    if form_data.username not in DEMO_EMAILS:
+    if not _is_demo_exempt(form_data.username):
         check_rate_limit(request, auth_rate_limiter, "driver_login")
         check_rate_limit(request, email_auth_rate_limiter, "driver_login_email", identifier=form_data.username.lower())
         _check_login_lockout(form_data.username.lower())
@@ -3067,7 +3069,7 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         if any_user and any_user.driver_id:
             user = any_user
         elif any_user:
-            if form_data.username not in DEMO_EMAILS:
+            if not _is_demo_exempt(form_data.username):
                 record_login_failure(form_data.username.lower())
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -3075,7 +3077,7 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
                 headers={"WWW-Authenticate": "Bearer"},
             )
         else:
-            if form_data.username not in DEMO_EMAILS:
+            if not _is_demo_exempt(form_data.username):
                 record_login_failure(form_data.username.lower())
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -3084,7 +3086,7 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
             )
 
     if not verify_password(form_data.password, user.password_hash):
-        if form_data.username not in DEMO_EMAILS:
+        if not _is_demo_exempt(form_data.username):
             record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -3661,7 +3663,7 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
     """Customer login - authenticates customer and returns token for rideshare"""
     # SECURITY: Rate limit login attempts to prevent brute force
     # Exempt demo accounts to prevent Apple reviewers from being blocked during rapid testing
-    if form_data.username not in DEMO_EMAILS:
+    if not _is_demo_exempt(form_data.username):
         check_rate_limit(request, auth_rate_limiter, "customer_login")
         check_rate_limit(request, email_auth_rate_limiter, "customer_login_email", identifier=form_data.username.lower())
         _check_login_lockout(form_data.username.lower())
@@ -3672,7 +3674,7 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
 
     if not customer:
         print(f"Customer not found: {form_data.username}")
-        if form_data.username not in DEMO_EMAILS:
+        if not _is_demo_exempt(form_data.username):
             record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -3681,7 +3683,7 @@ def customer_auth_login(request: Request, form_data: OAuth2PasswordRequestForm =
         )
 
     if not customer.password_hash or not verify_password(form_data.password, customer.password_hash):
-        if form_data.username not in DEMO_EMAILS:
+        if not _is_demo_exempt(form_data.username):
             record_login_failure(form_data.username.lower())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -3744,6 +3746,37 @@ def vendor_logout(_auth: dict = Depends(require_any_auth)):
     """Invalidate the current vendor JWT (token blacklist)."""
     _revoke_current_token(_auth)
     return {"success": True, "message": "Logged out successfully"}
+
+
+@app.post("/api/auth/customer/refresh")
+def customer_refresh_token(customer: Customer = Depends(require_customer), db: Session = Depends(get_db)):
+    """Refresh customer authentication token"""
+    if not customer.is_active:
+        raise HTTPException(status_code=403, detail="Customer account is inactive.")
+    access_token = create_access_token(data={"sub": customer.email, "role": "customer", "customer_id": customer.id})
+    full_name = f"{customer.first_name or ''} {customer.last_name or ''}".strip() or "Customer"
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "customer_id": customer.id,
+        "customer_code": customer.customer_id or f"CUST-{customer.id:05d}",
+        "name": full_name,
+        "email": customer.email,
+        "phone": customer.phone,
+    }
+
+
+@app.post("/api/auth/vendor/refresh")
+def vendor_refresh_token(vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
+    """Refresh vendor authentication token"""
+    access_token = create_access_token(data={"sub": vendor.email, "role": "vendor", "vendor_id": vendor.id})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "vendor_id": vendor.id,
+        "name": vendor.restaurant_name or vendor.full_name or vendor.name or "",
+        "email": vendor.email,
+    }
 
 
 @app.post("/api/auth/customer/register")
@@ -22720,6 +22753,8 @@ def get_vendor_ai_insights(
 app.add_api_route("/auth/vendor/login", vendor_login, methods=["POST"])
 app.add_api_route("/auth/vendor/demo-login", vendor_demo_login, methods=["POST"])
 app.add_api_route("/auth/vendor/google-auth", vendor_google_auth, methods=["POST"])
+app.add_api_route("/auth/vendor/google", vendor_google_auth, methods=["POST"])
+app.add_api_route("/auth/vendor/refresh", vendor_refresh_token, methods=["POST"])
 app.add_api_route("/auth/vendor/apple-auth", vendor_apple_auth, methods=["POST"])
 app.add_api_route("/auth/driver/login", driver_login, methods=["POST"])
 app.add_api_route("/auth/driver/refresh", driver_refresh_token, methods=["POST"])
@@ -22733,6 +22768,7 @@ app.add_api_route("/api/driver/online/toggle", set_driver_online, methods=["PUT"
 app.add_api_route("/api/driver/online/toggle", set_driver_online, methods=["POST"])
 app.add_api_route("/auth/customer/login", customer_auth_login, methods=["POST"])
 app.add_api_route("/auth/customer/register", customer_auth_register, methods=["POST"])
+app.add_api_route("/auth/customer/refresh", customer_refresh_token, methods=["POST"])
 app.add_api_route("/auth/customer/google", customer_google_auth, methods=["POST"])
 app.add_api_route("/api/customer/{customer_id}/profile", update_customer_profile, methods=["PUT"])
 app.add_api_route("/customer/{customer_id}/profile", update_customer_profile, methods=["PUT"])
