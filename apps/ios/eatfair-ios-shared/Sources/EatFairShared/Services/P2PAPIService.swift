@@ -1206,8 +1206,16 @@ public class P2PAPIService: ObservableObject {
         // For form-urlencoded, only alphanumerics and -._~ are safe
         var allowedCharacters = CharacterSet.alphanumerics
         allowedCharacters.insert(charactersIn: "-._~")
-        let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? email
-        let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? password
+        guard let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: allowedCharacters),
+              let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) else {
+            // addingPercentEncoding should never return nil for standard CharacterSet
+            // but if it does, fail loudly rather than send raw credentials
+            DispatchQueue.main.async { [weak self] in
+                self?.isLoading = false
+                self?.errorMessage = "Login failed: unable to encode credentials"
+            }
+            return
+        }
         let bodyString = "username=\(encodedEmail)&password=\(encodedPassword)"
         request.httpBody = bodyString.data(using: .utf8)
 
@@ -1624,8 +1632,16 @@ public class P2PAPIService: ObservableObject {
         // Properly URL-encode form values (special chars like ! @ # in passwords)
         var allowedCharacters = CharacterSet.alphanumerics
         allowedCharacters.insert(charactersIn: "-._~")
-        let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? email
-        let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? password
+        guard let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: allowedCharacters),
+              let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) else {
+            // addingPercentEncoding should never return nil for standard CharacterSet
+            // but if it does, fail loudly rather than send raw credentials
+            DispatchQueue.main.async { [weak self] in
+                self?.isLoading = false
+                self?.errorMessage = "Login failed: unable to encode credentials"
+            }
+            return
+        }
         let bodyString = "username=\(encodedEmail)&password=\(encodedPassword)"
         request.httpBody = bodyString.data(using: .utf8)
 
@@ -3616,8 +3632,16 @@ public class P2PAPIService: ObservableObject {
         // Properly URL-encode form values (special chars like ! @ # in passwords)
         var allowedCharacters = CharacterSet.alphanumerics
         allowedCharacters.insert(charactersIn: "-._~")
-        let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? email
-        let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? password
+        guard let encodedEmail = email.addingPercentEncoding(withAllowedCharacters: allowedCharacters),
+              let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) else {
+            // addingPercentEncoding should never return nil for standard CharacterSet
+            // but if it does, fail loudly rather than send raw credentials
+            DispatchQueue.main.async { [weak self] in
+                self?.isLoading = false
+                self?.errorMessage = "Login failed: unable to encode credentials"
+            }
+            return
+        }
         let bodyString = "username=\(encodedEmail)&password=\(encodedPassword)"
         request.httpBody = bodyString.data(using: .utf8)
 
