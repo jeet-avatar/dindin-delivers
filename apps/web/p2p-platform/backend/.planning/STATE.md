@@ -143,9 +143,10 @@ Progress: [#####░░░░░] 50% (5/10 plans)
 | 179 | Fix all issues making offerletter.ai look unfinished or fake | 2026-03-16 | 133db81 | [179-fix-all-issues-making-offerletter-ai-loo](./quick/179-fix-all-issues-making-offerletter-ai-loo/) |
 | 180 | Add cookie consent banner to all pages, terms+age checkbox to signup, passive reminder to login | 2026-03-16 | e05ca4b | [180-add-cookie-consent-banner-to-all-pages-v](./quick/180-add-cookie-consent-banner-to-all-pages-v/) |
 | 181 | Dashboard auth guard + real user display + Lambda offer analysis endpoint | 2026-03-17 | b6099e5 | [181-fix-dashboard-auth-guard-and-real-user-d](./quick/181-fix-dashboard-auth-guard-and-real-user-d/) |
+| 143 | CRITICAL: apply pending Alembic migrations via Docker entrypoint — fixes customer/driver 500 login | 2026-03-21 | e0153a24 | [143-critical-ios-login-broken-apply-pending-](./quick/143-critical-ios-login-broken-apply-pending-/) |
 
 ## Session Continuity
 
-Last session: 2026-03-15
-Stopped at: Order flow fixed — READY_FOR_PICKUP no longer wrongly opens 2nd decision window; demo orders start 3-min timer on arrival; restaurant app shows "Delivering now" for out_for_delivery.
+Last session: 2026-03-21
+Stopped at: quick-143 complete — customer/driver login fixed in production. entrypoint.sh runs alembic upgrade heads on container start. 4 new migrations + comprehensive driver column catch-all deployed.
 Resume file: .planning/NEXT_SESSION_PROMPT.md
