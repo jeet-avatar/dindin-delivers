@@ -1210,10 +1210,7 @@ public class P2PAPIService: ObservableObject {
               let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) else {
             // addingPercentEncoding should never return nil for standard CharacterSet
             // but if it does, fail loudly rather than send raw credentials
-            DispatchQueue.main.async { [weak self] in
-                self?.isLoading = false
-                self?.errorMessage = "Login failed: unable to encode credentials"
-            }
+            completion(.failure(P2PAPIError.invalidURL))
             return
         }
         let bodyString = "username=\(encodedEmail)&password=\(encodedPassword)"
@@ -1636,10 +1633,7 @@ public class P2PAPIService: ObservableObject {
               let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) else {
             // addingPercentEncoding should never return nil for standard CharacterSet
             // but if it does, fail loudly rather than send raw credentials
-            DispatchQueue.main.async { [weak self] in
-                self?.isLoading = false
-                self?.errorMessage = "Login failed: unable to encode credentials"
-            }
+            completion(.failure(P2PAPIError.invalidURL))
             return
         }
         let bodyString = "username=\(encodedEmail)&password=\(encodedPassword)"
@@ -3636,10 +3630,7 @@ public class P2PAPIService: ObservableObject {
               let encodedPassword = password.addingPercentEncoding(withAllowedCharacters: allowedCharacters) else {
             // addingPercentEncoding should never return nil for standard CharacterSet
             // but if it does, fail loudly rather than send raw credentials
-            DispatchQueue.main.async { [weak self] in
-                self?.isLoading = false
-                self?.errorMessage = "Login failed: unable to encode credentials"
-            }
+            completion(.failure(P2PAPIError.invalidURL))
             return
         }
         let bodyString = "username=\(encodedEmail)&password=\(encodedPassword)"
