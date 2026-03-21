@@ -19843,6 +19843,22 @@ def setup_demo_accounts(secret_key: Optional[str] = Query(None), db: Session = D
                 {"hash": new_hash, "email": customer_email}
             )
             db.commit()
+            # Clear ride state so demo customer can request rides without hitting 429/402 blocks
+            from models import RideRequest, RideRequestStatus
+            demo_rides = db.query(RideRequest).filter(
+                RideRequest.customer_id == existing.id,
+                RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
+            ).all()
+            cancelled_rides = 0
+            for ride in demo_rides:
+                ride.status = RideRequestStatus.CANCELLED
+                cancelled_rides += 1
+            db.execute(
+                text("UPDATE customers SET has_unpaid_balance = false WHERE email = :email"),
+                {"email": customer_email}
+            )
+            db.commit()
+            results["ride_state_reset"] = {"cancelled_rides": cancelled_rides}
             results["existing"].append("customer")
     except Exception as e:
         db.rollback()
@@ -20057,6 +20073,43 @@ def setup_demo_accounts(secret_key: Optional[str] = Query(None), db: Session = D
     return {
         "success": len(results["errors"]) == 0,
         "results": results
+    }
+
+
+@app.post("/api/demo/reset-ride-state")
+def reset_demo_ride_state(secret_key: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    """Lightweight reset of demo.customer ride state without account recreation.
+    Cancels all OPEN/BIDDING ride requests and clears has_unpaid_balance.
+    SECURITY: Requires ADMIN_SECRET_KEY."""
+    _require_admin_secret(secret_key)
+
+    customer_email = "demo.customer@dollor.ai"
+    customer = db.query(Customer).filter(Customer.email == customer_email).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Demo customer not found — run /api/demo/setup first")
+
+    from models import RideRequest, RideRequestStatus
+    open_rides = db.query(RideRequest).filter(
+        RideRequest.customer_id == customer.id,
+        RideRequest.status.in_([RideRequestStatus.OPEN, RideRequestStatus.BIDDING])
+    ).all()
+
+    cancelled = 0
+    for ride in open_rides:
+        ride.status = RideRequestStatus.CANCELLED
+        cancelled += 1
+
+    db.execute(
+        text("UPDATE customers SET has_unpaid_balance = false WHERE email = :email"),
+        {"email": customer_email}
+    )
+    db.commit()
+
+    return {
+        "success": True,
+        "customer_email": customer_email,
+        "cancelled_rides": cancelled,
+        "has_unpaid_balance_cleared": True
     }
 
 
