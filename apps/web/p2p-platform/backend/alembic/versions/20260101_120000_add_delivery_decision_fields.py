@@ -34,7 +34,7 @@ import sqlalchemy as sa
 
 
 revision: str = '004_delivery_decision'
-down_revision: Union[str, None] = '003_restaurant_acceptance'
+down_revision: Union[str, None] = '002_restaurant_acceptance'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
