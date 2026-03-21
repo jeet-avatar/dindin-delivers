@@ -9,7 +9,6 @@ to enable automatic kitchen order ticket printing when orders are accepted.
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.exc import ProgrammingError
 
 
 # revision identifiers, used by Alembic.
@@ -31,25 +30,16 @@ def _col(table, col):
 
 def upgrade():
     """Add KOT integration columns to vendors table (idempotent)."""
-    _col('vendors', sa.Column('kot_integration_type', sa.String(50), server_default='none'))
-    _col('vendors', sa.Column('kot_enabled', sa.Boolean(), server_default='false'))
-    _col('vendors', sa.Column('kot_api_key', sa.String(500), nullable=True))
-    _col('vendors', sa.Column('kot_api_secret', sa.String(500), nullable=True))
-    _col('vendors', sa.Column('kot_location_id', sa.String(255), nullable=True))
-    _col('vendors', sa.Column('kot_merchant_id', sa.String(255), nullable=True))
-    _col('vendors', sa.Column('kot_restaurant_guid', sa.String(255), nullable=True))
-    _col('vendors', sa.Column('kot_printer_id', sa.String(255), nullable=True))
-    _col('vendors', sa.Column('kot_webhook_url', sa.String(500), nullable=True))
-    _col('vendors', sa.Column('kot_auto_print', sa.Boolean(), server_default='true'))
-
-    print("✅ KOT integration fields added to vendors table")
-    print("   - kot_integration_type: 'none', 'square', 'clover', 'toast'")
-    print("   - kot_enabled: Enable/disable KOT printing")
-    print("   - kot_api_key: POS API key (encrypted)")
-    print("   - kot_location_id: Square Location ID")
-    print("   - kot_merchant_id: Clover Merchant ID")
-    print("   - kot_restaurant_guid: Toast Restaurant GUID")
-    print("   - kot_auto_print: Auto-print on order accept")
+    op.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS kot_integration_type VARCHAR(50) DEFAULT 'none'")
+    op.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS kot_enabled BOOLEAN DEFAULT FALSE")
+    op.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS kot_api_key VARCHAR(500)")
+    op.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS kot_api_secret VARCHAR(500)")
+    op.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS kot_location_id VARCHAR(255)")
+    op.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS kot_merchant_id VARCHAR(255)")
+    op.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS kot_restaurant_guid VARCHAR(255)")
+    op.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS kot_printer_id VARCHAR(255)")
+    op.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS kot_webhook_url VARCHAR(500)")
+    op.execute("ALTER TABLE vendors ADD COLUMN IF NOT EXISTS kot_auto_print BOOLEAN DEFAULT TRUE")
 
 
 def downgrade():
