@@ -1,17 +1,15 @@
 #!/bin/sh
 set -e
 
-echo "[entrypoint] Preparing Alembic migrations..."
+echo "[entrypoint] Stamping known-applied migration branches..."
+# These migrations were applied to the DB without alembic tracking.
+# Stamping ensures alembic does not try to re-apply them, which would
+# fail with DuplicateColumn/DuplicateObject errors.
+alembic stamp 004_delivery_decision || true
+alembic stamp add_kot_integration || true
+alembic stamp 20260320_driver_cancel_tracking || true
 
-# Stamp all known-applied revisions that were deployed without alembic tracking.
-# These columns already exist in the DB. Stamping prevents alembic from trying
-# to re-apply them (which would fail with DuplicateColumn errors).
-echo "[entrypoint] Stamping known-applied migration heads..."
-alembic stamp 004_delivery_decision || echo "[entrypoint] Note: stamp 004_delivery_decision skipped or already stamped"
-alembic stamp add_kot_integration || echo "[entrypoint] Note: stamp add_kot_integration skipped or already stamped"
-alembic stamp 20260318_payment_retry_count || echo "[entrypoint] Note: stamp 20260318_payment_retry_count skipped or already stamped"
-
-echo "[entrypoint] Running new Alembic migrations..."
+echo "[entrypoint] Running pending Alembic migrations..."
 alembic upgrade heads
 echo "[entrypoint] Migrations complete. Starting uvicorn..."
 

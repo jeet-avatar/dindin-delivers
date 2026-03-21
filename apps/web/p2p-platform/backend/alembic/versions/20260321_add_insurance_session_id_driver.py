@@ -10,6 +10,7 @@ but was never migrated to the database.
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.exc import ProgrammingError
 
 revision = '20260321_insurance_session_id'
 down_revision = '20260320_driver_cancel_tracking'
@@ -18,12 +19,18 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('drivers', sa.Column(
-        'insurance_session_id',
-        sa.String(36),
-        nullable=True,
-        comment='Current insurance session UUID for UBI mileage tracking'
-    ))
+    try:
+        op.add_column('drivers', sa.Column(
+            'insurance_session_id',
+            sa.String(36),
+            nullable=True,
+            comment='Current insurance session UUID for UBI mileage tracking'
+        ))
+    except ProgrammingError as e:
+        if 'already exists' in str(e):
+            pass  # Column already exists — idempotent
+        else:
+            raise
 
 
 def downgrade():

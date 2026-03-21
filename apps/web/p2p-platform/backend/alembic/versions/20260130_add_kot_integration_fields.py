@@ -9,6 +9,7 @@ to enable automatic kitchen order ticket printing when orders are accepted.
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.exc import ProgrammingError
 
 
 # revision identifiers, used by Alembic.
@@ -18,20 +19,28 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade():
-    """Add KOT integration columns to vendors table"""
+def _col(table, col):
+    try:
+        op.add_column(table, col)
+    except ProgrammingError as e:
+        if "already exists" in str(e):
+            pass
+        else:
+            raise
 
-    # Add KOT integration fields
-    op.add_column('vendors', sa.Column('kot_integration_type', sa.String(50), server_default='none'))
-    op.add_column('vendors', sa.Column('kot_enabled', sa.Boolean(), server_default='false'))
-    op.add_column('vendors', sa.Column('kot_api_key', sa.String(500), nullable=True))
-    op.add_column('vendors', sa.Column('kot_api_secret', sa.String(500), nullable=True))
-    op.add_column('vendors', sa.Column('kot_location_id', sa.String(255), nullable=True))
-    op.add_column('vendors', sa.Column('kot_merchant_id', sa.String(255), nullable=True))
-    op.add_column('vendors', sa.Column('kot_restaurant_guid', sa.String(255), nullable=True))
-    op.add_column('vendors', sa.Column('kot_printer_id', sa.String(255), nullable=True))
-    op.add_column('vendors', sa.Column('kot_webhook_url', sa.String(500), nullable=True))
-    op.add_column('vendors', sa.Column('kot_auto_print', sa.Boolean(), server_default='true'))
+
+def upgrade():
+    """Add KOT integration columns to vendors table (idempotent)."""
+    _col('vendors', sa.Column('kot_integration_type', sa.String(50), server_default='none'))
+    _col('vendors', sa.Column('kot_enabled', sa.Boolean(), server_default='false'))
+    _col('vendors', sa.Column('kot_api_key', sa.String(500), nullable=True))
+    _col('vendors', sa.Column('kot_api_secret', sa.String(500), nullable=True))
+    _col('vendors', sa.Column('kot_location_id', sa.String(255), nullable=True))
+    _col('vendors', sa.Column('kot_merchant_id', sa.String(255), nullable=True))
+    _col('vendors', sa.Column('kot_restaurant_guid', sa.String(255), nullable=True))
+    _col('vendors', sa.Column('kot_printer_id', sa.String(255), nullable=True))
+    _col('vendors', sa.Column('kot_webhook_url', sa.String(500), nullable=True))
+    _col('vendors', sa.Column('kot_auto_print', sa.Boolean(), server_default='true'))
 
     print("✅ KOT integration fields added to vendors table")
     print("   - kot_integration_type: 'none', 'square', 'clover', 'toast'")
