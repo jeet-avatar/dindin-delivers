@@ -94,6 +94,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase 08.1-03]: Banner placed inside ZStack with zIndex(100); viewModel.resetRide() for Try Again; 10s auto-dismiss; notification fires even when view is not visible
 - [Phase 08.1-03]: Banner placed inside ZStack with zIndex(100); viewModel.resetRide() for Try Again; 10s auto-dismiss; notification fires even when view is not visible
 - [Phase quick-202]: Default acceptance_rate 95.0 when driver has < 5 total rides; push warnings only when total >= 10 (avoids misleading rates for new drivers); push failure bare-except to never block cancel transaction
+- [Phase quick-215]: Used _require_admin_secret() helper for reset-ride-state endpoint — consistent with all other demo endpoints
 
 ### Blockers
 
