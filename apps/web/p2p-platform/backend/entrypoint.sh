@@ -2,7 +2,7 @@
 set -e
 
 echo "[entrypoint] Running Alembic migrations..."
-alembic upgrade head
+alembic upgrade heads
 echo "[entrypoint] Migrations complete. Starting uvicorn..."
 
 exec uvicorn main_new:app \
