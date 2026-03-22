@@ -767,38 +767,46 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
 
             customer_obj = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
             if customer_obj and stripe.api_key:
-                # Ensure customer has Stripe customer ID
-                stripe_customer_id = getattr(customer_obj, 'stripe_customer_id', None)
-                if not stripe_customer_id:
-                    stripe_cust = stripe.Customer.create(
-                        email=customer_obj.email,
-                        name=getattr(customer_obj, 'name', None) or getattr(customer_obj, 'full_name', None) or customer_obj.email,
-                        metadata={"dollor_customer_id": str(customer_obj.id)},
-                        idempotency_key=f"ride-cust-{customer_obj.id}"
-                    )
-                    customer_obj.stripe_customer_id = stripe_cust.id
-                    stripe_customer_id = stripe_cust.id
+                # Demo accounts (App Store review): skip real Stripe, set demo marker so
+                # /create-intent idempotency path returns the demo secret correctly
+                _demo_emails = ["demo.customer@dollor.ai", "demo.driver@dollor.ai", "demo.restaurant@dollor.ai"]
+                if customer_obj.email and customer_obj.email.lower() in _demo_emails:
+                    ride_request.stripe_payment_intent_id = "demo_pi_appstore_review"
                     db.commit()
+                    logger.info(f"Ride {ride_request.id} demo account — skipping Stripe pre-auth")
+                else:
+                    # Ensure customer has Stripe customer ID
+                    stripe_customer_id = getattr(customer_obj, 'stripe_customer_id', None)
+                    if not stripe_customer_id:
+                        stripe_cust = stripe.Customer.create(
+                            email=customer_obj.email,
+                            name=getattr(customer_obj, 'name', None) or getattr(customer_obj, 'full_name', None) or customer_obj.email,
+                            metadata={"dollor_customer_id": str(customer_obj.id)},
+                            idempotency_key=f"ride-cust-{customer_obj.id}"
+                        )
+                        customer_obj.stripe_customer_id = stripe_cust.id
+                        stripe_customer_id = stripe_cust.id
+                        db.commit()
 
-                final_price_cents = int(float(bid.proposed_price) * 100)
-                if final_price_cents > 0:
-                    payment_intent = stripe.PaymentIntent.create(
-                        amount=final_price_cents,
-                        currency="usd",
-                        customer=stripe_customer_id,
-                        description=f"Rideshare #{ride_request.request_id}",
-                        metadata={
-                            "ride_request_id": str(ride_request.id),
-                            "request_id": ride_request.request_id,
-                            "driver_id": str(bid.driver_id),
-                            "type": "rideshare"
-                        },
-                        capture_method="manual",
-                        idempotency_key=f"ride-pi-{ride_request.id}"
-                    )
-                    ride_request.stripe_payment_intent_id = payment_intent.id
-                    db.commit()
-                    logger.info(f"Ride {ride_request.id} PaymentIntent {payment_intent.id} created (${bid.proposed_price:.2f})")
+                    final_price_cents = int(float(bid.proposed_price) * 100)
+                    if final_price_cents > 0:
+                        payment_intent = stripe.PaymentIntent.create(
+                            amount=final_price_cents,
+                            currency="usd",
+                            customer=stripe_customer_id,
+                            description=f"Rideshare #{ride_request.request_id}",
+                            metadata={
+                                "ride_request_id": str(ride_request.id),
+                                "request_id": ride_request.request_id,
+                                "driver_id": str(bid.driver_id),
+                                "type": "rideshare"
+                            },
+                            capture_method="manual",
+                            idempotency_key=f"ride-pi-{ride_request.id}"
+                        )
+                        ride_request.stripe_payment_intent_id = payment_intent.id
+                        db.commit()
+                        logger.info(f"Ride {ride_request.id} PaymentIntent {payment_intent.id} created (${bid.proposed_price:.2f})")
         except stripe.error.StripeError as stripe_err:
             # Blocking failure: card declined / Stripe error — auto-cancel the ride
             logger.error(f"Ride {ride_request.id} Stripe pre-auth FAILED ({type(stripe_err).__name__}): {stripe_err} — auto-cancelling")
