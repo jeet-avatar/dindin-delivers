@@ -859,6 +859,25 @@ struct SwipeToConfirmButton: View {
     var hasError: Bool = false  // Pass true if there was an error
     var isFinalAction: Bool = false  // Pass true for "Complete Delivery" to show success state
 
+    /// Rideshare-style init: label/accentColor/isDisabled maps to title/color/isLoading
+    init(label: String, accentColor: Color = .blue, isDisabled: Bool = false, onConfirm: @escaping () -> Void) {
+        self.title = label
+        self.color = accentColor
+        self.isLoading = isDisabled
+        self.onConfirm = onConfirm
+    }
+
+    /// Food-delivery init: retains original title/color/isLoading interface
+    init(title: String, color: Color, isLoading: Bool, onConfirm: @escaping () -> Void,
+         hasError: Bool = false, isFinalAction: Bool = false) {
+        self.title = title
+        self.color = color
+        self.isLoading = isLoading
+        self.onConfirm = onConfirm
+        self.hasError = hasError
+        self.isFinalAction = isFinalAction
+    }
+
     @State private var offset: CGFloat = 0
     @State private var isConfirmed = false
     @State private var showSuccess = false
