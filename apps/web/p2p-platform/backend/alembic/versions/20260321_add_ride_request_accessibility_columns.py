@@ -9,7 +9,7 @@ corresponding Alembic migrations. Uses ADD COLUMN IF NOT EXISTS for idempotency.
 """
 from alembic import op
 
-revision = "20260321_ride_request_accessibility"
+revision = "20260321_rr_accessibility"
 down_revision = "20260321_driver_missing_columns"
 branch_labels = None
 depends_on = None
