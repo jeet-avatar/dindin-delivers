@@ -1555,10 +1555,11 @@ def _run_startup_migrations():
         ("ride_requests", "passenger_rating", "INTEGER"),
         ("ride_requests", "passenger_comment", "TEXT"),
         # Ride Requests table - accessibility + retry columns (blocked by alembic VARCHAR(32) overflow)
-        ("ride_requests", "accessibility_requested", "BOOLEAN DEFAULT FALSE"),
-        ("ride_requests", "accessibility_notes", "TEXT"),
-        ("ride_requests", "access_for_all_fee", "FLOAT DEFAULT 0.10"),
-        ("ride_requests", "payment_retry_count", "INTEGER DEFAULT 0"),
+        # Using public. prefix to be explicit about schema — bypasses any non-standard search_path
+        ("public.ride_requests", "accessibility_requested", "BOOLEAN DEFAULT FALSE"),
+        ("public.ride_requests", "accessibility_notes", "TEXT"),
+        ("public.ride_requests", "access_for_all_fee", "FLOAT DEFAULT 0.10"),
+        ("public.ride_requests", "payment_retry_count", "INTEGER DEFAULT 0"),
         ("customers", "rating", "FLOAT DEFAULT 5.0"),
         ("customers", "total_rides", "INTEGER DEFAULT 0"),
         # Early Driver Notification columns - orders table
