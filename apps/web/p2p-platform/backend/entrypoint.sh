@@ -56,7 +56,25 @@ alembic stamp 20260321_rr_accessibility || true
 
 echo "[entrypoint] Running pending Alembic migrations..."
 alembic upgrade heads
-echo "[entrypoint] Migrations complete. Starting uvicorn..."
+echo "[entrypoint] Verifying columns via SQLAlchemy engine..."
+python3 -c "
+import os, sys, re
+from sqlalchemy import create_engine, text
+url = os.environ['DATABASE_URL']
+url = re.sub(r'^postgres://', 'postgresql://', url)
+engine = create_engine(url, connect_args={'options': '-c statement_timeout=5000'})
+with engine.connect() as conn:
+    result = conn.execute(text(\"SELECT inet_server_addr(), current_database()\"))
+    host, db = result.fetchone()
+    print(f'[entrypoint] SQLAlchemy engine: db={db} host={host}')
+    result2 = conn.execute(text(\"SELECT attname FROM pg_attribute JOIN pg_class ON attrelid=pg_class.oid WHERE relname='ride_requests' AND attname='accessibility_requested' AND attnum > 0\"))
+    row = result2.fetchone()
+    if row:
+        print('[entrypoint] SQLAlchemy sees accessibility_requested: YES')
+    else:
+        print('[entrypoint] SQLAlchemy sees accessibility_requested: NO — schema mismatch!', file=sys.stderr)
+        sys.exit(1)
+" && echo "[entrypoint] Migrations complete. Starting uvicorn..."
 
 exec uvicorn main_new:app \
   --host 0.0.0.0 \
