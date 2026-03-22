@@ -14,9 +14,9 @@ url = re.sub(r'^postgres\+\w+://', 'postgres://', url)
 try:
     conn = psycopg2.connect(url)
     cur = conn.cursor()
-    cur.execute('SELECT current_database(), inet_server_addr()')
-    db_name, db_host = cur.fetchone()
-    print(f'[entrypoint] Connected to db={db_name} host={db_host}')
+    cur.execute('SELECT current_database(), inet_server_addr(), current_schema()')
+    db_name, db_host, schema = cur.fetchone()
+    print(f'[entrypoint] Connected to db={db_name} host={db_host} schema={schema}')
     stmts = [
         'ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS accessibility_requested BOOLEAN DEFAULT FALSE',
         'ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS accessibility_notes TEXT',
@@ -26,8 +26,14 @@ try:
     for stmt in stmts:
         cur.execute(stmt)
     conn.commit()
-    cur.execute(\"SELECT column_name FROM information_schema.columns WHERE table_name='ride_requests' AND column_name='accessibility_requested'\")
-    exists = cur.fetchone()
+    # Verify in both information_schema and direct pg_attribute
+    cur.execute(\"SELECT table_schema, column_name FROM information_schema.columns WHERE table_name='ride_requests' AND column_name='accessibility_requested'\")
+    rows = cur.fetchall()
+    print(f'[entrypoint] information_schema matches: {rows}')
+    cur.execute(\"SELECT attname FROM pg_attribute JOIN pg_class ON attrelid=pg_class.oid JOIN pg_namespace ON relnamespace=pg_namespace.oid WHERE relname='ride_requests' AND attname='accessibility_requested' AND attnum > 0\")
+    pg_rows = cur.fetchall()
+    print(f'[entrypoint] pg_attribute matches: {pg_rows}')
+    exists = bool(pg_rows)
     if not exists:
         print('[entrypoint] FATAL: column not found after commit', file=sys.stderr)
         sys.exit(1)
