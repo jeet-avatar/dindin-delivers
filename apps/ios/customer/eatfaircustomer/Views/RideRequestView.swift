@@ -2820,98 +2820,90 @@ struct BidCounterSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                // Header info
-                VStack(spacing: 8) {
-                    Text("Counter Offer")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text("Make a counter-offer to \(bid.driver_name ?? "the driver")")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 20)
-
-                // Current price display
-                VStack(spacing: 4) {
-                    Text("Driver's offer")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("$\(String(format: "%.2f", bid.proposed_price))")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.green)
-                }
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color.green.opacity(0.1))
-                .cornerRadius(12)
-
-                // Counter price input
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Your counter price")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-
-                    HStack {
-                        Text("$")
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Header info
+                    VStack(spacing: 8) {
+                        Text("Counter Offer")
                             .font(.title2)
+                            .fontWeight(.bold)
+
+                        Text("Make a counter-offer to \(bid.driver_name ?? "the driver")")
+                            .font(.subheadline)
                             .foregroundColor(.secondary)
-                        TextField("0.00", text: $counterPrice)
-                            .font(.title2)
-                            .keyboardType(.decimalPad)
                     }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                    .padding(.top, 20)
 
-                    // Show remaining counters
-                    Text("\(viewModel.customerCountersRemaining) counter offers remaining")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
-
-                // Optional message
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Message (optional)")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-
-                    TextField("Add a message for the driver...", text: $counterMessage)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
-                }
-
-                // Warning display
-                if let warning = viewModel.counterOfferWarning {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                        Text(warning)
+                    // Current price display
+                    VStack(spacing: 4) {
+                        Text("Driver's offer")
                             .font(.caption)
-                            .foregroundColor(.orange)
+                            .foregroundColor(.secondary)
+                        Text("$\(String(format: "%.2f", bid.proposed_price))")
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundColor(.green)
                     }
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(Color.orange.opacity(0.1))
-                    .cornerRadius(8)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(12)
+
+                    // Counter price input
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Your counter price")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        HStack {
+                            Text("$")
+                                .font(.title2)
+                                .foregroundColor(.secondary)
+                            TextField("0.00", text: $counterPrice)
+                                .font(.title2)
+                                .keyboardType(.decimalPad)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
+
+                        // Show remaining counters
+                        Text("\(viewModel.customerCountersRemaining) counter offers remaining")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+
+                    // Optional message
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Message (optional)")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        TextField("Add a message for the driver...", text: $counterMessage)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                    }
+
+                    // Warning display
+                    if let warning = viewModel.counterOfferWarning {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(warning)
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+
+                    Spacer(minLength: 20)
                 }
-
-                Spacer()
-
-                // Submit button
-                SwipeToConfirmButton(
-                    label: "Slide to Submit Counter",
-                    accentColor: .purple,
-                    isDisabled: !isValidPrice || viewModel.isLoading,
-                    onConfirm: submitCounter
-                )
-                .padding(.horizontal, 24)
-                .padding(.vertical, 8)
+                .padding()
             }
-            .padding()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -2921,8 +2913,22 @@ struct BidCounterSheet: View {
                     }
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 0) {
+                    // Submit button — pinned above keyboard/home indicator
+                    SwipeToConfirmButton(
+                        label: "Slide to Submit Counter",
+                        accentColor: .purple,
+                        isDisabled: !isValidPrice || viewModel.isLoading,
+                        onConfirm: submitCounter
+                    )
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                }
+                .background(Color(.systemBackground))
+            }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
         .onAppear {
             // Pre-fill with a reasonable counter (e.g., 90% of driver's price)
             let suggestedCounter = bid.proposed_price * 0.9
