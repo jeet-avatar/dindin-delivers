@@ -19,6 +19,8 @@ def upgrade():
     op.execute("ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS accessibility_requested BOOLEAN DEFAULT FALSE")
     op.execute("ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS accessibility_notes TEXT")
     op.execute("ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS access_for_all_fee FLOAT DEFAULT 0.10")
+    # payment_retry_count was in the stamped chain (20260318_payment_retry_count) but never executed
+    op.execute("ALTER TABLE ride_requests ADD COLUMN IF NOT EXISTS payment_retry_count INTEGER DEFAULT 0")
 
 
 def downgrade():
