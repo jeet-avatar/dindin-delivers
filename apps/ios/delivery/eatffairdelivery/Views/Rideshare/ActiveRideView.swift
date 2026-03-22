@@ -478,9 +478,9 @@ struct ActiveRideView: View {
         switch rideStatus {
         case .matched, .enRouteToPickup:
             SwipeToConfirmButton(
-                title: "Slide — I've Arrived",
-                color: .green,
-                isLoading: false,
+                label: "Slide — I've Arrived",
+                accentColor: .green,
+                isDisabled: false,
                 onConfirm: {
                     let previousStatus = rideStatus
                     rideStatus = .arrivedAtPickup
@@ -518,9 +518,9 @@ struct ActiveRideView: View {
                 }
 
                 SwipeToConfirmButton(
-                    title: "Slide to Start Ride",
-                    color: .purple,
-                    isLoading: viewModel.isLoading,
+                    label: "Slide to Start Ride",
+                    accentColor: .purple,
+                    isDisabled: viewModel.isLoading,
                     onConfirm: startRide
                 )
                 .padding(.horizontal, 24)
@@ -546,9 +546,9 @@ struct ActiveRideView: View {
 
         case .inProgress:
             SwipeToConfirmButton(
-                title: "Slide to Complete Ride",
-                color: .orange,
-                isLoading: viewModel.isLoading,
+                label: "Slide to Complete Ride",
+                accentColor: .orange,
+                isDisabled: viewModel.isLoading,
                 onConfirm: completeRide
             )
             .padding(.horizontal, 24)
@@ -660,9 +660,9 @@ struct ActiveRideView: View {
                     }
                     // Done — navigate back to dashboard after ride completion
                     SwipeToConfirmButton(
-                        title: "Slide to Done",
-                        color: .gray,
-                        isLoading: false,
+                        label: "Slide to Done",
+                        accentColor: .gray,
+                        isDisabled: false,
                         onConfirm: { dismiss() }
                     )
                     .padding(.horizontal, 24)
@@ -689,12 +689,11 @@ struct ActiveRideView: View {
                         .font(.caption)
 
                     SwipeToConfirmButton(
-                        title: "Slide to Submit Rating",
-                        color: .yellow,
-                        isLoading: false,
+                        label: "Slide to Submit Rating",
+                        accentColor: .yellow,
+                        isDisabled: passengerRating == 0,
                         onConfirm: submitPassengerRating
                     )
-                    .disabled(passengerRating == 0)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 8)
                 }

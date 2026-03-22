@@ -73,39 +73,42 @@ public struct SwipeToConfirmButton: View {
                             .font(.system(size: 18, weight: .bold))
                     )
                     .offset(x: clampedOffset)
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                guard !isDisabled, buttonState != .completed else { return }
-                                buttonState = .dragging
-                                dragOffset = value.translation.width
-                            }
-                            .onEnded { _ in
-                                guard !isDisabled, buttonState != .completed else { return }
-                                let progress = min(max(dragOffset, 0), trackWidth) / trackWidth
-                                if progress >= threshold {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        dragOffset = trackWidth
-                                        buttonState = .completed
-                                    }
-                                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                                        onConfirm()
-                                    }
-                                } else {
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                        dragOffset = 0
-                                        buttonState = .idle
-                                    }
-                                }
-                            }
-                    )
-                    // VoiceOver accessibility fallback — double-tap activates
+                    // VoiceOver accessibility fallback
                     .accessibilityLabel(label)
                     .accessibilityHint("Double-tap to confirm")
                     .accessibilityAddTraits(.isButton)
-                    .onTapGesture { } // prevents SwiftUI from swallowing gestures
+                    .accessibilityActivationPoint(CGPoint(x: 0.5, y: 0.5))
             }
+            // Drag gesture on the whole ZStack — user can start dragging anywhere on the track
+            // highPriorityGesture ensures DragGesture wins over parent scroll views
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 5)
+                    .onChanged { value in
+                        guard !isDisabled, buttonState != .completed else { return }
+                        buttonState = .dragging
+                        // Clamp to non-negative: leftward drags on thumb should not go negative
+                        dragOffset = max(0, value.translation.width)
+                    }
+                    .onEnded { _ in
+                        guard !isDisabled, buttonState != .completed else { return }
+                        let progress = min(max(dragOffset, 0), trackWidth) / trackWidth
+                        if progress >= threshold {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                dragOffset = trackWidth
+                                buttonState = .completed
+                            }
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                onConfirm()
+                            }
+                        } else {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                dragOffset = 0
+                                buttonState = .idle
+                            }
+                        }
+                    }
+            )
             .frame(height: height)
             .opacity(isDisabled ? 0.5 : 1.0)
             .allowsHitTesting(!isDisabled)
