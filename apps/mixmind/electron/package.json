@@ -1,0 +1,52 @@
+{
+  "name": "mixmind",
+  "version": "1.0.0",
+  "description": "MixMind — DJ Library Manager by beatmind.io",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac --dir",
+    "dist": "electron-builder --mac --publish=never"
+  },
+  "build": {
+    "appId": "io.beatmind.mixmind",
+    "productName": "MixMind",
+    "mac": {
+      "category": "public.app-category.music",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.plist",
+      "entitlementsInherit": "entitlements.plist",
+      "identity": "PRKZ4UVCD7"
+    },
+    "dmg": {
+      "title": "MixMind",
+      "icon": "assets/icon.icns"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "splash.html",
+      "../frontend/build/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../sidecar/dist/mixmind-sidecar",
+        "to": "sidecar",
+        "filter": ["**/*"]
+      }
+    ],
+    "extendInfo": {
+      "CFBundleURLTypes": [
+        {
+          "CFBundleURLSchemes": ["mixmind"],
+          "CFBundleURLName": "io.beatmind.mixmind"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}
