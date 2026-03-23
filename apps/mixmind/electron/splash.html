@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0f0f0f;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    h1 { font-size: 32px; font-weight: 700; color: #a78bfa; margin-bottom: 8px; }
+    p  { font-size: 14px; color: #9ca3af; }
+    .dot { animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
+  </style>
+</head>
+<body>
+  <h1>MixMind</h1>
+  <p>Starting<span class="dot">...</span></p>
+</body>
+</html>
