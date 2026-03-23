@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-23 - Completed quick task 217: Build BrandMonkz campaign tutorial — HTML diagram, PDF guide, Remotion video, placement email template
+Last activity: 2026-03-23 - Completed quick task 218: Fix BrandMonkz campaign text visibility and ensure AI generates and saves full email body
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -255,6 +255,7 @@ None
 | 213 | Create Remotion explainer video for Rajesh — how to use BrandMonkz CRM | 2026-03-21 | 2b904e71 | [213-create-remotion-explainer-video-for-raje](./quick/213-create-remotion-explainer-video-for-raje/) |
 | 215 | Fix demo.customer ride request blocked in production — extend /api/demo/setup + add /api/demo/reset-ride-state to clear has_unpaid_balance and cancel stuck OPEN/BIDDING rides | 2026-03-21 | 9d6e92b4 | [215-fix-demo-customer-ride-request-blocked-i](./quick/215-fix-demo-customer-ride-request-blocked-i/) |
 | 217 | Build BrandMonkz campaign tutorial — HTML diagram, PDF guide, Remotion video, placement email template | 2026-03-23 | a9a4544 | [217-build-brandmonkz-campaign-tutorial-html-](./quick/217-build-brandmonkz-campaign-tutorial-html-/) |
+| 218 | Fix BrandMonkz campaign text visibility and ensure AI generates and saves full email body | 2026-03-23 | d640ed2c | [218-fix-brandmonkz-campaign-text-visibility-](./quick/218-fix-brandmonkz-campaign-text-visibility-/) |
 
 ## Session Continuity
 
