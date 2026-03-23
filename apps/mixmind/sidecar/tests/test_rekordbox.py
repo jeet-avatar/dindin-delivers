@@ -52,3 +52,11 @@ def test_track_cue_count():
 def test_missing_xml_raises_file_not_found():
     with pytest.raises(FileNotFoundError):
         load_library_xml(Path("/nonexistent/path.xml"))
+
+
+def test_cue_count_matches_cue_colors_length():
+    tracks = load_library_xml(FIXTURE_XML)
+    for t in tracks:
+        assert t.cue_count == len(t.cue_colors), (
+            f"Track {t.content_id}: cue_count={t.cue_count} but len(cue_colors)={len(t.cue_colors)}"
+        )

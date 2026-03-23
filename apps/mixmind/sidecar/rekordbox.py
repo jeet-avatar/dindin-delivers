@@ -83,7 +83,7 @@ class Track:
     """Number of hot cue points (POSITION_MARK elements with raw Type=1)."""
 
     cue_colors: list[str] = field(default_factory=list)
-    """Hex colour strings for each hot cue, e.g. ['#ff0000']."""
+    """Hex colour strings for each hot cue (same length as cue_count, defaults to #000000 if no color data)."""
 
     def to_cache(self) -> dict:
         """Serialise to a plain dict suitable for JSON caching."""
@@ -155,7 +155,6 @@ def _track_from_xml_element(el: ET.Element) -> Track:
             pm.attrib.get("Blue", "0"),
         )
         for pm in hot_cues
-        if "Red" in pm.attrib
     ]
 
     return Track(
@@ -203,79 +202,88 @@ def load_library_xml(xml_path: Path) -> list[Track]:
     # pyrekordbox validates the format and provides typed attribute access.
     # We still read POSITION_MARK colours via the raw _element to access
     # Red/Green/Blue attributes that pyrekordbox doesn't expose as typed getters.
+    #
+    # Only the import and initial file parse are wrapped in the broad except —
+    # programming errors in the per-track loop should raise naturally.
     try:
         from pyrekordbox import RekordboxXml  # type: ignore
 
         rb_db = RekordboxXml(str(xml_path))
         rb_tracks = rb_db.get_tracks()
-
-        tracks: list[Track] = []
-        for rb_track in rb_tracks:
-            track_id = str(rb_track.get("TrackID", ""))
-            title = rb_track.get("Name") or ""
-            artist = rb_track.get("Artist") or ""
-
-            bpm_raw = rb_track.get("AverageBpm")
-            bpm = float(bpm_raw) if bpm_raw is not None else 0.0
-
-            dur_raw = rb_track.get("TotalTime")
-            duration_sec = int(dur_raw) if dur_raw is not None else 0
-
-            key_musical = rb_track.get("Tonality") or ""
-            camelot = musical_key_to_camelot(key_musical)
-
-            # pyrekordbox Rating getter maps 255→5 already via its bidict,
-            # but only for the exact values. We normalise via our bucketed
-            # function for safety (handles non-standard values too).
-            raw_rating_str = rb_track._element.attrib.get("Rating", "0")
-            try:
-                raw_rating_int = int(raw_rating_str)
-            except ValueError:
-                raw_rating_int = 0
-            rating = _normalise_rating(raw_rating_int)
-
-            # Hot cues via raw element (Type attribute "1" in the XML)
-            hot_cue_elements = [
-                el for el in rb_track._element.findall("POSITION_MARK")
-                if el.attrib.get("Type") == "1"
-            ]
-            cue_count = len(hot_cue_elements)
-            cue_colors = [
-                _rgb_to_hex(
-                    el.attrib.get("Red", "0"),
-                    el.attrib.get("Green", "0"),
-                    el.attrib.get("Blue", "0"),
-                )
-                for el in hot_cue_elements
-                if "Red" in el.attrib
-            ]
-
-            tracks.append(Track(
-                content_id=track_id,
-                source="xml",
-                title=title,
-                artist=artist,
-                bpm=bpm,
-                key_musical=key_musical,
-                camelot=camelot,
-                rating=rating,
-                duration_sec=duration_sec,
-                cue_count=cue_count,
-                cue_colors=cue_colors,
-            ))
-
-        return tracks
-
-    except Exception as exc:  # noqa: BLE001
-        # Fallback: ElementTree parsing when pyrekordbox cannot parse the file.
+    except (ImportError, Exception) as exc:  # noqa: BLE001
+        # Fallback: ElementTree parsing when pyrekordbox is not installed or
+        # cannot parse the file.
         import warnings
         warnings.warn(
             f"pyrekordbox failed ({exc!r}); falling back to ElementTree parser.",
             RuntimeWarning,
             stacklevel=2,
         )
+        return _load_library_xml_elementtree(xml_path)
 
-    # ElementTree fallback
+    # Per-track processing is OUTSIDE the except block so programming errors
+    # here raise naturally instead of being silently swallowed.
+    tracks: list[Track] = []
+    for rb_track in rb_tracks:
+        track_id = str(rb_track.get("TrackID", ""))
+        title = rb_track.get("Name") or ""
+        artist = rb_track.get("Artist") or ""
+
+        bpm_raw = rb_track.get("AverageBpm")
+        bpm = float(bpm_raw) if bpm_raw is not None else 0.0
+
+        dur_raw = rb_track.get("TotalTime")
+        duration_sec = int(dur_raw) if dur_raw is not None else 0
+
+        key_musical = rb_track.get("Tonality") or ""
+        camelot = musical_key_to_camelot(key_musical)
+
+        # pyrekordbox Rating getter maps 255→5 already via its bidict,
+        # but only for the exact values. We normalise via our bucketed
+        # function for safety (handles non-standard values too).
+        raw_rating_str = rb_track._element.attrib.get("Rating", "0")
+        try:
+            raw_rating_int = int(raw_rating_str)
+        except ValueError:
+            raw_rating_int = 0
+        rating = _normalise_rating(raw_rating_int)
+
+        # Hot cues via raw element (Type attribute "1" in the XML)
+        hot_cue_elements = [
+            el for el in rb_track._element.findall("POSITION_MARK")
+            if el.attrib.get("Type") == "1"
+        ]
+        cue_count = len(hot_cue_elements)
+        # Always emit one color per hot cue — fall back to #000000 if no
+        # Red/Green/Blue attributes are present.
+        cue_colors = [
+            _rgb_to_hex(
+                el.attrib.get("Red", "0"),
+                el.attrib.get("Green", "0"),
+                el.attrib.get("Blue", "0"),
+            )
+            for el in hot_cue_elements
+        ]
+
+        tracks.append(Track(
+            content_id=track_id,
+            source="xml",
+            title=title,
+            artist=artist,
+            bpm=bpm,
+            key_musical=key_musical,
+            camelot=camelot,
+            rating=rating,
+            duration_sec=duration_sec,
+            cue_count=cue_count,
+            cue_colors=cue_colors,
+        ))
+
+    return tracks
+
+
+def _load_library_xml_elementtree(xml_path: Path) -> list[Track]:
+    """ElementTree fallback parser for Rekordbox XML files."""
     tree = ET.parse(xml_path)
     root = tree.getroot()
     collection = root.find("COLLECTION")
