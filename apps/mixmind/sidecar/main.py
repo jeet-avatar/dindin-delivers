@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from health import router as health_router
+from library import router as library_router
 from version import VERSION
 
 app = FastAPI(title="MixMind Sidecar", version=VERSION)
@@ -23,6 +24,7 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(library_router)
 
 
 def find_free_port(start: int = 8765, end: int = 8775) -> int:
