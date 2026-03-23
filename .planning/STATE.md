@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-23 - Completed quick task 218: Fix BrandMonkz campaign text visibility and ensure AI generates and saves full email body
+Last activity: 2026-03-23 - Completed quick task 221: implement full Windows tab in interview.html with phone connection, earbuds, VB-Audio, checklist, and Start Session button
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -256,6 +256,7 @@ None
 | 215 | Fix demo.customer ride request blocked in production — extend /api/demo/setup + add /api/demo/reset-ride-state to clear has_unpaid_balance and cancel stuck OPEN/BIDDING rides | 2026-03-21 | 9d6e92b4 | [215-fix-demo-customer-ride-request-blocked-i](./quick/215-fix-demo-customer-ride-request-blocked-i/) |
 | 217 | Build BrandMonkz campaign tutorial — HTML diagram, PDF guide, Remotion video, placement email template | 2026-03-23 | a9a4544 | [217-build-brandmonkz-campaign-tutorial-html-](./quick/217-build-brandmonkz-campaign-tutorial-html-/) |
 | 218 | Fix BrandMonkz campaign text visibility and ensure AI generates and saves full email body | 2026-03-23 | d640ed2c | [218-fix-brandmonkz-campaign-text-visibility-](./quick/218-fix-brandmonkz-campaign-text-visibility-/) |
+| 221 | implement full Windows tab in interview.html with phone connection, earbuds, VB-Audio, checklist, and Start Session button | 2026-03-23 | f7d1b05f | [221-implement-full-windows-tab-in-interview-](./quick/221-implement-full-windows-tab-in-interview-/) |
 
 ## Session Continuity
 
