@@ -1,0 +1,67 @@
+name: Build Interview Assistant (Windows)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'interview-assistant/**'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: interview-assistant
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller sounddevice numpy openai anthropic pynput
+
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller InterviewAssistant_Windows.spec --clean
+
+      - name: Verify EXE was created
+        run: |
+          if (!(Test-Path "dist\Interview Assistant.exe")) {
+            Write-Error "EXE not found at dist\Interview Assistant.exe"
+            exit 1
+          }
+          Write-Output "EXE size: $((Get-Item 'dist\Interview Assistant.exe').Length / 1MB) MB"
+        shell: pwsh
+
+      - name: Upload EXE to S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          aws s3 cp "dist/Interview Assistant.exe" "s3://offerletter.ai/downloads/Interview Assistant.exe" --content-type "application/octet-stream" --cache-control "no-cache"
+        shell: bash
+
+      - name: Invalidate CloudFront cache
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          aws cloudfront create-invalidation --distribution-id E319UG6B4QE97L --paths "/downloads/Interview Assistant.exe"
+        shell: bash
+
+      - name: Upload EXE as workflow artifact (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: interview-assistant-windows
+          path: interview-assistant/dist/Interview Assistant.exe
+          retention-days: 30
