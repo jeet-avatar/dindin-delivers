@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'interview-assistant/**'
+      - 'apps/interview-assistant/**'
   workflow_dispatch:
 
 jobs:
@@ -12,7 +12,7 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: interview-assistant
+        working-directory: apps/interview-assistant
 
     steps:
       - name: Checkout repository
@@ -27,6 +27,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller sounddevice numpy openai anthropic pynput
+
+      - name: Bake API keys into source before build
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python -c "
+          import os
+          content = open('interview_assistant_windows.py').read()
+          content = content.replace('os.environ.get(\"OPENAI_API_KEY\", \"\")', repr(os.environ['OPENAI_API_KEY']))
+          content = content.replace('os.environ.get(\"ANTHROPIC_API_KEY\", \"\")', repr(os.environ['ANTHROPIC_API_KEY']))
+          open('interview_assistant_windows.py', 'w').write(content)
+          print('Keys baked in.')
+          "
+        shell: bash
 
       - name: Build EXE with PyInstaller
         run: |
@@ -63,5 +78,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: interview-assistant-windows
-          path: interview-assistant/dist/Interview Assistant.exe
+          path: apps/interview-assistant/dist/Interview Assistant.exe
           retention-days: 30
