@@ -1,10 +1,11 @@
 """Library endpoint — loads tracks, filters hidden ones, returns JSON."""
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from rekordbox import load_library_xml, Track
+from rekordbox import load_library_xml, try_load_library_db
 from state import StateDB
 
 router = APIRouter(prefix="/api")
@@ -18,14 +19,13 @@ XML_PATH = (
     / "rekordbox.xml"
 )
 
-_state_db: StateDB = None
-
 
 def get_state_db() -> StateDB:
-    global _state_db
-    if _state_db is None:
-        _state_db = StateDB()
-    return _state_db
+    db = StateDB()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 class TrackOut(BaseModel):
@@ -43,11 +43,8 @@ class TrackOut(BaseModel):
 
 
 @router.get("/library")
-async def get_library():
-    db = get_state_db()
-
+async def get_library(db: Annotated[StateDB, Depends(get_state_db)]):
     # Try DB first (stub returns None during Phase 1)
-    from rekordbox import try_load_library_db
     tracks = try_load_library_db()
     source = "db"
 
@@ -62,19 +59,19 @@ async def get_library():
     visible = [t for t in tracks if t.content_id not in hidden]
 
     return {
-        "tracks": [TrackOut(**{
-            "content_id": t.content_id,
-            "source": t.source,
-            "title": t.title,
-            "artist": t.artist,
-            "bpm": t.bpm,
-            "key_musical": t.key_musical,
-            "camelot": t.camelot,
-            "rating": t.rating,
-            "duration_sec": t.duration_sec,
-            "cue_count": t.cue_count,
-            "cue_colors": t.cue_colors,
-        }).model_dump() for t in visible],
+        "tracks": [TrackOut(
+            content_id=t.content_id,
+            source=t.source,
+            title=t.title,
+            artist=t.artist,
+            bpm=t.bpm,
+            key_musical=t.key_musical,
+            camelot=t.camelot,
+            rating=t.rating,
+            duration_sec=t.duration_sec,
+            cue_count=t.cue_count,
+            cue_colors=t.cue_colors,
+        ).model_dump() for t in visible],
         "source": source,
         "total": len(visible),
     }

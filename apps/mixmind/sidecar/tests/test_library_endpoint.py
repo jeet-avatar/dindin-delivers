@@ -31,14 +31,22 @@ async def test_track_shape(client):
 
 async def test_library_excludes_hidden_tracks(client, tmp_path):
     from state import StateDB
+    from library import get_state_db
+
     db = StateDB(db_path=tmp_path / "state.db")
     db.hide_track("1", "xml", "duplicate")
-    import library
-    library._state_db = None  # reset singleton so patch takes effect
-    with patch("library.XML_PATH", FIXTURE_XML), \
-         patch("library.get_state_db", return_value=db):
-        response = await client.get("/api/library")
+
+    def override_db():
+        yield db
+
+    app.dependency_overrides[get_state_db] = override_db
+    try:
+        with patch("library.XML_PATH", FIXTURE_XML):
+            response = await client.get("/api/library")
+    finally:
+        app.dependency_overrides.pop(get_state_db, None)
+        db.close()
+
     tracks = response.json()["tracks"]
     ids = [t["content_id"] for t in tracks]
     assert "1" not in ids
-    db.close()
