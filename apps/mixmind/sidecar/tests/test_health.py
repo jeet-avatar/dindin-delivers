@@ -17,4 +17,4 @@ async def test_health_returns_ok_status(client):
 async def test_health_returns_version(client):
     response = await client.get("/health")
     data = response.json()
-    assert "version" in data
+    assert data["version"] == "1.0.0"
