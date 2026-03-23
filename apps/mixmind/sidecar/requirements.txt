@@ -1,6 +1,7 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
-pyrekordbox==0.3.2
+pyrekordbox==0.4.4
+sqlcipher3>=0.6.2
 sqlalchemy==2.0.35
 rapidfuzz==3.9.7
 anthropic==0.34.2

@@ -296,10 +296,76 @@ def _load_library_xml_elementtree(xml_path: Path) -> list[Track]:
     ]
 
 
-def try_load_library_db() -> Optional[list[Track]]:
-    """Attempt to load tracks from the local Rekordbox database.
+_DB_PATH = Path.home() / "Library" / "Pioneer" / "rekordbox" / "master.db"
 
-    Currently a stub — Rekordbox SQLite database support is deferred.
-    Returns None to signal that the XML fallback should be used.
+# Rekordbox DB stores keys in Camelot notation already — reverse map to musical key
+_CAMELOT_TO_MUSICAL: dict[str, str] = {
+    "8A": "Am", "9A": "Em", "10A": "Bm", "11A": "F#m", "12A": "C#m",
+    "1A": "G#m", "2A": "D#m", "3A": "A#m", "4A": "Fm", "5A": "Cm",
+    "6A": "Gm", "7A": "Dm",
+    "8B": "C", "9B": "G", "10B": "D", "11B": "A", "12B": "E",
+    "1B": "B", "2B": "F#", "3B": "C#", "4B": "G#", "5B": "D#",
+    "6B": "A#", "7B": "F",
+}
+
+# Pioneer hot cue color palette (ColorTableIndex → hex)
+_CUE_COLORS = {
+    1: "#EF2B2B", 2: "#F56300", 3: "#F5BE00", 4: "#00C23C",
+    5: "#00C2C2", 6: "#0064F5", 7: "#7800C8", 8: "#F500C8",
+}
+
+
+def try_load_library_db() -> Optional[list[Track]]:
+    """Load tracks from the local Rekordbox 6/7 master.db.
+
+    Requires pyrekordbox >= 0.4.0 and sqlcipher3.
+    Returns None if the DB is unavailable or cannot be decrypted.
     """
-    return None
+    if not _DB_PATH.exists():
+        return None
+
+    try:
+        from pyrekordbox import Rekordbox6Database
+        # Key auto-detected from pyrekordbox cache (run: python -m pyrekordbox download-key)
+        db = Rekordbox6Database(str(_DB_PATH))
+    except (ImportError, Exception):
+        return None
+
+    try:
+        raw_tracks = list(db.get_content())
+    except Exception:
+        return None
+
+    tracks: list[Track] = []
+    for t in raw_tracks:
+        try:
+            camelot = t.KeyName or ""
+            key_musical = _CAMELOT_TO_MUSICAL.get(camelot, "")
+            bpm = round(t.BPM / 100, 1) if t.BPM else 0.0
+            rating = _normalise_rating(t.Rating or 0)
+            duration = int(t.Length or 0)
+            track_id = str(t.ID)
+
+            hot_cues = [c for c in (t.Cues or []) if c.is_hot_cue]
+            cue_colors = [
+                _CUE_COLORS.get(c.ColorTableIndex, "#000000")
+                for c in hot_cues
+            ]
+
+            tracks.append(Track(
+                content_id=track_id,
+                source="db",
+                title=t.Title or "",
+                artist=t.ArtistName or "",
+                bpm=bpm,
+                key_musical=key_musical,
+                camelot=camelot,
+                rating=rating,
+                duration_sec=duration,
+                cue_count=len(hot_cues),
+                cue_colors=cue_colors,
+            ))
+        except Exception:
+            continue
+
+    return tracks if tracks else None
