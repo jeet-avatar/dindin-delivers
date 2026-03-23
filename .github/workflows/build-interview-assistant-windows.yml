@@ -35,10 +35,10 @@ jobs:
         run: |
           python -c "
           import os
-          content = open('interview_assistant_windows.py').read()
+          content = open('interview_assistant_windows.py', encoding='utf-8').read()
           content = content.replace('os.environ.get(\"OPENAI_API_KEY\", \"\")', repr(os.environ['OPENAI_API_KEY']))
           content = content.replace('os.environ.get(\"ANTHROPIC_API_KEY\", \"\")', repr(os.environ['ANTHROPIC_API_KEY']))
-          open('interview_assistant_windows.py', 'w').write(content)
+          open('interview_assistant_windows.py', 'w', encoding='utf-8').write(content)
           print('Keys baked in.')
           "
         shell: bash
