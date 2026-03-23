@@ -3,9 +3,7 @@ MixMind sidecar — FastAPI backend for Electron frontend.
 Scans ports 8765–8775 for a free one, writes chosen port to ~/.mixmind-port,
 then starts uvicorn.
 """
-import os
 import socket
-import sys
 from pathlib import Path
 
 import uvicorn
@@ -13,8 +11,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from health import router as health_router
+from version import VERSION
 
-app = FastAPI(title="MixMind Sidecar", version="1.0.0")
+app = FastAPI(title="MixMind Sidecar", version=VERSION)
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,6 +30,7 @@ def find_free_port(start: int = 8765, end: int = 8775) -> int:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
                 s.bind(("127.0.0.1", port))
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 return port
             except OSError:
                 continue
@@ -44,5 +44,9 @@ def write_port_file(port: int) -> None:
 
 if __name__ == "__main__":
     port = find_free_port()
-    write_port_file(port)
+
+    @app.on_event("startup")
+    async def _write_port():
+        write_port_file(port)
+
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
