@@ -29,4 +29,22 @@ pyinstaller \
   main.py
 
 echo "Build complete: dist/mixmind-sidecar/"
+
+# Sign all dylibs/so files first, then the main binary (hardened runtime)
+echo "Signing sidecar binary..."
+IDENTITY="77506F6C9C2A3DD24D06077E2C5ED5A00ED6B7D0"  # Developer ID Application: Zietra Technologies inc (PRKZ4UVCD7)
+ENTITLEMENTS="$(dirname "$0")/../electron/entitlements.plist"
+SIDECAR_DIR="dist/mixmind-sidecar"
+
+find "$SIDECAR_DIR" \( -name "*.dylib" -o -name "*.so" \) | while read f; do
+  codesign --force --sign "$IDENTITY" --options runtime --entitlements "$ENTITLEMENTS" "$f" 2>/dev/null
+done
+
+codesign --force --verify --verbose \
+  --sign "$IDENTITY" \
+  --options runtime \
+  --entitlements "$ENTITLEMENTS" \
+  "$SIDECAR_DIR/mixmind-sidecar"
+
+echo "Sidecar signed."
 echo "Test with: ./dist/mixmind-sidecar/mixmind-sidecar"
