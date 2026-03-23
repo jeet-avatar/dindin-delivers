@@ -17,8 +17,14 @@
       "gatekeeperAssess": false,
       "entitlements": "entitlements.plist",
       "entitlementsInherit": "entitlements.plist",
-      "identity": "PRKZ4UVCD7"
+      "identity": "77506F6C9C2A3DD24D06077E2C5ED5A00ED6B7D0"
     },
+    "protocols": [
+      {
+        "name": "MixMind",
+        "schemes": ["mixmind"]
+      }
+    ],
     "dmg": {
       "title": "MixMind",
       "icon": "assets/icon.icns"
@@ -35,15 +41,7 @@
         "to": "sidecar",
         "filter": ["**/*"]
       }
-    ],
-    "extendInfo": {
-      "CFBundleURLTypes": [
-        {
-          "CFBundleURLSchemes": ["mixmind"],
-          "CFBundleURLName": "io.beatmind.mixmind"
-        }
-      ]
-    }
+    ]
   },
   "devDependencies": {
     "electron": "^28.0.0",
