@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from health import router as health_router
 from library import router as library_router
+from duplicate_routes import router as duplicate_router
 from version import VERSION
 
 _chosen_port: int = 0
@@ -38,6 +39,7 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(library_router)
+app.include_router(duplicate_router)
 
 
 def find_free_port(start: int = 8765, end: int = 8775) -> int:
