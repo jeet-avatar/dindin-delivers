@@ -415,6 +415,16 @@ struct EnhancedOrderCard: View {
     @State private var deliveryTimer: Timer? = nil
     @State private var showDeliveryPhoto = false
 
+    // Per-action loading states for SwipeToConfirmButton
+    @State private var isAcceptingSendToDriver = false
+    @State private var isAcceptingSelfDeliver = false
+    @State private var isMarkingReady = false
+    @State private var isSendingToDriverPool = false
+    @State private var isSelfDelivering = false
+    @State private var isStartingDelivery = false
+    @State private var isMarkingArrived = false
+    @State private var isMarkingDelivered = false
+
     private var orderStatus: OrderStatus {
         OrderStatus(rawValue: order.status) ?? .placed
     }
@@ -2362,6 +2372,173 @@ struct PriceRow: View {
             Text("$\(String(format: "%.2f", value))")
                 .font(.subheadline)
         }
+    }
+}
+
+// MARK: - SwipeToConfirmButton
+// Copied from: apps/ios/delivery/eatffairdelivery/Views/PickupDropoffView.swift:854
+// Reason: component lives in driver module, not in EatFairShared.
+// If moved to EatFairShared, remove this copy and import from shared package.
+struct SwipeToConfirmButton: View {
+    let title: String
+    let color: Color
+    let isLoading: Bool  // Binding to parent's loading state
+    let onConfirm: () -> Void
+    var hasError: Bool = false  // Pass true if there was an error
+    var isFinalAction: Bool = false  // Pass true for "Complete Delivery" to show success state
+
+    /// Rideshare-style init: label/accentColor/isDisabled maps to title/color/isLoading
+    init(label: String, accentColor: Color = .blue, isDisabled: Bool = false, onConfirm: @escaping () -> Void) {
+        self.title = label
+        self.color = accentColor
+        self.isLoading = isDisabled
+        self.onConfirm = onConfirm
+    }
+
+    /// Food-delivery init: retains original title/color/isLoading interface
+    init(title: String, color: Color, isLoading: Bool, onConfirm: @escaping () -> Void,
+         hasError: Bool = false, isFinalAction: Bool = false) {
+        self.title = title
+        self.color = color
+        self.isLoading = isLoading
+        self.onConfirm = onConfirm
+        self.hasError = hasError
+        self.isFinalAction = isFinalAction
+    }
+
+    @State private var offset: CGFloat = 0
+    @State private var isConfirmed = false
+    @State private var showSuccess = false
+    @GestureState private var isDragging = false
+
+    private let buttonWidth: CGFloat = 60
+    private let threshold: CGFloat = 0.75
+
+    var body: some View {
+        GeometryReader { geometry in
+            let maxOffset = geometry.size.width - buttonWidth - 8
+
+            ZStack(alignment: .leading) {
+                // Background track
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(showSuccess ? Color.green.opacity(0.2) : color.opacity(0.2))
+
+                // Progress fill
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(showSuccess ? Color.green.opacity(0.4) : color.opacity(0.4))
+                    .frame(width: showSuccess ? geometry.size.width : offset + buttonWidth + 8)
+
+                // Label
+                HStack {
+                    Spacer()
+                    if showSuccess {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text(isFinalAction ? "Done!" : "Confirmed!")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.green)
+                        }
+                    } else if isConfirmed {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: color))
+                            Text("Confirming...")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(color)
+                        }
+                    } else {
+                        Text(title)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(color)
+                            .opacity(1 - Double(offset / maxOffset))
+                    }
+                    Spacer()
+                }
+
+                // Slider button (hidden when showing success)
+                if !showSuccess {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(color)
+                        .frame(width: buttonWidth, height: 50)
+                        .overlay(
+                            Image(systemName: isConfirmed ? "checkmark" : "chevron.right.2")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                        )
+                        .offset(x: offset + 4)
+                        .gesture(
+                            DragGesture()
+                                .updating($isDragging) { _, state, _ in
+                                    state = true
+                                }
+                                .onChanged { value in
+                                    guard !isConfirmed else { return }
+                                    let newOffset = max(0, min(value.translation.width, maxOffset))
+                                    offset = newOffset
+                                }
+                                .onEnded { value in
+                                    guard !isConfirmed else { return }
+                                    if offset >= maxOffset * threshold {
+                                        // Confirm action
+                                        withAnimation(.spring(response: 0.3)) {
+                                            offset = maxOffset
+                                            isConfirmed = true
+                                        }
+
+                                        // Haptic feedback
+                                        let generator = UINotificationFeedbackGenerator()
+                                        generator.notificationOccurred(.success)
+
+                                        // Execute action after brief delay
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                            onConfirm()
+                                        }
+                                    } else {
+                                        // Reset
+                                        withAnimation(.spring(response: 0.3)) {
+                                            offset = 0
+                                        }
+                                    }
+                                }
+                        )
+                        .shadow(color: color.opacity(0.3), radius: 4, x: 0, y: 2)
+                }
+            }
+            // Handle loading state changes
+            .onChange(of: isLoading) { _, newValue in
+                if !newValue && isConfirmed {
+                    // Loading finished
+                    if hasError {
+                        // Error occurred - reset to allow retry
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.spring(response: 0.3)) {
+                                isConfirmed = false
+                                offset = 0
+                            }
+                        }
+                    } else if isFinalAction {
+                        // Final action success (delivery complete) - show success state
+                        withAnimation(.spring(response: 0.3)) {
+                            showSuccess = true
+                        }
+                    } else {
+                        // Intermediate success (pickup) - reset so title can update
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.spring(response: 0.3)) {
+                                isConfirmed = false
+                                offset = 0
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .frame(height: 58)
     }
 }
 
