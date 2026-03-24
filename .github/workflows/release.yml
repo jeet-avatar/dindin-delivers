@@ -12,85 +12,9 @@ env:
   AWS_REGION: us-east-1
   APPLE_SECRETS_ARN: arn:aws:secretsmanager:us-east-1:134607809447:secret:apple/developer/api-credentials-q7XoI8
 
-jobs:
-  # ── macOS: signed + notarized DMG ─────────────────────────────────────────
-  macos-dmg:
-    runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: apps/mixmind
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Load Apple credentials from Secrets Manager
-        id: apple
-        run: |
-          SECRET=$(aws secretsmanager get-secret-value \
-            --secret-id "${{ env.APPLE_SECRETS_ARN }}" \
-            --query SecretString --output text)
-          echo "key_id=$(echo $SECRET | jq -r .APPLE_API_KEY_ID)" >> $GITHUB_OUTPUT
-          echo "issuer=$(echo $SECRET | jq -r .APPLE_API_ISSUER)" >> $GITHUB_OUTPUT
-          echo "fingerprint=$(echo $SECRET | jq -r .APPLE_CERT_FINGERPRINT)" >> $GITHUB_OUTPUT
-          # Write .p8 to temp file — never stored in env or logs
-          echo $SECRET | jq -r .APPLE_API_KEY_P8 > /tmp/AuthKey.p8
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Build sidecar (PyInstaller)
-        run: |
-          cd sidecar
-          pip install -r requirements.txt --quiet
-          pip install pyinstaller --quiet
-          pyinstaller mixmind-sidecar.spec
-
-      - name: Codesign sidecar
-        run: |
-          SIDECAR_DIR="sidecar/dist/mixmind-sidecar"
-          ENTITLEMENTS="${{ github.workspace }}/apps/mixmind/electron/entitlements.plist"
-          FINGERPRINT="${{ steps.apple.outputs.fingerprint }}"
-          find "$SIDECAR_DIR" \( -name "*.dylib" -o -name "*.so" \) | while read f; do
-            codesign --force --sign "$FINGERPRINT" --options runtime --entitlements "$ENTITLEMENTS" "$f" 2>/dev/null || true
-          done
-          codesign --force --verify --verbose \
-            --sign "$FINGERPRINT" \
-            --options runtime \
-            --entitlements "$ENTITLEMENTS" \
-            "$SIDECAR_DIR/mixmind-sidecar"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Build frontend
-        run: |
-          cd frontend
-          npm ci
-          npm run build
-
-      - name: Build DMG (notarized)
-        working-directory: apps/mixmind/electron
-        env:
-          APPLE_API_KEY: /tmp/AuthKey.p8
-          APPLE_API_KEY_ID: ${{ steps.apple.outputs.key_id }}
-          APPLE_API_ISSUER: ${{ steps.apple.outputs.issuer }}
-        run: |
-          npm ci
-          npx electron-builder --mac --publish=never
-
-      - name: Upload DMG artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-dmg
-          path: apps/mixmind/electron/dist/*.dmg
+  # NOTE: macOS DMG is built locally via apps/mixmind/build-mac.sh
+  # (same pattern as BeatMind Bridge sign_notarize_upload.sh)
+  # and uploaded directly to S3. CI only handles Windows builds.
 
   # ── Windows: MixMind NSIS installer ───────────────────────────────────────
   windows-mixmind:
@@ -159,9 +83,9 @@ jobs:
           name: windows-bridge
           path: apps/ableton-chatbot/bridge/dist/BeatMind Bridge/
 
-  # ── Release: attach all artifacts to GitHub Release + push to beatmind.io ─
+  # ── Release: Windows artifacts → S3 + GitHub Release ─────────────────────
   release:
-    needs: [macos-dmg, windows-mixmind, windows-bridge]
+    needs: [windows-mixmind, windows-bridge]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -182,17 +106,15 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           mkdir -p release-assets
-          cp artifacts/macos-dmg/*.dmg "release-assets/MixMind-${TAG}-mac.dmg"
           cp artifacts/windows-mixmind/*.exe "release-assets/MixMind-Setup-${TAG}-win.exe"
           # upload-artifact@v4 auto-zips directories — Bridge onedir arrives as .zip
           zip -r "release-assets/BeatMind-Bridge-${TAG}-win.zip" "artifacts/windows-bridge/"
 
-      - name: Upload downloads to beatmind.io S3
+      - name: Upload Windows downloads to beatmind.io S3
         run: |
           TAG="${GITHUB_REF_NAME}"
-          aws s3 cp "release-assets/MixMind-${TAG}-mac.dmg" s3://beatmind-frontend/MixMind-mac.dmg
           aws s3 cp "release-assets/MixMind-Setup-${TAG}-win.exe" s3://beatmind-frontend/MixMind-Setup-win.exe
-          aws cloudfront create-invalidation --distribution-id E3F24X4TEVJ9X2 --paths "/MixMind-mac.dmg" "/MixMind-Setup-win.exe"
+          aws cloudfront create-invalidation --distribution-id E3F24X4TEVJ9X2 --paths "/MixMind-Setup-win.exe"
 
       - name: Create or update GitHub Release
         env:
