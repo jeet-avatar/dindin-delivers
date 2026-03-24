@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { CheckIcon } from "@/components/Icons";
 
-const GITHUB_RELEASES = "https://github.com/jeet-avatar/dindin-delivers/releases/latest";
+const MAC_DOWNLOAD = "/MixMind-mac.dmg";
+const WIN_DOWNLOAD = "/MixMind-Setup-win.exe";
 
 const FEATURES = [
   {
@@ -103,13 +104,12 @@ export default function MixMindPage() {
           <Link href="/" className="hover:text-white transition-colors duration-150">BeatMind ↗</Link>
         </div>
         <a
-          href={GITHUB_RELEASES}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={MAC_DOWNLOAD}
+          download
           className="text-sm px-4 py-2 rounded-lg font-medium transition-opacity duration-150 hover:opacity-90"
           style={{ background: "var(--accent)", color: "#fff" }}
         >
-          Download free trial →
+          Download for Mac →
         </a>
       </nav>
 
@@ -131,21 +131,19 @@ export default function MixMindPage() {
           {/* Download buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
-              href={GITHUB_RELEASES}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={MAC_DOWNLOAD}
+              download
               className="flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H13V3.5zM12 11a1 1 0 0 1 1 1v4.586l1.293-1.293a1 1 0 0 1 1.414 1.414l-3 3a1 1 0 0 1-1.414 0l-3-3a1 1 0 0 1 1.414-1.414L11 16.586V12a1 1 0 0 1 1-1z"/>
+                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
               </svg>
               Download for Mac
             </a>
             <a
-              href={GITHUB_RELEASES}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={WIN_DOWNLOAD}
+              download
               className="flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-lg transition-colors duration-150 border hover:border-white"
               style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
             >
@@ -266,13 +264,12 @@ export default function MixMindPage() {
               ))}
             </ul>
             <a
-              href={GITHUB_RELEASES}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={MAC_DOWNLOAD}
+              download
               className="block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
-              Download free trial →
+              Download for Mac →
             </a>
             <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>No credit card required for trial</p>
           </div>
@@ -323,18 +320,16 @@ export default function MixMindPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
-              href={GITHUB_RELEASES}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={MAC_DOWNLOAD}
+              download
               className="inline-block px-10 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
               Download for Mac →
             </a>
             <a
-              href={GITHUB_RELEASES}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={WIN_DOWNLOAD}
+              download
               className="inline-block px-10 py-4 rounded-xl font-semibold text-lg border transition-colors duration-150 hover:border-white"
               style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
             >
