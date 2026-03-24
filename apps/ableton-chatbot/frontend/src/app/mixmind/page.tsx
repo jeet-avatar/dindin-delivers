@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { CheckIcon } from "@/components/Icons";
+import { isLoggedIn, getUser } from "@/lib/auth";
 
 const MAC_DOWNLOAD = "/MixMind-mac.dmg";
 const WIN_DOWNLOAD = "/MixMind-Setup-win.exe";
@@ -34,7 +36,7 @@ const STEPS = [
   {
     n: "01",
     title: "Download",
-    desc: "Download the MixMind app for Mac or Windows. Open it — no account needed to start.",
+    desc: "Sign in or start your free trial, then download MixMind for Mac or Windows.",
   },
   {
     n: "02",
@@ -82,6 +84,25 @@ const FAQS = [
 
 export default function MixMindPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const router = useRouter();
+
+  function handleDownload(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
+    e.preventDefault();
+    const user = getUser();
+    const loggedIn = isLoggedIn();
+    if (!loggedIn) {
+      router.push("/login?redirect=/mixmind");
+      return;
+    }
+    const trialActive = user?.trial_ends_at
+      ? new Date(user.trial_ends_at) > new Date()
+      : false;
+    if (!user?.subscribed && !trialActive) {
+      router.push("/dashboard");
+      return;
+    }
+    window.location.href = href;
+  }
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
@@ -105,7 +126,7 @@ export default function MixMindPage() {
         </div>
         <a
           href={MAC_DOWNLOAD}
-          download
+          onClick={(e) => handleDownload(e, MAC_DOWNLOAD)}
           className="text-sm px-4 py-2 rounded-lg font-medium transition-opacity duration-150 hover:opacity-90"
           style={{ background: "var(--accent)", color: "#fff" }}
         >
@@ -132,7 +153,7 @@ export default function MixMindPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
               href={MAC_DOWNLOAD}
-              download
+              onClick={(e) => handleDownload(e, MAC_DOWNLOAD)}
               className="flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
@@ -143,7 +164,7 @@ export default function MixMindPage() {
             </a>
             <a
               href={WIN_DOWNLOAD}
-              download
+              onClick={(e) => handleDownload(e, WIN_DOWNLOAD)}
               className="flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-lg transition-colors duration-150 border hover:border-white"
               style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
             >
@@ -265,7 +286,7 @@ export default function MixMindPage() {
             </ul>
             <a
               href={MAC_DOWNLOAD}
-              download
+              onClick={(e) => handleDownload(e, MAC_DOWNLOAD)}
               className="block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
@@ -321,7 +342,7 @@ export default function MixMindPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
               href={MAC_DOWNLOAD}
-              download
+              onClick={(e) => handleDownload(e, MAC_DOWNLOAD)}
               className="inline-block px-10 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
@@ -329,7 +350,7 @@ export default function MixMindPage() {
             </a>
             <a
               href={WIN_DOWNLOAD}
-              download
+              onClick={(e) => handleDownload(e, WIN_DOWNLOAD)}
               className="inline-block px-10 py-4 rounded-xl font-semibold text-lg border transition-colors duration-150 hover:border-white"
               style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
             >
