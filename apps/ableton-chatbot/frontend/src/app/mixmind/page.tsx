@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon } from "@/components/Icons";
-import { isLoggedIn, getUser } from "@/lib/auth";
+import { isLoggedIn, apiFetch } from "@/lib/auth";
 
 const MAC_DOWNLOAD = "/MixMind-mac.dmg";
 const WIN_DOWNLOAD = "/MixMind-Setup-win.exe";
@@ -86,20 +86,25 @@ export default function MixMindPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const router = useRouter();
 
-  function handleDownload(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
+  async function handleDownload(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
     e.preventDefault();
-    const user = getUser();
-    const loggedIn = isLoggedIn();
-    if (!loggedIn) {
+    if (!isLoggedIn()) {
       router.push("/login?redirect=/mixmind");
       return;
     }
-    const trialActive = user?.trial_ends_at
-      ? new Date(user.trial_ends_at) > new Date()
-      : false;
-    if (!user?.subscribed && !trialActive) {
-      router.push("/dashboard");
-      return;
+    try {
+      const res = await apiFetch("/api/auth/me");
+      if (!res.ok) {
+        router.push("/login?redirect=/mixmind");
+        return;
+      }
+      const user = await res.json();
+      if (!user.subscribed) {
+        router.push("/dashboard");
+        return;
+      }
+    } catch {
+      // network error — fall through and let the download attempt proceed
     }
     window.location.href = href;
   }
