@@ -98,6 +98,7 @@ export default function LandingPage() {
           <a href="#features" className="hover:text-white transition-colors duration-150">Features</a>
           <a href="#how" className="hover:text-white transition-colors duration-150">How it works</a>
           <a href="#pricing" className="hover:text-white transition-colors duration-150">Pricing</a>
+          <Link href="/mixmind" className="hover:text-white transition-colors duration-150" style={{ color: "var(--accent)" }}>MixMind ↗</Link>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login" className="text-sm px-4 py-2 rounded-lg transition-colors duration-150 hover:text-white" style={{ color: "var(--text-secondary)" }}>
@@ -254,6 +255,46 @@ export default function LandingPage() {
                 )}
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* Our Products */}
+        <section className="border-t py-20" style={{ borderColor: "var(--border)" }} aria-labelledby="products-heading">
+          <div className="max-w-4xl mx-auto px-6">
+            <h2 id="products-heading" className="text-3xl font-bold text-center mb-4">Two tools. One workflow.</h2>
+            <p className="text-center mb-12" style={{ color: "var(--text-secondary)" }}>
+              Both $19/month. Both built for working musicians and DJs.
+            </p>
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* BeatMind */}
+              <div className="p-6 rounded-2xl border relative" style={{ background: "var(--bg-secondary)", borderColor: "var(--accent)" }}>
+                <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "#fff" }}>
+                  YOU'RE HERE
+                </div>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 text-lg font-black" style={{ background: "var(--accent)", color: "#fff" }}>B</div>
+                <h3 className="text-xl font-semibold mb-2">BeatMind</h3>
+                <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
+                  AI music producer that builds full tracks — drums, bass, pads, effects, mix — directly inside your Ableton Live project. Just describe what you want.
+                </p>
+                <div className="text-xs mb-5" style={{ color: "var(--text-secondary)" }}>Web app + bridge agent · Requires Ableton Live 11 or 12</div>
+                <Link href="/signup" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
+                  Start free trial →
+                </Link>
+              </div>
+
+              {/* MixMind */}
+              <div className="p-6 rounded-2xl border" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 text-lg font-black" style={{ background: "var(--bg-tertiary)", color: "var(--accent)" }}>M</div>
+                <h3 className="text-xl font-semibold mb-2">MixMind</h3>
+                <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
+                  DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, and build AI playlists from music you already own.
+                </p>
+                <div className="text-xs mb-5" style={{ color: "var(--text-secondary)" }}>Desktop app · Mac + Windows · Requires Rekordbox 6 or 7</div>
+                <Link href="/mixmind" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-colors duration-150 border hover:border-white" style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
+                  See MixMind →
+                </Link>
+              </div>
+            </div>
           </div>
         </section>
 
