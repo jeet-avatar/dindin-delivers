@@ -28,21 +28,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller sounddevice numpy openai anthropic pynput
 
-      - name: Bake API keys into source before build
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          python -c "
-          import os
-          content = open('interview_assistant_windows.py', encoding='utf-8').read()
-          content = content.replace('os.environ.get(\"OPENAI_API_KEY\", \"\")', repr(os.environ['OPENAI_API_KEY']))
-          content = content.replace('os.environ.get(\"ANTHROPIC_API_KEY\", \"\")', repr(os.environ['ANTHROPIC_API_KEY']))
-          open('interview_assistant_windows.py', 'w', encoding='utf-8').write(content)
-          print('Keys baked in.')
-          "
-        shell: bash
-
       - name: Build EXE with PyInstaller
         run: |
           pyinstaller InterviewAssistant_Windows.spec --clean
@@ -62,7 +47,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: |
-          aws s3 cp "dist/Interview Assistant.exe" "s3://offerletter.ai/downloads/Interview Assistant.exe" --content-type "application/octet-stream" --cache-control "no-cache"
+          aws s3 cp "dist/Interview Assistant.exe" "s3://offerletter.ai/downloads/Interview Assistant.exe" --content-type "application/octet-stream" --content-disposition "attachment; filename=\"Interview Assistant.exe\"" --cache-control "no-cache"
         shell: bash
 
       - name: Invalidate CloudFront cache

@@ -27,9 +27,30 @@ def hide_from_screen_capture(root_hwnd: int = 0):
     except Exception as e:
         print(f"Could not hide from screen capture: {e}")
 
-# ── API KEYS ──────────────────────────────────────────────────────────────────
-OPENAI_API_KEY    = os.environ.get("OPENAI_API_KEY", "")
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+# ── API KEYS (fetched from config server at startup) ──────────────────────────
+import urllib.request as _urllib_request
+import json as _json
+
+_APP_TOKEN  = "ia-token-8f3k2p9x"
+_CONFIG_URL = "https://0q8mtozfra.execute-api.us-east-1.amazonaws.com/get-app-config"
+
+def _fetch_api_keys():
+    """Fetch API keys from config server at startup."""
+    try:
+        req = _urllib_request.Request(
+            _CONFIG_URL,
+            data=_json.dumps({"app_token": _APP_TOKEN}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with _urllib_request.urlopen(req, timeout=10) as resp:
+            data = _json.loads(resp.read())
+        return data["openai_key"], data["anthropic_key"]
+    except Exception as e:
+        print(f"\u26a0\ufe0f  Could not fetch API config: {e}")
+        raise SystemExit("Cannot start: failed to load API configuration. Check your internet connection.")
+
+OPENAI_API_KEY, ANTHROPIC_API_KEY = _fetch_api_keys()
 
 openai_client    = OpenAI(api_key=OPENAI_API_KEY)
 anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
