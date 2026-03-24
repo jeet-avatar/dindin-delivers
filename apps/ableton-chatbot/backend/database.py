@@ -83,6 +83,11 @@ def update_user_subscription(
         )
 
 
+def update_user_password(user_id: int, password_hash: str) -> None:
+    with db() as conn:
+        conn.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash, user_id))
+
+
 def is_subscribed(user: dict) -> bool:
     """Return True if user has active subscription or is in trial."""
     from datetime import datetime, timezone
