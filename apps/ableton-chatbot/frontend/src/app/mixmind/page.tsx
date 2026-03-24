@@ -70,7 +70,7 @@ const FAQS = [
   },
   {
     q: "Mac or Windows?",
-    a: "Both. Download the DMG for Mac (Apple Silicon + Intel) or the EXE installer for Windows 10/11.",
+    a: "Both. The Mac DMG runs natively on Apple Silicon (M1/M2/M3/M4). Intel Macs need Rosetta 2 — if you don't have it, macOS will prompt you to install it free. The EXE installer works on Windows 10/11.",
   },
   {
     q: "Is this the same as BeatMind?",

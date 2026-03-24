@@ -25,16 +25,15 @@ echo "▸ Unlocking login keychain..."
 security unlock-keychain ~/Library/Keychains/login.keychain-db
 echo "✅  Keychain unlocked"
 
-# ── 1. BUILD SIDECAR (universal2 via Homebrew universal Python) ───────────────
+# ── 1. BUILD SIDECAR ─────────────────────────────────────
 echo ""
-echo "▸ Building sidecar with PyInstaller (universal2)..."
-UNIVERSAL_PYTHON="/usr/local/bin/python3.13"
+echo "▸ Building sidecar with PyInstaller..."
 cd "$SIDECAR_DIR"
-"$UNIVERSAL_PYTHON" -m pip install -r requirements.txt --quiet
-"$UNIVERSAL_PYTHON" -m pip install pyinstaller --quiet
+pip install -r requirements.txt --quiet
+pip install pyinstaller --quiet
 rm -rf build dist
-"$UNIVERSAL_PYTHON" -m PyInstaller mixmind-sidecar.spec --noconfirm
-echo "✅  Sidecar built (universal2)"
+pyinstaller mixmind-sidecar.spec --noconfirm
+echo "✅  Sidecar built"
 
 # ── 2. SIGN SIDECAR ──────────────────────────────────────
 echo ""
