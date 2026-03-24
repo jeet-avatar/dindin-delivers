@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-24 - Completed quick task 226: Real Claude answers in web Q&A via Lambda, API keys removed from Python source + stored in Secrets Manager, Mac app rebuilt clean
+Last activity: 2026-03-24 - Completed quick task 208: Restaurant flow audit + 5 gap fixes (vendor-arrived-at-delivery 404, self-delivery auth, timeout pushes, wrong accept endpoint, countdown timer) + swipe button migration
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -262,6 +262,7 @@ None
 | 224 | Fix paywall bypass: Windows EXE download button not gated by purchase, and set Content-Disposition headers on both S3 download files | 2026-03-24 | 0f5071a1 | [224-fix-paywall-bypass-windows-exe-download-](./quick/224-fix-paywall-bypass-windows-exe-download-/) |
 | 225 | Implement server-side download protection: block CloudFront from /downloads/*, Lambda generates S3 pre-signed URLs (15 min), HTML uses signed URLs, initial href="#" so real URLs never in page source | 2026-03-24 | b5db9502 | [225-implement-server-side-download-protectio](./quick/225-implement-server-side-download-protectio/) |
 | 226 | Fix fake web answers (real Claude via Lambda) and API key exposure (keys in Secrets Manager, fetched at app startup, removed from Python source) | 2026-03-24 | 4aa86149 | [226-fix-fake-web-answers-real-claude-via-lam](./quick/226-fix-fake-web-answers-real-claude-via-lam/) |
+| 208 | Restaurant flow audit + fix 5 gaps: vendor-arrived-at-delivery 404 (GAP-2), self-delivery auth mismatch (GAP-4), timeout push notifications (GAP-5), wrong accept endpoint (GAP-1), countdown timer (GAP-3) + swipe button migration | 2026-03-24 | 461a4de1 | [208-restaurant-flow-audit-visual-swipe-status](./quick/208-restaurant-flow-audit-visual-swipe-status/) |
 
 ## Session Continuity
 
