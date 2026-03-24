@@ -441,11 +441,28 @@ struct EnhancedOrderCard: View {
     }
 
     private func calculateRemainingSeconds() -> Int {
-        // Calculate remaining time based on when order was placed
+        // Use sent_at (when the 3-minute backend window started) instead of placedAt.
+        // placedAt is when the customer placed the order; the backend acceptance window
+        // starts from sent_to_restaurant_at (after payment capture). Using placedAt
+        // overstates remaining time and can show "1:30 remaining" after backend expired.
+        if let sentAtString = order.sentAt {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let sentDate = formatter.date(from: sentAtString) {
+                let elapsed = Date().timeIntervalSince(sentDate)
+                return max(0, 180 - Int(elapsed))
+            }
+            // Try without fractional seconds (match pattern from P2PAPIService.swift toOrder())
+            formatter.formatOptions = [.withInternetDateTime]
+            if let sentDate = formatter.date(from: sentAtString) {
+                let elapsed = Date().timeIntervalSince(sentDate)
+                return max(0, 180 - Int(elapsed))
+            }
+        }
+        // Fallback: use placedAt (less accurate but prevents crash when sentAt is nil)
         let orderDate = Date(timeIntervalSince1970: TimeInterval(order.placedAt) / 1000)
         let elapsed = Date().timeIntervalSince(orderDate)
-        let remaining = 180 - Int(elapsed)
-        return max(0, remaining)
+        return max(0, 180 - Int(elapsed))
     }
 
     private func startDeliveryTimer() {

@@ -3257,6 +3257,8 @@ async def get_vendor_orders(
             "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
             "payment_status": getattr(order, 'payment_status', None),
             "delivery_decision_sent_at": (order.delivery_decision_sent_at.isoformat() + "Z") if getattr(order, 'delivery_decision_sent_at', None) else None,
+            # Acceptance window timing — used by iOS countdown timer (3-minute window starts here)
+            "sent_at": (order.sent_to_restaurant_at.isoformat() + "Z") if getattr(order, 'sent_to_restaurant_at', None) else None,
         })
 
     return {"success": True, "orders": result}
