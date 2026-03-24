@@ -274,7 +274,7 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
     import boto3
     ses = boto3.client("ses", region_name="us-east-1")
     ses.send_email(
-        Source="BeatMind <support@dollor.ai>",
+        Source="BeatMind <support@beatmind.io>",
         Destination={"ToAddresses": [to_email]},
         Message={
             "Subject": {"Data": "Reset your BeatMind password"},
