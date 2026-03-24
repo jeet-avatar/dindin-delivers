@@ -18,9 +18,7 @@
       "entitlements": "entitlements.plist",
       "entitlementsInherit": "entitlements.plist",
       "identity": "77506F6C9C2A3DD24D06077E2C5ED5A00ED6B7D0",
-      "target": [
-        { "target": "dmg", "arch": ["universal"] }
-      ]
+      "target": ["dmg"]
     },
     "protocols": [
       {

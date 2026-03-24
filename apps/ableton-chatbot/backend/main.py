@@ -229,6 +229,26 @@ async def me(user: dict = Depends(get_current_user)):
     }
 
 
+@app.get("/api/auth/verify")
+async def verify_token(user: dict = Depends(get_current_user)):
+    """
+    Verify JWT and return user's active subscriptions.
+    Used by MixMind desktop app on launch.
+
+    Response 200: {"user_id": "...", "email": "...", "subscriptions": ["beatmind"]}
+    Response 401: invalid or expired token
+    """
+    subscriptions = []
+    if is_subscribed(user):
+        subscriptions.append("beatmind")
+
+    return {
+        "user_id": str(user["id"]),
+        "email": user["email"],
+        "subscriptions": subscriptions,
+    }
+
+
 @app.post("/api/auth/bridge-token")
 async def get_bridge_token(user: dict = Depends(require_subscription)):
     """Generate a short-lived token for the local bridge agent."""
