@@ -652,64 +652,43 @@ struct EnhancedOrderCard: View {
                     .padding(.horizontal)
 
                     // Accept buttons - two options
-                    HStack(spacing: 12) {
+                    VStack(spacing: 8) {
                         // Accept & Send to Driver
-                        Button(action: {
-                            #if DEBUG
-                            logger.debug("🚗 Accept & Send to Driver for order \(order.orderId)")
-                            #endif
-                            deliveryTimer?.invalidate()
-                            onAccept()  // Accept order
-                            onSendToDriver?()  // Send to driver pool
-                        }) {
-                            VStack(spacing: 4) {
-                                Image(systemName: "car.fill")
-                                    .font(.title3)
-                                Text("Accept &")
-                                    .font(.caption2)
-                                Text("Send to Driver")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
+                        SwipeToConfirmButton(
+                            title: "Slide to Accept — Send to Driver",
+                            color: .orange,
+                            isLoading: isAcceptingSendToDriver,
+                            onConfirm: {
+                                isAcceptingSendToDriver = true
+                                deliveryTimer?.invalidate()
+                                onAccept()
+                                onSendToDriver?()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isAcceptingSendToDriver = false }
                             }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(RestaurantTheme.brandBlue)
-                            .cornerRadius(10)
-                        }
+                        )
+                        .frame(height: 60)
+                        .padding(.horizontal)
                         .accessibilityLabel("Accept order and send to driver")
                         .accessibilityHint("Confirms the order and requests a delivery driver")
-                        .contentShape(Rectangle())
 
                         // Accept & I'll Deliver
-                        Button(action: {
-                            #if DEBUG
-                            logger.debug("🏃 Accept & I'll Deliver for order \(order.orderId)")
-                            #endif
-                            deliveryTimer?.invalidate()
-                            onAccept()  // Accept order
-                            onSelfDeliver?()  // Restaurant will deliver
-                        }) {
-                            VStack(spacing: 4) {
-                                Image(systemName: "figure.walk")
-                                    .font(.title3)
-                                Text("Accept &")
-                                    .font(.caption2)
-                                Text("I'll Deliver")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
+                        SwipeToConfirmButton(
+                            title: "Slide to Accept — I'll Deliver",
+                            color: .green,
+                            isLoading: isAcceptingSelfDeliver,
+                            onConfirm: {
+                                isAcceptingSelfDeliver = true
+                                deliveryTimer?.invalidate()
+                                onAccept()
+                                onSelfDeliver?()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isAcceptingSelfDeliver = false }
                             }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(RestaurantTheme.brandGreen)
-                            .cornerRadius(10)
-                        }
+                        )
+                        .frame(height: 60)
+                        .padding(.horizontal)
                         .accessibilityLabel("Accept order and deliver yourself")
                         .accessibilityHint("Confirms the order for self-delivery by your restaurant")
-                        .contentShape(Rectangle())
                     }
-                    .padding(.horizontal)
                     .padding(.bottom)
                 }
                 .onAppear {
@@ -806,29 +785,21 @@ struct EnhancedOrderCard: View {
                     }
 
                     // Mark Ready button
-                    Button {
-                        #if DEBUG
-                        logger.debug("🟡 Mark Ready button tapped for order \(order.orderId)")
-                        #endif
-                        onMarkReady()
-                    } label: {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("Mark Ready for Pickup")
+                    SwipeToConfirmButton(
+                        title: "Slide — Mark Ready for Pickup",
+                        color: .blue,
+                        isLoading: isMarkingReady,
+                        onConfirm: {
+                            isMarkingReady = true
+                            onMarkReady()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isMarkingReady = false }
                         }
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(RestaurantTheme.brandOrange)
-                        .cornerRadius(10)
-                        .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel("Mark order ready for pickup")
-                    .accessibilityHint("Notifies the driver that food is ready")
+                    )
+                    .frame(height: 60)
                     .padding(.horizontal)
                     .padding(.bottom)
+                    .accessibilityLabel("Mark order ready for pickup")
+                    .accessibilityHint("Notifies the driver that food is ready")
                 }
             } else if order.status.lowercased() == "pending_delivery_decision" {
                 // Order needs delivery decision - show delivery decision buttons
@@ -848,60 +819,39 @@ struct EnhancedOrderCard: View {
                     .padding(.top, 8)
 
                     // Delivery decision buttons
-                    HStack(spacing: 12) {
-                        // Send to Driver
-                        Button(action: {
-                            #if DEBUG
-                            logger.debug("🚗 Send to Driver for order \(order.orderId)")
-                            #endif
-                            onSendToDriver?()
-                        }) {
-                            VStack(spacing: 4) {
-                                Image(systemName: "car.fill")
-                                    .font(.title3)
-                                Text("Send to")
-                                    .font(.caption2)
-                                Text("Driver Pool")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
+                    VStack(spacing: 8) {
+                        // Send to Driver Pool
+                        SwipeToConfirmButton(
+                            title: "Slide to Send to Driver Pool",
+                            color: .purple,
+                            isLoading: isSendingToDriverPool,
+                            onConfirm: {
+                                isSendingToDriverPool = true
+                                onSendToDriver?()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isSendingToDriverPool = false }
                             }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(RestaurantTheme.brandBlue)
-                            .cornerRadius(10)
-                        }
+                        )
+                        .frame(height: 60)
+                        .padding(.horizontal)
                         .accessibilityLabel("Send to driver pool")
                         .accessibilityHint("Requests a delivery driver for this order")
-                        .contentShape(Rectangle())
 
                         // I'll Deliver
-                        Button(action: {
-                            #if DEBUG
-                            logger.debug("🏃 I'll Deliver for order \(order.orderId)")
-                            #endif
-                            onSelfDeliver?()
-                        }) {
-                            VStack(spacing: 4) {
-                                Image(systemName: "figure.walk")
-                                    .font(.title3)
-                                Text("I'll")
-                                    .font(.caption2)
-                                Text("Deliver")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
+                        SwipeToConfirmButton(
+                            title: "Slide — I'll Deliver",
+                            color: .green,
+                            isLoading: isSelfDelivering,
+                            onConfirm: {
+                                isSelfDelivering = true
+                                onSelfDeliver?()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isSelfDelivering = false }
                             }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(RestaurantTheme.brandGreen)
-                            .cornerRadius(10)
-                        }
+                        )
+                        .frame(height: 60)
+                        .padding(.horizontal)
                         .accessibilityLabel("Deliver this order yourself")
                         .accessibilityHint("You will deliver this order from your restaurant")
-                        .contentShape(Rectangle())
                     }
-                    .padding(.horizontal)
                     .padding(.bottom)
                 }
             } else if order.status.lowercased() == "ready_for_pickup" || order.status.lowercased() == "ready" {
@@ -1161,26 +1111,21 @@ struct EnhancedOrderCard: View {
                     }
 
                     // Start Delivery button
-                    Button {
-                        onStartDelivery?()
-                    } label: {
-                        HStack {
-                            Image(systemName: "car.fill")
-                            Text("Start Delivery")
+                    SwipeToConfirmButton(
+                        title: "Slide to Start Delivery",
+                        color: .green,
+                        isLoading: isStartingDelivery,
+                        onConfirm: {
+                            isStartingDelivery = true
+                            onStartDelivery?()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isStartingDelivery = false }
                         }
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(RestaurantTheme.brandGreen)
-                        .cornerRadius(10)
-                        .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel("Start delivery")
-                    .accessibilityHint("Marks the order as out for delivery and shows navigation")
+                    )
+                    .frame(height: 60)
                     .padding(.horizontal)
                     .padding(.bottom)
+                    .accessibilityLabel("Start delivery")
+                    .accessibilityHint("Marks the order as out for delivery and shows navigation")
                 }
             } else if order.status.lowercased() == "ontheway" && (order.driverName == nil || order.driverName?.isEmpty == true) {
                 // Phase B: Self-delivery in transit — map, navigate, arrived, mark delivered
@@ -1362,48 +1307,36 @@ struct EnhancedOrderCard: View {
                     }
 
                     // "I've Arrived" button — notifies customer that restaurant is at their location
-                    Button {
-                        onArrivedAtDelivery?()
-                    } label: {
-                        HStack {
-                            Image(systemName: "mappin.and.ellipse")
-                            Text("I've Arrived at Customer")
+                    SwipeToConfirmButton(
+                        title: "Slide — I've Arrived at Customer",
+                        color: .blue,
+                        isLoading: isMarkingArrived,
+                        onConfirm: {
+                            isMarkingArrived = true
+                            onArrivedAtDelivery?()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isMarkingArrived = false }
                         }
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.orange)
-                        .cornerRadius(10)
-                        .contentShape(Rectangle())
-                    }
+                    )
+                    .frame(height: 60)
                     .padding(.horizontal)
 
                     // Mark Delivered button (requires proof photo)
-                    Button {
-                        #if DEBUG
-                        logger.info("Mark Delivered button tapped for order \(order.orderId)")
-                        #endif
-                        onMarkDelivered?()
-                    } label: {
-                        HStack {
-                            Image(systemName: "camera.fill")
-                            Text("Photo & Mark Delivered")
-                        }
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(RestaurantTheme.brandGreen)
-                        .cornerRadius(10)
-                        .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel("Mark order as delivered")
-                    .accessibilityHint("Confirms the order has been delivered to the customer")
+                    SwipeToConfirmButton(
+                        title: "Slide to Photo & Mark Delivered",
+                        color: .green,
+                        isLoading: isMarkingDelivered,
+                        onConfirm: {
+                            isMarkingDelivered = true
+                            onMarkDelivered?()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isMarkingDelivered = false }
+                        },
+                        isFinalAction: true
+                    )
+                    .frame(height: 60)
                     .padding(.horizontal)
                     .padding(.bottom)
+                    .accessibilityLabel("Mark order as delivered")
+                    .accessibilityHint("Confirms the order has been delivered to the customer")
                 }
             } else if order.status.lowercased() == "pending_delivery_proof" {
                 // Phase C: Arrived at customer — show only Mark Delivered + photo proof
@@ -1423,29 +1356,22 @@ struct EnhancedOrderCard: View {
                     .padding(.top, 8)
 
                     // Mark Delivered button (requires proof photo)
-                    Button {
-                        #if DEBUG
-                        logger.info("Mark Delivered button tapped for order \(order.orderId)")
-                        #endif
-                        onMarkDelivered?()
-                    } label: {
-                        HStack {
-                            Image(systemName: "camera.fill")
-                            Text("Photo & Mark Delivered")
-                        }
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(RestaurantTheme.brandGreen)
-                        .cornerRadius(10)
-                        .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel("Mark order as delivered")
-                    .accessibilityHint("Takes a photo and confirms delivery to the customer")
+                    SwipeToConfirmButton(
+                        title: "Slide to Photo & Mark Delivered",
+                        color: .green,
+                        isLoading: isMarkingDelivered,
+                        onConfirm: {
+                            isMarkingDelivered = true
+                            onMarkDelivered?()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isMarkingDelivered = false }
+                        },
+                        isFinalAction: true
+                    )
+                    .frame(height: 60)
                     .padding(.horizontal)
                     .padding(.bottom)
+                    .accessibilityLabel("Mark order as delivered")
+                    .accessibilityHint("Takes a photo and confirms delivery to the customer")
                 }
             }
 
