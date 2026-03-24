@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-24 - Completed quick task 222: add phone connection step to Mac tab in interview.html with terminal commands, URL display, and earbuds instructions
+Last activity: 2026-03-24 - Completed quick task 224: Fix paywall bypass — Windows EXE gated behind purchase + Content-Disposition headers on both S3 download files
 
 Progress: [##########] 100% (10/12 plans)
 
@@ -257,7 +257,9 @@ None
 | 217 | Build BrandMonkz campaign tutorial — HTML diagram, PDF guide, Remotion video, placement email template | 2026-03-23 | a9a4544 | [217-build-brandmonkz-campaign-tutorial-html-](./quick/217-build-brandmonkz-campaign-tutorial-html-/) |
 | 218 | Fix BrandMonkz campaign text visibility and ensure AI generates and saves full email body | 2026-03-23 | d640ed2c | [218-fix-brandmonkz-campaign-text-visibility-](./quick/218-fix-brandmonkz-campaign-text-visibility-/) |
 | 221 | implement full Windows tab in interview.html with phone connection, earbuds, VB-Audio, checklist, and Start Session button | 2026-03-23 | f7d1b05f | [221-implement-full-windows-tab-in-interview-](./quick/221-implement-full-windows-tab-in-interview-/) |
-| 222 | add phone connection step to Mac tab in interview.html with terminal commands, URL display, and earbuds instructions | 2026-03-24 | — | [222-add-phone-connection-step-to-mac-tab-in-](./quick/222-add-phone-connection-step-to-mac-tab-in-/) |
+| 222 | add phone connection step to Mac tab in interview.html with terminal commands, URL display, and earbuds instructions | 2026-03-24 | 953fe150 | [222-add-phone-connection-step-to-mac-tab-in-](./quick/222-add-phone-connection-step-to-mac-tab-in-/) |
+| 223 | Apply platform visual identity to Mac and Windows tabs — green theme for Mac, Windows-blue for Windows, platform badges, keyboard key styles, optional tags, colored Start Session buttons | 2026-03-24 | 92d1c786 | [223-apply-platform-visual-identity-to-mac-an](./quick/223-apply-platform-visual-identity-to-mac-an/) |
+| 224 | Fix paywall bypass: Windows EXE download button not gated by purchase, and set Content-Disposition headers on both S3 download files | 2026-03-24 | 0f5071a1 | [224-fix-paywall-bypass-windows-exe-download-](./quick/224-fix-paywall-bypass-windows-exe-download-/) |
 
 ## Session Continuity
 
