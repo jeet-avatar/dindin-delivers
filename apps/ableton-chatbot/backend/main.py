@@ -301,7 +301,7 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
 @app.post("/api/auth/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest, request: Request):
     ip = get_client_ip(request)
-    rate_limit(ip, "forgot_password", limit=5, window=3600)
+    rate_limit(f"{ip}:forgot_password", max_requests=5, window_seconds=3600)
     user = get_user_by_email(req.email)
     # Always return 200 to prevent email enumeration
     if user:
