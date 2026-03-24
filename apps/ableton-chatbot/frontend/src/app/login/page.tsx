@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { saveAuth, apiFetch, API_URL } from "@/lib/auth";
 import { EyeIcon, EyeOffIcon } from "@/components/Icons";
 
-export default function SignupPage() {
+export default function LoginPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -18,27 +18,33 @@ export default function SignupPage() {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/register`, {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Registration failed");
+      if (!res.ok) throw new Error(data.detail || "Login failed");
       saveAuth(data.token, data.user);
-      // Collect payment method upfront — card charged after 7-day trial ends
-      try {
-        const checkoutRes = await apiFetch("/api/stripe/checkout", {
-          method: "POST",
-          body: JSON.stringify({}),
-        });
-        const checkout = await checkoutRes.json();
-        if (checkout.url) {
-          window.location.href = checkout.url;
-          return;
+
+      // Redirect to checkout if trial expired and not yet subscribed
+      const trialExpired = data.user.trial_ends_at
+        ? new Date(data.user.trial_ends_at) < new Date()
+        : true;
+      if (!data.user.subscribed && trialExpired) {
+        try {
+          const checkoutRes = await apiFetch("/api/stripe/checkout", {
+            method: "POST",
+            body: JSON.stringify({}),
+          });
+          const checkout = await checkoutRes.json();
+          if (checkout.url) {
+            window.location.href = checkout.url;
+            return;
+          }
+        } catch {
+          // Fall through to dashboard — 402 gate will prompt on next action
         }
-      } catch {
-        // Stripe unavailable — let user into dashboard; 402 gate will prompt later
       }
       router.push("/dashboard");
     } catch (err) {
@@ -56,8 +62,7 @@ export default function SignupPage() {
             <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black" style={{ background: "var(--accent)", color: "#fff" }} aria-hidden="true">B</span>
             beatmind
           </Link>
-          <h1 className="text-2xl font-bold">Start your free trial</h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>7 days free, then $19/month</p>
+          <h1 className="text-2xl font-bold">Welcome back</h1>
         </div>
 
         <form onSubmit={submit} className="rounded-2xl border p-8 space-y-4" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} noValidate>
@@ -66,21 +71,6 @@ export default function SignupPage() {
               {error}
             </div>
           )}
-
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-1.5">Full name</label>
-            <input
-              id="name"
-              type="text"
-              required
-              autoComplete="name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-              style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
-              placeholder="Your name"
-            />
-          </div>
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-1.5">Email</label>
@@ -104,13 +94,12 @@ export default function SignupPage() {
                 id="password"
                 type={showPassword ? "text" : "password"}
                 required
-                minLength={8}
-                autoComplete="new-password"
+                autoComplete="current-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="w-full rounded-xl px-4 py-3 pr-12 text-sm outline-none"
                 style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
-                placeholder="At least 8 characters"
+                placeholder="Your password"
               />
               <button
                 type="button"
@@ -121,9 +110,6 @@ export default function SignupPage() {
                 {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
               </button>
             </div>
-            <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
-              Must be 8+ characters with one uppercase letter and one number
-            </p>
           </div>
 
           <button
@@ -132,24 +118,13 @@ export default function SignupPage() {
             className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity duration-150 disabled:opacity-50"
             style={{ background: "var(--accent)", color: "#fff" }}
           >
-            {loading ? "Creating account..." : "Start free trial \u2192"}
+            {loading ? "Signing in..." : "Sign in \u2192"}
           </button>
-
-          <p className="text-xs text-center" style={{ color: "var(--text-secondary)" }}>
-            Card saved now &middot; charged after 7-day trial &middot; cancel anytime
-          </p>
         </form>
 
         <p className="text-center text-sm mt-6" style={{ color: "var(--text-secondary)" }}>
-          Already have an account?{" "}
-          <Link href="/login" className="font-medium" style={{ color: "var(--accent)" }}>Sign in</Link>
-        </p>
-
-        <p className="text-xs text-center mt-4" style={{ color: "var(--text-secondary)" }}>
-          By signing up you agree to our{" "}
-          <Link href="/terms" className="underline hover:text-white transition-colors duration-150">Terms</Link>
-          {" "}and{" "}
-          <Link href="/privacy" className="underline hover:text-white transition-colors duration-150">Privacy Policy</Link>
+          No account?{" "}
+          <Link href="/signup" className="font-medium" style={{ color: "var(--accent)" }}>Start free trial</Link>
         </p>
       </div>
     </div>
