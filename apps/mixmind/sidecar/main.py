@@ -15,7 +15,7 @@ from health import router as health_router
 from library import router as library_router
 from duplicate_routes import router as duplicate_router
 from ai_routes import router as ai_router
-from usb import router as usb_router
+from pioneer_usb import router as usb_router
 from version import VERSION
 
 _chosen_port: int = 0
