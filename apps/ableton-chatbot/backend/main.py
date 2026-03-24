@@ -311,7 +311,7 @@ async def forgot_password(req: ForgotPasswordRequest, request: Request):
         try:
             _send_reset_email(user["email"], reset_url)
         except Exception as e:
-            logger.error(f"Failed to send reset email: {e}")
+            log.error(f"Failed to send reset email: {e}")
     return {"message": "If that email exists, a reset link has been sent."}
 
 
