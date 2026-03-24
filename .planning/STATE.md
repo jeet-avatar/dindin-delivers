@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
 Plan: 2 of 2 in current phase
 Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-24 - Completed quick task 224: Fix paywall bypass — Windows EXE gated behind purchase + Content-Disposition headers on both S3 download files
+Last activity: 2026-03-24 - Completed quick task 225: Server-side download protection — S3 Deny blocks CloudFront from downloads/*, Lambda returns 15-min pre-signed S3 URLs, interview.html paywall JS uses pre-signed URLs (no hardcoded paths in page source)
 
 Progress: [##########] 100% (10/12 plans)
 
