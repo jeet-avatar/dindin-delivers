@@ -56,7 +56,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: |
-          aws cloudfront create-invalidation --distribution-id E319UG6B4QE97L --paths "/downloads/Interview%20Assistant.exe"
+          aws cloudfront create-invalidation --distribution-id E319UG6B4QE97L --paths "/downloads/Interview Assistant.exe"
         shell: bash
 
       - name: Upload EXE as workflow artifact (backup)
