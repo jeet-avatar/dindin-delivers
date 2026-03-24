@@ -12,10 +12,12 @@ env:
   AWS_REGION: us-east-1
   APPLE_SECRETS_ARN: arn:aws:secretsmanager:us-east-1:134607809447:secret:apple/developer/api-credentials-q7XoI8
 
-  # NOTE: macOS DMG is built locally via apps/mixmind/build-mac.sh
-  # (same pattern as BeatMind Bridge sign_notarize_upload.sh)
-  # and uploaded directly to S3. CI only handles Windows builds.
 
+# NOTE: macOS DMG is built locally via apps/mixmind/build-mac.sh
+# (same pattern as BeatMind Bridge sign_notarize_upload.sh)
+# and uploaded directly to S3. CI only handles Windows builds.
+
+jobs:
   # ── Windows: MixMind NSIS installer ───────────────────────────────────────
   windows-mixmind:
     runs-on: windows-latest
