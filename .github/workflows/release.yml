@@ -159,12 +159,19 @@ jobs:
           name: windows-bridge
           path: apps/ableton-chatbot/bridge/dist/BeatMind Bridge/
 
-  # ── Release: attach all artifacts to GitHub Release ───────────────────────
+  # ── Release: attach all artifacts to GitHub Release + push to beatmind.io ─
   release:
     needs: [macos-dmg, windows-mixmind, windows-bridge]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -179,6 +186,13 @@ jobs:
           cp artifacts/windows-mixmind/*.exe "release-assets/MixMind-Setup-${TAG}-win.exe"
           # upload-artifact@v4 auto-zips directories — Bridge onedir arrives as .zip
           zip -r "release-assets/BeatMind-Bridge-${TAG}-win.zip" "artifacts/windows-bridge/"
+
+      - name: Upload downloads to beatmind.io S3
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          aws s3 cp "release-assets/MixMind-${TAG}-mac.dmg" s3://beatmind-frontend/MixMind-mac.dmg
+          aws s3 cp "release-assets/MixMind-Setup-${TAG}-win.exe" s3://beatmind-frontend/MixMind-Setup-win.exe
+          aws cloudfront create-invalidation --distribution-id E3F24X4TEVJ9X2 --paths "/MixMind-mac.dmg" "/MixMind-Setup-win.exe"
 
       - name: Create or update GitHub Release
         env:
