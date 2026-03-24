@@ -29,6 +29,14 @@
       "title": "MixMind",
       "icon": "assets/icon.icns"
     },
+    "win": {
+      "target": ["nsis"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerHeaderIcon": null
+    },
     "files": [
       "main.js",
       "preload.js",
