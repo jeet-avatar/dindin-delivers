@@ -88,7 +88,10 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-1.5">Password</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="password" className="block text-sm font-medium">Password</label>
+              <Link href="/forgot-password" className="text-xs" style={{ color: "var(--accent)" }}>Forgot password?</Link>
+            </div>
             <div className="relative">
               <input
                 id="password"

@@ -20,7 +20,7 @@ from jose import JWTError
 from pydantic import BaseModel, EmailStr
 
 from claude_tools import ABLETON_TOOLS, SYSTEM_PROMPT, tool_to_osc
-from database import init_db, get_user_by_email, get_user_by_id, create_user, is_subscribed
+from database import init_db, get_user_by_email, get_user_by_id, create_user, is_subscribed, update_user_password
 from musai_auth import hash_password, verify_password, create_token, decode_token
 from stripe_routes import router as stripe_router
 from security import (
@@ -247,6 +247,88 @@ async def verify_token(user: dict = Depends(get_current_user)):
         "email": user["email"],
         "subscriptions": subscriptions,
     }
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+def _create_reset_token(user_id: int, email: str) -> str:
+    from jose import jwt as jose_jwt
+    payload = {
+        "sub": str(user_id),
+        "email": email,
+        "purpose": "password_reset",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
+    }
+    secret = os.getenv("JWT_SECRET", "")
+    return jose_jwt.encode(payload, secret, algorithm="HS256")
+
+
+def _send_reset_email(to_email: str, reset_url: str) -> None:
+    import boto3
+    ses = boto3.client("ses", region_name="us-east-1")
+    ses.send_email(
+        Source="BeatMind <support@dollor.ai>",
+        Destination={"ToAddresses": [to_email]},
+        Message={
+            "Subject": {"Data": "Reset your BeatMind password"},
+            "Body": {
+                "Html": {
+                    "Data": f"""
+                    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0d0d0d;color:#fff;border-radius:12px;">
+                        <div style="font-size:20px;font-weight:900;margin-bottom:24px;">
+                            <span style="background:#7c3aed;color:#fff;padding:4px 10px;border-radius:6px;margin-right:8px;">B</span>
+                            beatmind
+                        </div>
+                        <h2 style="margin:0 0 12px;">Reset your password</h2>
+                        <p style="color:#aaa;margin:0 0 24px;">Click the button below to set a new password. This link expires in 30 minutes.</p>
+                        <a href="{reset_url}" style="display:inline-block;background:#7c3aed;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;">Reset password →</a>
+                        <p style="color:#555;font-size:12px;margin-top:32px;">If you didn't request this, you can ignore this email.</p>
+                    </div>
+                    """
+                }
+            },
+        },
+    )
+
+
+@app.post("/api/auth/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest, request: Request):
+    ip = get_client_ip(request)
+    rate_limit(ip, "forgot_password", limit=5, window=3600)
+    user = get_user_by_email(req.email)
+    # Always return 200 to prevent email enumeration
+    if user:
+        token = _create_reset_token(user["id"], user["email"])
+        frontend_url = os.getenv("FRONTEND_URL", "https://www.beatmind.io")
+        reset_url = f"{frontend_url}/reset-password?token={token}"
+        try:
+            _send_reset_email(user["email"], reset_url)
+        except Exception as e:
+            logger.error(f"Failed to send reset email: {e}")
+    return {"message": "If that email exists, a reset link has been sent."}
+
+
+@app.post("/api/auth/reset-password")
+async def reset_password(req: ResetPasswordRequest):
+    from jose import jwt as jose_jwt, JWTError as JoseJWTError
+    try:
+        secret = os.getenv("JWT_SECRET", "")
+        payload = jose_jwt.decode(req.token, secret, algorithms=["HS256"])
+    except JoseJWTError:
+        raise HTTPException(400, "Reset link is invalid or has expired.")
+    if payload.get("purpose") != "password_reset":
+        raise HTTPException(400, "Invalid reset token.")
+    validate_password(req.new_password)
+    user_id = int(payload["sub"])
+    update_user_password(user_id, hash_password(req.new_password))
+    return {"message": "Password updated. You can now sign in."}
 
 
 @app.post("/api/auth/bridge-token")
