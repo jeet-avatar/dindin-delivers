@@ -271,11 +271,11 @@ class OrdersViewModel: ObservableObject {
     // MARK: - Order Actions
 
     func acceptOrder(_ order: Order) {
-        // Calculate estimated prep time based on current load
-        let estimatedTime = calculateEstimatedPrepTime()
-
-        // API expects uppercase status: PREPARING - include estimated prep time
-        updateOrderStatus(order, newStatus: "PREPARING", estimatedMinutes: estimatedTime)
+        // Use the proper restaurant-accept endpoint (POST /erp/orders/{id}/restaurant-accept)
+        // This enforces the 3-minute acceptance window, triggers KOT print to POS,
+        // and sends early notification to nearby drivers.
+        // DO NOT use updateOrderStatus("PREPARING") — that bypasses KOT and driver notification.
+        acceptRestaurantOrder(order)
     }
 
     func rejectOrder(_ order: Order, reason: String = "") {
