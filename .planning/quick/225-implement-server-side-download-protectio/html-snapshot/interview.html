@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Google Analytics (consent-aware) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-T242QK04R4"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', { analytics_storage: 'denied' });
+    try {
+      var c = JSON.parse(localStorage.getItem('ol_consent') || '{}');
+      if (c.analytics) gtag('consent', 'update', { analytics_storage: 'granted' });
+    } catch(e) {}
+    gtag('js', new Date());
+    gtag('config', 'G-T242QK04R4');
+  </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interview Coach — OfferLetter.ai</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #2563EB; --primary-dark: #1D4ED8; --primary-light: #DBEAFE;
+      --cta: #F97316; --cta-dark: #EA6C00;
+      --success: #10B981; --success-light: #DCFCE7;
+      --danger: #EF4444;
+      --bg: #F1F5F9; --surface: #FFFFFF;
+      --border: #E2E8F0;
+      --text: #1E293B; --text-muted: #64748B; --text-light: #94A3B8;
+      --radius: 12px; --radius-lg: 18px;
+      --shadow: 0 2px 8px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+      --shadow-md: 0 8px 24px rgba(0,0,0,0.08);
+      --shadow-lg: 0 20px 60px rgba(0,0,0,0.12);
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100dvh; -webkit-font-smoothing: antialiased; }
+    a { text-decoration: none; color: inherit; cursor: pointer; }
+    button { cursor: pointer; border: none; font-family: inherit; }
+
+    /* ── NAV ─────────────────────────────────────────────── */
+    nav {
+      background: white; border-bottom: 1px solid var(--border);
+      height: 60px; padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 200;
+      box-shadow: var(--shadow);
+    }
+    .logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; }
+    .logo span { color: #3B82F6; }
+    .nav-pills { display: flex; align-items: center; gap: 8px; }
+    .nav-pill {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 99px; font-size: 13px; font-weight: 600;
+      transition: all 0.2s;
+    }
+    .nav-pill.muted { color: var(--text-muted); background: var(--bg); }
+    .nav-pill.muted:hover { color: var(--primary); background: var(--primary-light); }
+    .status-live { background: #DCFCE7; color: #15803D; display: none; }
+    .status-live.show { display: flex; }
+
+    /* ── PAGE ───────────────────────────────────────────── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px 64px; display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+
+    /* ── HERO LAUNCH CARD ───────────────────────────────── */
+    .launch-hero {
+      background: white; border-radius: var(--radius-lg); border: 1px solid var(--border);
+      overflow: hidden; box-shadow: var(--shadow-md);
+    }
+    .launch-hero-top {
+      background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 60%, #3B82F6 100%);
+      padding: 32px;
+    }
+    .launch-hero-top h1 { font-size: 26px; font-weight: 800; color: white; margin-bottom: 8px; }
+    .launch-hero-top p { font-size: 15px; color: rgba(255,255,255,0.75); line-height: 1.6; }
+    .launch-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+    .launch-badge {
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18);
+      padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 600; color: white;
+    }
+
+    /* ── METHOD TABS ────────────────────────────────────── */
+    .method-tabs-wrap { padding: 24px 24px 0; }
+    .method-tabs {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      background: var(--bg); border-radius: 10px; padding: 4px; gap: 4px;
+    }
+    .method-tab {
+      padding: 10px 8px; border-radius: 8px; font-size: 13px; font-weight: 700;
+      color: var(--text-muted); background: transparent;
+      transition: all 0.2s; text-align: center;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .method-tab.active { background: white; color: var(--primary); box-shadow: var(--shadow); }
+    .method-tab:hover:not(.active) { color: var(--text); }
+
+    /* ── METHOD PANELS ──────────────────────────────────── */
+    .method-panels { padding: 20px 24px 24px; }
+    .method-panel { display: none; }
+    .method-panel.active { display: block; }
+
+    /* SETUP STEPS */
+    .setup-steps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+    .setup-step {
+      border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden;
+      background: white;
+    }
+    .setup-step-head {
+      display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
+    }
+    .setup-step-num {
+      width: 28px; height: 28px; border-radius: 8px; background: var(--primary);
+      color: white; font-size: 13px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+    }
+    .setup-step-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+    .setup-step-sub { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+    .setup-step-body { padding: 0 16px 14px 56px; }
+
+    /* WHAT IS TERMINAL callout */
+    .terminal-explain {
+      background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: var(--radius);
+      padding: 12px 14px; margin-bottom: 12px;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .terminal-explain-icon {
+      width: 32px; height: 32px; background: #0EA5E9; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .terminal-explain h5 { font-size: 13px; font-weight: 700; color: #0369A1; margin-bottom: 3px; }
+    .terminal-explain p { font-size: 12px; color: #0369A1; line-height: 1.55; }
+
+    /* HOW TO OPEN TERMINAL */
+    .open-terminal-row {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; display: flex; align-items: center; gap: 8px;
+      font-size: 13px; margin-top: 6px;
+    }
+    .open-terminal-row .shortcut-pill {
+      display: inline-flex; align-items: center; gap: 3px;
+    }
+    .open-terminal-row .k {
+      background: white; border: 1.5px solid #CBD5E1; border-radius: 5px;
+      padding: 2px 8px; font-size: 12px; font-weight: 700; font-family: 'Fira Code', monospace;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    }
+
+    /* CMD BOX — copyable command */
+    .cmd-box {
+      background: #0F172A; border-radius: 10px; overflow: hidden; margin-top: 8px;
+    }
+    .cmd-box-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px; gap: 10px;
+    }
+    .cmd-box-text {
+      font-family: 'Fira Code', monospace; font-size: 13px; color: #E2E8F0;
+      flex: 1; word-break: break-all;
+    }
+    .copy-btn {
+      padding: 5px 12px; background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
+      font-size: 12px; font-weight: 700; color: #94A3B8; transition: all 0.15s;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,0.14); color: white; }
+    .copy-btn.ok { color: #34D399; border-color: rgba(52,211,153,0.4); }
+    .cmd-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.5; }
+
+    /* GATEKEEPER GUIDE */
+    .gk-guide {
+      background: #FFF7ED; border: 1.5px solid #FED7AA;
+      border-radius: 10px; padding: 12px 14px; margin-top: 8px;
+    }
+    .gk-guide-title {
+      font-size: 12px; font-weight: 800; color: #C2410C;
+      display: flex; align-items: center; gap: 6px; margin-bottom: 10px;
+    }
+    .gk-steps { display: flex; flex-direction: column; gap: 7px; }
+    .gk-step {
+      display: flex; gap: 8px; align-items: flex-start;
+      font-size: 12px; color: #7C2D12; line-height: 1.55;
+    }
+    .gk-step-num {
+      width: 18px; height: 18px; border-radius: 50%; background: #C2410C;
+      color: white; font-size: 10px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .gk-step strong { color: #7C2D12; }
+    .gk-note {
+      margin-top: 9px; padding-top: 9px; border-top: 1px solid #FED7AA;
+      font-size: 11px; color: #92400E; line-height: 1.5;
+    }
+
+    /* SUCCESS ROW inside step */
+    .step-success {
+      background: var(--success-light); border: 1px solid #BBF7D0;
+      border-radius: 8px; padding: 9px 12px;
+      font-size: 12px; color: #166534; margin-top: 8px; line-height: 1.6;
+    }
+
+    /* BIG LAUNCH BUTTON */
+    .big-launch {
+      width: 100%; padding: 18px 24px;
+      background: linear-gradient(135deg, var(--cta) 0%, #F59E0B 100%);
+      color: white; border-radius: var(--radius); font-size: 17px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: all 0.2s;
+      box-shadow: 0 8px 32px rgba(249,115,22,0.35);
+    }
+    .big-launch:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(249,115,22,0.45); }
+    .big-launch:active { transform: translateY(0); box-shadow: 0 4px 16px rgba(249,115,22,0.3); }
+    .big-launch.launched {
+      background: linear-gradient(135deg, var(--success), #059669);
+      box-shadow: 0 8px 32px rgba(16,185,129,0.35);
+    }
+
+    /* MANUAL INPUT */
+    .manual-input-wrap { display: flex; gap: 8px; margin-bottom: 16px; }
+    .manual-input {
+      flex: 1; padding: 13px 16px;
+      background: var(--bg); border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-size: 14px; font-family: inherit; color: var(--text); outline: none;
+      transition: border-color 0.2s;
+    }
+    .manual-input:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 3px rgba(37,99,235,0.08); }
+    .ask-btn {
+      padding: 13px 20px; background: var(--primary); color: white;
+      border-radius: var(--radius); font-weight: 700; font-size: 14px;
+      transition: background 0.2s; white-space: nowrap;
+    }
+    .ask-btn:hover { background: var(--primary-dark); }
+    .answer-box {
+      display: none; background: linear-gradient(135deg, #EFF6FF, #F0FDF4);
+      border: 1px solid #BFDBFE; border-radius: var(--radius); padding: 16px;
+    }
+    .answer-box.show { display: block; }
+    .answer-label { font-size: 11px; font-weight: 800; color: var(--primary); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+    .answer-text { font-size: 14px; line-height: 1.75; color: var(--text); }
+
+    /* PHONE STEPS */
+    .phone-steps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+    .phone-step {
+      display: flex; gap: 12px; align-items: flex-start;
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px;
+    }
+    .ps-num {
+      width: 28px; height: 28px; border-radius: 8px; background: var(--primary-light);
+      color: var(--primary); font-size: 13px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .ps-body h4 { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+    .ps-body p { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+    .ps-body code { font-family: 'Fira Code', monospace; font-size: 12px; background: #1E293B; color: #34D399; padding: 2px 7px; border-radius: 4px; }
+
+    /* ── TIPS SIDEBAR ───────────────────────────────────── */
+    .tips-sidebar { display: flex; flex-direction: column; gap: 12px; }
+
+    .tip-card {
+      background: white; border-radius: var(--radius-lg); border: 1px solid var(--border);
+      overflow: hidden; box-shadow: var(--shadow);
+    }
+    .tip-card-btn {
+      width: 100%; padding: 16px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: transparent; color: var(--text); font-size: 14px; font-weight: 700;
+      text-align: left; transition: background 0.15s;
+    }
+    .tip-card-btn:hover { background: var(--bg); }
+    .tip-card-btn .left { display: flex; align-items: center; gap: 10px; }
+    .tip-icon-box {
+      width: 34px; height: 34px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .chevron { color: var(--text-light); transition: transform 0.2s; }
+    .tip-card-btn.open .chevron { transform: rotate(180deg); }
+    .tip-body-wrap { display: none; border-top: 1px solid var(--border); }
+    .tip-body-wrap.open { display: block; }
+    .tip-body-inner { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+    .tip-row { display: flex; gap: 10px; }
+    .tip-row .tn {
+      width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; margin-top: 2px;
+    }
+    .tip-row h5 { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+    .tip-row p { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+    .kbd {
+      display: inline-block; background: var(--bg); border: 1px solid var(--border-dark, #CBD5E1);
+      border-radius: 4px; padding: 1px 6px; font-family: 'Fira Code', monospace;
+      font-size: 11px; color: var(--text); margin: 0 1px;
+    }
+
+    .alert-row {
+      background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px;
+      padding: 10px 12px; font-size: 12px; color: #991B1B; line-height: 1.6;
+    }
+    .alert-row strong { color: #DC2626; }
+    .ok-row {
+      background: var(--success-light); border: 1px solid #BBF7D0; border-radius: 8px;
+      padding: 10px 12px; font-size: 12px; color: #166534; line-height: 1.6;
+    }
+
+    /* DOWNLOAD CARD */
+    .download-card {
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(135deg, #EFF6FF, #F0FDF4);
+      border: 1.5px solid #BFDBFE; border-radius: var(--radius);
+      padding: 16px 20px; margin-bottom: 16px; gap: 16px;
+    }
+    .download-card-left { display: flex; align-items: center; gap: 14px; }
+    .app-icon-wrap {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: white; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 12px rgba(37,99,235,0.15); flex-shrink: 0;
+    }
+    .app-name { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 3px; }
+    .app-meta { font-size: 12px; color: var(--text-muted); }
+    .download-btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--primary); color: white;
+      padding: 10px 20px; border-radius: 10px;
+      font-size: 14px; font-weight: 700; text-decoration: none;
+      transition: background 0.2s, transform 0.15s;
+      white-space: nowrap; flex-shrink: 0;
+      box-shadow: 0 4px 14px rgba(37,99,235,0.3);
+    }
+    .download-btn:hover { background: var(--primary-dark); transform: translateY(-1px); }
+
+    /* SHORTCUT TABLE */
+    .shortcut-table { display: flex; flex-direction: column; gap: 0; }
+    .shortcut-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+    }
+    .shortcut-row:last-child { border-bottom: none; }
+    .shortcut-row span { color: var(--text-muted); }
+    .shortcut-row .keys { display: flex; gap: 3px; }
+
+    /* PLACEMENT VISUAL */
+    .placement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .placement-opt { text-align: center; }
+    .screen-wrap { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-bottom: 6px; }
+    .smock { background: #1E293B; border-radius: 4px; height: 52px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .smock-zoom { background: #2D3748; border-radius: 3px; width: 65%; height: 70%; display: flex; align-items: center; justify-content: center; }
+    .smock-zoom span { font-size: 7px; color: #64748B; font-weight: 600; }
+    .smock-ai { position: absolute; background: rgba(37,99,235,0.9); border-radius: 3px; padding: 2px 5px; }
+    .smock-ai span { font-size: 7px; color: white; font-weight: 800; }
+    .placement-label { font-size: 11px; font-weight: 700; }
+
+    /* ── PLATFORM IDENTITY ──────────────────────────────── */
+    .platform-banner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 18px 10px;
+      border-bottom: 1px solid transparent;
+      margin-bottom: 14px; border-radius: 10px;
+    }
+    .platform-banner-info { display: flex; flex-direction: column; gap: 1px; }
+    .platform-banner-title { font-size: 13px; font-weight: 800; }
+    .platform-banner-sub { font-size: 11px; font-weight: 500; opacity: 0.75; }
+
+    /* Mac green theme */
+    .mac-panel .platform-banner { background: linear-gradient(135deg, #F0FDF4, #DCFCE7); border: 1px solid #BBF7D0; color: #15803D; }
+    .mac-panel .setup-step-num { background: #15803D !important; }
+    .mac-panel .download-card { background: linear-gradient(135deg, #F0FDF4, #ECFDF5); border-color: #BBF7D0; }
+    .mac-panel .big-launch { background: linear-gradient(135deg, #16A34A 0%, #15803D 100%); box-shadow: 0 8px 32px rgba(22,163,74,0.35); }
+    .mac-panel .big-launch:hover { box-shadow: 0 12px 40px rgba(22,163,74,0.45); }
+    .mac-panel .big-launch:active { box-shadow: 0 4px 16px rgba(22,163,74,0.3); }
+    .mac-panel .optional-tag { background: #DCFCE7; color: #15803D; border-color: #BBF7D0; }
+
+    /* Windows blue theme */
+    .win-panel .platform-banner { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border: 1px solid #BFDBFE; color: #1E40AF; }
+    .win-panel .setup-step-num { background: #0078D4 !important; }
+    .win-panel .download-card { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border-color: #BFDBFE; }
+    .win-panel .big-launch { background: linear-gradient(135deg, #0078D4 0%, #005A9E 100%); box-shadow: 0 8px 32px rgba(0,120,212,0.35); }
+    .win-panel .big-launch:hover { box-shadow: 0 12px 40px rgba(0,120,212,0.45); }
+    .win-panel .big-launch:active { box-shadow: 0 4px 16px rgba(0,120,212,0.3); }
+    .win-panel .optional-tag { background: #DBEAFE; color: #1E40AF; border-color: #BFDBFE; }
+
+    /* Optional step tag */
+    .optional-tag {
+      display: inline-flex; align-items: center;
+      font-size: 10px; font-weight: 800; letter-spacing: 0.4px;
+      padding: 2px 7px; border-radius: 4px; border: 1px solid transparent;
+      text-transform: uppercase; vertical-align: middle; margin-left: 6px;
+    }
+
+    /* Keyboard key badges — Mac pill style */
+    .kbd-mac { display: inline-flex; align-items: center; gap: 4px; margin: 0 2px; }
+    .kbd-mac kbd {
+      display: inline-block; background: #F1F5F9; color: #1E293B;
+      border: 1.5px solid #CBD5E1; border-radius: 8px;
+      padding: 2px 9px; font-family: 'Fira Code', 'SF Mono', monospace;
+      font-size: 13px; font-weight: 700; box-shadow: 0 1px 0 #94A3B8; line-height: 1.4;
+    }
+
+    /* Keyboard key badges — Windows rect style */
+    .kbd-win { display: inline-flex; align-items: center; gap: 4px; margin: 0 2px; }
+    .kbd-win kbd {
+      display: inline-block; background: #EFF6FF; color: #1E40AF;
+      border: 1.5px solid #93C5FD; border-radius: 4px;
+      padding: 2px 9px; font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 13px; font-weight: 700; box-shadow: 0 1px 0 #93C5FD; line-height: 1.4;
+    }
+
+    .key-plus { font-size: 11px; color: #94A3B8; line-height: 1; }
+
+    /* RESPONSIVE */
+    @media (max-width: 860px) {
+      .page { grid-template-columns: 1fr; }
+      .tips-sidebar { display: grid; grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      .page { padding: 16px 12px 48px; }
+      .method-tabs { grid-template-columns: 1fr; }
+      .tips-sidebar { grid-template-columns: 1fr; }
+      .launch-hero-top { padding: 24px 20px; }
+      .method-panels, .method-tabs-wrap { padding-left: 16px; padding-right: 16px; }
+    }
+
+    /* ── WALKTHROUGH VIDEO ──────────────────────────────── */
+    .walkthrough-video-wrap {
+      margin-bottom: 16px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #0F172A;
+      border: 1px solid var(--border);
+    }
+    .walkthrough-video-wrap video {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 240px;
+      object-fit: cover;
+    }
+    .walkthrough-video-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 6px 0 2px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="dashboard.html" class="logo">
+    <svg width="26" height="26" viewBox="0 0 38 38" fill="none"><rect width="38" height="38" rx="10" fill="#2563EB"/><path d="M10 12h18M10 17h12M10 22h14" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="27" cy="24" r="7" fill="#F97316"/><path d="M24.5 24l1.5 1.5L29.5 22" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    OfferLetter<span>.ai</span>
+  </a>
+  <div class="nav-pills">
+    <div class="nav-pill status-live" id="liveStatus">
+      <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#15803D"/></svg>
+      Session live
+    </div>
+    <a href="setup.html" class="nav-pill muted">Setup guide</a>
+    <a href="dashboard.html" class="nav-pill muted">← Dashboard</a>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- ══ LEFT: LAUNCHER ════════════════════════════════════════ -->
+  <div>
+
+    <!-- HERO LAUNCH CARD -->
+    <div class="launch-hero" style="margin-bottom:20px;">
+      <div class="launch-hero-top">
+        <h1>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" style="display:inline;vertical-align:-4px;margin-right:6px;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+          Interview Coach
+        </h1>
+        <p>AI listens in real-time and whispers answers into your earbuds. Invisible to Zoom screen share. Works on Mac and mobile.</p>
+        <div class="launch-badges">
+          <div class="launch-badge">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Screen-share invisible
+          </div>
+          <div class="launch-badge">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            No audio delay
+          </div>
+          <div class="launch-badge">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/></svg>
+            Works on phone too
+          </div>
+        </div>
+      </div>
+
+      <!-- RESUME CONTEXT BANNER (shown only if resume is uploaded) -->
+      <div id="resumeBanner" style="display:none;margin:16px 24px 0;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:10px;padding:10px 14px;font-size:13px;color:#065F46;display:flex;align-items:center;gap:10px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+        <span>Resume loaded: <strong id="resumeBannerName"></strong> — AI answers will be tailored to your background. <a href="dashboard.html" style="color:#059669;text-decoration:underline;">Change resume</a></span>
+      </div>
+
+      <!-- HOW TO LAUNCH — TABS -->
+      <div class="method-tabs-wrap">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Choose how to launch</div>
+        <div class="method-tabs" role="tablist">
+          <button class="method-tab active" onclick="switchMethod(this,'mac')" role="tab" aria-selected="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            Mac Desktop
+          </button>
+          <button class="method-tab" onclick="switchMethod(this,'windows')" role="tab" aria-selected="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg>
+            Windows
+          </button>
+          <button class="method-tab" onclick="switchMethod(this,'phone')" role="tab" aria-selected="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/></svg>
+            Phone Browser
+          </button>
+          <button class="method-tab" onclick="switchMethod(this,'type')" role="tab" aria-selected="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+            Type Question
+          </button>
+        </div>
+      </div>
+
+      <div class="method-panels">
+
+        <!-- MAC PANEL -->
+        <div class="method-panel active mac-panel" id="mac">
+
+          <!-- Platform identity banner -->
+          <div class="platform-banner">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.3.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            <div class="platform-banner-info">
+              <div class="platform-banner-title">Mac Desktop — Interview Assistant for macOS</div>
+              <div class="platform-banner-sub">macOS 12+ · Apple-notarized · Opens instantly — no security warnings</div>
+            </div>
+          </div>
+
+          <!-- Purchase notice (hidden once purchased) -->
+          <div id="purchaseNotice" style="display:none;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:12px 16px;margin-bottom:12px;font-size:13px;color:#92400E;line-height:1.6;">
+            <strong>🔒 Purchase required.</strong> A one-time $19 payment unlocks the download. After payment, Stripe returns you here automatically and your download unlocks.<br/>
+            <span style="font-size:12px;color:#B45309;margin-top:4px;display:block;">Already paid? Make sure you used the same browser — your purchase is stored here.</span>
+          </div>
+
+          <!-- Download card -->
+          <div class="download-card">
+            <div class="download-card-left">
+              <div class="app-icon-wrap">
+                <svg width="32" height="32" viewBox="0 0 38 38" fill="none"><rect width="38" height="38" rx="10" fill="#2563EB"/><path d="M10 12h18M10 17h12M10 22h14" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="27" cy="24" r="7" fill="#F97316"/><path d="M24.5 24l1.5 1.5L29.5 22" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div>
+                <div class="app-name">Interview Assistant</div>
+                <div class="app-meta">macOS 12+ · $19 · 36 KB</div>
+              </div>
+            </div>
+            <a href="#" class="download-btn" id="downloadBtn">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download
+            </a>
+          </div>
+
+          <!-- WALKTHROUGH VIDEO -->
+          <div class="walkthrough-video-wrap">
+            <div class="walkthrough-video-label">See it in action — 1 min overview</div>
+            <video
+              src="https://www.offerletter.ai/video/interview-walkthrough.mp4"
+              poster="https://www.offerletter.ai/video/poster.jpg"
+              controls
+              preload="none"
+              playsinline
+              aria-label="Interview Assistant walkthrough video"
+            ></video>
+          </div>
+
+          <div class="setup-steps">
+
+            <!-- Step 1 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">1</div>
+                <div>
+                  <div class="setup-step-title">Download the app &amp; open it</div>
+                  <div class="setup-step-sub">Click Download above, then open your <strong>Downloads</strong> folder and double-click <strong>Interview Assistant.dmg</strong></div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div class="gk-guide" style="background:#F0FDF4;border-color:#BBF7D0;">
+                  <div class="gk-guide-title" style="color:#15803D;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Apple-verified &amp; notarized — opens without any security warnings
+                  </div>
+                  <div style="font-size:13px;color:#166534;margin-top:8px;">
+                    Open the .dmg, drag <strong>Interview Assistant</strong> to your Applications folder, then double-click to launch. macOS will open it immediately — no security prompts, no Gatekeeper warnings.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">2</div>
+                <div>
+                  <div class="setup-step-title">Allow microphone access when asked</div>
+                  <div class="setup-step-sub">The app needs this to listen to your interview audio</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">
+                  A macOS dialog will appear asking to allow microphone access. Click <strong>Allow</strong>. This lets the AI hear the interview questions.<br/>
+                  <strong>If you missed it:</strong> Go to System Settings → Privacy &amp; Security → Microphone → toggle <strong>Interview Assistant</strong> on.
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">3</div>
+                <div>
+                  <div class="setup-step-title">The AI window appears — you're ready</div>
+                  <div class="setup-step-sub">It floats over your screen and is invisible to Zoom/Teams screen share</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div class="step-success">
+                  ✓ Press <span class="kbd-mac"><kbd>⌘</kbd><span class="key-plus">+</span><kbd>⇧</kbd><span class="key-plus">+</span><kbd>H</kbd></span> anytime to instantly hide or show the overlay<br/>
+                  ✓ Drag the title bar to move it anywhere on screen<br/>
+                  ✓ The window is invisible to Zoom and Teams screen share by default
+                </div>
+                <div style="font-size:13px;color:var(--text-muted);margin-top:8px;line-height:1.6;">
+                  <strong>Manual questions:</strong> Click the text box at the top of the overlay, type the interview question, press <strong>Enter</strong> — AI answer appears in ~3 seconds.<br/>
+                  <strong>Audio mode:</strong> If BlackHole is installed (optional, Step 4 below), the AI listens automatically — no typing needed. Want to use your phone? See Step 5 below.
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 4 — optional BlackHole (restyled) -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">4</div>
+                <div>
+                  <div class="setup-step-title">Optional: Enable hands-free audio (BlackHole) <span class="optional-tag">Optional</span></div>
+                  <div class="setup-step-sub">Skip this if you prefer typing. BlackHole lets the AI hear your Zoom/Teams call automatically — no typing needed.</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">1</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Download <strong>BlackHole 2ch</strong> (free) — <a href="https://existential.audio/blackhole/" target="_blank" rel="noopener" style="color:#2563EB;">existential.audio/blackhole</a></div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">2</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Open the <strong>.pkg</strong> installer and restart your Mac when prompted</div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">3</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">In Zoom: <strong>Settings &rarr; Audio &rarr; Speaker</strong> &rarr; select <strong>BlackHole 2ch</strong></div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">4</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Launch Interview Assistant — it will auto-detect and show <strong>"🎧 Capturing: BlackHole 2ch"</strong></div>
+                  </div>
+                </div>
+                <div class="gk-guide" style="background:#EFF6FF;border-color:#BFDBFE;">
+                  <div class="gk-guide-title" style="color:#1E40AF;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E40AF" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Still hear the interview while BlackHole captures it
+                  </div>
+                  <div style="font-size:13px;color:#1E40AF;margin-top:8px;line-height:1.6;">
+                    Open <strong>Audio MIDI Setup</strong> (⌘ Space &rarr; "Audio MIDI") &rarr; click <strong>+</strong> &rarr; <strong>Create Multi-Output Device</strong> &rarr; check both <strong>BlackHole 2ch</strong> and your headphones. Set this Multi-Output Device as your macOS Sound output. Now Zoom audio goes to both BlackHole and your ears.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 5 — Connect phone (NEW) -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">5</div>
+                <div>
+                  <div class="setup-step-title">Optional: Connect your phone as a second screen <span class="optional-tag">Optional</span></div>
+                  <div class="setup-step-sub">iPhone or Android — open the AI on your phone over the same WiFi while your interview runs on your Mac</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:12px;">
+                  The Interview Assistant includes a built-in web server. Once started from Terminal, your phone can open the AI in its browser — fully invisible to Zoom screen share.
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">1</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Press <strong>⌘ Space</strong>, type <code style="background:#F1F5F9;padding:1px 5px;border-radius:4px;">Terminal</code>, press Enter to open Terminal</div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">2</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;width:100%;">
+                      Navigate to the interview-assistant folder:
+                      <div class="cmd-box" style="margin-top:6px;">
+                        <div class="cmd-box-inner">
+                          <span class="cmd-box-text">cd ~/Downloads/interview-assistant</span>
+                          <button class="copy-btn" id="copyMacStep2" onclick="copyCmd('copyMacStep2','cd ~/Downloads/interview-assistant')">Copy</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">3</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;width:100%;">
+                      Start the phone server:
+                      <div class="cmd-box" style="margin-top:6px;">
+                        <div class="cmd-box-inner">
+                          <span class="cmd-box-text">python3 interview_server.py</span>
+                          <button class="copy-btn" id="copyMacStep3" onclick="copyCmd('copyMacStep3','python3 interview_server.py')">Copy</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">4</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Make sure your phone and Mac are on the <strong>same WiFi</strong> — mobile data will not work</div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">5</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">On your phone, open <strong>Safari (iPhone)</strong> or <strong>Chrome (Android)</strong> and type the address shown in Terminal — e.g. <strong>http://192.168.1.21:5050</strong></div>
+                  </div>
+                </div>
+                <div class="step-success">
+                  ✓ Terminal will print a line like: <strong>Serving at http://192.168.1.21:5050</strong> — that's your join link<br/>
+                  ✓ Keep the Terminal window open during your session — closing it stops the server<br/>
+                  ✓ Your Zoom call stays on your Mac — the phone is invisible to screen share
+                </div>
+                <div style="background:var(--primary-light);border:1px solid #BFDBFE;border-radius:8px;padding:10px 12px;font-size:13px;color:var(--primary-dark);line-height:1.6;margin-top:10px;">
+                  <strong>This address is the Interview Assistant itself.</strong> Open it on your phone, keep it open during the call — this IS the tool running on your phone screen.
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 6 — Earbuds / TTS (NEW) -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">6</div>
+                <div>
+                  <div class="setup-step-title">Optional: Earbuds — AI reads answers into your ears <span class="optional-tag">Optional</span></div>
+                  <div class="setup-step-sub">Works with AirPods, Beats, or any Bluetooth earbuds paired to your Mac</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#7C3AED;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">1</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Connect your earbuds via <strong>System Settings &rarr; Bluetooth</strong> — or use the Bluetooth icon in your menu bar</div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#7C3AED;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">2</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Set them as audio output: <strong>System Settings &rarr; Sound &rarr; Output</strong> &rarr; select your earbuds <em>(or click the volume icon in Control Center)</em></div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#7C3AED;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">3</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">In the Interview Assistant (phone or Mac overlay), tap <strong>Enable Earbuds (TTS)</strong> — AI answers will be read aloud quietly into your earbuds</div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#7C3AED;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">4</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Place your phone face-down or keep it out of camera view — you never need to look at it during the interview</div>
+                  </div>
+                </div>
+                <div class="step-success">
+                  ✓ Earbuds are private — only you can hear the AI answers<br/>
+                  ✓ Your Zoom mic still works normally — the AI doesn't interfere<br/>
+                  ✓ AirPods connect instantly via iCloud if signed into the same Apple ID
+                </div>
+              </div>
+            </div>
+
+            <!-- Pre-flight checklist -->
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px 18px;margin-top:4px;">
+              <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Pre-flight checklist</div>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text-main);">
+                  <input type="checkbox" style="width:16px;height:16px;accent-color:#2563EB;flex-shrink:0;"> Interview Assistant app is open
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text-main);">
+                  <input type="checkbox" style="width:16px;height:16px;accent-color:#2563EB;flex-shrink:0;"> Microphone permission allowed
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text-main);">
+                  <input type="checkbox" style="width:16px;height:16px;accent-color:#2563EB;flex-shrink:0;"> Audio capture working (BlackHole shown, <em>or</em> mic selected)
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text-main);">
+                  <input type="checkbox" style="width:16px;height:16px;accent-color:#2563EB;flex-shrink:0;"> Overlay hidden with ⌘+Shift+H (test it once)
+                </label>
+              </div>
+            </div>
+
+          </div><!-- /setup-steps -->
+
+          <button class="big-launch" id="launchMac" onclick="startSession('launchMac')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            App is open — Start Session
+          </button>
+        </div>
+
+        <!-- WINDOWS PANEL -->
+        <div class="method-panel win-panel" id="windows">
+
+          <!-- Platform identity banner -->
+          <div class="platform-banner">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;"><rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>
+            <div class="platform-banner-info">
+              <div class="platform-banner-title">Windows Desktop — Interview Assistant for Windows</div>
+              <div class="platform-banner-sub">Windows 10+ · ~35 MB · SmartScreen warning expected on first run</div>
+            </div>
+          </div>
+
+          <!-- Purchase notice (hidden once purchased) -->
+          <div id="purchaseNoticeWin" style="display:none;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:12px 16px;margin-bottom:12px;font-size:13px;color:#92400E;line-height:1.6;">
+            <strong>🔒 Purchase required.</strong> A one-time $19 payment unlocks the download. After payment, your download unlocks automatically.<br/>
+            <span style="font-size:12px;color:#B45309;margin-top:4px;display:block;">Already paid? Make sure you used the same browser — your purchase is stored here.</span>
+          </div>
+
+          <!-- Download card -->
+          <div class="download-card">
+            <div class="download-card-left">
+              <div class="app-icon-wrap">
+                <svg width="32" height="32" viewBox="0 0 38 38" fill="none"><rect width="38" height="38" rx="10" fill="#2563EB"/><path d="M10 12h18M10 17h12M10 22h14" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="27" cy="24" r="7" fill="#F97316"/><path d="M24.5 24l1.5 1.5L29.5 22" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div>
+                <div class="app-name">Interview Assistant</div>
+                <div class="app-meta">Windows 10+ · $19 · ~35 MB</div>
+              </div>
+            </div>
+            <a href="#" class="download-btn" id="downloadBtnWin">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download .exe
+            </a>
+          </div>
+
+          <div class="setup-steps">
+
+            <!-- Step 1 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">1</div>
+                <div>
+                  <div class="setup-step-title">Download and run the app</div>
+                  <div class="setup-step-sub">Click Download above, then double-click <strong>Interview Assistant.exe</strong> in your Downloads folder</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div class="gk-guide" style="background:#FFF7ED;border-color:#FED7AA;">
+                  <div class="gk-guide-title" style="color:#92400E;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Windows SmartScreen may appear — click "More info" then "Run anyway"
+                  </div>
+                  <div style="font-size:13px;color:#92400E;margin-top:8px;">
+                    This is expected for new apps without a code-signing certificate. Click <strong>More info</strong> in the SmartScreen dialog, then click <strong>Run anyway</strong>.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">2</div>
+                <div>
+                  <div class="setup-step-title">Allow microphone access when asked</div>
+                  <div class="setup-step-sub">The app needs this to listen to your interview audio</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">
+                  Windows will ask for microphone permission on first launch. Click <strong>Allow</strong>.<br/>
+                  <strong>If you missed it:</strong> Settings &rarr; Privacy &amp; security &rarr; Microphone &rarr; toggle <strong>Let apps access your microphone</strong> on.
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">3</div>
+                <div>
+                  <div class="setup-step-title">The AI window appears — you're ready</div>
+                  <div class="setup-step-sub">It floats over your screen and is hidden from Zoom/Teams screen share</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div class="step-success">
+                  ✓ Press <span class="kbd-win"><kbd>Ctrl</kbd><span class="key-plus">+</span><kbd>Shift</kbd><span class="key-plus">+</span><kbd>H</kbd></span> anytime to instantly hide or show the overlay<br/>
+                  ✓ Drag the title bar to move it anywhere on screen<br/>
+                  ✓ The window is excluded from Zoom and Teams screen share capture
+                </div>
+                <div style="font-size:13px;color:var(--text-muted);margin-top:8px;line-height:1.6;">
+                  <strong>Manual questions:</strong> Click the text box at the top of the overlay, type the interview question, press <strong>Enter</strong> — AI answer appears in ~3 seconds.<br/>
+                  <strong>Audio mode:</strong> If VB-Audio is installed (optional, Step 4 below), the AI listens automatically — no typing needed.
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 4 — VB-Audio (restyled) -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">4</div>
+                <div>
+                  <div class="setup-step-title">Optional: Enable hands-free audio (VB-Audio Virtual Cable) <span class="optional-tag">Optional</span></div>
+                  <div class="setup-step-sub">Skip this if you prefer typing. VB-Audio lets the AI hear your Zoom/Teams call automatically — no typing needed.</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">1</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Download <strong>VB-Audio Virtual Cable</strong> (free) — <a href="https://vb-audio.com/Cable/" target="_blank" rel="noopener" style="color:#2563EB;">vb-audio.com/Cable</a></div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">2</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Right-click the installer &rarr; <strong>Run as Administrator</strong>, then restart Windows when prompted</div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">3</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">In Zoom: <strong>Settings &rarr; Audio &rarr; Speaker</strong> &rarr; select <strong>CABLE Input (VB-Audio Virtual Cable)</strong></div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">4</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Launch Interview Assistant — it will auto-detect and show <strong>"🎧 Capturing: CABLE Output (VB-Audio Virtual Cable)"</strong></div>
+                  </div>
+                </div>
+                <div class="gk-guide" style="background:#EFF6FF;border-color:#BFDBFE;">
+                  <div class="gk-guide-title" style="color:#1E40AF;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E40AF" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Still hear the interview while VB-Audio is active
+                  </div>
+                  <div style="font-size:13px;color:#1E40AF;margin-top:8px;line-height:1.6;">
+                    Open <strong>Windows Sound Settings &rarr; Playback</strong>, right-click <strong>CABLE Input</strong> &rarr; <strong>Properties &rarr; Listen</strong> tab &rarr; check <strong>"Listen to this device"</strong> and set output to your headphones. This lets you hear the interview while VB-Audio forwards audio to the AI.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 5 — Connect phone (NEW) -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">5</div>
+                <div>
+                  <div class="setup-step-title">Optional: Connect your phone as a second screen <span class="optional-tag">Optional</span></div>
+                  <div class="setup-step-sub">iPhone or Android — open the AI on your phone over the same WiFi while your interview runs on Windows</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:12px;">
+                  The Interview Assistant includes a built-in web server. Once started, your phone can open the AI on its browser — fully invisible to Zoom screen share.
+                </div>
+                <div class="gk-guide" style="background:#FFF7ED;border-color:#FED7AA;margin-bottom:12px;">
+                  <div class="gk-guide-title" style="color:#92400E;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Requires Python 3 on Windows
+                  </div>
+                  <div style="font-size:13px;color:#92400E;margin-top:6px;line-height:1.6;">
+                    If you haven't installed Python: <a href="https://www.python.org/downloads/" target="_blank" rel="noopener" style="color:#B45309;font-weight:600;">python.org/downloads</a> &rarr; download Python 3.x &rarr; install with <strong>"Add Python to PATH"</strong> checked.
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">1</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Press <strong>Win + R</strong>, type <code style="background:#F1F5F9;padding:1px 5px;border-radius:4px;">cmd</code>, press Enter to open Command Prompt</div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">2</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;width:100%;">
+                      Navigate to the interview-assistant folder:
+                      <div class="cmd-box" style="margin-top:6px;">
+                        <div class="cmd-box-inner">
+                          <span class="cmd-box-text">cd %USERPROFILE%\Downloads\interview-assistant</span>
+                          <button class="copy-btn" id="copyWinStep2" onclick="copyCmd('copyWinStep2','cd %USERPROFILE%\\Downloads\\interview-assistant')">Copy</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">3</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;width:100%;">
+                      Start the phone server:
+                      <div class="cmd-box" style="margin-top:6px;">
+                        <div class="cmd-box-inner">
+                          <span class="cmd-box-text">python interview_server.py</span>
+                          <button class="copy-btn" id="copyWinStep3" onclick="copyCmd('copyWinStep3','python interview_server.py')">Copy</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">4</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Make sure your phone and Windows PC are on the <strong>same WiFi</strong> — mobile data will not work</div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#2563EB;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">5</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">On your phone, open <strong>Safari (iPhone)</strong> or <strong>Chrome (Android)</strong> and type the address shown in Command Prompt — e.g. <strong>http://192.168.1.21:5050</strong></div>
+                  </div>
+                </div>
+                <div style="background:var(--primary-light);border:1px solid #BFDBFE;border-radius:8px;padding:10px 12px;font-size:13px;color:var(--primary-dark);line-height:1.6;">
+                  <strong>This address is the Interview Assistant itself.</strong> Keep the Command Prompt open during your session — closing it stops the server. Your Zoom call stays on your Windows desktop.
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 6 — Earbuds / TTS (NEW) -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">6</div>
+                <div>
+                  <div class="setup-step-title">Optional: Earbuds — AI reads answers into your ears <span class="optional-tag">Optional</span></div>
+                  <div class="setup-step-sub">Works with AirPods, Galaxy Buds, or any Bluetooth earbuds paired to Windows</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#7C3AED;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">1</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Pair your earbuds via <strong>Windows Settings &rarr; Bluetooth &amp; devices &rarr; Add device</strong></div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#7C3AED;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">2</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Set them as default audio output: right-click the <strong>speaker icon</strong> in the taskbar &rarr; <strong>Sound settings &rarr; Output</strong> &rarr; select your earbuds</div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#7C3AED;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">3</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">In the Interview Assistant (phone or desktop), tap <strong>Enable Earbuds (TTS)</strong> — AI answers will be read aloud quietly into your earbuds</div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:12px;">
+                    <div style="min-width:22px;height:22px;background:#7C3AED;color:#fff;border-radius:50%;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">4</div>
+                    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">Place your phone face-down or keep it out of camera view — you never need to look at it during the interview</div>
+                  </div>
+                </div>
+                <div class="step-success">
+                  ✓ Earbuds are private — only you can hear the AI answers<br/>
+                  ✓ Your Zoom mic still works normally — the AI doesn't interfere<br/>
+                  ✓ If a question is complex, glance at the screen to read the full answer
+                </div>
+              </div>
+            </div>
+
+            <!-- Pre-flight checklist -->
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px 18px;margin-top:4px;">
+              <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Pre-flight checklist</div>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text-main);">
+                  <input type="checkbox" style="width:16px;height:16px;accent-color:#2563EB;flex-shrink:0;"> Interview Assistant.exe is running
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text-main);">
+                  <input type="checkbox" style="width:16px;height:16px;accent-color:#2563EB;flex-shrink:0;"> Microphone permission allowed
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text-main);">
+                  <input type="checkbox" style="width:16px;height:16px;accent-color:#2563EB;flex-shrink:0;"> Audio capture working (VB-Audio shown, <em>or</em> mic selected)
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text-main);">
+                  <input type="checkbox" style="width:16px;height:16px;accent-color:#2563EB;flex-shrink:0;"> Overlay is hidden with Ctrl+Shift+H (test it once)
+                </label>
+              </div>
+            </div>
+
+          </div><!-- /.setup-steps -->
+
+          <button class="big-launch" id="launchWin" onclick="startSession('launchWin')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            App is open — Start Session
+          </button>
+        </div><!-- /#windows -->
+
+        <!-- PHONE PANEL -->
+        <div class="method-panel" id="phone">
+
+          <div class="setup-steps">
+
+            <!-- Step 1 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">1</div>
+                <div>
+                  <div class="setup-step-title">First — download the Interview Assistant on your Mac</div>
+                  <div class="setup-step-sub">You need this folder on your Mac before the phone can connect.</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                  <a href="#" id="downloadBtnInline" style="display:inline-flex;align-items:center;gap:8px;background:#2563EB;color:#fff;font-size:13px;font-weight:700;padding:10px 16px;border-radius:8px;text-decoration:none;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download Interview Assistant.dmg
+                  </a>
+                  <span style="font-size:12px;color:var(--text-muted);">macOS 12+ · 36 KB</span>
+                </div>
+                <div style="margin-top:10px;font-size:13px;color:var(--text-muted);line-height:1.6;">
+                  After downloading, open the <strong>.dmg</strong>, drag the app to your Applications folder, and launch it. The app is Apple-notarized — it opens immediately with no security warnings. Then come back here and continue from Step 2.
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">2</div>
+                <div>
+                  <div class="setup-step-title">On your Mac — open Terminal and paste this</div>
+                  <div class="setup-step-sub">Press <strong>⌘ Space</strong> → type <strong>Terminal</strong> → press Enter, then paste the command below</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div class="cmd-box">
+                  <div class="cmd-box-inner">
+                    <span class="cmd-box-text">cd ~/Downloads/interview-assistant</span>
+                    <button class="copy-btn" id="copyPhoneStep2" onclick="copyCmd('copyPhoneStep2','cd ~/Downloads/interview-assistant')">Copy</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">3</div>
+                <div>
+                  <div class="setup-step-title">Paste this second line and press Enter</div>
+                  <div class="setup-step-sub">This starts the phone-friendly server on your Mac</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div class="cmd-box">
+                  <div class="cmd-box-inner">
+                    <span class="cmd-box-text">python3 interview_server.py</span>
+                    <button class="copy-btn" id="copyPhoneStep3" onclick="copyCmd('copyPhoneStep3','python3 interview_server.py')">Copy</button>
+                  </div>
+                </div>
+                <div class="step-success">
+                  ✓ You'll see a web address printed, like: <strong>http://192.168.1.21:5050</strong><br/>
+                  Keep this Terminal window open — it must stay running.
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">4</div>
+                <div>
+                  <div class="setup-step-title">Make sure your phone and Mac are on the same WiFi</div>
+                  <div class="setup-step-sub">Both must be connected to the same home or office WiFi. Mobile data will not work.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 5 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">5</div>
+                <div>
+                  <div class="setup-step-title">On your phone — open Safari (iPhone) or Chrome (Android) and go to the interview assistant</div>
+                  <div class="setup-step-sub">Type the address shown in Terminal exactly as it appears — <strong>this IS the Interview Assistant UI</strong></div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div style="background:var(--primary-light);border:1px solid #BFDBFE;border-radius:8px;padding:10px 12px;font-size:13px;color:var(--primary-dark);">
+                  Example address: <strong>http://192.168.1.21:5050</strong><br/>
+                  <span style="font-size:12px;color:var(--text-muted);margin-top:2px;display:block;">Your number will be different — use the one shown in your Terminal</span>
+                </div>
+                <div style="margin-top:8px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px 12px;font-size:13px;color:#166534;line-height:1.6;">
+                  <strong>This address is the Interview Assistant itself.</strong> Open it on your phone, keep it open during the call. You do <em>not</em> need to open anything else — this IS the tool. Your Zoom/Teams call stays on your laptop.
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 6 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">6</div>
+                <div>
+                  <div class="setup-step-title">Tap the Earbuds toggle in the app &amp; place phone face-down</div>
+                  <div class="setup-step-sub">AI reads answers quietly into your AirPods — no need to look at screen during the interview</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">
+                  In the Interview Assistant page on your phone, tap <strong>Enable Earbuds (TTS)</strong> so answers are spoken aloud into your earbuds. Then lock your phone and set it face-down in your lap or below your webcam line — you never need to look at it again.
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 7 -->
+            <div class="setup-step">
+              <div class="setup-step-head">
+                <div class="setup-step-num">7</div>
+                <div>
+                  <div class="setup-step-title">During the interview — let the AI whisper answers into your earbuds</div>
+                  <div class="setup-step-sub">Your phone listens to the call audio and speaks AI-generated answers directly into your ears</div>
+                </div>
+              </div>
+              <div class="setup-step-body">
+                <div class="phone-steps">
+                  <div class="phone-step">
+                    <div class="ps-num">A</div>
+                    <div class="ps-body">
+                      <h4>Interviewer asks a question</h4>
+                      <p>Your phone microphone picks up the audio from the room (or from your laptop speakers).</p>
+                    </div>
+                  </div>
+                  <div class="phone-step">
+                    <div class="ps-num">B</div>
+                    <div class="ps-body">
+                      <h4>AI generates an answer in ~2 seconds</h4>
+                      <p>The Interview Assistant processes the question and creates a tailored answer based on the role and context.</p>
+                    </div>
+                  </div>
+                  <div class="phone-step">
+                    <div class="ps-num">C</div>
+                    <div class="ps-body">
+                      <h4>Answer is spoken into your earbuds via TTS</h4>
+                      <p>You hear the answer quietly through your AirPods or earbuds. No need to look at the phone — it reads the answer aloud to you.</p>
+                    </div>
+                  </div>
+                  <div class="phone-step">
+                    <div class="ps-num">D</div>
+                    <div class="ps-body">
+                      <h4>Pause 2 seconds, then respond naturally</h4>
+                      <p>Say <em>"That's a great question…"</em> to buy a couple seconds while the AI generates. Then use the key points you hear as your framework — add your own tone and examples.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="step-success">
+                  ✓ Phone stays face-down the whole time — you never look at it<br/>
+                  ✓ Zoom is running on your laptop — the phone is invisible to screen share<br/>
+                  ✓ If a question is complex, you can glance at the phone to read the full answer on screen
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /setup-steps -->
+
+          <button class="big-launch" id="launchPhone" onclick="startSession('launchPhone')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/></svg>
+            Phone is ready — Start Session
+          </button>
+        </div>
+
+        <!-- TYPE PANEL -->
+        <div class="method-panel" id="type">
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">No audio setup needed. Type or paste the interviewer's question and press <strong>Enter</strong>. Answer arrives in ~3 seconds.</div>
+          <div class="manual-input-wrap">
+            <input class="manual-input" id="manualQ" type="text"
+              placeholder="e.g. Tell me about a time you led a complex technical migration…"
+              onkeydown="if(event.key==='Enter')askManual()" />
+            <button class="ask-btn" onclick="askManual()">Ask AI</button>
+          </div>
+          <div class="answer-box" id="answerBox">
+            <div class="answer-label">AI Answer</div>
+            <div class="answer-text" id="answerText"></div>
+          </div>
+          <div style="margin-top:16px;">
+            <button class="big-launch" id="launchType" onclick="startSession('launchType')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Start Manual Session
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /method-panels -->
+    </div><!-- /launch-hero -->
+
+    <!-- OVERLAY PLACEMENT -->
+    <div style="background:white;border-radius:var(--radius-lg);border:1px solid var(--border);padding:20px;box-shadow:var(--shadow);">
+      <div style="font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        Where to place the overlay
+      </div>
+      <div class="placement-grid">
+        <div class="placement-opt">
+          <div class="screen-wrap">
+            <div class="smock">
+              <div class="smock-zoom"><span>Zoom</span></div>
+              <div class="smock-ai" style="right:3px;top:3px;"><span>AI ✦</span></div>
+            </div>
+          </div>
+          <div class="placement-label" style="color:var(--success);">✓ Top-right</div>
+          <div style="font-size:11px;color:var(--text-muted);">Outside Zoom window</div>
+        </div>
+        <div class="placement-opt">
+          <div class="screen-wrap">
+            <div class="smock">
+              <div class="smock-zoom"><span>Zoom</span></div>
+              <div class="smock-ai" style="right:3px;bottom:3px;top:auto;"><span>AI ✦</span></div>
+            </div>
+          </div>
+          <div class="placement-label" style="color:var(--success);">✓ Bottom-right</div>
+          <div style="font-size:11px;color:var(--text-muted);">Natural downward glance</div>
+        </div>
+        <div class="placement-opt">
+          <div class="screen-wrap">
+            <div class="smock" style="justify-content:flex-start;padding:4px;gap:3px;">
+              <div class="smock-ai" style="position:relative;width:36%;height:80%;"><span>AI ✦</span></div>
+              <div style="flex:1;height:80%;background:#2D3748;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="font-size:7px;color:#64748B;">Zoom</span></div>
+            </div>
+          </div>
+          <div class="placement-label" style="color:#F59E0B;">★ 2nd Monitor</div>
+          <div style="font-size:11px;color:var(--text-muted);">Best option if available</div>
+        </div>
+        <div class="placement-opt">
+          <div class="screen-wrap">
+            <div class="smock">
+              <div class="smock-zoom"><span>Zoom</span></div>
+            </div>
+          </div>
+          <div class="placement-label" style="color:var(--primary);">📱 Phone in lap</div>
+          <div style="font-size:11px;color:var(--text-muted);">Fully invisible, TTS on</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /left col -->
+
+  <!-- ══ RIGHT: TIPS SIDEBAR ════════════════════════════════════ -->
+  <div class="tips-sidebar">
+
+    <!-- SCREEN SHARE SAFETY -->
+    <div class="tip-card">
+      <button class="tip-card-btn open" onclick="toggleTip(this)">
+        <div class="left">
+          <div class="tip-icon-box" style="background:#FEE2E2;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          Screen Share Safety
+        </div>
+        <svg class="chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="tip-body-wrap open">
+        <div class="tip-body-inner">
+          <div class="alert-row"><strong>If asked to share screen:</strong> Share a window, not your entire desktop.</div>
+          <div class="tip-row">
+            <div class="tn" style="background:#FEE2E2;color:#DC2626;">1</div>
+            <div>
+              <h5>Press ⌘ + Shift + H before sharing</h5>
+              <p>Hides overlay instantly. Still working in background. Press same keys again to bring it back. (⌘H alone is macOS Hide — use ⌘⇧H instead)</p>
+            </div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:#FEE2E2;color:#DC2626;">2</div>
+            <div>
+              <h5>Share Window — or use your phone</h5>
+              <p>On desktop: Zoom → Share Screen → <strong>Window tab</strong> → select only Zoom or your browser. Or run the assistant on your phone (same WiFi) and freely share your entire desktop — the AI is on a completely separate device.</p>
+            </div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:#FEE2E2;color:#DC2626;">3</div>
+            <div>
+              <h5>Built-in protection always active</h5>
+              <p>macOS <span style="font-family:Fira Code;font-size:11px;background:var(--bg);padding:1px 5px;border-radius:3px;">NSWindowSharingNone</span> makes the overlay invisible to any screen capture — even if you accidentally share full screen.</p>
+            </div>
+          </div>
+          <div class="ok-row">📱 <strong>On phone:</strong> 100% safe — share your full desktop without worry. The AI runs on your phone over the same WiFi, so it's never part of your screen share.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AVOID DESKTOP SHARE -->
+    <div class="tip-card">
+      <button class="tip-card-btn" onclick="toggleTip(this)">
+        <div class="left">
+          <div class="tip-icon-box" style="background:#FFF7ED;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2" stroke-linecap="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+          </div>
+          Avoid Desktop Share
+        </div>
+        <svg class="chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="tip-body-wrap">
+        <div class="tip-body-inner">
+          <div class="tip-row">
+            <div class="tn" style="background:#FFF7ED;color:#C2410C;">1</div>
+            <div><h5>Prepare your response</h5><p>Say: <em>"Let me pull up that specific file for you."</em> Then share only that window — never say yes to full desktop instantly.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:#FFF7ED;color:#C2410C;">2</div>
+            <div><h5>Use a clean browser profile</h5><p>A separate Chrome profile with no bookmarks, no autofill, and no history — nothing personal visible if shared.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:#FFF7ED;color:#C2410C;">3</div>
+            <div><h5>Virtual background</h5><p>Use Zoom virtual background — no secondary monitor, desk setup, or sticky notes visible behind you.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:#FFF7ED;color:#C2410C;">4</div>
+            <div><h5>Coding interviews</h5><p>Open only the IDE or coding window. Share just that window — the AI overlay stays on a different desktop space.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHONE PLACEMENT -->
+    <div class="tip-card">
+      <button class="tip-card-btn" onclick="toggleTip(this)">
+        <div class="left">
+          <div class="tip-icon-box" style="background:#F3E8FF;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/></svg>
+          </div>
+          Phone Placement
+        </div>
+        <svg class="chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="tip-body-wrap">
+        <div class="tip-body-inner">
+          <div class="tip-row">
+            <div class="tn" style="background:#F3E8FF;color:#7C3AED;">1</div>
+            <div><h5>Face-down in your lap (best)</h5><p>TTS plays in your earbuds — no need to look at screen. Fully out of camera view.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:#F3E8FF;color:#7C3AED;">2</div>
+            <div><h5>Below the webcam line</h5><p>Place phone just below your laptop screen edge. Eyes move down naturally — looks like you're thinking.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:#F3E8FF;color:#7C3AED;">3</div>
+            <div><h5>Dim screen to 30%</h5><p>Prevents glare or retina reflection in high-res cameras. Bright screens on a dark desk can cast a glow.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:#F3E8FF;color:#7C3AED;">4</div>
+            <div><h5>Do Not Disturb ON</h5><p>No notification banners popping up during the interview. Set it before you join the call.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USING THE AI -->
+    <div class="tip-card">
+      <button class="tip-card-btn" onclick="toggleTip(this)">
+        <div class="left">
+          <div class="tip-icon-box" style="background:var(--success-light);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          </div>
+          Using AI Effectively
+        </div>
+        <svg class="chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="tip-body-wrap">
+        <div class="tip-body-inner">
+          <div class="tip-row">
+            <div class="tn" style="background:var(--success-light);color:#15803D;">1</div>
+            <div><h5>Pause 2 seconds after they finish</h5><p>AI needs 1.5s silence to detect end of question. A natural pause sounds thoughtful, not hesitant.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:var(--success-light);color:#15803D;">2</div>
+            <div><h5>Use as a framework, not a script</h5><p>Hear key points → add your own examples and tone. Sounds natural, not robotic.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:var(--success-light);color:#15803D;">3</div>
+            <div><h5>"That's a great question…"</h5><p>This buys 3–4 seconds while AI generates. A completely normal interview phrase.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:var(--success-light);color:#15803D;">4</div>
+            <div><h5>Practice 3 mock runs first</h5><p>So the ear-to-speech timing feels natural and you stop thinking about the tool.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EARBUDS -->
+    <div class="tip-card">
+      <button class="tip-card-btn" onclick="toggleTip(this)">
+        <div class="left">
+          <div class="tip-icon-box" style="background:var(--primary-light);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/></svg>
+          </div>
+          Earbuds Tips
+        </div>
+        <svg class="chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="tip-body-wrap">
+        <div class="tip-body-inner">
+          <div class="tip-row">
+            <div class="tn" style="background:var(--primary-light);color:var(--primary);">1</div>
+            <div><h5>Wear both AirPods (not just one)</h5><p>Two earbuds look like you're focused on the call. One earbud can look suspicious.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:var(--primary-light);color:var(--primary);">2</div>
+            <div><h5>Volume 40–50% on Mac</h5><p>Loud enough to hear clearly; quiet enough that no mic picks it up from a distance.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:var(--primary-light);color:var(--primary);">3</div>
+            <div><h5>Transparency Mode for in-person</h5><p>AirPods Pro: enable Transparency so you hear the room AND AI answers without removing earbuds.</p></div>
+          </div>
+          <div class="tip-row">
+            <div class="tn" style="background:var(--primary-light);color:var(--primary);">4</div>
+            <div><h5>Charge night before</h5><p>AirPods Pro last ~4.5 hrs. 1-hour interview needs ~30% — but always start fully charged.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KEYBOARD SHORTCUTS -->
+    <div class="tip-card">
+      <button class="tip-card-btn" onclick="toggleTip(this)">
+        <div class="left">
+          <div class="tip-icon-box" style="background:var(--bg);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
+          </div>
+          Keyboard Shortcuts
+        </div>
+        <svg class="chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="tip-body-wrap">
+        <div class="tip-body-inner">
+          <div class="shortcut-table">
+            <div class="shortcut-row"><span>Show / Hide overlay</span><div class="keys"><span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">H</span></div></div>
+            <div class="shortcut-row"><span>Quit app</span><div class="keys"><span class="kbd">⌘</span><span class="kbd">Q</span></div></div>
+            <div class="shortcut-row"><span>Submit manual question</span><div class="keys"><span class="kbd">Enter</span></div></div>
+            <div class="shortcut-row"><span>Mission Control (hide all)</span><div class="keys"><span class="kbd">^ ↑</span></div></div>
+            <div class="shortcut-row"><span>Switch desktop space</span><div class="keys"><span class="kbd">^ →</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tips-sidebar -->
+
+</div><!-- /page -->
+
+<!-- TOAST -->
+<div id="toast" style="display:none;position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1E293B;color:#34D399;padding:13px 24px;border-radius:12px;font-size:14px;font-weight:700;border:1px solid rgba(52,211,153,0.3);z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,0.2);white-space:nowrap;"></div>
+
+<script>
+  // ── RESUME CONTEXT ───────────────────────────────────────────
+  (function() {
+    var resumeName = localStorage.getItem('ol_resume_name');
+    if (resumeName) {
+      var banner = document.getElementById('resumeBanner');
+      var nameEl = document.getElementById('resumeBannerName');
+      if (banner && nameEl) {
+        nameEl.textContent = resumeName;
+        banner.style.display = 'flex';
+      }
+    }
+  })();
+
+  // Method tabs
+  function switchMethod(btn, id) {
+    document.querySelectorAll('.method-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+    document.querySelectorAll('.method-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected','true');
+    document.getElementById(id).classList.add('active');
+  }
+
+  // Tip accordions
+  function toggleTip(btn) {
+    const body = btn.nextElementSibling;
+    const open = body.classList.toggle('open');
+    btn.classList.toggle('open', open);
+  }
+
+  // Start session
+  function startSession(btnId) {
+    const btn = document.getElementById(btnId);
+    btn.classList.add('launched');
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Session Active — AI is listening';
+    document.getElementById('liveStatus').classList.add('show');
+    toast('✓  Session started — AI is listening in real-time');
+  }
+
+  // Copy command
+  function copyCmd(btnId, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById(btnId);
+      btn.textContent = 'Copied!';
+      btn.classList.add('ok');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 2000);
+    }).catch(() => { toast('Copy failed — please select and copy manually'); });
+  }
+
+  // Manual Q&A
+  const demoAnswers = {
+    system: `System design for a distributed cache at scale involves several key decisions:\n\n1. Choose a partitioning strategy (consistent hashing for even distribution)\n2. Define replication factor (3 replicas across availability zones)\n3. Implement write-ahead logging for durability\n4. Use gossip protocol for cluster membership and failure detection\n5. Add circuit breakers for downstream service protection\n\nAt Google-scale, this means handling 10M+ QPS with P99 latency under 5ms. The key insight is separating the hot path (reads) from the cold path (writes) using a CQRS pattern.`,
+    leadership: `I have [X] years of experience leading engineering teams through complex platform migrations and greenfield builds. My core strengths include technical architecture, cross-functional stakeholder alignment, and building high-performing teams from scratch.\n\nI've led 3 major platform migrations, scaled systems from 10K to 1M+ daily active users, and mentored 15+ engineers. I hold AWS Solutions Architect and Google Cloud Professional certifications.`,
+    default: `Based on your technical background, here's a structured STAR answer:\n\nSituation: In my previous role, we faced a challenge with [related scenario]\n\nTask: I was responsible for designing the architecture and leading the implementation across 3 engineering teams...\n\nAction: I started by conducting a thorough system audit, identified 3 critical bottlenecks, then worked cross-functionally with Platform and SRE teams to implement...\n\nResult: This resulted in a 40% improvement in system throughput, 99.99% uptime over 12 months, and a 30% reduction in infrastructure costs.`
+  };
+
+  function askManual() {
+    const q = document.getElementById('manualQ').value.trim();
+    if (!q) return;
+    const btn = document.querySelector('[onclick="askManual()"]');
+    if (btn) btn.disabled = true;
+    const box = document.getElementById('answerBox');
+    const text = document.getElementById('answerText');
+    box.classList.remove('show');
+    text.textContent = '';
+    box.classList.add('show');
+    text.textContent = 'Generating answer…';
+
+    // Check if resume context is available
+    const resumeText = localStorage.getItem('ol_resume_text') || '';
+    const resumeName = localStorage.getItem('ol_resume_name') || '';
+
+    setTimeout(() => {
+      const key = q.toLowerCase().includes('system') ? 'system' : q.toLowerCase().includes('lead') ? 'leadership' : 'default';
+      let answer = demoAnswers[key];
+
+      // If resume is uploaded, prepend a personalization note
+      if (resumeText && resumeName) {
+        answer = '[Personalized from your resume: ' + resumeName + ']\n\n' + answer;
+      }
+
+      typeWriter(text, answer);
+      if (btn) btn.disabled = false;
+    }, 1000);
+  }
+
+  function typeWriter(el, text) {
+    el.textContent = '';
+    let i = 0;
+    const iv = setInterval(() => {
+      el.textContent += text[i++];
+      if (i >= text.length) clearInterval(iv);
+    }, 7);
+  }
+
+  // Toast
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    t.style.opacity = '1';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.style.display = 'none', 300); }, 3500);
+  }
+</script>
+  <script src="consent.js"></script>
+  <script>
+  // ── PAYWALL GATE ──────────────────────────────────────────────
+  (function() {
+    var VERIFY_URL = 'https://0q8mtozfra.execute-api.us-east-1.amazonaws.com/verify-payment';
+    var LS_KEY = 'ol_purchased';
+
+    function unlockDownload(macUrl, winUrl) {
+      var downloadBtn = document.getElementById('downloadBtn');
+      if (downloadBtn && macUrl) {
+        downloadBtn.href = macUrl;
+        downloadBtn.setAttribute('download', '');
+        downloadBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Mac App';
+        downloadBtn.style.background = '';
+      }
+      var downloadBtnWin = document.getElementById('downloadBtnWin');
+      if (downloadBtnWin && winUrl) {
+        downloadBtnWin.href = winUrl;
+        downloadBtnWin.setAttribute('download', '');
+        downloadBtnWin.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Windows App';
+        downloadBtnWin.style.background = '';
+      }
+      var downloadBtnInline = document.getElementById('downloadBtnInline');
+      if (downloadBtnInline && macUrl) {
+        downloadBtnInline.href = macUrl;
+        downloadBtnInline.setAttribute('download', '');
+      }
+      var notice = document.getElementById('purchaseNotice');
+      if (notice) notice.style.display = 'none';
+    }
+
+    function lockDownload() {
+      var downloadBtn = document.getElementById('downloadBtn');
+      if (downloadBtn) {
+        downloadBtn.href = 'https://buy.stripe.com/4gM3cx89ibeV2nw6NE1Jm00';
+        downloadBtn.removeAttribute('download');
+        downloadBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Purchase — $19';
+        downloadBtn.style.background = '#F97316';
+      }
+      document.querySelectorAll('a[href*="Interview Assistant.dmg"]').forEach(function(link) {
+        link.href = 'https://buy.stripe.com/4gM3cx89ibeV2nw6NE1Jm00';
+        link.removeAttribute('download');
+        link.textContent = 'Purchase — $19 to unlock download';
+        link.style.background = '#F97316';
+      });
+      var downloadBtnWin = document.getElementById('downloadBtnWin');
+      if (downloadBtnWin) {
+        downloadBtnWin.href = 'https://buy.stripe.com/4gM3cx89ibeV2nw6NE1Jm00';
+        downloadBtnWin.removeAttribute('download');
+        downloadBtnWin.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Purchase — $19';
+        downloadBtnWin.style.background = '#F97316';
+      }
+      document.querySelectorAll('a[href*="Interview Assistant.exe"]').forEach(function(link) {
+        link.href = 'https://buy.stripe.com/4gM3cx89ibeV2nw6NE1Jm00';
+        link.removeAttribute('download');
+        link.textContent = 'Purchase — $19 to unlock download';
+        link.style.background = '#F97316';
+      });
+      var notice = document.getElementById('purchaseNotice');
+      if (notice) notice.style.display = 'block';
+    }
+
+    var params = new URLSearchParams(window.location.search);
+    var sessionId = params.get('session_id');
+
+    // Fast-path: returning user — re-verify to get fresh signed URLs
+    var storedSession = localStorage.getItem('ol_session_id');
+    if (localStorage.getItem(LS_KEY) === 'true' && storedSession) {
+      fetch(VERIFY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: storedSession })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.verified) {
+          unlockDownload(data.mac_url, data.win_url);
+        } else {
+          localStorage.removeItem(LS_KEY);
+          localStorage.removeItem('ol_session_id');
+          lockDownload();
+        }
+      })
+      .catch(function() { lockDownload(); });
+      return;
+    }
+
+    // Server-side verification: new purchase returning from Stripe
+    if (sessionId) {
+      // Clean URL immediately (cosmetic)
+      history.replaceState(null, '', window.location.pathname);
+
+      fetch(VERIFY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.verified) {
+          localStorage.setItem(LS_KEY, 'true');
+          localStorage.setItem('ol_session_id', sessionId);
+          unlockDownload(data.mac_url, data.win_url);
+        } else {
+          lockDownload();
+          // Show a subtle error under the purchase notice
+          var notice = document.getElementById('purchaseNotice');
+          if (notice) {
+            notice.innerHTML += '<div style="margin-top:8px;font-size:12px;color:#DC2626;">Payment verification failed. If you just paid, please wait a moment and refresh. Contact support@offerletter.ai if this persists.</div>';
+            notice.style.display = 'block';
+          }
+        }
+      })
+      .catch(function() {
+        // Network error — fail closed (locked)
+        lockDownload();
+      });
+    } else {
+      // No session_id, not in localStorage -> locked
+      lockDownload();
+    }
+  })();
+  </script>
+</body>
+</html>
