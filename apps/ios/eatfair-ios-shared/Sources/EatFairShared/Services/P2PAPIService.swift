@@ -10873,6 +10873,10 @@ public struct P2PVendorOrder: Codable, Identifiable {
     // Delivery proof photo
     public let deliveryPhotoUrl: String?
 
+    // Acceptance window timing — when the 3-minute restaurant acceptance window started
+    // Populated from sent_to_restaurant_at on the backend; used by iOS countdown timer
+    public let sentAt: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case orderNumber = "order_number"
@@ -10902,6 +10906,7 @@ public struct P2PVendorOrder: Codable, Identifiable {
         case vendorLongitude = "vendor_longitude"
         case vendorName = "vendor_name"
         case deliveryPhotoUrl = "delivery_photo_url"
+        case sentAt = "sent_at"
     }
 
     /// Get items as dictionary array for compatibility
@@ -11047,7 +11052,8 @@ public struct P2PVendorOrder: Codable, Identifiable {
             driverEtaToRestaurant: driverEtaToRestaurant,
             driverEtaText: driverEtaText,
             leaveAtDoor: leaveAtDoor,
-            deliveryPhotoUrl: deliveryPhotoUrl
+            deliveryPhotoUrl: deliveryPhotoUrl,
+            sentAt: sentAt
         )
     }
 }
