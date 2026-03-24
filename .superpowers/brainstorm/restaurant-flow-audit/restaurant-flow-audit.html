@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Order Flow Audit — Dollor.ai</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      font-size: 13px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 20px 28px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 17px;
+      font-weight: 600;
+      color: #f0f6fc;
+      letter-spacing: -0.3px;
+    }
+
+    .meta {
+      font-size: 11px;
+      color: #8b949e;
+      margin-top: 3px;
+    }
+
+    .summary-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid;
+    }
+
+    .badge.green  { background: #0d2818; border-color: #238636; color: #3fb950; }
+    .badge.amber  { background: #2a1f00; border-color: #9e6a03; color: #d29922; }
+    .badge.red    { background: #2a0a0a; border-color: #da3633; color: #f85149; }
+    .badge.blue   { background: #0c1d40; border-color: #388bfd; color: #79c0ff; }
+    .badge.na     { background: #161b22; border-color: #30363d; color: #8b949e; }
+
+    /* ── Layout ── */
+    .container {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: calc(100vh - 120px);
+    }
+
+    /* ── Left panel — lifecycle timeline ── */
+    .left-panel {
+      background: #161b22;
+      border-right: 1px solid #21262d;
+      position: sticky;
+      top: 120px;
+      height: calc(100vh - 120px);
+      overflow-y: auto;
+      padding: 16px 0 24px;
+    }
+
+    .left-panel::-webkit-scrollbar { width: 4px; }
+    .left-panel::-webkit-scrollbar-track { background: transparent; }
+    .left-panel::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #6e7681;
+      padding: 8px 16px 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: all 0.1s;
+      color: #8b949e;
+    }
+
+    .nav-item:hover { background: #1c2128; color: #e6edf3; }
+    .nav-item.active { border-left-color: #388bfd; color: #f0f6fc; background: #1c2128; }
+
+    .nav-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .nav-dot.green  { background: #238636; }
+    .nav-dot.amber  { background: #9e6a03; }
+    .nav-dot.red    { background: #da3633; }
+    .nav-dot.na     { background: #30363d; }
+
+    .nav-num {
+      font-size: 10px;
+      color: #6e7681;
+      min-width: 16px;
+    }
+
+    .nav-name {
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Phone mockup ── */
+    .phone-mockup {
+      margin: 8px 12px 4px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 11px;
+    }
+
+    .phone-status-bar {
+      font-size: 9px;
+      color: #6e7681;
+      text-align: center;
+      margin-bottom: 6px;
+      font-family: 'SF Mono', monospace;
+    }
+
+    .phone-card {
+      background: #161b22;
+      border-radius: 8px;
+      padding: 8px 10px;
+      border: 1px solid #21262d;
+    }
+
+    .phone-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .phone-order-id {
+      font-size: 10px;
+      font-weight: 600;
+      color: #f0f6fc;
+      font-family: 'SF Mono', monospace;
+    }
+
+    .phone-status-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+
+    .phone-status-badge.orange { background: #2a1400; color: #ffa657; border: 1px solid #6e3a00; }
+    .phone-status-badge.blue   { background: #0c1d40; color: #79c0ff; border: 1px solid #1f4080; }
+    .phone-status-badge.green  { background: #0d2818; color: #3fb950; border: 1px solid #238636; }
+    .phone-status-badge.yellow { background: #2a1f00; color: #d29922; border: 1px solid #9e6a03; }
+    .phone-status-badge.red    { background: #2a0a0a; color: #f85149; border: 1px solid #da3633; }
+    .phone-status-badge.grey   { background: #1c2128; color: #8b949e; border: 1px solid #30363d; }
+
+    .phone-items {
+      font-size: 10px;
+      color: #8b949e;
+      margin-bottom: 4px;
+    }
+
+    .phone-countdown {
+      font-family: 'SF Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: #d29922;
+      text-align: center;
+      padding: 4px;
+      background: #2a1f00;
+      border-radius: 4px;
+      margin-top: 4px;
+    }
+
+    .phone-countdown.urgent { color: #f85149; background: #2a0a0a; }
+
+    .phone-action-btn {
+      display: block;
+      width: 100%;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      text-align: center;
+      margin-top: 5px;
+      border: none;
+      cursor: default;
+    }
+
+    .phone-action-btn.green-btn  { background: #238636; color: #e6edf3; }
+    .phone-action-btn.red-btn    { background: #da3633; color: #e6edf3; }
+    .phone-action-btn.blue-btn   { background: #388bfd; color: #e6edf3; }
+    .phone-action-btn.orange-btn { background: #9b4c00; color: #e6edf3; }
+    .phone-action-btn.grey-btn   { background: #30363d; color: #8b949e; }
+    .phone-action-btn.red-outline { background: transparent; color: #f85149; border: 1px solid #da3633; }
+
+    .phone-swipe-hint {
+      font-size: 9px;
+      color: #6e7681;
+      text-align: center;
+      margin-top: 3px;
+    }
+
+    /* ── Main audit area ── */
+    .main-panel {
+      padding: 0;
+      height: calc(100vh - 120px);
+      overflow-y: auto;
+    }
+
+    .section-header {
+      background: #0d1117;
+      border-bottom: 1px solid #21262d;
+      padding: 10px 24px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #6e7681;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    /* ── Gap Summary Box ── */
+    .gap-summary-box {
+      margin: 20px 24px 8px;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .gap-summary-title {
+      background: #1c2128;
+      border-bottom: 1px solid #21262d;
+      padding: 8px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #f0f6fc;
+    }
+
+    .gap-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .gap-item:last-child { border-bottom: none; }
+
+    .gap-label {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: 'SF Mono', monospace;
+    }
+
+    .gap-label.red    { background: #2a0a0a; color: #f85149; border: 1px solid #da3633; }
+    .gap-label.yellow { background: #2a1f00; color: #d29922; border: 1px solid #9e6a03; }
+
+    .gap-body {
+      flex: 1;
+    }
+
+    .gap-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: #e6edf3;
+      margin-bottom: 2px;
+    }
+
+    .gap-fix {
+      font-size: 11px;
+      color: #6e7681;
+      font-family: 'SF Mono', monospace;
+    }
+
+    .gap-fix .fix-label { color: #3fb950; }
+
+    /* ── Audit row ── */
+    .audit-row {
+      border-bottom: 1px solid #21262d;
+      transition: background 0.1s;
+    }
+
+    .audit-row:hover .row-header { background: #1c2128; }
+
+    .row-header {
+      display: grid;
+      grid-template-columns: 36px 1fr 1fr 1fr 96px;
+      gap: 0;
+      padding: 10px 24px 10px 16px;
+      cursor: pointer;
+      align-items: center;
+    }
+
+    .row-num {
+      font-size: 11px;
+      color: #6e7681;
+      text-align: center;
+    }
+
+    .row-method-path {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      padding-right: 12px;
+    }
+
+    .row-method-path .method {
+      font-weight: 700;
+      margin-right: 4px;
+    }
+
+    .method-post  { color: #d2a8ff; }
+    .method-put   { color: #ffa657; }
+    .method-get   { color: #3fb950; }
+    .method-path  { color: #79c0ff; }
+
+    .row-backend {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 10px;
+      color: #8b949e;
+      padding-right: 12px;
+    }
+
+    .row-backend .fileref { color: #e6edf3; }
+
+    .row-ios {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 10px;
+      color: #8b949e;
+      padding-right: 12px;
+    }
+
+    .row-ios .fileref { color: #e6edf3; }
+    .row-ios .issue   { color: #f85149; }
+    .row-ios .warn    { color: #d29922; }
+
+    .verdict-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 80px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid;
+    }
+
+    .verdict-badge.green  { background: #0d2818; border-color: #238636; color: #3fb950; }
+    .verdict-badge.amber  { background: #2a1f00; border-color: #9e6a03; color: #d29922; }
+    .verdict-badge.red    { background: #2a0a0a; border-color: #da3633; color: #f85149; }
+    .verdict-badge.na     { background: #161b22; border-color: #30363d; color: #8b949e; }
+
+    /* ── Expanded detail ── */
+    .row-detail {
+      display: none;
+      background: #0d1117;
+      border-top: 1px solid #21262d;
+      padding: 0 24px 16px 52px;
+    }
+
+    .row-detail.open { display: block; }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .detail-card {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+
+    .detail-card-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #6e7681;
+      margin-bottom: 8px;
+    }
+
+    .detail-line {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      color: #e6edf3;
+      margin-bottom: 4px;
+      line-height: 1.5;
+    }
+
+    .detail-line .label { color: #6e7681; font-size: 10px; }
+    .detail-line .path  { color: #79c0ff; }
+    .detail-line .ok    { color: #3fb950; }
+    .detail-line .warn  { color: #d29922; }
+    .detail-line .err   { color: #f85149; }
+
+    /* ── Stage sections (lifecycle) ── */
+    .stage-section {
+      border-bottom: 2px solid #21262d;
+      scroll-margin-top: 10px;
+    }
+
+    .stage-title-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 24px 12px 16px;
+      background: #161b22;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .stage-num-badge {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .stage-num-badge.green  { background: #0d2818; border: 2px solid #238636; color: #3fb950; }
+    .stage-num-badge.amber  { background: #2a1f00; border: 2px solid #9e6a03; color: #d29922; }
+    .stage-num-badge.red    { background: #2a0a0a; border: 2px solid #da3633; color: #f85149; }
+    .stage-num-badge.grey   { background: #1c2128; border: 2px solid #30363d; color: #6e7681; }
+
+    .stage-title-text {
+      flex: 1;
+    }
+
+    .stage-title-text h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    .stage-title-text .stage-status {
+      font-size: 11px;
+      color: #8b949e;
+      font-family: 'SF Mono', monospace;
+      margin-top: 2px;
+    }
+
+    .stage-body {
+      padding: 12px 24px 16px;
+    }
+
+    .stage-description {
+      font-size: 12px;
+      color: #8b949e;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .stage-description strong { color: #e6edf3; }
+
+    /* ── Column table ── */
+    .col-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+
+    .col-table th {
+      text-align: left;
+      padding: 6px 12px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #6e7681;
+      background: #161b22;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .col-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #21262d;
+      vertical-align: top;
+    }
+
+    .col-table tr:last-child td { border-bottom: none; }
+    .col-table tr:hover td { background: #1c2128; }
+
+    .col-table td.mono {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .col-table td .green { color: #3fb950; }
+    .col-table td .amber { color: #d29922; }
+    .col-table td .red   { color: #f85149; }
+    .col-table td .blue  { color: #79c0ff; }
+    .col-table td .grey  { color: #6e7681; }
+
+    .status-pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .status-pill.GREEN  { background: #0d2818; color: #3fb950; border: 1px solid #238636; }
+    .status-pill.YELLOW { background: #2a1f00; color: #d29922; border: 1px solid #9e6a03; }
+    .status-pill.RED    { background: #2a0a0a; color: #f85149; border: 1px solid #da3633; }
+    .status-pill.NA     { background: #161b22; color: #8b949e; border: 1px solid #30363d; }
+
+    /* ── Payment flow ── */
+    .payment-section {
+      margin: 8px 24px 20px;
+    }
+
+    .payment-section h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-bottom: 10px;
+    }
+
+    .payment-flow-diagram {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      line-height: 1.8;
+    }
+
+    .payment-flow-diagram .party  { color: #79c0ff; font-weight: 700; }
+    .payment-flow-diagram .amount { color: #3fb950; }
+    .payment-flow-diagram .arrow  { color: #6e7681; }
+    .payment-flow-diagram .note   { color: #d29922; }
+    .payment-flow-diagram .source { color: #6e7681; font-size: 10px; }
+    .payment-flow-diagram .sep    { border-top: 1px solid #21262d; margin: 8px 0; }
+    .payment-flow-diagram .warning { color: #f85149; }
+
+    /* ── Footer ── */
+    .doc-footer {
+      padding: 20px 24px;
+      border-top: 1px solid #21262d;
+      font-size: 11px;
+      color: #6e7681;
+    }
+
+    /* ── Pulse animation for NEW ORDER ── */
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0 rgba(255, 166, 87, 0.6); }
+      70%  { box-shadow: 0 0 0 8px rgba(255, 166, 87, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 166, 87, 0); }
+    }
+
+    .pulse-ring {
+      animation: pulse-ring 1.5s ease-out infinite;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ HEADER ══════════ -->
+<header>
+  <div class="header-top">
+    <div>
+      <h1>Restaurant Order Flow Audit — Phase 208</h1>
+      <div class="meta">Dollor.ai · Research Date: 2026-03-20 · Valid until 2026-04-20 · Sources verified at file:line</div>
+    </div>
+  </div>
+  <div class="summary-bar">
+    <span class="badge green">4 GREEN — OK</span>
+    <span class="badge amber">3 YELLOW — Suboptimal</span>
+    <span class="badge red">2 RED — Gap / Error</span>
+    <span class="badge blue">9 Lifecycle Stages</span>
+    <span class="badge na">8 Endpoints Audited</span>
+  </div>
+</header>
+
+<!-- ══════════ TWO-PANEL LAYOUT ══════════ -->
+<div class="container">
+
+  <!-- ── LEFT: Lifecycle Timeline ── -->
+  <nav class="left-panel">
+    <div class="section-label">Lifecycle Stages</div>
+
+    <div class="nav-item active" onclick="scrollTo('s1')">
+      <span class="nav-dot orange" style="background:#9e6a03;"></span>
+      <span class="nav-num">1</span>
+      <span class="nav-name">New Order Arrives</span>
+    </div>
+    <div class="nav-item" onclick="scrollTo('s2')">
+      <span class="nav-dot amber"></span>
+      <span class="nav-num">2</span>
+      <span class="nav-name">Accept → Preparing</span>
+    </div>
+    <div class="nav-item" onclick="scrollTo('s3')">
+      <span class="nav-dot green"></span>
+      <span class="nav-num">3</span>
+      <span class="nav-name">Mark Ready</span>
+    </div>
+    <div class="nav-item" onclick="scrollTo('s4')">
+      <span class="nav-dot green"></span>
+      <span class="nav-num">4</span>
+      <span class="nav-name">Delivery Decision</span>
+    </div>
+    <div class="nav-item" onclick="scrollTo('s5')">
+      <span class="nav-dot green"></span>
+      <span class="nav-num">5</span>
+      <span class="nav-name">Self-Delivery: Start</span>
+    </div>
+    <div class="nav-item" onclick="scrollTo('s6')">
+      <span class="nav-dot red"></span>
+      <span class="nav-num">6</span>
+      <span class="nav-name">Self-Delivery: Arrived</span>
+    </div>
+    <div class="nav-item" onclick="scrollTo('s7')">
+      <span class="nav-dot red"></span>
+      <span class="nav-num">7</span>
+      <span class="nav-name">Self-Delivery: Delivered</span>
+    </div>
+    <div class="nav-item" onclick="scrollTo('s8')">
+      <span class="nav-dot green"></span>
+      <span class="nav-num">8</span>
+      <span class="nav-name">Driver Pool Path</span>
+    </div>
+    <div class="nav-item" onclick="scrollTo('s9')">
+      <span class="nav-dot amber"></span>
+      <span class="nav-num">9</span>
+      <span class="nav-name">Timeout / Rejection</span>
+    </div>
+
+    <div class="section-label" style="margin-top:12px;">Quick Links</div>
+    <div class="nav-item" onclick="scrollTo('gaps')">
+      <span class="nav-dot red"></span>
+      <span class="nav-name" style="font-size:11px;">Gap Summary (5 Gaps)</span>
+    </div>
+    <div class="nav-item" onclick="scrollTo('endpoints')">
+      <span class="nav-dot na"></span>
+      <span class="nav-name" style="font-size:11px;">Endpoint Table</span>
+    </div>
+    <div class="nav-item" onclick="scrollTo('payment')">
+      <span class="nav-dot na"></span>
+      <span class="nav-name" style="font-size:11px;">Payment Flow</span>
+    </div>
+
+    <!-- Phone mockup preview — shows PENDING_RESTAURANT state -->
+    <div style="padding:12px 8px 0;">
+      <div style="font-size:10px; color:#6e7681; padding:0 8px 4px; text-transform:uppercase; letter-spacing:0.6px;">Preview: Stage 1</div>
+      <div class="phone-mockup">
+        <div class="phone-status-bar">9:41  ●●●●  WiFi  100%</div>
+        <div class="phone-card pulse-ring">
+          <div class="phone-card-header">
+            <div class="phone-order-id">#ORD-8412</div>
+            <div class="phone-status-badge orange">NEW ORDER</div>
+          </div>
+          <div class="phone-items">2x Burger, 1x Fries, 1x Cola</div>
+          <div style="font-size:10px; color:#8b949e; margin-bottom:2px;">Customer: John D. · $24.50</div>
+          <div class="phone-countdown">2:45 remaining</div>
+          <div class="phone-action-btn green-btn">Accept &amp; I'll Deliver</div>
+          <div class="phone-action-btn" style="background:transparent;color:#3fb950;border:1px solid #238636;font-size:10px;padding:4px;border-radius:6px;text-align:center;margin-top:3px;">Accept &amp; Send Driver</div>
+          <div class="phone-action-btn red-outline" style="margin-top:3px;font-size:10px;padding:4px;border-radius:6px;text-align:center;">Reject Order</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── RIGHT: Main Audit Content ── -->
+  <main class="main-panel">
+
+    <!-- ════ GAP SUMMARY ════ -->
+    <div id="gaps" class="section-header">KNOWN GAPS (5)</div>
+    <div class="gap-summary-box" style="margin-top:12px;">
+      <div class="gap-summary-title">Gap Analysis — Phase 208 Research (2026-03-20)</div>
+
+      <div class="gap-item">
+        <span class="gap-label yellow">GAP-1 YELLOW</span>
+        <div class="gap-body">
+          <div class="gap-title">acceptOrder() calls PUT /erp/orders/{id}/status (PREPARING) — bypasses KOT print and driver notification</div>
+          <div class="gap-fix">File: <span style="color:#79c0ff;">OrdersViewModel.swift:273-278</span> · Impact: no restaurant_accepted_at timestamp, no KOT trigger, no driver early-notification</div>
+          <div class="gap-fix"><span class="fix-label">Fix:</span> Replace updateOrderStatus("PREPARING") with p2pAPI.restaurantAcceptOrder(orderId:) → P2PAPIService.swift:3351</div>
+        </div>
+      </div>
+
+      <div class="gap-item">
+        <span class="gap-label red">GAP-2 RED</span>
+        <div class="gap-body">
+          <div class="gap-title">vendor-arrived-at-delivery ERP alias missing in main_new.py — returns 404 in production</div>
+          <div class="gap-fix">iOS: <span style="color:#79c0ff;">P2PAPIService.swift:3569</span> calls POST /erp/orders/{id}/vendor-arrived-at-delivery · Backend: function at order_flow.py:4942 exists but NO ERP alias</div>
+          <div class="gap-fix"><span class="fix-label">Fix:</span> Add @app.post("/erp/orders/{order_id}/vendor-arrived-at-delivery") alias in main_new.py ~line 15550</div>
+        </div>
+      </div>
+
+      <div class="gap-item">
+        <span class="gap-label yellow">GAP-3 YELLOW</span>
+        <div class="gap-body">
+          <div class="gap-title">iOS countdown timer uses order.placedAt — should use sent_to_restaurant_at (backend window starts there)</div>
+          <div class="gap-fix">File: <span style="color:#79c0ff;">EnhancedDashboardView.swift:443-448</span> · Gap: payment to restaurant notification can be seconds to minutes</div>
+          <div class="gap-fix"><span class="fix-label">Fix:</span> Expose sentToRestaurantAt + timeoutAt in P2PVendorOrder; use timeoutAt in countdown calculation</div>
+        </div>
+      </div>
+
+      <div class="gap-item">
+        <span class="gap-label red">GAP-4 RED</span>
+        <div class="gap-body">
+          <div class="gap-title">POST /erp/orders/{id}/delivered auth mismatch — driver_id null check fails for self-delivery orders (403/TypeError)</div>
+          <div class="gap-fix">ERP alias: <span style="color:#79c0ff;">main_new.py:15500</span> uses require_any_auth · Core fn: order_flow.py:3887 requires Driver object + checks order.driver_id != driver.id</div>
+          <div class="gap-fix"><span class="fix-label">Fix:</span> Add separate /erp/orders/{id}/vendor-delivered alias with require_vendor auth that skips driver ownership check</div>
+        </div>
+      </div>
+
+      <div class="gap-item">
+        <span class="gap-label yellow">GAP-5 YELLOW</span>
+        <div class="gap-body">
+          <div class="gap-title">check_delivery_decision_timeouts_job() — no push notification to drivers or restaurant on timeout</div>
+          <div class="gap-fix">File: <span style="color:#79c0ff;">order_flow.py:2268-2269</span> — has TODO comments for both notifications; orders silently enter driver pool</div>
+          <div class="gap-fix"><span class="fix-label">Fix:</span> Wire notify_drivers_new_order() + restaurant push into check_delivery_decision_timeouts_job()</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ LIFECYCLE STAGES ════ -->
+
+    <!-- Stage 1: New Order Arrives -->
+    <div id="s1" class="stage-section">
+      <div class="stage-title-bar">
+        <div class="stage-num-badge amber">1</div>
+        <div class="stage-title-text">
+          <h2>New Order Arrives — PENDING_RESTAURANT</h2>
+          <div class="stage-status">Status: pending_restaurant · 3-minute acceptance window starts from sent_to_restaurant_at</div>
+        </div>
+        <span class="badge amber">YELLOW — GAP-1, GAP-3</span>
+      </div>
+      <div class="stage-body">
+        <div class="stage-description">
+          Customer payment is confirmed (<code>POST /erp/orders/{id}/confirm-payment</code>). Order transitions <strong>CONFIRMED → PENDING_RESTAURANT</strong> automatically. A background job (<code>check_restaurant_timeouts_job()</code> at <code>order_flow.py:2179</code>) runs every 30s. The 3-minute window constant is <code>RESTAURANT_ACCEPTANCE_WINDOW_SECONDS = 180</code> at <code>order_flow.py:441</code>. The phone shows an incoming order card with a pulsing orange ring and a countdown timer.
+          <br><br>
+          <strong>GAP-3:</strong> The iOS countdown at <code>EnhancedDashboardView.swift:443-448</code> uses <code>order.placedAt</code> (payment time) instead of <code>sent_to_restaurant_at</code> (actual window start). These differ by the payment capture latency (seconds to minutes). Timer may show time remaining when backend has already timed out.
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+          <div class="detail-card">
+            <div class="detail-card-title">Phone State</div>
+            <div class="detail-line"><span class="label">Card: </span>Incoming order, pulsing orange ring</div>
+            <div class="detail-line"><span class="label">Countdown: </span><span class="warn">2:45 remaining (may be inaccurate — GAP-3)</span></div>
+            <div class="detail-line"><span class="label">Buttons: </span>Accept &amp; I'll Deliver / Accept &amp; Send Driver / Reject</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Backend State</div>
+            <div class="detail-line"><span class="label">Status: </span><span class="warn">pending_restaurant</span></div>
+            <div class="detail-line"><span class="label">Timer start: </span>sent_to_restaurant_at (DB field)</div>
+            <div class="detail-line"><span class="label">Timeout: </span>180s → RESTAURANT_TIMEOUT + Stripe refund</div>
+            <div class="detail-line"><span class="label">Scheduler: </span>order_flow.py:2179 (every 30s)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 2: Accept → Preparing -->
+    <div id="s2" class="stage-section">
+      <div class="stage-title-bar">
+        <div class="stage-num-badge amber">2</div>
+        <div class="stage-title-text">
+          <h2>Accept → Preparing — PENDING_RESTAURANT → PREPARING</h2>
+          <div class="stage-status">Status: preparing · Two paths: correct (restaurant-accept) vs current bug (status endpoint)</div>
+        </div>
+        <span class="badge amber">YELLOW — GAP-1</span>
+      </div>
+      <div class="stage-body">
+        <div class="stage-description">
+          <strong>Correct path:</strong> <code>POST /erp/orders/{id}/restaurant-accept</code> → sets <code>restaurant_accepted_at</code>, triggers KOT print to POS, sends early driver notification. Method exists in <code>P2PAPIService.swift:3351</code> as <code>restaurantAcceptOrder()</code>.
+          <br><br>
+          <strong>Current bug path (GAP-1):</strong> <code>acceptOrder()</code> at <code>OrdersViewModel.swift:273</code> calls <code>updateOrderStatus(order, "PREPARING")</code> → hits <code>PUT /erp/orders/{id}/status?status=PREPARING</code>. This bypasses the 3-minute window check, skips KOT printing, and skips driver early-notification. The order still transitions correctly, but auxiliary effects are lost.
+        </div>
+
+        <table class="col-table">
+          <thead>
+            <tr><th>Path</th><th>Endpoint</th><th>Backend</th><th>Effect</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Correct</strong></td>
+              <td class="mono"><span class="method-post">POST</span> <span class="method-path">/erp/orders/{id}/restaurant-accept</span></td>
+              <td class="mono grey">order_flow.py:1657<br>main_new.py:15519</td>
+              <td>Sets accepted_at · KOT print · Driver notify</td>
+              <td><span class="status-pill GREEN">GREEN</span></td>
+            </tr>
+            <tr>
+              <td><strong>Current (bug)</strong></td>
+              <td class="mono"><span class="method-put">PUT</span> <span class="method-path">/erp/orders/{id}/status?status=PREPARING</span></td>
+              <td class="mono grey">order_flow.py:3249<br>main_new.py:15493</td>
+              <td class="amber">Status changes only · No KOT · No driver notify</td>
+              <td><span class="status-pill YELLOW">YELLOW</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="detail-card" style="margin-top:8px;">
+          <div class="detail-card-title">Call Site Bug (GAP-1)</div>
+          <div class="detail-line"><span class="label">File: </span><span class="path">OrdersViewModel.swift:273-278</span></div>
+          <div class="detail-line"><span class="label">Calls: </span><span class="warn">updateOrderStatus(order, "PREPARING")</span> — wrong method</div>
+          <div class="detail-line"><span class="label">Should call: </span><span class="ok">p2pAPI.restaurantAcceptOrder(orderId: order.id)</span></div>
+          <div class="detail-line"><span class="label">Method exists: </span><span class="ok">P2PAPIService.swift:3351 restaurantAcceptOrder()</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 3: Mark Ready -->
+    <div id="s3" class="stage-section">
+      <div class="stage-title-bar">
+        <div class="stage-num-badge green">3</div>
+        <div class="stage-title-text">
+          <h2>Mark Ready — PREPARING → READY_FOR_PICKUP</h2>
+          <div class="stage-status">Status: ready_for_pickup · Delivery decision window starts (3 minutes)</div>
+        </div>
+        <span class="badge green">GREEN</span>
+      </div>
+      <div class="stage-body">
+        <div class="stage-description">
+          Restaurant taps "Mark Ready for Pickup". Calls <code>PUT /erp/orders/{id}/status?status=READY_FOR_PICKUP</code> (<code>main_new.py:15493</code>). Backend sets <code>delivery_decision_sent_at</code> timestamp and starts the 3-minute delivery decision window (<code>DELIVERY_DECISION_WINDOW_SECONDS = 180</code> at <code>order_flow.py:445</code>). The delivery decision prompt appears on the restaurant's phone.
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="detail-card">
+            <div class="detail-card-title">Phone State (preparing)</div>
+            <div class="detail-line"><span class="label">Card: </span>Order with "Preparing" blue badge</div>
+            <div class="detail-line"><span class="label">Button: </span>Mark Ready for Pickup</div>
+            <div class="detail-line"><span class="label">Button line: </span><span class="path">EnhancedDashboardView.swift:782-804</span></div>
+            <div class="detail-line"><span class="label">VM call: </span>ordersVM.markOrderReady(order)</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Endpoint: </span><span class="path">PUT /erp/orders/{id}/status</span></div>
+            <div class="detail-line"><span class="label">Sets: </span>delivery_decision_sent_at</div>
+            <div class="detail-line"><span class="label">Starts: </span>3-minute delivery decision window</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="ok">require_any_auth</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 4: Delivery Decision -->
+    <div id="s4" class="stage-section">
+      <div class="stage-title-bar">
+        <div class="stage-num-badge amber">4</div>
+        <div class="stage-title-text">
+          <h2>Delivery Decision — PENDING_DELIVERY_DECISION</h2>
+          <div class="stage-status">Two options: "Send to Driver Pool" or "I'll Deliver" · Timeout → silent driver pool (GAP-5)</div>
+        </div>
+        <span class="badge amber">YELLOW — GAP-5</span>
+      </div>
+      <div class="stage-body">
+        <div class="stage-description">
+          3-minute window for restaurant to choose. Two buttons appear: <strong>"Send to Driver Pool"</strong> (<code>POST /erp/orders/{id}/restaurant-decline-delivery</code>) or <strong>"I'll Deliver"</strong> (<code>POST /erp/orders/{id}/restaurant-accept-delivery</code>). Both endpoint aliases are GREEN.
+          <br><br>
+          <strong>GAP-5:</strong> If 3 minutes pass without a choice, <code>check_delivery_decision_timeouts_job()</code> at <code>order_flow.py:2238</code> moves order to <code>READY_FOR_PICKUP</code> (driver pool) silently. No push notification sent to nearby drivers or to the restaurant. There are <code># TODO</code> comments at <code>order_flow.py:2268-2269</code>.
+        </div>
+
+        <table class="col-table">
+          <thead>
+            <tr><th>Button</th><th>Endpoint</th><th>Backend</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>"I'll Deliver"</td>
+              <td class="mono"><span class="method-post">POST</span> <span class="method-path">/erp/orders/{id}/restaurant-accept-delivery</span></td>
+              <td class="mono grey">order_flow.py:1975<br>main_new.py:15535</td>
+              <td><span class="status-pill GREEN">GREEN</span></td>
+            </tr>
+            <tr>
+              <td>"Send to Driver Pool"</td>
+              <td class="mono"><span class="method-post">POST</span> <span class="method-path">/erp/orders/{id}/restaurant-decline-delivery</span></td>
+              <td class="mono grey">order_flow.py:2074<br>main_new.py:15542</td>
+              <td><span class="status-pill GREEN">GREEN</span></td>
+            </tr>
+            <tr>
+              <td>Timeout (3min)</td>
+              <td class="mono grey">Background job · order_flow.py:2238</td>
+              <td class="mono grey">Moves to READY_FOR_PICKUP</td>
+              <td><span class="status-pill YELLOW">YELLOW</span> <span class="amber">— No push (GAP-5)</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Stage 5: Self-Delivery Start -->
+    <div id="s5" class="stage-section">
+      <div class="stage-title-bar">
+        <div class="stage-num-badge green">5</div>
+        <div class="stage-title-text">
+          <h2>Self-Delivery: Start Trip — RESTAURANT_WILL_DELIVER → OUT_FOR_DELIVERY</h2>
+          <div class="stage-status">Status: out_for_delivery (mapped to "ontheway" in iOS) · Start delivery swipe button</div>
+        </div>
+        <span class="badge green">GREEN</span>
+      </div>
+      <div class="stage-body">
+        <div class="stage-description">
+          Restaurant accepted self-delivery. "Start Delivery" button appears at <code>EnhancedDashboardView.swift:1136-1156</code>. Calls <code>ordersVM.startDelivery(order)</code> which hits <code>PUT /erp/orders/{id}/status?status=OUT_FOR_DELIVERY</code>. Order status mapped in iOS: <code>out_for_delivery</code> → <code>"ontheway"</code> (P2PAPIService.swift:9444-9467).
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="detail-card">
+            <div class="detail-card-title">Phone State</div>
+            <div class="detail-line"><span class="label">Status badge: </span>"DELIVERING" (orange)</div>
+            <div class="detail-line"><span class="label">Button: </span>Start Delivery (swipe candidate)</div>
+            <div class="detail-line"><span class="label">VM call: </span>ordersVM.startDelivery(order)</div>
+            <div class="detail-line"><span class="label">After: </span>Navigation + Arrived at Customer buttons show</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Backend</div>
+            <div class="detail-line"><span class="label">Endpoint: </span><span class="path">PUT /erp/orders/{id}/status?status=OUT_FOR_DELIVERY</span></div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="ok">require_any_auth</span></div>
+            <div class="detail-line"><span class="label">iOS status map: </span>out_for_delivery → "ontheway"</div>
+            <div class="detail-line"><span class="label">Status: </span><span class="ok">OK</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 6: Self-Delivery Arrived -->
+    <div id="s6" class="stage-section">
+      <div class="stage-title-bar">
+        <div class="stage-num-badge red">6</div>
+        <div class="stage-title-text">
+          <h2>Self-Delivery: Arrived at Customer — OUT_FOR_DELIVERY (notification only)</h2>
+          <div class="stage-status">Status stays out_for_delivery · I've Arrived button — 404 in production (GAP-2)</div>
+        </div>
+        <span class="badge red">RED — GAP-2</span>
+      </div>
+      <div class="stage-body">
+        <div class="stage-description">
+          Restaurant taps "I've Arrived at Customer". Calls <code>POST /erp/orders/{id}/vendor-arrived-at-delivery</code> via <code>P2PAPIService.swift:3569</code>.
+          <br><br>
+          <strong>GAP-2 (CRITICAL):</strong> No ERP alias exists for <code>vendor-arrived-at-delivery</code> in <code>main_new.py</code>. The only registered alias is <code>driver-arrived-at-delivery</code> at <code>main_new.py:15549</code> (requires <code>require_driver</code> auth). The backend function <code>vendor_arrived_at_delivery()</code> exists at <code>order_flow.py:4942</code> but is not wired to the ERP prefix. This call returns <strong>404 in production</strong>. The customer never receives the "restaurant is at your door" push notification.
+        </div>
+
+        <div class="detail-card" style="margin-bottom:12px; border-color: #da3633;">
+          <div class="detail-card-title" style="color:#f85149;">404 Error — Missing ERP Alias (GAP-2)</div>
+          <div class="detail-line"><span class="label">iOS calls: </span><span class="err">POST /erp/orders/{order_id}/vendor-arrived-at-delivery</span></div>
+          <div class="detail-line"><span class="label">Call site: </span><span class="path">P2PAPIService.swift:3569</span></div>
+          <div class="detail-line"><span class="label">Backend fn: </span><span class="ok">vendor_arrived_at_delivery() — order_flow.py:4942 ✓</span></div>
+          <div class="detail-line"><span class="label">ERP alias: </span><span class="err">MISSING — only driver-arrived-at-delivery exists at main_new.py:15549</span></div>
+          <div class="detail-line"><span class="label">Fix: </span><span class="ok">@app.post("/erp/orders/{order_id}/vendor-arrived-at-delivery") with require_any_auth → vendor_arrived_at_delivery()</span></div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="detail-card">
+            <div class="detail-card-title">Existing Driver Alias (for reference)</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="path">POST /erp/orders/{id}/driver-arrived-at-delivery</span></div>
+            <div class="detail-line"><span class="label">File: </span>main_new.py:15549</div>
+            <div class="detail-line"><span class="label">Auth: </span>require_driver</div>
+            <div class="detail-line"><span class="label">Calls: </span>driver_arrived_at_delivery()</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Required Vendor Alias</div>
+            <div class="detail-line"><span class="label">Path: </span><span class="err">POST /erp/orders/{id}/vendor-arrived-at-delivery</span></div>
+            <div class="detail-line"><span class="label">Auth: </span>require_any_auth (vendor JWT)</div>
+            <div class="detail-line"><span class="label">Calls: </span>vendor_arrived_at_delivery() — order_flow.py:4942</div>
+            <div class="detail-line"><span class="label">Status: </span><span class="err">DOES NOT EXIST — needs to be added</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 7: Self-Delivery Delivered -->
+    <div id="s7" class="stage-section">
+      <div class="stage-title-bar">
+        <div class="stage-num-badge red">7</div>
+        <div class="stage-title-text">
+          <h2>Self-Delivery: Mark Delivered — OUT_FOR_DELIVERY → PENDING_DELIVERY_PROOF → DELIVERED</h2>
+          <div class="stage-status">Camera sheet for delivery proof · Auth mismatch for self-delivery (GAP-4)</div>
+        </div>
+        <span class="badge red">RED — GAP-4</span>
+      </div>
+      <div class="stage-body">
+        <div class="stage-description">
+          Restaurant taps "Mark as Delivered". Opens camera sheet (<code>RestaurantDeliveryProofSheet.swift</code>). Calls <code>POST /erp/orders/{id}/delivered</code> via ERP alias at <code>main_new.py:15500</code>.
+          <br><br>
+          <strong>GAP-4 (CRITICAL):</strong> The ERP alias at <code>main_new.py:15500-15505</code> uses <code>require_any_auth</code> (returns an auth dict). But the core function <code>order_delivered()</code> at <code>order_flow.py:3887</code> uses <code>require_driver</code> (expects a Driver ORM object) and enforces <code>order.driver_id != driver.id</code>. For self-delivery orders, <code>driver_id</code> is null. The alias passes an auth dict instead of a Driver object — this causes a <strong>TypeError or 403</strong> in production for self-delivery orders.
+        </div>
+
+        <div class="detail-card" style="margin-bottom:12px; border-color:#da3633;">
+          <div class="detail-card-title" style="color:#f85149;">Auth Mismatch — Self-Delivery Failure (GAP-4)</div>
+          <div class="detail-line"><span class="label">ERP alias: </span><span class="path">main_new.py:15500</span> — uses require_any_auth → passes auth dict</div>
+          <div class="detail-line"><span class="label">Core fn: </span><span class="path">order_flow.py:3887</span> — expects Driver ORM object via require_driver</div>
+          <div class="detail-line"><span class="label">Check at: </span><span class="err">order_flow.py:~3900 — if order.driver_id != driver.id: raise 403</span></div>
+          <div class="detail-line"><span class="label">Self-delivery: </span><span class="err">driver_id = None → check fails → TypeError or 403</span></div>
+          <div class="detail-line"><span class="label">Fix: </span><span class="ok">Add /erp/orders/{id}/vendor-delivered alias with require_vendor auth, skip driver_id check</span></div>
+        </div>
+
+        <table class="col-table">
+          <thead>
+            <tr><th>Step</th><th>Endpoint</th><th>File:Line</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Mark Delivered (bug)</td>
+              <td class="mono"><span class="method-post">POST</span> <span class="method-path">/erp/orders/{id}/delivered</span></td>
+              <td class="mono grey">main_new.py:15500<br>order_flow.py:3887</td>
+              <td><span class="status-pill RED">RED</span> <span class="red">GAP-4</span></td>
+            </tr>
+            <tr>
+              <td>Upload Proof Photo</td>
+              <td class="mono"><span class="method-post">POST</span> <span class="method-path">/erp/orders/{id}/delivery-photo</span></td>
+              <td class="mono grey">main_new.py:15507</td>
+              <td><span class="status-pill GREEN">GREEN</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Stage 8: Driver Pool Path -->
+    <div id="s8" class="stage-section">
+      <div class="stage-title-bar">
+        <div class="stage-num-badge green">8</div>
+        <div class="stage-title-text">
+          <h2>Driver Pool Path — READY_FOR_PICKUP → OUT_FOR_DELIVERY → DELIVERED</h2>
+          <div class="stage-status">Driver assigned, picks up, delivers via Driver app · Restaurant monitors only</div>
+        </div>
+        <span class="badge green">GREEN</span>
+      </div>
+      <div class="stage-body">
+        <div class="stage-description">
+          When restaurant declines self-delivery, or delivery decision times out, order enters the driver pool. Drivers see the order in their app and bid/accept. Restaurant app shows "Waiting for Driver" card, then "Order Picked Up", then "Order Delivered" receipt once the driver completes the delivery flow. Restaurant monitoring endpoints are all GREEN.
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="detail-card">
+            <div class="detail-card-title">Restaurant Phone States</div>
+            <div class="detail-line">• "Waiting for Driver" card</div>
+            <div class="detail-line">• "Order Picked Up" (status: pickedup)</div>
+            <div class="detail-line">• "Order Delivered" receipt with payout info</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title">Key Endpoint</div>
+            <div class="detail-line"><span class="label">Vendor orders: </span><span class="path">GET /erp/orders/vendor/{vendor_id}</span></div>
+            <div class="detail-line"><span class="label">File: </span>main_new.py:15595</div>
+            <div class="detail-line"><span class="label">Auth: </span><span class="ok">require_any_auth</span></div>
+            <div class="detail-line"><span class="label">Status: </span><span class="ok">GREEN</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage 9: Timeout / Rejection Paths -->
+    <div id="s9" class="stage-section">
+      <div class="stage-title-bar">
+        <div class="stage-num-badge amber">9</div>
+        <div class="stage-title-text">
+          <h2>Timeout / Rejection Paths</h2>
+          <div class="stage-status">Restaurant timeout → refund · Delivery decision timeout → silent driver pool (GAP-5) · Decline → refund</div>
+        </div>
+        <span class="badge amber">YELLOW — GAP-5</span>
+      </div>
+      <div class="stage-body">
+        <div class="stage-description">
+          Three edge paths: acceptance timeout, delivery decision timeout, and manual rejection.
+        </div>
+
+        <table class="col-table">
+          <thead>
+            <tr><th>Trigger</th><th>Resulting Status</th><th>Backend Handler</th><th>Push Sent?</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Acceptance timeout (&gt;3 min)</td>
+              <td class="mono"><span class="amber">RESTAURANT_TIMEOUT</span></td>
+              <td class="mono grey">check_restaurant_timeouts_job()<br>order_flow.py:2179</td>
+              <td class="green">YES — Stripe refund + customer push</td>
+              <td><span class="status-pill GREEN">GREEN</span></td>
+            </tr>
+            <tr>
+              <td>Delivery decision timeout (&gt;3 min)</td>
+              <td class="mono"><span class="amber">READY_FOR_PICKUP</span></td>
+              <td class="mono grey">check_delivery_decision_timeouts_job()<br>order_flow.py:2238</td>
+              <td class="red">NO — Silent (GAP-5)<br>TODO at order_flow.py:2268-2269</td>
+              <td><span class="status-pill YELLOW">YELLOW</span></td>
+            </tr>
+            <tr>
+              <td>Manual decline (restaurant)</td>
+              <td class="mono"><span class="red">DECLINED_BY_RESTAURANT</span></td>
+              <td class="mono grey">POST /erp/orders/{id}/restaurant-decline<br>order_flow.py:1773 · main_new.py:15527</td>
+              <td class="green">YES — Stripe refund + customer push</td>
+              <td><span class="status-pill GREEN">GREEN</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ════ ENDPOINT TABLE ════ -->
+    <div id="endpoints" class="section-header" style="margin-top:4px;">ENDPOINT VERIFICATION TABLE (8 ENDPOINTS)</div>
+
+    <div style="padding: 12px 24px 0;">
+      <table class="col-table" style="border: 1px solid #21262d; border-radius:8px; overflow:hidden;">
+        <thead>
+          <tr>
+            <th style="width:60px;">Method</th>
+            <th>Path</th>
+            <th>Backend File:Line</th>
+            <th>iOS Call Site</th>
+            <th style="width:100px;">Status</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono"><span class="method-post">POST</span></td>
+            <td class="mono"><span class="method-path">/erp/orders/{id}/restaurant-accept</span></td>
+            <td class="mono grey">order_flow.py:1657<br>main_new.py:15519</td>
+            <td class="mono"><span class="amber">P2PAPIService.swift:3351<br>(NOT called from acceptOrder())</span></td>
+            <td><span class="status-pill YELLOW">YELLOW</span></td>
+            <td class="amber">GAP-1: acceptOrder() calls status endpoint instead</td>
+          </tr>
+          <tr>
+            <td class="mono"><span class="method-post">POST</span></td>
+            <td class="mono"><span class="method-path">/erp/orders/{id}/restaurant-decline</span></td>
+            <td class="mono grey">order_flow.py:1773<br>main_new.py:15527</td>
+            <td class="mono grey">P2PAPIService.swift:3365</td>
+            <td><span class="status-pill GREEN">GREEN</span></td>
+            <td class="grey">Fully correct — triggers Stripe refund</td>
+          </tr>
+          <tr>
+            <td class="mono"><span class="method-put">PUT</span></td>
+            <td class="mono"><span class="method-path">/erp/orders/{id}/status?status={S}</span></td>
+            <td class="mono grey">order_flow.py:3249<br>main_new.py:15493</td>
+            <td class="mono"><span class="amber">OrdersViewModel.swift:278<br>(wrongly used for acceptOrder)</span></td>
+            <td><span class="status-pill YELLOW">YELLOW</span></td>
+            <td class="amber">GAP-1: misused for accept — bypasses KOT/notify</td>
+          </tr>
+          <tr>
+            <td class="mono"><span class="method-post">POST</span></td>
+            <td class="mono"><span class="method-path">/erp/orders/{id}/restaurant-accept-delivery</span></td>
+            <td class="mono grey">order_flow.py:1975<br>main_new.py:15535</td>
+            <td class="mono grey">P2PAPIService.swift:3437</td>
+            <td><span class="status-pill GREEN">GREEN</span></td>
+            <td class="grey">Correct — sets RESTAURANT_WILL_DELIVER</td>
+          </tr>
+          <tr>
+            <td class="mono"><span class="method-post">POST</span></td>
+            <td class="mono"><span class="method-path">/erp/orders/{id}/restaurant-decline-delivery</span></td>
+            <td class="mono grey">order_flow.py:2074<br>main_new.py:15542</td>
+            <td class="mono grey">P2PAPIService.swift:3452</td>
+            <td><span class="status-pill GREEN">GREEN</span></td>
+            <td class="grey">Correct — sets READY_FOR_PICKUP (driver pool)</td>
+          </tr>
+          <tr>
+            <td class="mono"><span class="method-post">POST</span></td>
+            <td class="mono"><span class="method-path">/erp/orders/{id}/vendor-arrived-at-delivery</span></td>
+            <td class="mono"><span class="red">order_flow.py:4942<br>NO ERP ALIAS in main_new.py</span></td>
+            <td class="mono grey">P2PAPIService.swift:3569</td>
+            <td><span class="status-pill RED">RED</span></td>
+            <td class="red">GAP-2: 404 in production — alias missing</td>
+          </tr>
+          <tr>
+            <td class="mono"><span class="method-post">POST</span></td>
+            <td class="mono"><span class="method-path">/erp/orders/{id}/delivered</span></td>
+            <td class="mono"><span class="amber">main_new.py:15500 (require_any_auth)<br>order_flow.py:3887 (require_driver)</span></td>
+            <td class="mono grey">OrdersViewModel markOrderDelivered</td>
+            <td><span class="status-pill RED">RED</span></td>
+            <td class="red">GAP-4: auth mismatch — 403/TypeError for self-delivery</td>
+          </tr>
+          <tr>
+            <td class="mono"><span class="method-post">POST</span></td>
+            <td class="mono"><span class="method-path">/erp/orders/{id}/delivery-photo</span></td>
+            <td class="mono grey">main_new.py:15507</td>
+            <td class="mono grey">P2PAPIService.swift:3502</td>
+            <td><span class="status-pill GREEN">GREEN</span></td>
+            <td class="grey">Fully correct — proof upload after DELIVERED</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ════ PAYMENT FLOW ════ -->
+    <div id="payment" class="section-header" style="margin-top:4px;">PAYMENT &amp; PAYOUT FLOW</div>
+    <div class="payment-section" style="margin-top:16px;">
+      <h3>Fee Flow for a Delivered Food Order</h3>
+      <div class="payment-flow-diagram">
+        <div><span class="party">Customer pays:</span>  subtotal + tax + delivery_fee + tip + <span class="amount">$1 service fee</span>  (Stripe PaymentIntent)</div>
+        <div style="color:#6e7681; margin-left:20px;">↓ confirm-payment endpoint → Stripe capture → PENDING_RESTAURANT</div>
+        <div style="color:#6e7681; margin-left:20px;">↓ ... lifecycle stages ...</div>
+        <div style="color:#6e7681; margin-left:20px;">↓ DELIVERED event (order_flow.py:3974-4050)</div>
+        <div class="sep"></div>
+        <div><span class="party">Platform keeps:</span>  <span class="amount">$1</span> (from customer service fee) + <span class="amount">$1</span> (from restaurant) = <span class="amount">$2 total per order</span></div>
+        <div><span class="party">Restaurant receives:</span>  subtotal − discount_absorbed − <span class="amount">$1 platform_fee</span>  → VendorPayout record (status: pending)</div>
+        <div><span class="party">Driver receives:</span>  delivery_fee (100%) + tip (100%)  → DriverPayout record (status: pending)</div>
+        <div class="sep"></div>
+        <div class="note">⚠ Stripe transfer to vendor/driver NOT auto-triggered at delivery — payout batch runs separately</div>
+        <div class="note">⚠ Unlike rideshare (which auto-transfers), food payout batch must be triggered manually or via scheduler</div>
+        <div class="sep"></div>
+        <div class="source">Source: order_flow.py:400-430 (fee model), order_flow.py:3974-4050 (accounting at delivery)</div>
+        <div class="source">Platform fee model: $1 flat per party — NOT a % commission (rideshare_payments.py:36)</div>
+        <div class="source">JournalEntry created at DELIVERED · VendorPayout + DriverPayout created (pending)</div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <table class="col-table" style="border: 1px solid #21262d; border-radius:8px; overflow:hidden;">
+          <thead>
+            <tr><th>Party</th><th>Amount</th><th>When Triggered</th><th>How</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Customer</strong></td>
+              <td class="mono">subtotal + tax + $1 + delivery_fee + tip</td>
+              <td>At checkout (Stripe PI creation)</td>
+              <td>Stripe PaymentIntent capture</td>
+            </tr>
+            <tr>
+              <td><strong>Platform</strong></td>
+              <td class="mono green">$2 total ($1 from customer + $1 from restaurant)</td>
+              <td>At DELIVERED event</td>
+              <td>JournalEntry + accounting split</td>
+            </tr>
+            <tr>
+              <td><strong>Restaurant</strong></td>
+              <td class="mono">subtotal − discount_absorbed − $1</td>
+              <td>At DELIVERED — payout record created</td>
+              <td>VendorPayout (pending) → batch transfer</td>
+            </tr>
+            <tr>
+              <td><strong>Driver</strong></td>
+              <td class="mono">delivery_fee (100%) + tip (100%)</td>
+              <td>At DELIVERED — payout record created</td>
+              <td>DriverPayout (pending) → batch transfer</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ════ STATUS ENUM REFERENCE ════ -->
+    <div class="section-header">ORDER STATUS ENUM REFERENCE (models.py:392-414)</div>
+    <div style="padding:16px 24px 20px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+        <div class="detail-card">
+          <div class="detail-card-title">Payment Stage</div>
+          <div class="detail-line"><span class="label">PENDING_PAYMENT</span> <span class="grey">→ awaiting Stripe</span></div>
+          <div class="detail-line"><span class="label">CONFIRMED</span> <span class="ok">→ payment captured</span></div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-card-title">Restaurant Acceptance Window</div>
+          <div class="detail-line"><span class="label">PENDING_RESTAURANT</span> <span class="warn">→ 3-min clock</span></div>
+          <div class="detail-line"><span class="label">DECLINED_BY_RESTAURANT</span> <span class="ok">→ refund</span></div>
+          <div class="detail-line"><span class="label">RESTAURANT_TIMEOUT</span> <span class="ok">→ auto-refund</span></div>
+          <div class="detail-line"><span class="label">PREPARING</span> <span class="ok">→ cooking</span></div>
+          <div class="detail-line"><span class="label">READY_FOR_PICKUP</span> <span class="ok">→ decision window</span></div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-card-title">Delivery Decision Window</div>
+          <div class="detail-line"><span class="label">PENDING_DELIVERY_DECISION</span> <span class="warn">→ 3-min window</span></div>
+          <div class="detail-line"><span class="label">RESTAURANT_WILL_DELIVER</span> <span class="ok">→ self-delivery</span></div>
+          <div class="detail-line"><span class="label">DELIVERY_DECISION_TIMEOUT</span> <span class="grey">→ driver pool</span></div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-card-title">Delivery Stage</div>
+          <div class="detail-line"><span class="label">OUT_FOR_DELIVERY</span> <span class="ok">→ "ontheway" (iOS map)</span></div>
+          <div class="detail-line"><span class="label">PENDING_DELIVERY_PROOF</span> <span class="ok">→ photo required</span></div>
+          <div class="detail-line"><span class="label">DELIVERED</span> <span class="ok">→ payout triggered</span></div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-card-title">Terminal States</div>
+          <div class="detail-line"><span class="label">CANCELLED</span></div>
+          <div class="detail-line"><span class="label">DELIVERY_FAILED</span></div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-card-title">iOS Status Mapping</div>
+          <div class="detail-line"><span class="label">out_for_delivery </span>→ <span class="ok">"ontheway"</span></div>
+          <div class="detail-line"><span class="label">picked_up </span>→ <span class="ok">"pickedup"</span></div>
+          <div class="detail-line"><span class="label">Source: </span>P2PAPIService.swift:9444-9467</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ SWIPE CONVERSION CANDIDATES ════ -->
+    <div class="section-header">SWIPE CONVERSION CANDIDATES (GAP-6)</div>
+    <div style="padding:12px 24px 20px;">
+      <div style="font-size:12px; color:#8b949e; margin-bottom:12px; line-height:1.6;">
+        All action buttons in <code style="color:#79c0ff;">EnhancedDashboardView.swift</code> are plain <code>Button</code> taps. The <code>SwipeToConfirmButton</code> component exists in the Driver app at <code style="color:#79c0ff;">PickupDropoffView.swift:854</code> (80% swipe threshold). Copy to Restaurant app (Option A — faster, lower risk than shared package move).
+      </div>
+      <table class="col-table" style="border:1px solid #21262d; border-radius:8px; overflow:hidden;">
+        <thead>
+          <tr><th>Button</th><th>Current Type</th><th>Lines (EnhancedDashboardView.swift)</th><th>VM Call</th><th>Swipe?</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Accept &amp; Send to Driver</td><td class="amber">Button (tap)</td><td class="mono grey">629–655</td><td class="mono grey">acceptOrder() + declineDelivery()</td><td><span class="status-pill GREEN">YES — irreversible</span></td></tr>
+          <tr><td>Accept &amp; I'll Deliver</td><td class="amber">Button (tap)</td><td class="mono grey">657–683</td><td class="mono grey">acceptOrder() + acceptDelivery()</td><td><span class="status-pill GREEN">YES — irreversible</span></td></tr>
+          <tr><td>Mark Ready for Pickup</td><td class="amber">Button (tap)</td><td class="mono grey">782–804</td><td class="mono grey">markOrderReady(order)</td><td><span class="status-pill GREEN">YES — irreversible</span></td></tr>
+          <tr><td>Start Delivery</td><td class="amber">Button (tap)</td><td class="mono grey">1136–1156</td><td class="mono grey">startDelivery(order)</td><td><span class="status-pill GREEN">YES — irreversible</span></td></tr>
+          <tr><td>I've Arrived at Customer</td><td class="amber">Button (tap)</td><td class="mono grey">1337–1360</td><td class="mono grey">markArrivedAtDelivery(order)</td><td><span class="status-pill GREEN">YES — notifies customer</span></td></tr>
+          <tr><td>Mark as Delivered</td><td class="amber">Button (tap)</td><td class="mono grey">after 1360</td><td class="mono grey">markOrderDelivered(order)</td><td><span class="status-pill GREEN">YES — triggers payout</span></td></tr>
+          <tr><td>Reject Order</td><td class="grey">Button (tap)</td><td class="mono grey">602–625</td><td class="mono grey">rejectOrder(order)</td><td><span class="status-pill NA">NO — has alert</span></td></tr>
+          <tr><td>Navigate to Customer</td><td class="grey">Button (tap)</td><td class="mono grey">1282–1334</td><td class="mono grey">Opens Maps — no API</td><td><span class="status-pill NA">NO — external only</span></td></tr>
+          <tr><td>Send to Driver Pool</td><td class="amber">Button (tap)</td><td class="mono grey">826–849</td><td class="mono grey">declineDelivery(order)</td><td><span class="status-pill GREEN">OPTIONAL — irrev.</span></td></tr>
+          <tr><td>I'll Deliver (decision)</td><td class="amber">Button (tap)</td><td class="mono grey">851–875</td><td class="mono grey">acceptDelivery(order)</td><td><span class="status-pill GREEN">OPTIONAL — irrev.</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="doc-footer">
+      <strong>Sources:</strong> apps/web/p2p-platform/backend/models.py:392-414 · order_flow.py:440-446,1600-2280,3249-3420,3883-4050 · main_new.py:15493-15595 · apps/ios/restaurant/eatffairrestaurant/Views/EnhancedDashboardView.swift · ViewModels/OrdersViewModel.swift · apps/ios/eatfair-ios-shared/Sources/EatFairShared/Services/P2PAPIService.swift:3267-3597 · .claude/docs/GROUND_TRUTH.md
+      <br><br>
+      <strong>Generated:</strong> 2026-03-24 · Phase 208-01 · Valid until 2026-04-20 · All gaps verified from actual source files — no hallucination
+    </div>
+
+  </main>
+</div>
+
+<script>
+  function scrollTo(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Update active nav item
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+    }
+  }
+
+  // Highlight stage on scroll
+  const mainPanel = document.querySelector('.main-panel');
+  const sections = ['s1','s2','s3','s4','s5','s6','s7','s8','s9','gaps','endpoints','payment'];
+
+  mainPanel.addEventListener('scroll', () => {
+    const scrollTop = mainPanel.scrollTop;
+    let current = null;
+
+    sections.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.offsetTop - mainPanel.offsetTop <= scrollTop + 80) {
+        current = id;
+      }
+    });
+  });
+
+  // Expandable endpoint rows on click
+  document.querySelectorAll('.audit-row .row-header').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const detail = hdr.nextElementSibling;
+      if (detail && detail.classList.contains('row-detail')) {
+        detail.classList.toggle('open');
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
