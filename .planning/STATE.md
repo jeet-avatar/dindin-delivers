@@ -260,6 +260,7 @@ None
 | 222 | add phone connection step to Mac tab in interview.html with terminal commands, URL display, and earbuds instructions | 2026-03-24 | 953fe150 | [222-add-phone-connection-step-to-mac-tab-in-](./quick/222-add-phone-connection-step-to-mac-tab-in-/) |
 | 223 | Apply platform visual identity to Mac and Windows tabs — green theme for Mac, Windows-blue for Windows, platform badges, keyboard key styles, optional tags, colored Start Session buttons | 2026-03-24 | 92d1c786 | [223-apply-platform-visual-identity-to-mac-an](./quick/223-apply-platform-visual-identity-to-mac-an/) |
 | 224 | Fix paywall bypass: Windows EXE download button not gated by purchase, and set Content-Disposition headers on both S3 download files | 2026-03-24 | 0f5071a1 | [224-fix-paywall-bypass-windows-exe-download-](./quick/224-fix-paywall-bypass-windows-exe-download-/) |
+| 225 | Implement server-side download protection: block CloudFront from /downloads/*, Lambda generates S3 pre-signed URLs (15 min), HTML uses signed URLs, initial href="#" so real URLs never in page source | 2026-03-24 | b5db9502 | [225-implement-server-side-download-protectio](./quick/225-implement-server-side-download-protectio/) |
 
 ## Session Continuity
 
