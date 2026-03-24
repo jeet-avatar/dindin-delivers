@@ -15478,6 +15478,8 @@ from order_flow import (
     get_full_order_tracking,  # iOS customer app tracking
     get_vendor_orders,  # iOS restaurant app vendor orders
     driver_arrived_at_delivery,  # Customer not at door flow
+    vendor_arrived_at_delivery,  # Restaurant self-delivery arrived flow (GAP-2)
+    order_delivered_for_vendor,  # Restaurant self-delivery mark delivered (GAP-4)
     cancel_no_customer,
     CancelNoCustomerRequest,
     report_address_unreachable,
@@ -15589,6 +15591,24 @@ async def restaurant_decline_delivery_alias(order_id: int, _auth: dict = Depends
 async def driver_arrived_alias(order_id: int, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark arrived at delivery location"""
     return await driver_arrived_at_delivery(order_id, db, driver)
+
+@app.post("/erp/orders/{order_id}/vendor-arrived-at-delivery")
+async def vendor_arrived_alias(order_id: int, vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
+    """Alias for iOS Restaurant app - mark arrived at customer's delivery location during self-delivery
+    iOS calls: POST /erp/orders/{orderId}/vendor-arrived-at-delivery
+    Backend: order_flow.py vendor_arrived_at_delivery() — sends customer push notification
+    Fix: GAP-2 — this alias was missing, causing 404 in production
+    """
+    return await vendor_arrived_at_delivery(order_id, db, vendor)
+
+@app.post("/erp/orders/{order_id}/vendor-delivered")
+async def vendor_delivered_alias(order_id: int, vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
+    """Alias for iOS Restaurant app - mark self-delivery order as delivered
+    iOS calls: POST /erp/orders/{orderId}/vendor-delivered (or /delivered for driver-delivered orders)
+    Bypasses driver_id ownership check — vendor owns and delivered the order themselves.
+    Fix: GAP-4 — /erp/orders/{id}/delivered fails with 403 for self-delivery (driver_id is null)
+    """
+    return await order_delivered_for_vendor(order_id, db, vendor)
 
 @app.post("/erp/orders/{order_id}/cancel-no-customer")
 async def cancel_no_customer_alias(order_id: int, request_body: CancelNoCustomerRequest, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):

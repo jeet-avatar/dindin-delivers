@@ -2265,8 +2265,25 @@ def check_delivery_decision_timeouts_job():
                     f"Sending to driver pool."
                 )
 
-                # TODO: Send push notification to nearby drivers
-                # TODO: Send push notification to restaurant
+                # GAP-5 fix: Notify nearby drivers that a new order is available
+                try:
+                    vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+                    prep_minutes = getattr(order, 'estimated_prep_minutes', 15) or 15
+                    notify_drivers_new_order(order, prep_minutes, vendor, db)
+                except Exception as e:
+                    logger.warning(f"Driver notify failed for order {order.id} after delivery decision timeout: {e}")
+
+                # GAP-5 fix: Notify restaurant that self-delivery window expired
+                try:
+                    send_push_notification(
+                        "vendor", order.vendor_id,
+                        "Delivery Decision Expired",
+                        f"Order {order.order_number}: Self-delivery window expired — order sent to driver pool.",
+                        data={"order_id": str(order.id), "type": "delivery_decision_timeout"},
+                        db=db
+                    )
+                except Exception as e:
+                    logger.warning(f"Vendor notify failed for order {order.id} after delivery decision timeout: {e}")
 
         if timed_out_count > 0:
             db.commit()
@@ -4302,6 +4319,274 @@ async def order_delivered(
             "platform_revenue": platform_revenue,
             "tax_collected": order.tax_amount or 0,
             "accounting_created": entry_number is not None,
+            "fee_breakdown": {
+                "restaurant_platform_fee": RESTAURANT_PLATFORM_FEE,
+                "customer_service_fee": CUSTOMER_SERVICE_FEE,
+                "delivery_fee": order.delivery_fee or 0,
+                "tip": order.tip or 0
+            }
+        }
+    }
+
+
+async def order_delivered_for_vendor(
+    order_id: int,
+    db: Session,
+    vendor: "Vendor",
+):
+    """
+    Self-delivery Mark Delivered — called from iOS Restaurant app via vendor auth.
+    GAP-4 fix: the standard order_delivered() checks order.driver_id == driver.id,
+    which fails for self-delivery orders where driver_id is null.
+    This variant accepts a Vendor object, skips the driver ownership check,
+    and runs the same delivery accounting/notification logic.
+
+    iOS calls: POST /erp/orders/{orderId}/vendor-delivered
+    """
+    dispatch_ai = AI_EMPLOYEES["DELIVERY_DISPATCHER"]
+    accountant_ai = AI_EMPLOYEES["ACCOUNTANT"]
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # IDOR: verify vendor owns this order
+    if order.vendor_id != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
+
+    # Only valid for self-delivery orders
+    if not getattr(order, 'restaurant_will_deliver', False):
+        raise HTTPException(
+            status_code=400,
+            detail="Not a self-delivery order — use /delivered for driver-delivered orders"
+        )
+
+    # F2 SECURITY: Prevent double payout
+    if order.delivered_at is not None or order.status == OrderStatus.DELIVERED:
+        return {
+            "success": True,
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "status": "delivered",
+            "message": "Order already marked as delivered",
+            "already_delivered": True,
+            "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
+        }
+
+    # ==================== DELIVERY PROOF PHOTO GATE ====================
+    if not order.delivery_photo_url:
+        proof_gate_response = {
+            "success": True,
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "status": "pending_delivery_proof",
+            "requires_photo": True,
+            "message": "Please upload a delivery proof photo to complete this delivery"
+        }
+        try:
+            order.status = OrderStatus.PENDING_DELIVERY_PROOF
+            db.commit()
+            logger.info(f"Vendor delivery proof gate: order {order_id} requires photo upload")
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Vendor delivery proof gate DB error for order {order_id}: {e}")
+        return proof_gate_response
+
+    # Update order status
+    order.status = OrderStatus.DELIVERED
+    order.delivered_at = datetime.now()
+
+    # Load vendor from DB for accurate restaurant_name
+    vendor_obj = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
+
+    # In-app notification for customer
+    if order.customer_id:
+        restaurant_name = vendor_obj.restaurant_name if vendor_obj else "the restaurant"
+        _notify_customer(db, order.customer_id,
+                         "Order Delivered!",
+                         f"Your order from {restaurant_name} has been delivered. Enjoy your meal!",
+                         "delivery", order.id, "order")
+
+    # Commit delivery status first
+    db.commit()
+
+    # ==================== ACCOUNTING ENTRIES ====================
+    restaurant_payout = (order.subtotal or 0) - (order.discount_amount or 0) - RESTAURANT_PLATFORM_FEE
+    driver_payout_amount = 0  # Self-delivery: driver_id is null, no driver payout record
+    platform_revenue = CUSTOMER_SERVICE_FEE + RESTAURANT_PLATFORM_FEE
+    entry_number = None
+
+    try:
+        entry_count = db.query(JournalEntry).count()
+        entry_number = f"JE-{datetime.now().strftime('%Y%m%d')}-{entry_count + 1:05d}"
+
+        journal_entry = JournalEntry(
+            entry_number=entry_number,
+            order_id=order.id,
+            entry_type="ORDER_COMPLETED",
+            description=f"Order {order.order_number} completed (self-delivery) - Payment received from customer",
+            status="posted",
+            created_by_ai=accountant_ai["id"],
+            created_by_ai_name=accountant_ai["name"],
+            posted_at=datetime.now()
+        )
+        db.add(journal_entry)
+        db.flush()
+
+        lines = [
+            JournalEntryLine(
+                journal_entry_id=journal_entry.id,
+                account_code="1000",
+                account_name="Cash/Stripe",
+                debit=order.total_amount or 0,
+                credit=0,
+                description=f"Payment received for order {order.order_number}"
+            ),
+            JournalEntryLine(
+                journal_entry_id=journal_entry.id,
+                account_code="2100",
+                account_name="Restaurant Payable",
+                debit=0,
+                credit=restaurant_payout,
+                description=f"Payable to {vendor_obj.restaurant_name if vendor_obj else 'Restaurant'} (subtotal - ${RESTAURANT_PLATFORM_FEE} platform fee)"
+            ),
+            JournalEntryLine(
+                journal_entry_id=journal_entry.id,
+                account_code="4000",
+                account_name="Platform Revenue - Service Fee",
+                debit=0,
+                credit=CUSTOMER_SERVICE_FEE,
+                description=f"Service fee from customer (${CUSTOMER_SERVICE_FEE})"
+            ),
+            JournalEntryLine(
+                journal_entry_id=journal_entry.id,
+                account_code="4001",
+                account_name="Platform Revenue - Restaurant Fee",
+                debit=0,
+                credit=RESTAURANT_PLATFORM_FEE,
+                description=f"Platform fee from restaurant (${RESTAURANT_PLATFORM_FEE})"
+            ),
+            JournalEntryLine(
+                journal_entry_id=journal_entry.id,
+                account_code="2300",
+                account_name="Tax Collected",
+                debit=0,
+                credit=order.tax_amount or 0,
+                description="Sales tax collected"
+            )
+        ]
+        for line in lines:
+            db.add(line)
+
+        # Vendor payout record
+        payout_count = db.query(VendorPayout).count()
+        vendor_payout_record = VendorPayout(
+            payout_number=f"VP-{datetime.now().strftime('%Y%m%d')}-{payout_count + 1:05d}",
+            vendor_id=order.vendor_id,
+            period_start=order.created_at,
+            period_end=datetime.now(),
+            total_orders=1,
+            gross_revenue=order.subtotal or 0,
+            platform_fee=RESTAURANT_PLATFORM_FEE,
+            stripe_fees=0,
+            net_payout=restaurant_payout,
+            status="pending"
+        )
+        db.add(vendor_payout_record)
+
+        # Auto-payout vendor via Stripe Connect
+        if vendor_obj and restaurant_payout > 0:
+            try:
+                import stripe
+                stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+                if getattr(vendor_obj, 'stripe_account_id', None) and getattr(vendor_obj, 'stripe_onboarding_complete', False):
+                    vendor_payout_cents = int(restaurant_payout * 100)
+                    if vendor_payout_cents > 0:
+                        vendor_transfer = stripe.Transfer.create(
+                            amount=vendor_payout_cents,
+                            currency="usd",
+                            destination=vendor_obj.stripe_account_id,
+                            description=f"Order {order.order_number} restaurant self-delivery payout",
+                            metadata={
+                                "order_id": str(order.id),
+                                "order_number": order.order_number,
+                                "vendor_id": str(vendor_obj.id),
+                                "self_delivery": "true",
+                            },
+                            idempotency_key=f"vendor_xfer_{order.id}_{order.order_number}"
+                        )
+                        vendor_payout_record.status = "completed"
+                        vendor_payout_record.paid_at = datetime.now()
+                        vendor_payout_record.stripe_transfer_id = vendor_transfer.id
+                        logging.info(f"Order {order.order_number} self-delivery vendor auto-payout ${restaurant_payout:.2f}")
+            except Exception as e:
+                vendor_payout_record.status = "failed"
+                logging.error(f"Order {order.order_number} self-delivery vendor auto-payout failed (non-blocking): {e}")
+
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        logging.error(f"Failed to create accounting entries for self-delivery order {order.order_number}: {e}")
+        entry_number = None
+
+    # Push notification to customer
+    notification_sent = False
+    try:
+        send_push_notification(
+            user_type="customer",
+            user_id=order.customer_id,
+            title="Order Delivered!",
+            body=f"Your order from {vendor_obj.restaurant_name if vendor_obj else 'the restaurant'} has arrived. Enjoy your meal!",
+            data={
+                "type": "order_delivered",
+                "order_id": str(order.id),
+                "order_number": order.order_number,
+                "status": "delivered"
+            },
+            db=db
+        )
+        notification_sent = True
+        logging.info(f"Self-delivery notification sent to customer for order {order.order_number}")
+    except Exception as e:
+        logging.error(f"Failed to send self-delivery push notification: {e}")
+
+    # Push notification to vendor (payment)
+    try:
+        if vendor_obj and restaurant_payout > 0:
+            send_push_notification(
+                user_type="vendor",
+                user_id=vendor_obj.id,
+                title="Payment Received!",
+                body=f"${restaurant_payout:.2f} from order {order.order_number} has been transferred to your account.",
+                data={
+                    "type": "payment_processed",
+                    "order_id": str(order.id),
+                    "order_number": order.order_number,
+                    "amount": str(restaurant_payout)
+                },
+                db=db
+            )
+    except Exception as e:
+        logging.error(f"Failed to send vendor payment notification for self-delivery order {order.order_number}: {e}")
+
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": "Delivered",
+        "delivered_at": order.delivered_at.isoformat(),
+        "notification_sent": notification_sent,
+        "email_sent": bool(order.customer_email),
+        "processed_by": [dispatch_ai["name"], accountant_ai["name"]],
+        "accounting": {
+            "journal_entry": entry_number,
+            "restaurant_payout": restaurant_payout,
+            "driver_payout": 0,
+            "platform_revenue": platform_revenue,
+            "tax_collected": order.tax_amount or 0,
+            "accounting_created": entry_number is not None,
+            "self_delivery": True,
             "fee_breakdown": {
                 "restaurant_platform_fee": RESTAURANT_PLATFORM_FEE,
                 "customer_service_fee": CUSTOMER_SERVICE_FEE,
