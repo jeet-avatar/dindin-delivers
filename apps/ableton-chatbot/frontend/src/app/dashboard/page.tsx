@@ -467,6 +467,7 @@ export default function DashboardPage() {
             <div>
               <p className="font-semibold text-sm">Windows</p>
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Windows 10+ · x64</p>
+              <p className="text-xs mt-1" style={{ color: "#6b7280" }}>SmartScreen? Click More info → Run anyway</p>
             </div>
           </a>
         </div>
@@ -511,7 +512,7 @@ export default function DashboardPage() {
           },
           {
             name: "MixMind for Windows",
-            sub: "Windows 10+ · x64 installer",
+            sub: "Windows 10+ · x64 installer · If SmartScreen appears, click 'More info → Run anyway'",
             desc: "Full feature parity with Mac. Installer includes all required dependencies.",
             href: "/MixMind-Setup-win.exe",
             bg: "#5b21b6",
