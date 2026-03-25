@@ -51,12 +51,62 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
+      - name: Register task definition with new image and SMTP vars
+        id: register-task-def
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+          SMTP_USER: ${{ secrets.BEATMIND_SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.BEATMIND_SMTP_PASSWORD }}
+        run: |
+          # Get current task definition
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition beatmind-api \
+            --query 'taskDefinition' \
+            --output json)
+
+          # Build new task definition JSON with updated image and SMTP env vars
+          NEW_TASK_DEF=$(echo "$TASK_DEF" | python3 -c "
+          import json, sys, os
+
+          td = json.load(sys.stdin)
+
+          # Remove fields that can't be included in register call
+          for key in ['taskDefinitionArn', 'revision', 'status', 'requiresAttributes',
+                      'placementConstraints', 'compatibilities', 'registeredAt',
+                      'registeredBy', 'deregisteredAt']:
+              td.pop(key, None)
+
+          # Update image in first container
+          td['containerDefinitions'][0]['image'] = '$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG'
+
+          # Update or add SMTP env vars
+          env = td['containerDefinitions'][0].get('environment', [])
+          env_dict = {e['name']: e['value'] for e in env}
+          env_dict['SMTP_USER'] = os.environ['SMTP_USER']
+          env_dict['SMTP_PASSWORD'] = os.environ['SMTP_PASSWORD']
+          td['containerDefinitions'][0]['environment'] = [
+              {'name': k, 'value': v} for k, v in env_dict.items()
+          ]
+
+          print(json.dumps(td))
+          ")
+
+          # Register new task definition revision
+          NEW_REVISION=$(echo "$NEW_TASK_DEF" | aws ecs register-task-definition \
+            --cli-input-json file:///dev/stdin \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "Registered task definition: $NEW_REVISION"
+          echo "task_def_arn=$NEW_REVISION" >> $GITHUB_OUTPUT
+
       - name: Deploy to ECS
         run: |
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service ${{ env.ECS_SERVICE }} \
-            --force-new-deployment
+            --task-definition ${{ steps.register-task-def.outputs.task_def_arn }}
           echo "Waiting for service stability..."
           aws ecs wait services-stable \
             --cluster ${{ env.ECS_CLUSTER }} \
