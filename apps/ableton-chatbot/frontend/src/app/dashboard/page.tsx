@@ -246,7 +246,7 @@ export default function DashboardPage() {
               style={{ background: "var(--accent)", color: "#fff" }}>
               Open chat →
             </button>
-            <a href="/BeatMind-Bridge.zip" download
+            <a href="/BeatMind-Bridge.dmg" download
               className="px-3 py-2 rounded-xl text-xs border flex items-center gap-1.5 transition-opacity hover:opacity-70"
               style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
               <DownloadIcon size={13} />
@@ -322,7 +322,7 @@ export default function DashboardPage() {
               Ableton not connected — open Ableton Live and launch BeatMind Bridge
             </p>
           </div>
-          <a href="/BeatMind-Bridge.zip" download
+          <a href="/BeatMind-Bridge.dmg" download
             className="flex-shrink-0 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
             style={{ background: "var(--accent)", color: "#fff" }}>
             <DownloadIcon size={12} />
@@ -495,9 +495,9 @@ export default function DashboardPage() {
         {[
           {
             name: "BeatMind Bridge",
-            sub: "macOS · 14 MB · No install required",
-            desc: "Connects BeatMind AI to your live Ableton session. Unzip, log in, click Connect.",
-            href: "/BeatMind-Bridge.zip",
+            sub: "macOS · 17 MB · Signed app",
+            desc: "Connects BeatMind AI to your live Ableton session. Open DMG, drag to Applications, log in.",
+            href: "/BeatMind-Bridge.dmg",
             bg: "var(--accent)",
             icon: <WaveIcon size={20} />,
           },
