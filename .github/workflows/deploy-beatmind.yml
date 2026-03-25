@@ -59,42 +59,47 @@ jobs:
           SMTP_USER: ${{ secrets.BEATMIND_SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.BEATMIND_SMTP_PASSWORD }}
         run: |
-          # Get current task definition
-          TASK_DEF=$(aws ecs describe-task-definition \
+          # Fetch current task definition into a temp file
+          aws ecs describe-task-definition \
             --task-definition beatmind-api \
             --query 'taskDefinition' \
-            --output json)
+            --output json > /tmp/current-task-def.json
 
-          # Build new task definition JSON with updated image and SMTP env vars
-          NEW_TASK_DEF=$(echo "$TASK_DEF" | python3 -c "
-          import json, sys, os
+          # Rewrite image and SMTP env vars using Python heredoc (no inline quoting issues)
+          python3 << 'PYEOF'
+          import json, os
 
-          td = json.load(sys.stdin)
+          with open('/tmp/current-task-def.json') as f:
+              td = json.load(f)
 
-          # Remove fields that can't be included in register call
+          # Strip read-only fields AWS rejects on register
           for key in ['taskDefinitionArn', 'revision', 'status', 'requiresAttributes',
                       'placementConstraints', 'compatibilities', 'registeredAt',
                       'registeredBy', 'deregisteredAt']:
               td.pop(key, None)
 
-          # Update image in first container
-          td['containerDefinitions'][0]['image'] = '$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG'
+          # Stamp the newly-built image
+          registry   = os.environ['ECR_REGISTRY']
+          repository = os.environ['ECR_REPOSITORY']
+          tag        = os.environ['IMAGE_TAG']
+          td['containerDefinitions'][0]['image'] = f"{registry}/{repository}:{tag}"
 
-          # Update or add SMTP env vars
-          env = td['containerDefinitions'][0].get('environment', [])
-          env_dict = {e['name']: e['value'] for e in env}
-          env_dict['SMTP_USER'] = os.environ['SMTP_USER']
+          # Inject / overwrite SMTP credentials
+          env_list = td['containerDefinitions'][0].get('environment', [])
+          env_dict = {e['name']: e['value'] for e in env_list}
+          env_dict['SMTP_USER']     = os.environ['SMTP_USER']
           env_dict['SMTP_PASSWORD'] = os.environ['SMTP_PASSWORD']
           td['containerDefinitions'][0]['environment'] = [
               {'name': k, 'value': v} for k, v in env_dict.items()
           ]
 
-          print(json.dumps(td))
-          ")
+          with open('/tmp/new-task-def.json', 'w') as f:
+              json.dump(td, f)
+          PYEOF
 
-          # Register new task definition revision
-          NEW_REVISION=$(echo "$NEW_TASK_DEF" | aws ecs register-task-definition \
-            --cli-input-json file:///dev/stdin \
+          # Register the updated task definition
+          NEW_REVISION=$(aws ecs register-task-definition \
+            --cli-input-json file:///tmp/new-task-def.json \
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)
 
