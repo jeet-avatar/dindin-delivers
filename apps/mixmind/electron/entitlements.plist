@@ -11,7 +11,7 @@
     <!-- Keychain access to persist auth token across app launches -->
     <key>keychain-access-groups</key>
     <array>
-        <string>$(AppIdentifierPrefix)io.beatmind.mixmind</string>
+        <string>PRKZ4UVCD7.io.beatmind.mixmind</string>
     </array>
 </dict>
 </plist>
