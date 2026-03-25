@@ -1,0 +1,117 @@
+name: Build MixMind Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/mixmind/**'
+      - '.github/workflows/build-mixmind-windows.yml'
+
+env:
+  AWS_REGION: us-east-1
+  S3_BUCKET: beatmind-frontend
+  CLOUDFRONT_DISTRIBUTION_ID: E3F24X4TEVJ9X2
+
+jobs:
+  build-windows:
+    name: Build Windows Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Python sidecar ────────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install sidecar dependencies
+        working-directory: apps/mixmind/sidecar
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build sidecar with PyInstaller
+        working-directory: apps/mixmind/sidecar
+        run: |
+          pyinstaller mixmind-sidecar-windows.spec --noconfirm --clean
+          Write-Host "Sidecar built:"
+          Get-ChildItem dist/mixmind-sidecar/ | Select-Object Name, Length | Format-Table
+        shell: pwsh
+
+      # ── Frontend ──────────────────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/mixmind/frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: apps/mixmind/frontend
+        run: |
+          npm ci
+          npm run build
+
+      # ── Electron NSIS installer ───────────────────────────────────────────
+      - name: Install Electron dependencies
+        working-directory: apps/mixmind/electron
+        run: npm ci
+
+      - name: Build Windows NSIS installer
+        working-directory: apps/mixmind/electron
+        run: npx electron-builder --win --publish=never
+        env:
+          # Skip code signing for Windows (no cert configured)
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Find installer
+        id: find-installer
+        working-directory: apps/mixmind/electron/dist
+        run: |
+          $exe = Get-ChildItem -Filter "*.exe" | Where-Object { $_.Name -notlike "*blockmap*" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          Write-Host "Found: $($exe.Name) ($([math]::Round($exe.Length/1MB, 1)) MB)"
+          echo "exe_path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+          echo "exe_name=$($exe.Name)" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      # ── Upload to S3 ──────────────────────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload to S3
+        run: |
+          aws s3 cp "${{ steps.find-installer.outputs.exe_path }}" `
+            "s3://${{ env.S3_BUCKET }}/MixMind-Setup-win.exe" `
+            --content-type "application/octet-stream" `
+            --content-disposition "attachment; filename=MixMind-Setup-win.exe" `
+            --no-progress
+          Write-Host "Uploaded: MixMind-Setup-win.exe"
+        shell: pwsh
+
+      - name: Invalidate CloudFront
+        run: |
+          $id = aws cloudfront create-invalidation `
+            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} `
+            --paths "/MixMind-Setup-win.exe" `
+            --query "Invalidation.Id" --output text
+          Write-Host "Invalidation: $id"
+        shell: pwsh
+
+      - name: Summary
+        run: |
+          Write-Host "====================================="
+          Write-Host "MixMind Windows Build Complete!"
+          Write-Host "====================================="
+          Write-Host "Installer: ${{ steps.find-installer.outputs.exe_name }}"
+          Write-Host "Live at: https://www.beatmind.io/MixMind-Setup-win.exe"
+        shell: pwsh
