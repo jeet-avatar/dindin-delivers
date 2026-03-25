@@ -271,31 +271,36 @@ def _create_reset_token(user_id: int, email: str) -> str:
 
 
 def _send_reset_email(to_email: str, reset_url: str) -> None:
-    import boto3
-    ses = boto3.client("ses", region_name="us-east-1")
-    ses.send_email(
-        Source="BeatMind <support@beatmind.io>",
-        Destination={"ToAddresses": [to_email]},
-        Message={
-            "Subject": {"Data": "Reset your BeatMind password"},
-            "Body": {
-                "Html": {
-                    "Data": f"""
-                    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0d0d0d;color:#fff;border-radius:12px;">
-                        <div style="font-size:20px;font-weight:900;margin-bottom:24px;">
-                            <span style="background:#7c3aed;color:#fff;padding:4px 10px;border-radius:6px;margin-right:8px;">B</span>
-                            beatmind
-                        </div>
-                        <h2 style="margin:0 0 12px;">Reset your password</h2>
-                        <p style="color:#aaa;margin:0 0 24px;">Click the button below to set a new password. This link expires in 30 minutes.</p>
-                        <a href="{reset_url}" style="display:inline-block;background:#7c3aed;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;">Reset password →</a>
-                        <p style="color:#555;font-size:12px;margin-top:32px;">If you didn't request this, you can ignore this email.</p>
-                    </div>
-                    """
-                }
-            },
-        },
-    )
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    smtp_user = os.getenv("SMTP_USER", "support@beatmind.io")
+    smtp_pass = os.getenv("SMTP_PASSWORD", "")
+
+    html = f"""
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0d0d0d;color:#fff;border-radius:12px;">
+        <div style="font-size:20px;font-weight:900;margin-bottom:24px;">
+            <span style="background:#7c3aed;color:#fff;padding:4px 10px;border-radius:6px;margin-right:8px;">B</span>
+            beatmind
+        </div>
+        <h2 style="margin:0 0 12px;">Reset your password</h2>
+        <p style="color:#aaa;margin:0 0 24px;">Click the button below to set a new password. This link expires in 30 minutes.</p>
+        <a href="{reset_url}" style="display:inline-block;background:#7c3aed;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;">Reset password →</a>
+        <p style="color:#555;font-size:12px;margin-top:32px;">If you didn't request this, you can ignore this email.</p>
+    </div>
+    """
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Reset your BeatMind password"
+    msg["From"] = f"BeatMind <{smtp_user}>"
+    msg["To"] = to_email
+    msg.attach(MIMEText(html, "html"))
+
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, to_email, msg.as_string())
 
 
 @app.post("/api/auth/forgot-password")
