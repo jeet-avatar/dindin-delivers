@@ -239,7 +239,7 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 | 10. Automated Support System | 2/3 | In Progress|  | - |
 | 11. Change Management Workflow | 3/3 | Complete    | 2026-03-07 | - |
 | 12. Fix Admin Portal UI | 2/2 | Complete    | 2026-03-07 | - |
-| 13. Prop 22 Driver Earnings Floor | 6/6 | Complete   | 2026-03-26 | - |
+| 13. Prop 22 Driver Earnings Floor | 6/6 | Complete    | 2026-03-26 | - |
 | 14. Compliance Foundation | 0/8 | Not started | - | - |
 | 15. Onboarding Validation Agents | 0/5 | Not started | - | - |
 | 16. Lifecycle Agents (Food + Rideshare) | 0/5 | Not started | - | - |
