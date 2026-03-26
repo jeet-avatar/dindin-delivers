@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- COMPLETE
 Plan: 6 of 6 complete in current phase
 Status: Phase 13-06 complete: Admin portal /admin/prop22 Prop22Compliance.tsx (387 lines, Ant Design two-tab table + manual top-up modal). Build 0 errors. Phase 13 all 6 plans done. Ready for deploy wave.
-Last activity: 2026-03-26 - Completed 13-06-PLAN.md: Admin portal Prop 22 compliance page at /admin/prop22 (Prop22Compliance.tsx 387 lines, TypeScript build 0 errors)
+Last activity: 2026-03-26 - Completed quick task 228: Secure get-app-config — DynamoDB session validation, license key activation flow, Windows EXE rebuild triggered
 
 Progress: [########################################] 100% (6/6 plans in phase 13)
 
@@ -360,6 +360,7 @@ None
 | 225 | Implement server-side download protection: block CloudFront from /downloads/*, Lambda generates S3 pre-signed URLs (15 min), HTML uses signed URLs, initial href="#" so real URLs never in page source | 2026-03-24 | b5db9502 | [225-implement-server-side-download-protectio](./quick/225-implement-server-side-download-protectio/) |
 | 226 | Fix fake web answers (real Claude via Lambda) and API key exposure (keys in Secrets Manager, fetched at app startup, removed from Python source) | 2026-03-24 | 4aa86149 | [226-fix-fake-web-answers-real-claude-via-lam](./quick/226-fix-fake-web-answers-real-claude-via-lam/) |
 | 227 | Apply 8 UI/UX improvements to interview.html and deploy to S3/CloudFront | 2026-03-25 | f564110b | [227-apply-8-ui-ux-improvements-to-interview-](./quick/227-apply-8-ui-ux-improvements-to-interview-/) |
+| 228 | Secure get-app-config: require valid session_id from paid users — DynamoDB validation, license key file, activation dialog, Copy License Key UI | 2026-03-26 | 25acf05e | [228-secure-get-app-config-require-valid-sess](./quick/228-secure-get-app-config-require-valid-sess/) |
 | 208 | Restaurant flow audit + fix 5 gaps: vendor-arrived-at-delivery 404 (GAP-2), self-delivery auth mismatch (GAP-4), timeout push notifications (GAP-5), wrong accept endpoint (GAP-1), countdown timer (GAP-3) + swipe button migration | 2026-03-24 | 461a4de1 | [208-restaurant-flow-audit-visual-swipe-status](./quick/208-restaurant-flow-audit-visual-swipe-status/) |
 | Phase 13 P03 | 10 | 2 tasks | 2 files |
 
