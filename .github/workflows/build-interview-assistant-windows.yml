@@ -34,11 +34,11 @@ jobs:
 
       - name: Verify EXE was created
         run: |
-          if (!(Test-Path "dist\Interview Assistant.exe")) {
-            Write-Error "EXE not found at dist\Interview Assistant.exe"
+          if (!(Test-Path "dist\InterviewAssistant.exe")) {
+            Write-Error "EXE not found at dist\InterviewAssistant.exe"
             exit 1
           }
-          Write-Output "EXE size: $((Get-Item 'dist\Interview Assistant.exe').Length / 1MB) MB"
+          Write-Output "EXE size: $((Get-Item 'dist\InterviewAssistant.exe').Length / 1MB) MB"
         shell: pwsh
 
       - name: Upload EXE to S3
@@ -47,7 +47,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: |
-          aws s3 cp "dist/Interview Assistant.exe" "s3://offerletter.ai/downloads/Interview Assistant.exe" --content-type "application/octet-stream" --content-disposition "attachment; filename=\"Interview Assistant.exe\"" --cache-control "no-cache"
+          aws s3 cp "dist/InterviewAssistant.exe" "s3://offerletter.ai/downloads/InterviewAssistant.exe" --content-type "application/octet-stream" --content-disposition "attachment; filename=\"InterviewAssistant.exe\"" --cache-control "no-cache"
         shell: bash
 
       - name: Invalidate CloudFront cache
@@ -56,12 +56,12 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: |
-          aws cloudfront create-invalidation --distribution-id E319UG6B4QE97L --paths "/downloads/Interview Assistant.exe"
+          aws cloudfront create-invalidation --distribution-id E319UG6B4QE97L --paths "/downloads/InterviewAssistant.exe"
         shell: bash
 
       - name: Upload EXE as workflow artifact (backup)
         uses: actions/upload-artifact@v4
         with:
           name: interview-assistant-windows
-          path: apps/interview-assistant/dist/Interview Assistant.exe
+          path: apps/interview-assistant/dist/InterviewAssistant.exe
           retention-days: 30
