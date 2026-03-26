@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 
 ## Current Position
 
-Phase: 12 of 12 (Fix Admin Portal UI) -- COMPLETE
-Plan: 2 of 2 in current phase
-Status: All v1.5 phases complete. Post-launch: App Store review pending, project tracker departments needed.
-Last activity: 2026-03-25 - Completed quick task 227: Apply 8 UI/UX improvements to interview.html and deploy to S3/CloudFront Restaurant flow audit + 5 gap fixes (vendor-arrived-at-delivery 404, self-delivery auth, timeout pushes, wrong accept endpoint, countdown timer) + swipe button migration
+Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- IN PROGRESS
+Plan: 1 of 6 complete in current phase
+Status: Phase 13-01 complete: Alembic migration + 4 Prop 22 tables + 10 columns + ORM classes. Ready for 13-02 (calculation engine).
+Last activity: 2026-03-25 - Completed 13-01-PLAN.md: Prop 22 Alembic migration with 10 nullable columns, 4 new tables, seed data, and ORM classes
 
-Progress: [##########] 100% (10/12 plans)
+Progress: [##########] 100% (1/6 plans in phase 13)
 
 ## Completed Milestones
 
@@ -95,6 +95,7 @@ Progress: [##########] 100% (10/12 plans)
 - [Phase 08.1-03]: Banner placed inside ZStack with zIndex(100); viewModel.resetRide() for Try Again; 10s auto-dismiss; notification fires even when view is not visible
 - [Phase quick-202]: Default acceptance_rate 95.0 when driver has < 5 total rides; push warnings only when total >= 10 (avoids misleading rates for new drivers); push failure bare-except to never block cancel transaction
 - [Phase quick-215]: Used _require_admin_secret() helper for reset-ride-state endpoint — consistent with all other demo endpoints
+- [Phase 13]: Migration uses raw op.execute() SQL with IF NOT EXISTS for idempotency; service_type column on prop22_earning_periods for RIDESHARE vs FOOD_DELIVERY floor formula distinction
 
 ### Blockers
 
