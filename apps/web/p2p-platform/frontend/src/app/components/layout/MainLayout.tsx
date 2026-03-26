@@ -122,6 +122,9 @@ const MainLayout: React.FC = () => {
 
     // === INVOICES ===
     { name: 'Invoices', href: '/admin/invoices', icon: FileText },
+
+    // === PROP 22 COMPLIANCE (California BPC §§7453-7463) ===
+    { name: 'Prop 22', href: '/admin/prop22', icon: ClipboardCheck },
   ];
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
