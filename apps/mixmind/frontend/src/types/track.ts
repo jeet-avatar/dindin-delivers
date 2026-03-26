@@ -11,6 +11,52 @@ export interface Track {
   duration_sec: number;
   cue_count: number;
   cue_colors: string[];  // e.g. ['red', 'blue']
+  file_path: string;     // absolute path to audio file on disk
+  analysis_data_path?: string; // ANLZ relative path from Rekordbox DB
+}
+
+// ---------------------------------------------------------------------------
+// ANLZ / CDJ-3000 waveform data types
+// ---------------------------------------------------------------------------
+
+export interface BeatGridEntry {
+  time_ms: number;
+  beat: number;   // 1-4 (1 = downbeat)
+  bpm: number;
+}
+
+export interface SectionEntry {
+  start_ms: number;
+  end_ms: number;
+  kind: number;
+  name: string;   // 'intro' | 'verse' | 'chorus' | 'outro' | 'bridge' | 'up' | 'down' | 'fill_in'
+  color_hex: string; // CDJ-3000 overlay color
+}
+
+export interface HotCueEntry {
+  slot: string;        // 'A'-'H'
+  time_ms: number;
+  color_hex: string;
+  label: string;
+  is_loop: boolean;
+  loop_out_ms: number | null;
+}
+
+export interface MemoryCueEntry {
+  time_ms: number;
+  label: string;
+  color_hex: string;   // always #33FF9E
+}
+
+export interface TrackAnlzData {
+  beat_grid: BeatGridEntry[];
+  first_beat_ms: number;
+  waveform_preview: number[];                                    // amplitude bytes 0-255, ~400 cols
+  waveform_3band: { low: number; mid: number; high: number }[] | null; // CDJ 3-band per column
+  sections: SectionEntry[];
+  hot_cues: HotCueEntry[];
+  memory_cues: MemoryCueEntry[];
+  bpm: number;
 }
 
 export interface Playlist {
