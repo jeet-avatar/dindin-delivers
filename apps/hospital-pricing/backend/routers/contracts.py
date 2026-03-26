@@ -9,7 +9,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 from typing import Optional
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -76,6 +76,56 @@ async def create_contract(
         status=ContractStatus.draft,
     )
     db.add(contract)
+    await db.commit()
+    await db.refresh(contract)
+
+    return ContractResponse(
+        contract_id=contract.contract_id,
+        supplier_id=contract.supplier_id,
+        status=contract.status.value,
+        effective_date=contract.effective_date,
+        expiration_date=contract.expiration_date,
+        admin_fee_pct=contract.admin_fee_pct,
+    )
+
+
+@router.post("/{contract_id}/activate", response_model=ContractResponse)
+async def activate_contract(
+    contract_id: uuid.UUID = Path(...),
+    db: AsyncSession = Depends(get_db),
+    payload: dict = Depends(require_entity_admin),
+) -> ContractResponse:
+    """
+    Activate a draft contract. Blocked if baa_required=True but no BAA document is on file.
+    A BAA (Business Associate Agreement) must be executed before activation per HIPAA §164.308(b).
+    """
+    entity_id = uuid.UUID(payload["entity_id"])
+
+    result = await db.execute(
+        select(WholesaleAgreement).where(
+            WholesaleAgreement.contract_id == contract_id,
+            WholesaleAgreement.hospital_entity_id == entity_id,
+        )
+    )
+    contract = result.scalar_one_or_none()
+    if not contract:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Contract {contract_id} not found",
+        )
+
+    # BAA activation block: if BAA is required, document must be on file before activation
+    if contract.baa_required and not contract.document_s3_path:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Contract cannot be activated: baa_required=True but no BAA document is on file. "
+                "Upload a signed BAA (Business Associate Agreement) before activating this contract "
+                "per HIPAA §164.308(b)."
+            ),
+        )
+
+    contract.status = ContractStatus.active
     await db.commit()
     await db.refresh(contract)
 
