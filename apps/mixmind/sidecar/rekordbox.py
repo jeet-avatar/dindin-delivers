@@ -17,6 +17,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+from urllib.parse import unquote, urlparse
 
 from camelot import musical_key_to_camelot
 
@@ -85,6 +86,12 @@ class Track:
     cue_colors: list[str] = field(default_factory=list)
     """Hex colour strings for each hot cue (same length as cue_count, defaults to #000000 if no color data)."""
 
+    file_path: str = ""
+    """Absolute path to the audio file on disk (decoded from the XML Location attribute)."""
+
+    analysis_data_path: str = ""
+    """Relative ANLZ analysis path from DjmdContent.AnalysisDataPath (e.g. /PIONEER/USBANLZ/{uuid}/ANLZ0000.DAT)."""
+
     def to_cache(self) -> dict:
         """Serialise to a plain dict suitable for JSON caching."""
         return {
@@ -99,12 +106,29 @@ class Track:
             "duration_sec": self.duration_sec,
             "cue_count": self.cue_count,
             "cue_colors": self.cue_colors,
+            "file_path": self.file_path,
+            "analysis_data_path": self.analysis_data_path,
         }
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _parse_location(location: str) -> str:
+    """Convert a Rekordbox XML Location URL to an absolute local file path.
+
+    Rekordbox stores the path as ``file://localhost/Users/...`` or
+    ``file:///Users/...`` with percent-encoded characters.
+    """
+    if not location:
+        return ""
+    try:
+        parsed = urlparse(location)
+        return unquote(parsed.path)
+    except Exception:
+        return ""
+
 
 def _rgb_to_hex(red: str, green: str, blue: str) -> str:
     """Convert Red/Green/Blue string attributes to '#rrggbb' hex."""
@@ -120,6 +144,7 @@ def _track_from_xml_element(el: ET.Element) -> Track:
     track_id = el.attrib.get("TrackID", "")
     title = el.attrib.get("Name", "")
     artist = el.attrib.get("Artist", "")
+    file_path = _parse_location(el.attrib.get("Location", ""))
 
     try:
         bpm = float(el.attrib.get("AverageBpm", 0))
@@ -169,6 +194,7 @@ def _track_from_xml_element(el: ET.Element) -> Track:
         duration_sec=duration_sec,
         cue_count=cue_count,
         cue_colors=cue_colors,
+        file_path=file_path,
     )
 
 
@@ -237,6 +263,7 @@ def load_library_xml(xml_path: Path) -> list[Track]:
 
         key_musical = rb_track.get("Tonality") or ""
         camelot = musical_key_to_camelot(key_musical)
+        file_path = _parse_location(rb_track._element.attrib.get("Location", ""))
 
         # pyrekordbox Rating getter maps 255→5 already via its bidict,
         # but only for the exact values. We normalise via our bucketed
@@ -277,6 +304,7 @@ def load_library_xml(xml_path: Path) -> list[Track]:
             duration_sec=duration_sec,
             cue_count=cue_count,
             cue_colors=cue_colors,
+            file_path=file_path,
         ))
 
     return tracks
@@ -352,6 +380,14 @@ def try_load_library_db() -> Optional[list[Track]]:
                 for c in hot_cues
             ]
 
+            # FolderPath holds the full local file path for local tracks.
+            # Streaming tracks (from Beatport/Tidal) start with /v4/ — skip those.
+            fp = t.FolderPath or ""
+            local_file_path = fp if fp and not fp.startswith("/v4/") else ""
+
+            # AnalysisDataPath: relative ANLZ path used by anlz_parser
+            analysis_data_path = t.AnalysisDataPath or ""
+
             tracks.append(Track(
                 content_id=track_id,
                 source="db",
@@ -364,6 +400,8 @@ def try_load_library_db() -> Optional[list[Track]]:
                 duration_sec=duration,
                 cue_count=len(hot_cues),
                 cue_colors=cue_colors,
+                file_path=local_file_path,
+                analysis_data_path=analysis_data_path,
             ))
         except Exception:
             continue
