@@ -41,13 +41,17 @@
     "files": [
       "main.js",
       "preload.js",
-      "splash.html",
-      "../frontend/build/**/*"
+      "splash.html"
     ],
     "extraResources": [
       {
         "from": "../sidecar/dist/mixmind-sidecar",
         "to": "sidecar",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../frontend/build",
+        "to": "frontend/build",
         "filter": ["**/*"]
       }
     ]

@@ -121,9 +121,9 @@ function createMainWindow(port) {
     },
   });
 
-  // In production, load built React app; in dev, load from React dev server
+  // In production, load built React app from extraResources; in dev, load from React dev server
   const frontendPath = app.isPackaged
-    ? path.join(__dirname, '..', 'frontend', 'build', 'index.html')
+    ? path.join(process.resourcesPath, 'frontend', 'build', 'index.html')
     : 'http://localhost:3000';
 
   if (app.isPackaged) {
