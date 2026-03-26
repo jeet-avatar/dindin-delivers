@@ -1,12 +1,14 @@
 // src/App.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LeftNav } from './components/LeftNav';
 import { TrackTable } from './components/TrackTable';
 import { AIChatSidebar } from './components/AIChatSidebar';
 import { DuplicatePanel } from './components/DuplicatePanel';
 import { USBPanel } from './components/USBPanel';
 import { useLibrary } from './hooks/useLibrary';
-import { AIPlaylistItem, Playlist } from './types/track';
+import { AIPlaylistItem, Playlist, Track } from './types/track';
+import { MiniPlayer } from './components/MiniPlayer';
+import { DJWaveformView } from './components/DJWaveformView';
 
 type Panel = 'library' | 'playlists' | 'duplicates' | 'usb';
 
@@ -17,6 +19,25 @@ export default function App() {
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [usbConnected] = useState(false);
   const [usbName] = useState<string | undefined>();
+  const [nowPlaying, setNowPlaying] = useState<Track | null>(null);
+
+  // ── Lifted player state (shared between DJWaveformView and MiniPlayer) ────
+  const [playerCurrentTime, setPlayerCurrentTime] = useState(0);
+  const [playerDuration,    setPlayerDuration]    = useState(0);
+  // seekTo: set by DJWaveformView, consumed by MiniPlayer to seek the audio element
+  const [seekTo, setSeekTo] = useState<number | null>(null);
+
+  // Reset player state when track changes
+  useEffect(() => {
+    setPlayerCurrentTime(0);
+    setPlayerDuration(0);
+    setSeekTo(null);
+  }, [nowPlaying?.content_id]);
+
+  function handleSeek(sec: number) {
+    // Use a fresh object to guarantee useEffect fires even for same-second seeks
+    setSeekTo(sec);
+  }
 
   function handlePlaylistCreated(name: string, items: AIPlaylistItem[]) {
     const matched = items.flatMap(item => {
@@ -30,9 +51,9 @@ export default function App() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0a0a0a', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-void)', overflow: 'hidden' }}>
       {/* Electron traffic-light drag region */}
-      <div style={{ height: '28px', background: '#0a0a0a', flexShrink: 0, ...(({ WebkitAppRegion: 'drag' } as any)) }} />
+      <div style={{ height: '28px', background: 'var(--bg-void)', flexShrink: 0, ...(({ WebkitAppRegion: 'drag' } as any)) }} />
 
       {/* Main layout */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
@@ -42,6 +63,8 @@ export default function App() {
           usbConnected={usbConnected}
           usbName={usbName}
           duplicateCount={duplicateCount}
+          trackCount={tracks.length}
+          playlistCount={playlists.length}
         />
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
@@ -78,7 +101,7 @@ export default function App() {
                 <span style={{ fontSize: '13px', color: '#4b5563' }}>Connecting to sidecar…</span>
               </div>
             ) : (
-              <TrackTable tracks={tracks} />
+              <TrackTable tracks={tracks} onReload={reload} onPlay={setNowPlaying} />
             )
           )}
 
@@ -96,11 +119,49 @@ export default function App() {
                   <div style={{ fontSize: '12px', color: '#4b5563' }}>Ask the AI to build a set for you</div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '600px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '700px' }}>
                   {playlists.map(p => (
-                    <div key={p.id} style={{ padding: '14px 16px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '12px' }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#e5e7eb' }}>{p.name}</div>
-                      <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '4px' }}>{p.tracks.length} tracks</div>
+                    <div key={p.id} style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '12px', overflow: 'hidden' }}>
+                      {/* Header */}
+                      <div style={{ padding: '14px 16px', borderBottom: p.tracks.length > 0 ? '1px solid #1e1e1e' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#e5e7eb' }}>{p.name}</div>
+                          <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '2px' }}>{p.tracks.length} tracks</div>
+                        </div>
+                        {p.tracks.length > 0 && (
+                          <button
+                            onClick={() => setNowPlaying(p.tracks[0])}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.25)', borderRadius: '8px', color: '#a78bfa', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                            Play all
+                          </button>
+                        )}
+                      </div>
+                      {/* Track list */}
+                      {p.tracks.map((t, i) => (
+                        <div
+                          key={t.content_id}
+                          onClick={() => t.file_path && setNowPlaying(t)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '12px',
+                            padding: '9px 16px',
+                            borderBottom: i < p.tracks.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                            cursor: t.file_path ? 'pointer' : 'default',
+                            transition: 'background 0.1s',
+                          }}
+                          onMouseEnter={e => { if (t.file_path) (e.currentTarget as HTMLElement).style.background = 'rgba(124,58,237,0.06)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                        >
+                          <span style={{ fontSize: '11px', color: '#374151', fontFeatureSettings: '"tnum"', width: '18px', textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 500, color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                            <div style={{ fontSize: '11px', color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>{t.artist}</div>
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', fontFeatureSettings: '"tnum"', flexShrink: 0 }}>{Math.round(t.bpm)}</span>
+                          <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px', background: 'rgba(124,58,237,0.12)', color: '#a78bfa', flexShrink: 0 }}>{t.camelot}</span>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>
@@ -115,9 +176,25 @@ export default function App() {
         <AIChatSidebar onPlaylistCreated={handlePlaylistCreated} />
       </div>
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
+      {/* ── DJ Waveform View + Mini Player (shown when track is playing) ── */}
+      {nowPlaying && (
+        <>
+          <DJWaveformView
+            track={nowPlaying}
+            currentTime={playerCurrentTime}
+            duration={playerDuration}
+            onSeek={handleSeek}
+          />
+          <MiniPlayer
+            track={nowPlaying}
+            onCurrentTimeChange={setPlayerCurrentTime}
+            onDurationChange={setPlayerDuration}
+            seekTo={seekTo}
+            onClose={() => setNowPlaying(null)}
+          />
+        </>
+      )}
+
     </div>
   );
 }
