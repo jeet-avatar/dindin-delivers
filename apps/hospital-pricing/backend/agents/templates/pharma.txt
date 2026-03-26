@@ -1,0 +1,32 @@
+WHOLESALE PHARMACEUTICAL AGREEMENT — GPO TEMPLATE
+
+This Wholesale Pharmaceutical Supply Agreement ("Agreement") is entered into between {hospital_entity_name} ("Hospital") and {supplier_name} ("Supplier"), effective {effective_date} through {expiration_date}.
+
+1. PRICING AND GPO MEMBERSHIP
+   Hospital is a member of GPO Contract No. {gpo_contract_number}. All pricing shall conform to the attached Schedule A.
+   Price escalation shall not exceed {price_escalation_cap_pct}% annually.
+
+2. AKS SAFE HARBOR COMPLIANCE (42 U.S.C. §1320a-7b(b))
+   Any GPO administrative fee paid to Hospital shall not exceed 3% of the purchase price of the goods or services provided
+   pursuant to 42 CFR §1001.952(j). Current administrative fee: {admin_fee_pct}%.
+   Supplier certifies this fee meets the Anti-Kickback Statute safe harbor requirements.
+
+3. 340B PROGRAM COMPLIANCE
+   If Hospital is a 340B covered entity, Supplier shall maintain separate pricing for 340B-eligible drugs
+   in accordance with 42 U.S.C. §256b. 340B ceiling prices are calculated as AMP minus Unit Rebate Amount.
+   {mfn_clause_text}
+
+4. MOST FAVORED NATION CLAUSE
+   {mfn_clause_text}
+
+5. HIPAA BUSINESS ASSOCIATE AGREEMENT
+   A separate BAA is required prior to contract activation: {baa_status}
+
+6. TERM AND TERMINATION
+   Either party may terminate this Agreement with 30 days written notice.
+
+Signed by: _________________________ Date: _________
+{hospital_entity_name}
+
+Signed by: _________________________ Date: _________
+{supplier_name}

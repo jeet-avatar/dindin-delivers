@@ -1,0 +1,20 @@
+WHOLESALE MEDICAL SUPPLIES AGREEMENT — GPO TEMPLATE
+
+This Medical Supplies Agreement ("Agreement") is between {hospital_entity_name} ("Hospital") and {supplier_name} ("Supplier"), effective {effective_date} through {expiration_date}.
+
+1. PRICING
+   Pricing per Schedule A. GPO Contract No. {gpo_contract_number}. Annual escalation cap: {price_escalation_cap_pct}%.
+
+2. AKS SAFE HARBOR (42 U.S.C. §1320a-7b(b))
+   GPO admin fee not to exceed 3% per 42 CFR §1001.952(j). Current fee: {admin_fee_pct}%.
+
+3. MOST FAVORED NATION
+   {mfn_clause_text}
+
+4. HIPAA BUSINESS ASSOCIATE AGREEMENT
+   {baa_status}
+
+5. TERM
+   30 days written notice to terminate.
+
+Signed: _________________________ {hospital_entity_name} | _________________________ {supplier_name}
