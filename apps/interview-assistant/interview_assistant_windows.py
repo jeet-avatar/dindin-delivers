@@ -31,23 +31,53 @@ def hide_from_screen_capture(root_hwnd: int = 0):
 import urllib.request as _urllib_request
 import json as _json
 
-_APP_TOKEN  = "ia-token-8f3k2p9x"
-_CONFIG_URL = "https://0q8mtozfra.execute-api.us-east-1.amazonaws.com/get-app-config"
+_APP_TOKEN    = "ia-token-8f3k2p9x"
+_CONFIG_URL   = "https://0q8mtozfra.execute-api.us-east-1.amazonaws.com/get-app-config"
+_LICENSE_FILE = os.path.expanduser("~/.oa-license")
+
+def _get_license_key():
+    """Read license key from ~/.oa-license or prompt via dialog on first launch."""
+    if os.path.exists(_LICENSE_FILE):
+        with open(_LICENSE_FILE) as _f:
+            _key = _f.read().strip()
+        if _key:
+            return _key
+    import tkinter as _tk
+    import tkinter.simpledialog as _tsd
+    _root = _tk.Tk()
+    _root.withdraw()
+    _key = _tsd.askstring(
+        "Activate Interview Assistant",
+        "Enter your License Key from offerletter.ai/interview\n\n"
+        "After purchasing, click 'Copy License Key' on the setup page.",
+        parent=_root,
+    )
+    _root.destroy()
+    if _key and _key.strip():
+        with open(_LICENSE_FILE, "w") as _f:
+            _f.write(_key.strip())
+        return _key.strip()
+    raise SystemExit("License key required. Get yours at offerletter.ai/interview after purchasing.")
 
 def _fetch_api_keys():
-    """Fetch API keys from config server at startup."""
+    """Fetch API keys from config server using purchase license key."""
+    _session_id = _get_license_key()
     try:
-        req = _urllib_request.Request(
+        _req = _urllib_request.Request(
             _CONFIG_URL,
-            data=_json.dumps({"app_token": _APP_TOKEN}).encode(),
+            data=_json.dumps({"app_token": _APP_TOKEN, "session_id": _session_id}).encode(),
             headers={"Content-Type": "application/json"},
-            method="POST"
+            method="POST",
         )
-        with _urllib_request.urlopen(req, timeout=10) as resp:
-            data = _json.loads(resp.read())
-        return data["openai_key"], data["anthropic_key"]
-    except Exception as e:
-        print(f"\u26a0\ufe0f  Could not fetch API config: {e}")
+        with _urllib_request.urlopen(_req, timeout=10) as _resp:
+            _data = _json.loads(_resp.read())
+        if "error" in _data:
+            raise SystemExit(f"License error: {_data['error']}")
+        return _data["openai_key"], _data["anthropic_key"]
+    except SystemExit:
+        raise
+    except Exception as _e:
+        print(f"Could not fetch API config: {_e}")
         raise SystemExit("Cannot start: failed to load API configuration. Check your internet connection.")
 
 OPENAI_API_KEY, ANTHROPIC_API_KEY = _fetch_api_keys()
