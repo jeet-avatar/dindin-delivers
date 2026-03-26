@@ -1,0 +1,101 @@
+"""TDD: Prop 22 calculation logic — tests written BEFORE implementation"""
+import pytest
+from unittest.mock import patch, MagicMock
+from datetime import datetime, date
+from zoneinfo import ZoneInfo
+
+CA_TZ = ZoneInfo("America/Los_Angeles")
+
+
+class TestIsInCalifornia:
+    def test_san_francisco_is_in_ca(self):
+        from prop22_utils import is_in_california
+        assert is_in_california(37.7749, -122.4194) is True
+
+    def test_los_angeles_is_in_ca(self):
+        from prop22_utils import is_in_california
+        assert is_in_california(34.0522, -118.2437) is True
+
+    def test_seattle_not_in_ca(self):
+        from prop22_utils import is_in_california
+        assert is_in_california(47.6062, -122.3321) is False
+
+    def test_new_york_not_in_ca(self):
+        from prop22_utils import is_in_california
+        assert is_in_california(40.7128, -74.0060) is False
+
+
+class TestGpsToCity:
+    def test_sf_coords_return_san_francisco(self):
+        from prop22_utils import gps_to_city
+        assert gps_to_city(37.7749, -122.4194) == "SAN_FRANCISCO"
+
+    def test_la_coords_return_los_angeles(self):
+        from prop22_utils import gps_to_city
+        assert gps_to_city(34.0522, -118.2437) == "LOS_ANGELES"
+
+    def test_sacramento_returns_ca_statewide(self):
+        from prop22_utils import gps_to_city
+        assert gps_to_city(38.5816, -121.4944) == "CA"
+
+
+class TestGetCityMinWage:
+    def test_sf_jan_2026_wage(self, db_session):
+        from prop22_utils import get_city_min_wage
+        wage = get_city_min_wage(db_session, "SAN_FRANCISCO", date(2026, 3, 15))
+        assert wage == 18.67  # Jan 2026 rate
+
+    def test_sf_jul_2026_wage(self, db_session):
+        from prop22_utils import get_city_min_wage
+        wage = get_city_min_wage(db_session, "SAN_FRANCISCO", date(2026, 7, 15))
+        assert wage == 19.61  # Jul 2026 rate (mid-year increase)
+
+    def test_statewide_ca_fallback(self, db_session):
+        from prop22_utils import get_city_min_wage
+        wage = get_city_min_wage(db_session, "CA", date(2026, 3, 15))
+        assert wage == 16.90
+
+    def test_unknown_city_falls_back_to_ca(self, db_session):
+        from prop22_utils import get_city_min_wage
+        wage = get_city_min_wage(db_session, "BAKERSFIELD", date(2026, 3, 15))
+        assert wage == 16.90  # falls back to CA statewide
+
+
+class TestRoadMiles:
+    def test_road_miles_uses_google_maps_when_available(self):
+        from prop22_utils import road_miles
+        mock_result = MagicMock()
+        mock_result.distance_miles = 5.2
+        with patch("prop22_utils.get_traffic_eta_sync", return_value=mock_result):
+            miles = road_miles(37.77, -122.41, 37.80, -122.40)
+            assert miles == 5.2
+
+    def test_road_miles_falls_back_to_haversine_on_failure(self):
+        from prop22_utils import road_miles
+        with patch("prop22_utils.get_traffic_eta_sync", side_effect=Exception("API down")):
+            with patch("prop22_utils.haversine_miles", return_value=4.0):
+                miles = road_miles(37.77, -122.41, 37.80, -122.40)
+                assert miles == 4.0 * 1.25  # haversine x correction factor
+
+
+class TestGetPeriodBounds:
+    def test_period_start_is_january_1_for_jan_2026(self):
+        from prop22_utils import get_period_bounds_for_date
+        dt = datetime(2026, 1, 10, 12, 0, tzinfo=CA_TZ)
+        start, end = get_period_bounds_for_date(dt)
+        assert start == datetime(2026, 1, 1, tzinfo=CA_TZ)
+        assert end == datetime(2026, 1, 15, tzinfo=CA_TZ)
+
+    def test_period_boundaries_14_days_apart(self):
+        from prop22_utils import get_period_bounds_for_date
+        from datetime import timedelta
+        dt = datetime(2026, 2, 20, tzinfo=CA_TZ)
+        start, end = get_period_bounds_for_date(dt)
+        assert (end - start).days == 14
+
+    def test_previous_period_bounds(self):
+        from prop22_utils import get_period_bounds_for_date
+        from datetime import timedelta
+        dt = datetime(2026, 1, 16, tzinfo=CA_TZ)  # second period
+        start, end = get_period_bounds_for_date(dt)
+        assert start == datetime(2026, 1, 15, tzinfo=CA_TZ)
