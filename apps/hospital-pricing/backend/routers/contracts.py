@@ -23,6 +23,30 @@ AKS_ADMIN_FEE_CEILING = Decimal("0.03")  # 42 CFR §1001.952(j) — GPO safe har
 AKS_STATUTE_CITATION = "42 U.S.C. §1320a-7b(b) and 42 CFR §1001.952(j)"
 
 
+def _build_response(c: "WholesaleAgreement") -> "ContractResponse":
+    mfn: Optional[dict] = None
+    if c.mfn_clause is not None:
+        mfn = {
+            "mfn_id": str(c.mfn_clause.mfn_id),
+            "trigger_type": c.mfn_clause.trigger_type.value,
+            "disclosure_frequency": c.mfn_clause.disclosure_frequency,
+            "carve_outs": c.mfn_clause.carve_outs,
+            "cure_period_days": c.mfn_clause.cure_period_days,
+            "true_up_retroactive": c.mfn_clause.true_up_retroactive,
+        }
+    return ContractResponse(
+        contract_id=c.contract_id,
+        supplier_id=c.supplier_id,
+        status=c.status.value,
+        effective_date=c.effective_date,
+        expiration_date=c.expiration_date,
+        admin_fee_pct=c.admin_fee_pct,
+        aks_safe_harbor_documented=c.aks_safe_harbor_documented,
+        baa_required=c.baa_required,
+        mfn_clause=mfn,
+    )
+
+
 class ContractCreate(BaseModel):
     supplier_id: uuid.UUID
     effective_date: date
@@ -51,6 +75,9 @@ class ContractResponse(BaseModel):
     effective_date: date
     expiration_date: date
     admin_fee_pct: Optional[Decimal]
+    aks_safe_harbor_documented: bool
+    baa_required: bool
+    mfn_clause: Optional[dict]
 
     model_config = {"from_attributes": True}
 
@@ -79,14 +106,7 @@ async def create_contract(
     await db.commit()
     await db.refresh(contract)
 
-    return ContractResponse(
-        contract_id=contract.contract_id,
-        supplier_id=contract.supplier_id,
-        status=contract.status.value,
-        effective_date=contract.effective_date,
-        expiration_date=contract.expiration_date,
-        admin_fee_pct=contract.admin_fee_pct,
-    )
+    return _build_response(contract)
 
 
 @router.post("/{contract_id}/activate", response_model=ContractResponse)
@@ -129,14 +149,7 @@ async def activate_contract(
     await db.commit()
     await db.refresh(contract)
 
-    return ContractResponse(
-        contract_id=contract.contract_id,
-        supplier_id=contract.supplier_id,
-        status=contract.status.value,
-        effective_date=contract.effective_date,
-        expiration_date=contract.expiration_date,
-        admin_fee_pct=contract.admin_fee_pct,
-    )
+    return _build_response(contract)
 
 
 @router.get("/", response_model=list[ContractResponse])
@@ -150,14 +163,24 @@ async def list_contracts(
         select(WholesaleAgreement).where(WholesaleAgreement.hospital_entity_id == entity_id)
     )
     contracts = result.scalars().all()
-    return [
-        ContractResponse(
-            contract_id=c.contract_id,
-            supplier_id=c.supplier_id,
-            status=c.status.value,
-            effective_date=c.effective_date,
-            expiration_date=c.expiration_date,
-            admin_fee_pct=c.admin_fee_pct,
+    return [_build_response(c) for c in contracts]
+
+
+@router.get("/{contract_id}", response_model=ContractResponse)
+async def get_contract(
+    contract_id: uuid.UUID = Path(...),
+    db: AsyncSession = Depends(get_db),
+    payload: dict = Depends(require_entity_admin),
+) -> ContractResponse:
+    """Fetch a single contract by ID, including current processing status."""
+    entity_id = uuid.UUID(payload["entity_id"])
+    result = await db.execute(
+        select(WholesaleAgreement).where(
+            WholesaleAgreement.contract_id == contract_id,
+            WholesaleAgreement.hospital_entity_id == entity_id,
         )
-        for c in contracts
-    ]
+    )
+    contract = result.scalar_one_or_none()
+    if contract is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
+    return _build_response(contract)
