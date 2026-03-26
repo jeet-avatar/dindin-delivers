@@ -73,6 +73,77 @@ INGEST → EXTRACT → VERIFY → COMPARE → FLAG → RESOLVE
 
 ## 4. Core Data Models
 
+### HospitalEntity / Supplier / Facility (Supporting Models)
+
+```python
+class HospitalEntity(Base):
+    entity_id:              UUID (PK)
+    name:                   str                        # "Mayo Clinic - Rochester"
+    gpo_memberships:        List[str]                  # ["Vizient", "Premier"]
+    is_covered_entity:      bool                       # 340B eligibility flag
+    ein:                    str                        # Employer Identification Number
+    created_at:             datetime
+
+class Supplier(Base):
+    supplier_id:            UUID (PK)
+    name:                   str
+    dea_number:             Optional[str]              # Required for pharma
+    hin:                    Optional[str]              # Health Industry Number
+    contact_email:          str
+    created_at:             datetime
+
+class Facility(Base):
+    facility_id:            UUID (PK)
+    entity_id:              FK → HospitalEntity
+    name:                   str                        # "Main Campus Pharmacy"
+    address:                str
+    ship_to_code:           str                        # Supplier's ship-to identifier
+    is_340b_eligible:       bool
+
+class UOMConversion(Base):
+    """Maintained lookup for unit-of-measure normalisation."""
+    from_uom:               str                        # "CS"
+    to_uom:                 str                        # "EA"
+    multiplier:             Decimal                    # e.g. 24.0 (1 CS = 24 EA)
+    category:               Optional[str]              # "pharma", "supplies" — nullable = universal
+```
+
+### Authentication & Multi-Tenancy
+
+**Auth scheme:** JWT (HS256) issued on login. Tokens include `entity_id` claim for tenant scoping.
+
+**Roles:**
+| Role | Permissions |
+|------|-------------|
+| `procurement_officer` | Upload contracts/invoices, view discrepancies, trigger dispute |
+| `procurement_approver` | All officer permissions + approve AI extractions + execute contracts |
+| `entity_admin` | All approver permissions + manage users, suppliers, facilities for their entity |
+| `platform_admin` | Full access across all tenants — Zietra staff only |
+
+**Multi-tenancy:** Row-level isolation via `entity_id` on all tables. Every query in FastAPI route handlers applies `WHERE entity_id = current_user.entity_id` via SQLAlchemy dependency. `platform_admin` bypasses this filter.
+
+**Session management:** JWT expiry 8 hours; refresh token (30 days) stored in HttpOnly cookie.
+
+### Audit Log (Immutability)
+
+```python
+class AuditLogEntry(Base):
+    """Append-only. No UPDATE or DELETE ever permitted.
+    PostgreSQL trigger raises exception on any UPDATE/DELETE attempt.
+    """
+    log_id:                 UUID (PK)
+    entity_id:              FK → HospitalEntity        # tenant scoping
+    actor_user_id:          FK → User
+    event_type:             str                        # "contract.activated", "discrepancy.flagged"
+    resource_type:          str                        # "WholesaleAgreement", "InvoiceLineItem"
+    resource_id:            UUID
+    payload:                JSONB                      # full before/after snapshot
+    created_at:             datetime                   # indexed; never updated
+```
+
+**Immutability enforcement:** PostgreSQL trigger `BEFORE UPDATE OR DELETE ON audit_log_entries EXECUTE PROCEDURE raise_immutability_error()`. Verified in Wave 5 test suite.
+**Retention:** PostgreSQL partitioning by year. Partitions older than 3 years archived to S3 Glacier.
+
 ### WholesaleAgreement
 
 ```python
@@ -190,9 +261,9 @@ class MFNClause(Base):
 
 | Obligation | Applies When | Phase 1 Implementation |
 |------------|-------------|------------------------|
-| Anti-Kickback Statute (42 U.S.C. §7b) | GPO contracts with admin fees | Block activation if `admin_fee_pct > 0.03`. Flag `aks_safe_harbor_documented`. |
+| Anti-Kickback Statute (42 U.S.C. §1320a-7b(b)) | GPO contracts with admin fees | Block activation if `admin_fee_pct > 0.03`. Flag `aks_safe_harbor_documented`. |
 | GPO Safe Harbor (42 CFR §1001.952j) | Any GPO-negotiated contract | Store `admin_fee_pct`. Auto-flag >3%. Generate annual disclosure letter. |
-| 340B Ceiling Price (42 U.S.C. §256b) | Covered-entity hospitals, pharma | Price check vs HRSA OPAIS. Pharma category flag on contract. |
+| 340B Ceiling Price (42 U.S.C. §256b) | Covered-entity hospitals, pharma | `is_covered_entity` + `pharma_category` flags on HospitalEntity and contract. HRSA OPAIS integration deferred to Phase 2 (requires covered-entity registration + API agreement). Phase 1: manual 340B ceiling price entry on ContractItem. |
 | HIPAA BAA (45 CFR Parts 160/164) | Specialty drug data with patient IDs | `baa_required` flag. Block activation if BAA not uploaded. |
 | MFN Monitoring | Contract has `mfn_clause` | Quarterly disclosure workflow. Audit-right scheduler. |
 | False Claims Act audit trail | Discrepancies touching Medicare | Append-only discrepancy log. 3-year retention per contract. |
@@ -201,9 +272,12 @@ class MFNClause(Base):
 
 ## 8. Phase 1 Build Plan — GSD Waves
 
-### Wave 1 — Data Models + Document Ingestion
-- PostgreSQL schema: WholesaleAgreement, PricingTier, ContractItem, MFNClause
+### Wave 1 — Data Models + Auth + Document Ingestion
+- PostgreSQL schema: HospitalEntity, Supplier, Facility, User, WholesaleAgreement, PricingTier, ContractItem, MFNClause, UOMConversion
 - Invoice + InvoiceLineItem models with discrepancy tracking fields
+- AuditLogEntry table + PostgreSQL immutability trigger
+- JWT auth: login, refresh, role-based `Depends()` guards (`require_procurement_officer`, `require_approver`, `require_entity_admin`)
+- Row-level tenant isolation middleware: `entity_id` scoped on all queries
 - S3 upload endpoint — PDF contracts and EDI 810 invoices
 - Celery worker: PDF parsing with pdfplumber + Unstructured.io
 - LangGraph graph scaffold with PostgresSaver checkpointing
@@ -242,6 +316,7 @@ class MFNClause(Base):
 
 All field names, compliance statute references, GPO mechanics, and pricing benchmarks in this spec were verified against domain research before inclusion. Known correct facts:
 
+- AKS statute: **42 U.S.C. §1320a-7b(b)** (corrected from §7b — verified)
 - GPO admin fee safe harbor ceiling: **3%** (42 CFR §1001.952j)
 - WAC = manufacturer list price to wholesalers (not net price)
 - AWP ≈ WAC × 1.20 for brand drugs (largely replaced by ASP for Medicare)
