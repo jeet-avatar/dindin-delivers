@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text, Enum as SQLEnum, JSON, Computed, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, ForeignKey, Boolean, Text, Enum as SQLEnum, JSON, Computed, UniqueConstraint
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
@@ -438,6 +439,13 @@ class Order(Base):
     delivery_fee = Column(Float, default=0.0)
     tip = Column(Float, default=0.0)  # Customer tip for driver
     platform_fee = Column(Float, default=0.0)  # Your commission ($1 flat fee)
+
+    # Prop 22 compliance columns — nullable; set at driver_accepted_at and delivery
+    prop22_acceptance_lat = Column(Float, nullable=True)   # driver GPS lat at acceptance
+    prop22_acceptance_lon = Column(Float, nullable=True)
+    prop22_engaged_hours = Column(Float, nullable=True)    # (delivered_at - driver_accepted_at) hours
+    prop22_engaged_miles = Column(Float, nullable=True)    # road miles: acceptance GPS -> delivery_lat/lon
+    prop22_floor_amount = Column(Float, nullable=True)
     discount_amount = Column(Float, default=0.0)  # Promo discount applied
     promo_code = Column(String(50), nullable=True)  # Applied promo code
     promo_type = Column(String(50), nullable=True)  # percentage, flat, free_delivery, bogo
@@ -1387,6 +1395,13 @@ class RideRequest(Base):
     # Tip
     tip_amount = Column(Float, default=0.0)  # Customer tip for driver (100% to driver)
 
+    # Prop 22 compliance columns — nullable; set at matched_at and completion
+    prop22_acceptance_lat = Column(Float, nullable=True)   # driver GPS lat at acceptance (matched_at)
+    prop22_acceptance_lon = Column(Float, nullable=True)   # driver GPS lon at acceptance
+    prop22_engaged_hours = Column(Float, nullable=True)    # (completed_at - matched_at) in hours
+    prop22_engaged_miles = Column(Float, nullable=True)    # road miles: acceptance GPS -> dropoff
+    prop22_floor_amount = Column(Float, nullable=True)     # floor for this ride (per-ride disclosure)
+
     # Rating
     customer_rating = Column(Integer)  # 1-5 stars from customer
     customer_comment = Column(Text)    # Optional review comment
@@ -1930,3 +1945,84 @@ class InAppNotification(Base):
 
     # Relationships
     customer = relationship("Customer")
+
+
+# =============================================================================
+# PROP 22 COMPLIANCE — California Proposition 22 earnings floor system
+# BPC 7453 (earnings floor) + BPC 7454(b)(2) (disclosure statements)
+# =============================================================================
+
+class Prop22Config(Base):
+    """Legally mandated Prop 22 rates — never hardcode in application logic."""
+    __tablename__ = "prop22_config"
+
+    id = Column(Integer, primary_key=True)
+    state = Column(String(10), nullable=False)
+    effective_date = Column(Date, nullable=False)
+    min_wage_multiplier = Column(Float, nullable=False)   # 1.20 per BPC 7453(a)(1)
+    mile_rate = Column(Float, nullable=False)              # $0.37/mile (2026)
+    healthcare_hours_threshold = Column(Float, default=15.0)
+    healthcare_stipend_weekly = Column(Float, default=0.0)
+
+
+class Prop22CityWage(Base):
+    """Per-city minimum wages for Prop 22 floor calculation (GPS-based lookup)."""
+    __tablename__ = "prop22_city_wages"
+
+    id = Column(Integer, primary_key=True)
+    city = Column(String(50), nullable=False)             # "CA", "SAN_FRANCISCO", "LOS_ANGELES"
+    effective_date = Column(Date, nullable=False)
+    min_wage = Column(Float, nullable=False)
+
+
+class Prop22EarningPeriod(Base):
+    """One row per driver per 14-day pay period.
+
+    Status flow: PENDING -> RECONCILED (no top-up) / PAID (Stripe) /
+                 MANUAL_REVIEW (Stripe failed or driver not onboarded) ->
+                 OVERDUE (deadline passed, escalation job triggered)
+    """
+    __tablename__ = "prop22_earning_periods"
+
+    id = Column(Integer, primary_key=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=False)
+    period_start = Column(DateTime(timezone=True), nullable=False)
+    period_end = Column(DateTime(timezone=True), nullable=False)
+    status = Column(String(20), nullable=False, default="PENDING")
+    service_type = Column(String(20), nullable=False, default="RIDESHARE")  # "RIDESHARE" or "FOOD_DELIVERY"
+    engaged_hours = Column(Float, nullable=False, default=0.0)
+    engaged_miles = Column(Float, nullable=False, default=0.0)
+    net_earnings = Column(Float, nullable=False, default=0.0)   # tips excluded — driver_payout sum
+    prop22_floor = Column(Float, nullable=False, default=0.0)   # sum of per-ride prop22_floor_amount
+    top_up_amount = Column(Float, nullable=False, default=0.0)  # max(0, floor - earned)
+    top_up_stripe_id = Column(String(255), nullable=True)       # Stripe Transfer ID or manual reference
+    deadline_at = Column(DateTime(timezone=True), nullable=True) # next period close
+    is_archived = Column(Boolean, default=False)                 # never DELETE; 4-year UCL retention
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("driver_id", "period_start", name="uq_prop22_period_driver_start"),
+    )
+
+
+class Prop22EarningsStatement(Base):
+    """BPC 7454(b)(2) earnings disclosure record — one per period per driver.
+
+    Must be retained for 4 years per California Labor Code. Never DELETE rows;
+    use is_archived=True for soft-delete if needed.
+    """
+    __tablename__ = "prop22_earnings_statement"
+
+    id = Column(Integer, primary_key=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=False)
+    period_id = Column(Integer, ForeignKey("prop22_earning_periods.id"), nullable=False)
+    period_engaged_hours = Column(Float, nullable=False, default=0.0)
+    qtd_engaged_hours = Column(Float, nullable=False, default=0.0)  # BPC 7454(b)(2) calendar quarter
+    period_engaged_miles = Column(Float, nullable=False, default=0.0)
+    net_earnings = Column(Float, nullable=False, default=0.0)       # tips excluded
+    prop22_floor = Column(Float, nullable=False, default=0.0)
+    top_up_amount = Column(Float, nullable=False, default=0.0)
+    top_up_stripe_id = Column(String(255), nullable=True)
+    is_archived = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
