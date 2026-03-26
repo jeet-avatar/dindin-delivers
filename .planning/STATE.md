@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 
 ## Current Position
 
-Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- IN PROGRESS
-Plan: 5 of 6 complete in current phase
-Status: Phase 13-05 complete: iOS PayoutDashboardView extended with Prop22Period/Prop22RideItem structs, prop22Section() @ViewBuilder, Prop22PeriodDetailView with QTD hours + per-ride floor disclosure. Build succeeded 0 errors. Ready for 13-06 (deploy).
-Last activity: 2026-03-26 - Completed 13-05-PLAN.md: Prop 22 compliance section added to iOS driver PayoutDashboardView.swift (399 lines, BPC §7454 disclosure)
+Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- COMPLETE
+Plan: 6 of 6 complete in current phase
+Status: Phase 13-06 complete: Admin portal /admin/prop22 Prop22Compliance.tsx (387 lines, Ant Design two-tab table + manual top-up modal). Build 0 errors. Phase 13 all 6 plans done. Ready for deploy wave.
+Last activity: 2026-03-26 - Completed 13-06-PLAN.md: Admin portal Prop 22 compliance page at /admin/prop22 (Prop22Compliance.tsx 387 lines, TypeScript build 0 errors)
 
-Progress: [######################################] 83% (5/6 plans in phase 13)
+Progress: [########################################] 100% (6/6 plans in phase 13)
 
 ## Completed Milestones
 
@@ -103,6 +103,7 @@ Progress: [######################################] 83% (5/6 plans in phase 13)
 - [Phase 13-02]: get_traffic_eta_sync imported at module level in prop22_utils.py for testability; TestGetCityMinWage uses MagicMock DB (no Alembic seed in SQLite test DB)
 - [Phase 13-05]: Prop22RideItem uses Decodable (not Codable) to support custom init() for dual ride_id/order_id key handling without needing encode()
 - [Phase 13-05]: prop22Section() fetches Prop22 data independently via .onAppear, separate from payout history fetch
+- [Phase 13-06]: Used ClipboardCheck icon (already imported from lucide-react) for Prop 22 sidebar item — no new icon libraries needed
 
 ### Blockers
 
@@ -263,6 +264,7 @@ None
 - Total plans: 10 (across 5 phases)
 - Completed: 5
 | Phase 13 P05 | 4 | 2 tasks | 1 files |
+| Phase 13-prop22-driver-earnings-floor P06 | 2 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
