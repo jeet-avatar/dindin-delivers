@@ -34,4 +34,8 @@ CREATE TRIGGER audit_log_immutable_trigger
     FOR EACH ROW EXECUTE FUNCTION audit_log_immutable();
 """)
 
-event.listen(AuditLogEntry.__table__, "after_create", _IMMUTABILITY_TRIGGER)
+event.listen(
+    AuditLogEntry.__table__,
+    "after_create",
+    _IMMUTABILITY_TRIGGER.execute_if(dialect="postgresql"),
+)
