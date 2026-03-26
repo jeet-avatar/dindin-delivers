@@ -5,7 +5,7 @@ subsystem: android-builds
 tags: [android, firebase, apk, distribution]
 dependency_graph:
   requires: []
-  provides: [android-apks-built]
+  provides: [android-apks-built, android-apks-distributed]
   affects: [firebase-app-distribution]
 tech_stack:
   added: []
@@ -15,89 +15,65 @@ key_files:
   modified: []
 decisions:
   - "APK build verified: all 3 modules BUILD SUCCESSFUL, sizes 15-23 MB"
-  - "Firebase reauth required before distribution can complete"
+  - "Firebase reauth was required before distribution — user completed interactive login, then all 3 uploads succeeded"
 metrics:
-  duration: "~3 min (build only)"
+  duration: "~25 min (build + reauth + distribute)"
   completed_date: "2026-03-25"
 ---
 
 # Quick-232: Build All Android APKs and Distribute to Firebase — Summary
 
-**One-liner:** Built all 3 Android release APKs (Customer 23 MB, Driver 15 MB, Partner 15 MB) via Gradle; Firebase distribution blocked on expired CLI credentials requiring interactive reauth.
+**One-liner:** Built all 3 signed Android release APKs (Customer 23 MB vC=40, Driver 15 MB vC=36, Partner 15 MB vC=35) via Gradle and distributed all 3 to Firebase App Distribution after user completed required CLI reauth.
 
 ## Tasks Completed
 
 | Task | Status | Commit |
 |------|--------|--------|
 | Task 1: Build all 3 Android release APKs | COMPLETE | 99781c1f |
-| Task 2: Distribute to Firebase App Distribution | BLOCKED — auth expired | — |
+| Task 2: Distribute all 3 APKs to Firebase App Distribution | COMPLETE | — |
 
 ## Task 1 — Build Results
 
 All 3 release APKs built successfully with `./gradlew :app:assembleRelease :driver:assembleRelease :partner:assembleRelease`.
 
-| APK | Size | versionCode | versionName | Path |
-|-----|------|-------------|-------------|------|
-| app-release.apk | 23 MB | 40 | 1.0.39 | `app/build/outputs/apk/release/app-release.apk` |
-| driver-release.apk | 15 MB | 36 | 1.0.35 | `driver/build/outputs/apk/release/driver-release.apk` |
-| partner-release.apk | 15 MB | 35 | 1.0.34 | `partner/build/outputs/apk/release/partner-release.apk` |
+| APK | Size | versionCode | versionName | Package |
+|-----|------|-------------|-------------|---------|
+| app-release.apk | 23 MB | 40 | 1.0.39 | ai.dollor.customer |
+| driver-release.apk | 15 MB | 36 | 1.0.35 | ai.dollor.driver |
+| partner-release.apk | 15 MB | 35 | 1.0.34 | ai.dollor.partner |
 
 Gradle output: `BUILD SUCCESSFUL in 18s` — 175 actionable tasks, 111 executed, 59 from cache, 5 up-to-date.
 
-## Task 2 — Firebase Distribution (BLOCKED)
+## Task 2 — Firebase Distribution Results
 
-Firebase CLI returned:
-```
-Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
-```
+All 3 APKs successfully uploaded and distributed to `jeetnair.in@gmail.com` via Firebase App Distribution (project: dollorai-production).
 
-This matches the known state in MEMORY.md ("Firebase pending reauth"). The Firebase CLI requires interactive browser authentication which cannot be automated from the CLI agent context.
+| App | Firebase App ID | Release | Status |
+|-----|-----------------|---------|--------|
+| Customer | 1:65740760476:android:535885ca28086e6242d459 | v1.0.39 (vC=40) | Distributed |
+| Driver | 1:65740760476:android:7d9bed1ee685434c42d459 | v1.0.35 (vC=36) | Distributed |
+| Partner | 1:65740760476:android:8591cc17fa4f8d4c42d459 | v1.0.34 (vC=35) | Distributed |
 
 ## Deviations from Plan
 
-### Authentication Gates
+### Authentication Gate (Resolved by User)
 
 **Firebase CLI Reauth Required (Task 2)**
 - **Found during:** Task 2 — first distribute command
 - **Error:** `Authentication Error: Your credentials are no longer valid`
-- **Resolution needed:** Run `firebase login --reauth` in a terminal session, complete browser OAuth, then re-run the 3 distribute commands below
+- **Resolution:** User ran `firebase login --reauth`, completed browser OAuth, then all 3 distribute commands succeeded
+- **Impact:** Task 2 required human action before completing; this matches the known state in MEMORY.md ("Firebase pending reauth")
 
-### Change Request API (Minor)
+### Change Request API (Minor — Non-blocking)
 
-`ADMIN_SECRET_KEY` env var not set in executor shell — CR could not be created via API. This is a non-blocking gap; the build work proceeded normally.
-
-## Resume Commands (after firebase login --reauth)
-
-```bash
-# Customer
-firebase appdistribution:distribute \
-  /Users/jeet/StudioProjects/eatfair-android/app/build/outputs/apk/release/app-release.apk \
-  --app "1:65740760476:android:535885ca28086e6242d459" \
-  --testers "jeetnair.in@gmail.com" \
-  --release-notes "Customer v1.0.39 (vC=40) — pre-Play-Store verification build" \
-  --project dollorai-production
-
-# Driver
-firebase appdistribution:distribute \
-  /Users/jeet/StudioProjects/eatfair-android/driver/build/outputs/apk/release/driver-release.apk \
-  --app "1:65740760476:android:7d9bed1ee685434c42d459" \
-  --testers "jeetnair.in@gmail.com" \
-  --release-notes "Driver v1.0.35 (vC=36) — pre-Play-Store verification build" \
-  --project dollorai-production
-
-# Partner
-firebase appdistribution:distribute \
-  /Users/jeet/StudioProjects/eatfair-android/partner/build/outputs/apk/release/partner-release.apk \
-  --app "1:65740760476:android:8591cc17fa4f8d4c42d459" \
-  --testers "jeetnair.in@gmail.com" \
-  --release-notes "Partner v1.0.34 (vC=35) — pre-Play-Store verification build" \
-  --project dollorai-production
-```
+`ADMIN_SECRET_KEY` env var not set in executor shell — CR could not be created via API. Build and distribution work proceeded normally.
 
 ## Self-Check
 
-- [x] All 3 APK files exist on disk (verified with ls -lh)
+- [x] All 3 APK files existed on disk at build time (verified with ls -lh)
 - [x] Sizes are in MB range (23 MB, 15 MB, 15 MB) — not empty stubs
 - [x] Gradle BUILD SUCCESSFUL confirmed
 - [x] Task 1 commit exists: 99781c1f
-- [ ] Firebase distribution: BLOCKED — requires user reauth
+- [x] Firebase distribution: COMPLETE — all 3 apps distributed after user reauth
+
+## Self-Check: PASSED
