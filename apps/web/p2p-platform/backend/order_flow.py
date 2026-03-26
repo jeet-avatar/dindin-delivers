@@ -100,6 +100,7 @@ def _send_fcm_direct(fcm_token: str, title: str, body: str, data: dict = None) -
 # Background scheduler for automatic timeout checks
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 
 logger = logging.getLogger(__name__)
 
@@ -367,7 +368,8 @@ def estimate_delivery_eta(order: "Order") -> Optional[str]:
 from models import (
     Order, OrderStatus, Vendor, VendorMenuItem, Driver, DriverStatus,
     VendorPayout, DriverPayout, JournalEntry, JournalEntryLine, VendorStatus,
-    Customer, User, RideRequest as RideRequestModel, RideRequestStatus
+    Customer, User, RideRequest as RideRequestModel, RideRequestStatus,
+    Prop22EarningPeriod, Prop22EarningsStatement,
 )
 
 router = APIRouter(prefix="/api/erp", tags=["erp"])
@@ -2932,6 +2934,252 @@ def _should_run_scheduler() -> bool:
         return False
 
 
+def prop22_period_reconciliation_job():
+    """
+    Prop 22 14-day period reconciliation (BPC §§7453-7454).
+    Runs nightly at PT midnight. Only processes on period boundary nights.
+    Per-driver db.commit() — single-driver Stripe failure does not roll back others.
+    """
+    import fcntl
+    lock_path = "/tmp/prop22_reconciliation.lock"
+    try:
+        lock_fd = os.open(lock_path, os.O_CREAT | os.O_WRONLY, 0o644)
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        logger.info("Prop 22 reconciliation: another process is handling this, skipping")
+        return
+
+    try:
+        from prop22_utils import (
+            get_previous_period_bounds, get_next_period_end,
+            get_qtd_engaged_hours, CA_LAT_MIN, CA_LAT_MAX, CA_LON_MIN, CA_LON_MAX
+        )
+        from zoneinfo import ZoneInfo
+        CA_TZ = ZoneInfo("America/Los_Angeles")
+
+        now = datetime.now(CA_TZ)
+        prev_start, prev_end = get_previous_period_bounds()
+
+        # Period boundary guard: only process on the 14th-day midnight
+        if now.date() != prev_end.date():
+            return
+
+        logger.info(f"Prop 22 reconciliation: processing period {prev_start.date()} -> {prev_end.date()}")
+        db = SessionLocal()
+        try:
+            # --- Rideshare drivers with CA-accepted rides ---
+            rideshare_driver_ids = (
+                db.query(RideRequestModel.driver_id)
+                .filter(
+                    RideRequestModel.matched_at >= prev_start,
+                    RideRequestModel.matched_at < prev_end,
+                    RideRequestModel.status == "completed",
+                    RideRequestModel.prop22_acceptance_lat.isnot(None),
+                    RideRequestModel.prop22_acceptance_lat.between(CA_LAT_MIN, CA_LAT_MAX),
+                    RideRequestModel.prop22_acceptance_lon.between(CA_LON_MIN, CA_LON_MAX),
+                )
+                .distinct()
+                .all()
+            )
+
+            # --- Food delivery drivers with CA-accepted orders ---
+            food_driver_ids = (
+                db.query(Order.driver_id)
+                .filter(
+                    Order.driver_accepted_at >= prev_start,
+                    Order.driver_accepted_at < prev_end,
+                    Order.prop22_acceptance_lat.isnot(None),
+                    Order.prop22_acceptance_lat.between(CA_LAT_MIN, CA_LAT_MAX),
+                    Order.prop22_acceptance_lon.between(CA_LON_MIN, CA_LON_MAX),
+                )
+                .distinct()
+                .all()
+            )
+
+            # Combine unique driver IDs with service type tracking
+            rideshare_ids = {r[0] for r in rideshare_driver_ids}
+            food_ids = {r[0] for r in food_driver_ids}
+            drivers_to_process = [(did, "RIDESHARE") for did in rideshare_ids]
+            for did in food_ids:
+                if did not in rideshare_ids:  # rideshare takes precedence for dual-service drivers
+                    drivers_to_process.append((did, "FOOD_DELIVERY"))
+
+            for driver_id, service_type in drivers_to_process:
+                try:
+                    # SELECT-before-INSERT: skip if already processed (job retry safety)
+                    existing = db.query(Prop22EarningPeriod).filter_by(
+                        driver_id=driver_id,
+                        period_start=prev_start
+                    ).first()
+                    if existing:
+                        logger.debug(f"Prop 22: driver {driver_id} period already processed, skipping")
+                        continue
+
+                    if service_type == "RIDESHARE":
+                        work_items = db.query(RideRequestModel).filter(
+                            RideRequestModel.driver_id == driver_id,
+                            RideRequestModel.matched_at >= prev_start,
+                            RideRequestModel.matched_at < prev_end,
+                            RideRequestModel.status == "completed",
+                            RideRequestModel.prop22_acceptance_lat.between(CA_LAT_MIN, CA_LAT_MAX),
+                            RideRequestModel.prop22_acceptance_lon.between(CA_LON_MIN, CA_LON_MAX),
+                        ).all()
+                        engaged_hours = sum(r.prop22_engaged_hours or 0 for r in work_items)
+                        engaged_miles = sum(r.prop22_engaged_miles or 0 for r in work_items)
+                        # Tips excluded: driver_payout (models.py:1379) = fare minus platform_fee;
+                        # tip is tracked in tip_amount column separately
+                        net_earnings = sum(r.driver_payout or 0 for r in work_items)
+                        prop22_floor = sum(r.prop22_floor_amount or 0 for r in work_items)
+                    else:  # FOOD_DELIVERY
+                        work_items = db.query(Order).filter(
+                            Order.driver_id == driver_id,
+                            Order.driver_accepted_at >= prev_start,
+                            Order.driver_accepted_at < prev_end,
+                            Order.prop22_acceptance_lat.between(CA_LAT_MIN, CA_LAT_MAX),
+                            Order.prop22_acceptance_lon.between(CA_LON_MIN, CA_LON_MAX),
+                        ).all()
+                        engaged_hours = sum(o.prop22_engaged_hours or 0 for o in work_items)
+                        engaged_miles = sum(o.prop22_engaged_miles or 0 for o in work_items)
+                        # Tips excluded: Order.delivery_fee (models.py:438) excludes Order.tip (models.py:439)
+                        net_earnings = sum(o.delivery_fee or 0 for o in work_items)
+                        prop22_floor = sum(o.prop22_floor_amount or 0 for o in work_items)
+
+                    top_up = max(0.0, prop22_floor - net_earnings)
+                    qtd_hours = get_qtd_engaged_hours(db, driver_id, prev_end)
+                    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+                    if not driver:
+                        logger.warning(f"Prop 22: driver {driver_id} not found, skipping")
+                        continue
+
+                    period = Prop22EarningPeriod(
+                        driver_id=driver_id,
+                        period_start=prev_start,
+                        period_end=prev_end,
+                        service_type=service_type,
+                        engaged_hours=engaged_hours,
+                        engaged_miles=engaged_miles,
+                        net_earnings=net_earnings,
+                        prop22_floor=prop22_floor,
+                        top_up_amount=top_up,
+                        status="PENDING",
+                        deadline_at=get_next_period_end(prev_end),
+                    )
+                    db.add(period)
+                    db.flush()  # get period.id for earnings statement FK
+
+                    statement = Prop22EarningsStatement(
+                        driver_id=driver_id,
+                        period_id=period.id,
+                        period_engaged_hours=engaged_hours,
+                        qtd_engaged_hours=qtd_hours,
+                        period_engaged_miles=engaged_miles,
+                        net_earnings=net_earnings,
+                        prop22_floor=prop22_floor,
+                        top_up_amount=top_up,
+                    )
+                    db.add(statement)
+
+                    if top_up <= 0:
+                        period.status = "RECONCILED"
+                        send_push_notification(
+                            "driver", driver_id,
+                            "Prop 22 — No Top-Up Needed",
+                            f"Your earnings of ${net_earnings:.2f} exceeded the ${prop22_floor:.2f} floor.",
+                            {"type": "prop22_statement", "period_id": period.id},
+                            db
+                        )
+                    elif driver.stripe_onboarded and driver.stripe_account_id:
+                        try:
+                            import stripe as stripe_lib
+                            transfer = stripe_lib.Transfer.create(
+                                amount=int(top_up * 100),
+                                currency="usd",
+                                destination=driver.stripe_account_id,
+                                idempotency_key=f"prop22_topup_{driver_id}_{period.id}",
+                            )
+                            period.top_up_stripe_id = transfer["id"]
+                            period.status = "PAID"
+                            send_push_notification(
+                                "driver", driver_id,
+                                f"Prop 22 Top-Up: ${top_up:.2f}",
+                                "Your Prop 22 earnings top-up has been transferred.",
+                                {"type": "prop22_topup", "period_id": period.id},
+                                db
+                            )
+                        except Exception as stripe_err:
+                            logger.warning(
+                                f"Prop 22: Stripe transfer failed for driver {driver_id}: {stripe_err}"
+                            )
+                            period.status = "MANUAL_REVIEW"
+                    else:
+                        period.status = "MANUAL_REVIEW"
+                        logger.warning(
+                            f"Prop 22: driver {driver_id} not Stripe-onboarded — "
+                            f"top-up ${top_up:.2f} flagged MANUAL_REVIEW"
+                        )
+
+                    db.commit()  # commit per driver — single failure does not roll back others
+                    logger.info(f"Prop 22: driver {driver_id} period {period.id} -> {period.status}")
+
+                except Exception as driver_err:
+                    db.rollback()
+                    logger.error(f"Prop 22 reconciliation: driver {driver_id} failed: {driver_err}")
+                    continue
+
+        finally:
+            db.close()
+
+    finally:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            os.close(lock_fd)
+        except Exception:
+            pass
+
+
+def prop22_manual_review_escalation_job():
+    """
+    Checks MANUAL_REVIEW periods daily at 9 AM PT.
+    Marks OVERDUE when deadline_at has passed.
+    Logs 3-day warning for approaching deadlines.
+    Uses logger.warning() — no send_admin_alert() function exists (RESEARCH.md pitfall #6).
+    """
+    from zoneinfo import ZoneInfo
+    CA_TZ = ZoneInfo("America/Los_Angeles")
+    now = datetime.now(CA_TZ)
+
+    db = SessionLocal()
+    try:
+        pending = db.query(Prop22EarningPeriod).filter(
+            Prop22EarningPeriod.status == "MANUAL_REVIEW"
+        ).all()
+
+        for p in pending:
+            if not p.deadline_at:
+                continue
+            days_remaining = (p.deadline_at.astimezone(CA_TZ) - now).days
+            if days_remaining < 0:
+                p.status = "OVERDUE"
+                logger.warning(
+                    f"PROP22 OVERDUE: driver_id={p.driver_id} period_id={p.id} "
+                    f"top_up=${p.top_up_amount:.2f} — UCL violation risk ($2,500). "
+                    f"Process via ACH/check within 48h."
+                )
+            elif days_remaining <= 3:
+                logger.warning(
+                    f"PROP22 DEADLINE APPROACHING: driver_id={p.driver_id} period_id={p.id} "
+                    f"top_up=${p.top_up_amount:.2f} due in {days_remaining} day(s). "
+                    f"Admin portal: /admin/prop22"
+                )
+
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Prop 22 escalation job failed: {e}")
+    finally:
+        db.close()
+
+
 def start_timeout_scheduler():
     """Start the background scheduler for timeout checks"""
     if not restaurant_timeout_scheduler.running and _should_run_scheduler():
@@ -2988,6 +3236,22 @@ def start_timeout_scheduler():
             IntervalTrigger(hours=1),
             id="delivery_photo_cleanup",
             name="Delete S3 delivery photos older than 12 hours",
+            replace_existing=True
+        )
+        # Prop 22 BPC §§7453-7454 reconciliation: nightly at PT midnight (boundary nights only)
+        restaurant_timeout_scheduler.add_job(
+            prop22_period_reconciliation_job,
+            CronTrigger(hour=0, minute=0, timezone="America/Los_Angeles"),
+            id="prop22_reconciliation",
+            name="Prop 22 14-day period reconciliation (BPC §7454)",
+            replace_existing=True
+        )
+        # Prop 22 escalation: daily at 9 AM PT — OVERDUE transition + 3-day deadline warnings
+        restaurant_timeout_scheduler.add_job(
+            prop22_manual_review_escalation_job,
+            CronTrigger(hour=9, minute=0, timezone="America/Los_Angeles"),
+            id="prop22_escalation",
+            name="Prop 22 MANUAL_REVIEW escalation and OVERDUE marking",
             replace_existing=True
         )
         # Refresh Redis scheduler lock every 50s (lock TTL is 55s — keeps leader alive across job cycles)
