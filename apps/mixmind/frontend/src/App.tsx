@@ -15,8 +15,8 @@ export default function App() {
   const { tracks, loading, error, reload } = useLibrary();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [duplicateCount, setDuplicateCount] = useState(0);
-  const [usbConnected, setUsbConnected] = useState(false);
-  const [usbName, setUsbName] = useState<string | undefined>();
+  const [usbConnected] = useState(false);
+  const [usbName] = useState<string | undefined>();
 
   function handlePlaylistCreated(name: string, items: AIPlaylistItem[]) {
     const matched = items.flatMap(item => {
@@ -26,80 +26,98 @@ export default function App() {
       );
       return found ? [found] : [];
     });
-    setPlaylists(prev => [...prev, {
-      id: Date.now().toString(),
-      name,
-      tracks: matched,
-    }]);
+    setPlaylists(prev => [...prev, { id: Date.now().toString(), name, tracks: matched }]);
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0f0f0f] text-gray-100">
-      <LeftNav
-        active={panel}
-        onChange={setPanel}
-        usbConnected={usbConnected}
-        usbName={usbName}
-        duplicateCount={duplicateCount}
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0a0a0a', overflow: 'hidden' }}>
+      {/* Electron traffic-light drag region */}
+      <div style={{ height: '28px', background: '#0a0a0a', flexShrink: 0, ...(({ WebkitAppRegion: 'drag' } as any)) }} />
 
-      <main className="flex-1 overflow-hidden flex flex-col min-w-0">
-        {panel === 'library' && (
-          loading ? (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
-              Loading library...
-            </div>
-          ) : error === 'no_library' ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
-              <div className="text-4xl">📂</div>
-              <div>
-                <div className="text-gray-200 font-medium mb-2">No Rekordbox library found</div>
-                <div className="text-gray-500 text-sm max-w-xs">
-                  Export your library from Rekordbox:<br/>
-                  <strong>File → Export Collection in xml format</strong><br/>
-                  then reload MixMind.
+      {/* Main layout */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+        <LeftNav
+          active={panel}
+          onChange={setPanel}
+          usbConnected={usbConnected}
+          usbName={usbName}
+          duplicateCount={duplicateCount}
+        />
+
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+          {panel === 'library' && (
+            loading ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '32px', height: '32px', border: '2px solid #7c3aed', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <span style={{ fontSize: '13px', color: '#4b5563' }}>Loading library…</span>
                 </div>
               </div>
-              <button
-                onClick={reload}
-                className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-md text-sm"
-              >
-                Reload Library
-              </button>
-            </div>
-          ) : error === 'connection_failed' ? (
-            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-              Connecting to sidecar...
-            </div>
-          ) : (
-            <TrackTable tracks={tracks} />
-          )
-        )}
-
-        {panel === 'playlists' && (
-          <div className="flex-1 p-4">
-            <div className="text-gray-400 text-sm">
-              {playlists.length === 0
-                ? 'No playlists yet. Ask the AI to build one!'
-                : playlists.map(p => (
-                  <div key={p.id} className="mb-3 p-3 bg-white/5 rounded-md">
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-xs text-gray-500">{p.tracks.length} tracks</div>
+            ) : error === 'no_library' ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '32px' }}>
+                <div style={{ width: '52px', height: '52px', background: '#111', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="1.75" strokeLinecap="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#e5e7eb', marginBottom: '8px' }}>No Rekordbox library found</div>
+                  <div style={{ fontSize: '13px', color: '#4b5563', lineHeight: '1.6', maxWidth: '300px' }}>
+                    Export your library from Rekordbox:<br />
+                    <strong style={{ color: '#6b7280' }}>File → Export Collection in xml format</strong>
                   </div>
-                ))
-              }
+                </div>
+                <button onClick={reload}
+                  style={{ padding: '8px 20px', background: 'rgba(124,58,237,0.15)', color: '#c084fc', border: '1px solid rgba(124,58,237,0.25)', borderRadius: '8px', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
+                  Reload Library
+                </button>
+              </div>
+            ) : error === 'connection_failed' ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                <div style={{ width: '32px', height: '32px', border: '2px solid #7c3aed', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <span style={{ fontSize: '13px', color: '#4b5563' }}>Connecting to sidecar…</span>
+              </div>
+            ) : (
+              <TrackTable tracks={tracks} />
+            )
+          )}
+
+          {panel === 'playlists' && (
+            <div style={{ flex: 1, overflow: 'auto', padding: '20px', background: '#0d0d0d' }}>
+              {playlists.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px' }}>
+                  <div style={{ width: '48px', height: '48px', background: '#111', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="1.75" strokeLinecap="round">
+                      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                      <circle cx="3" cy="6" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#e5e7eb' }}>No playlists yet</div>
+                  <div style={{ fontSize: '12px', color: '#4b5563' }}>Ask the AI to build a set for you</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '600px' }}>
+                  {playlists.map(p => (
+                    <div key={p.id} style={{ padding: '14px 16px', background: '#111', border: '1px solid #1e1e1e', borderRadius: '12px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#e5e7eb' }}>{p.name}</div>
+                      <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '4px' }}>{p.tracks.length} tracks</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {panel === 'duplicates' && (
-          <DuplicatePanel onCountChange={setDuplicateCount} />
-        )}
+          {panel === 'duplicates' && <DuplicatePanel onCountChange={setDuplicateCount} />}
+          {panel === 'usb' && <USBPanel />}
+        </main>
 
-        {panel === 'usb' && <USBPanel />}
-      </main>
+        <AIChatSidebar onPlaylistCreated={handlePlaylistCreated} />
+      </div>
 
-      <AIChatSidebar onPlaylistCreated={handlePlaylistCreated} />
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
