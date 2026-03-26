@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- COMPLETE
 Plan: 6 of 6 complete in current phase
 Status: Phase 13-06 complete: Admin portal /admin/prop22 Prop22Compliance.tsx (387 lines, Ant Design two-tab table + manual top-up modal). Build 0 errors. Phase 13 all 6 plans done. Ready for deploy wave.
-Last activity: 2026-03-26 - Completed quick task 231: Apply Phase 2 Indigo Noir dark theme to BrandMonkz — Sidebar glass floating panel, Layout ambient blobs, new Topbar component
+Last activity: 2026-03-26 - Completed quick task 233: Build BrandMonkz 3-step campaign wizard (CampaignWizard.tsx) + fix AIChat dark theme + fix generate-basics backend + deploy to production
 
 Progress: [########################################] 100% (6/6 plans in phase 13)
 
@@ -365,6 +365,7 @@ None
 | 208 | Restaurant flow audit + fix 5 gaps: vendor-arrived-at-delivery 404 (GAP-2), self-delivery auth mismatch (GAP-4), timeout push notifications (GAP-5), wrong accept endpoint (GAP-1), countdown timer (GAP-3) + swipe button migration | 2026-03-24 | 461a4de1 | [208-restaurant-flow-audit-visual-swipe-status](./quick/208-restaurant-flow-audit-visual-swipe-status/) |
 | 231 | Apply Phase 2 Indigo Noir dark theme to BrandMonkz — Sidebar glass floating panel, Layout ambient blobs, new Topbar component | 2026-03-26 | 6fb0b306 | [231-apply-phase-2-indigo-noir-dark-theme-to-](./quick/231-apply-phase-2-indigo-noir-dark-theme-to-/) |
 | 232 | Build all 3 Android release APKs (Customer vC=40/1.0.39 23MB, Driver vC=36/1.0.35 15MB, Partner vC=35/1.0.34 15MB) and distribute to Firebase App Distribution — jeetnair.in@gmail.com | 2026-03-25 | 99781c1f | [232-build-all-android-apks-and-distribute-to](./quick/232-build-all-android-apks-and-distribute-to/) |
+| 233 | Build BrandMonkz 3-step campaign wizard (CampaignWizard.tsx replacing CreateCampaignModal.tsx) + fix AIChat dark theme + fix generate-basics backend to use description field + deploy to production | 2026-03-26 | 0977b58f | [233-build-brandmonkz-3-step-campaign-wizard-](./quick/233-build-brandmonkz-3-step-campaign-wizard-/) |
 | Phase 13 P03 | 10 | 2 tasks | 2 files |
 
 ## Session Continuity
