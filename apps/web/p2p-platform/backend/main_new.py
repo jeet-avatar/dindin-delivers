@@ -8005,6 +8005,243 @@ async def get_driver_earnings(
     }
 
 
+# ============================================================
+# Prop 22 Compliance Endpoints — California BPC §§7453-7463
+# ============================================================
+
+@app.get("/api/driver/prop22/periods")
+async def get_driver_prop22_periods(
+    driver: Driver = Depends(require_driver),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns all Prop 22 earning periods for the authenticated driver.
+    Most recent period first. Includes qtd_engaged_hours from earnings statement
+    per BPC §7454(b)(2) calendar-quarter disclosure requirement.
+    iOS PayoutDashboardView consumes this.
+    """
+    from models import Prop22EarningPeriod, Prop22EarningsStatement
+    periods = (
+        db.query(Prop22EarningPeriod)
+        .filter(
+            Prop22EarningPeriod.driver_id == driver.id,
+            Prop22EarningPeriod.is_archived == False
+        )
+        .order_by(Prop22EarningPeriod.period_start.desc())
+        .all()
+    )
+
+    result = []
+    for p in periods:
+        # JOIN to earnings statement for QTD hours (BPC §7454(b)(2))
+        statement = (
+            db.query(Prop22EarningsStatement)
+            .filter(Prop22EarningsStatement.period_id == p.id)
+            .first()
+        )
+        result.append({
+            "id": p.id,
+            "period_start": p.period_start.isoformat(),
+            "period_end": p.period_end.isoformat(),
+            "status": p.status,
+            "service_type": p.service_type,
+            "engaged_hours": p.engaged_hours,
+            "engaged_miles": p.engaged_miles,
+            "net_earnings": p.net_earnings,
+            "prop22_floor": p.prop22_floor,
+            "top_up_amount": p.top_up_amount,
+            "deadline_at": p.deadline_at.isoformat() if p.deadline_at else None,
+            "qtd_engaged_hours": statement.qtd_engaged_hours if statement else None,
+        })
+    return result
+
+
+@app.get("/api/driver/prop22/periods/{period_id}/rides")
+async def get_driver_prop22_period_rides(
+    period_id: int,
+    driver: Driver = Depends(require_driver),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns rides (or orders) for a specific Prop 22 period.
+    Driver can only access their own period (ownership check).
+    iOS per-ride disclosure — prop22_floor_amount may be null (pre-deployment rides).
+    """
+    from models import Prop22EarningPeriod, RideRequest, RideRequestStatus
+    from fastapi import HTTPException
+
+    period = (
+        db.query(Prop22EarningPeriod)
+        .filter(
+            Prop22EarningPeriod.id == period_id,
+            Prop22EarningPeriod.driver_id == driver.id  # ownership: driver can only see own periods
+        )
+        .first()
+    )
+    if not period:
+        raise HTTPException(status_code=404, detail="Period not found")
+
+    if period.service_type == "FOOD_DELIVERY":
+        orders = (
+            db.query(Order)
+            .filter(
+                Order.driver_id == driver.id,
+                Order.driver_accepted_at >= period.period_start,
+                Order.driver_accepted_at < period.period_end,
+            )
+            .order_by(Order.delivered_at.desc())
+            .all()
+        )
+        return [
+            {
+                "order_id": o.id,
+                "completed_at": o.delivered_at.isoformat() if o.delivered_at else None,
+                "prop22_engaged_hours": o.prop22_engaged_hours,
+                "prop22_engaged_miles": o.prop22_engaged_miles,
+                "prop22_floor_amount": o.prop22_floor_amount,
+            }
+            for o in orders
+        ]
+    else:  # RIDESHARE (default)
+        rides = (
+            db.query(RideRequest)
+            .filter(
+                RideRequest.driver_id == driver.id,
+                RideRequest.matched_at >= period.period_start,
+                RideRequest.matched_at < period.period_end,
+                RideRequest.status == "completed",
+            )
+            .order_by(RideRequest.completed_at.desc())
+            .all()
+        )
+        return [
+            {
+                "ride_id": r.id,
+                "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+                "prop22_engaged_hours": r.prop22_engaged_hours,
+                "prop22_engaged_miles": r.prop22_engaged_miles,
+                "prop22_floor_amount": r.prop22_floor_amount,
+            }
+            for r in rides
+        ]
+
+
+@app.get("/api/admin/prop22/periods")
+async def get_admin_prop22_periods(
+    status: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns all Prop 22 earning periods for admin compliance view.
+    Supports filtering by status (e.g., MANUAL_REVIEW, OVERDUE).
+    Sorted by deadline_at ASC for MANUAL_REVIEW/OVERDUE, period_start DESC otherwise.
+    Admin portal compliance dashboard consumes this.
+    """
+    from models import Prop22EarningPeriod
+
+    query = (
+        db.query(Prop22EarningPeriod, Driver)
+        .join(Driver, Prop22EarningPeriod.driver_id == Driver.id)
+        .filter(Prop22EarningPeriod.is_archived == False)
+    )
+
+    if status:
+        query = query.filter(Prop22EarningPeriod.status == status)
+
+    if status in ["MANUAL_REVIEW", "OVERDUE"]:
+        query = query.order_by(Prop22EarningPeriod.deadline_at.asc())
+    else:
+        query = query.order_by(Prop22EarningPeriod.period_start.desc())
+
+    total = query.count()
+    results = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": [
+            {
+                "id": p.id,
+                "driver_id": p.driver_id,
+                "driver_name": f"{d.first_name} {d.last_name}",
+                "driver_stripe_onboarded": d.stripe_onboarded,
+                "period_start": p.period_start.isoformat(),
+                "period_end": p.period_end.isoformat(),
+                "status": p.status,
+                "service_type": p.service_type,
+                "engaged_hours": p.engaged_hours,
+                "engaged_miles": p.engaged_miles,
+                "net_earnings": p.net_earnings,
+                "prop22_floor": p.prop22_floor,
+                "top_up_amount": p.top_up_amount,
+                "top_up_stripe_id": p.top_up_stripe_id,
+                "deadline_at": p.deadline_at.isoformat() if p.deadline_at else None,
+            }
+            for p, d in results
+        ]
+    }
+
+
+@app.post("/api/admin/prop22/manual-topup")
+async def post_admin_prop22_manual_topup(
+    driver_id: int,
+    period_id: int,
+    amount: float,
+    method: str,           # "ACH" | "CHECK" | "STRIPE"
+    reference_number: str, # stored in top_up_stripe_id — BPC §7454 payment record
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Records a manual Prop 22 top-up payment.
+    Updates period status to PAID, stores reference_number in top_up_stripe_id.
+    reference_number satisfies BPC §7454 audit requirement for offline payments.
+    Format stored: "METHOD:REF-NUMBER" (e.g., "ACH:REF-001").
+    """
+    from models import Prop22EarningPeriod, Prop22EarningsStatement
+    from fastapi import HTTPException
+
+    period = db.query(Prop22EarningPeriod).filter(
+        Prop22EarningPeriod.id == period_id,
+        Prop22EarningPeriod.driver_id == driver_id
+    ).first()
+    if not period:
+        raise HTTPException(status_code=404, detail="Prop 22 period not found")
+    if period.status not in ["MANUAL_REVIEW", "OVERDUE"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Period status is {period.status}, not MANUAL_REVIEW or OVERDUE"
+        )
+
+    # Store as "METHOD:REF-NUMBER" for BPC §7454 audit trail
+    period.top_up_stripe_id = f"{method}:{reference_number}"
+    period.status = "PAID"
+    period.top_up_amount = amount
+
+    # Also update the earnings statement record for BPC §7454 compliance retention
+    statement = db.query(Prop22EarningsStatement).filter(
+        Prop22EarningsStatement.period_id == period_id
+    ).first()
+    if statement:
+        statement.top_up_stripe_id = period.top_up_stripe_id
+        statement.top_up_amount = amount
+
+    db.commit()
+    db.refresh(period)
+
+    return {
+        "success": True,
+        "period_id": period.id,
+        "status": period.status,
+        "reference": period.top_up_stripe_id,
+        "message": f"Manual top-up of ${amount:.2f} via {method} recorded. Reference: {reference_number}"
+    }
+
+
 # Client endpoints
 @app.post("/api/clients", response_model=ClientResponse)
 def create_client(client: ClientCreate, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
