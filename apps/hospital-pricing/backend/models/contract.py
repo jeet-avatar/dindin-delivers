@@ -11,6 +11,7 @@ from database import Base
 
 class ContractStatus(str, enum.Enum):
     draft = "draft"
+    pending_review = "pending_review"
     active = "active"
     expired = "expired"
     terminated = "terminated"
