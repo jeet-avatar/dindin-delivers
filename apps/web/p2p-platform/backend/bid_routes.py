@@ -718,6 +718,18 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
         if accepting_driver:
             accepting_driver.ride_accept_count = (accepting_driver.ride_accept_count or 0) + 1
 
+        # Prop 22: capture driver GPS at acceptance moment (BPC §7463 — engagement begins at matched_at)
+        # Primary: driver's current_latitude/longitude from their last known position update
+        # Fallback: ride pickup_latitude/longitude (slightly overstates engaged miles — legally safer)
+        ride_request.prop22_acceptance_lat = (
+            (accepting_driver.current_latitude if accepting_driver else None)
+            or ride_request.pickup_latitude
+        )
+        ride_request.prop22_acceptance_lon = (
+            (accepting_driver.current_longitude if accepting_driver else None)
+            or ride_request.pickup_longitude
+        )
+
         # Insurance: Period 1 END + Period 2 START — ride matched
         try:
             from insurance.events import log_insurance_event, get_or_create_session_id
@@ -2536,6 +2548,17 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
     ride_request.platform_fee = platform_fee
     driver_a4a_share = 0.05  # TNC-13: driver's share of Access for All fee
     ride_request.driver_payout = round(final_price - platform_fee - driver_a4a_share, 2)
+
+    # Prop 22: compute per-ride floor data (non-blocking — failure must not block ride completion)
+    try:
+        from prop22_utils import calculate_prop22_ride_data
+        _p22 = calculate_prop22_ride_data(ride_request, db)
+        if _p22:
+            ride_request.prop22_engaged_hours = _p22["prop22_engaged_hours"]
+            ride_request.prop22_engaged_miles = _p22["prop22_engaged_miles"]
+            ride_request.prop22_floor_amount = _p22["prop22_floor_amount"]
+    except Exception as _e:
+        logger.error(f"Prop 22 ride calculation failed (non-blocking): {_e}")
 
     # In-app notification: ride completed
     _notify_customer(db, ride_request.customer_id,
