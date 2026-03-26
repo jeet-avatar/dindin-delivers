@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- IN PROGRESS
-Plan: 1 of 6 complete in current phase
-Status: Phase 13-01 complete: Alembic migration + 4 Prop 22 tables + 10 columns + ORM classes. Ready for 13-02 (calculation engine).
-Last activity: 2026-03-25 - Completed 13-01-PLAN.md: Prop 22 Alembic migration with 10 nullable columns, 4 new tables, seed data, and ORM classes
+Plan: 2 of 6 complete in current phase
+Status: Phase 13-02 complete: prop22_utils.py (300 lines, 11 functions) + completion hooks in bid_routes.py and order_flow.py. 16 TDD tests pass. Ready for 13-03 (reconciliation job).
+Last activity: 2026-03-25 - Completed 13-02-PLAN.md: Prop 22 calculation engine with GPS detection, haversine fallback, and non-blocking completion hooks
 
-Progress: [##########] 100% (1/6 plans in phase 13)
+Progress: [####################] 33% (2/6 plans in phase 13)
 
 ## Completed Milestones
 
@@ -96,6 +96,8 @@ Progress: [##########] 100% (1/6 plans in phase 13)
 - [Phase quick-202]: Default acceptance_rate 95.0 when driver has < 5 total rides; push warnings only when total >= 10 (avoids misleading rates for new drivers); push failure bare-except to never block cancel transaction
 - [Phase quick-215]: Used _require_admin_secret() helper for reset-ride-state endpoint — consistent with all other demo endpoints
 - [Phase 13]: Migration uses raw op.execute() SQL with IF NOT EXISTS for idempotency; service_type column on prop22_earning_periods for RIDESHARE vs FOOD_DELIVERY floor formula distinction
+- [Phase 13-02]: RideBid has no driver GPS — used accepting_driver.current_latitude/longitude with pickup_lat fallback for prop22_acceptance_lat at matched_at
+- [Phase 13-02]: get_traffic_eta_sync imported at module level in prop22_utils.py for testability; TestGetCityMinWage uses MagicMock DB (no Alembic seed in SQLite test DB)
 
 ### Blockers
 
