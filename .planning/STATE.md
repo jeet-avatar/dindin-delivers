@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- IN PROGRESS
-Plan: 2 of 6 complete in current phase
-Status: Phase 13-02 complete: prop22_utils.py (300 lines, 11 functions) + completion hooks in bid_routes.py and order_flow.py. 16 TDD tests pass. Ready for 13-03 (reconciliation job).
-Last activity: 2026-03-25 - Completed 13-02-PLAN.md: Prop 22 calculation engine with GPS detection, haversine fallback, and non-blocking completion hooks
+Plan: 3 of 6 complete in current phase
+Status: Phase 13-03 complete: prop22_period_reconciliation_job (midnight PT, per-driver commit isolation, Stripe top-up) + prop22_manual_review_escalation_job (9 AM PT, OVERDUE transition) in order_flow.py. 10 TDD tests pass. Ready for 13-04 (admin endpoint).
+Last activity: 2026-03-25 - Completed 13-03-PLAN.md: Prop 22 APScheduler reconciliation and escalation jobs with CronTrigger, SELECT-before-INSERT, per-driver db.commit()
 
-Progress: [####################] 33% (2/6 plans in phase 13)
+Progress: [##############################] 50% (3/6 plans in phase 13)
 
 ## Completed Milestones
 
@@ -45,6 +45,9 @@ Progress: [####################] 33% (2/6 plans in phase 13)
 
 ### Decisions
 
+- [Phase 13-03]: Prop22 reconciliation jobs as module-level functions (not nested) so they are importable for tests; CronTrigger for time-of-day precision; per-driver db.commit() isolation; rideshare takes precedence for dual-service drivers
+- [Phase 13-03]: Tips excluded via existing model design: driver_payout (RideRequest) excludes tips; delivery_fee (Order) excludes tip column — no extra subtraction needed
+- [Phase 13-03]: send_admin_alert() does not exist — use logger.warning() for all Prop22 escalation alerts (RESEARCH.md pitfall #6)
 - [Phase 11-02]: Used custom relative time formatting instead of date-fns to keep bundle size unchanged
 - [Phase 11]: Non-code changes use NON_CODE_TRANSITIONS to skip PR Created and CI Running states
 - [Phase 11]: Rollback restricted to Production/Verified/Closed status CRs; creates new CR through full approval flow
