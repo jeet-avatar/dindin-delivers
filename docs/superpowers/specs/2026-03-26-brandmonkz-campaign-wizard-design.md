@@ -168,6 +168,16 @@ interface Props {
 
 ---
 
+## Backend Fix Required
+
+**`generate-basics` must be updated to use the user's description.**
+
+Current backend handler (`campaigns.ts:263`) reads only `tone` from the request body and uses a static AI prompt regardless of user input. The `description` field is silently ignored.
+
+Fix: update the `generate-basics` AI prompt to interpolate `description` so the returned `name` and `goal` are relevant to what the user typed. This is a 2-line backend change. Without it, Step A of the generation always produces generic B2B output, making the whole wizard experience worse than it should be.
+
+---
+
 ## What Is NOT Changing
 
 - Campaign list page (`Campaigns.tsx`) — only the "New Campaign" button wiring changes (swap component)
