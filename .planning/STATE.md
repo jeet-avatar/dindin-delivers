@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- IN PROGRESS
-Plan: 4 of 6 complete in current phase
-Status: Phase 13-04 complete: 4 FastAPI endpoints added to main_new.py (GET /api/driver/prop22/periods, GET /api/driver/prop22/periods/{id}/rides, GET /api/admin/prop22/periods, POST /api/admin/prop22/manual-topup). 10 API contract tests pass. Ready for 13-05 (iOS PayoutDashboardView).
-Last activity: 2026-03-26 - Completed 13-04-PLAN.md: 4 Prop 22 API endpoints with require_driver/require_admin auth, ownership check, BPC §7454 manual-topup reference format
+Plan: 5 of 6 complete in current phase
+Status: Phase 13-05 complete: iOS PayoutDashboardView extended with Prop22Period/Prop22RideItem structs, prop22Section() @ViewBuilder, Prop22PeriodDetailView with QTD hours + per-ride floor disclosure. Build succeeded 0 errors. Ready for 13-06 (deploy).
+Last activity: 2026-03-26 - Completed 13-05-PLAN.md: Prop 22 compliance section added to iOS driver PayoutDashboardView.swift (399 lines, BPC §7454 disclosure)
 
-Progress: [####################################  ] 67% (4/6 plans in phase 13)
+Progress: [######################################] 83% (5/6 plans in phase 13)
 
 ## Completed Milestones
 
@@ -101,6 +101,8 @@ Progress: [####################################  ] 67% (4/6 plans in phase 13)
 - [Phase 13]: Migration uses raw op.execute() SQL with IF NOT EXISTS for idempotency; service_type column on prop22_earning_periods for RIDESHARE vs FOOD_DELIVERY floor formula distinction
 - [Phase 13-02]: RideBid has no driver GPS — used accepting_driver.current_latitude/longitude with pickup_lat fallback for prop22_acceptance_lat at matched_at
 - [Phase 13-02]: get_traffic_eta_sync imported at module level in prop22_utils.py for testability; TestGetCityMinWage uses MagicMock DB (no Alembic seed in SQLite test DB)
+- [Phase 13-05]: Prop22RideItem uses Decodable (not Codable) to support custom init() for dual ride_id/order_id key handling without needing encode()
+- [Phase 13-05]: prop22Section() fetches Prop22 data independently via .onAppear, separate from payout history fetch
 
 ### Blockers
 
@@ -260,7 +262,7 @@ None
 **v1.5 Execution:**
 - Total plans: 10 (across 5 phases)
 - Completed: 5
-
+| Phase 13 P05 | 4 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
