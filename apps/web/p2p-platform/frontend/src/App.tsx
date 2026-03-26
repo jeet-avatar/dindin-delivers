@@ -29,6 +29,9 @@ import DriversAdmin from './app/screens/drivers/DriversAdmin';
 // Admin - Customers
 import CustomersAdmin from './app/screens/customer/CustomersAdmin';
 
+// Admin - Prop 22 Compliance
+import Prop22Compliance from './app/screens/prop22/Prop22Compliance';
+
 // Public Pages
 import LandingPage from './app/screens/public/LandingPage';
 import TermsOfService from './app/screens/public/TermsOfService';
@@ -251,6 +254,7 @@ function App() {
           <Route path="change-management" element={<ChangeManagement />} />
           <Route path="change-management/:crId" element={<ChangeRequestDetail />} />
           <Route path="clients" element={<Clients />} />
+          <Route path="prop22" element={<Prop22Compliance />} />
         </Route>
 
         {/* Fallback */}
