@@ -1,0 +1,25 @@
+WHOLESALE SUPPLY AGREEMENT — GENERAL TEMPLATE
+
+This Agreement is between {hospital_entity_name} ("Hospital") and {supplier_name} ("Supplier"), effective {effective_date} through {expiration_date}.
+
+1. SCOPE
+   Supplier agrees to provide goods and services per Schedule A at the pricing therein.
+   GPO Contract Reference: {gpo_contract_number}.
+
+2. AKS SAFE HARBOR (42 U.S.C. §1320a-7b(b))
+   GPO administrative fee shall not exceed 3% of purchase price per 42 CFR §1001.952(j).
+   Current administrative fee: {admin_fee_pct}%.
+
+3. MOST FAVORED NATION
+   {mfn_clause_text}
+
+4. HIPAA BUSINESS ASSOCIATE AGREEMENT
+   {baa_status}
+
+5. COMPLIANCE
+   Both parties agree to comply with all applicable federal and state laws and regulations.
+
+6. TERM
+   Effective from {effective_date} to {expiration_date}. Either party may terminate with 30 days notice.
+
+Signed: _________________________ | _________________________

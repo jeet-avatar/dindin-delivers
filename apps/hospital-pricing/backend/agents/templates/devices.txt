@@ -1,0 +1,25 @@
+WHOLESALE MEDICAL DEVICE AGREEMENT — GPO TEMPLATE
+
+This Medical Device Supply Agreement ("Agreement") is entered into between {hospital_entity_name} ("Hospital") and {supplier_name} ("Supplier"), effective {effective_date} through {expiration_date}.
+
+1. PRICING AND GPO MEMBERSHIP
+   Hospital is a member of GPO Contract No. {gpo_contract_number}. All device pricing per Schedule A (attached).
+   Capital equipment and consumables priced separately.
+
+2. AKS SAFE HARBOR COMPLIANCE (42 U.S.C. §1320a-7b(b))
+   GPO administrative fee shall not exceed 3% per 42 CFR §1001.952(j). Current fee: {admin_fee_pct}%.
+
+3. FDA REGULATORY COMPLIANCE
+   All devices supplied shall bear current FDA 510(k) clearance or PMA approval.
+   UDI tracking required per 21 CFR Part 830.
+
+4. MOST FAVORED NATION CLAUSE
+   {mfn_clause_text}
+
+5. HIPAA BUSINESS ASSOCIATE AGREEMENT
+   BAA status: {baa_status}
+
+6. TERM AND TERMINATION
+   Either party may terminate with 30 days written notice.
+
+Signed: _________________________ {hospital_entity_name} | _________________________ {supplier_name}
