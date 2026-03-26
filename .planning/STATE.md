@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- IN PROGRESS
-Plan: 3 of 6 complete in current phase
-Status: Phase 13-03 complete: prop22_period_reconciliation_job (midnight PT, per-driver commit isolation, Stripe top-up) + prop22_manual_review_escalation_job (9 AM PT, OVERDUE transition) in order_flow.py. 10 TDD tests pass. Ready for 13-04 (admin endpoint).
-Last activity: 2026-03-25 - Completed 13-03-PLAN.md: Prop 22 APScheduler reconciliation and escalation jobs with CronTrigger, SELECT-before-INSERT, per-driver db.commit()
+Plan: 4 of 6 complete in current phase
+Status: Phase 13-04 complete: 4 FastAPI endpoints added to main_new.py (GET /api/driver/prop22/periods, GET /api/driver/prop22/periods/{id}/rides, GET /api/admin/prop22/periods, POST /api/admin/prop22/manual-topup). 10 API contract tests pass. Ready for 13-05 (iOS PayoutDashboardView).
+Last activity: 2026-03-26 - Completed 13-04-PLAN.md: 4 Prop 22 API endpoints with require_driver/require_admin auth, ownership check, BPC §7454 manual-topup reference format
 
-Progress: [##############################] 50% (3/6 plans in phase 13)
+Progress: [####################################  ] 67% (4/6 plans in phase 13)
 
 ## Completed Milestones
 
@@ -250,7 +250,94 @@ None
 | 200 | Add admin clear-unpaid-balance endpoint — GET /api/admin/customers + POST /api/admin/customers/{id}/clear-unpaid-balance, CustomersAdmin screen with Popconfirm-gated Clear Balance button | 2026-03-19 | 744cee18 | [200-add-admin-clear-unpaid-balance-endpoint](./quick/200-add-admin-clear-unpaid-balance-endpoint/) |
 | 201 | Fix no-show charge failure — charge_succeeded flag, customer push + in-app notifications on both failure paths, auto-P1 SupportTicket creation in bid_routes.py | 2026-03-19 | 49369645 | [201-no-show-charge-fail-customer-notificatio](./quick/201-no-show-charge-fail-customer-notificatio/) |
 | 202 | Real driver cancel rate tracking — ride_accept_count + ride_cancel_count columns, bid_routes counter increments, push warnings at 20%/30%, real acceptance_rate in earnings (default 95.0 < 5 rides) | 2026-03-19 | 6f9ba860 | [202-driver-cancel-rate-tracking](./quick/202-driver-cancel-rate-tracking/) |
-| 203 | Audit + fix offerletter.ai website — remove all free wording (6 files), $19 Stripe paywall on interview.html download, expand Mac setup steps, dashboard trial-badge -> status-badge | 2026-03-20 | (website-only) | [203-audit-and-fix-offerletter-ai-website-rem](./quick/203-audit-and-fix-offerletter-ai-website-rem/) |
+| 203 | Audit + fix offerletter.ai website — remove all free wording (6 files), ## Performance Metrics
+
+**Velocity (v1.4):**
+- Total phases: 5
+- Total plans: 12
+- Quick tasks: 67
+
+**v1.5 Execution:**
+- Total plans: 10 (across 5 phases)
+- Completed: 5
+
+
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 12 added: Fix Admin Portal UI — Fix broken admin portal screens (restaurants not loading, design issues, mock dashboards), make admin portal production-ready
+- Phase 8.1 inserted after Phase 8 (URGENT): Fix rideshare failure paths — no-show fee enforcement, bid race condition, payment failure recovery, no-drivers expiry flow, driver cancel handling
+
+### Decisions
+
+- [Phase 13-03]: Prop22 reconciliation jobs as module-level functions (not nested) so they are importable for tests; CronTrigger for time-of-day precision; per-driver db.commit() isolation; rideshare takes precedence for dual-service drivers
+- [Phase 13-03]: Tips excluded via existing model design: driver_payout (RideRequest) excludes tips; delivery_fee (Order) excludes tip column — no extra subtraction needed
+- [Phase 13-03]: send_admin_alert() does not exist — use logger.warning() for all Prop22 escalation alerts (RESEARCH.md pitfall #6)
+- [Phase 11-02]: Used custom relative time formatting instead of date-fns to keep bundle size unchanged
+- [Phase 11]: Non-code changes use NON_CODE_TRANSITIONS to skip PR Created and CI Running states
+- [Phase 11]: Rollback restricted to Production/Verified/Closed status CRs; creates new CR through full approval flow
+- [Phase 11]: Submit endpoint auto-transitions Draft -> Submitted -> Under Review in single API call
+- [Phase 12]: Kept Coupa dashboard route but removed from sidebar; dashboard rewired to /api/dashboard/stats
+- [Phase quick-116]: Used Modal.confirm with inline Input for PR/CI metadata; non-code CRs skip PR/CI states
+- [Phase quick-121]: Fixed 6 bugs in rideshare E2E test; production result 14/15 PASS; Rate Ride expected fail on non-completed rides
+- [Phase quick-122]: 30-min null-expiry cutoff for stale rides; rideshare earnings as separate response fields for backward compat
+- [Phase quick-123]: Build 1111 APPROVED (PENDING_DEVELOPER_RELEASE); 3 metadata blockers; CONDITIONAL GO for release
+- [Phase quick-125]: Vendor absorbs promo discount; platform keeps flat fee. Built-in codes + DB promos
+- [Phase quick-126]: 1489 tests green, promo math verified, staging deployed via CI/CD run 22888129870, CR-0002 verified
+- [Phase quick-127]: Used iOS 14+ Map(coordinateRegion:annotationItems:) for device compatibility; SelfDeliveryMapPin helper struct for annotations
+- [Phase quick-129]: Added secret_key auth to admin cleanup endpoints; Critical parity gap: iOS missing Promotions management screen
+- [Phase quick-130]: Used status-update endpoint as delivery fallback; discovered 500 bug in delivered/complete-delivery endpoints (alias parameter mismatch + possible accounting error)
+- [Phase quick-132]: Accounting block wrapped in try/except; delivery status committed BEFORE accounting to prevent 500s from blocking deliveries
+- [Phase quick-133]: Delivery proof gate returns 500 when no photo uploaded - needs follow-up fix task
+- [Phase quick-134]: Root cause: PostgreSQL orderstatus enum missing PENDING_DELIVERY_PROOF value; fixed by adding startup enum migration + try/except defense
+- [Phase quick-135]: Used Apple Restaurant (vendor_id=40) fallback for self-delivery E2E test; Google Restaurant (134) demo-login hardcoded to vendor 40
+- [Phase quick-136]: Vendor 134 credentials unavailable — used vendor 40 for both E2E delivery paths (driver pool + self-delivery)
+- [Phase quick-137]: S3 delivery photo 12h cleanup via APScheduler hourly job; Partner delivery proof camera gate; 5 notification gaps identified in self-delivery flow
+- [Phase quick-138]: Show arrived-at-customer button for all OUT_FOR_DELIVERY orders; backend validates self-delivery flag
+- [Phase quick-142]: Self-delivery detected by driverName nil/empty; Google Maps primary nav with fallback; VendorOrder model extended for delivery metadata
+- [Phase quick-143]: Docs endpoint returns 200 on staging (not production-mode) -- acceptable behavior
+- [Phase quick-147]: Use .fullScreenCover for nested camera sheets to prevent SwiftUI double-dismissal
+- [Phase quick-149]: Android V3Checkout promo validation is hardcoded (CRITICAL) - needs API integration
+- [Phase quick-149]: iOS shared API layer has all 9 vendor promotion methods - Restaurant app only needs SwiftUI views
+- [Phase quick-151]: Used HttpURLConnection PromoCodeValidator for composable-level promo API calls (no ViewModel/DI needed)
+- [Phase quick-159]: Use @ViewBuilder helper for AI tab recommendation routing; default unknown types to RestaurantSettingsView
+- [Phase quick-161]: Keep original fields alongside new iOS-compatible fields for backwards compatibility
+- [Phase quick-79]: Android Apple Auth path mismatch is FALSE POSITIVE — Retrofit base URL resolves correctly
+- [Phase quick-80]: Build 1111 is the submission build; 39/39 stress tests PASS; GO for App Store
+- [Phase quick-85]: OpenAPI CI contract validator: 321 PASS, 0 FAIL, 15 EXCLUDED dead-code
+- [Phase quick-89]: Stripe idempotency keys use deterministic entity IDs, not UUIDs
+- [Phase quick-90]: Used typed error enums/exceptions for 409/400 handling in iOS and Android
+- [Phase quick-92]: Deploy-only task -- no code changes, CI/CD only via gh workflow run
+- [Phase quick-93]: require_driver auth; leave-at-door -> DELIVERED, no-leave -> DELIVERY_FAILED + refund; 5-min timer
+- [Phase quick-97]: Android DeliveryAddressDict missing lat/lng was BREAKING -- fixed before Wave 2 deploy
+- [Phase quick-99]: Mock stripe.Refund.create directly (not order_flow.stripe) since stripe is imported inside function body
+- [Phase quick-164]: Used ComboItemInfo struct for combo references; safe decoders for backward compat
+- [Phase quick-182]: Kept musai_auth.py filename to avoid breaking imports; only updated docstring
+- [Phase quick-183]: Used static files in public/ instead of route handlers because output: export mode does not support route handlers
+- [Phase quick-190]: SwipeToConfirmButton 80% threshold with spring snap-back; swipe IS the confirmation for Complete Ride (no secondary alert needed)
+- [Phase quick-190]: TinderSwipeCard wraps entire RideRequestCard in ForEach — retain onBid tap inside card for direct access
+- [Phase quick-191]: CounterOfferResponseSheet Accept+Split row restructured — SwipeToConfirmButton needs full width; Split kept as tap Button; TinderSwipeCard wraps bid cards (swipe-right=accept, swipe-left=reject)
+- [Phase 08.1-01]: Non-blocking Stripe no-show block: DB commit always persists first; payment_method= resolved from saved_cards[is_default=True].id
+- [Phase 08.1-02]: payment_retry_count nullable in Alembic (existing NULL rows treated as 0 via or-0 guard); MAX_RETRIES=3 hardcoded per spec; driver payout guarded with if/else on capture_failed status
+- [Phase 08.1-03]: Banner placed inside ZStack with zIndex(100); viewModel.resetRide() for Try Again; 10s auto-dismiss; notification fires even when view is not visible
+- [Phase 08.1-03]: Banner placed inside ZStack with zIndex(100); viewModel.resetRide() for Try Again; 10s auto-dismiss; notification fires even when view is not visible
+- [Phase quick-202]: Default acceptance_rate 95.0 when driver has < 5 total rides; push warnings only when total >= 10 (avoids misleading rates for new drivers); push failure bare-except to never block cancel transaction
+- [Phase quick-215]: Used _require_admin_secret() helper for reset-ride-state endpoint — consistent with all other demo endpoints
+- [Phase 13]: Migration uses raw op.execute() SQL with IF NOT EXISTS for idempotency; service_type column on prop22_earning_periods for RIDESHARE vs FOOD_DELIVERY floor formula distinction
+- [Phase 13-02]: RideBid has no driver GPS — used accepting_driver.current_latitude/longitude with pickup_lat fallback for prop22_acceptance_lat at matched_at
+- [Phase 13-02]: get_traffic_eta_sync imported at module level in prop22_utils.py for testability; TestGetCityMinWage uses MagicMock DB (no Alembic seed in SQLite test DB)
+- [Phase 13-04]: Inline model imports inside route functions to avoid circular import risk; manual topup stores "METHOD:REF-NUMBER" in top_up_stripe_id for BPC §7454 audit trail; admin periods uses JOIN to Driver for name + stripe_onboarded in single query
+
+### Blockers
+
+None
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+9 Stripe paywall on interview.html download, expand Mac setup steps, dashboard trial-badge -> status-badge | 2026-03-20 | (website-only) | [203-audit-and-fix-offerletter-ai-website-rem](./quick/203-audit-and-fix-offerletter-ai-website-rem/) |
 | 205 | Harden offerletter.ai security — Lambda DoS caps (50k/200/100), API GW throttle (10 req/day), verify-payment Lambda + DynamoDB TTL cache, server-side Stripe paywall, CSP + GTM/GA/Stripe origins | 2026-03-20 | 77e940b5 | [205-harden-offerletter-ai-security-server-si](./quick/205-harden-offerletter-ai-security-server-si/) |
 | 206 | Add update bid feature to Android driver app — UpdateBidRequest model, PUT rides/bid/{bidId} endpoint, Edit Bid button on PENDING bids, UpdateBidSheet bottom sheet with live earnings preview | 2026-03-19 | 419bef2b | [206-add-update-bid-feature-to-android-driver](./quick/206-add-update-bid-feature-to-android-driver/) |
 | 207 | Fix driver-rideshare-audit.html header offset 80px→116px + main-panel independent scroll; bump iOS builds Customer 1121, Driver 227, Restaurant 218; bump Android Customer vC39/1.0.38, Driver vC35/1.0.34, Partner vC34/1.0.33 | 2026-03-19 | 72d1b8db | [207-fix-driver-rideshare-audit-html-layout-h](./quick/207-fix-driver-rideshare-audit-html-layout-h/) |
@@ -270,6 +357,7 @@ None
 | 226 | Fix fake web answers (real Claude via Lambda) and API key exposure (keys in Secrets Manager, fetched at app startup, removed from Python source) | 2026-03-24 | 4aa86149 | [226-fix-fake-web-answers-real-claude-via-lam](./quick/226-fix-fake-web-answers-real-claude-via-lam/) |
 | 227 | Apply 8 UI/UX improvements to interview.html and deploy to S3/CloudFront | 2026-03-25 | f564110b | [227-apply-8-ui-ux-improvements-to-interview-](./quick/227-apply-8-ui-ux-improvements-to-interview-/) |
 | 208 | Restaurant flow audit + fix 5 gaps: vendor-arrived-at-delivery 404 (GAP-2), self-delivery auth mismatch (GAP-4), timeout push notifications (GAP-5), wrong accept endpoint (GAP-1), countdown timer (GAP-3) + swipe button migration | 2026-03-24 | 461a4de1 | [208-restaurant-flow-audit-visual-swipe-status](./quick/208-restaurant-flow-audit-visual-swipe-status/) |
+| Phase 13 P03 | 10 | 2 tasks | 2 files |
 
 ## Session Continuity
 
