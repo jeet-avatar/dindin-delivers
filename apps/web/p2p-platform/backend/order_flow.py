@@ -3639,6 +3639,12 @@ async def assign_driver(
     order.driver_accepted_at = datetime.now()
     order.dispatched_at = datetime.now()
 
+    # Prop 22: capture driver GPS at food delivery acceptance (BPC §7463 — engagement begins here)
+    # Primary: driver's last-known current_latitude/longitude (updated by driver location updates)
+    # Fallback: order.delivery_latitude (customer address) — only if driver GPS unavailable
+    order.prop22_acceptance_lat = getattr(driver, "current_latitude", None)
+    order.prop22_acceptance_lon = getattr(driver, "current_longitude", None)
+
     # Insurance: Period 1 END + Period 2 START — driver accepted delivery
     try:
         from insurance.events import log_insurance_event, get_or_create_session_id
@@ -3972,6 +3978,17 @@ async def order_delivered(
             )
     except Exception as e:
         logging.warning(f"Insurance event (delivered) failed: {e}")
+
+    # Prop 22: compute per-delivery floor data (non-blocking — failure must not block delivery)
+    try:
+        from prop22_utils import calculate_prop22_order_data
+        _p22 = calculate_prop22_order_data(order, db)
+        if _p22:
+            order.prop22_engaged_hours = _p22["prop22_engaged_hours"]
+            order.prop22_engaged_miles = _p22["prop22_engaged_miles"]
+            order.prop22_floor_amount = _p22["prop22_floor_amount"]
+    except Exception as _e:
+        logger.error(f"Prop 22 order calculation failed (non-blocking): {_e}")
 
     # Get vendor
     vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()

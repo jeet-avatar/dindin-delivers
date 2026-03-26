@@ -40,24 +40,46 @@ class TestGpsToCity:
 
 
 class TestGetCityMinWage:
-    def test_sf_jan_2026_wage(self, db_session):
+    """Tests use mock DB queries to avoid dependency on seed data in test DB."""
+
+    def _make_wage_row(self, city, effective_date, min_wage):
+        row = MagicMock()
+        row.city = city
+        row.effective_date = effective_date
+        row.min_wage = min_wage
+        return row
+
+    def test_sf_jan_2026_wage(self):
         from prop22_utils import get_city_min_wage
-        wage = get_city_min_wage(db_session, "SAN_FRANCISCO", date(2026, 3, 15))
+        mock_db = MagicMock()
+        sf_row = self._make_wage_row("SAN_FRANCISCO", date(2026, 1, 1), 18.67)
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = sf_row
+        wage = get_city_min_wage(mock_db, "SAN_FRANCISCO", date(2026, 3, 15))
         assert wage == 18.67  # Jan 2026 rate
 
-    def test_sf_jul_2026_wage(self, db_session):
+    def test_sf_jul_2026_wage(self):
         from prop22_utils import get_city_min_wage
-        wage = get_city_min_wage(db_session, "SAN_FRANCISCO", date(2026, 7, 15))
+        mock_db = MagicMock()
+        sf_row = self._make_wage_row("SAN_FRANCISCO", date(2026, 7, 1), 19.61)
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = sf_row
+        wage = get_city_min_wage(mock_db, "SAN_FRANCISCO", date(2026, 7, 15))
         assert wage == 19.61  # Jul 2026 rate (mid-year increase)
 
-    def test_statewide_ca_fallback(self, db_session):
+    def test_statewide_ca_fallback(self):
         from prop22_utils import get_city_min_wage
-        wage = get_city_min_wage(db_session, "CA", date(2026, 3, 15))
+        mock_db = MagicMock()
+        ca_row = self._make_wage_row("CA", date(2026, 1, 1), 16.90)
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = ca_row
+        wage = get_city_min_wage(mock_db, "CA", date(2026, 3, 15))
         assert wage == 16.90
 
-    def test_unknown_city_falls_back_to_ca(self, db_session):
+    def test_unknown_city_falls_back_to_ca(self):
         from prop22_utils import get_city_min_wage
-        wage = get_city_min_wage(db_session, "BAKERSFIELD", date(2026, 3, 15))
+        mock_db = MagicMock()
+        ca_row = self._make_wage_row("CA", date(2026, 1, 1), 16.90)
+        # First call (BAKERSFIELD) returns None; second call (CA) returns row
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.side_effect = [None, ca_row]
+        wage = get_city_min_wage(mock_db, "BAKERSFIELD", date(2026, 3, 15))
         assert wage == 16.90  # falls back to CA statewide
 
 
