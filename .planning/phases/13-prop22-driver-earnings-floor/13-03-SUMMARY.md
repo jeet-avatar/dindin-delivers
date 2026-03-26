@@ -147,6 +147,18 @@ None — plan executed exactly as written with one noted behavioral difference:
 - Plan 13-05 (iOS/Android statement screen) will display the `Prop22EarningsStatement` records
 - Plan 13-06 (deploy) will activate both jobs on ECS production containers via the existing `start_timeout_scheduler()` mechanism
 
+## Self-Check: PASSED
+
+- `apps/web/p2p-platform/backend/tests/test_prop22_reconciliation.py` — FOUND
+- `.planning/phases/13-prop22-driver-earnings-floor/13-03-SUMMARY.md` — FOUND
+- Commit `534382ed` (test RED) — FOUND
+- Commit `40d4e8c3` (feat GREEN) — FOUND
+- Commit `e65aebb1` (docs metadata) — FOUND
+- `prop22_period_reconciliation_job` at order_flow.py:2937 — FOUND
+- `prop22_manual_review_escalation_job` at order_flow.py:3140 — FOUND
+- 10/10 test_prop22_reconciliation.py tests PASS
+- 26/26 combined Prop22 test suite (reconciliation + calculation) PASS
+
 ---
 *Phase: 13-prop22-driver-earnings-floor*
 *Completed: 2026-03-25*
