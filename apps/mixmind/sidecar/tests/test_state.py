@@ -65,3 +65,62 @@ def test_get_all_cached_tracks(db):
         ))
     tracks = db.all_tracks(source="db")
     assert len(tracks) == 3
+
+
+# --- analysis_cache CRUD tests ---
+
+def test_save_analysis(tmp_path):
+    db = StateDB(db_path=tmp_path / "state.db")
+    db.save_analysis(
+        content_id="1", source="db", status="complete",
+        file_path="/music/track.mp3",
+        bpm=128.0, key_musical="Am", camelot="8A", genre="Techno",
+        energy=0.82, danceability=0.91,
+        waveform_4stem=b"\x01\x02\x03",
+        analyzer_version="1.0", duration_ms=300000,
+    )
+    row = db.get_analysis("1", "db")
+    assert row is not None
+    assert row["bpm"] == 128.0
+    assert row["status"] == "complete"
+    assert row["waveform_4stem"] == b"\x01\x02\x03"
+
+
+def test_get_analysis_missing(tmp_path):
+    db = StateDB(db_path=tmp_path / "state.db")
+    assert db.get_analysis("999", "db") is None
+
+
+def test_unanalyzed_ids(tmp_path):
+    db = StateDB(db_path=tmp_path / "state.db")
+    db.save_analysis(content_id="1", source="db", status="complete",
+                     file_path="/a.mp3")
+    db.save_analysis(content_id="2", source="db", status="pending",
+                     file_path="/b.mp3")
+    db.save_analysis(content_id="3", source="db", status="failed",
+                     file_path="/c.mp3")
+    pending = db.unanalyzed_ids("db")
+    assert "2" in pending
+    assert "3" in pending  # failed = needs retry
+    assert "1" not in pending
+
+
+def test_update_analysis_status(tmp_path):
+    db = StateDB(db_path=tmp_path / "state.db")
+    db.save_analysis(content_id="1", source="db", status="pending",
+                     file_path="/a.mp3")
+    db.update_analysis_status("1", "db", "analyzing")
+    row = db.get_analysis("1", "db")
+    assert row["status"] == "analyzing"
+
+
+def test_analysis_count(tmp_path):
+    db = StateDB(db_path=tmp_path / "state.db")
+    db.save_analysis(content_id="1", source="db", status="complete", file_path="/a.mp3")
+    db.save_analysis(content_id="2", source="db", status="pending", file_path="/b.mp3")
+    db.save_analysis(content_id="3", source="db", status="failed", file_path="/c.mp3")
+    counts = db.analysis_counts("db")
+    assert counts["complete"] == 1
+    assert counts["pending"] == 1
+    assert counts["failed"] == 1
+    assert counts["total"] == 3
