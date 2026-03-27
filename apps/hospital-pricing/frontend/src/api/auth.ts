@@ -11,6 +11,7 @@ export async function login(credentials: LoginRequest): Promise<TokenResponse> {
 
 export async function logout(): Promise<void> {
   await apiClient.post('/auth/logout').catch(() => {})
+  localStorage.removeItem('access_token')
   sessionStorage.removeItem('access_token')
 }
 

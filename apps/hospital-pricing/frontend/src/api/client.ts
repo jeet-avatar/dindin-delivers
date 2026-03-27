@@ -39,6 +39,7 @@ apiClient.interceptors.response.use(
       try {
         const { data } = await apiClient.post<{ access_token: string }>('/auth/refresh')
         sessionStorage.setItem('access_token', data.access_token)
+        localStorage.setItem('access_token', data.access_token)
         processQueue(null, data.access_token)
         if (original.headers) original.headers.Authorization = `Bearer ${data.access_token}`
         return apiClient(original)

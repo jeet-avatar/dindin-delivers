@@ -23,7 +23,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token')
+    const token = localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token')
     if (!token) {
       setLoading(false)
       return
