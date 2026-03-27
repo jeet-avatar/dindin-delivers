@@ -73,16 +73,13 @@ None — plan executed exactly as written.
 ## Checkpoint
 
 **Type:** `checkpoint:human-verify`
+**Status:** APPROVED 2026-03-26
 
-Now that the binary and DMG are rebuilt, verify waveform data works:
-
-1. Start the sidecar: `apps/mixmind/sidecar/dist/mixmind-sidecar/mixmind-sidecar`
-2. In another terminal, pick a track ID and hit:
-   ```
-   curl -s http://localhost:11337/api/tracks/{track_id}/anlz | python3 -m json.tool | grep -A3 waveform_preview
-   ```
-3. Confirm `waveform_preview` has ~400 entries with values 0-255 (was `[]` before fix).
-4. Open MixMind.app from the new DMG (`https://www.beatmind.io/MixMind-mac.dmg`) and verify the waveform strip renders visually.
+Verification results confirmed by user:
+- `waveform_preview` len: 400 (was 0 before fix)
+- Sample values: [168, 184, 176, 176, 184] — properly scaled 0-255 range
+- `waveform_3band`: None (correct — tuple guard returns None for 3-band)
+- `beat_grid` entries: 938 (unchanged, still works)
 
 ## Self-Check: PASSED
 
