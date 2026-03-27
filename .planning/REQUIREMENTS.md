@@ -34,7 +34,7 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 
 ### Rideshare E2E Testing
 
-- [ ] **E2E-01**: Automated backend API test covering 12-step rideshare lifecycle (request, bid, accept, pickup, dropoff, payment, rating) against staging
+- [x] **E2E-01**: Automated backend API test covering 12-step rideshare lifecycle (request, bid, accept, pickup, dropoff, payment, rating) against staging
 
 ### Admin Portal UI
 
@@ -92,7 +92,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DBROT-03 | 08 | Pending |
 | DBROT-04 | 08 | Pending |
 | DBROT-05 | 08 | Pending |
-| E2E-01 | 09 | Pending |
+| E2E-01 | 09 | Complete |
 | ADMIN-01 | 12 | Complete |
 | ADMIN-02 | 12 | Complete |
 | ADMIN-03 | 12 | Complete |
