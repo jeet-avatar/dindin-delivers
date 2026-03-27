@@ -1,5 +1,5 @@
 ---
-status: diagnosed
+status: resolved
 trigger: "iOS Customer app shows wrong fare price on first screen with a visual flash, then shows correct price on second screen/tap"
 created: 2026-03-04T00:00:00Z
 updated: 2026-03-04T00:01:00Z
