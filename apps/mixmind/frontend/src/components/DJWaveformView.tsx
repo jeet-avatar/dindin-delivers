@@ -12,7 +12,7 @@
 //   Memory cues:     #33FF9E (mint green)
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Track, TrackAnlzData, HotCueEntry } from '../types/track';
+import { Track, TrackAnlzData, HotCueEntry, Waveform4Stem } from '../types/track';
 import { sidecarGet } from '../hooks/useSidecar';
 
 // ---------------------------------------------------------------------------
@@ -24,6 +24,12 @@ const CDJ_MID   = '#00E726';
 const CDJ_HIGH  = '#00BFFF';
 const CDJ_MONO  = '#6366f1'; // fallback purple if no 3-band data
 const FIRST_BEAT_COLOR = '#FFD60A'; // gold marker for first downbeat
+
+// 4-stem colors (Demucs analysis)
+const STEM_DRUMS  = '#FF9500';  // orange
+const STEM_BASS   = '#8B00FF';  // deep purple
+const STEM_VOCALS = '#00E5FF';  // cyan
+const STEM_OTHER  = '#FFD700';  // gold
 
 // ---------------------------------------------------------------------------
 // Props
@@ -76,30 +82,44 @@ function drawOverviewCanvas(
   }
 
   // ── Waveform bars ─────────────────────────────────────────────────────────
+  const w4 = anlz.waveform_4stem;
   const wb = anlz.waveform_3band;
   const wp = anlz.waveform_preview;
-  const waveLen = wb ? wb.length : wp.length;
+  const waveLen = w4 ? w4.length : (wb ? wb.length : wp.length);
 
   if (waveLen > 0) {
     const barW = Math.max(1, W / waveLen);
 
-    if (wb) {
+    if (w4) {
+      // 4-stem Demucs waveform (priority 1)
+      const stems = [
+        { key: 'drums'  as const, color: STEM_DRUMS,  weight: 0.30 },
+        { key: 'bass'   as const, color: STEM_BASS,   weight: 0.25 },
+        { key: 'vocals' as const, color: STEM_VOCALS, weight: 0.25 },
+        { key: 'other'  as const, color: STEM_OTHER,  weight: 0.20 },
+      ];
+      for (let i = 0; i < w4.length; i++) {
+        const x = (i / w4.length) * W;
+        const col = w4[i];
+        let yOffset = 0;
+        for (const stem of stems) {
+          const stemH = (col[stem.key] / 255) * H * stem.weight;
+          ctx.fillStyle = hexToRgba(stem.color, 0.85);
+          ctx.fillRect(x, H - yOffset - stemH, barW, stemH);
+          yOffset += stemH;
+        }
+      }
+    } else if (wb) {
       // CDJ-style 3-band colored bars
       for (let i = 0; i < wb.length; i++) {
         const x = (i / wb.length) * W;
         const col = wb[i];
-
-        // Bottom 40% = low (red)
         const lowH = (col.low / 255) * H * 0.4;
         ctx.fillStyle = hexToRgba(CDJ_LOW, 0.85);
         ctx.fillRect(x, H - lowH, barW, lowH);
-
-        // Middle 30% = mid (green)
         const midH = (col.mid / 255) * H * 0.3;
         ctx.fillStyle = hexToRgba(CDJ_MID, 0.85);
         ctx.fillRect(x, H - lowH - midH, barW, midH);
-
-        // Top 30% = high (sky blue)
         const highH = (col.high / 255) * H * 0.3;
         ctx.fillStyle = hexToRgba(CDJ_HIGH, 0.85);
         ctx.fillRect(x, H - lowH - midH - highH, barW, highH);
@@ -226,9 +246,10 @@ function drawZoomedCanvas(
   }
 
   // ── Waveform bars ─────────────────────────────────────────────────────────
+  const w4 = anlz.waveform_4stem;
   const wb = anlz.waveform_3band;
   const wp = anlz.waveform_preview;
-  const waveLen = wb ? wb.length : wp.length;
+  const waveLen = w4 ? w4.length : (wb ? wb.length : wp.length);
 
   if (waveLen > 0) {
     // Map waveform column index to ms
@@ -240,7 +261,26 @@ function drawZoomedCanvas(
     if (visibleLen > 0) {
       const barW = Math.max(1, W / visibleLen);
 
-      if (wb) {
+      if (w4) {
+        // 4-stem Demucs waveform (priority 1)
+        const stems = [
+          { key: 'drums'  as const, color: STEM_DRUMS,  weight: 0.30 },
+          { key: 'bass'   as const, color: STEM_BASS,   weight: 0.25 },
+          { key: 'vocals' as const, color: STEM_VOCALS, weight: 0.25 },
+          { key: 'other'  as const, color: STEM_OTHER,  weight: 0.20 },
+        ];
+        for (let i = startIdx; i < endIdx; i++) {
+          const x = msToX(iToMs(i));
+          const col = w4[i];
+          let yOffset = 0;
+          for (const stem of stems) {
+            const stemH = (col[stem.key] / 255) * H * stem.weight;
+            ctx.fillStyle = hexToRgba(stem.color, 0.85);
+            ctx.fillRect(x, H - yOffset - stemH, barW, stemH);
+            yOffset += stemH;
+          }
+        }
+      } else if (wb) {
         for (let i = startIdx; i < endIdx; i++) {
           const x = msToX(iToMs(i));
           const col = wb[i];
@@ -338,8 +378,9 @@ function drawZoomedCanvas(
 // ---------------------------------------------------------------------------
 
 export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWaveformViewProps) {
-  const [anlzData, setAnlzData]   = useState<TrackAnlzData | null>(null);
-  const [loading,  setLoading]    = useState(false);
+  const [anlzData, setAnlzData]     = useState<TrackAnlzData | null>(null);
+  const [loading,  setLoading]      = useState(false);
+  const [fetchFailed, setFetchFailed] = useState(false);
   const [zoomCenter, setZoomCenter] = useState<number>(0); // seconds — zoomed view center
 
   const overviewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -350,17 +391,23 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
 
   // ── Fetch ANLZ data when track changes ────────────────────────────────────
   useEffect(() => {
+    setAnlzData(null);
+    setFetchFailed(false);
     if (!track.content_id) return;
     setLoading(true);
-    setAnlzData(null);
 
     sidecarGet<TrackAnlzData>(`/api/tracks/${track.content_id}/anlz`)
       .then(data => {
         setAnlzData(data);
+        setFetchFailed(false);
         // Center zoomed view on first downbeat initially
         setZoomCenter(data.first_beat_ms / 1000);
       })
-      .catch(() => setAnlzData(null))
+      .catch((err) => {
+        console.error('[DJWaveformView] ANLZ fetch failed for', track.content_id, err);
+        setAnlzData(null);
+        setFetchFailed(true);
+      })
       .finally(() => setLoading(false));
   }, [track.content_id]);
 
@@ -430,7 +477,7 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
   }
 
   // ── No-show states ────────────────────────────────────────────────────────
-  const noAnlz = !loading && anlzData === null;
+  const noAnlz = !loading && fetchFailed;
 
   return (
     <div style={{
@@ -488,19 +535,28 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
           </div>
         )}
 
-        {/* No ANLZ data placeholder */}
+        {/* Partial ANLZ banner — waveform file not on this Mac */}
+        {anlzData?.partial && (
+          <div style={{
+            position: 'absolute', top: 4, left: 8, right: 8,
+            display: 'flex', alignItems: 'center', gap: '6px',
+            pointerEvents: 'none', zIndex: 2,
+          }}>
+            <span style={{ fontSize: '10px', color: '#6b7280' }}>
+              Waveform file not on this Mac — re-analyze in Rekordbox to see waveform
+            </span>
+          </div>
+        )}
+
+        {/* Hard fetch failure */}
         {noAnlz && (
           <div style={{
             position: 'absolute', inset: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             gap: '8px',
           }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="1.75" strokeLinecap="round">
-              <path d="M3 3l18 18M10.3 10.3A1 1 0 0110 11H5l7-7v5a1 1 0 01-.7.3z"/>
-              <path d="M21 21l-6-6m-3-3l-3-3m9 9L9 9"/>
-            </svg>
             <span style={{ fontSize: '11px', color: '#4b5563' }}>
-              No ANLZ data — track may not be analyzed in Rekordbox
+              Could not load waveform data
             </span>
           </div>
         )}
@@ -516,6 +572,24 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
             style={{ width: '100%', height: '100%', display: 'block', cursor: 'pointer' }}
           />
           {/* Section legend on hover could go here */}
+          {anlzData?.waveform_4stem && (
+            <div style={{
+              position: 'absolute', top: 4, right: 4, display: 'flex', gap: '6px',
+              fontSize: '8px', opacity: 0.7, pointerEvents: 'none',
+            }}>
+              {[
+                { label: 'Drums', color: STEM_DRUMS },
+                { label: 'Bass', color: STEM_BASS },
+                { label: 'Vocals', color: STEM_VOCALS },
+                { label: 'Other', color: STEM_OTHER },
+              ].map(s => (
+                <span key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '2px', color: 'rgba(255,255,255,0.7)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, display: 'inline-block' }} />
+                  {s.label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right pane: zoomed view */}
