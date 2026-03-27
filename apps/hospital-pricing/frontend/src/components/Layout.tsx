@@ -1,93 +1,89 @@
-import { ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
-import {
-  ShieldCheck,
-  LayoutDashboard,
-  FileText,
-  Receipt,
-  AlertTriangle,
-  LogOut,
-} from 'lucide-react'
-import { useAuthContext } from '../contexts/AuthContext'
+import { Link, useLocation } from 'react-router-dom'
+import { useAppContext } from '../contexts/AppContext'
 
-const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
-  { to: '/contracts', icon: FileText, label: 'Contracts', end: false },
-  { to: '/invoices', icon: Receipt, label: 'Invoices', end: false },
-  { to: '/discrepancies', icon: AlertTriangle, label: 'Discrepancies', end: false },
+const NAV_ITEMS = [
+  { path: '/', label: 'Dashboard' },
+  { path: '/contracts', label: 'Contracts' },
+  { path: '/invoices', label: 'Invoices' },
+  { path: '/discrepancies', label: 'Discrepancies' },
+  { path: '/audit', label: 'Audit Log' },
+  { path: '/compliance', label: 'Compliance' },
 ]
 
-export function Layout({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuthContext()
-  const navigate = useNavigate()
+interface Props {
+  children: React.ReactNode
+}
 
-  async function handleLogout() {
-    await logout()
-    navigate('/login', { replace: true })
+export function Layout({ children }: Props) {
+  const location = useLocation()
+  const { currentUser, openDiscrepancyCount } = useAppContext()
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token')
+    sessionStorage.removeItem('access_token')
+    window.location.href = '/login'
   }
 
-  const initials = user?.username
-    ? user.username.slice(0, 2).toUpperCase()
-    : '??'
-
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-56 bg-surface border-r border-border flex flex-col z-20">
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-border">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 shrink-0">
-            <ShieldCheck className="w-4 h-4 text-primary" strokeWidth={1.75} />
-          </div>
-          <span className="text-sm font-semibold text-text-primary leading-tight">
-            Pricing<br />Assurance
-          </span>
-        </div>
+    <div className="min-h-screen bg-surface">
+      {/* Top Navigation Bar */}
+      <nav className="bg-navy text-white sticky top-0 z-30 shadow-sm">
+        <div className="max-w-screen-2xl mx-auto px-4 flex items-center h-14">
+          {/* Logo */}
+          <Link to="/" className="text-white font-bold text-lg mr-8 flex-shrink-0">
+            ⬡ HPA
+          </Link>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5" aria-label="Main navigation">
-          {navItems.map(({ to, icon: Icon, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 min-h-[44px] ${
-                  isActive
-                    ? 'bg-primary/10 text-primary border-r-2 border-primary'
-                    : 'text-text-muted hover:text-text-primary hover:bg-white/5'
-                }`
-              }
+          {/* Nav tabs */}
+          <div className="flex items-center gap-1 flex-1">
+            {NAV_ITEMS.map((item) => {
+              const active =
+                item.path === '/'
+                  ? location.pathname === '/'
+                  : location.pathname.startsWith(item.path)
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`relative px-3 py-1.5 text-sm rounded transition-colors
+                    ${active
+                      ? 'text-white border-b-2 border-blue-400 pb-[4px]'
+                      : 'text-navy-muted hover:text-white'
+                    }`}
+                >
+                  {item.label}
+                  {item.path === '/discrepancies' && openDiscrepancyCount > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-xs bg-red-500 text-white rounded-full font-bold">
+                      {openDiscrepancyCount > 9 ? '9+' : openDiscrepancyCount}
+                    </span>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+
+          {/* Right side: entity name + role + logout */}
+          <div className="flex items-center gap-3 text-sm text-navy-muted">
+            {currentUser && (
+              <>
+                <span className="text-white font-medium">{currentUser.entity.name}</span>
+                <span className="bg-navy-light px-2 py-0.5 rounded text-xs text-navy-muted">
+                  {currentUser.role.replace(/_/g, ' ')}
+                </span>
+              </>
+            )}
+            <button
+              onClick={handleLogout}
+              className="hover:text-white transition-colors text-xs"
             >
-              <Icon className="w-4 h-4 shrink-0" strokeWidth={1.75} />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* User area */}
-        <div className="px-3 py-4 border-t border-border">
-          <div className="flex items-center gap-3 px-3 py-2 mb-1">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">
-              {initials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-text-primary truncate">{user?.username ?? '—'}</p>
-              <p className="text-xs text-text-muted truncate capitalize">{user?.role ?? ''}</p>
-            </div>
+              Sign out
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-text-muted hover:text-destructive hover:bg-destructive/10 transition-colors duration-150 min-h-[44px]"
-          >
-            <LogOut className="w-4 h-4 shrink-0" strokeWidth={1.75} />
-            Sign Out
-          </button>
         </div>
-      </aside>
+      </nav>
 
-      {/* Main content */}
-      <main className="ml-56 flex-1 min-h-screen p-8 bg-background">
+      {/* Page content */}
+      <main className="max-w-screen-2xl mx-auto px-4 py-6">
         {children}
       </main>
     </div>
