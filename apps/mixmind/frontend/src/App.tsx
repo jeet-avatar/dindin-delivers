@@ -5,12 +5,13 @@ import { TrackTable } from './components/TrackTable';
 import { AIChatSidebar } from './components/AIChatSidebar';
 import { DuplicatePanel } from './components/DuplicatePanel';
 import { USBPanel } from './components/USBPanel';
+import { SetBuilderPanel } from './components/SetBuilderPanel';
 import { useLibrary } from './hooks/useLibrary';
 import { AIPlaylistItem, Playlist, Track } from './types/track';
 import { MiniPlayer } from './components/MiniPlayer';
 import { DJWaveformView } from './components/DJWaveformView';
 
-type Panel = 'library' | 'playlists' | 'duplicates' | 'usb';
+type Panel = 'library' | 'playlists' | 'duplicates' | 'usb' | 'setbuilder';
 
 export default function App() {
   const [panel, setPanel] = useState<Panel>('library');
@@ -20,6 +21,7 @@ export default function App() {
   const [usbConnected] = useState(false);
   const [usbName] = useState<string | undefined>();
   const [nowPlaying, setNowPlaying] = useState<Track | null>(null);
+  const [setTracks, setSetTracks] = useState<Track[]>([]);
 
   // ── Lifted player state (shared between DJWaveformView and MiniPlayer) ────
   const [playerCurrentTime, setPlayerCurrentTime] = useState(0);
@@ -37,6 +39,22 @@ export default function App() {
   function handleSeek(sec: number) {
     // Use a fresh object to guarantee useEffect fires even for same-second seeks
     setSeekTo(sec);
+  }
+
+  // ── Set Builder state management ──────────────────────────────────────────
+  function addToSet(track: Track) {
+    setSetTracks(prev => prev.some(t => t.content_id === track.content_id) ? prev : [...prev, track]);
+  }
+  function removeFromSet(contentId: string) {
+    setSetTracks(prev => prev.filter(t => t.content_id !== contentId));
+  }
+  function reorderSet(fromIdx: number, toIdx: number) {
+    setSetTracks(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      return next;
+    });
   }
 
   function handlePlaylistCreated(name: string, items: AIPlaylistItem[]) {
@@ -65,6 +83,7 @@ export default function App() {
           duplicateCount={duplicateCount}
           trackCount={tracks.length}
           playlistCount={playlists.length}
+          setTrackCount={setTracks.length}
         />
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
@@ -101,7 +120,7 @@ export default function App() {
                 <span style={{ fontSize: '13px', color: '#4b5563' }}>Connecting to sidecar…</span>
               </div>
             ) : (
-              <TrackTable tracks={tracks} onReload={reload} onPlay={setNowPlaying} />
+              <TrackTable tracks={tracks} onReload={reload} onPlay={setNowPlaying} onAddToSet={addToSet} />
             )
           )}
 
@@ -177,6 +196,7 @@ export default function App() {
 
           {panel === 'duplicates' && <DuplicatePanel onCountChange={setDuplicateCount} />}
           {panel === 'usb' && <USBPanel />}
+          {panel === 'setbuilder' && <SetBuilderPanel tracks={setTracks} onRemove={removeFromSet} onReorder={reorderSet} onClear={() => setSetTracks([])} />}
         </main>
 
         <AIChatSidebar onPlaylistCreated={handlePlaylistCreated} tracks={tracks} />
