@@ -24,6 +24,8 @@ export function LangGraphProgress({ contractId, onReady }: Props) {
   const startRef = useRef(Date.now())
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const softTimedOutRef = useRef(false)
+  const onReadyRef = useRef(onReady)
+  onReadyRef.current = onReady
 
   useEffect(() => {
     startRef.current = Date.now()
@@ -47,7 +49,7 @@ export function LangGraphProgress({ contractId, onReady }: Props) {
         if (contract.status === 'pending_review' || contract.status === 'active') {
           clearInterval(intervalRef.current!)
           setCurrentStep(4) // all done
-          onReady(contract.status)
+          onReadyRef.current(contract.status)
         } else {
           // draft — animate through steps by elapsed time
           setCurrentStep(elapsedToStep(elapsed))
@@ -59,7 +61,7 @@ export function LangGraphProgress({ contractId, onReady }: Props) {
     }, 3000)
 
     return () => clearInterval(intervalRef.current!)
-  }, [contractId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [contractId])
 
   if (timedOut === 'hard' || error) {
     return (

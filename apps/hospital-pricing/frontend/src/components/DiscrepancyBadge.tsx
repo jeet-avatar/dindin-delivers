@@ -23,8 +23,8 @@ interface Props {
 }
 
 export function DiscrepancyBadge({ type }: Props) {
-  const style = TYPE_STYLES[type]
-  const label = TYPE_LABELS[type]
+  const style = TYPE_STYLES[type] ?? 'bg-slate-100 text-slate-600'
+  const label = TYPE_LABELS[type] ?? type
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${style}`}>
       {label}
