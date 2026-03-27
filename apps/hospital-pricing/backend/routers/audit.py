@@ -4,7 +4,7 @@ from datetime import datetime, date
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func, or_
+from sqlalchemy import select, and_, func, or_, cast, Text
 from pydantic import BaseModel, ConfigDict
 
 from database import get_db
@@ -63,7 +63,7 @@ async def list_audit_log(
         filters.append(
             or_(
                 AuditLogEntry.event_type.ilike(f"%{search}%"),
-                AuditLogEntry.resource_id.ilike(f"%{search}%"),
+                cast(AuditLogEntry.resource_id, Text).ilike(f"%{search}%"),
             )
         )
 
