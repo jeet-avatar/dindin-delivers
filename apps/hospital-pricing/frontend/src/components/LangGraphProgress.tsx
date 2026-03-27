@@ -5,9 +5,11 @@ import type { ContractStatus } from '../types/hospital'
 type Step = 'INGEST' | 'EXTRACT' | 'VERIFY' | 'COMPARE'
 const STEPS: Step[] = ['INGEST', 'EXTRACT', 'VERIFY', 'COMPARE']
 
-function stepIndex(status: ContractStatus): number {
-  if (status === 'pending_review' || status === 'active') return 4
-  return 1
+function elapsedToStep(elapsedMs: number): number {
+  if (elapsedMs < 20_000) return 0  // INGEST active (0-20s)
+  if (elapsedMs < 45_000) return 1  // EXTRACT active (20-45s)
+  if (elapsedMs < 75_000) return 2  // VERIFY active (45-75s)
+  return 3                           // COMPARE active (75s+)
 }
 
 interface Props {
@@ -42,10 +44,13 @@ export function LangGraphProgress({ contractId, onReady }: Props) {
 
       try {
         const contract = await contractsApi.get(contractId)
-        setCurrentStep(stepIndex(contract.status))
         if (contract.status === 'pending_review' || contract.status === 'active') {
           clearInterval(intervalRef.current!)
+          setCurrentStep(4) // all done
           onReady(contract.status)
+        } else {
+          // draft — animate through steps by elapsed time
+          setCurrentStep(elapsedToStep(elapsed))
         }
       } catch (_err) {
         clearInterval(intervalRef.current!)
