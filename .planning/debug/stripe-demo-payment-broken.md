@@ -1,8 +1,8 @@
 ---
-status: fixing
+status: resolved
 trigger: "Stripe payment not working on demo customer account on production"
 created: 2026-03-12T00:00:00Z
-updated: 2026-03-12T00:00:00Z
+updated: 2026-03-26T00:00:00Z
 ---
 
 ## Current Focus
@@ -50,6 +50,6 @@ started: Unknown - demo accounts were set up previously
 
 root_cause: Password inconsistency in recreate-customer endpoint (line 19185) uses "DemoCustomer2025" without "!" while all other endpoints and docs use "DemoCustomer2025!". If recreate-customer was the last endpoint called on production, the stored hash won't match the documented password.
 fix: Standardize password to "DemoCustomer2025!" in recreate-customer endpoint. Then force-reset passwords on production.
-verification: pending
+verification: demo login returns access_token on production 2026-03-26 — curl POST /api/auth/customer/login with DemoCustomer2025! returns access_token + customer_id=74
 files_changed:
 - apps/web/p2p-platform/backend/main_new.py
