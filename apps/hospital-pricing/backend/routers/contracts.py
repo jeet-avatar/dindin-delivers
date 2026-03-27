@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from database import get_db
 from auth.deps import require_entity_admin
 from models.contract import WholesaleAgreement, ContractStatus
@@ -104,8 +105,14 @@ async def create_contract(
     )
     db.add(contract)
     await db.commit()
-    await db.refresh(contract)
 
+    # Re-query with mfn_clause eager-loaded (async lazy load not allowed)
+    result = await db.execute(
+        select(WholesaleAgreement)
+        .options(selectinload(WholesaleAgreement.mfn_clause))
+        .where(WholesaleAgreement.contract_id == contract.contract_id)
+    )
+    contract = result.scalar_one()
     return _build_response(contract)
 
 
@@ -122,7 +129,9 @@ async def activate_contract(
     entity_id = uuid.UUID(payload["entity_id"])
 
     result = await db.execute(
-        select(WholesaleAgreement).where(
+        select(WholesaleAgreement)
+        .options(selectinload(WholesaleAgreement.mfn_clause))
+        .where(
             WholesaleAgreement.contract_id == contract_id,
             WholesaleAgreement.hospital_entity_id == entity_id,
         )
@@ -147,8 +156,14 @@ async def activate_contract(
 
     contract.status = ContractStatus.active
     await db.commit()
-    await db.refresh(contract)
 
+    # Re-query with mfn_clause eager-loaded (async lazy load not allowed)
+    result = await db.execute(
+        select(WholesaleAgreement)
+        .options(selectinload(WholesaleAgreement.mfn_clause))
+        .where(WholesaleAgreement.contract_id == contract_id)
+    )
+    contract = result.scalar_one()
     return _build_response(contract)
 
 
@@ -160,7 +175,9 @@ async def list_contracts(
     """List all contracts for the current entity (tenant-scoped)."""
     entity_id = uuid.UUID(payload["entity_id"])
     result = await db.execute(
-        select(WholesaleAgreement).where(WholesaleAgreement.hospital_entity_id == entity_id)
+        select(WholesaleAgreement)
+        .options(selectinload(WholesaleAgreement.mfn_clause))
+        .where(WholesaleAgreement.hospital_entity_id == entity_id)
     )
     contracts = result.scalars().all()
     return [_build_response(c) for c in contracts]
@@ -175,7 +192,9 @@ async def get_contract(
     """Fetch a single contract by ID, including current processing status."""
     entity_id = uuid.UUID(payload["entity_id"])
     result = await db.execute(
-        select(WholesaleAgreement).where(
+        select(WholesaleAgreement)
+        .options(selectinload(WholesaleAgreement.mfn_clause))
+        .where(
             WholesaleAgreement.contract_id == contract_id,
             WholesaleAgreement.hospital_entity_id == entity_id,
         )

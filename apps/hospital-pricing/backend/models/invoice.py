@@ -3,8 +3,7 @@ import uuid, enum
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
-from sqlalchemy import String, Enum as SAEnum, DateTime, Date, ForeignKey, Numeric
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Uuid, String, Enum as SAEnum, DateTime, Date, ForeignKey, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
@@ -43,7 +42,7 @@ class DiscrepancyStatus(str, enum.Enum):
 
 class Invoice(Base):
     __tablename__ = "invoices"
-    invoice_id:          Mapped[uuid.UUID]           = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    invoice_id:          Mapped[uuid.UUID]           = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     invoice_number:      Mapped[str]                 = mapped_column(String(100), nullable=False, index=True)
     supplier_id:         Mapped[uuid.UUID]           = mapped_column(ForeignKey("suppliers.supplier_id"), nullable=False)
     ship_to_facility_id: Mapped[uuid.UUID]           = mapped_column(ForeignKey("facilities.facility_id"), nullable=False)
@@ -59,7 +58,7 @@ class Invoice(Base):
 
 class InvoiceLineItem(Base):
     __tablename__ = "invoice_line_items"
-    line_id:                  Mapped[uuid.UUID]             = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    line_id:                  Mapped[uuid.UUID]             = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     invoice_id:               Mapped[uuid.UUID]             = mapped_column(ForeignKey("invoices.invoice_id"), nullable=False, index=True)
     supplier_item_number:     Mapped[str]                   = mapped_column(String(100), nullable=False)
     ndc:                      Mapped[Optional[str]]         = mapped_column(String(11))

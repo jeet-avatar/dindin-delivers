@@ -2,8 +2,7 @@
 import uuid, enum
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, Boolean, Enum as SAEnum, DateTime, ForeignKey, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Uuid, String, Boolean, Enum as SAEnum, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
@@ -17,7 +16,7 @@ class UserRole(str, enum.Enum):
 
 class HospitalEntity(Base):
     __tablename__ = "hospital_entities"
-    entity_id:          Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id:          Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     name:               Mapped[str]       = mapped_column(String(255), nullable=False)
     gpo_memberships:    Mapped[list]      = mapped_column(JSON, default=list)
     is_covered_entity:  Mapped[bool]      = mapped_column(Boolean, default=False)
@@ -29,7 +28,7 @@ class HospitalEntity(Base):
 
 class Supplier(Base):
     __tablename__ = "suppliers"
-    supplier_id:   Mapped[uuid.UUID]     = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    supplier_id:   Mapped[uuid.UUID]     = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     name:          Mapped[str]           = mapped_column(String(255), nullable=False)
     dea_number:    Mapped[Optional[str]] = mapped_column(String(20))
     hin:           Mapped[Optional[str]] = mapped_column(String(20))
@@ -39,7 +38,7 @@ class Supplier(Base):
 
 class Facility(Base):
     __tablename__ = "facilities"
-    facility_id:      Mapped[uuid.UUID]  = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    facility_id:      Mapped[uuid.UUID]  = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     entity_id:        Mapped[uuid.UUID]  = mapped_column(ForeignKey("hospital_entities.entity_id"), nullable=False)
     name:             Mapped[str]        = mapped_column(String(255), nullable=False)
     address:          Mapped[str]        = mapped_column(String(500), nullable=False)
@@ -50,7 +49,7 @@ class Facility(Base):
 
 class User(Base):
     __tablename__ = "users"
-    user_id:         Mapped[uuid.UUID]  = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id:         Mapped[uuid.UUID]  = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     entity_id:       Mapped[uuid.UUID]  = mapped_column(ForeignKey("hospital_entities.entity_id"), nullable=False)
     email:           Mapped[str]        = mapped_column(String(255), unique=True, nullable=False, index=True)
     hashed_password: Mapped[str]        = mapped_column(String(255), nullable=False)
