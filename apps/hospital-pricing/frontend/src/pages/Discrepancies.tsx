@@ -40,6 +40,8 @@ export function Discrepancies() {
 
   const load = useCallback(() => {
     setLoading(true)
+    // Note: type and supplier filters are applied client-side on the full response.
+    // Move to server-side params if pagination is added.
     const params: Record<string, string> = {}
     if (statusFilter !== 'all') params.status = statusFilter
     const invoiceId = searchParams.get('invoice')
@@ -293,6 +295,10 @@ export function Discrepancies() {
             ) : !canResolveDiscrepancy && selected.status === 'open' ? (
               <div className="py-3 text-center text-xs text-slate-500 bg-slate-50 rounded-lg border border-border">
                 Pending approver review
+              </div>
+            ) : selected.status !== 'open' ? (
+              <div className="py-3 text-center text-xs text-slate-400 bg-slate-50 rounded-lg border border-border">
+                Already resolved — no further action required
               </div>
             ) : null}
           </div>
