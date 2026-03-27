@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAppContext } from '../contexts/AppContext'
+import { useAuthContext } from '../contexts/AuthContext'
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard' },
@@ -17,8 +18,10 @@ interface Props {
 export function Layout({ children }: Props) {
   const location = useLocation()
   const { currentUser, openDiscrepancyCount } = useAppContext()
+  const { logout } = useAuthContext()
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout()
     localStorage.removeItem('access_token')
     sessionStorage.removeItem('access_token')
     window.location.href = '/login'

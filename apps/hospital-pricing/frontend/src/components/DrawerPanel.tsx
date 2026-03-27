@@ -8,6 +8,8 @@ interface Props {
 }
 
 export function DrawerPanel({ open, onClose, title, children }: Props) {
+  const titleId = 'drawer-title'
+
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
@@ -29,6 +31,9 @@ export function DrawerPanel({ open, onClose, title, children }: Props) {
 
       {/* Drawer */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className={`fixed top-0 right-0 h-full z-50 bg-white shadow-xl flex flex-col
           transition-transform duration-200 ease-in-out
           ${open ? 'translate-x-0' : 'translate-x-full'}`}
@@ -36,7 +41,7 @@ export function DrawerPanel({ open, onClose, title, children }: Props) {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div className="font-semibold text-navy text-sm">{title}</div>
+          <div id={titleId} className="font-semibold text-navy text-sm">{title}</div>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 text-xl leading-none"
