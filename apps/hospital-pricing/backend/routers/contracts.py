@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from database import get_db
-from auth.deps import require_entity_admin
+from auth.deps import require_entity_admin, require_procurement_officer
 from models.contract import WholesaleAgreement, ContractStatus
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
@@ -187,7 +187,7 @@ async def list_contracts(
 async def get_contract(
     contract_id: uuid.UUID = Path(...),
     db: AsyncSession = Depends(get_db),
-    payload: dict = Depends(require_entity_admin),
+    payload: dict = Depends(require_procurement_officer),
 ) -> ContractResponse:
     """Fetch a single contract by ID, including current processing status."""
     entity_id = uuid.UUID(payload["entity_id"])
