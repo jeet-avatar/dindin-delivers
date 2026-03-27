@@ -6,11 +6,11 @@ AKS safe harbor: admin_fee_pct must not exceed 3% per 42 CFR §1001.952(j)
 Statute: 42 U.S.C. §1320a-7b(b)
 """
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Path, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -22,30 +22,6 @@ router = APIRouter(prefix="/contracts", tags=["contracts"])
 
 AKS_ADMIN_FEE_CEILING = Decimal("0.03")  # 42 CFR §1001.952(j) — GPO safe harbor max 3%
 AKS_STATUTE_CITATION = "42 U.S.C. §1320a-7b(b) and 42 CFR §1001.952(j)"
-
-
-def _build_response(c: "WholesaleAgreement") -> "ContractResponse":
-    mfn: Optional[dict] = None
-    if c.mfn_clause is not None:
-        mfn = {
-            "mfn_id": str(c.mfn_clause.mfn_id),
-            "trigger_type": c.mfn_clause.trigger_type.value,
-            "disclosure_frequency": c.mfn_clause.disclosure_frequency,
-            "carve_outs": c.mfn_clause.carve_outs,
-            "cure_period_days": c.mfn_clause.cure_period_days,
-            "true_up_retroactive": c.mfn_clause.true_up_retroactive,
-        }
-    return ContractResponse(
-        contract_id=c.contract_id,
-        supplier_id=c.supplier_id,
-        status=c.status.value,
-        effective_date=c.effective_date,
-        expiration_date=c.expiration_date,
-        admin_fee_pct=c.admin_fee_pct,
-        aks_safe_harbor_documented=c.aks_safe_harbor_documented,
-        baa_required=c.baa_required,
-        mfn_clause=mfn,
-    )
 
 
 class ContractCreate(BaseModel):
@@ -72,15 +48,45 @@ class ContractCreate(BaseModel):
 class ContractResponse(BaseModel):
     contract_id: uuid.UUID
     supplier_id: uuid.UUID
-    status: str
+    status: ContractStatus
     effective_date: date
     expiration_date: date
     admin_fee_pct: Optional[Decimal]
     aks_safe_harbor_documented: bool
     baa_required: bool
     mfn_clause: Optional[dict]
+    gpo_contract_number: Optional[str]
+    document_s3_path: Optional[str]
+    created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
+
+
+def _build_response(c: WholesaleAgreement) -> ContractResponse:
+    mfn: Optional[dict] = None
+    if c.mfn_clause is not None:
+        mfn = {
+            "mfn_id": str(c.mfn_clause.mfn_id),
+            "trigger_type": c.mfn_clause.trigger_type.value,
+            "disclosure_frequency": c.mfn_clause.disclosure_frequency,
+            "carve_outs": c.mfn_clause.carve_outs,
+            "cure_period_days": c.mfn_clause.cure_period_days,
+            "true_up_retroactive": c.mfn_clause.true_up_retroactive,
+        }
+    return ContractResponse(
+        contract_id=c.contract_id,
+        supplier_id=c.supplier_id,
+        status=c.status,
+        effective_date=c.effective_date,
+        expiration_date=c.expiration_date,
+        admin_fee_pct=c.admin_fee_pct,
+        aks_safe_harbor_documented=c.aks_safe_harbor_documented,
+        baa_required=c.baa_required,
+        mfn_clause=mfn,
+        gpo_contract_number=c.gpo_contract_number,
+        document_s3_path=c.document_s3_path,
+        created_at=c.created_at,
+    )
 
 
 @router.post("/", response_model=ContractResponse, status_code=status.HTTP_201_CREATED)

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from passlib.context import CryptContext
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 from auth.jwt import create_access_token, create_refresh_token, verify_token
 from database import get_db
 from models.hospital import User, HospitalEntity
@@ -65,9 +65,12 @@ async def login(
 
 
 class EntityDetail(BaseModel):
+    entity_id: _uuid.UUID
     name: str
     is_covered_entity: bool
-    gpo_memberships: list
+    gpo_memberships: list[str]
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserInfoResponse(BaseModel):
@@ -75,7 +78,9 @@ class UserInfoResponse(BaseModel):
     entity_id: str
     email: str
     role: str
-    entity: Optional[EntityDetail]
+    entity: EntityDetail
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("/me", response_model=UserInfoResponse)
@@ -98,12 +103,19 @@ async def me(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    entity_detail: Optional[EntityDetail] = None
     if user.entity is not None:
         entity_detail = EntityDetail(
+            entity_id=user.entity.entity_id,
             name=user.entity.name,
             is_covered_entity=user.entity.is_covered_entity,
             gpo_memberships=user.entity.gpo_memberships or [],
+        )
+    else:
+        entity_detail = EntityDetail(
+            entity_id=user.entity_id,
+            name="",
+            is_covered_entity=False,
+            gpo_memberships=[],
         )
 
     return UserInfoResponse(
