@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- COMPLETE
 Plan: 6 of 6 complete in current phase
 Status: Phase 13-06 complete: Admin portal /admin/prop22 Prop22Compliance.tsx (387 lines, Ant Design two-tab table + manual top-up modal). Build 0 errors. Phase 13 all 6 plans done. Ready for deploy wave.
-Last activity: 2026-03-27 - Completed quick task 246: Stem analysis pipeline — analyzer.py + analysis_cache DB + deps
+Last activity: 2026-03-27 - Completed quick task 247: Analyze API routes + /anlz 4-stem enrichment
 
 Progress: [########################################] 100% (6/6 plans in phase 13)
 
@@ -387,9 +387,10 @@ None
 | 244 | Build SetBuilderPanel drag-drop set builder with BPM arc, transition scores, CSV export + LeftNav + TrackTable "Add to Set" | 2026-03-27 | 48a06034 | [244-build-setbuilderpanel-drag-drop-set-buil](./quick/244-build-setbuilderpanel-drag-drop-set-buil/) |
 | 245 | Compatible track highlighting, session played history, CamelotWheel SVG popup in MixMind | 2026-03-27 | 23e180fc | [245-add-compatible-track-highlighting-sessio](./quick/245-add-compatible-track-highlighting-sessio/) |
 | 246 | Stem analysis pipeline foundation — analysis_cache DB, analyzer.py (Demucs + Essentia + stems_to_waveform + batch runner), 8 tests | 2026-03-27 | 74b08760 | [246-implement-mixmind-stem-analysis-pipeline](./quick/246-implement-mixmind-stem-analysis-pipeline/) |
+| 247 | Analyze API routes (single/batch/cancel/status) + /anlz endpoint 4-stem + essentia enrichment | 2026-03-27 | 18ff4d18 | [247-add-analyze-routes-py-api-endpoints-sing](./quick/247-add-analyze-routes-py-api-endpoints-sing/) |
 
 ## Session Continuity
 
 Last session: 2026-03-27
-Stopped at: Quick task 246 complete — stem analysis foundation built. Next: Q-247 (API routes + /anlz enhancement + frontend 4-stem rendering).
+Stopped at: Quick task 247 complete — API routes + /anlz enhancement done. Next: Q-248 (frontend: types, 4-stem waveform, analyze button, DMG rebuild).
 Resume file: none
