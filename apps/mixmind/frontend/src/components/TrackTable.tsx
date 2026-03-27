@@ -3,13 +3,18 @@ import { useRef, useState, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Track } from '../types/track';
 
-type SortKey = keyof Pick<Track, 'title' | 'bpm' | 'key_musical' | 'camelot' | 'rating' | 'duration_sec'>;
+type SortKey = 'title' | 'artist' | 'bpm' | 'key_musical' | 'camelot' | 'rating' | 'duration_sec';
 type SortDir = 'asc' | 'desc';
+type Filter = 'all' | 'major' | 'minor' | 'slow' | 'mid' | 'fast';
 
 interface Props {
   tracks: Track[];
   onSelect?: (track: Track) => void;
+  onReload?: () => void;
+  onPlay?: (track: Track) => void;
 }
+
+// ── Helpers ──────────────────────────────────────────────────
 
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60);
@@ -17,50 +22,136 @@ function formatDuration(secs: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function RatingStars({ rating }: { rating: number }) {
-  return (
-    <div className="flex gap-0.5">
-      {Array.from({ length: 5 }, (_, i) => (
-        <svg key={i} width="10" height="10" viewBox="0 0 24 24" fill={i < rating ? '#facc15' : 'none'}
-          stroke={i < rating ? '#facc15' : '#374151'} strokeWidth="2">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-        </svg>
-      ))}
-    </div>
-  );
+// Extract camelot number (e.g. "8B" → "8", "11A" → "11")
+function camelotNum(c: string): string {
+  return c.replace(/[AB]/i, '').trim();
 }
 
-const cueColorMap: Record<string, string> = {
-  red: '#ef4444', blue: '#3b82f6', green: '#10b981',
-  yellow: '#f59e0b', orange: '#f97316', pink: '#ec4899',
-  purple: '#a855f7', white: '#f9fafb',
+// Camelot → badge color
+const CAMELOT_COLORS: Record<string, { bg: string; text: string }> = {
+  '1':  { bg: 'rgba(96,165,250,0.12)',   text: '#93c5fd' },
+  '2':  { bg: 'rgba(167,139,250,0.12)',  text: '#c4b5fd' },
+  '3':  { bg: 'rgba(244,114,182,0.12)',  text: '#f9a8d4' },
+  '4':  { bg: 'rgba(251,146,60,0.12)',   text: '#fdba74' },
+  '5':  { bg: 'rgba(250,204,21,0.12)',   text: '#fde68a' },
+  '6':  { bg: 'rgba(74,222,128,0.12)',   text: '#86efac' },
+  '7':  { bg: 'rgba(45,212,191,0.12)',   text: '#5eead4' },
+  '8':  { bg: 'rgba(34,211,238,0.12)',   text: '#67e8f9' },
+  '9':  { bg: 'rgba(56,189,248,0.12)',   text: '#7dd3fc' },
+  '10': { bg: 'rgba(129,140,248,0.12)',  text: '#a5b4fc' },
+  '11': { bg: 'rgba(248,113,113,0.12)',  text: '#fca5a5' },
+  '12': { bg: 'rgba(251,113,133,0.12)', text: '#fda4af' },
 };
 
-function CueDots({ colors }: { colors: string[] }) {
+function KeyBadge({ camelot }: { camelot: string }) {
+  const num = camelotNum(camelot);
+  const color = CAMELOT_COLORS[num] ?? { bg: 'rgba(255,255,255,0.07)', text: '#9ca3af' };
   return (
-    <div className="flex gap-1 items-center">
-      {colors.slice(0, 6).map((c, i) => (
-        <div key={i} className="w-2 h-2 rounded-full flex-shrink-0"
-          style={{ background: cueColorMap[c.toLowerCase()] || '#374151' }} />
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: '11px', fontWeight: 600, padding: '2px 7px', borderRadius: '5px',
+      letterSpacing: '0.02em', background: color.bg, color: color.text,
+      fontFeatureSettings: '"tnum"',
+    }}>
+      {camelot}
+    </span>
+  );
+}
+
+function BpmBadge({ bpm }: { bpm: number }) {
+  return (
+    <span style={{
+      fontSize: '12px', fontWeight: 600,
+      fontFeatureSettings: '"tnum"',
+      color: '#a78bfa',
+      background: 'rgba(124,58,237,0.15)',
+      padding: '2px 7px', borderRadius: '5px',
+      display: 'inline-block',
+    }}>
+      {Math.round(bpm)}
+    </span>
+  );
+}
+
+function RatingDots({ rating }: { rating: number }) {
+  return (
+    <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <div key={i} style={{
+          width: '5px', height: '5px', borderRadius: '50%',
+          background: i < rating ? '#7c3aed' : 'var(--border)',
+          flexShrink: 0,
+        }} />
       ))}
     </div>
   );
 }
 
-const COLS = '2fr 0.5fr 0.55fr 0.45fr 0.65fr 0.65fr 0.5fr';
+function WaveformIcon() {
+  const heights = [10, 16, 8, 14, 12, 10, 16];
+  const delays  = [0, 0.15, 0.3, 0.05, 0.2, 0.1, 0.25];
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5px', height: '18px', padding: '0 2px' }}>
+      {heights.map((h, i) => (
+        <div key={i} style={{
+          width: '2px', height: `${h}px`, borderRadius: '2px',
+          background: '#a78bfa', opacity: 0.7,
+          animation: `wave 1.2s ease-in-out infinite alternate`,
+          animationDelay: `${delays[i]}s`,
+          transformOrigin: 'center',
+        }} />
+      ))}
+    </div>
+  );
+}
 
-export function TrackTable({ tracks, onSelect }: Props) {
-  const [sortKey, setSortKey] = useState<SortKey>('title');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [search, setSearch] = useState('');
+// ── Sort arrow ────────────────────────────────────────────────
+
+function SortArrow({ dir }: { dir: SortDir }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      {dir === 'asc' ? <polyline points="18 15 12 9 6 15"/> : <polyline points="6 9 12 15 18 9"/>}
+    </svg>
+  );
+}
+
+// ── Column header widths (table-layout: fixed) ────────────────
+//  #  | title+artist | bpm | key | rating | dur | actions
+const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '72px', '70px', '48px'];
+
+// ── Main component ────────────────────────────────────────────
+
+export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
+  const [sortKey, setSortKey]   = useState<SortKey>('bpm');
+  const [sortDir, setSortDir]   = useState<SortDir>('asc');
+  const [search, setSearch]     = useState('');
+  const [filter, setFilter]     = useState<Filter>('all');
+  const [activeId, setActiveId] = useState<string | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
 
+  // ── Derived data ────────────────────────────────────────────
+
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return q ? tracks.filter(t =>
-      t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)
-    ) : tracks;
-  }, [tracks, search]);
+    let list = tracks;
+
+    // Search
+    const q = search.toLowerCase().trim();
+    if (q) list = list.filter(t =>
+      t.title.toLowerCase().includes(q) ||
+      t.artist.toLowerCase().includes(q) ||
+      t.key_musical.toLowerCase().includes(q) ||
+      t.camelot.toLowerCase().includes(q)
+    );
+
+    // Filter chips
+    if (filter === 'major') list = list.filter(t => t.camelot.toUpperCase().endsWith('B'));
+    if (filter === 'minor') list = list.filter(t => t.camelot.toUpperCase().endsWith('A'));
+    if (filter === 'slow')  list = list.filter(t => t.bpm <= 120);
+    if (filter === 'mid')   list = list.filter(t => t.bpm > 120 && t.bpm <= 124);
+    if (filter === 'fast')  list = list.filter(t => t.bpm > 124);
+
+    return list;
+  }, [tracks, search, filter]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -70,11 +161,25 @@ export function TrackTable({ tracks, onSelect }: Props) {
     });
   }, [filtered, sortKey, sortDir]);
 
+  // Aggregate stats
+  const avgBpm = useMemo(() => {
+    if (!sorted.length) return 0;
+    return sorted.reduce((s, t) => s + t.bpm, 0) / sorted.length;
+  }, [sorted]);
+
+  const totalSec = useMemo(() => sorted.reduce((s, t) => s + t.duration_sec, 0), [sorted]);
+  const totalTime = (() => {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  })();
+
+  // Virtualizer
   const rowVirtualizer = useVirtualizer({
     count: sorted.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 44,
-    overscan: 10,
+    overscan: 12,
   });
 
   function toggleSort(key: SortKey) {
@@ -82,113 +187,370 @@ export function TrackTable({ tracks, onSelect }: Props) {
     else { setSortKey(key); setSortDir('asc'); }
   }
 
-  function ColHeader({ label, k }: { label: string; k: SortKey }) {
-    const active = sortKey === k;
+  function handleRowClick(t: Track) {
+    setActiveId(t.content_id);
+    onSelect?.(t);
+    if (t.file_path) onPlay?.(t);
+  }
+
+  // ── Render ──────────────────────────────────────────────────
+
+  const S: Record<string, React.CSSProperties> = {
+    root: {
+      display: 'flex', flexDirection: 'column', height: '100%',
+      background: 'var(--bg-base)', overflow: 'hidden',
+    },
+
+    // Header
+    header: {
+      padding: '16px 20px 0', flexShrink: 0,
+    },
+    headerTop: {
+      display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px',
+    },
+    headerTitle: {
+      fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)',
+    },
+    headerCount: {
+      fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)',
+      background: 'var(--bg-overlay)', border: '1px solid var(--border)',
+      padding: '2px 8px', borderRadius: '20px',
+    },
+    headerActions: {
+      marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px',
+    },
+
+    // Toolbar
+    toolbar: {
+      display: 'flex', alignItems: 'center', gap: '10px',
+      padding: '0 20px 14px', flexShrink: 0,
+    },
+    searchWrap: { position: 'relative', flex: 1, maxWidth: '340px' },
+    searchIcon: {
+      position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)',
+      color: 'var(--text-secondary)', pointerEvents: 'none',
+    },
+    searchInput: {
+      width: '100%',
+      background: 'var(--bg-surface)', border: '1px solid var(--border)',
+      borderRadius: '8px', padding: '7px 32px 7px 34px',
+      fontSize: '13px', fontFamily: 'var(--font)', color: 'var(--text-primary)',
+      outline: 'none', transition: 'all 0.15s',
+    },
+    chips: { display: 'flex', alignItems: 'center', gap: '6px' },
+    sortInfo: {
+      marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px',
+      fontSize: '11px', color: 'var(--text-secondary)',
+    },
+
+    // Table
+    tableWrap: { flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 },
+    tableHead: {
+      position: 'sticky', top: 0, zIndex: 10,
+      display: 'grid', background: 'var(--bg-surface)',
+      borderBottom: '1px solid var(--border)',
+      gridTemplateColumns: COL_WIDTHS.join(' '),
+    },
+    th: {
+      display: 'flex', alignItems: 'center', gap: '5px',
+      padding: '9px 12px', fontSize: '11px', fontWeight: 600,
+      textTransform: 'uppercase', letterSpacing: '0.07em',
+      color: 'var(--text-secondary)', cursor: 'pointer',
+      border: 'none', background: 'none', fontFamily: 'var(--font)',
+      transition: 'color 0.15s', userSelect: 'none', whiteSpace: 'nowrap',
+    },
+
+    // Status bar
+    statusBar: {
+      height: '28px', flexShrink: 0,
+      background: 'var(--bg-base)', borderTop: '1px solid var(--border)',
+      display: 'flex', alignItems: 'center', padding: '0 20px',
+      gap: '16px', fontSize: '11px', color: 'var(--text-secondary)',
+    },
+  };
+
+  function Btn({ children, onClick, primary }: { children: React.ReactNode; onClick?: () => void; primary?: boolean }) {
+    const [hover, setHover] = useState(false);
+    return (
+      <button onClick={onClick}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '6px',
+          fontSize: '12px', fontWeight: 500,
+          padding: '6px 12px', borderRadius: '7px',
+          cursor: 'pointer', border: 'none', outline: 'none',
+          transition: 'all 0.15s', fontFamily: 'var(--font)',
+          background: primary
+            ? (hover ? '#6d28d9' : '#7c3aed')
+            : (hover ? 'var(--bg-overlay)' : 'transparent'),
+          color: primary ? '#fff' : (hover ? 'var(--text-primary)' : 'var(--text-secondary)'),
+          ...(primary ? {} : { border: '1px solid var(--border)' }),
+        }}>
+        {children}
+      </button>
+    );
+  }
+
+  function Chip({ id, label, dot }: { id: Filter; label: string; dot?: string }) {
+    const isActive = filter === id;
+    const [hover, setHover] = useState(false);
     return (
       <button
-        onClick={() => toggleSort(k)}
-        className="flex items-center gap-1 text-left text-xs font-medium uppercase tracking-wider px-3 py-2.5 transition-colors cursor-pointer"
-        style={{ color: active ? '#c084fc' : '#4b5563', letterSpacing: '0.06em' }}
-        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.color = '#9ca3af'; }}
-        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.color = '#4b5563'; }}
+        onClick={() => setFilter(id)}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        style={{
+          fontSize: '11px', fontWeight: 500,
+          padding: '5px 10px', borderRadius: '6px',
+          cursor: 'pointer', fontFamily: 'var(--font)',
+          transition: 'all 0.15s', userSelect: 'none',
+          background: isActive ? 'var(--accent-soft)' : (hover ? 'var(--bg-overlay)' : 'transparent'),
+          border: isActive ? '1px solid rgba(124,58,237,0.3)' : '1px solid var(--border)',
+          color: isActive ? '#c4b5fd' : (hover ? 'var(--text-primary)' : 'var(--text-secondary)'),
+        }}>
+        {dot && <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', marginRight: '5px', verticalAlign: 'middle', background: dot }} />}
+        {label}
+      </button>
+    );
+  }
+
+  function ColHeader({ label, sortK, first }: { label: string; sortK?: SortKey; first?: boolean }) {
+    const isActive = sortK && sortKey === sortK;
+    return (
+      <button
+        onClick={() => sortK && toggleSort(sortK)}
+        style={{
+          ...S.th,
+          paddingLeft: first ? '20px' : '12px',
+          color: isActive ? '#c4b5fd' : 'var(--text-secondary)',
+          cursor: sortK ? 'pointer' : 'default',
+        }}
+        onMouseEnter={e => { if (sortK && !isActive) (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
+        onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
       >
         {label}
-        {active && (
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            {sortDir === 'asc'
-              ? <polyline points="18 15 12 9 6 15"/>
-              : <polyline points="6 9 12 15 18 9"/>}
-          </svg>
-        )}
+        {isActive && <SortArrow dir={sortDir} />}
       </button>
     );
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: '#0d0d0d' }}>
-      {/* Search bar */}
-      <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: '1px solid #1a1a1a', background: '#0f0f0f' }}>
-        <div className="flex-1 flex items-center gap-2.5 px-3 py-2 rounded-lg" style={{ background: '#161616', border: '1px solid #222' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="2" strokeLinecap="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    <div style={S.root}>
+
+      {/* ── Header ── */}
+      <div style={S.header}>
+        <div style={S.headerTop}>
+          <span style={S.headerTitle}>Library</span>
+          <span style={S.headerCount}>{tracks.length.toLocaleString()} tracks</span>
+          <div style={S.headerActions}>
+            <Btn>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Export
+            </Btn>
+            <Btn onClick={onReload} primary>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.42"/>
+              </svg>
+              Reload
+            </Btn>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Toolbar ── */}
+      <div style={S.toolbar}>
+        {/* Search */}
+        <div style={S.searchWrap}>
+          <svg style={S.searchIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder={`Search ${tracks.length.toLocaleString()} tracks…`}
-            className="flex-1 bg-transparent text-sm outline-none"
-            style={{ color: '#d1d5db' }}
+            placeholder="Search tracks, artists, keys…"
+            style={S.searchInput}
+            onFocus={e => {
+              (e.target as HTMLInputElement).style.borderColor = 'rgba(124,58,237,0.5)';
+              (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(124,58,237,0.12)';
+              (e.target as HTMLInputElement).style.background = 'var(--bg-elevated)';
+            }}
+            onBlur={e => {
+              (e.target as HTMLInputElement).style.borderColor = 'var(--border)';
+              (e.target as HTMLInputElement).style.boxShadow = 'none';
+              (e.target as HTMLInputElement).style.background = 'var(--bg-surface)';
+            }}
           />
           {search && (
-            <button onClick={() => setSearch('')} className="cursor-pointer" style={{ color: '#4b5563' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <button onClick={() => setSearch('')} style={{
+              position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+              background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 0,
+            }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
             </button>
           )}
         </div>
-        <span className="text-xs tabular-nums flex-shrink-0" style={{ color: '#374151' }}>
-          {sorted.length.toLocaleString()} tracks
-        </span>
+
+        {/* Filter chips */}
+        <div style={S.chips}>
+          <Chip id="all"   label="All" />
+          <Chip id="major" label="Major" dot="#a78bfa" />
+          <Chip id="minor" label="Minor" dot="#60a5fa" />
+          <Chip id="slow"  label="≤120" dot="#34d399" />
+          <Chip id="mid"   label="121–124" dot="#f59e0b" />
+          <Chip id="fast"  label="125+" dot="#f472b6" />
+        </div>
+
+        {/* Sort info */}
+        <div style={S.sortInfo}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="9" y2="18"/>
+          </svg>
+          Sorted by {sortKey === 'duration_sec' ? 'Duration' : sortKey === 'key_musical' ? 'Key' : sortKey.charAt(0).toUpperCase() + sortKey.slice(1)}
+        </div>
       </div>
 
-      {/* Column headers */}
-      <div className="grid flex-shrink-0 select-none" style={{
-        gridTemplateColumns: COLS,
-        background: '#111111',
-        borderBottom: '1px solid #1a1a1a',
-      }}>
-        <ColHeader label="Title" k="title" />
-        <ColHeader label="BPM" k="bpm" />
-        <ColHeader label="Key" k="key_musical" />
-        <ColHeader label="Cam" k="camelot" />
-        <div className="text-xs font-medium uppercase tracking-wider px-3 py-2.5" style={{ color: '#4b5563', letterSpacing: '0.06em' }}>Cues</div>
-        <ColHeader label="Rating" k="rating" />
-        <ColHeader label="Time" k="duration_sec" />
+      {/* ── Column headers ── */}
+      <div style={S.tableHead}>
+        <div style={{ ...S.th, paddingLeft: '20px', cursor: 'default' }}>#</div>
+        <ColHeader label="Title"    sortK="title" />
+        <ColHeader label="BPM"      sortK="bpm" />
+        <ColHeader label="Key"      sortK="camelot" />
+        <ColHeader label="Rating"   sortK="rating" />
+        <ColHeader label={
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg> as any
+        } sortK="duration_sec" />
+        <div style={{ ...S.th, cursor: 'default' }}></div>
       </div>
 
-      {/* Virtual rows */}
-      <div ref={parentRef} className="flex-1 overflow-auto">
-        <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
-          {rowVirtualizer.getVirtualItems().map(vRow => {
-            const t = sorted[vRow.index];
-            const isEven = vRow.index % 2 === 0;
-            return (
-              <div
-                key={t.content_id}
-                onClick={() => onSelect?.(t)}
-                className="grid absolute w-full items-center cursor-pointer group"
-                style={{
-                  gridTemplateColumns: COLS,
-                  top: vRow.start,
-                  height: vRow.size,
-                  background: isEven ? 'transparent' : 'rgba(255,255,255,0.01)',
-                  borderBottom: '1px solid #141414',
-                  transition: 'background 120ms',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(124,58,237,0.06)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = isEven ? 'transparent' : 'rgba(255,255,255,0.01)'; }}
-              >
-                <div className="px-3 min-w-0">
-                  <div className="text-sm font-medium truncate" style={{ color: '#e5e7eb' }}>{t.title}</div>
-                  <div className="text-xs truncate mt-0.5" style={{ color: '#4b5563' }}>{t.artist}</div>
+      {/* ── Virtual rows ── */}
+      <div ref={parentRef} style={S.tableWrap}>
+        {sorted.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '12px' }}>
+            <div style={{ width: '44px', height: '44px', background: 'var(--bg-surface)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.75" strokeLinecap="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+            </div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>No tracks found</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Try a different search or filter</div>
+          </div>
+        ) : (
+          <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
+            {rowVirtualizer.getVirtualItems().map(vRow => {
+              const t = sorted[vRow.index];
+              const isPlaying = t.content_id === activeId;
+
+              return (
+                <div
+                  key={t.content_id}
+                  onClick={() => handleRowClick(t)}
+                  style={{
+                    position: 'absolute', top: vRow.start, width: '100%',
+                    height: vRow.size,
+                    display: 'grid',
+                    gridTemplateColumns: COL_WIDTHS.join(' '),
+                    alignItems: 'center',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    background: isPlaying ? 'rgba(124,58,237,0.08)' : 'transparent',
+                    cursor: 'pointer',
+                    transition: 'background 0.12s',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isPlaying) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
+                  }}
+                  onMouseLeave={e => {
+                    if (!isPlaying) (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  }}
+                >
+                  {/* # / waveform */}
+                  <div style={{ paddingLeft: '20px', paddingRight: '12px', display: 'flex', alignItems: 'center' }}>
+                    {isPlaying ? (
+                      <WaveformIcon />
+                    ) : (
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFeatureSettings: '"tnum"' }}>
+                        {vRow.index + 1}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Title + Artist */}
+                  <div style={{ padding: '0 12px', minWidth: 0, overflow: 'hidden' }}>
+                    <div style={{
+                      fontSize: '13px', fontWeight: 500, overflow: 'hidden',
+                      textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      color: isPlaying ? '#c4b5fd' : 'var(--text-primary)',
+                    }}>
+                      {t.title}
+                    </div>
+                    <div style={{
+                      fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap', color: 'var(--text-secondary)', marginTop: '1px',
+                    }}>
+                      {t.artist}
+                    </div>
+                  </div>
+
+                  {/* BPM */}
+                  <div style={{ padding: '0 12px' }}>
+                    <BpmBadge bpm={t.bpm} />
+                  </div>
+
+                  {/* Key (Camelot) */}
+                  <div style={{ padding: '0 12px' }}>
+                    <KeyBadge camelot={t.camelot} />
+                  </div>
+
+                  {/* Rating */}
+                  <div style={{ padding: '0 12px' }}>
+                    <RatingDots rating={t.rating} />
+                  </div>
+
+                  {/* Duration */}
+                  <div style={{ padding: '0 12px', fontSize: '12px', color: 'var(--text-secondary)', fontFeatureSettings: '"tnum"' }}>
+                    {formatDuration(t.duration_sec)}
+                  </div>
+
+                  {/* Actions (visible on hover via CSS parent trick — use opacity via group) */}
+                  <div className="row-action" style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={e => { e.stopPropagation(); }}
+                      style={{
+                        width: '26px', height: '26px', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', borderRadius: '5px', cursor: 'pointer',
+                        color: 'var(--text-secondary)', background: 'none', border: 'none',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <div className="px-3 text-sm font-mono font-medium" style={{ color: '#34d399' }}>
-                  {t.bpm.toFixed(0)}
-                </div>
-                <div className="px-3 text-sm" style={{ color: '#d1d5db' }}>{t.key_musical}</div>
-                <div className="px-3">
-                  <span className="text-xs font-mono font-semibold px-1.5 py-0.5 rounded"
-                    style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>
-                    {t.camelot}
-                  </span>
-                </div>
-                <div className="px-3"><CueDots colors={t.cue_colors} /></div>
-                <div className="px-3"><RatingStars rating={t.rating} /></div>
-                <div className="px-3 text-xs font-mono tabular-nums" style={{ color: '#4b5563' }}>
-                  {formatDuration(t.duration_sec)}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Status bar ── */}
+      <div style={S.statusBar}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 5px var(--green-glow)' }} />
+          Rekordbox library synced
+        </div>
+        <div>{sorted.length.toLocaleString()} {search || filter !== 'all' ? 'results' : 'tracks'}</div>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          {sorted.length > 0 && <span>Avg BPM: {avgBpm.toFixed(1)}</span>}
+          {totalSec > 0 && <span>Total: {totalTime}</span>}
         </div>
       </div>
     </div>
