@@ -63,7 +63,7 @@ async def list_audit_log(
         filters.append(
             or_(
                 AuditLogEntry.event_type.ilike(f"%{search}%"),
-                AuditLogEntry.resource_type.ilike(f"%{search}%"),
+                AuditLogEntry.resource_id.ilike(f"%{search}%"),
             )
         )
 
