@@ -191,7 +191,7 @@ const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '130px', '72px', '70px', '50
 
 // ── Main component ────────────────────────────────────────────
 
-export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet }: Props) {
+export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, playedIds, compatibleKeys, nowPlayingId }: Props) {
   const [sortKey, setSortKey]   = useState<SortKey>('bpm');
   const [sortDir, setSortDir]   = useState<SortDir>('asc');
   const [search, setSearch]     = useState('');
@@ -540,6 +540,19 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet }: P
         </div>
       )}
 
+      {/* ── Compatible tracks info bar ── */}
+      {compatibleKeys && compatibleKeys.length > 0 && (
+        <div style={{
+          padding: '5px 20px', fontSize: '11px', color: '#34d399',
+          background: 'rgba(16,185,129,0.06)', borderBottom: '1px solid rgba(16,185,129,0.12)',
+          flexShrink: 0, display: 'flex', alignItems: 'center', gap: '6px',
+        }}>
+          <span style={{ fontSize: '9px' }}>&#10003;</span>
+          Showing {filtered.filter(t => compatibleKeys.includes(t.camelot)).length} compatible tracks
+          {nowPlayingId && (() => { const np = tracks.find(t => t.content_id === nowPlayingId); return np ? ` for ${np.camelot}` : ''; })()}
+        </div>
+      )}
+
       {/* ── Column headers ── */}
       <div style={S.tableHead}>
         <div style={{ ...S.th, paddingLeft: '20px', cursor: 'default' }}>#</div>
@@ -575,6 +588,14 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet }: P
             {rowVirtualizer.getVirtualItems().map(vRow => {
               const t = sorted[vRow.index];
               const isPlaying = t.content_id === activeId;
+              const isPlayed = playedIds?.has(t.content_id) ?? false;
+              const isCompatible = compatibleKeys && compatibleKeys.length > 0
+                ? compatibleKeys.includes(t.camelot)
+                : false;
+              const isNowPlaying = t.content_id === nowPlayingId;
+
+              const rowBg = isNowPlaying ? 'rgba(124,58,237,0.1)' : isCompatible ? 'rgba(16,185,129,0.06)' : 'transparent';
+              const rowBorderLeft = isNowPlaying ? '2px solid #a78bfa' : isCompatible ? '2px solid rgba(16,185,129,0.4)' : '2px solid transparent';
 
               return (
                 <div
@@ -587,15 +608,17 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet }: P
                     gridTemplateColumns: COL_WIDTHS.join(' '),
                     alignItems: 'center',
                     borderBottom: '1px solid rgba(255,255,255,0.03)',
-                    background: isPlaying ? 'rgba(124,58,237,0.08)' : 'transparent',
+                    background: rowBg,
+                    borderLeft: rowBorderLeft,
+                    opacity: isPlayed && !isNowPlaying ? 0.45 : 1,
                     cursor: 'pointer',
-                    transition: 'background 0.12s',
+                    transition: 'background 0.12s, opacity 0.15s',
                   }}
                   onMouseEnter={e => {
-                    if (!isPlaying) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
+                    if (!isPlaying && !isNowPlaying && !isCompatible) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
                   }}
                   onMouseLeave={e => {
-                    if (!isPlaying) (e.currentTarget as HTMLElement).style.background = 'transparent';
+                    if (!isPlaying && !isNowPlaying) (e.currentTarget as HTMLElement).style.background = isCompatible ? 'rgba(16,185,129,0.06)' : 'transparent';
                   }}
                 >
                   {/* # / waveform */}
@@ -632,8 +655,11 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet }: P
                   </div>
 
                   {/* Key (Camelot) */}
-                  <div style={{ padding: '0 12px' }}>
+                  <div style={{ padding: '0 12px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                     <KeyBadge camelot={t.camelot} />
+                    {isCompatible && !isNowPlaying && (
+                      <span style={{ fontSize: '9px', color: '#34d399' }}>&#10003;</span>
+                    )}
                   </div>
 
                   {/* Genre + Energy + Color dot + Comment */}
@@ -680,6 +706,9 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet }: P
 
                   {/* Actions */}
                   <div className="row-action" style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                    {isPlayed && !isNowPlaying && (
+                      <span style={{ fontSize: '9px', color: '#374151', fontWeight: 500 }}>played</span>
+                    )}
                     {onAddToSet && (
                       <button
                         onClick={e => { e.stopPropagation(); onAddToSet(t); }}
