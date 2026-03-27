@@ -2,12 +2,14 @@
 Dollor.ai — ECS Redeployment Lambda
 
 Triggered by EventBridge when Secrets Manager emits an EndRotation notification
-for the staging secret (dollor/staging/database-url).
+for a database secret (staging or production).
 
-Force-redeploys the staging ECS service so new tasks pick up the rotated
+Force-redeploys the appropriate ECS service(s) so new tasks pick up the rotated
 DATABASE_URL from AWSCURRENT.
 
-Production service redeployment is added in plan 08-02.
+Targets:
+  - dollor-api-staging-service  (staging rotations)
+  - dollor-api-service          (production rotations)
 """
 
 import logging
@@ -19,15 +21,31 @@ logger.setLevel(logging.INFO)
 
 _CLUSTER = "dollor-production"
 _STAGING_SERVICE = "dollor-api-staging-service"
+_PRODUCTION_SERVICE = "dollor-api-service"
+
+# Map secret name prefixes to the services that should be redeployed
+_SECRET_SERVICE_MAP = {
+    "dollor/staging/": [(_CLUSTER, _STAGING_SERVICE)],
+    "dollor/production/": [(_CLUSTER, _PRODUCTION_SERVICE)],
+}
+
+
+def _resolve_services(event):
+    """Determine which ECS services to redeploy based on the rotated secret."""
+    secret_id = event.get("detail", {}).get("secretId", "")
+    for prefix, services in _SECRET_SERVICE_MAP.items():
+        if prefix in secret_id:
+            return services
+    # Fallback: redeploy all services if secret cannot be matched
+    logger.warning("Could not match secret '%s' to environment — redeploying all services", secret_id)
+    return [(_CLUSTER, _STAGING_SERVICE), (_CLUSTER, _PRODUCTION_SERVICE)]
 
 
 def lambda_handler(event, context):
-    """Force redeploy ECS staging service after DB password rotation."""
+    """Force redeploy ECS service(s) after DB password rotation."""
     ecs = boto3.client("ecs", region_name="us-east-1")
 
-    services_to_redeploy = [
-        (_CLUSTER, _STAGING_SERVICE),
-    ]
+    services_to_redeploy = _resolve_services(event)
 
     for cluster, service in services_to_redeploy:
         logger.info("Redeploying ECS service cluster=%s service=%s", cluster, service)
