@@ -84,6 +84,26 @@ class StateDB:
                     value TEXT
                 )
             """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS analysis_cache (
+                    content_id       TEXT NOT NULL,
+                    source           TEXT NOT NULL,
+                    status           TEXT NOT NULL DEFAULT 'pending',
+                    error_message    TEXT,
+                    file_path        TEXT,
+                    bpm              REAL,
+                    key_musical      TEXT,
+                    camelot          TEXT,
+                    genre            TEXT,
+                    energy           REAL,
+                    danceability     REAL,
+                    waveform_4stem   BLOB,
+                    analyzed_at      TEXT DEFAULT (datetime('now')),
+                    analyzer_version TEXT DEFAULT '1.0',
+                    duration_ms      INTEGER,
+                    PRIMARY KEY (content_id, source)
+                )
+            """))
             conn.commit()
 
     def hide_track(self, content_id: str, source: str, reason: str) -> None:
@@ -171,6 +191,62 @@ class StateDB:
                 "SELECT value FROM preferences WHERE key=:k"
             ), {"k": key}).fetchone()
             return row[0] if row else default
+
+    def save_analysis(self, content_id: str, source: str, status: str = "pending",
+                      file_path: str = "", bpm: float = None, key_musical: str = None,
+                      camelot: str = None, genre: str = None, energy: float = None,
+                      danceability: float = None, waveform_4stem: bytes = None,
+                      analyzer_version: str = "1.0", duration_ms: int = None,
+                      error_message: str = None) -> None:
+        with self._engine.connect() as conn:
+            conn.execute(text("""
+                INSERT OR REPLACE INTO analysis_cache
+                (content_id, source, status, error_message, file_path, bpm, key_musical,
+                 camelot, genre, energy, danceability, waveform_4stem,
+                 analyzer_version, duration_ms, analyzed_at)
+                VALUES (:cid, :src, :status, :err, :fp, :bpm, :key, :cam, :genre,
+                        :energy, :dance, :wf, :ver, :dur, datetime('now'))
+            """), {"cid": content_id, "src": source, "status": status,
+                   "err": error_message, "fp": file_path, "bpm": bpm,
+                   "key": key_musical, "cam": camelot, "genre": genre,
+                   "energy": energy, "dance": danceability, "wf": waveform_4stem,
+                   "ver": analyzer_version, "dur": duration_ms})
+            conn.commit()
+
+    def get_analysis(self, content_id: str, source: str) -> dict | None:
+        with self._engine.connect() as conn:
+            row = conn.execute(text(
+                "SELECT * FROM analysis_cache WHERE content_id=:cid AND source=:src"
+            ), {"cid": content_id, "src": source}).fetchone()
+            if not row:
+                return None
+            return dict(row._mapping)
+
+    def unanalyzed_ids(self, source: str) -> set[str]:
+        with self._engine.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT content_id FROM analysis_cache "
+                "WHERE source=:src AND status IN ('pending', 'failed', 'failed_demucs', 'failed_essentia')"
+            ), {"src": source}).fetchall()
+            return {r[0] for r in rows}
+
+    def update_analysis_status(self, content_id: str, source: str, status: str,
+                               error_message: str = None) -> None:
+        with self._engine.connect() as conn:
+            conn.execute(text(
+                "UPDATE analysis_cache SET status=:status, error_message=:err "
+                "WHERE content_id=:cid AND source=:src"
+            ), {"cid": content_id, "src": source, "status": status, "err": error_message})
+            conn.commit()
+
+    def analysis_counts(self, source: str) -> dict:
+        with self._engine.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT status, COUNT(*) FROM analysis_cache WHERE source=:src GROUP BY status"
+            ), {"src": source}).fetchall()
+            counts = {r[0]: r[1] for r in rows}
+            counts["total"] = sum(counts.values())
+            return counts
 
     def close(self) -> None:
         self._engine.dispose()
