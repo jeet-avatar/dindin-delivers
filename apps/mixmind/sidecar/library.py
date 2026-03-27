@@ -42,6 +42,12 @@ class TrackOut(BaseModel):
     cue_colors: list[str]
     file_path: str = ""
     analysis_data_path: str = ""
+    genre: str = ""
+    comment: str = ""
+    color_hex: str = ""
+    date_added: str = ""
+    label: str = ""
+    play_count: int = 0
 
 
 @router.get("/library")
@@ -75,10 +81,62 @@ async def get_library(db: Annotated[StateDB, Depends(get_state_db)]):
             cue_colors=t.cue_colors,
             file_path=t.file_path,
             analysis_data_path=t.analysis_data_path,
+            genre=t.genre,
+            comment=t.comment,
+            color_hex=t.color_hex,
+            date_added=t.date_added,
+            label=t.label,
+            play_count=t.play_count,
         ).model_dump() for t in visible],
         "source": source,
         "total": len(visible),
     }
+
+
+# ---------------------------------------------------------------------------
+# Genre list endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.get("/library/genres")
+async def get_library_genres():
+    """Return sorted unique non-empty genre strings from the full library."""
+    tracks = try_load_library_db()
+    if tracks is None:
+        if not XML_PATH.exists():
+            return {"genres": []}
+        tracks = load_library_xml(XML_PATH)
+    genres = sorted({t.genre for t in tracks if t.genre})
+    return {"genres": genres}
+
+
+# ---------------------------------------------------------------------------
+# Camelot compatibility endpoint
+# ---------------------------------------------------------------------------
+
+
+def _compatible_keys(camelot: str) -> list[str]:
+    """Return list of Camelot keys harmonically compatible with the given key."""
+    if not camelot or camelot == "?":
+        return []
+    letter = camelot[-1]          # 'A' or 'B'
+    number = int(camelot[:-1])    # numeric part
+    other = "B" if letter == "A" else "A"
+    return [
+        camelot,                                      # same key
+        f"{(number % 12) + 1}{letter}",               # +1 clockwise
+        f"{((number - 2) % 12) + 1}{letter}",         # -1 counter-clockwise
+        f"{number}{other}",                            # relative major/minor
+    ]
+
+
+@router.get("/library/compatible/{camelot}")
+async def get_compatible_keys(camelot: str):
+    """Return list of Camelot keys harmonically compatible with the given key."""
+    keys = _compatible_keys(camelot.upper())
+    if not keys:
+        raise HTTPException(status_code=400, detail=f"Invalid Camelot key: {camelot}")
+    return {"input": camelot.upper(), "compatible": keys}
 
 
 # ---------------------------------------------------------------------------

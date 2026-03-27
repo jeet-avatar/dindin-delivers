@@ -14,7 +14,7 @@ MAX_TRACKS_IN_CONTEXT = 1500
 
 SYSTEM_PROMPT_TEMPLATE = """You are MixMind, an expert DJ assistant. You have deep knowledge of music theory, DJ mixing, Camelot Wheel key compatibility, and energy flow in DJ sets.
 
-The DJ's library (CSV format: title|artist|bpm|camelot|rating|duration_sec):
+The DJ's library (CSV format: title|artist|bpm|camelot|rating|duration_sec|genre):
 
 {library_csv}
 
@@ -40,9 +40,9 @@ def serialise_library_for_claude(tracks: list[Track]) -> str:
     sorted_tracks = sorted(playable, key=lambda t: t.rating, reverse=True)
     capped = sorted_tracks[:MAX_TRACKS_IN_CONTEXT]
 
-    lines = ["title|artist|bpm|camelot|rating|duration_sec"]
+    lines = ["title|artist|bpm|camelot|rating|duration_sec|genre"]
     for t in capped:
-        lines.append(f"{t.title}|{t.artist}|{t.bpm:.1f}|{t.camelot}|{t.rating}|{t.duration_sec}")
+        lines.append(f"{t.title}|{t.artist}|{t.bpm:.1f}|{t.camelot}|{t.rating}|{t.duration_sec}|{t.genre}")
     return "\n".join(lines)
 
 
