@@ -366,10 +366,12 @@ None
 | 231 | Apply Phase 2 Indigo Noir dark theme to BrandMonkz — Sidebar glass floating panel, Layout ambient blobs, new Topbar component | 2026-03-26 | 6fb0b306 | [231-apply-phase-2-indigo-noir-dark-theme-to-](./quick/231-apply-phase-2-indigo-noir-dark-theme-to-/) |
 | 232 | Build all 3 Android release APKs (Customer vC=40/1.0.39 23MB, Driver vC=36/1.0.35 15MB, Partner vC=35/1.0.34 15MB) and distribute to Firebase App Distribution — jeetnair.in@gmail.com | 2026-03-25 | 99781c1f | [232-build-all-android-apks-and-distribute-to](./quick/232-build-all-android-apks-and-distribute-to/) |
 | 233 | Build BrandMonkz 3-step campaign wizard (CampaignWizard.tsx replacing CreateCampaignModal.tsx) + fix AIChat dark theme + fix generate-basics backend to use description field + deploy to production | 2026-03-26 | 0977b58f | [233-build-brandmonkz-3-step-campaign-wizard-](./quick/233-build-brandmonkz-3-step-campaign-wizard-/) |
+| 234 | MixMind DJ Waveform View — Layout C Pioneer CDJ-3000 style waveform with 3-band colors, beat grid, section overlays, hot/memory cues, seekTo lift | 2026-03-26 | b7671dfd | [234-mixmind-dj-waveform-view-layout-c-pioneer-cdj3000-colors](./quick/234-mixmind-dj-waveform-view-layout-c-pioneer-cdj3000-colors/) |
+| 235 | Fix MixMind wf_preview tuple parsing (wf_tag is tuple[ndarray,ndarray], wf_tag[0] is amplitude 0-31→0-255) — waveform_preview was [] for all 8213 tracks; rebuilt sidecar + DMG + uploaded to S3 | 2026-03-27 | 18bfae94 | [235-fix-mixmind-wf-preview-tuple-parsing-and](./quick/235-fix-mixmind-wf-preview-tuple-parsing-and/) |
 | Phase 13 P03 | 10 | 2 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-03-25
-Stopped at: Quick task 232 complete — All 3 Android APKs built (Customer vC=40, Driver vC=36, Partner vC=35) and distributed to Firebase App Distribution after user reauth
+Last session: 2026-03-27
+Stopped at: Quick task 235 complete — Fixed MixMind wf_preview tuple parsing (waveform_preview now 400 entries, was 0); rebuilt sidecar + DMG + uploaded to beatmind.io/MixMind-mac.dmg
 Resume file: .planning/NEXT_SESSION_PROMPT.md
