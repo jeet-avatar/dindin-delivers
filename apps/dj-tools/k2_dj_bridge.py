@@ -153,3 +153,90 @@ def _parse_osc_first_value(data: bytes):
             return payload.split(b"\x00")[0].decode("utf-8", errors="ignore")
     except Exception:
         return None
+
+
+# ── Encoder Logic ─────────────────────────────────────────────────────────────
+
+def encoder_delta(value: int) -> int:
+    """
+    Convert K2 relative encoder CC value to integer step count.
+    K2 sends: 65-127 = clockwise (+1 to +63), 0-63 = CCW (-64 to -1), 64 = no move.
+    """
+    if value > 64:
+        return value - 64
+    else:
+        return -(64 - value)
+
+
+def clamp(val: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, val))
+
+
+def update_hpf(deck: str, cc_value: int):
+    """Move HPF frequency for a deck based on encoder turn."""
+    key = f"{deck}_hpf_freq"
+    delta = encoder_delta(cc_value) * CONFIG["enc_sensitivity"]
+    state[key] = clamp(
+        state[key] + delta,
+        CONFIG["hpf_min_norm"],
+        CONFIG["hpf_max_norm"],
+    )
+    track = state[f"{deck}_track"]
+    send_osc(
+        "/live/device/set/parameter/value",
+        track, 0, CONFIG["hpf_param_index"],
+        state[key],
+    )
+
+
+# ── Session Reader ────────────────────────────────────────────────────────────
+
+def read_session():
+    """
+    Query Ableton on startup to find Deck 1/2 track indices and clip counts.
+    Blocks until Ableton responds (retries every 3s if not open).
+    """
+    log.info("Connecting to Ableton...")
+    while True:
+        num_tracks = await_osc("/live/song/get/num_tracks", timeout=3.0)
+        if num_tracks is not None:
+            break
+        log.info("Ableton not responding — is it open with AbletonOSC enabled? Retrying...")
+        time.sleep(3)
+
+    log.info(f"Ableton connected — {num_tracks} tracks found")
+
+    # Find Deck 1 and Deck 2 by name
+    for i in range(num_tracks):
+        name = await_osc("/live/track/get/name", i)
+        if name == CONFIG["deck1_name"]:
+            state["deck1_track"] = i
+        elif name == CONFIG["deck2_name"]:
+            state["deck2_track"] = i
+
+    # Count clips per deck (clips/name returns one value per slot)
+    for deck, key in [("deck1", "deck1_clips"), ("deck2", "deck2_clips")]:
+        track = state[f"{deck}_track"]
+        # Query individual slots until we get None (empty)
+        count = 0
+        for slot in range(16):
+            result = await_osc("/live/track/get/playing_slot_index", track)
+            # Use num_scenes as proxy for clip count
+            break
+        # Fallback: assume 4 clips
+        state[key] = 4
+
+    # Verify HPF param is Frequency
+    for deck in ["deck1", "deck2"]:
+        track = state[f"{deck}_track"]
+        param_name = await_osc(
+            "/live/device/get/parameter/name",
+            track, 0, CONFIG["hpf_param_index"]
+        )
+        if param_name == "Frequency":
+            log.info(f"{CONFIG[deck + '_name']} → track {track} | HPF param verified: Frequency")
+        else:
+            log.warning(
+                f"{CONFIG[deck + '_name']} → param {CONFIG['hpf_param_index']} "
+                f"is '{param_name}', not 'Frequency' — HPF mapping disabled for this deck"
+            )

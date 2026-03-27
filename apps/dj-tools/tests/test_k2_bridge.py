@@ -49,3 +49,21 @@ def test_parse_osc_first_value_string_roundtrip():
     from k2_dj_bridge import _parse_osc_first_value
     msg = build_osc_msg("/live/track/get/name", "Deck 1")
     assert _parse_osc_first_value(msg) == "Deck 1"
+
+# ── Encoder delta tests ───────────────────────────────────────────────────────
+from k2_dj_bridge import encoder_delta
+
+def test_encoder_clockwise_small():
+    assert encoder_delta(65) == 1   # +1 step
+
+def test_encoder_clockwise_fast():
+    assert encoder_delta(127) == 63  # +63 steps
+
+def test_encoder_counterclockwise_small():
+    assert encoder_delta(63) == -1  # -1 step
+
+def test_encoder_counterclockwise_fast():
+    assert encoder_delta(0) == -64  # -64 steps
+
+def test_encoder_no_movement():
+    assert encoder_delta(64) == 0   # center = no movement
