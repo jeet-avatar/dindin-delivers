@@ -104,6 +104,7 @@ Progress: [########################################] 100% (6/6 plans in phase 13
 - [Phase 13-05]: Prop22RideItem uses Decodable (not Codable) to support custom init() for dual ride_id/order_id key handling without needing encode()
 - [Phase 13-05]: prop22Section() fetches Prop22 data independently via .onAppear, separate from payout history fetch
 - [Phase 13-06]: Used ClipboardCheck icon (already imported from lucide-react) for Prop 22 sidebar item — no new icon libraries needed
+- [Phase 09-01]: 12-step rideshare E2E test: mocked Stripe+notifications, DriverStatus.APPROVED required, tier_fee verified for ≤35 fare tier
 
 ### Blockers
 
@@ -265,6 +266,7 @@ None
 - Completed: 5
 | Phase 13 P05 | 4 | 2 tasks | 1 files |
 | Phase 13-prop22-driver-earnings-floor P06 | 2 | 2 tasks | 3 files |
+| Phase 09 P01 | 26 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
