@@ -13,6 +13,14 @@ export interface Track {
   cue_colors: string[];  // e.g. ['red', 'blue']
   file_path: string;     // absolute path to audio file on disk
   analysis_data_path?: string; // ANLZ relative path from Rekordbox DB
+
+  // Metadata fields from Rekordbox (Q-242)
+  genre?: string;
+  comment?: string;
+  color_hex?: string;      // '#rrggbb' or empty
+  date_added?: string;     // 'YYYY-MM-DD' or empty
+  label?: string;          // Record label name
+  play_count?: number;     // DJ play count
 }
 
 // ---------------------------------------------------------------------------
@@ -57,6 +65,7 @@ export interface TrackAnlzData {
   hot_cues: HotCueEntry[];
   memory_cues: MemoryCueEntry[];
   bpm: number;
+  partial?: boolean;  // true when ANLZ .DAT not on this Mac — cues only, no waveform
 }
 
 export interface Playlist {
