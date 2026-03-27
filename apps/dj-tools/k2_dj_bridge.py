@@ -249,6 +249,25 @@ def midi_to_norm(value: int) -> float:
     return value / 127.0
 
 
+# ── Loop Toggle ───────────────────────────────────────────────────────────────
+
+def toggle_loop(track_index: int):
+    """
+    Toggle loop on/off for the currently playing clip on a track.
+    Requires two OSC round-trips: find playing slot, then toggle looping.
+    """
+    playing_slot = await_osc("/live/track/get/playing_slot_index", track_index)
+    if playing_slot is None or playing_slot < 0:
+        log.info(f"No clip playing on track {track_index} — loop toggle skipped")
+        return
+    is_looping = await_osc("/live/clip/get/looping", track_index, playing_slot)
+    if is_looping is None:
+        return
+    new_state = 0 if is_looping else 1
+    send_osc("/live/clip/set/looping", track_index, playing_slot, new_state)
+    log.info(f"Track {track_index} clip {playing_slot} loop → {'ON' if new_state else 'OFF'}")
+
+
 # ── Action Map ────────────────────────────────────────────────────────────────
 # K2 Layer A MIDI note numbers (verified against K2 MIDI implementation guide)
 # Row B buttons: notes 0–3  (left to right)
