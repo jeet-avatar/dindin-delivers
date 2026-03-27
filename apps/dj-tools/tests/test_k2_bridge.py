@@ -79,3 +79,17 @@ def test_midi_127_maps_to_one():
 
 def test_midi_64_maps_to_half():
     assert abs(midi_to_norm(64) - 0.504) < 0.01
+
+# ── K2 port finder tests ──────────────────────────────────────────────────────
+from unittest.mock import patch
+from k2_dj_bridge import find_k2_port
+
+def test_find_k2_port_returns_matching_name():
+    with patch("mido.get_input_names", return_value=["XONE:K2 0", "IAC Driver Bus 1"]):
+        result = find_k2_port()
+        assert result == "XONE:K2 0"
+
+def test_find_k2_port_returns_none_if_not_found():
+    with patch("mido.get_input_names", return_value=["IAC Driver Bus 1"]):
+        result = find_k2_port()
+        assert result is None
