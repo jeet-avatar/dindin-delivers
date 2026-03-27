@@ -16,6 +16,8 @@ from library import router as library_router
 from duplicate_routes import router as duplicate_router
 from ai_routes import router as ai_router
 from pioneer_usb import router as usb_router
+from audio_routes import router as audio_router
+from debug_routes import router as debug_router
 from version import VERSION
 
 _chosen_port: int = 0
@@ -44,6 +46,8 @@ app.include_router(library_router)
 app.include_router(duplicate_router)
 app.include_router(ai_router)
 app.include_router(usb_router)
+app.include_router(audio_router)
+app.include_router(debug_router)
 
 
 def find_free_port(start: int = 8765, end: int = 8775) -> int:
