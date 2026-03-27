@@ -179,7 +179,7 @@ export default function App() {
           {panel === 'usb' && <USBPanel />}
         </main>
 
-        <AIChatSidebar onPlaylistCreated={handlePlaylistCreated} />
+        <AIChatSidebar onPlaylistCreated={handlePlaylistCreated} tracks={tracks} />
       </div>
 
       {/* ── DJ Waveform View + Mini Player (shown when track is playing) ── */}
