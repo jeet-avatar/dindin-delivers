@@ -24,7 +24,7 @@ function CompliancePanel({ title, children }: PanelProps) {
 
 export function Compliance() {
   const navigate = useNavigate()
-  const { currentUser } = useAppContext()
+  const { currentUser, loading: userLoading } = useAppContext()
   const [contracts, setContracts] = useState<WholesaleAgreement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -37,16 +37,15 @@ export function Compliance() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) {
+  if (loading || userLoading) {
     return <div className="text-sm text-slate-500 py-8 text-center">Loading compliance data…</div>
   }
 
   // AKS Safe Harbor: admin_fee_pct > 3% or aks_safe_harbor_documented = false
   const aksViolations = contracts.filter(
     (c) =>
-      c.status === 'active' &&
-      ((c.admin_fee_pct != null && c.admin_fee_pct > 0.03) ||
-        c.aks_safe_harbor_documented === false)
+      (c.admin_fee_pct != null && c.admin_fee_pct > 0.03) ||
+      c.aks_safe_harbor_documented === false
   )
 
   // BAA
