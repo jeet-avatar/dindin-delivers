@@ -1,11 +1,12 @@
 // src/components/TrackTable.tsx
-import { useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Track } from '../types/track';
+import { sidecarGet } from '../hooks/useSidecar';
 
-type SortKey = 'title' | 'artist' | 'bpm' | 'key_musical' | 'camelot' | 'rating' | 'duration_sec';
+type SortKey = 'title' | 'artist' | 'bpm' | 'key_musical' | 'camelot' | 'rating' | 'duration_sec' | 'genre' | 'date_added' | 'play_count';
 type SortDir = 'asc' | 'desc';
-type Filter = 'all' | 'major' | 'minor' | 'slow' | 'mid' | 'fast';
+type Filter = 'all' | 'major' | 'minor' | 'slow' | 'mid' | 'fast' | string;
 
 interface Props {
   tracks: Track[];
@@ -22,12 +23,24 @@ function formatDuration(secs: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-// Extract camelot number (e.g. "8B" → "8", "11A" → "11")
+function energyLabel(bpm: number): string {
+  if (bpm < 90)  return 'Ambient';
+  if (bpm < 110) return 'Hip-Hop';
+  if (bpm < 118) return 'Soulful';
+  if (bpm < 122) return 'Deep';
+  if (bpm < 126) return 'Tech';
+  if (bpm < 130) return 'House';
+  if (bpm < 135) return 'Peak';
+  if (bpm < 140) return 'Techno';
+  return 'Hard';
+}
+
+// Extract camelot number (e.g. "8B" -> "8", "11A" -> "11")
 function camelotNum(c: string): string {
   return c.replace(/[AB]/i, '').trim();
 }
 
-// Camelot → badge color
+// Camelot -> badge color
 const CAMELOT_COLORS: Record<string, { bg: string; text: string }> = {
   '1':  { bg: 'rgba(96,165,250,0.12)',   text: '#93c5fd' },
   '2':  { bg: 'rgba(167,139,250,0.12)',  text: '#c4b5fd' },
@@ -69,6 +82,59 @@ function BpmBadge({ bpm }: { bpm: number }) {
       display: 'inline-block',
     }}>
       {Math.round(bpm)}
+    </span>
+  );
+}
+
+// ── Genre badge with hash-based color ──────────────────────────
+
+const GENRE_COLORS = [
+  { bg: 'rgba(96,165,250,0.14)',  text: '#93c5fd', border: 'rgba(96,165,250,0.25)' },
+  { bg: 'rgba(167,139,250,0.14)', text: '#c4b5fd', border: 'rgba(167,139,250,0.25)' },
+  { bg: 'rgba(244,114,182,0.14)', text: '#f9a8d4', border: 'rgba(244,114,182,0.25)' },
+  { bg: 'rgba(251,146,60,0.14)',  text: '#fdba74', border: 'rgba(251,146,60,0.25)' },
+  { bg: 'rgba(74,222,128,0.14)',  text: '#86efac', border: 'rgba(74,222,128,0.25)' },
+  { bg: 'rgba(45,212,191,0.14)',  text: '#5eead4', border: 'rgba(45,212,191,0.25)' },
+  { bg: 'rgba(250,204,21,0.14)',  text: '#fde68a', border: 'rgba(250,204,21,0.25)' },
+];
+
+function genreColorIndex(genre: string): number {
+  let h = 0;
+  for (let i = 0; i < genre.length; i++) {
+    h = (h * 31 + genre.charCodeAt(i)) & 0xffff;
+  }
+  return h % 7;
+}
+
+function GenreBadge({ genre, bpm }: { genre?: string; bpm: number }) {
+  const energy = energyLabel(bpm);
+  if (!genre) {
+    return (
+      <span style={{
+        fontSize: '10px', fontWeight: 500, padding: '2px 6px', borderRadius: '4px',
+        background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)',
+      }}>
+        {energy}
+      </span>
+    );
+  }
+  const c = GENRE_COLORS[genreColorIndex(genre)];
+  const displayGenre = genre.length > 12 ? genre.slice(0, 12) + '\u2026' : genre;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+      <span style={{
+        fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px',
+        background: c.bg, color: c.text, border: `1px solid ${c.border}`,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80px',
+      }}>
+        {displayGenre}
+      </span>
+      <span style={{
+        fontSize: '9px', fontWeight: 500, padding: '1px 5px', borderRadius: '3px',
+        background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)',
+      }}>
+        {energy}
+      </span>
     </span>
   );
 }
@@ -116,8 +182,8 @@ function SortArrow({ dir }: { dir: SortDir }) {
 }
 
 // ── Column header widths (table-layout: fixed) ────────────────
-//  #  | title+artist | bpm | key | rating | dur | actions
-const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '72px', '70px', '48px'];
+//  #  | title+artist | bpm | key | genre+energy | rating | dur | plays | added | actions
+const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '130px', '72px', '70px', '50px', '58px', '48px'];
 
 // ── Main component ────────────────────────────────────────────
 
@@ -126,8 +192,17 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
   const [sortDir, setSortDir]   = useState<SortDir>('asc');
   const [search, setSearch]     = useState('');
   const [filter, setFilter]     = useState<Filter>('all');
+  const [genreFilter, setGenreFilter] = useState<string>('all');
+  const [availableGenres, setAvailableGenres] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
+
+  // Fetch available genres from sidecar
+  useEffect(() => {
+    sidecarGet<{ genres: string[] }>('/api/library/genres')
+      .then(r => setAvailableGenres(r.genres))
+      .catch(() => {});
+  }, []);
 
   // ── Derived data ────────────────────────────────────────────
 
@@ -140,7 +215,8 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
       t.title.toLowerCase().includes(q) ||
       t.artist.toLowerCase().includes(q) ||
       t.key_musical.toLowerCase().includes(q) ||
-      t.camelot.toLowerCase().includes(q)
+      t.camelot.toLowerCase().includes(q) ||
+      (t.genre?.toLowerCase().includes(q) ?? false)
     );
 
     // Filter chips
@@ -150,13 +226,19 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
     if (filter === 'mid')   list = list.filter(t => t.bpm > 120 && t.bpm <= 124);
     if (filter === 'fast')  list = list.filter(t => t.bpm > 124);
 
+    // Genre filter
+    if (genreFilter !== 'all') list = list.filter(t => t.genre === genreFilter);
+
     return list;
-  }, [tracks, search, filter]);
+  }, [tracks, search, filter, genreFilter]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
-      const av = a[sortKey], bv = b[sortKey];
-      const cmp = typeof av === 'string' ? av.localeCompare(bv as string) : (av as number) - (bv as number);
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      const cmp = typeof av === 'number' || typeof bv === 'number'
+        ? ((av as number ?? 0) - (bv as number ?? 0))
+        : String(av ?? '').localeCompare(String(bv ?? ''));
       return sortDir === 'asc' ? cmp : -cmp;
     });
   }, [filtered, sortKey, sortDir]);
@@ -315,7 +397,7 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
     );
   }
 
-  function ColHeader({ label, sortK, first }: { label: string; sortK?: SortKey; first?: boolean }) {
+  function ColHeader({ label, sortK, first }: { label: React.ReactNode; sortK?: SortKey; first?: boolean }) {
     const isActive = sortK && sortKey === sortK;
     return (
       <button
@@ -370,7 +452,7 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search tracks, artists, keys…"
+            placeholder="Search tracks, artists, keys, genres..."
             style={S.searchInput}
             onFocus={e => {
               (e.target as HTMLInputElement).style.borderColor = 'rgba(124,58,237,0.5)';
@@ -400,8 +482,8 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
           <Chip id="all"   label="All" />
           <Chip id="major" label="Major" dot="#a78bfa" />
           <Chip id="minor" label="Minor" dot="#60a5fa" />
-          <Chip id="slow"  label="≤120" dot="#34d399" />
-          <Chip id="mid"   label="121–124" dot="#f59e0b" />
+          <Chip id="slow"  label="<=120" dot="#34d399" />
+          <Chip id="mid"   label="121-124" dot="#f59e0b" />
           <Chip id="fast"  label="125+" dot="#f472b6" />
         </div>
 
@@ -410,9 +492,49 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="9" y2="18"/>
           </svg>
-          Sorted by {sortKey === 'duration_sec' ? 'Duration' : sortKey === 'key_musical' ? 'Key' : sortKey.charAt(0).toUpperCase() + sortKey.slice(1)}
+          Sorted by {sortKey === 'duration_sec' ? 'Duration' : sortKey === 'key_musical' ? 'Key' : sortKey === 'play_count' ? 'Plays' : sortKey === 'date_added' ? 'Added' : sortKey.charAt(0).toUpperCase() + sortKey.slice(1)}
         </div>
       </div>
+
+      {/* ── Genre filter chips ── */}
+      {availableGenres.length > 0 && (
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '5px',
+          padding: '0 20px 10px', flexShrink: 0,
+        }}>
+          <button
+            onClick={() => setGenreFilter('all')}
+            style={{
+              fontSize: '11px', fontWeight: 500, padding: '4px 10px', borderRadius: '20px',
+              cursor: 'pointer', fontFamily: 'var(--font)', transition: 'all 0.15s', userSelect: 'none',
+              background: genreFilter === 'all' ? 'var(--accent-soft)' : 'transparent',
+              border: genreFilter === 'all' ? '1px solid rgba(124,58,237,0.3)' : '1px solid var(--border)',
+              color: genreFilter === 'all' ? '#c4b5fd' : 'var(--text-secondary)',
+            }}
+          >
+            All Genres
+          </button>
+          {availableGenres.map(g => {
+            const isActive = genreFilter === g;
+            const gc = GENRE_COLORS[genreColorIndex(g)];
+            return (
+              <button
+                key={g}
+                onClick={() => setGenreFilter(g)}
+                style={{
+                  fontSize: '11px', fontWeight: 500, padding: '4px 10px', borderRadius: '20px',
+                  cursor: 'pointer', fontFamily: 'var(--font)', transition: 'all 0.15s', userSelect: 'none',
+                  background: isActive ? gc.bg : 'transparent',
+                  border: isActive ? `1px solid ${gc.border}` : '1px solid var(--border)',
+                  color: isActive ? gc.text : 'var(--text-secondary)',
+                }}
+              >
+                {g}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Column headers ── */}
       <div style={S.tableHead}>
@@ -420,12 +542,15 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
         <ColHeader label="Title"    sortK="title" />
         <ColHeader label="BPM"      sortK="bpm" />
         <ColHeader label="Key"      sortK="camelot" />
+        <ColHeader label="Genre"    sortK="genre" />
         <ColHeader label="Rating"   sortK="rating" />
         <ColHeader label={
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
           </svg> as any
         } sortK="duration_sec" />
+        <ColHeader label="Plays" sortK="play_count" />
+        <ColHeader label="Added" sortK="date_added" />
         <div style={{ ...S.th, cursor: 'default' }}></div>
       </div>
 
@@ -507,6 +632,26 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
                     <KeyBadge camelot={t.camelot} />
                   </div>
 
+                  {/* Genre + Energy + Color dot + Comment */}
+                  <div style={{ padding: '0 8px', display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, overflow: 'hidden' }}>
+                    {t.color_hex && (
+                      <span style={{
+                        width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0,
+                        background: t.color_hex,
+                      }} />
+                    )}
+                    <GenreBadge genre={t.genre} bpm={t.bpm} />
+                    {t.comment && (
+                      <span title={t.comment} style={{
+                        cursor: 'help', flexShrink: 0, display: 'inline-flex', alignItems: 'center',
+                      }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+
                   {/* Rating */}
                   <div style={{ padding: '0 12px' }}>
                     <RatingDots rating={t.rating} />
@@ -517,7 +662,19 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
                     {formatDuration(t.duration_sec)}
                   </div>
 
-                  {/* Actions (visible on hover via CSS parent trick — use opacity via group) */}
+                  {/* Play Count */}
+                  <div style={{ padding: '0 8px', fontSize: '10px', color: '#a78bfa', fontFeatureSettings: '"tnum"' }}>
+                    {(t.play_count ?? 0) > 0 && (
+                      <span>{t.play_count} &#9654;</span>
+                    )}
+                  </div>
+
+                  {/* Date Added */}
+                  <div style={{ padding: '0 8px', fontSize: '10px', color: 'var(--text-secondary)', fontFeatureSettings: '"tnum"' }}>
+                    {t.date_added?.slice(0, 7) ?? ''}
+                  </div>
+
+                  {/* Actions */}
                   <div className="row-action" style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                     <button
                       onClick={e => { e.stopPropagation(); }}
@@ -547,7 +704,8 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
           <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 5px var(--green-glow)' }} />
           Rekordbox library synced
         </div>
-        <div>{sorted.length.toLocaleString()} {search || filter !== 'all' ? 'results' : 'tracks'}</div>
+        <div>{sorted.length.toLocaleString()} {search || filter !== 'all' || genreFilter !== 'all' ? 'results' : 'tracks'}</div>
+        {availableGenres.length > 0 && <div>{availableGenres.length} genres</div>}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '14px' }}>
           {sorted.length > 0 && <span>Avg BPM: {avgBpm.toFixed(1)}</span>}
           {totalSec > 0 && <span>Total: {totalTime}</span>}
