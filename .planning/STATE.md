@@ -108,6 +108,7 @@ Progress: [########################################] 100% (6/6 plans in phase 13
 - [Phase quick-241]: COLOR_MAP dict for Rekordbox ColorID-to-hex; genre only in AI CSV to save tokens
 - [Phase quick-243]: Camelot wheel scoring + BPM % jump badges + energy arc bar chart in AI sidebar
 - [Phase quick-246]: Lazy-import msgpack inside analyze_track to avoid ModuleNotFoundError before pip install
+- [Phase quick-247]: Lazy msgpack import in _enrich_with_analysis; 3-point fallback in /anlz for analysis_cache
 
 ### Blockers
 
@@ -272,6 +273,7 @@ None
 | Phase 09 P01 | 26 | 1 tasks | 1 files |
 | Phase quick-241 P01 | 37min | 2 tasks | 3 files |
 | Phase quick-245 P01 | 192 | 2 tasks | 4 files |
+| Phase quick-247 P01 | 2min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
