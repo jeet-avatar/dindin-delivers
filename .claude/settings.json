@@ -61,7 +61,9 @@
       "WebFetch(domain:developer.android.com)",
       "Bash(ssh -i /Users/jeet/.ssh/id_ed25519 *)",
       "Bash(scp -i /Users/jeet/.ssh/id_ed25519 *)",
-      "Bash(aws ec2-instance-connect *)"
+      "Bash(aws ec2-instance-connect *)",
+      "Write(**/infrastructure/lambda/**)",
+      "Edit(**/infrastructure/lambda/**)"
     ],
     "deny": [
       "Bash(docker build *)",
@@ -132,8 +134,6 @@
       "Edit(**/.git/hooks/*)",
       "Edit(**/.gitignore)",
       "Edit(**/Dockerfile*)",
-      "Edit(**/.github/workflows/*)",
-      "Edit(**/infrastructure/**)",
       "Edit(**/terraform/**)",
       "Write(**/.env)",
       "Write(**/.env.*)",
@@ -151,8 +151,6 @@
       "Write(**/.git/hooks/*)",
       "Write(**/.gitignore)",
       "Write(**/Dockerfile*)",
-      "Write(**/.github/workflows/*)",
-      "Write(**/infrastructure/**)",
       "Write(**/terraform/**)"
     ]
   }
