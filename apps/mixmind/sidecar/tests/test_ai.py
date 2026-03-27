@@ -12,9 +12,9 @@ from ai import (
 )
 
 SAMPLE_TRACKS = [
-    Track("1", "xml", "Afterlife", "Tale Of Us", 128.0, "Am", "8A", 5, 402, 2, ["red"]),
-    Track("2", "xml", "Subzero", "Adam Beyer", 134.0, "Dm", "7A", 4, 435, 3, ["blue"]),
-    Track("3", "xml", "Coma Cat", "Amelie Lens", 138.0, "Fm", "4A", 5, 481, 1, ["green"]),
+    Track("1", "xml", "Afterlife", "Tale Of Us", 128.0, "Am", "8A", 5, 402, 2, ["red"], file_path="/music/afterlife.mp3"),
+    Track("2", "xml", "Subzero", "Adam Beyer", 134.0, "Dm", "7A", 4, 435, 3, ["blue"], file_path="/music/subzero.mp3"),
+    Track("3", "xml", "Coma Cat", "Amelie Lens", 138.0, "Fm", "4A", 5, 481, 1, ["green"], file_path="/music/comacate.mp3"),
 ]
 
 
@@ -40,7 +40,7 @@ def test_serialise_library_correct_values():
 
 def test_serialise_caps_at_1500_tracks():
     tracks = [
-        Track(str(i), "xml", f"Track {i}", "Artist", 130.0, "Am", "8A", i % 6, 360, 0, [])
+        Track(str(i), "xml", f"Track {i}", "Artist", 130.0, "Am", "8A", i % 6, 360, 0, [], file_path=f"/music/track{i}.mp3")
         for i in range(2000)
     ]
     csv = serialise_library_for_claude(tracks)
@@ -51,7 +51,7 @@ def test_serialise_caps_at_1500_tracks():
 def test_serialise_top_1500_by_rating_desc():
     """When capping, keep highest-rated tracks."""
     tracks = [
-        Track(str(i), "xml", f"Track {i}", "Artist", 130.0, "Am", "8A", i % 6, 360, 0, [])
+        Track(str(i), "xml", f"Track {i}", "Artist", 130.0, "Am", "8A", i % 6, 360, 0, [], file_path=f"/music/track{i}.mp3")
         for i in range(2000)
     ]
     csv = serialise_library_for_claude(tracks)

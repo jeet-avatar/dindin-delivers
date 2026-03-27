@@ -35,8 +35,9 @@ For other questions, answer in plain text."""
 
 def serialise_library_for_claude(tracks: list[Track]) -> str:
     """Serialise tracks to compact CSV for Claude context window."""
-    # Sort by rating descending, take top MAX_TRACKS_IN_CONTEXT
-    sorted_tracks = sorted(tracks, key=lambda t: t.rating, reverse=True)
+    # Filter out tracks without a local file, then sort by rating descending
+    playable = [t for t in tracks if t.file_path]
+    sorted_tracks = sorted(playable, key=lambda t: t.rating, reverse=True)
     capped = sorted_tracks[:MAX_TRACKS_IN_CONTEXT]
 
     lines = ["title|artist|bpm|camelot|rating|duration_sec"]
