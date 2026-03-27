@@ -20,7 +20,7 @@ import secrets
 import string
 
 import boto3
-import psycopg2
+import pg8000.native
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -110,25 +110,18 @@ def set_secret(client, secret_id, token):
 
     logger.info("setSecret: connecting to RDS host=%s dbname=%s user=%s", c_host, c_dbname, c_user)
 
-    conn = psycopg2.connect(
+    conn = pg8000.native.Connection(
         host=c_host,
         port=int(c_port),
-        dbname=c_dbname,
+        database=c_dbname,
         user=c_user,
         password=c_password,
-        connect_timeout=10,
+        timeout=10,
     )
-    conn.autocommit = True
     try:
-        with conn.cursor() as cur:
-            # Use %s parameterized for the username (identifier), but password must
-            # be quoted directly because psycopg2 does not support identifier params.
-            # The password charset explicitly excludes single-quote, so this is safe.
-            cur.execute(
-                "ALTER USER %s WITH PASSWORD %%s" % c_user,
-                (p_password,),
-            )
-            logger.info("setSecret: ALTER USER executed successfully for user=%s", c_user)
+        # DDL doesn't support parameterized passwords — password charset excludes single-quote so literal is safe
+        conn.run(f"ALTER USER {c_user} WITH PASSWORD '{p_password}'")
+        logger.info("setSecret: ALTER USER executed successfully for user=%s", c_user)
     finally:
         conn.close()
 
@@ -144,19 +137,17 @@ def test_secret(client, secret_id, token):
 
     logger.info("testSecret: connecting with AWSPENDING credentials host=%s user=%s", host, user)
 
-    conn = psycopg2.connect(
+    conn = pg8000.native.Connection(
         host=host,
         port=int(port),
-        dbname=dbname,
+        database=dbname,
         user=user,
         password=password,
-        connect_timeout=10,
+        timeout=10,
     )
     try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1")
-            result = cur.fetchone()
-            assert result[0] == 1, "SELECT 1 returned unexpected value"
+        result = conn.run("SELECT 1")
+        assert result[0][0] == 1, "SELECT 1 returned unexpected value"
         logger.info("testSecret: AWSPENDING credentials verified OK")
     finally:
         conn.close()
