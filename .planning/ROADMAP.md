@@ -119,11 +119,11 @@ Plans:
   3. A full rotation cycle has been validated on staging with zero service interruption
   4. Production rotation is active and has completed at least one successful cycle
   5. A runbook documents the rotation process, monitoring checks, and rollback procedure
-**Plans**: TBD
+**Plans**: 2 plans (Wave 1: 08-01, Wave 2: 08-02)
 
 Plans:
-- [ ] 08-01: Configure rotation Lambda and staging validation
-- [ ] 08-02: Enable production rotation and write runbook
+- [ ] 08-01-PLAN.md -- Build rotation Lambda + ECS redeployment Lambda, deploy to AWS, wire EventBridge to staging secret, validate full rotation cycle on staging
+- [ ] 08-02-PLAN.md -- Deploy production rotation Lambda, enable 30-day schedule on production secret, add CloudWatch alarm, write runbook
 
 ### Phase 08.1: Fix rideshare failure paths — no-show fee enforcement, bid race condition, payment failure recovery, no-drivers expiry flow, driver cancel handling (INSERTED)
 
