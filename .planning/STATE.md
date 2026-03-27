@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- COMPLETE
 Plan: 6 of 6 complete in current phase
 Status: Phase 13-06 complete: Admin portal /admin/prop22 Prop22Compliance.tsx (387 lines, Ant Design two-tab table + manual top-up modal). Build 0 errors. Phase 13 all 6 plans done. Ready for deploy wave.
-Last activity: 2026-03-27 - Completed quick task 239: MixMind — grey out unplayable playlist tracks (no file_path) + filter from AI suggestions
+Last activity: 2026-03-27 - Completed quick task 240: Fix MixMind BPM/key/energy display missing, beat grid first-beat-off-by-one, and 3-band waveform issues
 
 Progress: [########################################] 100% (6/6 plans in phase 13)
 
@@ -370,6 +370,7 @@ None
 | 235 | Fix MixMind wf_preview tuple parsing (wf_tag is tuple[ndarray,ndarray], wf_tag[0] is amplitude 0-31→0-255) — waveform_preview was [] for all 8213 tracks; rebuilt sidecar + DMG + uploaded to S3 | 2026-03-27 | 18bfae94 | [235-fix-mixmind-wf-preview-tuple-parsing-and](./quick/235-fix-mixmind-wf-preview-tuple-parsing-and/) |
 | 237 | MixMind sidecar: HEAD+206 Range streaming on /api/audio/stream + /api/debug/anlz-raw diagnostic endpoint (dumps EXT tag structure for 3-band waveform investigation) | 2026-03-27 | 406d0cc8 | [237-mixmind-sidecar-add-api-debug-anlz-raw-d](./quick/237-mixmind-sidecar-add-api-debug-anlz-raw-d/) |
 | 239 | MixMind: grey out unplayable playlist tracks (no file_path) with opacity 0.35 + UNAVAILABLE badge + filter from AI context so AI never suggests unplayable tracks | 2026-03-27 | e03d2daa | [239-mixmind-grey-out-unplayable-playlist-tra](./quick/239-mixmind-grey-out-unplayable-playlist-tra/) |
+| 240 | Fix MixMind BPM/key/energy display missing, beat grid first-beat-off-by-one, and 3-band waveform issues | 2026-03-27 | a4221d31 | [240-fix-mixmind-bpm-key-energy-display-missi](./quick/240-fix-mixmind-bpm-key-energy-display-missi/) |
 | 238 | Fix BUG-01 through BUG-05 from ISSUE_TRACKER.md | 2026-03-27 | b5c625de | [238-fix-bug-01-through-bug-05-from-issue-tra](./quick/238-fix-bug-01-through-bug-05-from-issue-tra/) |
 | Phase 13 P03 | 10 | 2 tasks | 2 files |
 
