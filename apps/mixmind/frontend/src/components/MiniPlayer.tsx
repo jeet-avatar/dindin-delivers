@@ -16,6 +16,7 @@ interface Props {
    * Parent sets this via useState when DJWaveformView calls its onSeek handler.
    */
   seekTo?: number | null;
+  onOpenCamelotWheel?: () => void;
 }
 
 // Camelot → color (reuse from TrackTable)
@@ -42,7 +43,7 @@ function formatTime(sec: number) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export function MiniPlayer({ track, onClose, onCurrentTimeChange, onDurationChange, seekTo }: Props) {
+export function MiniPlayer({ track, onClose, onCurrentTimeChange, onDurationChange, seekTo, onOpenCamelotWheel }: Props) {
   // ── Audio ──────────────────────────────────────────────────
   const audioRef    = useRef<HTMLAudioElement | null>(null);
   const ctxRef      = useRef<AudioContext | null>(null);
@@ -278,7 +279,10 @@ export function MiniPlayer({ track, onClose, onCurrentTimeChange, onDurationChan
             <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px', background: 'rgba(124,58,237,0.15)', color: '#a78bfa', fontFeatureSettings: '"tnum"' }}>
               {Math.round(track.bpm)}
             </span>
-            <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px', background: camelotColor.bg, color: camelotColor.text }}>
+            <span
+              onClick={onOpenCamelotWheel}
+              title="Open Camelot Wheel"
+              style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px', background: camelotColor.bg, color: camelotColor.text, cursor: onOpenCamelotWheel ? 'pointer' : 'default' }}>
               {track.camelot}
             </span>
           </div>

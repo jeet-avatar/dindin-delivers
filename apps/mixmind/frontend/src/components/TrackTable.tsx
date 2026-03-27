@@ -14,6 +14,9 @@ interface Props {
   onReload?: () => void;
   onPlay?: (track: Track) => void;
   onAddToSet?: (track: Track) => void;
+  playedIds?: Set<string>;
+  compatibleKeys?: string[];
+  nowPlayingId?: string;
 }
 
 // ── Helpers ──────────────────────────────────────────────────
