@@ -56,6 +56,7 @@ export function Contracts() {
         expiration_date: form.expiration_date,
       })
       setShowUpload(false)
+      setForm({ supplier_id: '', gpo_contract_number: '', effective_date: '', expiration_date: '' })
       setProcessingId(contract.contract_id)
       load()
     } catch (err: unknown) {
