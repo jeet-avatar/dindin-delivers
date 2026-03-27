@@ -100,7 +100,7 @@ export function ResolveModal({ discrepancy, onClose, onResolved }: ResolveModalP
 
         {/* Discrepancy info */}
         <div className="flex items-center gap-3 mb-5 p-3 bg-white/5 rounded-lg">
-          <DiscrepancyBadge type={discrepancy.discrepancy_type} />
+          <DiscrepancyBadge type={discrepancy.discrepancy_type as never} />
           <span className={`text-sm font-medium ${amountDiff !== null && amountDiff > 0 ? 'text-red-400' : 'text-green-400'}`}>
             {formattedDiff}
           </span>

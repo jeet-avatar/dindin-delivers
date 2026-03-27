@@ -227,7 +227,7 @@ export function Discrepancies() {
                   className="border-b border-border/50 hover:bg-white/5 transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <DiscrepancyBadge type={d.discrepancy_type} />
+                    <DiscrepancyBadge type={d.discrepancy_type as never} />
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-text-muted">
                     {d.invoice_id.slice(0, 8)}...
