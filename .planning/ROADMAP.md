@@ -70,7 +70,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 - [x] **Phase 06: SSL Pinning Rotation Fix** - Migrate iOS from leaf pins to Amazon Root CA pins and ship updated builds (completed 2026-02-27)
 - [ ] **Phase 07: Play Store Publishing** - Set up Google Play Console and publish all 3 Android apps
 - [ ] **Phase 08: DB Password Rotation** - Enable automated Secrets Manager rotation for RDS credentials
-- [ ] **Phase 09: Rideshare E2E Validation** - Automated backend test covering full 12-step rideshare lifecycle
+- [x] **Phase 09: Rideshare E2E Validation** - Automated backend test covering full 12-step rideshare lifecycle (completed 2026-03-27)
 - [ ] **Phase 10: Automated Support System** - Hide aspirational AI features, set up Twilio + OpenAI Realtime voice for phone support, fix chat for order tracking
 - [x] **Phase 11: Change Management Workflow** - Enterprise case management: request -> approval -> GSD execution -> PR -> CI/CD pipeline -> deploy. All 2512+ cases tracked with full lifecycle. (completed 2026-03-07)
 - [x] **Phase 12: Fix Admin Portal UI** - Fix vendor management auth, remove mock ERP dashboards, wire real dashboard stats (completed 2026-03-07)
@@ -235,7 +235,7 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 | 07. Play Store Publishing | 1/3 | In Progress|  | - |
 | 08. DB Password Rotation | v1.5 | 0/2 | Not started | - |
 | 08.1. Fix Rideshare Failure Paths | 3/3 | Complete   | 2026-03-19 | - |
-| 09. Rideshare E2E Validation | v1.5 | 0/1 | Not started | - |
+| 09. Rideshare E2E Validation | 1/1 | Complete   | 2026-03-27 | - |
 | 10. Automated Support System | 2/3 | In Progress|  | - |
 | 11. Change Management Workflow | 3/3 | Complete    | 2026-03-07 | - |
 | 12. Fix Admin Portal UI | 2/2 | Complete    | 2026-03-07 | - |
