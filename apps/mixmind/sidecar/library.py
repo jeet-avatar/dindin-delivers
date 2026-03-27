@@ -146,6 +146,43 @@ async def get_compatible_keys(camelot: str):
 _DB_PATH = Path.home() / "Library" / "Pioneer" / "rekordbox" / "master.db"
 
 
+def _get_analysis_db():
+    """Get a StateDB instance for analysis cache lookups."""
+    return StateDB()
+
+
+def _enrich_with_analysis(data: dict, content_id: str) -> dict:
+    """Add 4-stem waveform + essentia data from analysis_cache if available."""
+    try:
+        import msgpack
+        db = _get_analysis_db()
+        row = db.get_analysis(content_id, "db")
+        db.close()
+        if row and row["status"] in ("complete", "failed_demucs", "failed_essentia"):
+            if row.get("waveform_4stem"):
+                data["waveform_4stem"] = msgpack.unpackb(row["waveform_4stem"], raw=False)
+            else:
+                data["waveform_4stem"] = None
+
+            if row.get("bpm"):
+                data["essentia"] = {
+                    "bpm": row["bpm"],
+                    "key_musical": row["key_musical"],
+                    "camelot": row["camelot"],
+                    "genre": row["genre"],
+                    "energy": row["energy"],
+                    "danceability": row["danceability"],
+                }
+            else:
+                data["essentia"] = None
+
+            data["analyzer_version"] = row.get("analyzer_version")
+    except Exception:
+        data["waveform_4stem"] = None
+        data["essentia"] = None
+    return data
+
+
 @router.get("/tracks/{content_id}/anlz")
 async def get_track_anlz(content_id: str):
     """Return parsed ANLZ data for a track — beat grid, cues, sections, waveform.
@@ -157,6 +194,11 @@ async def get_track_anlz(content_id: str):
     from anlz_parser import parse_track_anlz  # noqa: PLC0415
 
     if not _DB_PATH.exists():
+        # No Rekordbox DB — check if we have analysis_cache data
+        fallback = {}
+        fallback = _enrich_with_analysis(fallback, content_id)
+        if fallback.get("waveform_4stem") or fallback.get("essentia"):
+            return fallback
         raise HTTPException(status_code=404, detail="Rekordbox DB not found")
 
     try:
@@ -180,13 +222,23 @@ async def get_track_anlz(content_id: str):
         raise HTTPException(status_code=503, detail=f"DB query failed: {exc}") from exc
 
     if row is None or not row.AnalysisDataPath:
+        # No Rekordbox ANLZ — check if we have analysis_cache data
+        fallback = {}
+        fallback = _enrich_with_analysis(fallback, content_id)
+        if fallback.get("waveform_4stem") or fallback.get("essentia"):
+            return fallback
         raise HTTPException(status_code=404, detail="No ANLZ data for this track")
 
     try:
         data = parse_track_anlz(row.AnalysisDataPath, content_id, db.session)
     except FileNotFoundError as exc:
+        # ANLZ file missing — check if we have analysis_cache data
+        fallback = {}
+        fallback = _enrich_with_analysis(fallback, content_id)
+        if fallback.get("waveform_4stem") or fallback.get("essentia"):
+            return fallback
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"ANLZ parse error: {exc}") from exc
 
-    return data
+    return _enrich_with_analysis(data, content_id)
