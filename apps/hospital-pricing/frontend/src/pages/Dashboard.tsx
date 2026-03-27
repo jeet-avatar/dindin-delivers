@@ -74,7 +74,7 @@ export function Dashboard() {
   const today = new Date()
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
   const invoicesThisMonth = invoices.filter(
-    (i) => new Date(i.invoice_date) >= firstOfMonth
+    (i) => i.invoice_date != null && new Date(i.invoice_date) >= firstOfMonth
   ).length
 
   const activeContracts = contracts.filter((c) => c.status === 'active').length
