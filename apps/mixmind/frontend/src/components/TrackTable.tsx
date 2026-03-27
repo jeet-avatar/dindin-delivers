@@ -13,6 +13,7 @@ interface Props {
   onSelect?: (track: Track) => void;
   onReload?: () => void;
   onPlay?: (track: Track) => void;
+  onAddToSet?: (track: Track) => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -187,7 +188,7 @@ const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '130px', '72px', '70px', '50
 
 // ── Main component ────────────────────────────────────────────
 
-export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
+export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet }: Props) {
   const [sortKey, setSortKey]   = useState<SortKey>('bpm');
   const [sortDir, setSortDir]   = useState<SortDir>('asc');
   const [search, setSearch]     = useState('');
@@ -675,7 +676,20 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay }: Props) {
                   </div>
 
                   {/* Actions */}
-                  <div className="row-action" style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <div className="row-action" style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                    {onAddToSet && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onAddToSet(t); }}
+                        style={{
+                          fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
+                          background: 'rgba(124,58,237,0.15)', color: '#a78bfa',
+                          border: '1px solid rgba(124,58,237,0.2)', cursor: 'pointer',
+                          fontFamily: 'var(--font)', flexShrink: 0, fontWeight: 500,
+                        }}
+                      >
+                        + Set
+                      </button>
+                    )}
                     <button
                       onClick={e => { e.stopPropagation(); }}
                       style={{
