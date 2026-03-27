@@ -47,10 +47,10 @@ class ContractCreate(BaseModel):
 
 class ContractResponse(BaseModel):
     contract_id: uuid.UUID
-    supplier_id: uuid.UUID
+    supplier_id: Optional[uuid.UUID]
     status: ContractStatus
-    effective_date: date
-    expiration_date: date
+    effective_date: Optional[date]
+    expiration_date: Optional[date]
     admin_fee_pct: Optional[Decimal]
     aks_safe_harbor_documented: bool
     baa_required: bool
