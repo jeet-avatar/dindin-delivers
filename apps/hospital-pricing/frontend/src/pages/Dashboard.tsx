@@ -46,6 +46,7 @@ export function Dashboard() {
   const [contracts, setContracts] = useState<WholesaleAgreement[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [recentDiscrepancies, setRecentDiscrepancies] = useState<Discrepancy[]>([])
+  const [resolvedToday, setResolvedToday] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,11 +55,17 @@ export function Dashboard() {
       contractsApi.list(),
       invoicesApi.list(),
       discrepanciesApi.list({ status: 'open' }),
+      discrepanciesApi.list({ status: 'resolved' }),
     ])
-      .then(([c, i, d]) => {
+      .then(([c, i, openD, resolvedD]) => {
         setContracts(c)
         setInvoices(i)
-        setRecentDiscrepancies(d.slice(0, 5))
+        setRecentDiscrepancies(openD.slice(0, 5))
+        const todayStr = new Date().toISOString().slice(0, 10)
+        const todayResolved = resolvedD.filter(
+          (d) => d.resolved_at && d.resolved_at.slice(0, 10) === todayStr
+        ).length
+        setResolvedToday(todayResolved)
       })
       .catch(() => setError('Failed to load dashboard data'))
       .finally(() => setLoading(false))
@@ -72,14 +79,14 @@ export function Dashboard() {
 
   const activeContracts = contracts.filter((c) => c.status === 'active').length
 
-  const resolvedToday = 0
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate())
 
   const expiringContracts = contracts.filter((c) => {
     if (!c.expiration_date || c.status !== 'active') return false
     const exp = new Date(c.expiration_date)
     const in30 = new Date()
     in30.setDate(in30.getDate() + 30)
-    return exp <= in30 && exp >= today
+    return exp <= in30 && exp >= todayMidnight
   })
 
   return (
@@ -162,7 +169,7 @@ export function Dashboard() {
                       <DiscrepancyBadge type={d.discrepancy_type} />
                     </td>
                     <td className="px-4 py-3 text-right text-red-600 font-medium">
-                      +${d.delta.toFixed(2)}
+                      {d.delta >= 0 ? '+' : ''}${Math.abs(d.delta).toFixed(2)}
                     </td>
                     <td className="px-4 py-3 text-slate-500 text-xs">
                       {new Date(d.created_at).toLocaleDateString()}
