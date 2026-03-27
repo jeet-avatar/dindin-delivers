@@ -369,10 +369,11 @@ None
 | 234 | MixMind DJ Waveform View — Layout C Pioneer CDJ-3000 style waveform with 3-band colors, beat grid, section overlays, hot/memory cues, seekTo lift | 2026-03-26 | b7671dfd | [234-mixmind-dj-waveform-view-layout-c-pioneer-cdj3000-colors](./quick/234-mixmind-dj-waveform-view-layout-c-pioneer-cdj3000-colors/) |
 | 235 | Fix MixMind wf_preview tuple parsing (wf_tag is tuple[ndarray,ndarray], wf_tag[0] is amplitude 0-31→0-255) — waveform_preview was [] for all 8213 tracks; rebuilt sidecar + DMG + uploaded to S3 | 2026-03-27 | 18bfae94 | [235-fix-mixmind-wf-preview-tuple-parsing-and](./quick/235-fix-mixmind-wf-preview-tuple-parsing-and/) |
 | 237 | MixMind sidecar: HEAD+206 Range streaming on /api/audio/stream + /api/debug/anlz-raw diagnostic endpoint (dumps EXT tag structure for 3-band waveform investigation) | 2026-03-27 | 406d0cc8 | [237-mixmind-sidecar-add-api-debug-anlz-raw-d](./quick/237-mixmind-sidecar-add-api-debug-anlz-raw-d/) |
+| 238 | Fix BUG-01 through BUG-05 from ISSUE_TRACKER.md | 2026-03-27 | b5c625de | [238-fix-bug-01-through-bug-05-from-issue-tra](./quick/238-fix-bug-01-through-bug-05-from-issue-tra/) |
 | Phase 13 P03 | 10 | 2 tasks | 2 files |
 
 ## Session Continuity
 
 Last session: 2026-03-27
-Stopped at: Quick task 237 complete — HEAD+206 Range streaming on /api/audio/stream + /api/debug/anlz-raw diagnostic endpoint added
+Stopped at: Quick task 238 complete — all 5 bugs (BUG-01 through BUG-05) verified already fixed with grep proof
 Resume file: .planning/NEXT_SESSION_PROMPT.md
