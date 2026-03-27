@@ -193,7 +193,7 @@ export function Discrepancies() {
                     {d.delta >= 0 ? '+' : ''}${Math.abs(d.delta).toFixed(4)}
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs">
-                    {new Date(d.created_at).toLocaleDateString()}
+                    {d.created_at ? new Date(d.created_at).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <StatusChip status={d.status} />
@@ -222,7 +222,7 @@ export function Discrepancies() {
           <div className="space-y-4 text-sm">
             <div className="text-xs text-slate-500">
               {selected.supplier_name} · Invoice {selected.invoice_id.slice(0, 8)} ·{' '}
-              {new Date(selected.created_at).toLocaleDateString()}
+              {selected.created_at ? new Date(selected.created_at).toLocaleDateString() : '—'}
             </div>
 
             {/* Price comparison */}

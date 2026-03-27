@@ -31,7 +31,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     Promise.all([
       apiClient.get<CurrentUser>('/auth/me').then((r) => r.data),
-      discrepanciesApi.list({ status: 'open' }).then((items) => items.length).catch(() => 0),
+      discrepanciesApi.list({}).then((items) => items.filter((d) => d.status === 'flagged').length).catch(() => 0),
     ])
       .then(([user, count]) => {
         setCurrentUser(user)

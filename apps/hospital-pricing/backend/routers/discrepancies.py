@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 from database import get_db
 from auth.deps import require_procurement_officer, require_approver
 from models.invoice import InvoiceLineItem, DiscrepancyStatus, Invoice
@@ -40,6 +41,7 @@ async def list_discrepancies(
 
     result = await db.execute(
         select(InvoiceLineItem)
+        .options(joinedload(InvoiceLineItem.invoice))
         .join(Invoice, InvoiceLineItem.invoice_id == Invoice.invoice_id)
         .where(
             Invoice.entity_id == entity_id,
@@ -51,12 +53,15 @@ async def list_discrepancies(
         {
             "line_id": str(item.line_id),
             "invoice_id": str(item.invoice_id),
-            "supplier_item_number": item.supplier_item_number,
-            "invoiced_unit_price": str(item.invoiced_unit_price),
-            "expected_unit_price": str(item.expected_unit_price) if item.expected_unit_price else None,
-            "discrepancy_amount": str(item.discrepancy_amount) if item.discrepancy_amount else None,
+            "item_name": item.supplier_item_number,
+            "supplier_name": None,
+            "contract_unit_price": float(item.expected_unit_price) if item.expected_unit_price is not None else None,
+            "invoiced_unit_price": float(item.invoiced_unit_price),
+            "delta": float(item.discrepancy_amount) if item.discrepancy_amount is not None else 0.0,
             "discrepancy_type": item.discrepancy_type.value if item.discrepancy_type else None,
-            "discrepancy_status": item.discrepancy_status.value,
+            "status": item.discrepancy_status.value,
+            "ai_reasoning": None,
+            "created_at": item.invoice.created_at.isoformat() if item.invoice and item.invoice.created_at else None,
         }
         for item in items
     ]

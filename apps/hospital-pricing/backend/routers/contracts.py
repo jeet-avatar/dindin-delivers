@@ -25,7 +25,7 @@ AKS_STATUTE_CITATION = "42 U.S.C. §1320a-7b(b) and 42 CFR §1001.952(j)"
 
 
 class ContractCreate(BaseModel):
-    supplier_id: uuid.UUID
+    supplier_id: Optional[uuid.UUID] = None
     effective_date: date
     expiration_date: date
     gpo_contract_number: Optional[str] = None
