@@ -157,6 +157,16 @@ def _parse_waveform_preview(dat_file: Any) -> list[int]:
         if wf_tag is None:
             return []
 
+        # pyrekordbox returns wf_preview as a 2-tuple:
+        #   wf_tag[0] = amplitude ndarray (dtype=int8, values 0-31, ~400 entries)
+        #   wf_tag[1] = color hint ndarray (dtype=int8, values 0-5) — unused
+        if isinstance(wf_tag, tuple) and len(wf_tag) >= 1:
+            raw = wf_tag[0]
+            if hasattr(raw, "tolist"):
+                # Scale from Pioneer int8 range 0-31 to display range 0-255
+                return [min(255, max(0, int(v) * 8)) for v in raw.tolist()]
+            return []
+
         # pyrekordbox may return an ndarray or a tag object with .data / .content
         if hasattr(wf_tag, "tolist"):
             return [min(255, max(0, int(v))) for v in wf_tag.tolist()]
@@ -211,6 +221,16 @@ def _parse_waveform_3band(ext_file: Any) -> list[dict] | None:
 
         if wf_tag is None:
             logger.debug("No 3-band waveform tag in EXT (available: %s)", tag_names)
+            return None
+
+        # Handle tuple return from pyrekordbox (same pattern as wf_preview)
+        if isinstance(wf_tag, tuple):
+            wf_tag = wf_tag[0]  # take the first array; 3-band may not apply, log and return None
+            if not hasattr(wf_tag, "tolist"):
+                logger.debug("3-band waveform: tuple[0] is not ndarray, skipping")
+                return None
+            # 3-band from a plain ndarray is ambiguous — skip rather than corrupt
+            logger.debug("3-band waveform returned as tuple, cannot decompose into low/mid/high bands")
             return None
 
         # The tag holds columns of {low, mid, high} bytes
@@ -455,7 +475,20 @@ def parse_track_anlz(
     ext_path = paths["ext"]
 
     if not dat_path.exists():
-        raise FileNotFoundError(f"ANLZ .DAT not found: {dat_path}")
+        # DAT file absent — track was analyzed on a different machine / USB export target.
+        # Return partial data (cues from DB, no waveform/beat-grid) so the view still renders.
+        cues = _parse_cues_from_db(content_id, db_session)
+        return {
+            "beat_grid":        [],
+            "first_beat_ms":    0,
+            "waveform_preview": [],
+            "waveform_3band":   None,
+            "sections":         [],
+            "hot_cues":         cues["hot_cues"],
+            "memory_cues":      cues["memory_cues"],
+            "bpm":              0.0,
+            "partial":          True,   # flag so frontend can show softer fallback
+        }
 
     # Parse .DAT file
     try:
