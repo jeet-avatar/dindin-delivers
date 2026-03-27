@@ -123,10 +123,15 @@ def _parse_beat_grid(dat_file: Any) -> dict:
         ]
 
         # First downbeat: first entry where beat == 1
-        first_beat_ms = next(
-            (b["time_ms"] for b in beat_grid if b["beat"] == 1),
-            beat_grid[0]["time_ms"] if beat_grid else 0,
-        )
+        # Rekordbox sometimes prepends a phantom beat==1 at < 300ms before the true downbeat.
+        # Find the first beat==1 entry that is at a plausible musical position.
+        beat1_entries = [b["time_ms"] for b in beat_grid if b["beat"] == 1]
+        if len(beat1_entries) >= 2 and beat1_entries[0] < 300:
+            first_beat_ms = beat1_entries[1]
+        elif beat1_entries:
+            first_beat_ms = beat1_entries[0]
+        else:
+            first_beat_ms = beat_grid[0]["time_ms"] if beat_grid else 0
 
         avg_bpm = 0.0
         if beat_grid:
@@ -223,14 +228,30 @@ def _parse_waveform_3band(ext_file: Any) -> list[dict] | None:
             logger.debug("No 3-band waveform tag in EXT (available: %s)", tag_names)
             return None
 
-        # Handle tuple return from pyrekordbox (same pattern as wf_preview)
+        # Handle tuple return from pyrekordbox (PWV5 returns a 2-tuple of ndarrays)
         if isinstance(wf_tag, tuple):
-            wf_tag = wf_tag[0]  # take the first array; 3-band may not apply, log and return None
-            if not hasattr(wf_tag, "tolist"):
-                logger.debug("3-band waveform: tuple[0] is not ndarray, skipping")
+            color_arr = wf_tag[0] if len(wf_tag) >= 1 else None
+            if color_arr is None or not hasattr(color_arr, "shape"):
+                logger.debug("3-band waveform: tuple[0] not ndarray, skipping")
                 return None
-            # 3-band from a plain ndarray is ambiguous — skip rather than corrupt
-            logger.debug("3-band waveform returned as tuple, cannot decompose into low/mid/high bands")
+
+            arr = color_arr
+            # Shape (N, 3): each row is [low_amp, mid_amp, high_amp] in 0-31 range
+            # Scale to 0-255 for display (same factor as wf_preview: * 8)
+            if len(arr.shape) == 2 and arr.shape[1] >= 3:
+                result = []
+                for row in arr.tolist():
+                    result.append({
+                        "low":  min(255, max(0, int(row[0]) * 8)),
+                        "mid":  min(255, max(0, int(row[1]) * 8)),
+                        "high": min(255, max(0, int(row[2]) * 8)),
+                    })
+                if result:
+                    logger.debug("3-band waveform decoded from tuple ndarray shape %s: %d entries", arr.shape, len(result))
+                    return result
+
+            # 1D array from tuple — cannot split into bands, fall through to tag-object path
+            logger.debug("3-band waveform tuple[0] shape %s not (N,3), cannot decompose", getattr(arr, "shape", "unknown"))
             return None
 
         # The tag holds columns of {low, mid, high} bytes
