@@ -1,253 +1,195 @@
-import { useState, useEffect, useCallback } from 'react'
-import { AlertTriangle, X } from 'lucide-react'
-import type { Discrepancy, DiscrepancyType, DiscrepancyStatus, WsDiscrepancyEvent } from '../types/discrepancy'
-import { listDiscrepancies } from '../api/discrepancies'
+import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { discrepanciesApi } from '../api/discrepancies'
+import type { Discrepancy, DiscrepancyType } from '../types/hospital'
+import type { ResolutionValue } from '../api/discrepancies'
+import { StatusChip } from '../components/StatusChip'
 import { DiscrepancyBadge } from '../components/DiscrepancyBadge'
-import { StatusBadge } from '../components/StatusBadge'
-import { ResolveModal } from '../components/ResolveModal'
-import { useWebSocket } from '../hooks/useWebSocket'
+import { SkeletonRow } from '../components/SkeletonRow'
+import { EmptyState } from '../components/EmptyState'
+import { ErrorBanner } from '../components/ErrorBanner'
+import { DrawerPanel } from '../components/DrawerPanel'
+import { useRole } from '../hooks/useRole'
+import { useAppContext } from '../contexts/AppContext'
 
-const DISCREPANCY_TYPE_LABELS: Record<DiscrepancyType, string> = {
-  PRICE_BREACH: 'Price Breach',
-  QUANTITY_MISMATCH: 'Qty Mismatch',
-  UOM_MISMATCH: 'UOM Mismatch',
-  UNAUTHORIZED_ITEM: 'Unauthorized Item',
-  MFN_VIOLATION: 'MFN Violation',
-  DUPLICATE_LINE: 'Duplicate Line',
-}
-
-const ALL_TYPES: DiscrepancyType[] = [
-  'PRICE_BREACH',
-  'QUANTITY_MISMATCH',
-  'UOM_MISMATCH',
-  'UNAUTHORIZED_ITEM',
-  'MFN_VIOLATION',
-  'DUPLICATE_LINE',
+const TYPE_FILTERS: Array<{ label: string; value: DiscrepancyType | 'all' }> = [
+  { label: 'All', value: 'all' },
+  { label: 'Price', value: 'price_mismatch' },
+  { label: 'Tier', value: 'tier_mismatch' },
+  { label: 'SKU', value: 'sku_mismatch' },
+  { label: 'Expired', value: 'expired_contract' },
+  { label: 'UOM', value: 'uom_mismatch' },
+  { label: 'No Contract', value: 'no_contract' },
 ]
 
-interface WsBanner {
-  id: string
-  invoice_id: string
-  discrepancy_type: DiscrepancyType
-}
-
-function formatAmountDiff(amount: number | null) {
-  if (amount === null) return <span className="text-text-muted">—</span>
-  const formatted = `${amount >= 0 ? '+' : ''}$${Math.abs(amount).toFixed(2)}`
-  return (
-    <span className={amount > 0 ? 'text-red-400' : 'text-green-400'}>
-      {formatted}
-    </span>
-  )
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
 export function Discrepancies() {
-  const [statusFilter, setStatusFilter] = useState<string>('')
-  const [typeFilter, setTypeFilter] = useState<string>('')
-  const [page, setPage] = useState(1)
+  const [searchParams] = useSearchParams()
+  const { canResolveDiscrepancy } = useRole()
+  const { decrementDiscrepancyCount } = useAppContext()
+
   const [discrepancies, setDiscrepancies] = useState<Discrepancy[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [resolveTarget, setResolveTarget] = useState<Discrepancy | null>(null)
-  const [wsBanners, setWsBanners] = useState<WsBanner[]>([])
+  const [typeFilter, setTypeFilter] = useState<DiscrepancyType | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<'open' | 'resolved' | 'all'>('open')
+  const [supplierSearch, setSupplierSearch] = useState('')
+  const [selected, setSelected] = useState<Discrepancy | null>(null)
+  const [resolving, setResolving] = useState(false)
+  const [resolveError, setResolveError] = useState<string | null>(null)
+  const [disputeNote, setDisputeNote] = useState('')
 
-  const pageSize = 50
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
-
-  const fetchDiscrepancies = useCallback(async () => {
+  const load = useCallback(() => {
     setLoading(true)
-    setError(null)
+    const params: Record<string, string> = {}
+    if (statusFilter !== 'all') params.status = statusFilter
+    const invoiceId = searchParams.get('invoice')
+    if (invoiceId) params.invoice_id = invoiceId
+
+    discrepanciesApi
+      .list(params)
+      .then(setDiscrepancies)
+      .catch(() => setError('Failed to load discrepancies'))
+      .finally(() => setLoading(false))
+  }, [statusFilter, searchParams])
+
+  useEffect(() => { load() }, [load])
+
+  // Pre-select highlighted row from URL param
+  const highlightId = searchParams.get('highlight')
+  useEffect(() => {
+    if (highlightId && discrepancies.length > 0) {
+      const found = discrepancies.find((d) => d.line_id === highlightId)
+      if (found) setSelected(found)
+    }
+  }, [highlightId, discrepancies])
+
+  const filtered = discrepancies.filter((d) => {
+    if (typeFilter !== 'all' && d.discrepancy_type !== typeFilter) return false
+    if (supplierSearch && !(d.supplier_name ?? '').toLowerCase().includes(supplierSearch.toLowerCase())) return false
+    return true
+  })
+
+  const handleResolve = async (resolution: ResolutionValue) => {
+    if (!selected) return
+    setResolving(true)
+    setResolveError(null)
     try {
-      const result = await listDiscrepancies({
-        status: statusFilter || undefined,
-        type: typeFilter || undefined,
-        page,
-        page_size: pageSize,
-      })
-      setDiscrepancies(result.items)
-      setTotal(result.total)
-    } catch {
-      setError('Failed to load discrepancies.')
-    } finally {
-      setLoading(false)
-    }
-  }, [statusFilter, typeFilter, page])
-
-  useEffect(() => {
-    fetchDiscrepancies()
-  }, [fetchDiscrepancies])
-
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(1)
-  }, [statusFilter, typeFilter])
-
-  const handleWsMessage = useCallback((msg: WsDiscrepancyEvent) => {
-    if (msg.type === 'new_discrepancy') {
-      const banner: WsBanner = {
-        id: msg.data.id,
-        invoice_id: msg.data.invoice_id,
-        discrepancy_type: msg.data.discrepancy_type,
+      const note = resolution === 'dispute' ? disputeNote : undefined
+      await discrepanciesApi.resolve(selected.line_id, resolution, note)
+      if (selected.status === 'open') {
+        decrementDiscrepancyCount()
       }
-      setWsBanners(prev => [...prev, banner])
-      setTimeout(() => {
-        setWsBanners(prev => prev.filter(b => b.id !== banner.id))
-      }, 8000)
+      setSelected(null)
+      setDisputeNote('')
+      load()
+    } catch {
+      setResolveError('Resolution failed — please try again')
+    } finally {
+      setResolving(false)
     }
-  }, [])
-
-  useWebSocket<WsDiscrepancyEvent>(
-    'ws://localhost:8000/ws/discrepancies',
-    handleWsMessage,
-    true
-  )
-
-  const dismissBanner = (id: string) => {
-    setWsBanners(prev => prev.filter(b => b.id !== id))
-  }
-
-  const handleResolved = () => {
-    fetchDiscrepancies()
   }
 
   return (
-    <div>
-      {/* WS Alert Banners */}
-      <div className="space-y-2 mb-4">
-        {wsBanners.map(banner => (
-          <div
-            key={banner.id}
-            className="bg-amber-900/40 border border-amber-700 text-amber-200 rounded-lg px-4 py-3 flex items-center justify-between"
-          >
-            <span className="text-sm">
-              New discrepancy detected on Invoice{' '}
-              <span className="font-medium">{banner.invoice_id}</span>{' '}
-              &mdash; <span className="font-medium">{DISCREPANCY_TYPE_LABELS[banner.discrepancy_type]}</span>
-            </span>
-            <button
-              onClick={() => dismissBanner(banner.id)}
-              className="flex items-center justify-center w-8 h-8 rounded hover:bg-amber-800/60 transition-colors ml-3 flex-shrink-0"
-              aria-label="Dismiss alert"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        ))}
-      </div>
+    <div className="space-y-4">
+      <h1 className="text-xl font-semibold text-navy">Discrepancies</h1>
 
-      {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">Discrepancies</h1>
-        <p className="text-text-muted text-sm mt-1">Invoice line verification results</p>
-      </div>
+      {error && <ErrorBanner message={error} />}
 
       {/* Filter bar */}
-      <div className="flex items-center gap-3 mt-4 flex-wrap">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="w-48 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-primary min-h-[44px]"
-          aria-label="Filter by status"
-        >
-          <option value="">All Statuses</option>
-          <option value="open">Open</option>
-          <option value="approved">Approved</option>
-          <option value="disputed">Disputed</option>
-          <option value="credited">Credited</option>
-        </select>
-
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="w-48 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-primary min-h-[44px]"
-          aria-label="Filter by type"
-        >
-          <option value="">All Types</option>
-          {ALL_TYPES.map(t => (
-            <option key={t} value={t}>{DISCREPANCY_TYPE_LABELS[t]}</option>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex gap-1">
+          {TYPE_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setTypeFilter(f.value as DiscrepancyType | 'all')}
+              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                typeFilter === f.value
+                  ? 'bg-navy text-white border-navy'
+                  : 'bg-white text-slate-600 border-border hover:border-navy'
+              }`}
+            >
+              {f.label}
+            </button>
           ))}
-        </select>
+        </div>
+        <div className="flex gap-1 border border-border rounded-md overflow-hidden">
+          {(['open', 'resolved', 'all'] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1 text-xs capitalize transition-colors ${
+                statusFilter === s ? 'bg-navy text-white' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        <input
+          type="text"
+          value={supplierSearch}
+          onChange={(e) => setSupplierSearch(e.target.value)}
+          placeholder="Search supplier…"
+          className="px-3 py-1.5 text-xs border border-border rounded-md focus:outline-none focus:border-navy"
+        />
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="mt-4 bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm">
-          {error}
-        </div>
-      )}
-
       {/* Table */}
-      <div className="mt-6 overflow-x-auto rounded-xl border border-border">
+      <div className="bg-surface-card border border-border rounded-lg shadow-card overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-surface border-b border-border sticky top-0">
-              <th className="text-left px-4 py-3 font-medium text-text-muted">Type</th>
-              <th className="text-left px-4 py-3 font-medium text-text-muted">Invoice ID</th>
-              <th className="text-left px-4 py-3 font-medium text-text-muted">Amount Diff</th>
-              <th className="text-left px-4 py-3 font-medium text-text-muted">Status</th>
-              <th className="text-left px-4 py-3 font-medium text-text-muted">Detected</th>
-              <th className="text-left px-4 py-3 font-medium text-text-muted">Actions</th>
+            <tr className="bg-navy text-navy-muted text-xs uppercase tracking-wide">
+              <th className="text-left px-4 py-2.5">Item / Supplier</th>
+              <th className="text-left px-4 py-2.5">Invoice #</th>
+              <th className="text-left px-4 py-2.5">Type</th>
+              <th className="text-right px-4 py-2.5">Contract $</th>
+              <th className="text-right px-4 py-2.5">Invoiced $</th>
+              <th className="text-right px-4 py-2.5">Delta</th>
+              <th className="text-left px-4 py-2.5">Date</th>
+              <th className="text-left px-4 py-2.5">Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              // Skeleton rows
-              Array.from({ length: 3 }).map((_, i) => (
-                <tr key={i} className="border-b border-border/50">
-                  {Array.from({ length: 6 }).map((_, j) => (
-                    <td key={j} className="px-4 py-3">
-                      <div className="bg-white/5 animate-pulse rounded h-4" />
-                    </td>
-                  ))}
-                </tr>
-              ))
-            ) : discrepancies.length === 0 ? (
+              Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+            ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-16 text-center">
-                  <div className="flex flex-col items-center gap-3 text-text-muted">
-                    <AlertTriangle size={32} className="opacity-40" />
-                    <p className="font-medium text-text-primary">No discrepancies found</p>
-                    <p className="text-xs">Try adjusting your filters or check back later</p>
-                  </div>
+                <td colSpan={8}>
+                  <EmptyState
+                    icon="✅"
+                    message={statusFilter === 'open' ? 'All clear — no open discrepancies' : 'No discrepancies found'}
+                  />
                 </td>
               </tr>
             ) : (
-              discrepancies.map(d => (
+              filtered.map((d) => (
                 <tr
-                  key={d.id}
-                  className="border-b border-border/50 hover:bg-white/5 transition-colors"
+                  key={d.line_id}
+                  onClick={() => setSelected(d)}
+                  className={`border-t border-border cursor-pointer hover:bg-slate-50 ${
+                    selected?.line_id === d.line_id ? 'bg-blue-50 border-l-2 border-l-navy' : ''
+                  }`}
                 >
                   <td className="px-4 py-3">
-                    <DiscrepancyBadge type={d.discrepancy_type as never} />
+                    <div className="font-medium text-navy">{d.item_name ?? '—'}</div>
+                    <div className="text-xs text-slate-500">{d.supplier_name ?? '—'}</div>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-text-muted">
-                    {d.invoice_id.slice(0, 8)}...
+                  <td className="px-4 py-3 text-slate-600 text-xs font-mono">{d.invoice_id.slice(0, 8)}</td>
+                  <td className="px-4 py-3">
+                    <DiscrepancyBadge type={d.discrepancy_type} />
+                  </td>
+                  <td className="px-4 py-3 text-right text-green-600">
+                    {d.contract_unit_price != null ? `$${d.contract_unit_price.toFixed(4)}` : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right text-red-600">${d.invoiced_unit_price.toFixed(4)}</td>
+                  <td className="px-4 py-3 text-right font-medium text-red-600">
+                    {d.delta >= 0 ? '+' : ''}${Math.abs(d.delta).toFixed(4)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">
+                    {new Date(d.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3">
-                    {formatAmountDiff(d.amount_diff)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={d.status as DiscrepancyStatus} />
-                  </td>
-                  <td className="px-4 py-3 text-text-muted">
-                    {formatDate(d.created_at)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => setResolveTarget(d)}
-                      className="bg-primary/10 text-primary hover:bg-primary/20 rounded px-3 py-1.5 text-xs font-medium min-h-[36px] transition-colors"
-                    >
-                      Resolve
-                    </button>
+                    <StatusChip status={d.status} />
                   </td>
                 </tr>
               ))
@@ -256,39 +198,106 @@ export function Discrepancies() {
         </table>
       </div>
 
-      {/* Pagination */}
-      {!loading && discrepancies.length > 0 && (
-        <div className="flex items-center justify-between mt-4 text-sm">
-          <span className="text-text-muted">
-            Page {page} of {totalPages}
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="px-4 py-2 rounded-lg bg-surface border border-border text-text-muted hover:text-text-primary hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px]"
-            >
-              Prev
-            </button>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              className="px-4 py-2 rounded-lg bg-surface border border-border text-text-muted hover:text-text-primary hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px]"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Detail / resolution drawer */}
+      <DrawerPanel
+        open={!!selected}
+        onClose={() => { setSelected(null); setResolveError(null); setDisputeNote('') }}
+        title={
+          selected ? (
+            <span className="flex items-center gap-2">
+              {selected.item_name ?? 'Discrepancy'}
+              <DiscrepancyBadge type={selected.discrepancy_type} />
+            </span>
+          ) : ''
+        }
+      >
+        {selected && (
+          <div className="space-y-4 text-sm">
+            <div className="text-xs text-slate-500">
+              {selected.supplier_name} · Invoice {selected.invoice_id.slice(0, 8)} ·{' '}
+              {new Date(selected.created_at).toLocaleDateString()}
+            </div>
 
-      {/* Resolve Modal */}
-      {resolveTarget && (
-        <ResolveModal
-          discrepancy={resolveTarget}
-          onClose={() => setResolveTarget(null)}
-          onResolved={handleResolved}
-        />
-      )}
+            {/* Price comparison */}
+            <div className="bg-red-50 border border-red-100 rounded-lg p-3 space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Contract price</span>
+                <span className="font-medium text-green-700">
+                  {selected.contract_unit_price != null ? `$${selected.contract_unit_price.toFixed(4)}/EA` : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Invoiced price</span>
+                <span className="font-medium text-red-700">${selected.invoiced_unit_price.toFixed(4)}/EA</span>
+              </div>
+              <div className="flex justify-between border-t border-red-200 pt-1.5">
+                <span className="font-medium text-slate-600">Over by</span>
+                <span className="font-bold text-red-700">
+                  {selected.delta >= 0 ? '+' : ''}${Math.abs(selected.delta).toFixed(4)}
+                </span>
+              </div>
+            </div>
+
+            {/* AI reasoning */}
+            {selected.ai_reasoning && (
+              <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-xs text-amber-800">
+                <span className="font-semibold">AI Analysis: </span>
+                {selected.ai_reasoning}
+              </div>
+            )}
+
+            {/* Current status */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-500">Status:</span>
+              <StatusChip status={selected.status} />
+            </div>
+
+            {resolveError && <ErrorBanner message={resolveError} />}
+
+            {/* Action buttons */}
+            {canResolveDiscrepancy && selected.status === 'open' ? (
+              <div className="space-y-2 pt-1">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleResolve('approve')}
+                    disabled={resolving}
+                    className="flex-1 py-2 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 disabled:opacity-60 transition-colors"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleResolve('request_credit')}
+                    disabled={resolving}
+                    className="flex-1 py-2 bg-slate-600 text-white text-xs rounded-md hover:bg-slate-700 disabled:opacity-60 transition-colors"
+                  >
+                    Request Credit
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  <textarea
+                    value={disputeNote}
+                    onChange={(e) => setDisputeNote(e.target.value)}
+                    placeholder="Optional dispute note…"
+                    rows={2}
+                    className="w-full px-2 py-1.5 text-xs border border-border rounded resize-none focus:outline-none focus:border-navy"
+                  />
+                  <button
+                    onClick={() => handleResolve('dispute')}
+                    disabled={resolving}
+                    className="w-full py-2 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 disabled:opacity-60 transition-colors"
+                  >
+                    Dispute
+                  </button>
+                </div>
+              </div>
+            ) : !canResolveDiscrepancy && selected.status === 'open' ? (
+              <div className="py-3 text-center text-xs text-slate-500 bg-slate-50 rounded-lg border border-border">
+                Pending approver review
+              </div>
+            ) : null}
+          </div>
+        )}
+      </DrawerPanel>
     </div>
   )
 }
