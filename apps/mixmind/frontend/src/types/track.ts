@@ -66,6 +66,9 @@ export interface TrackAnlzData {
   memory_cues: MemoryCueEntry[];
   bpm: number;
   partial?: boolean;  // true when ANLZ .DAT not on this Mac — cues only, no waveform
+  waveform_4stem?: Waveform4Stem[];   // Demucs 4-stem per-column amplitudes
+  essentia?: EssentiaResult;           // Essentia feature extraction results
+  analyzer_version?: string;           // e.g. "1.0"
 }
 
 export interface Playlist {
@@ -84,4 +87,24 @@ export interface AIPlaylistItem {
   title: string;
   artist: string;
   reason: string;
+}
+
+// ---------------------------------------------------------------------------
+// Stem analysis types (Q-248: Demucs + Essentia)
+// ---------------------------------------------------------------------------
+
+export interface Waveform4Stem {
+  drums: number;   // 0-255
+  bass: number;    // 0-255
+  vocals: number;  // 0-255
+  other: number;   // 0-255
+}
+
+export interface EssentiaResult {
+  bpm: number;
+  key_musical: string;
+  camelot: string;
+  genre: string;
+  energy: number;       // 0.0-1.0
+  danceability: number; // 0.0-1.0
 }
