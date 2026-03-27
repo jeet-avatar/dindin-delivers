@@ -61,9 +61,9 @@ struct RideRequestView: View {
 
             // Ride Request Loading Overlay
             if viewModel.isLoading {
-                Color.black.opacity(0.3)
+                Color.black.opacity(0.75)
                     .ignoresSafeArea()
-                ProgressView("Requesting ride...")
+                ProgressView(viewModel.fareEstimateReceived ? "Requesting ride…" : "Getting fare estimate…")
                     .padding()
                     .background(Color.white)
                     .cornerRadius(12)
