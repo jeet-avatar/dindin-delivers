@@ -344,3 +344,43 @@ def dispatch(msg):
             _, deck, send_id = action
             track = state[f"{deck}_track"]
             send_osc("/live/track/set/send", track, send_id, midi_to_norm(msg.value))
+
+
+# ── K2 MIDI Listener ──────────────────────────────────────────────────────────
+
+import mido
+
+
+def find_k2_port() -> str | None:
+    """Return the first MIDI input port name containing 'XONE:K2', or None."""
+    for name in mido.get_input_names():
+        if "XONE:K2" in name or "K2" in name:
+            return name
+    return None
+
+
+def run():
+    """Main entry point — start OSC listener, read session, then loop on K2 input."""
+    _start_osc_listener()
+    read_session()
+    log.info("Ready. Listening for K2 input...")
+
+    while True:
+        port_name = find_k2_port()
+        if port_name is None:
+            log.info("XONE:K2 not found — plug in USB and wait...")
+            time.sleep(2)
+            continue
+
+        log.info(f"K2 detected: {port_name}")
+        try:
+            with mido.open_input(port_name) as port:
+                for msg in port:
+                    dispatch(msg)
+        except OSError as e:
+            log.warning(f"K2 disconnected ({e}) — retrying in 2s...")
+            time.sleep(2)
+
+
+if __name__ == "__main__":
+    run()
