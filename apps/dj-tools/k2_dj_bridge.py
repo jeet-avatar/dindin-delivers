@@ -240,3 +240,88 @@ def read_session():
                 f"{CONFIG[deck + '_name']} → param {CONFIG['hpf_param_index']} "
                 f"is '{param_name}', not 'Frequency' — HPF mapping disabled for this deck"
             )
+
+
+# ── MIDI Helpers ──────────────────────────────────────────────────────────────
+
+def midi_to_norm(value: int) -> float:
+    """Convert MIDI 0–127 to normalized 0.0–1.0."""
+    return value / 127.0
+
+
+# ── Action Map ────────────────────────────────────────────────────────────────
+# K2 Layer A MIDI note numbers (verified against K2 MIDI implementation guide)
+# Row B buttons: notes 0–3  (left to right)
+# Row C buttons: notes 4–7
+# Row A buttons: notes 8–11
+# Encoders:      CC 16–19
+# Faders:        CC 0–3
+
+# K2 Layer A default MIDI assignments (Allen & Heath Xone:K2 MIDI Implementation):
+# Row A buttons (top):    Notes 48–51
+# Row B buttons:          Notes 44–47
+# Row C buttons:          Notes 40–43
+# Encoder push buttons:   Notes 52–55
+# Encoder rotation:       CC 20–23
+# Faders:                 CC 0–3
+# NOTE: If buttons don't respond run the MIDI diagnostic at the end of this plan
+# to find actual note numbers and update the map below.
+
+K2_NOTES = {
+    # Row B → Deck 1 clips (notes 44–47)
+    44: ("clip_fire", "deck1", 0),
+    45: ("clip_fire", "deck1", 1),
+    46: ("clip_fire", "deck1", 2),
+    47: ("clip_fire", "deck1", 3),
+    # Row C → Deck 2 clips (notes 40–43)
+    40: ("clip_fire", "deck2", 0),
+    41: ("clip_fire", "deck2", 1),
+    42: ("clip_fire", "deck2", 2),
+    43: ("clip_fire", "deck2", 3),
+    # Row A → loop toggle (notes 48–49)
+    48: ("loop_toggle", "deck1"),
+    49: ("loop_toggle", "deck2"),
+    # 50, 51 unused in v1
+}
+
+K2_CCS = {
+    20: ("hpf", "deck1"),      # Encoder 1 rotation (CC 20)
+    21: ("hpf", "deck2"),      # Encoder 2 rotation (CC 21)
+    # 22, 23 unused in v1
+    0:  ("volume", "deck1"),   # Fader 1 (CC 0)
+    1:  ("volume", "deck2"),   # Fader 2 (CC 1)
+    2:  ("send", "deck1", 0),  # Fader 3 → Reverb send (CC 2)
+    3:  ("send", "deck1", 1),  # Fader 4 → Delay send (CC 3)
+}
+
+
+def dispatch(msg):
+    """Route a mido MIDI message to the correct OSC action."""
+    if msg.type == "note_on" and msg.velocity > 0:
+        action = K2_NOTES.get(msg.note)
+        if action is None:
+            return
+        if action[0] == "clip_fire":
+            _, deck, slot = action
+            track = state[f"{deck}_track"]
+            send_osc("/live/clip_slot/fire", track, slot)
+            log.info(f"Fire clip {slot} on {deck} (track {track})")
+        elif action[0] == "loop_toggle":
+            _, deck = action
+            toggle_loop(state[f"{deck}_track"])
+
+    elif msg.type == "control_change":
+        action = K2_CCS.get(msg.control)
+        if action is None:
+            return
+        if action[0] == "hpf":
+            _, deck = action
+            update_hpf(deck, msg.value)
+        elif action[0] == "volume":
+            _, deck = action
+            track = state[f"{deck}_track"]
+            send_osc("/live/track/set/volume", track, midi_to_norm(msg.value))
+        elif action[0] == "send":
+            _, deck, send_id = action
+            track = state[f"{deck}_track"]
+            send_osc("/live/track/set/send", track, send_id, midi_to_norm(msg.value))

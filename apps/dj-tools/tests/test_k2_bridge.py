@@ -67,3 +67,15 @@ def test_encoder_counterclockwise_fast():
 
 def test_encoder_no_movement():
     assert encoder_delta(64) == 0   # center = no movement
+
+# ── MIDI normalization tests ──────────────────────────────────────────────────
+from k2_dj_bridge import midi_to_norm
+
+def test_midi_zero_maps_to_zero():
+    assert midi_to_norm(0) == 0.0
+
+def test_midi_127_maps_to_one():
+    assert abs(midi_to_norm(127) - 1.0) < 0.01
+
+def test_midi_64_maps_to_half():
+    assert abs(midi_to_norm(64) - 0.504) < 0.01
