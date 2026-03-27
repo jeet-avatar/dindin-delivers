@@ -1,20 +1,19 @@
 # apps/hospital-pricing/backend/models/audit.py
 import uuid
 from datetime import datetime
-from sqlalchemy import String, DateTime, ForeignKey, JSON, event, DDL
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Uuid, String, DateTime, ForeignKey, JSON, event, DDL
 from sqlalchemy.orm import Mapped, mapped_column
 from database import Base
 
 
 class AuditLogEntry(Base):
     __tablename__ = "audit_log_entries"
-    log_id:        Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    log_id:        Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     entity_id:     Mapped[uuid.UUID] = mapped_column(ForeignKey("hospital_entities.entity_id"), nullable=False, index=True)
-    actor_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(Uuid(), nullable=False)
     event_type:    Mapped[str]       = mapped_column(String(100), nullable=False, index=True)
     resource_type: Mapped[str]       = mapped_column(String(100), nullable=False)
-    resource_id:   Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    resource_id:   Mapped[uuid.UUID] = mapped_column(Uuid(), nullable=False)
     payload:       Mapped[dict]      = mapped_column(JSON, nullable=False)
     created_at:    Mapped[datetime]  = mapped_column(DateTime, default=datetime.utcnow, index=True)
 

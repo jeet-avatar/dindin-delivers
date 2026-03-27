@@ -3,8 +3,7 @@ import uuid, enum
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
-from sqlalchemy import String, Boolean, Enum as SAEnum, DateTime, Date, ForeignKey, Numeric, Integer, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Uuid, String, Boolean, Enum as SAEnum, DateTime, Date, ForeignKey, Numeric, Integer, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
@@ -33,7 +32,7 @@ class MFNTrigger(str, enum.Enum):
 
 class WholesaleAgreement(Base):
     __tablename__ = "wholesale_agreements"
-    contract_id:                Mapped[uuid.UUID]         = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contract_id:                Mapped[uuid.UUID]         = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     hospital_entity_id:         Mapped[uuid.UUID]         = mapped_column(ForeignKey("hospital_entities.entity_id"), nullable=False, index=True)
     supplier_id:                Mapped[uuid.UUID]         = mapped_column(ForeignKey("suppliers.supplier_id"), nullable=False, index=True)
     gpo_contract_number:        Mapped[Optional[str]]     = mapped_column(String(100))
@@ -52,7 +51,7 @@ class WholesaleAgreement(Base):
 
 class PricingTier(Base):
     __tablename__ = "pricing_tiers"
-    tier_id:                   Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tier_id:                   Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     contract_id:               Mapped[uuid.UUID] = mapped_column(ForeignKey("wholesale_agreements.contract_id"), nullable=False)
     tier_name:                 Mapped[str]       = mapped_column(String(50), nullable=False)
     commitment_threshold_pct:  Mapped[Decimal]   = mapped_column(Numeric(5, 4), nullable=False)
@@ -62,7 +61,7 @@ class PricingTier(Base):
 
 class ContractItem(Base):
     __tablename__ = "contract_items"
-    item_id:                  Mapped[uuid.UUID]      = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    item_id:                  Mapped[uuid.UUID]      = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     tier_id:                  Mapped[uuid.UUID]      = mapped_column(ForeignKey("pricing_tiers.tier_id"), nullable=False)
     manufacturer_item_number: Mapped[str]            = mapped_column(String(100), nullable=False, index=True)
     ndc:                      Mapped[Optional[str]]  = mapped_column(String(11), index=True)
@@ -78,7 +77,7 @@ class ContractItem(Base):
 
 class MFNClause(Base):
     __tablename__ = "mfn_clauses"
-    mfn_id:               Mapped[uuid.UUID]  = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    mfn_id:               Mapped[uuid.UUID]  = mapped_column(Uuid(), primary_key=True, default=uuid.uuid4)
     contract_id:          Mapped[uuid.UUID]  = mapped_column(ForeignKey("wholesale_agreements.contract_id"), unique=True, nullable=False)
     trigger_type:         Mapped[MFNTrigger] = mapped_column(SAEnum(MFNTrigger), nullable=False)
     disclosure_frequency: Mapped[str]        = mapped_column(String(20), default="quarterly")
