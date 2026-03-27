@@ -7,9 +7,11 @@ import { DuplicatePanel } from './components/DuplicatePanel';
 import { USBPanel } from './components/USBPanel';
 import { SetBuilderPanel } from './components/SetBuilderPanel';
 import { useLibrary } from './hooks/useLibrary';
+import { sidecarGet } from './hooks/useSidecar';
 import { AIPlaylistItem, Playlist, Track } from './types/track';
 import { MiniPlayer } from './components/MiniPlayer';
 import { DJWaveformView } from './components/DJWaveformView';
+import { CamelotWheel } from './components/CamelotWheel';
 
 type Panel = 'library' | 'playlists' | 'duplicates' | 'usb' | 'setbuilder';
 
@@ -22,6 +24,9 @@ export default function App() {
   const [usbName] = useState<string | undefined>();
   const [nowPlaying, setNowPlaying] = useState<Track | null>(null);
   const [setTracks, setSetTracks] = useState<Track[]>([]);
+  const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
+  const [compatibleKeys, setCompatibleKeys] = useState<string[]>([]);
+  const [showCamelotWheel, setShowCamelotWheel] = useState(false);
 
   // ── Lifted player state (shared between DJWaveformView and MiniPlayer) ────
   const [playerCurrentTime, setPlayerCurrentTime] = useState(0);
@@ -34,6 +39,16 @@ export default function App() {
     setPlayerCurrentTime(0);
     setPlayerDuration(0);
     setSeekTo(null);
+  }, [nowPlaying?.content_id]);
+
+  // Track played IDs and fetch compatible keys when now-playing changes
+  useEffect(() => {
+    if (!nowPlaying?.content_id) { setCompatibleKeys([]); return; }
+    setPlayedIds(prev => new Set([...prev, nowPlaying.content_id]));
+    if (!nowPlaying.camelot || nowPlaying.camelot === '?') { setCompatibleKeys([]); return; }
+    sidecarGet<{ compatible: string[] }>('/api/library/compatible/' + nowPlaying.camelot)
+      .then(r => setCompatibleKeys(r.compatible))
+      .catch(() => setCompatibleKeys([]));
   }, [nowPlaying?.content_id]);
 
   function handleSeek(sec: number) {
@@ -120,7 +135,7 @@ export default function App() {
                 <span style={{ fontSize: '13px', color: '#4b5563' }}>Connecting to sidecar…</span>
               </div>
             ) : (
-              <TrackTable tracks={tracks} onReload={reload} onPlay={setNowPlaying} onAddToSet={addToSet} />
+              <TrackTable tracks={tracks} onReload={reload} onPlay={setNowPlaying} onAddToSet={addToSet} playedIds={playedIds} compatibleKeys={compatibleKeys} nowPlayingId={nowPlaying?.content_id} />
             )
           )}
 
@@ -217,8 +232,16 @@ export default function App() {
             onDurationChange={setPlayerDuration}
             seekTo={seekTo}
             onClose={() => setNowPlaying(null)}
+            onOpenCamelotWheel={() => setShowCamelotWheel(true)}
           />
         </>
+      )}
+      {showCamelotWheel && nowPlaying && (
+        <CamelotWheel
+          currentCamelot={nowPlaying.camelot}
+          compatibleKeys={compatibleKeys}
+          onClose={() => setShowCamelotWheel(false)}
+        />
       )}
 
     </div>
