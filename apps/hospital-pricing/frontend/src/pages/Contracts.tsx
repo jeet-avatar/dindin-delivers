@@ -33,6 +33,7 @@ export function Contracts() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [activating, setActivating] = useState(false)
+  const [activateError, setActivateError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -77,13 +78,14 @@ export function Contracts() {
 
   const handleActivate = async (contract: WholesaleAgreement) => {
     setActivating(true)
-    setError(null)
+    setActivateError(null)
     try {
       await contractsApi.activate(contract.contract_id)
+      setActivateError(null)
       load()
       setSelectedContract(null)
     } catch {
-      setError('Activation failed — please try again')
+      setActivateError('Activation failed — please try again')
     } finally {
       setActivating(false)
     }
@@ -243,7 +245,7 @@ export function Contracts() {
       {/* Contract detail drawer */}
       <DrawerPanel
         open={!!selectedContract}
-        onClose={() => setSelectedContract(null)}
+        onClose={() => { setSelectedContract(null); setActivateError(null) }}
         title={selectedContract ? `Contract ${selectedContract.gpo_contract_number ?? selectedContract.contract_id.slice(0, 8)}` : ''}
       >
         {selectedContract && (
@@ -279,13 +281,16 @@ export function Contracts() {
               </div>
             </div>
             {canActivateContract && selectedContract.status === 'pending_review' && (
-              <button
-                onClick={() => handleActivate(selectedContract)}
-                disabled={activating}
-                className="w-full py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-60 transition-colors"
-              >
-                {activating ? 'Activating…' : 'Activate Contract'}
-              </button>
+              <>
+                {activateError && <ErrorBanner message={activateError} />}
+                <button
+                  onClick={() => handleActivate(selectedContract)}
+                  disabled={activating}
+                  className="w-full py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-60 transition-colors"
+                >
+                  {activating ? 'Activating…' : 'Activate Contract'}
+                </button>
+              </>
             )}
             {selectedContract.document_s3_path && (
               <p className="text-xs text-slate-400">
