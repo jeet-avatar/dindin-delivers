@@ -92,6 +92,15 @@ class Track:
     analysis_data_path: str = ""
     """Relative ANLZ analysis path from DjmdContent.AnalysisDataPath (e.g. /PIONEER/USBANLZ/{uuid}/ANLZ0000.DAT)."""
 
+    genre: str = ""
+    comment: str = ""
+    color_hex: str = ""
+    """'' means no color; otherwise e.g. '#ff7070'."""
+    date_added: str = ""
+    """YYYY-MM-DD or ''."""
+    label: str = ""
+    play_count: int = 0
+
     def to_cache(self) -> dict:
         """Serialise to a plain dict suitable for JSON caching."""
         return {
@@ -108,6 +117,12 @@ class Track:
             "cue_colors": self.cue_colors,
             "file_path": self.file_path,
             "analysis_data_path": self.analysis_data_path,
+            "genre": self.genre,
+            "comment": self.comment,
+            "color_hex": self.color_hex,
+            "date_added": self.date_added,
+            "label": self.label,
+            "play_count": self.play_count,
         }
 
 
@@ -195,6 +210,12 @@ def _track_from_xml_element(el: ET.Element) -> Track:
         cue_count=cue_count,
         cue_colors=cue_colors,
         file_path=file_path,
+        genre=el.attrib.get("Genre", ""),
+        comment=el.attrib.get("Comments", ""),
+        color_hex=COLOR_MAP.get(el.attrib.get("Colour", "0"), ""),
+        date_added=el.attrib.get("DateAdded", ""),
+        label=el.attrib.get("Label", ""),
+        play_count=int(el.attrib.get("PlayCount", "0") or "0"),
     )
 
 
@@ -305,6 +326,12 @@ def load_library_xml(xml_path: Path) -> list[Track]:
             cue_count=cue_count,
             cue_colors=cue_colors,
             file_path=file_path,
+            genre=rb_track._element.attrib.get("Genre", ""),
+            comment=rb_track._element.attrib.get("Comments", ""),
+            color_hex=COLOR_MAP.get(rb_track._element.attrib.get("Colour", "0"), ""),
+            date_added=rb_track._element.attrib.get("DateAdded", ""),
+            label=rb_track._element.attrib.get("Label", ""),
+            play_count=int(rb_track._element.attrib.get("PlayCount", "0") or "0"),
         ))
 
     return tracks
@@ -340,6 +367,12 @@ _CAMELOT_TO_MUSICAL: dict[str, str] = {
 _CUE_COLORS = {
     1: "#EF2B2B", 2: "#F56300", 3: "#F5BE00", 4: "#00C23C",
     5: "#00C2C2", 6: "#0064F5", 7: "#7800C8", 8: "#F500C8",
+}
+
+# Rekordbox track color palette (ColorID → hex)
+COLOR_MAP: dict[str, str] = {
+    "1": "#ff7070", "2": "#ff9a3c", "3": "#f5e642", "4": "#5fd76b",
+    "5": "#5bbfff", "6": "#a57bff", "7": "#ff6eb4", "8": "#c8c8c8",
 }
 
 
@@ -388,6 +421,13 @@ def try_load_library_db() -> Optional[list[Track]]:
             # AnalysisDataPath: relative ANLZ path used by anlz_parser
             analysis_data_path = t.AnalysisDataPath or ""
 
+            genre = t.GenreName or ""
+            comment = t.Commnt or ""
+            color_hex = COLOR_MAP.get(str(t.ColorID or "0"), "")
+            date_added = str(t.StockDate)[:10] if t.StockDate else ""
+            label = t.LabelName or ""
+            play_count = int(t.DJPlayCount or 0)
+
             tracks.append(Track(
                 content_id=track_id,
                 source="db",
@@ -402,6 +442,12 @@ def try_load_library_db() -> Optional[list[Track]]:
                 cue_colors=cue_colors,
                 file_path=local_file_path,
                 analysis_data_path=analysis_data_path,
+                genre=genre,
+                comment=comment,
+                color_hex=color_hex,
+                date_added=date_added,
+                label=label,
+                play_count=play_count,
             ))
         except Exception:
             continue
