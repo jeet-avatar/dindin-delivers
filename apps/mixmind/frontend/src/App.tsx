@@ -149,6 +149,7 @@ export default function App() {
                             borderBottom: i < p.tracks.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                             cursor: t.file_path ? 'pointer' : 'default',
                             transition: 'background 0.1s',
+                            opacity: t.file_path ? 1 : 0.35,
                           }}
                           onMouseEnter={e => { if (t.file_path) (e.currentTarget as HTMLElement).style.background = 'rgba(124,58,237,0.06)'; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
@@ -160,6 +161,11 @@ export default function App() {
                           </div>
                           <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', fontFeatureSettings: '"tnum"', flexShrink: 0 }}>{Math.round(t.bpm)}</span>
                           <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px', background: 'rgba(124,58,237,0.12)', color: '#a78bfa', flexShrink: 0 }}>{t.camelot}</span>
+                          {!t.file_path && (
+                            <span style={{ fontSize: '9px', fontWeight: 600, padding: '1px 5px', borderRadius: '4px', background: 'rgba(107,114,128,0.15)', color: '#6b7280', flexShrink: 0, letterSpacing: '0.03em' }}>
+                              UNAVAILABLE
+                            </span>
+                          )}
                         </div>
                       ))}
                     </div>
