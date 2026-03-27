@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { discrepanciesApi } from '../api/discrepancies'
-import type { Discrepancy, DiscrepancyType } from '../types/hospital'
+import type { Discrepancy, DiscrepancyStatus, DiscrepancyType } from '../types/hospital'
 import type { ResolutionValue } from '../api/discrepancies'
 import { StatusChip } from '../components/StatusChip'
 import { DiscrepancyBadge } from '../components/DiscrepancyBadge'
@@ -31,7 +31,7 @@ export function Discrepancies() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [typeFilter, setTypeFilter] = useState<DiscrepancyType | 'all'>('all')
-  const [statusFilter, setStatusFilter] = useState<'open' | 'resolved' | 'all'>('open')
+  const [statusFilter, setStatusFilter] = useState<'flagged' | 'resolved' | 'all'>('flagged')
   const [supplierSearch, setSupplierSearch] = useState('')
   const [selected, setSelected] = useState<Discrepancy | null>(null)
   const [resolving, setResolving] = useState(false)
@@ -40,10 +40,10 @@ export function Discrepancies() {
 
   const load = useCallback(() => {
     setLoading(true)
-    // Note: type and supplier filters are applied client-side on the full response.
+    // Note: backend GET /discrepancies/ has no server-side status filter.
+    // Type, supplier, and status filters are all applied client-side on the full response.
     // Move to server-side params if pagination is added.
     const params: Record<string, string> = {}
-    if (statusFilter !== 'all') params.status = statusFilter
     const invoiceId = searchParams.get('invoice')
     if (invoiceId) params.invoice_id = invoiceId
 
@@ -52,7 +52,7 @@ export function Discrepancies() {
       .then(setDiscrepancies)
       .catch(() => setError('Failed to load discrepancies'))
       .finally(() => setLoading(false))
-  }, [statusFilter, searchParams])
+  }, [searchParams])
 
   useEffect(() => { load() }, [load])
 
@@ -65,9 +65,12 @@ export function Discrepancies() {
     }
   }, [highlightId, discrepancies])
 
+  const RESOLVED_STATUSES: DiscrepancyStatus[] = ['resolved_credit', 'resolved_approved', 'investigating']
   const filtered = discrepancies.filter((d) => {
     if (typeFilter !== 'all' && d.discrepancy_type !== typeFilter) return false
     if (supplierSearch && !(d.supplier_name ?? '').toLowerCase().includes(supplierSearch.toLowerCase())) return false
+    if (statusFilter === 'flagged' && d.status !== 'flagged') return false
+    if (statusFilter === 'resolved' && !RESOLVED_STATUSES.includes(d.status)) return false
     return true
   })
 
@@ -78,7 +81,7 @@ export function Discrepancies() {
     try {
       const note = resolution === 'dispute' ? disputeNote : undefined
       await discrepanciesApi.resolve(selected.line_id, resolution, note)
-      if (selected.status === 'open') {
+      if (selected.status === 'flagged') {
         decrementDiscrepancyCount()
       }
       setSelected(null)
@@ -115,7 +118,7 @@ export function Discrepancies() {
           ))}
         </div>
         <div className="flex gap-1 border border-border rounded-md overflow-hidden">
-          {(['open', 'resolved', 'all'] as const).map((s) => (
+          {(['flagged', 'resolved', 'all'] as const).map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -123,7 +126,7 @@ export function Discrepancies() {
                 statusFilter === s ? 'bg-navy text-white' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
-              {s}
+              {s === 'flagged' ? 'Open' : s === 'resolved' ? 'Resolved' : 'All'}
             </button>
           ))}
         </div>
@@ -159,7 +162,7 @@ export function Discrepancies() {
                 <td colSpan={8}>
                   <EmptyState
                     icon="✅"
-                    message={statusFilter === 'open' ? 'All clear — no open discrepancies' : 'No discrepancies found'}
+                    message={statusFilter === 'flagged' ? 'All clear — no open discrepancies' : 'No discrepancies found'}
                   />
                 </td>
               </tr>
@@ -183,8 +186,10 @@ export function Discrepancies() {
                   <td className="px-4 py-3 text-right text-green-600">
                     {d.contract_unit_price != null ? `$${d.contract_unit_price.toFixed(4)}` : '—'}
                   </td>
-                  <td className="px-4 py-3 text-right text-red-600">${d.invoiced_unit_price.toFixed(4)}</td>
-                  <td className="px-4 py-3 text-right font-medium text-red-600">
+                  <td className="px-4 py-3 text-right text-red-600">
+                    {d.invoiced_unit_price != null ? `$${d.invoiced_unit_price.toFixed(4)}` : '—'}
+                  </td>
+                  <td className={`px-4 py-3 text-right font-medium ${d.delta >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {d.delta >= 0 ? '+' : ''}${Math.abs(d.delta).toFixed(4)}
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs">
@@ -230,11 +235,13 @@ export function Discrepancies() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Invoiced price</span>
-                <span className="font-medium text-red-700">${selected.invoiced_unit_price.toFixed(4)}/EA</span>
+                <span className="font-medium text-red-700">
+                  {selected.invoiced_unit_price != null ? `$${selected.invoiced_unit_price.toFixed(4)}/EA` : '—'}
+                </span>
               </div>
               <div className="flex justify-between border-t border-red-200 pt-1.5">
-                <span className="font-medium text-slate-600">Over by</span>
-                <span className="font-bold text-red-700">
+                <span className="font-medium text-slate-600">{selected.delta >= 0 ? 'Over by' : 'Under by'}</span>
+                <span className={`font-bold ${selected.delta >= 0 ? 'text-red-700' : 'text-green-700'}`}>
                   {selected.delta >= 0 ? '+' : ''}${Math.abs(selected.delta).toFixed(4)}
                 </span>
               </div>
@@ -257,7 +264,7 @@ export function Discrepancies() {
             {resolveError && <ErrorBanner message={resolveError} />}
 
             {/* Action buttons */}
-            {canResolveDiscrepancy && selected.status === 'open' ? (
+            {canResolveDiscrepancy && selected.status === 'flagged' ? (
               <div className="space-y-2 pt-1">
                 <div className="flex gap-2">
                   <button
@@ -292,11 +299,11 @@ export function Discrepancies() {
                   </button>
                 </div>
               </div>
-            ) : !canResolveDiscrepancy && selected.status === 'open' ? (
+            ) : !canResolveDiscrepancy && selected.status === 'flagged' ? (
               <div className="py-3 text-center text-xs text-slate-500 bg-slate-50 rounded-lg border border-border">
                 Pending approver review
               </div>
-            ) : selected.status !== 'open' ? (
+            ) : selected.status !== 'flagged' ? (
               <div className="py-3 text-center text-xs text-slate-400 bg-slate-50 rounded-lg border border-border">
                 Already resolved — no further action required
               </div>

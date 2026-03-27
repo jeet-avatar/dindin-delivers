@@ -16,10 +16,11 @@ const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-700',
   no_contract: 'bg-slate-100 text-slate-600',
   // Discrepancy
-  open: 'bg-amber-100 text-amber-700',
-  approve: 'bg-green-100 text-green-700',
-  request_credit: 'bg-blue-100 text-blue-700',
-  dispute: 'bg-red-100 text-red-700',
+  none: 'bg-slate-100 text-slate-500',
+  flagged: 'bg-amber-100 text-amber-700',
+  investigating: 'bg-orange-100 text-orange-700',
+  resolved_credit: 'bg-blue-100 text-blue-700',
+  resolved_approved: 'bg-green-100 text-green-700',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,10 +34,11 @@ const STATUS_LABELS: Record<string, string> = {
   discrepancies_found: 'Discrepancies',
   pending: 'Pending',
   no_contract: 'No Contract',
-  open: 'Open',
-  approve: 'Approved',
-  request_credit: 'Credit Requested',
-  dispute: 'Disputed',
+  none: 'None',
+  flagged: 'Flagged',
+  investigating: 'Investigating',
+  resolved_credit: 'Credit Requested',
+  resolved_approved: 'Approved',
 }
 
 interface Props {

@@ -33,10 +33,10 @@ export interface Invoice {
   invoice_id: string
   supplier_id: string | null
   invoice_number: string | null
-  invoice_date: string
-  total_amount: number
+  invoice_date: string | null
+  total_amount: number | null
   match_status: InvoiceMatchStatus
-  discrepancy_count: number
+  discrepancy_count: number | null
   line_count: number
   created_at: string
 }
@@ -50,7 +50,12 @@ export type DiscrepancyType =
   | 'uom_mismatch'
   | 'no_contract'
 
-export type DiscrepancyStatus = 'open' | 'approve' | 'request_credit' | 'dispute'
+export type DiscrepancyStatus =
+  | 'none'
+  | 'flagged'
+  | 'investigating'
+  | 'resolved_credit'
+  | 'resolved_approved'
 
 export interface Discrepancy {
   line_id: string
@@ -59,7 +64,7 @@ export interface Discrepancy {
   supplier_name: string | null
   discrepancy_type: DiscrepancyType
   contract_unit_price: number | null
-  invoiced_unit_price: number
+  invoiced_unit_price: number | null
   delta: number
   ai_reasoning: string | null
   status: DiscrepancyStatus

@@ -100,17 +100,19 @@ export function Invoices() {
                   <td className="px-4 py-3 font-medium text-navy">{inv.invoice_number ?? inv.invoice_id.slice(0, 8)}</td>
                   <td className="px-4 py-3 text-slate-600">{inv.supplier_id ?? '—'}</td>
                   <td className="px-4 py-3 text-slate-600">
-                    {new Date(inv.invoice_date).toLocaleDateString()}
+                    {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-4 py-3 text-right font-medium">
-                    ${inv.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {inv.total_amount != null
+                      ? `$${inv.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                      : '—'}
                   </td>
                   <td className="px-4 py-3 text-right text-slate-500">{inv.line_count}</td>
                   <td className="px-4 py-3">
                     <StatusChip status={inv.match_status} />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {inv.discrepancy_count > 0 ? (
+                    {inv.discrepancy_count != null && inv.discrepancy_count > 0 ? (
                       <span className="font-medium text-red-600">{inv.discrepancy_count}</span>
                     ) : (
                       <span className="text-slate-400">—</span>
