@@ -68,8 +68,7 @@ export interface Discrepancy {
   delta: number
   ai_reasoning: string | null
   status: DiscrepancyStatus
-  resolved_at: string | null
-  created_at: string
+  created_at: string | null
 }
 
 // Audit

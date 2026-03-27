@@ -54,18 +54,15 @@ export function Dashboard() {
     Promise.all([
       contractsApi.list(),
       invoicesApi.list(),
-      discrepanciesApi.list({ status: 'open' }),
-      discrepanciesApi.list({ status: 'resolved' }),
+      discrepanciesApi.list({}),
     ])
-      .then(([c, i, openD, resolvedD]) => {
+      .then(([c, i, allD]) => {
         setContracts(c)
         setInvoices(i)
+        const openD = allD.filter((d) => d.status === 'flagged')
         setRecentDiscrepancies(openD.slice(0, 5))
-        const todayStr = new Date().toISOString().slice(0, 10)
-        const todayResolved = resolvedD.filter(
-          (d) => d.resolved_at && d.resolved_at.slice(0, 10) === todayStr
-        ).length
-        setResolvedToday(todayResolved)
+        // TODO: resolved_at not in backend model yet — requires schema extension
+        setResolvedToday(0)
       })
       .catch(() => setError('Failed to load dashboard data'))
       .finally(() => setLoading(false))
@@ -172,7 +169,7 @@ export function Dashboard() {
                       {d.delta >= 0 ? '+' : ''}${Math.abs(d.delta).toFixed(2)}
                     </td>
                     <td className="px-4 py-3 text-slate-500 text-xs">
-                      {new Date(d.created_at).toLocaleDateString()}
+                      {d.created_at ? new Date(d.created_at).toLocaleDateString() : '—'}
                     </td>
                   </tr>
                 ))
