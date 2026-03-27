@@ -14,6 +14,7 @@ interface Props {
   onReload?: () => void;
   onPlay?: (track: Track) => void;
   onAddToSet?: (track: Track) => void;
+  onAnalyze?: (contentId: string) => void;
   playedIds?: Set<string>;
   compatibleKeys?: string[];
   nowPlayingId?: string;
@@ -191,7 +192,7 @@ const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '130px', '72px', '70px', '50
 
 // ── Main component ────────────────────────────────────────────
 
-export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, playedIds, compatibleKeys, nowPlayingId }: Props) {
+export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onAnalyze, playedIds, compatibleKeys, nowPlayingId }: Props) {
   const [sortKey, setSortKey]   = useState<SortKey>('bpm');
   const [sortDir, setSortDir]   = useState<SortDir>('asc');
   const [search, setSearch]     = useState('');
@@ -720,6 +721,21 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, pla
                         }}
                       >
                         + Set
+                      </button>
+                    )}
+                    {onAnalyze && (
+                      <button
+                        title="Analyze stems"
+                        onClick={(e) => { e.stopPropagation(); onAnalyze(t.content_id); }}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
+                          color: '#a78bfa', opacity: 0.7, flexShrink: 0,
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                        onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+                      >
+                        Analyze
                       </button>
                     )}
                     <button

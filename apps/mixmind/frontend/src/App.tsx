@@ -7,7 +7,7 @@ import { DuplicatePanel } from './components/DuplicatePanel';
 import { USBPanel } from './components/USBPanel';
 import { SetBuilderPanel } from './components/SetBuilderPanel';
 import { useLibrary } from './hooks/useLibrary';
-import { sidecarGet } from './hooks/useSidecar';
+import { sidecarGet, sidecarPost } from './hooks/useSidecar';
 import { AIPlaylistItem, Playlist, Track } from './types/track';
 import { MiniPlayer } from './components/MiniPlayer';
 import { DJWaveformView } from './components/DJWaveformView';
@@ -54,6 +54,19 @@ export default function App() {
   function handleSeek(sec: number) {
     // Use a fresh object to guarantee useEffect fires even for same-second seeks
     setSeekTo(sec);
+  }
+
+  const [analyzingTrack, setAnalyzingTrack] = useState<string | null>(null);
+
+  async function handleAnalyze(contentId: string) {
+    setAnalyzingTrack(contentId);
+    try {
+      await sidecarPost(`/api/tracks/${contentId}/analyze?force=false`, {});
+    } catch (e) {
+      console.error('Analysis failed:', e);
+    } finally {
+      setAnalyzingTrack(null);
+    }
   }
 
   // ── Set Builder state management ──────────────────────────────────────────
@@ -135,7 +148,7 @@ export default function App() {
                 <span style={{ fontSize: '13px', color: '#4b5563' }}>Connecting to sidecar…</span>
               </div>
             ) : (
-              <TrackTable tracks={tracks} onReload={reload} onPlay={setNowPlaying} onAddToSet={addToSet} playedIds={playedIds} compatibleKeys={compatibleKeys} nowPlayingId={nowPlaying?.content_id} />
+              <TrackTable tracks={tracks} onReload={reload} onPlay={setNowPlaying} onAddToSet={addToSet} onAnalyze={handleAnalyze} playedIds={playedIds} compatibleKeys={compatibleKeys} nowPlayingId={nowPlaying?.content_id} />
             )
           )}
 
