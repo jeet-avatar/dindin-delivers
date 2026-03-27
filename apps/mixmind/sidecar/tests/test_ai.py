@@ -23,7 +23,7 @@ def test_serialise_library_is_csv():
     lines = csv.strip().split("\n")
     # Header + 3 data rows
     assert len(lines) == 4
-    assert lines[0] == "title|artist|bpm|camelot|rating|duration_sec"
+    assert lines[0] == "title|artist|bpm|camelot|rating|duration_sec|genre"
 
 
 def test_serialise_library_correct_values():

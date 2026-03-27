@@ -4,13 +4,17 @@
   <COLLECTION Entries="2">
     <TRACK TrackID="1" Name="Afterlife" Artist="Tale Of Us"
            TotalTime="402" AverageBpm="128.00" Tonality="Am"
-           Rating="255" Colour="#FF0000">
+           Rating="255" Colour="1"
+           Genre="Melodic House &amp; Techno" Comments="Peak time opener"
+           DateAdded="2023-06-15" Label="Afterlife Records" PlayCount="42">
       <POSITION_MARK Name="" Type="0" Start="4.0" Num="-1"/>
       <POSITION_MARK Name="" Type="1" Start="32.0" Num="0" Red="255" Green="0" Blue="0"/>
     </TRACK>
     <TRACK TrackID="2" Name="Subzero" Artist="Adam Beyer"
            TotalTime="435" AverageBpm="134.00" Tonality="Dm"
-           Rating="204" Colour="#0000FF">
+           Rating="204" Colour="0"
+           Genre="Techno" Comments="" DateAdded="2022-08-23"
+           Label="Drumcode" PlayCount="7">
     </TRACK>
   </COLLECTION>
   <PLAYLISTS>
