@@ -124,3 +124,21 @@ def test_analysis_count(tmp_path):
     assert counts["pending"] == 1
     assert counts["failed"] == 1
     assert counts["total"] == 3
+
+
+def test_save_analysis_with_mm_fields(tmp_path):
+    db = StateDB(db_path=tmp_path / "state.db")
+    db.save_analysis(
+        content_id="1", source="db", status="complete", file_path="/a.mp3",
+        bpm=128.0, beat_grid_mm=b"\x01", sections_mm=b"\x02",
+        auto_cues_mm=b"\x03", beat_confidence=0.95, bpm_stable=True,
+        genre_confidence=0.87, sub_genres='["Deep House","Tech House"]',
+    )
+    row = db.get_analysis("1", "db")
+    assert row["beat_grid_mm"] == b"\x01"
+    assert row["sections_mm"] == b"\x02"
+    assert row["auto_cues_mm"] == b"\x03"
+    assert row["beat_confidence"] == 0.95
+    assert row["bpm_stable"] == 1
+    assert row["genre_confidence"] == 0.87
+    assert row["sub_genres"] == '["Deep House","Tech House"]'
