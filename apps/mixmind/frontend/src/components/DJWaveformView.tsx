@@ -123,19 +123,20 @@ function drawOverviewCanvas(
         ctx.fillRect(x, y - otherH, barW, otherH);
       }
     } else if (wb) {
-      // CDJ-3000 3-band colored bars — full opacity, crisp
+      // CDJ-3000 style: each column is a single bar whose COLOR is the RGB mix
+      // of low (red), mid (green), high (blue) — like a real Pioneer waveform.
       for (let i = 0; i < wb.length; i++) {
         const x = (i / wb.length) * W;
         const col = wb[i];
-        const lowH = (col.low / 255) * H * 0.45;
-        ctx.fillStyle = CDJ_LOW;
-        ctx.fillRect(x, H - lowH, barW, lowH);
-        const midH = (col.mid / 255) * H * 0.30;
-        ctx.fillStyle = CDJ_MID;
-        ctx.fillRect(x, H - lowH - midH, barW, midH);
-        const highH = (col.high / 255) * H * 0.28;
-        ctx.fillStyle = CDJ_HIGH;
-        ctx.fillRect(x, H - lowH - midH - highH, barW, highH);
+        // Total amplitude determines bar height
+        const total = col.low + col.mid + col.high;
+        const barH = Math.max(1, (total / (255 * 3)) * H * 1.2);
+        // RGB color from band mix: red=low, green=mid, blue=high
+        const r = Math.min(255, col.low);
+        const g = Math.min(255, col.mid);
+        const b = Math.min(255, col.high);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(x, H - barH, barW, barH);
       }
     } else if (wp.length > 0) {
       // Mono fallback — vivid purple, full opacity
@@ -298,19 +299,17 @@ function drawZoomedCanvas(
           ctx.fillRect(x, y - otherH, barW, otherH);
         }
       } else if (wb) {
-        // CDJ-3000 3-band — full opacity, crisp
+        // CDJ-3000 style: RGB color mix per column
         for (let i = startIdx; i < endIdx; i++) {
           const x = msToX(iToMs(i));
           const col = wb[i];
-          const lowH  = (col.low  / 255) * H * 0.45;
-          const midH  = (col.mid  / 255) * H * 0.30;
-          const highH = (col.high / 255) * H * 0.28;
-          ctx.fillStyle = CDJ_LOW;
-          ctx.fillRect(x, H - lowH, barW, lowH);
-          ctx.fillStyle = CDJ_MID;
-          ctx.fillRect(x, H - lowH - midH, barW, midH);
-          ctx.fillStyle = CDJ_HIGH;
-          ctx.fillRect(x, H - lowH - midH - highH, barW, highH);
+          const total = col.low + col.mid + col.high;
+          const barH = Math.max(1, (total / (255 * 3)) * H * 1.2);
+          const r = Math.min(255, col.low);
+          const g = Math.min(255, col.mid);
+          const b = Math.min(255, col.high);
+          ctx.fillStyle = `rgb(${r},${g},${b})`;
+          ctx.fillRect(x, H - barH, barW, barH);
         }
       } else {
         for (let i = startIdx; i < endIdx; i++) {
