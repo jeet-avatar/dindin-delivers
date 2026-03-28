@@ -108,3 +108,35 @@ export interface EssentiaResult {
   energy: number;       // 0.0-1.0
   danceability: number; // 0.0-1.0
 }
+
+// ---------------------------------------------------------------------------
+// MixMind Pro Analysis Engine types (dual-source RB/MM)
+// ---------------------------------------------------------------------------
+
+/** Auto-cue entry placed by MixMind's cue_detector */
+export interface AutoCueEntry {
+  slot: string;      // 'A'-'H'
+  time_ms: number;
+  label: string;
+  color_hex: string;
+  reason: string;    // e.g. 'drop', 'breakdown', 'vocal_start'
+}
+
+/** MixMind's own analysis result (parallel to TrackAnlzData for Rekordbox) */
+export interface MixMindAnalysis {
+  beat_grid: BeatGridEntry[];
+  bpm: number;
+  bpm_stable: boolean;
+  beat_confidence: number;       // 0.0-1.0
+  sections: SectionEntry[];
+  auto_cues: AutoCueEntry[];
+  waveform_4stem: Waveform4Stem[] | null;
+  essentia: EssentiaResult | null;
+}
+
+/** Dual-source ANLZ response — backend returns both RB and MM when available */
+export interface DualAnlzData {
+  rekordbox: TrackAnlzData | null;
+  mixmind: MixMindAnalysis | null;
+  active_source: 'rekordbox' | 'mixmind' | 'auto';
+}
