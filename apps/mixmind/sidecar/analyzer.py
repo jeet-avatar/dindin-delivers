@@ -77,7 +77,7 @@ def stems_to_waveform(
 def _run_demucs(file_path: str) -> dict[str, np.ndarray]:
     """Run Demucs htdemucs model on an audio file. Returns 4 mono stem arrays."""
     import torch
-    import torchaudio
+    import subprocess
     from demucs.pretrained import get_model
     from demucs.apply import apply_model
 
@@ -87,7 +87,18 @@ def _run_demucs(file_path: str) -> dict[str, np.ndarray]:
     model = get_model("htdemucs")
     model.to(device)
 
-    wav, sr = torchaudio.load(file_path)
+    # Load audio via ffmpeg → raw PCM (works for mp3, flac, wav, aac, etc.)
+    # Bypasses broken torchaudio 2.11 torchcodec requirement
+    sr = 44100
+    cmd = [
+        "ffmpeg", "-i", file_path, "-f", "f32le", "-acodec", "pcm_f32le",
+        "-ar", str(sr), "-ac", "2", "-v", "quiet", "-"
+    ]
+    proc = subprocess.run(cmd, capture_output=True, timeout=120)
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg failed: {proc.stderr[:200]}")
+    audio_np = np.frombuffer(proc.stdout, dtype=np.float32).reshape(-1, 2)
+    wav = torch.from_numpy(audio_np.T.copy())  # (2, samples)
     # Demucs expects (batch, channels, samples)
     if wav.dim() == 1:
         wav = wav.unsqueeze(0)
