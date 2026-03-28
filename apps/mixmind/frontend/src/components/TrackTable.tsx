@@ -15,6 +15,7 @@ interface Props {
   onPlay?: (track: Track) => void;
   onAddToSet?: (track: Track) => void;
   onAnalyze?: (contentId: string) => void;
+  analyzingTrack?: string | null;
   playedIds?: Set<string>;
   compatibleKeys?: string[];
   nowPlayingId?: string;
@@ -192,9 +193,9 @@ const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '130px', '72px', '70px', '50
 
 // ── Main component ────────────────────────────────────────────
 
-export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onAnalyze, playedIds, compatibleKeys, nowPlayingId }: Props) {
+export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onAnalyze, analyzingTrack, playedIds, compatibleKeys, nowPlayingId }: Props) {
   const [sortKey, setSortKey]   = useState<SortKey>('bpm');
-  const [sortDir, setSortDir]   = useState<SortDir>('asc');
+  const [sortDir, setSortDir]   = useState<SortDir>('desc');
   const [search, setSearch]     = useState('');
   const [filter, setFilter]     = useState<Filter>('all');
   const [genreFilter, setGenreFilter] = useState<string>('all');
@@ -725,17 +726,30 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onA
                     )}
                     {onAnalyze && (
                       <button
-                        title="Analyze stems"
+                        title="Analyze stems — separates drums, bass, vocals, synths"
+                        disabled={analyzingTrack === t.content_id}
                         onClick={(e) => { e.stopPropagation(); onAnalyze(t.content_id); }}
                         style={{
-                          background: 'none', border: 'none', cursor: 'pointer',
-                          fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
-                          color: '#a78bfa', opacity: 0.7, flexShrink: 0,
+                          background: analyzingTrack === t.content_id
+                            ? 'rgba(168,85,247,0.3)'
+                            : 'rgba(168,85,247,0.15)',
+                          border: '1px solid rgba(168,85,247,0.4)',
+                          cursor: analyzingTrack === t.content_id ? 'wait' : 'pointer',
+                          fontSize: '10px', padding: '3px 8px', borderRadius: '6px',
+                          color: '#c084fc', flexShrink: 0, fontWeight: 600,
+                          fontFamily: 'var(--font)',
+                          transition: 'all 0.15s',
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-                        onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+                        onMouseEnter={e => {
+                          if (analyzingTrack !== t.content_id)
+                            e.currentTarget.style.background = 'rgba(168,85,247,0.3)';
+                        }}
+                        onMouseLeave={e => {
+                          if (analyzingTrack !== t.content_id)
+                            e.currentTarget.style.background = 'rgba(168,85,247,0.15)';
+                        }}
                       >
-                        Analyze
+                        {analyzingTrack === t.content_id ? 'Analyzing...' : 'Analyze'}
                       </button>
                     )}
                     <button
