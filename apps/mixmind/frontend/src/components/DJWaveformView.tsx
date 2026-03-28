@@ -19,17 +19,18 @@ import { sidecarGet } from '../hooks/useSidecar';
 // CDJ-3000 Waveform Colors
 // ---------------------------------------------------------------------------
 
-const CDJ_LOW   = '#FF2D55';
-const CDJ_MID   = '#00E726';
-const CDJ_HIGH  = '#00BFFF';
-const CDJ_MONO  = '#6366f1'; // fallback purple if no 3-band data
-const FIRST_BEAT_COLOR = '#FFD60A'; // gold marker for first downbeat
+// CDJ-3000 reference colors — punchy, saturated, full contrast on black
+const CDJ_LOW   = '#FF1744';   // hot red — kicks, bass hits
+const CDJ_MID   = '#00E676';   // neon green — mids, leads
+const CDJ_HIGH  = '#00B0FF';   // electric blue — cymbals, hats
+const CDJ_MONO  = '#7C4DFF';   // vivid purple — mono fallback
+const FIRST_BEAT_COLOR = '#FFD600'; // gold marker for first downbeat
 
-// 4-stem colors (Demucs analysis)
-const STEM_DRUMS  = '#FF9500';  // orange
-const STEM_BASS   = '#8B00FF';  // deep purple
-const STEM_VOCALS = '#00E5FF';  // cyan
-const STEM_OTHER  = '#FFD700';  // gold
+// 4-stem colors (Demucs analysis) — CDJ-3000 inspired, max contrast
+const STEM_DRUMS  = '#FF3D00';  // blazing orange-red — punchy transients
+const STEM_BASS   = '#AA00FF';  // vivid purple — sub energy
+const STEM_VOCALS = '#00E5FF';  // electric cyan — melodic content
+const STEM_OTHER  = '#FFEA00';  // bright yellow — synths, pads, FX
 
 // ---------------------------------------------------------------------------
 // Props
@@ -91,45 +92,55 @@ function drawOverviewCanvas(
     const barW = Math.max(1, W / waveLen);
 
     if (w4) {
-      // 4-stem Demucs waveform (priority 1)
-      const stems = [
-        { key: 'drums'  as const, color: STEM_DRUMS,  weight: 0.30 },
-        { key: 'bass'   as const, color: STEM_BASS,   weight: 0.25 },
-        { key: 'vocals' as const, color: STEM_VOCALS, weight: 0.25 },
-        { key: 'other'  as const, color: STEM_OTHER,  weight: 0.20 },
-      ];
+      // 4-stem Demucs waveform — CDJ-3000 style, full opacity, stacked
       for (let i = 0; i < w4.length; i++) {
         const x = (i / w4.length) * W;
         const col = w4[i];
-        let yOffset = 0;
-        for (const stem of stems) {
-          const stemH = (col[stem.key] / 255) * H * stem.weight;
-          ctx.fillStyle = hexToRgba(stem.color, 0.85);
-          ctx.fillRect(x, H - yOffset - stemH, barW, stemH);
-          yOffset += stemH;
-        }
+        // Each stem gets full height allocation — stacked bottom to top
+        // Drums anchor to baseline, others stack above
+        const drumH  = (col.drums  / 255) * H * 0.35;
+        const bassH  = (col.bass   / 255) * H * 0.25;
+        const vocalH = (col.vocals / 255) * H * 0.25;
+        const otherH = (col.other  / 255) * H * 0.20;
+
+        let y = H;
+        // Drums — bottom (red-orange)
+        ctx.fillStyle = STEM_DRUMS;
+        ctx.fillRect(x, y - drumH, barW, drumH);
+        y -= drumH;
+        // Bass — above drums (purple)
+        ctx.fillStyle = STEM_BASS;
+        ctx.fillRect(x, y - bassH, barW, bassH);
+        y -= bassH;
+        // Vocals — above bass (cyan)
+        ctx.fillStyle = STEM_VOCALS;
+        ctx.fillRect(x, y - vocalH, barW, vocalH);
+        y -= vocalH;
+        // Other — top (yellow)
+        ctx.fillStyle = STEM_OTHER;
+        ctx.fillRect(x, y - otherH, barW, otherH);
       }
     } else if (wb) {
-      // CDJ-style 3-band colored bars
+      // CDJ-3000 3-band colored bars — full opacity, crisp
       for (let i = 0; i < wb.length; i++) {
         const x = (i / wb.length) * W;
         const col = wb[i];
-        const lowH = (col.low / 255) * H * 0.4;
-        ctx.fillStyle = hexToRgba(CDJ_LOW, 0.85);
+        const lowH = (col.low / 255) * H * 0.45;
+        ctx.fillStyle = CDJ_LOW;
         ctx.fillRect(x, H - lowH, barW, lowH);
-        const midH = (col.mid / 255) * H * 0.3;
-        ctx.fillStyle = hexToRgba(CDJ_MID, 0.85);
+        const midH = (col.mid / 255) * H * 0.30;
+        ctx.fillStyle = CDJ_MID;
         ctx.fillRect(x, H - lowH - midH, barW, midH);
-        const highH = (col.high / 255) * H * 0.3;
-        ctx.fillStyle = hexToRgba(CDJ_HIGH, 0.85);
+        const highH = (col.high / 255) * H * 0.28;
+        ctx.fillStyle = CDJ_HIGH;
         ctx.fillRect(x, H - lowH - midH - highH, barW, highH);
       }
     } else if (wp.length > 0) {
-      // Mono fallback
+      // Mono fallback — vivid purple, full opacity
       for (let i = 0; i < wp.length; i++) {
         const x = (i / wp.length) * W;
         const barH = (wp[i] / 255) * H;
-        ctx.fillStyle = hexToRgba(CDJ_MONO, 0.8);
+        ctx.fillStyle = CDJ_MONO;
         ctx.fillRect(x, H - barH, barW, barH);
       }
     }
@@ -262,43 +273,48 @@ function drawZoomedCanvas(
       const barW = Math.max(1, W / visibleLen);
 
       if (w4) {
-        // 4-stem Demucs waveform (priority 1)
-        const stems = [
-          { key: 'drums'  as const, color: STEM_DRUMS,  weight: 0.30 },
-          { key: 'bass'   as const, color: STEM_BASS,   weight: 0.25 },
-          { key: 'vocals' as const, color: STEM_VOCALS, weight: 0.25 },
-          { key: 'other'  as const, color: STEM_OTHER,  weight: 0.20 },
-        ];
+        // 4-stem Demucs — crisp, full opacity, stacked
         for (let i = startIdx; i < endIdx; i++) {
           const x = msToX(iToMs(i));
           const col = w4[i];
-          let yOffset = 0;
-          for (const stem of stems) {
-            const stemH = (col[stem.key] / 255) * H * stem.weight;
-            ctx.fillStyle = hexToRgba(stem.color, 0.85);
-            ctx.fillRect(x, H - yOffset - stemH, barW, stemH);
-            yOffset += stemH;
-          }
+          const drumH  = (col.drums  / 255) * H * 0.35;
+          const bassH  = (col.bass   / 255) * H * 0.25;
+          const vocalH = (col.vocals / 255) * H * 0.25;
+          const otherH = (col.other  / 255) * H * 0.20;
+
+          let y = H;
+          ctx.fillStyle = STEM_DRUMS;
+          ctx.fillRect(x, y - drumH, barW, drumH);
+          y -= drumH;
+          ctx.fillStyle = STEM_BASS;
+          ctx.fillRect(x, y - bassH, barW, bassH);
+          y -= bassH;
+          ctx.fillStyle = STEM_VOCALS;
+          ctx.fillRect(x, y - vocalH, barW, vocalH);
+          y -= vocalH;
+          ctx.fillStyle = STEM_OTHER;
+          ctx.fillRect(x, y - otherH, barW, otherH);
         }
       } else if (wb) {
+        // CDJ-3000 3-band — full opacity, crisp
         for (let i = startIdx; i < endIdx; i++) {
           const x = msToX(iToMs(i));
           const col = wb[i];
-          const lowH  = (col.low  / 255) * H * 0.4;
-          const midH  = (col.mid  / 255) * H * 0.3;
-          const highH = (col.high / 255) * H * 0.3;
-          ctx.fillStyle = hexToRgba(CDJ_LOW,  0.85);
+          const lowH  = (col.low  / 255) * H * 0.45;
+          const midH  = (col.mid  / 255) * H * 0.30;
+          const highH = (col.high / 255) * H * 0.28;
+          ctx.fillStyle = CDJ_LOW;
           ctx.fillRect(x, H - lowH, barW, lowH);
-          ctx.fillStyle = hexToRgba(CDJ_MID,  0.85);
+          ctx.fillStyle = CDJ_MID;
           ctx.fillRect(x, H - lowH - midH, barW, midH);
-          ctx.fillStyle = hexToRgba(CDJ_HIGH, 0.85);
+          ctx.fillStyle = CDJ_HIGH;
           ctx.fillRect(x, H - lowH - midH - highH, barW, highH);
         }
       } else {
         for (let i = startIdx; i < endIdx; i++) {
           const x = msToX(iToMs(i));
           const barH = (wp[i] / 255) * H;
-          ctx.fillStyle = hexToRgba(CDJ_MONO, 0.8);
+          ctx.fillStyle = CDJ_MONO;
           ctx.fillRect(x, H - barH, barW, barH);
         }
       }
