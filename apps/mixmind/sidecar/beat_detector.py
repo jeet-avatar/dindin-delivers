@@ -50,6 +50,16 @@ def _std(values: list[float]) -> float:
 
 def detect_beats_from_audio(audio: np.ndarray, sr: int = 44100) -> BeatGrid:
     """Detect beats from a numpy audio array using madmom."""
+    # Patch madmom 0.16.1 compatibility with Python 3.12 + numpy 1.24+
+    import collections
+    import collections.abc
+    if not hasattr(collections, 'MutableSequence'):
+        collections.MutableSequence = collections.abc.MutableSequence
+    # madmom uses np.float/np.int (removed in numpy 1.24)
+    if not hasattr(np, 'float'):
+        np.float = float       # type: ignore[attr-defined]
+        np.int = int           # type: ignore[attr-defined]
+        np.complex = complex   # type: ignore[attr-defined]
     import madmom
 
     # Ensure mono float32
