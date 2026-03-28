@@ -194,12 +194,12 @@ export function Contracts() {
           {submitError && <ErrorBanner message={submitError} />}
           <div className="space-y-3">
             <label className="block">
-              <span className="text-xs font-medium text-slate-600">Supplier ID (UUID)</span>
+              <span className="text-xs font-medium text-slate-600">Supplier ID (UUID) *</span>
               <input
                 type="text"
                 value={form.supplier_id}
                 onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
-                placeholder="Optional"
+                placeholder="Required"
                 className="mt-1 w-full px-3 py-2 border border-border rounded text-sm focus:outline-none focus:border-navy"
               />
             </label>
@@ -234,7 +234,7 @@ export function Contracts() {
           </div>
           <button
             onClick={handleCreate}
-            disabled={submitting || !form.effective_date || !form.expiration_date}
+            disabled={submitting || !form.supplier_id || !form.effective_date || !form.expiration_date}
             className="w-full py-2 bg-navy text-white text-sm rounded-md hover:bg-navy-light disabled:opacity-60 transition-colors"
           >
             {submitting ? 'Creating…' : 'Create Contract'}
