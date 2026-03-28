@@ -8242,6 +8242,237 @@ async def post_admin_prop22_manual_topup(
     }
 
 
+# ==================== Compliance Email Trigger Endpoints ====================
+
+
+@app.post("/api/admin/compliance/trigger-monthly-report")
+async def trigger_monthly_report(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Manually trigger monthly earnings summary for a specific driver + month."""
+    import calendar
+    from email_service import send_monthly_earnings_summary_email, get_driver_ytd_earnings
+    from models import Prop22EarningPeriod
+
+    body = await request.json()
+    driver_email = body.get("driver_email")
+    year = body.get("year", datetime.utcnow().year)
+    month = body.get("month", datetime.utcnow().month)
+
+    if not driver_email:
+        raise HTTPException(status_code=400, detail="driver_email is required")
+
+    driver = db.query(Driver).filter(Driver.email == driver_email).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail=f"Driver with email {driver_email} not found")
+
+    # Compute stats for the specified month
+    _, last_day = calendar.monthrange(year, month)
+    month_start = datetime(year, month, 1)
+    month_end = datetime(year, month, last_day, 23, 59, 59)
+
+    # Food delivery stats
+    food_orders_q = db.query(Order).filter(
+        Order.driver_id == driver.id,
+        Order.status == "delivered",
+        Order.delivered_at >= month_start,
+        Order.delivered_at <= month_end,
+    ).all()
+    food_orders = len(food_orders_q)
+    food_delivery_fees = sum(float(o.delivery_fee or 0) for o in food_orders_q)
+    food_tips = sum(float(o.tip or 0) for o in food_orders_q)
+
+    # Rideshare stats
+    rides_q = db.query(RideRequest).filter(
+        RideRequest.matched_driver_id == driver.id,
+        RideRequest.status == "completed",
+        RideRequest.completed_at >= month_start,
+        RideRequest.completed_at <= month_end,
+    ).all()
+    ride_count = len(rides_q)
+    ride_fares = sum(float(r.driver_payout or 0) for r in rides_q)
+    ride_tips = sum(float(r.tip_amount or 0) for r in rides_q)
+    platform_fees_paid = sum(float(r.platform_fee or 0) for r in rides_q)
+
+    # Prop 22 top-ups
+    periods = db.query(Prop22EarningPeriod).filter(
+        Prop22EarningPeriod.driver_id == driver.id,
+        Prop22EarningPeriod.period_end >= month_start,
+        Prop22EarningPeriod.period_end <= month_end,
+        Prop22EarningPeriod.status.in_(["PAID", "RECONCILED"]),
+    ).all()
+    prop22_topups = sum(float(p.top_up_amount or 0) for p in periods)
+
+    net_payout = food_delivery_fees + food_tips + ride_fares + ride_tips - platform_fees_paid + prop22_topups
+    ytd_total = get_driver_ytd_earnings(db, driver.id, year)
+
+    send_monthly_earnings_summary_email(
+        driver_email=driver.email,
+        driver_name=f"{driver.first_name} {driver.last_name}".strip(),
+        year=year,
+        month=month,
+        food_orders=food_orders,
+        food_delivery_fees=food_delivery_fees,
+        food_tips=food_tips,
+        ride_count=ride_count,
+        ride_fares=ride_fares,
+        ride_tips=ride_tips,
+        platform_fees_paid=platform_fees_paid,
+        prop22_topups=prop22_topups,
+        net_payout=net_payout,
+        ytd_total=ytd_total,
+    )
+
+    return {
+        "status": "sent",
+        "driver_email": driver.email,
+        "year": year,
+        "month": month,
+        "net_payout": net_payout,
+        "ytd_total": ytd_total,
+    }
+
+
+@app.post("/api/admin/compliance/trigger-quarterly-report")
+async def trigger_quarterly_report(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Manually trigger quarterly compliance report for specified quarter."""
+    import calendar
+    from sqlalchemy import func as sqla_func
+    from email_service import send_quarterly_compliance_report_email, get_driver_ytd_earnings
+    from models import Prop22EarningPeriod
+
+    body = await request.json()
+    year = body.get("year", datetime.utcnow().year)
+    quarter = body.get("quarter", ((datetime.utcnow().month - 1) // 3) + 1)
+
+    if quarter not in (1, 2, 3, 4):
+        raise HTTPException(status_code=400, detail="quarter must be 1, 2, 3, or 4")
+
+    q_start_month = (quarter - 1) * 3 + 1
+    q_end_month = q_start_month + 2
+    _, q_end_day = calendar.monthrange(year, q_end_month)
+    q_start = datetime(year, q_start_month, 1)
+    q_end = datetime(year, q_end_month, q_end_day, 23, 59, 59)
+
+    # Get drivers with activity in this quarter
+    ride_driver_ids = {r[0] for r in db.query(RideRequest.matched_driver_id).filter(
+        RideRequest.status == "completed",
+        RideRequest.completed_at >= q_start,
+        RideRequest.completed_at <= q_end,
+        RideRequest.matched_driver_id.isnot(None),
+    ).distinct().all()}
+
+    food_driver_ids = {r[0] for r in db.query(Order.driver_id).filter(
+        Order.status == "delivered",
+        Order.delivered_at >= q_start,
+        Order.delivered_at <= q_end,
+        Order.driver_id.isnot(None),
+    ).distinct().all()}
+
+    all_driver_ids = ride_driver_ids | food_driver_ids
+    total_drivers = len(all_driver_ids)
+
+    # Prop 22 summary
+    periods = db.query(Prop22EarningPeriod).filter(
+        Prop22EarningPeriod.period_end >= q_start,
+        Prop22EarningPeriod.period_end <= q_end,
+    ).all()
+
+    total_hours = sum(float(p.engaged_hours or 0) for p in periods)
+    total_floor = sum(float(p.prop22_floor or 0) for p in periods)
+    total_topups = sum(float(p.top_up_amount or 0) for p in periods if p.status in ("PAID", "RECONCILED"))
+    drivers_with_topups = len({p.driver_id for p in periods if (p.top_up_amount or 0) > 0 and p.status in ("PAID", "RECONCILED")})
+
+    prop22_summary = {
+        "total_hours": total_hours,
+        "total_floor": total_floor,
+        "total_topups": total_topups,
+        "drivers_with_topups": drivers_with_topups,
+    }
+
+    # Per-driver breakdown
+    driver_breakdown = []
+    threshold_drivers = []
+    approaching_drivers = []
+
+    for did in all_driver_ids:
+        driver = db.query(Driver).filter(Driver.id == did).first()
+        if not driver:
+            continue
+        driver_name = f"{driver.first_name} {driver.last_name}".strip()
+        driver_periods = [p for p in periods if p.driver_id == did]
+        d_hours = sum(float(p.engaged_hours or 0) for p in driver_periods)
+        d_floor = sum(float(p.prop22_floor or 0) for p in driver_periods)
+        d_earned = sum(float(p.net_earnings or 0) for p in driver_periods)
+        d_topup = sum(float(p.top_up_amount or 0) for p in driver_periods if p.status in ("PAID", "RECONCILED"))
+        d_status = driver_periods[-1].status if driver_periods else "N/A"
+
+        driver_breakdown.append({
+            "name": driver_name, "engaged_hours": d_hours, "floor": d_floor,
+            "earned": d_earned, "top_up": d_topup, "status": d_status,
+        })
+
+        ytd = get_driver_ytd_earnings(db, did, year)
+        if ytd >= 600:
+            threshold_drivers.append({"name": driver_name, "ytd": ytd})
+        elif ytd >= 500:
+            approaching_drivers.append({"name": driver_name, "ytd": ytd})
+
+    # Revenue summary
+    customer_ride_count = db.query(sqla_func.count(RideRequest.id)).filter(
+        RideRequest.status == "completed",
+        RideRequest.completed_at >= q_start,
+        RideRequest.completed_at <= q_end,
+    ).scalar() or 0
+    customer_order_count = db.query(sqla_func.count(Order.id)).filter(
+        Order.status == "delivered",
+        Order.delivered_at >= q_start,
+        Order.delivered_at <= q_end,
+    ).scalar() or 0
+
+    customer_fees = float(customer_ride_count + customer_order_count) * 1.0
+    driver_fees_sum = db.query(sqla_func.sum(RideRequest.platform_fee)).filter(
+        RideRequest.status == "completed",
+        RideRequest.completed_at >= q_start,
+        RideRequest.completed_at <= q_end,
+    ).scalar() or 0
+    restaurant_fees = float(customer_order_count) * 1.0
+
+    revenue_summary = {
+        "customer_fees": customer_fees,
+        "driver_fees": float(driver_fees_sum) + restaurant_fees,
+        "net_revenue": customer_fees + float(driver_fees_sum) + restaurant_fees,
+    }
+
+    send_quarterly_compliance_report_email(
+        admin_email="jeetnair.in@gmail.com",
+        year=year,
+        quarter=quarter,
+        total_drivers=total_drivers,
+        prop22_summary=prop22_summary,
+        driver_breakdown=driver_breakdown,
+        threshold_drivers=threshold_drivers,
+        approaching_drivers=approaching_drivers,
+        revenue_summary=revenue_summary,
+    )
+
+    return {
+        "status": "sent",
+        "admin_email": "jeetnair.in@gmail.com",
+        "year": year,
+        "quarter": quarter,
+        "total_drivers": total_drivers,
+        "threshold_drivers": len(threshold_drivers),
+        "approaching_drivers": len(approaching_drivers),
+    }
+
+
 # Client endpoints
 @app.post("/api/clients", response_model=ClientResponse)
 def create_client(client: ClientCreate, db: Session = Depends(get_db), admin: User = Depends(require_admin)):

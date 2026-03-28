@@ -3121,6 +3121,26 @@ def prop22_period_reconciliation_job():
                     db.commit()  # commit per driver — single failure does not roll back others
                     logger.info(f"Prop 22: driver {driver_id} period {period.id} -> {period.status}")
 
+                    # Send Prop 22 earnings statement email (non-blocking)
+                    try:
+                        from email_service import send_prop22_earnings_statement_email
+                        healthcare_eligible = (qtd_hours / max(1, (prev_end - prev_start).days / 7)) >= 15
+                        send_prop22_earnings_statement_email(
+                            driver_email=driver.email,
+                            driver_name=f"{driver.first_name} {driver.last_name}".strip(),
+                            period_start=prev_start.strftime("%b %d, %Y"),
+                            period_end=prev_end.strftime("%b %d, %Y"),
+                            engaged_hours=engaged_hours,
+                            engaged_miles=engaged_miles,
+                            floor_amount=prop22_floor,
+                            net_earnings=net_earnings,
+                            top_up_amount=top_up,
+                            qtd_hours=qtd_hours,
+                            healthcare_eligible=healthcare_eligible,
+                        )
+                    except Exception as email_err:
+                        logger.error(f"Prop 22 earnings statement email failed for driver {driver_id}: {email_err}")
+
                 except Exception as driver_err:
                     db.rollback()
                     logger.error(f"Prop 22 reconciliation: driver {driver_id} failed: {driver_err}")
@@ -3178,6 +3198,291 @@ def prop22_manual_review_escalation_job():
         logger.error(f"Prop 22 escalation job failed: {e}")
     finally:
         db.close()
+
+
+def monthly_earnings_summary_job():
+    """
+    Sends monthly earnings summary email to all active drivers on the 1st of each month.
+    Covers previous month's food delivery + rideshare earnings.
+    Uses file-lock guard to prevent duplicate execution across workers.
+    """
+    import fcntl
+    lock_path = "/tmp/monthly_earnings_summary.lock"
+    try:
+        lock_fd = os.open(lock_path, os.O_CREAT | os.O_WRONLY, 0o644)
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        logger.info("Monthly earnings summary: another process is handling this, skipping")
+        return
+
+    try:
+        from email_service import send_monthly_earnings_summary_email, get_driver_ytd_earnings
+        from models import RideRequest as RideRequestModel, Order, Driver, Prop22EarningPeriod
+
+        now = datetime.utcnow()
+        # Previous month
+        if now.month == 1:
+            prev_year, prev_month = now.year - 1, 12
+        else:
+            prev_year, prev_month = now.year, now.month - 1
+
+        import calendar
+        _, last_day = calendar.monthrange(prev_year, prev_month)
+        month_start = datetime(prev_year, prev_month, 1)
+        month_end = datetime(prev_year, prev_month, last_day, 23, 59, 59)
+
+        db = SessionLocal()
+        try:
+            # Get all active drivers
+            drivers = db.query(Driver).filter(Driver.is_active == True).all()
+
+            for driver in drivers:
+                try:
+                    # Food delivery stats
+                    food_orders_q = db.query(Order).filter(
+                        Order.driver_id == driver.id,
+                        Order.status == "delivered",
+                        Order.delivered_at >= month_start,
+                        Order.delivered_at <= month_end,
+                    ).all()
+                    food_orders = len(food_orders_q)
+                    food_delivery_fees = sum(float(o.delivery_fee or 0) for o in food_orders_q)
+                    food_tips = sum(float(o.tip or 0) for o in food_orders_q)
+
+                    # Rideshare stats
+                    rides_q = db.query(RideRequestModel).filter(
+                        RideRequestModel.matched_driver_id == driver.id,
+                        RideRequestModel.status == "completed",
+                        RideRequestModel.completed_at >= month_start,
+                        RideRequestModel.completed_at <= month_end,
+                    ).all()
+                    ride_count = len(rides_q)
+                    ride_fares = sum(float(r.driver_payout or 0) for r in rides_q)
+                    ride_tips = sum(float(r.tip_amount or 0) for r in rides_q)
+
+                    # Platform fees (rideshare only: $1/$2/$3 tiered)
+                    platform_fees_paid = sum(float(r.platform_fee or 0) for r in rides_q)
+
+                    # Prop 22 top-ups for this month
+                    prop22_topups = 0.0
+                    periods = db.query(Prop22EarningPeriod).filter(
+                        Prop22EarningPeriod.driver_id == driver.id,
+                        Prop22EarningPeriod.period_end >= month_start,
+                        Prop22EarningPeriod.period_end <= month_end,
+                        Prop22EarningPeriod.status.in_(["PAID", "RECONCILED"]),
+                    ).all()
+                    prop22_topups = sum(float(p.top_up_amount or 0) for p in periods)
+
+                    # Net payout
+                    net_payout = food_delivery_fees + food_tips + ride_fares + ride_tips - platform_fees_paid + prop22_topups
+
+                    # Skip drivers with zero activity
+                    if food_orders == 0 and ride_count == 0:
+                        continue
+
+                    # YTD
+                    ytd_total = get_driver_ytd_earnings(db, driver.id, now.year)
+
+                    send_monthly_earnings_summary_email(
+                        driver_email=driver.email,
+                        driver_name=f"{driver.first_name} {driver.last_name}".strip(),
+                        year=prev_year,
+                        month=prev_month,
+                        food_orders=food_orders,
+                        food_delivery_fees=food_delivery_fees,
+                        food_tips=food_tips,
+                        ride_count=ride_count,
+                        ride_fares=ride_fares,
+                        ride_tips=ride_tips,
+                        platform_fees_paid=platform_fees_paid,
+                        prop22_topups=prop22_topups,
+                        net_payout=net_payout,
+                        ytd_total=ytd_total,
+                    )
+                    logger.info(f"Monthly earnings summary sent to driver {driver.id}")
+
+                except Exception as driver_err:
+                    logger.error(f"Monthly earnings summary failed for driver {driver.id}: {driver_err}")
+                    continue
+
+        finally:
+            db.close()
+
+    finally:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            os.close(lock_fd)
+        except Exception:
+            pass
+
+
+def quarterly_compliance_report_job():
+    """
+    Sends quarterly compliance report to admin on Jan/Apr/Jul/Oct 1st.
+    Includes Prop 22 summary, per-driver breakdown, 1099 tracking, revenue summary.
+    Uses file-lock guard to prevent duplicate execution across workers.
+    """
+    import fcntl
+    lock_path = "/tmp/quarterly_compliance_report.lock"
+    try:
+        lock_fd = os.open(lock_path, os.O_CREAT | os.O_WRONLY, 0o644)
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        logger.info("Quarterly compliance report: another process is handling this, skipping")
+        return
+
+    try:
+        from email_service import send_quarterly_compliance_report_email, get_driver_ytd_earnings
+        from models import RideRequest as RideRequestModel, Order, Driver, Prop22EarningPeriod
+
+        now = datetime.utcnow()
+        # Previous quarter
+        current_quarter = ((now.month - 1) // 3) + 1
+        if current_quarter == 1:
+            prev_quarter = 4
+            q_year = now.year - 1
+        else:
+            prev_quarter = current_quarter - 1
+            q_year = now.year
+
+        q_start_month = (prev_quarter - 1) * 3 + 1
+        q_end_month = q_start_month + 2
+        import calendar
+        _, q_end_day = calendar.monthrange(q_year, q_end_month)
+        q_start = datetime(q_year, q_start_month, 1)
+        q_end = datetime(q_year, q_end_month, q_end_day, 23, 59, 59)
+
+        db = SessionLocal()
+        try:
+            # Get drivers with activity in this quarter
+            ride_driver_ids = {r[0] for r in db.query(RideRequestModel.matched_driver_id).filter(
+                RideRequestModel.status == "completed",
+                RideRequestModel.completed_at >= q_start,
+                RideRequestModel.completed_at <= q_end,
+                RideRequestModel.matched_driver_id.isnot(None),
+            ).distinct().all()}
+
+            food_driver_ids = {r[0] for r in db.query(Order.driver_id).filter(
+                Order.status == "delivered",
+                Order.delivered_at >= q_start,
+                Order.delivered_at <= q_end,
+                Order.driver_id.isnot(None),
+            ).distinct().all()}
+
+            all_driver_ids = ride_driver_ids | food_driver_ids
+            total_drivers = len(all_driver_ids)
+
+            # Prop 22 summary
+            periods = db.query(Prop22EarningPeriod).filter(
+                Prop22EarningPeriod.period_end >= q_start,
+                Prop22EarningPeriod.period_end <= q_end,
+            ).all()
+
+            total_hours = sum(float(p.engaged_hours or 0) for p in periods)
+            total_floor = sum(float(p.prop22_floor or 0) for p in periods)
+            total_topups = sum(float(p.top_up_amount or 0) for p in periods if p.status in ("PAID", "RECONCILED"))
+            drivers_with_topups = len({p.driver_id for p in periods if (p.top_up_amount or 0) > 0 and p.status in ("PAID", "RECONCILED")})
+
+            prop22_summary = {
+                "total_hours": total_hours,
+                "total_floor": total_floor,
+                "total_topups": total_topups,
+                "drivers_with_topups": drivers_with_topups,
+            }
+
+            # Per-driver breakdown
+            driver_breakdown = []
+            threshold_drivers = []
+            approaching_drivers = []
+
+            for did in all_driver_ids:
+                driver = db.query(Driver).filter(Driver.id == did).first()
+                if not driver:
+                    continue
+
+                driver_name = f"{driver.first_name} {driver.last_name}".strip()
+                driver_periods = [p for p in periods if p.driver_id == did]
+                d_hours = sum(float(p.engaged_hours or 0) for p in driver_periods)
+                d_floor = sum(float(p.prop22_floor or 0) for p in driver_periods)
+                d_earned = sum(float(p.net_earnings or 0) for p in driver_periods)
+                d_topup = sum(float(p.top_up_amount or 0) for p in driver_periods if p.status in ("PAID", "RECONCILED"))
+                d_status = driver_periods[-1].status if driver_periods else "N/A"
+
+                driver_breakdown.append({
+                    "name": driver_name,
+                    "engaged_hours": d_hours,
+                    "floor": d_floor,
+                    "earned": d_earned,
+                    "top_up": d_topup,
+                    "status": d_status,
+                })
+
+                # 1099 check
+                ytd = get_driver_ytd_earnings(db, did, q_year)
+                if ytd >= 600:
+                    threshold_drivers.append({"name": driver_name, "ytd": ytd})
+                elif ytd >= 500:
+                    approaching_drivers.append({"name": driver_name, "ytd": ytd})
+
+            # Revenue summary
+            from sqlalchemy import func as sqla_func
+
+            customer_ride_fees = db.query(sqla_func.count(RideRequestModel.id)).filter(
+                RideRequestModel.status == "completed",
+                RideRequestModel.completed_at >= q_start,
+                RideRequestModel.completed_at <= q_end,
+            ).scalar() or 0
+            # Customer pays $1 service fee per ride
+            customer_ride_fee_total = float(customer_ride_fees) * 1.0
+
+            customer_order_fees = db.query(sqla_func.count(Order.id)).filter(
+                Order.status == "delivered",
+                Order.delivered_at >= q_start,
+                Order.delivered_at <= q_end,
+            ).scalar() or 0
+            # Customer pays $1 service fee per food order
+            customer_order_fee_total = float(customer_order_fees) * 1.0
+
+            customer_fees = customer_ride_fee_total + customer_order_fee_total
+
+            # Driver platform fees (rideshare only: sum of platform_fee column)
+            driver_fees = db.query(sqla_func.sum(RideRequestModel.platform_fee)).filter(
+                RideRequestModel.status == "completed",
+                RideRequestModel.completed_at >= q_start,
+                RideRequestModel.completed_at <= q_end,
+            ).scalar() or 0
+
+            # Restaurant platform fees ($1 per order)
+            restaurant_fees = float(customer_order_fees) * 1.0
+
+            revenue_summary = {
+                "customer_fees": customer_fees,
+                "driver_fees": float(driver_fees) + restaurant_fees,
+                "net_revenue": customer_fees + float(driver_fees) + restaurant_fees,
+            }
+
+            send_quarterly_compliance_report_email(
+                admin_email="jeetnair.in@gmail.com",
+                year=q_year,
+                quarter=prev_quarter,
+                total_drivers=total_drivers,
+                prop22_summary=prop22_summary,
+                driver_breakdown=driver_breakdown,
+                threshold_drivers=threshold_drivers,
+                approaching_drivers=approaching_drivers,
+                revenue_summary=revenue_summary,
+            )
+            logger.info(f"Quarterly compliance report Q{prev_quarter} {q_year} sent to admin")
+
+        finally:
+            db.close()
+
+    finally:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            os.close(lock_fd)
+        except Exception:
+            pass
 
 
 def start_timeout_scheduler():
@@ -3252,6 +3557,22 @@ def start_timeout_scheduler():
             CronTrigger(hour=9, minute=0, timezone="America/Los_Angeles"),
             id="prop22_escalation",
             name="Prop 22 MANUAL_REVIEW escalation and OVERDUE marking",
+            replace_existing=True
+        )
+        # Monthly earnings summary: 1st of month at 9 AM PT
+        restaurant_timeout_scheduler.add_job(
+            monthly_earnings_summary_job,
+            CronTrigger(day=1, hour=9, minute=0, timezone="America/Los_Angeles"),
+            id="monthly_earnings_summary",
+            name="Monthly driver earnings summary email (1st of month 9 AM PT)",
+            replace_existing=True
+        )
+        # Quarterly compliance report: Jan/Apr/Jul/Oct 1st at 9 AM PT
+        restaurant_timeout_scheduler.add_job(
+            quarterly_compliance_report_job,
+            CronTrigger(month="1,4,7,10", day=1, hour=9, minute=0, timezone="America/Los_Angeles"),
+            id="quarterly_compliance_report",
+            name="Quarterly compliance report email (Q start 9 AM PT)",
             replace_existing=True
         )
         # Refresh Redis scheduler lock every 50s (lock TTL is 55s — keeps leader alive across job cycles)
@@ -4253,6 +4574,33 @@ async def order_delivered(
             order.prop22_floor_amount = _p22["prop22_floor_amount"]
     except Exception as _e:
         logger.error(f"Prop 22 order calculation failed (non-blocking): {_e}")
+
+    # 1099-NEC threshold check (non-blocking)
+    if order.driver_id:
+        try:
+            from email_service import get_driver_ytd_earnings, send_1099_threshold_alert_email
+            from sqlalchemy import extract as sqla_extract
+            _ytd = get_driver_ytd_earnings(db, order.driver_id, datetime.utcnow().year)
+            if _ytd >= 600:
+                # Dedup: check if 1099 alert already sent this year
+                from models_extended import Communication, CommunicationChannel
+                _existing_1099 = db.query(Communication).filter(
+                    Communication.recipient_id == order.driver_id,
+                    Communication.template_name == "1099_threshold_alert",
+                    Communication.channel == CommunicationChannel.EMAIL,
+                    sqla_extract('year', Communication.sent_at) == datetime.utcnow().year,
+                ).first()
+                if not _existing_1099:
+                    _driver_1099 = db.query(Driver).filter(Driver.id == order.driver_id).first()
+                    if _driver_1099 and _driver_1099.email:
+                        send_1099_threshold_alert_email(
+                            driver_email=_driver_1099.email,
+                            driver_name=f"{_driver_1099.first_name} {_driver_1099.last_name}".strip(),
+                            ytd_earnings=_ytd,
+                        )
+                        logger.info(f"1099 threshold alert sent to driver {order.driver_id} (YTD=${_ytd:.2f})")
+        except Exception as _e:
+            logger.error(f"1099 threshold check failed (non-blocking): {_e}")
 
     # Get vendor
     vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
