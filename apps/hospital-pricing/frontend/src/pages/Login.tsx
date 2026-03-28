@@ -36,16 +36,16 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-surface flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="bg-surface border border-border rounded-2xl p-8">
+        <div className="bg-surface-card border border-border rounded-2xl p-8 shadow-card">
           {/* Header */}
           <div className="flex flex-col items-center text-center mb-8">
-            <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-primary/10 border border-primary/20 mb-4">
-              <ShieldCheck className="w-7 h-7 text-primary" strokeWidth={1.75} />
+            <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-navy/10 border border-navy/20 mb-4">
+              <ShieldCheck className="w-7 h-7 text-navy" strokeWidth={1.75} />
             </div>
-            <h1 className="text-xl font-bold text-text-primary">Hospital Pricing Assurance</h1>
-            <p className="text-text-muted text-sm mt-1">Secure procurement verification platform</p>
+            <h1 className="text-xl font-bold text-navy">Hospital Pricing Assurance</h1>
+            <p className="text-slate-500 text-sm mt-1">Secure procurement verification platform</p>
           </div>
 
           {/* Form */}
@@ -53,7 +53,7 @@ export function Login() {
             <div className="space-y-5">
               {/* Username */}
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-text-primary mb-1.5">
+                <label htmlFor="username" className="block text-sm font-medium text-slate-800 mb-1.5">
                   Username or Email
                 </label>
                 <input
@@ -72,7 +72,7 @@ export function Login() {
 
               {/* Password */}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-text-primary mb-1.5">
+                <label htmlFor="password" className="block text-sm font-medium text-slate-800 mb-1.5">
                   Password
                 </label>
                 <div className="relative">
@@ -91,7 +91,7 @@ export function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                     tabIndex={0}
                   >
@@ -121,7 +121,7 @@ export function Login() {
                 aria-live="polite"
                 className={error ? 'block' : 'hidden'}
               >
-                <div className="border-l-4 border-destructive bg-red-950/50 rounded-r-lg px-4 py-3 text-sm text-red-300">
+                <div className="border-l-4 border-red-500 bg-red-50 rounded-r-lg px-4 py-3 text-sm text-red-700">
                   {error}
                 </div>
               </div>
@@ -130,7 +130,7 @@ export function Login() {
         </div>
 
         {/* Footer */}
-        <p className="text-text-muted text-xs text-center mt-8">
+        <p className="text-slate-400 text-xs text-center mt-8">
           &copy; 2026 Zietra Technologies inc
         </p>
       </div>
