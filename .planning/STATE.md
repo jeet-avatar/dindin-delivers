@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 
 Phase: 13 of 13 (Prop 22 Driver Earnings Floor) -- COMPLETE
 Plan: 6 of 6 complete in current phase
-Status: Phase 13-06 complete: Admin portal /admin/prop22 Prop22Compliance.tsx (387 lines, Ant Design two-tab table + manual top-up modal). Build 0 errors. Phase 13 all 6 plans done. Ready for deploy wave.
-Last activity: 2026-03-27 - Completed quick task 248: Frontend 4-stem waveform rendering + analyze button — stem analysis pipeline complete
+Status: Phase 08-02 complete: Production DB rotation on 30-day schedule, CloudWatch alarm active, rotation runbook with shared-user warning committed.
+Last activity: 2026-03-27 - Completed Phase 08-02: Production DB password rotation + runbook
 
 Progress: [########################################] 100% (6/6 plans in phase 13)
 
@@ -45,6 +45,8 @@ Progress: [########################################] 100% (6/6 plans in phase 13
 
 ### Decisions
 
+- [Phase 08-02]: Staging and production share dolloradmin on same RDS — rotation of either secret changes password for both. Must sync other environment's secret after any rotation. Recommended future fix: separate RDS users per environment.
+- [Phase 08-02]: pg8000 (pure Python) for Lambda instead of psycopg2 — no Lambda layer needed. Manual ECS force-redeploy is the proven recovery path over EventBridge auto-trigger.
 - [Phase 13-03]: Prop22 reconciliation jobs as module-level functions (not nested) so they are importable for tests; CronTrigger for time-of-day precision; per-driver db.commit() isolation; rideshare takes precedence for dual-service drivers
 - [Phase 13-03]: Tips excluded via existing model design: driver_payout (RideRequest) excludes tips; delivery_fee (Order) excludes tip column — no extra subtraction needed
 - [Phase 13-03]: send_admin_alert() does not exist — use logger.warning() for all Prop22 escalation alerts (RESEARCH.md pitfall #6)

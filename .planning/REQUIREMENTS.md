@@ -29,8 +29,8 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 - [ ] **DBROT-01**: AWS Secrets Manager rotation Lambda enabled for RDS PostgreSQL (30-day cycle)
 - [ ] **DBROT-02**: ECS force-redeployment triggered after each rotation to refresh credentials
 - [ ] **DBROT-03**: Full rotation cycle validated on staging environment before production
-- [ ] **DBROT-04**: Production rotation enabled after staging validation passes
-- [ ] **DBROT-05**: Rotation runbook documented with monitoring and rollback procedures
+- [x] **DBROT-04**: Production rotation enabled after staging validation passes
+- [x] **DBROT-05**: Rotation runbook documented with monitoring and rollback procedures
 
 ### Rideshare E2E Testing
 
@@ -90,8 +90,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DBROT-01 | 08 | Pending |
 | DBROT-02 | 08 | Pending |
 | DBROT-03 | 08 | Pending |
-| DBROT-04 | 08 | Pending |
-| DBROT-05 | 08 | Pending |
+| DBROT-04 | 08-02 | Complete |
+| DBROT-05 | 08-02 | Complete |
 | E2E-01 | 09 | Complete |
 | ADMIN-01 | 12 | Complete |
 | ADMIN-02 | 12 | Complete |
