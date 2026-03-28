@@ -104,6 +104,21 @@ class StateDB:
                     PRIMARY KEY (content_id, source)
                 )
             """))
+            # Migrate: add _mm columns if missing
+            for col, col_type in [
+                ("beat_grid_mm", "BLOB"),
+                ("sections_mm", "BLOB"),
+                ("auto_cues_mm", "BLOB"),
+                ("beat_confidence", "REAL"),
+                ("bpm_stable", "INTEGER"),
+                ("genre_confidence", "REAL"),
+                ("sub_genres", "TEXT"),
+            ]:
+                try:
+                    conn.execute(text(f"ALTER TABLE analysis_cache ADD COLUMN {col} {col_type}"))
+                except Exception:
+                    pass  # column already exists
+
             conn.commit()
 
     def hide_track(self, content_id: str, source: str, reason: str) -> None:
@@ -197,20 +212,32 @@ class StateDB:
                       camelot: str = None, genre: str = None, energy: float = None,
                       danceability: float = None, waveform_4stem: bytes = None,
                       analyzer_version: str = "1.0", duration_ms: int = None,
-                      error_message: str = None) -> None:
+                      error_message: str = None,
+                      beat_grid_mm: bytes = None, sections_mm: bytes = None,
+                      auto_cues_mm: bytes = None, beat_confidence: float = None,
+                      bpm_stable: bool = None, genre_confidence: float = None,
+                      sub_genres: str = None) -> None:
         with self._engine.connect() as conn:
             conn.execute(text("""
                 INSERT OR REPLACE INTO analysis_cache
                 (content_id, source, status, error_message, file_path, bpm, key_musical,
                  camelot, genre, energy, danceability, waveform_4stem,
-                 analyzer_version, duration_ms, analyzed_at)
+                 analyzer_version, duration_ms, analyzed_at,
+                 beat_grid_mm, sections_mm, auto_cues_mm,
+                 beat_confidence, bpm_stable, genre_confidence, sub_genres)
                 VALUES (:cid, :src, :status, :err, :fp, :bpm, :key, :cam, :genre,
-                        :energy, :dance, :wf, :ver, :dur, datetime('now'))
+                        :energy, :dance, :wf, :ver, :dur, datetime('now'),
+                        :beat_grid, :sections, :auto_cues,
+                        :beat_conf, :bpm_stb, :genre_conf, :sub_g)
             """), {"cid": content_id, "src": source, "status": status,
                    "err": error_message, "fp": file_path, "bpm": bpm,
                    "key": key_musical, "cam": camelot, "genre": genre,
                    "energy": energy, "dance": danceability, "wf": waveform_4stem,
-                   "ver": analyzer_version, "dur": duration_ms})
+                   "ver": analyzer_version, "dur": duration_ms,
+                   "beat_grid": beat_grid_mm, "sections": sections_mm,
+                   "auto_cues": auto_cues_mm, "beat_conf": beat_confidence,
+                   "bpm_stb": 1 if bpm_stable else (0 if bpm_stable is not None else None),
+                   "genre_conf": genre_confidence, "sub_g": sub_genres})
             conn.commit()
 
     def get_analysis(self, content_id: str, source: str) -> dict | None:
