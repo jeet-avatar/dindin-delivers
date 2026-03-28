@@ -261,6 +261,48 @@ def analyze_track(file_path: str, content_id: str, source: str, db) -> dict:
     except Exception as e:
         logger.error("Essentia failed for %s: %s", content_id, e)
 
+    # Stage 3: Beat grid (madmom)
+    beat_grid_data = None
+    beat_grid_blob = None
+    beat_confidence = None
+    bpm_stable_flag = None
+    try:
+        from beat_detector import detect_beats
+        bg = detect_beats(file_path)
+        beat_grid_data = bg
+        import msgpack as _msgpack3
+        beat_grid_blob = _msgpack3.packb(bg.beats, use_bin_type=True)
+        beat_confidence = bg.confidence
+        bpm_stable_flag = bg.bpm_stable
+        # Use madmom BPM if Essentia didn't get it
+        if not essentia_result.get("bpm") and bg.avg_bpm > 0:
+            essentia_result["bpm"] = bg.avg_bpm
+    except Exception as e:
+        logger.error("Beat detection failed for %s: %s", content_id, e)
+
+    # Stage 4: Sections (needs stems + beat grid)
+    sections_list = None
+    sections_blob = None
+    try:
+        if demucs_ok and beat_grid_data:
+            from section_detector import detect_sections
+            sections_list = detect_sections(stems, beat_grid_data, sr=44100)
+            import msgpack as _msgpack4
+            sections_blob = _msgpack4.packb(sections_list, use_bin_type=True)
+    except Exception as e:
+        logger.error("Section detection failed for %s: %s", content_id, e)
+
+    # Stage 5: Auto-cues (needs stems + beat grid + sections)
+    auto_cues_blob = None
+    try:
+        if demucs_ok and beat_grid_data and sections_list is not None:
+            from cue_detector import suggest_cues
+            auto_cues = suggest_cues(stems, beat_grid_data, sections_list, sr=44100)
+            import msgpack as _msgpack5
+            auto_cues_blob = _msgpack5.packb(auto_cues, use_bin_type=True)
+    except Exception as e:
+        logger.error("Auto-cue detection failed for %s: %s", content_id, e)
+
     # Determine status
     if demucs_ok and essentia_ok:
         status = "complete"
@@ -274,6 +316,7 @@ def analyze_track(file_path: str, content_id: str, source: str, db) -> dict:
     duration_sec = round(time.time() - start, 1)
 
     # Save to DB
+    import json as _json
     db.save_analysis(
         content_id=content_id, source=source, status=status,
         file_path=file_path,
@@ -286,6 +329,13 @@ def analyze_track(file_path: str, content_id: str, source: str, db) -> dict:
         waveform_4stem=waveform_blob,
         analyzer_version=ANALYZER_VERSION,
         duration_ms=int(duration_sec * 1000),
+        beat_grid_mm=beat_grid_blob,
+        sections_mm=sections_blob,
+        auto_cues_mm=auto_cues_blob,
+        beat_confidence=beat_confidence,
+        bpm_stable=bpm_stable_flag,
+        genre_confidence=essentia_result.get("genre_confidence"),
+        sub_genres=_json.dumps(essentia_result.get("sub_genres", [])),
     )
 
     return {
@@ -294,6 +344,9 @@ def analyze_track(file_path: str, content_id: str, source: str, db) -> dict:
         "duration_sec": duration_sec,
         "essentia": essentia_result if essentia_ok else None,
         "waveform_columns": waveform_columns,
+        "beat_grid": beat_grid_data is not None,
+        "sections": sections_list is not None,
+        "auto_cues": auto_cues_blob is not None,
         "analyzer_version": ANALYZER_VERSION,
     }
 
