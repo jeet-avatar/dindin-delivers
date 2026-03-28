@@ -708,6 +708,23 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onA
 
                   {/* Actions */}
                   <div className="row-action" style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                    {/* RB/MM analysis status dots */}
+                    <div style={{ display: 'flex', gap: '3px', alignItems: 'center', marginRight: '2px' }} title={
+                      (t.analysis_data_path ? 'Rekordbox analyzed' : 'Rekordbox: not analyzed')
+                      + ' / '
+                      + (t.mm_analyzed ? 'MixMind analyzed' : 'MixMind: not analyzed')
+                    }>
+                      <span style={{
+                        width: '7px', height: '7px', borderRadius: '50%', display: 'inline-block',
+                        background: t.analysis_data_path ? '#00E676' : 'rgba(255,255,255,0.12)',
+                        boxShadow: t.analysis_data_path ? '0 0 4px rgba(0,230,118,0.4)' : 'none',
+                      }} />
+                      <span style={{
+                        width: '7px', height: '7px', borderRadius: '50%', display: 'inline-block',
+                        background: t.mm_analyzed ? '#AA00FF' : 'rgba(255,255,255,0.12)',
+                        boxShadow: t.mm_analyzed ? '0 0 4px rgba(170,0,255,0.4)' : 'none',
+                      }} />
+                    </div>
                     {isPlayed && !isNowPlaying && (
                       <span style={{ fontSize: '9px', color: '#374151', fontWeight: 500 }}>played</span>
                     )}
