@@ -21,6 +21,7 @@ export interface Track {
   date_added?: string;     // 'YYYY-MM-DD' or empty
   label?: string;          // Record label name
   play_count?: number;     // DJ play count
+  mm_analyzed?: boolean;   // true if MixMind Pro Analysis has been run
 }
 
 // ---------------------------------------------------------------------------

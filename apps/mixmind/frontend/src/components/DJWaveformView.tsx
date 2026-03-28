@@ -12,8 +12,10 @@
 //   Memory cues:     #33FF9E (mint green)
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Track, TrackAnlzData, HotCueEntry, Waveform4Stem } from '../types/track';
+import { Track, TrackAnlzData, HotCueEntry, Waveform4Stem, DualAnlzData, MixMindAnalysis, AutoCueEntry } from '../types/track';
 import { sidecarGet } from '../hooks/useSidecar';
+
+type AnlzSource = 'rb' | 'mm' | 'auto';
 
 // ---------------------------------------------------------------------------
 // CDJ-3000 Waveform Colors
@@ -394,10 +396,11 @@ function drawZoomedCanvas(
 // ---------------------------------------------------------------------------
 
 export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWaveformViewProps) {
-  const [anlzData, setAnlzData]     = useState<TrackAnlzData | null>(null);
+  const [dualData, setDualData]     = useState<DualAnlzData | null>(null);
   const [loading,  setLoading]      = useState(false);
   const [fetchFailed, setFetchFailed] = useState(false);
   const [zoomCenter, setZoomCenter] = useState<number>(0); // seconds — zoomed view center
+  const [anlzSource, setAnlzSource] = useState<AnlzSource>('auto');
 
   const overviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const zoomedCanvasRef   = useRef<HTMLCanvasElement>(null);
@@ -405,23 +408,65 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
   const zoomedWrapRef     = useRef<HTMLDivElement>(null);
   const rafRef            = useRef<number>(0);
 
+  // ── Derive effective TrackAnlzData from dual response + source toggle ─────
+  // Converts MixMindAnalysis into TrackAnlzData shape so drawing functions work unchanged.
+  function mmToAnlz(mm: MixMindAnalysis): TrackAnlzData {
+    return {
+      beat_grid: mm.beat_grid,
+      first_beat_ms: mm.beat_grid.length > 0 ? mm.beat_grid[0].time_ms : 0,
+      waveform_preview: [],
+      waveform_3band: null,
+      sections: mm.sections,
+      hot_cues: mm.auto_cues.map((c: AutoCueEntry): HotCueEntry => ({
+        slot: c.slot, time_ms: c.time_ms, color_hex: c.color_hex,
+        label: c.label, is_loop: false, loop_out_ms: null,
+      })),
+      memory_cues: [],
+      bpm: mm.bpm,
+      waveform_4stem: mm.waveform_4stem ?? undefined,
+      essentia: mm.essentia ?? undefined,
+    };
+  }
+
+  let anlzData: TrackAnlzData | null = null;
+  if (dualData) {
+    if (anlzSource === 'mm' && dualData.mixmind) {
+      anlzData = mmToAnlz(dualData.mixmind);
+    } else if (anlzSource === 'rb' && dualData.rekordbox) {
+      anlzData = dualData.rekordbox;
+    } else {
+      // Auto: prefer MixMind if available, else Rekordbox
+      anlzData = dualData.mixmind ? mmToAnlz(dualData.mixmind) : dualData.rekordbox;
+    }
+  }
+
   // ── Fetch ANLZ data when track changes ────────────────────────────────────
   useEffect(() => {
-    setAnlzData(null);
+    setDualData(null);
     setFetchFailed(false);
     if (!track.content_id) return;
     setLoading(true);
 
-    sidecarGet<TrackAnlzData>(`/api/tracks/${track.content_id}/anlz`)
+    sidecarGet<DualAnlzData>(`/api/tracks/${track.content_id}/anlz`)
       .then(data => {
-        setAnlzData(data);
+        // Backward compat: if backend returns flat TrackAnlzData (no rekordbox key),
+        // wrap it in a DualAnlzData envelope.
+        if (!('rekordbox' in data) && 'beat_grid' in data) {
+          const flat = data as unknown as TrackAnlzData;
+          setDualData({ rekordbox: flat, mixmind: null, active_source: 'rekordbox' });
+          setZoomCenter(flat.first_beat_ms / 1000);
+        } else {
+          setDualData(data);
+          const primary = data.mixmind
+            ? (data.mixmind.beat_grid[0]?.time_ms ?? 0) / 1000
+            : (data.rekordbox?.first_beat_ms ?? 0) / 1000;
+          setZoomCenter(primary);
+        }
         setFetchFailed(false);
-        // Center zoomed view on first downbeat initially
-        setZoomCenter(data.first_beat_ms / 1000);
       })
       .catch((err) => {
         console.error('[DJWaveformView] ANLZ fetch failed for', track.content_id, err);
-        setAnlzData(null);
+        setDualData(null);
         setFetchFailed(true);
       })
       .finally(() => setLoading(false));
@@ -531,6 +576,33 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
         <span style={{ fontSize: '10px', color: 'var(--text-tertiary, #374151)', fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap' }}>
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
+
+        {/* ── Source toggle [RB] [MM] [Auto] ─────────────────────────── */}
+        {dualData && (
+          <div style={{ display: 'flex', gap: '2px', marginLeft: '4px', background: 'rgba(255,255,255,0.04)', borderRadius: '5px', padding: '2px' }}>
+            {([
+              { key: 'rb' as AnlzSource, label: 'RB', color: '#00E676', available: !!dualData.rekordbox },
+              { key: 'mm' as AnlzSource, label: 'MM', color: '#AA00FF', available: !!dualData.mixmind },
+              { key: 'auto' as AnlzSource, label: 'Auto', color: '#7C4DFF', available: true },
+            ] as const).map(btn => (
+              <button
+                key={btn.key}
+                onClick={() => setAnlzSource(btn.key)}
+                disabled={!btn.available}
+                style={{
+                  fontSize: '9px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px',
+                  border: 'none', cursor: btn.available ? 'pointer' : 'default',
+                  fontFamily: 'ui-monospace, monospace',
+                  background: anlzSource === btn.key ? hexToRgba(btn.color, 0.25) : 'transparent',
+                  color: anlzSource === btn.key ? btn.color : (btn.available ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)'),
+                  transition: 'all 0.12s',
+                }}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Waveform panes ──────────────────────────────────────────────── */}
