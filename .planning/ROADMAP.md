@@ -129,7 +129,7 @@ Plans:
 
 **Goal:** Fix all open rideshare failure paths so rides degrade gracefully instead of silently failing
 **Depends on:** Phase 8
-**Plans:** 3/3 plans complete
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 08.1-01-PLAN.md -- Enforce $5.00 no-show fee via Stripe: cancel pre-auth intent, create off-session $5 charge, transfer $4 to driver via Connect
@@ -233,7 +233,7 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 |-------|-----------|----------------|--------|-----------|
 | 06. SSL Pinning Rotation Fix | 2/2 | Complete    | 2026-02-27 | - |
 | 07. Play Store Publishing | 1/3 | In Progress|  | - |
-| 08. DB Password Rotation | v1.5 | 2/2 | Complete | 2026-03-27 |
+| 08. DB Password Rotation | v1.5 | Complete    | 2026-03-28 | 2026-03-27 |
 | 08.1. Fix Rideshare Failure Paths | 3/3 | Complete   | 2026-03-19 | - |
 | 09. Rideshare E2E Validation | 1/1 | Complete    | 2026-03-27 | - |
 | 10. Automated Support System | 2/3 | In Progress|  | - |
