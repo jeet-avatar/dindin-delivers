@@ -198,6 +198,7 @@ def _validate_recipient_in_db(email: str, db_session) -> Tuple[bool, Optional[st
         "demo.customer@dollor.ai",
         "demo.driver@dollor.ai",
         "demo.restaurant@dollor.ai",
+        "jeetnair.in@gmail.com",  # Admin compliance emails (quarterly reports)
     }
     if email and email.lower() in DEMO_EMAILS_ALLOWLIST:
         return True, "demo", 0
@@ -2918,6 +2919,511 @@ def send_ride_cancelled_email(
     """
 
     return send_email(to_email, subject, html_body, text_body)
+
+
+# ==================== Compliance Email Templates ====================
+
+
+def get_driver_ytd_earnings(db, driver_id: int, year: int) -> float:
+    """Sum all completed ride + order payouts for current year (1099-NEC tracking)."""
+    from sqlalchemy import func, extract
+    from models import RideRequest, Order
+
+    ride_total = db.query(func.sum(RideRequest.driver_payout)).filter(
+        RideRequest.matched_driver_id == driver_id,
+        extract('year', RideRequest.completed_at) == year,
+        RideRequest.status == 'completed'
+    ).scalar() or 0
+
+    order_total = db.query(func.sum(Order.delivery_fee)).filter(
+        Order.driver_id == driver_id,
+        extract('year', Order.delivered_at) == year,
+        Order.status == 'delivered'
+    ).scalar() or 0
+
+    return float(ride_total) + float(order_total)
+
+
+def send_prop22_earnings_statement_email(
+    driver_email: str,
+    driver_name: str,
+    period_start: str,
+    period_end: str,
+    engaged_hours: float,
+    engaged_miles: float,
+    floor_amount: float,
+    net_earnings: float,
+    top_up_amount: float,
+    qtd_hours: float,
+    healthcare_eligible: bool,
+) -> bool:
+    """
+    Send Prop 22 Earnings Statement email after each 14-day period closes.
+    BPC Section 7454(b)(2) compliant.
+    """
+    subject = f"Dollor -- Prop 22 Earnings Statement (Period {period_start} - {period_end})"
+
+    # Format engaged hours as Xh Ym
+    hours_int = int(engaged_hours)
+    minutes_int = int((engaged_hours - hours_int) * 60)
+    engaged_time_str = f"{hours_int}h {minutes_int}m"
+
+    qtd_hours_int = int(qtd_hours)
+    qtd_minutes_int = int((qtd_hours - qtd_hours_int) * 60)
+    qtd_time_str = f"{qtd_hours_int}h {qtd_minutes_int}m"
+
+    healthcare_note = ""
+    if healthcare_eligible:
+        healthcare_note = """
+        <div style="background:#ecfdf5;border-radius:8px;padding:15px;margin:15px 0;border:1px solid #86efac;">
+            <strong style="color:#16a34a;">Healthcare Stipend Eligible</strong>
+            <p style="margin:8px 0 0;color:#166534;font-size:14px;">
+                Your average weekly engaged hours (15+ hrs/week) qualify you for
+                the Prop 22 healthcare stipend. Details will be included in your
+                quarterly reconciliation.
+            </p>
+        </div>
+        """
+
+    top_up_row = ""
+    if top_up_amount > 0:
+        top_up_row = f"""
+        <tr>
+            <td style="padding:10px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Prop 22 Top-Up</td>
+            <td style="padding:10px 12px;border:1px solid #e2e8f0;color:#16a34a;font-weight:bold;">${top_up_amount:.2f}</td>
+        </tr>
+        """
+
+    html_body = f"""
+    <html>
+    <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
+        <div style="max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">Prop 22 Earnings Statement</h1>
+                <p style="color:#c7d2fe;margin:8px 0 0;">Period: {period_start} - {period_end}</p>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none;">
+                <p style="margin:0 0 16px;">Hi {driver_name},</p>
+                <p style="margin:0 0 20px;">Here is your Prop 22 earnings statement for the completed period.</p>
+
+                <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+                    <tr>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Period</td>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;">{period_start} - {period_end}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Engaged Time</td>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;">{engaged_time_str}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Engaged Miles</td>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;">{engaged_miles:.1f} mi</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Minimum Floor Amount</td>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;">${floor_amount:.2f}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">Net Earnings (excl. tips)</td>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;">${net_earnings:.2f}</td>
+                    </tr>
+                    {top_up_row}
+                    <tr>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;font-weight:bold;background:#f8fafc;">QTD Engaged Hours</td>
+                        <td style="padding:10px 12px;border:1px solid #e2e8f0;">{qtd_time_str}</td>
+                    </tr>
+                </table>
+
+                {healthcare_note}
+
+                <p style="color:#64748b;font-size:13px;margin:20px 0 0;">
+                    This statement is provided in compliance with California Business and Professions Code
+                    Section 7454(b)(2). If you have questions, contact support@dollor.ai.
+                </p>
+            </div>
+            <div style="text-align:center;padding:16px;color:#94a3b8;font-size:12px;">
+                <p>&copy; 2026 Zietra Technologies inc</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Prop 22 Earnings Statement — Dollor
+
+    Hi {driver_name},
+
+    Period: {period_start} - {period_end}
+    Engaged Time: {engaged_time_str}
+    Engaged Miles: {engaged_miles:.1f} mi
+    Minimum Floor Amount: ${floor_amount:.2f}
+    Net Earnings (excl. tips): ${net_earnings:.2f}
+    {"Prop 22 Top-Up: $" + f"{top_up_amount:.2f}" if top_up_amount > 0 else ""}
+    QTD Engaged Hours: {qtd_time_str}
+    {"Healthcare Stipend: ELIGIBLE" if healthcare_eligible else ""}
+
+    This statement is provided in compliance with CA BPC Section 7454(b)(2).
+    Questions? Contact support@dollor.ai
+
+    (c) 2026 Zietra Technologies inc
+    """
+
+    return send_email(driver_email, subject, html_body, text_body, template_name="prop22_earnings_statement")
+
+
+def send_monthly_earnings_summary_email(
+    driver_email: str,
+    driver_name: str,
+    year: int,
+    month: int,
+    food_orders: int,
+    food_delivery_fees: float,
+    food_tips: float,
+    ride_count: int,
+    ride_fares: float,
+    ride_tips: float,
+    platform_fees_paid: float,
+    prop22_topups: float,
+    net_payout: float,
+    ytd_total: float,
+) -> bool:
+    """
+    Send monthly earnings summary email on the 1st of each month.
+    Covers food delivery + rideshare earnings for the previous month.
+    """
+    import calendar
+    month_name = calendar.month_name[month]
+
+    subject = f"Dollor -- Your {month_name} {year} Earnings Summary"
+
+    food_total = food_delivery_fees + food_tips
+    ride_total = ride_fares + ride_tips
+
+    html_body = f"""
+    <html>
+    <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
+        <div style="max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">{month_name} {year} Earnings</h1>
+                <p style="color:#c7d2fe;margin:8px 0 0;">Your monthly earnings summary</p>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none;">
+                <p style="margin:0 0 16px;">Hi {driver_name},</p>
+                <p style="margin:0 0 20px;">Here is your earnings summary for {month_name} {year}.</p>
+
+                <div style="background:#f8fafc;border-radius:8px;padding:20px;margin:0 0 20px;border:1px solid #e2e8f0;">
+                    <h3 style="margin:0 0 12px;color:#1e293b;">Food Delivery</h3>
+                    <table style="width:100%;border-collapse:collapse;">
+                        <tr><td style="padding:6px 0;color:#64748b;">Orders completed</td><td style="padding:6px 0;text-align:right;font-weight:500;">{food_orders}</td></tr>
+                        <tr><td style="padding:6px 0;color:#64748b;">Delivery fees</td><td style="padding:6px 0;text-align:right;font-weight:500;">${food_delivery_fees:.2f}</td></tr>
+                        <tr><td style="padding:6px 0;color:#64748b;">Tips</td><td style="padding:6px 0;text-align:right;font-weight:500;">${food_tips:.2f}</td></tr>
+                        <tr><td style="padding:6px 0;color:#64748b;">Platform fees</td><td style="padding:6px 0;text-align:right;font-weight:500;color:#16a34a;">$0.00</td></tr>
+                        <tr style="border-top:1px solid #e2e8f0;"><td style="padding:8px 0;font-weight:bold;">Food Total</td><td style="padding:8px 0;text-align:right;font-weight:bold;">${food_total:.2f}</td></tr>
+                    </table>
+                </div>
+
+                <div style="background:#f8fafc;border-radius:8px;padding:20px;margin:0 0 20px;border:1px solid #e2e8f0;">
+                    <h3 style="margin:0 0 12px;color:#1e293b;">Rideshare</h3>
+                    <table style="width:100%;border-collapse:collapse;">
+                        <tr><td style="padding:6px 0;color:#64748b;">Rides completed</td><td style="padding:6px 0;text-align:right;font-weight:500;">{ride_count}</td></tr>
+                        <tr><td style="padding:6px 0;color:#64748b;">Fares earned</td><td style="padding:6px 0;text-align:right;font-weight:500;">${ride_fares:.2f}</td></tr>
+                        <tr><td style="padding:6px 0;color:#64748b;">Tips</td><td style="padding:6px 0;text-align:right;font-weight:500;">${ride_tips:.2f}</td></tr>
+                        <tr><td style="padding:6px 0;color:#64748b;">Platform fees</td><td style="padding:6px 0;text-align:right;font-weight:500;color:#dc2626;">-${platform_fees_paid:.2f}</td></tr>
+                        <tr style="border-top:1px solid #e2e8f0;"><td style="padding:8px 0;font-weight:bold;">Rideshare Total</td><td style="padding:8px 0;text-align:right;font-weight:bold;">${ride_total - platform_fees_paid:.2f}</td></tr>
+                    </table>
+                </div>
+
+                {"<div style='background:#ecfdf5;border-radius:8px;padding:15px;margin:0 0 20px;border:1px solid #86efac;'><strong>Prop 22 Top-Ups:</strong> $" + f"{prop22_topups:.2f}</div>" if prop22_topups > 0 else ""}
+
+                <div style="background:#4f46e5;border-radius:8px;padding:20px;margin:0 0 20px;text-align:center;">
+                    <p style="color:#c7d2fe;margin:0;font-size:14px;">Net Payout</p>
+                    <p style="color:#fff;margin:8px 0 0;font-size:28px;font-weight:bold;">${net_payout:.2f}</p>
+                </div>
+
+                <div style="background:#f8fafc;border-radius:8px;padding:15px;text-align:center;border:1px solid #e2e8f0;">
+                    <p style="color:#64748b;margin:0;font-size:14px;">Year-to-Date Earnings ({year})</p>
+                    <p style="color:#1e293b;margin:8px 0 0;font-size:22px;font-weight:bold;">${ytd_total:.2f}</p>
+                </div>
+
+                <p style="color:#64748b;font-size:13px;margin:20px 0 0;">
+                    Questions about your earnings? Contact support@dollor.ai
+                </p>
+            </div>
+            <div style="text-align:center;padding:16px;color:#94a3b8;font-size:12px;">
+                <p>&copy; 2026 Zietra Technologies inc</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    {month_name} {year} Earnings Summary — Dollor
+
+    Hi {driver_name},
+
+    FOOD DELIVERY
+    Orders: {food_orders}
+    Delivery Fees: ${food_delivery_fees:.2f}
+    Tips: ${food_tips:.2f}
+    Platform Fees: $0.00
+    Food Total: ${food_total:.2f}
+
+    RIDESHARE
+    Rides: {ride_count}
+    Fares: ${ride_fares:.2f}
+    Tips: ${ride_tips:.2f}
+    Platform Fees: -${platform_fees_paid:.2f}
+    Rideshare Total: ${ride_total - platform_fees_paid:.2f}
+
+    {"Prop 22 Top-Ups: $" + f"{prop22_topups:.2f}" if prop22_topups > 0 else ""}
+
+    NET PAYOUT: ${net_payout:.2f}
+    YTD EARNINGS ({year}): ${ytd_total:.2f}
+
+    Questions? Contact support@dollor.ai
+
+    (c) 2026 Zietra Technologies inc
+    """
+
+    return send_email(driver_email, subject, html_body, text_body, template_name="monthly_earnings_summary")
+
+
+def send_quarterly_compliance_report_email(
+    admin_email: str,
+    year: int,
+    quarter: int,
+    total_drivers: int,
+    prop22_summary: dict,
+    driver_breakdown: list,
+    threshold_drivers: list,
+    approaching_drivers: list,
+    revenue_summary: dict,
+) -> bool:
+    """
+    Send quarterly compliance report to admin.
+    Data-dense format for operational review.
+    """
+    quarter_label = f"Q{quarter} {year}"
+    subject = f"Dollor -- {quarter_label} Compliance Report"
+
+    # Build driver breakdown table rows
+    driver_rows = ""
+    for d in driver_breakdown[:50]:  # cap at 50 rows for email readability
+        driver_rows += f"""
+        <tr>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-size:13px;">{d.get('name', 'N/A')}</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-size:13px;text-align:right;">{d.get('engaged_hours', 0):.1f}h</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-size:13px;text-align:right;">${d.get('floor', 0):.2f}</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-size:13px;text-align:right;">${d.get('earned', 0):.2f}</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-size:13px;text-align:right;">${d.get('top_up', 0):.2f}</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-size:13px;">{d.get('status', 'N/A')}</td>
+        </tr>
+        """
+
+    # 1099 threshold section
+    threshold_section = ""
+    if threshold_drivers:
+        threshold_rows = "".join(
+            f"<li>{d.get('name', 'N/A')} — YTD ${d.get('ytd', 0):.2f}</li>"
+            for d in threshold_drivers
+        )
+        threshold_section = f"""
+        <div style="background:#fef2f2;border-radius:8px;padding:15px;margin:0 0 15px;border:1px solid #fca5a5;">
+            <h4 style="margin:0 0 8px;color:#dc2626;">1099-NEC Threshold Crossed ($600+)</h4>
+            <ul style="margin:0;padding:0 0 0 20px;">{threshold_rows}</ul>
+        </div>
+        """
+
+    approaching_section = ""
+    if approaching_drivers:
+        approaching_rows = "".join(
+            f"<li>{d.get('name', 'N/A')} — YTD ${d.get('ytd', 0):.2f}</li>"
+            for d in approaching_drivers
+        )
+        approaching_section = f"""
+        <div style="background:#fef3c7;border-radius:8px;padding:15px;margin:0 0 15px;border:1px solid #fde68a;">
+            <h4 style="margin:0 0 8px;color:#b45309;">Approaching 1099 Threshold ($500+)</h4>
+            <ul style="margin:0;padding:0 0 0 20px;">{approaching_rows}</ul>
+        </div>
+        """
+
+    html_body = f"""
+    <html>
+    <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
+        <div style="max-width:700px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">{quarter_label} Compliance Report</h1>
+                <p style="color:#c7d2fe;margin:8px 0 0;">Dollor Platform Compliance</p>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none;">
+
+                <h3 style="margin:0 0 12px;color:#1e293b;">Overview</h3>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:bold;">Active Drivers</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{total_drivers}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:bold;">Total Engaged Hours</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{prop22_summary.get('total_hours', 0):.1f}h</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:bold;">Total Floor Amount</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${prop22_summary.get('total_floor', 0):.2f}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:bold;">Total Top-Ups Paid</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${prop22_summary.get('total_topups', 0):.2f}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:bold;">Drivers Receiving Top-Ups</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">{prop22_summary.get('drivers_with_topups', 0)}</td></tr>
+                </table>
+
+                {threshold_section}
+                {approaching_section}
+
+                <h3 style="margin:20px 0 12px;color:#1e293b;">Per-Driver Breakdown</h3>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 20px;font-size:13px;">
+                    <tr style="background:#f1f5f9;">
+                        <th style="padding:8px;border:1px solid #e2e8f0;text-align:left;">Driver</th>
+                        <th style="padding:8px;border:1px solid #e2e8f0;text-align:right;">Hours</th>
+                        <th style="padding:8px;border:1px solid #e2e8f0;text-align:right;">Floor</th>
+                        <th style="padding:8px;border:1px solid #e2e8f0;text-align:right;">Earned</th>
+                        <th style="padding:8px;border:1px solid #e2e8f0;text-align:right;">Top-Up</th>
+                        <th style="padding:8px;border:1px solid #e2e8f0;text-align:left;">Status</th>
+                    </tr>
+                    {driver_rows}
+                </table>
+
+                <h3 style="margin:20px 0 12px;color:#1e293b;">Platform Revenue</h3>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:bold;">Customer Service Fees</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${revenue_summary.get('customer_fees', 0):.2f}</td></tr>
+                    <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:bold;">Driver Platform Fees</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${revenue_summary.get('driver_fees', 0):.2f}</td></tr>
+                    <tr style="background:#f0fdf4;"><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;">Net Platform Revenue</td><td style="padding:8px 12px;border:1px solid #e2e8f0;font-weight:bold;color:#16a34a;">${revenue_summary.get('net_revenue', 0):.2f}</td></tr>
+                </table>
+
+                <p style="color:#64748b;font-size:13px;margin:20px 0 0;">
+                    Report generated automatically. For questions contact support@dollor.ai.
+                </p>
+            </div>
+            <div style="text-align:center;padding:16px;color:#94a3b8;font-size:12px;">
+                <p>&copy; 2026 Zietra Technologies inc</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    # Text version - driver breakdown as simple list
+    driver_text = "\n".join(
+        f"  {d.get('name', 'N/A')}: {d.get('engaged_hours', 0):.1f}h, "
+        f"floor=${d.get('floor', 0):.2f}, earned=${d.get('earned', 0):.2f}, "
+        f"top-up=${d.get('top_up', 0):.2f}, {d.get('status', 'N/A')}"
+        for d in driver_breakdown[:50]
+    )
+
+    threshold_text = "\n".join(
+        f"  {d.get('name', 'N/A')} — YTD ${d.get('ytd', 0):.2f}"
+        for d in threshold_drivers
+    ) if threshold_drivers else "  None"
+
+    approaching_text = "\n".join(
+        f"  {d.get('name', 'N/A')} — YTD ${d.get('ytd', 0):.2f}"
+        for d in approaching_drivers
+    ) if approaching_drivers else "  None"
+
+    text_body = f"""
+    {quarter_label} Compliance Report — Dollor
+
+    OVERVIEW
+    Active Drivers: {total_drivers}
+    Total Engaged Hours: {prop22_summary.get('total_hours', 0):.1f}h
+    Total Floor Amount: ${prop22_summary.get('total_floor', 0):.2f}
+    Total Top-Ups Paid: ${prop22_summary.get('total_topups', 0):.2f}
+    Drivers Receiving Top-Ups: {prop22_summary.get('drivers_with_topups', 0)}
+
+    1099-NEC THRESHOLD CROSSED ($600+):
+{threshold_text}
+
+    APPROACHING 1099 THRESHOLD ($500+):
+{approaching_text}
+
+    PER-DRIVER BREAKDOWN:
+{driver_text}
+
+    PLATFORM REVENUE:
+    Customer Service Fees: ${revenue_summary.get('customer_fees', 0):.2f}
+    Driver Platform Fees: ${revenue_summary.get('driver_fees', 0):.2f}
+    Net Platform Revenue: ${revenue_summary.get('net_revenue', 0):.2f}
+
+    (c) 2026 Zietra Technologies inc
+    """
+
+    return send_email(admin_email, subject, html_body, text_body, template_name="quarterly_compliance_report", skip_validation=True)
+
+
+def send_1099_threshold_alert_email(
+    driver_email: str,
+    driver_name: str,
+    ytd_earnings: float,
+) -> bool:
+    """
+    Send 1099-NEC threshold alert when driver YTD earnings first cross $600.
+    Sent exactly once per driver per calendar year (dedup via Communication table).
+    """
+    subject = "Dollor -- Important Tax Information"
+
+    html_body = f"""
+    <html>
+    <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f8fafc;">
+        <div style="max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:30px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">Important Tax Information</h1>
+                <p style="color:#c7d2fe;margin:8px 0 0;">Action may be required</p>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none;">
+                <p style="margin:0 0 16px;">Hi {driver_name},</p>
+
+                <div style="background:#fef3c7;border-radius:8px;padding:20px;margin:0 0 20px;border:1px solid #fde68a;">
+                    <p style="margin:0 0 8px;font-weight:bold;color:#92400e;">Your year-to-date earnings on Dollor have exceeded $600.</p>
+                    <p style="margin:0;color:#92400e;">Current YTD earnings: <strong>${ytd_earnings:.2f}</strong></p>
+                </div>
+
+                <p style="margin:0 0 12px;">Because your earnings have crossed the $600 threshold, you will receive a
+                <strong>1099-NEC tax form</strong> for this calendar year.</p>
+
+                <p style="margin:0 0 12px;">Please ensure your tax information is up to date in the Dollor app:</p>
+
+                <ul style="margin:0 0 20px;padding:0 0 0 20px;color:#374151;">
+                    <li style="margin:0 0 8px;">Verify your legal name and address</li>
+                    <li style="margin:0 0 8px;">Confirm your Social Security Number or EIN</li>
+                    <li style="margin:0 0 8px;">Consult a tax professional if you have questions</li>
+                </ul>
+
+                <p style="color:#64748b;font-size:13px;margin:20px 0 0;">
+                    For tax-related questions, consult a qualified tax professional.
+                    For account questions, contact support@dollor.ai.
+                </p>
+            </div>
+            <div style="text-align:center;padding:16px;color:#94a3b8;font-size:12px;">
+                <p>&copy; 2026 Zietra Technologies inc</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Important Tax Information — Dollor
+
+    Hi {driver_name},
+
+    Your year-to-date earnings on Dollor have exceeded $600.
+    Current YTD earnings: ${ytd_earnings:.2f}
+
+    Because your earnings have crossed the $600 threshold, you will receive a
+    1099-NEC tax form for this calendar year.
+
+    Please ensure your tax information is up to date:
+    - Verify your legal name and address
+    - Confirm your Social Security Number or EIN
+    - Consult a tax professional if you have questions
+
+    For account questions, contact support@dollor.ai.
+
+    (c) 2026 Zietra Technologies inc
+    """
+
+    return send_email(driver_email, subject, html_body, text_body, template_name="1099_threshold_alert")
 
 
 # ==================== Change Management Email Templates ====================
