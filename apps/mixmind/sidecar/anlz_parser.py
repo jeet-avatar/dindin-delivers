@@ -251,14 +251,17 @@ def _parse_waveform_3band(ext_file: Any) -> list[dict] | None:
                         return result
 
                 # Shape (N, 2, 3): RGB color data — each column has 2 halves × 3 RGB channels
-                # Average the two halves and use R=low, G=mid, B=high (CDJ color mapping)
+                # In Pioneer's waveform, R corresponds to low-freq, G to mid, B to high.
+                # The two halves represent top/bottom of the waveform bar.
+                # We take the max of each half to get peak amplitude per band.
                 if len(arr.shape) == 3 and arr.shape[1] == 2 and arr.shape[2] == 3:
                     result = []
                     for row in arr.tolist():
-                        # Average the two halves: row[0]=[R,G,B] row[1]=[R,G,B]
-                        r = (abs(row[0][0]) + abs(row[1][0])) // 2
-                        g = (abs(row[0][1]) + abs(row[1][1])) // 2
-                        b = (abs(row[0][2]) + abs(row[1][2])) // 2
+                        # row[0]=[R,G,B] top half, row[1]=[R,G,B] bottom half
+                        # Take max of the two halves for each channel
+                        r = max(abs(row[0][0]), abs(row[1][0]))
+                        g = max(abs(row[0][1]), abs(row[1][1]))
+                        b = max(abs(row[0][2]), abs(row[1][2]))
                         result.append({
                             "low":  min(255, max(0, r)),
                             "mid":  min(255, max(0, g)),
