@@ -151,8 +151,71 @@ def _get_analysis_db():
     return StateDB()
 
 
+def _build_mixmind_dict(row: dict) -> dict | None:
+    """Build the mixmind sub-dict from an analysis_cache row."""
+    import msgpack
+
+    if not row or row["status"] not in ("complete", "failed_demucs", "failed_essentia"):
+        return None
+
+    mm: dict = {}
+
+    # 4-stem waveform
+    if row.get("waveform_4stem"):
+        mm["waveform_4stem"] = msgpack.unpackb(row["waveform_4stem"], raw=False)
+    else:
+        mm["waveform_4stem"] = None
+
+    # Beat grid
+    if row.get("beat_grid_mm"):
+        mm["beat_grid"] = msgpack.unpackb(row["beat_grid_mm"], raw=False)
+    else:
+        mm["beat_grid"] = None
+
+    # Sections
+    if row.get("sections_mm"):
+        mm["sections"] = msgpack.unpackb(row["sections_mm"], raw=False)
+    else:
+        mm["sections"] = None
+
+    # Auto-cues
+    if row.get("auto_cues_mm"):
+        mm["auto_cues"] = msgpack.unpackb(row["auto_cues_mm"], raw=False)
+    else:
+        mm["auto_cues"] = None
+
+    # Beat metadata
+    mm["beat_confidence"] = row.get("beat_confidence")
+    mm["bpm_stable"] = bool(row.get("bpm_stable")) if row.get("bpm_stable") is not None else None
+
+    # Essentia features
+    if row.get("bpm"):
+        mm["essentia"] = {
+            "bpm": row["bpm"],
+            "key_musical": row["key_musical"],
+            "camelot": row["camelot"],
+            "genre": row["genre"],
+            "energy": row["energy"],
+            "danceability": row["danceability"],
+        }
+        mm["bpm"] = row["bpm"]
+    else:
+        mm["essentia"] = None
+        mm["bpm"] = None
+
+    mm["analyzer_version"] = row.get("analyzer_version")
+
+    # Return None if there's nothing useful
+    has_data = mm.get("waveform_4stem") or mm.get("essentia") or mm.get("beat_grid")
+    return mm if has_data else None
+
+
 def _enrich_with_analysis(data: dict, content_id: str) -> dict:
-    """Add 4-stem waveform + essentia data from analysis_cache if available."""
+    """Add 4-stem waveform + essentia data from analysis_cache if available.
+
+    BACKWARD COMPAT: Still populates flat fields (waveform_4stem, essentia,
+    analyzer_version) for existing frontend consumers.
+    """
     try:
         import msgpack
         db = _get_analysis_db()
@@ -183,22 +246,65 @@ def _enrich_with_analysis(data: dict, content_id: str) -> dict:
     return data
 
 
+def _get_mixmind_from_cache(content_id: str) -> dict | None:
+    """Load mixmind analysis dict from analysis_cache, or None."""
+    try:
+        db = _get_analysis_db()
+        row = db.get_analysis(content_id, "db")
+        db.close()
+        return _build_mixmind_dict(row) if row else None
+    except Exception:
+        return None
+
+
+def _build_dual_response(rekordbox_data: dict | None, content_id: str) -> dict:
+    """Build the dual-source {rekordbox, mixmind, active_source} response.
+
+    Also includes backward-compat flat fields for existing frontend consumers.
+    """
+    mixmind = _get_mixmind_from_cache(content_id)
+
+    response = {
+        "rekordbox": rekordbox_data,
+        "mixmind": mixmind,
+        "active_source": "auto",
+    }
+
+    # Backward compat: flatten rekordbox data into top level
+    if rekordbox_data:
+        for k, v in rekordbox_data.items():
+            response[k] = v
+
+    # Backward compat: overlay analysis_cache flat fields
+    if rekordbox_data:
+        response = _enrich_with_analysis(response, content_id)
+    elif mixmind:
+        # No rekordbox — put mixmind flat fields for compat
+        response["waveform_4stem"] = mixmind.get("waveform_4stem")
+        response["essentia"] = mixmind.get("essentia")
+        response["analyzer_version"] = mixmind.get("analyzer_version")
+
+    return response
+
+
 @router.get("/tracks/{content_id}/anlz")
 async def get_track_anlz(content_id: str):
     """Return parsed ANLZ data for a track — beat grid, cues, sections, waveform.
 
+    Returns dual-source response: {rekordbox: {...}, mixmind: {...}, active_source: "auto"}
+    plus backward-compatible flat fields for existing frontend consumers.
+
     Data is read from the Rekordbox ANLZ binary analysis files on the local
-    filesystem. Returns 404 if the Rekordbox DB is unavailable or the track
-    has no ANLZ data.
+    filesystem and the MixMind analysis_cache. Returns 404 if neither source
+    has data for this track.
     """
     from anlz_parser import parse_track_anlz  # noqa: PLC0415
 
     if not _DB_PATH.exists():
-        # No Rekordbox DB — check if we have analysis_cache data
-        fallback = {}
-        fallback = _enrich_with_analysis(fallback, content_id)
-        if fallback.get("waveform_4stem") or fallback.get("essentia"):
-            return fallback
+        # No Rekordbox DB — check if we have MixMind analysis data
+        mixmind = _get_mixmind_from_cache(content_id)
+        if mixmind:
+            return _build_dual_response(None, content_id)
         raise HTTPException(status_code=404, detail="Rekordbox DB not found")
 
     try:
@@ -222,23 +328,21 @@ async def get_track_anlz(content_id: str):
         raise HTTPException(status_code=503, detail=f"DB query failed: {exc}") from exc
 
     if row is None or not row.AnalysisDataPath:
-        # No Rekordbox ANLZ — check if we have analysis_cache data
-        fallback = {}
-        fallback = _enrich_with_analysis(fallback, content_id)
-        if fallback.get("waveform_4stem") or fallback.get("essentia"):
-            return fallback
+        # No Rekordbox ANLZ — check MixMind analysis
+        mixmind = _get_mixmind_from_cache(content_id)
+        if mixmind:
+            return _build_dual_response(None, content_id)
         raise HTTPException(status_code=404, detail="No ANLZ data for this track")
 
     try:
-        data = parse_track_anlz(row.AnalysisDataPath, content_id, db.session)
+        rekordbox_data = parse_track_anlz(row.AnalysisDataPath, content_id, db.session)
     except FileNotFoundError as exc:
-        # ANLZ file missing — check if we have analysis_cache data
-        fallback = {}
-        fallback = _enrich_with_analysis(fallback, content_id)
-        if fallback.get("waveform_4stem") or fallback.get("essentia"):
-            return fallback
+        # ANLZ file missing — check MixMind analysis
+        mixmind = _get_mixmind_from_cache(content_id)
+        if mixmind:
+            return _build_dual_response(None, content_id)
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"ANLZ parse error: {exc}") from exc
 
-    return _enrich_with_analysis(data, content_id)
+    return _build_dual_response(rekordbox_data, content_id)
