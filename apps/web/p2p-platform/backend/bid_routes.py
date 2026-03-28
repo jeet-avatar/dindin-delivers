@@ -2560,6 +2560,32 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
     except Exception as _e:
         logger.error(f"Prop 22 ride calculation failed (non-blocking): {_e}")
 
+    # 1099-NEC threshold check (non-blocking)
+    try:
+        from email_service import get_driver_ytd_earnings, send_1099_threshold_alert_email
+        from sqlalchemy import extract as sqla_extract
+        _ytd = get_driver_ytd_earnings(db, ride_request.matched_driver_id, datetime.utcnow().year)
+        if _ytd >= 600:
+            # Dedup: check if 1099 alert already sent this year
+            from models_extended import Communication, CommunicationChannel
+            _existing_1099 = db.query(Communication).filter(
+                Communication.recipient_id == ride_request.matched_driver_id,
+                Communication.template_name == "1099_threshold_alert",
+                Communication.channel == CommunicationChannel.EMAIL,
+                sqla_extract('year', Communication.sent_at) == datetime.utcnow().year,
+            ).first()
+            if not _existing_1099:
+                _driver_1099 = db.query(Driver).filter(Driver.id == ride_request.matched_driver_id).first()
+                if _driver_1099 and _driver_1099.email:
+                    send_1099_threshold_alert_email(
+                        driver_email=_driver_1099.email,
+                        driver_name=f"{_driver_1099.first_name} {_driver_1099.last_name}".strip(),
+                        ytd_earnings=_ytd,
+                    )
+                    logger.info(f"1099 threshold alert sent to driver {ride_request.matched_driver_id} (YTD=${_ytd:.2f})")
+    except Exception as _e:
+        logger.error(f"1099 threshold check failed (non-blocking): {_e}")
+
     # In-app notification: ride completed
     _notify_customer(db, ride_request.customer_id,
                      "Ride Complete",
