@@ -228,30 +228,48 @@ def _parse_waveform_3band(ext_file: Any) -> list[dict] | None:
             logger.debug("No 3-band waveform tag in EXT (available: %s)", tag_names)
             return None
 
-        # Handle tuple return from pyrekordbox (PWV5 returns a 2-tuple of ndarrays)
+        # Handle tuple return from pyrekordbox
+        # wf_color returns 3-tuple: (amplitude (N,2), color_rgb (N,2,3), blue_variant (N,2,3))
+        # wf_color_preview may return 2-tuple: (amplitude (N,3), ...)
         if isinstance(wf_tag, tuple):
-            color_arr = wf_tag[0] if len(wf_tag) >= 1 else None
-            if color_arr is None or not hasattr(color_arr, "shape"):
-                logger.debug("3-band waveform: tuple[0] not ndarray, skipping")
-                return None
+            # Try each element to find one with usable shape
+            for idx, arr in enumerate(wf_tag):
+                if not hasattr(arr, "shape"):
+                    continue
 
-            arr = color_arr
-            # Shape (N, 3): each row is [low_amp, mid_amp, high_amp] in 0-31 range
-            # Scale to 0-255 for display (same factor as wf_preview: * 8)
-            if len(arr.shape) == 2 and arr.shape[1] >= 3:
-                result = []
-                for row in arr.tolist():
-                    result.append({
-                        "low":  min(255, max(0, int(row[0]) * 8)),
-                        "mid":  min(255, max(0, int(row[1]) * 8)),
-                        "high": min(255, max(0, int(row[2]) * 8)),
-                    })
-                if result:
-                    logger.debug("3-band waveform decoded from tuple ndarray shape %s: %d entries", arr.shape, len(result))
-                    return result
+                # Shape (N, 3): direct low/mid/high amplitudes — scale 0-31 → 0-255
+                if len(arr.shape) == 2 and arr.shape[1] == 3:
+                    result = []
+                    for row in arr.tolist():
+                        result.append({
+                            "low":  min(255, max(0, int(row[0]) * 8)),
+                            "mid":  min(255, max(0, int(row[1]) * 8)),
+                            "high": min(255, max(0, int(row[2]) * 8)),
+                        })
+                    if result:
+                        logger.debug("3-band from tuple[%d] shape %s: %d entries", idx, arr.shape, len(result))
+                        return result
 
-            # 1D array from tuple — cannot split into bands, fall through to tag-object path
-            logger.debug("3-band waveform tuple[0] shape %s not (N,3), cannot decompose", getattr(arr, "shape", "unknown"))
+                # Shape (N, 2, 3): RGB color data — each column has 2 halves × 3 RGB channels
+                # Average the two halves and use R=low, G=mid, B=high (CDJ color mapping)
+                if len(arr.shape) == 3 and arr.shape[1] == 2 and arr.shape[2] == 3:
+                    result = []
+                    for row in arr.tolist():
+                        # Average the two halves: row[0]=[R,G,B] row[1]=[R,G,B]
+                        r = (abs(row[0][0]) + abs(row[1][0])) // 2
+                        g = (abs(row[0][1]) + abs(row[1][1])) // 2
+                        b = (abs(row[0][2]) + abs(row[1][2])) // 2
+                        result.append({
+                            "low":  min(255, max(0, r)),
+                            "mid":  min(255, max(0, g)),
+                            "high": min(255, max(0, b)),
+                        })
+                    if result:
+                        logger.debug("3-band from tuple[%d] RGB shape %s: %d entries", idx, arr.shape, len(result))
+                        return result
+
+            logger.debug("3-band waveform: no usable array in tuple (shapes: %s)",
+                        [getattr(a, "shape", "?") for a in wf_tag])
             return None
 
         # The tag holds columns of {low, mid, high} bytes
