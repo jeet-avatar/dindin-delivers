@@ -111,6 +111,7 @@ Progress: [########################################] 100% (6/6 plans in phase 13
 - [Phase quick-243]: Camelot wheel scoring + BPM % jump badges + energy arc bar chart in AI sidebar
 - [Phase quick-246]: Lazy-import msgpack inside analyze_track to avoid ModuleNotFoundError before pip install
 - [Phase quick-247]: Lazy msgpack import in _enrich_with_analysis; 3-point fallback in /anlz for analysis_cache
+- [Phase quick-249]: 1099 dedup via Communication table template_name + year check; YTD computed on-the-fly; quarterly report to jeetnair.in@gmail.com
 
 ### Blockers
 
