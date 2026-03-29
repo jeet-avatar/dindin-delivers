@@ -42,6 +42,7 @@ class TrackOut(BaseModel):
     cue_colors: list[str]
     file_path: str = ""
     analysis_data_path: str = ""
+    mm_analyzed: bool = False
     genre: str = ""
     comment: str = ""
     color_hex: str = ""
@@ -66,6 +67,19 @@ async def get_library(db: Annotated[StateDB, Depends(get_state_db)]):
     hidden = db.hidden_ids(source=source)
     visible = [t for t in tracks if t.content_id not in hidden]
 
+    # Check which tracks have MixMind analysis (single query)
+    try:
+        from sqlalchemy import text as _text
+        analysis_db = _get_analysis_db()
+        with analysis_db._engine.connect() as conn:
+            rows = conn.execute(_text(
+                "SELECT content_id FROM analysis_cache WHERE status='complete'"
+            )).fetchall()
+        mm_ids = {r[0] for r in rows}
+        analysis_db.close()
+    except Exception:
+        mm_ids = set()
+
     return {
         "tracks": [TrackOut(
             content_id=t.content_id,
@@ -81,6 +95,7 @@ async def get_library(db: Annotated[StateDB, Depends(get_state_db)]):
             cue_colors=t.cue_colors,
             file_path=t.file_path,
             analysis_data_path=t.analysis_data_path,
+            mm_analyzed=t.content_id in mm_ids,
             genre=t.genre,
             comment=t.comment,
             color_hex=t.color_hex,

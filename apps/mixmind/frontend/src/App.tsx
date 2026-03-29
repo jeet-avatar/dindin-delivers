@@ -67,15 +67,16 @@ export default function App() {
       );
       const data = await res.json();
       if (data.status === 'complete') {
-        alert(`Analysis complete! BPM: ${data.essentia?.bpm}, Key: ${data.essentia?.key_musical}`);
+        alert(`Analysis complete!\nBPM: ${data.essentia?.bpm}\nKey: ${data.essentia?.key_musical} (${data.essentia?.camelot})\nGenre: ${data.essentia?.genre || 'detecting...'}`);
+        reload(); // refresh track list with new analysis data
       } else if (data.status === 'already_complete') {
-        alert('Already analyzed. Click with force=true to re-analyze.');
+        alert('Already analyzed. Use force to re-analyze.');
       } else {
-        alert(`Analysis: ${data.status} — ${data.error || ''}`);
+        alert(`Analysis: ${data.status}\n${data.error || ''}`);
       }
     } catch (e) {
       console.error('Analysis failed:', e);
-      alert('Analysis timed out or failed. Check sidecar logs.');
+      alert('Analysis timed out or failed (~2min per track).');
     } finally {
       setAnalyzingTrack(null);
     }
