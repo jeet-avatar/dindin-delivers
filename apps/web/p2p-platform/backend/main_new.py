@@ -8301,7 +8301,9 @@ async def trigger_monthly_report(
         ).all()
         prop22_topups = sum(float(p.top_up_amount or 0) for p in periods)
 
-        net_payout = food_delivery_fees + food_tips + ride_fares + ride_tips - platform_fees_paid + prop22_topups
+        # ride_fares = driver_payout (already = fare - platform_fee), so don't subtract platform_fee again
+        # Show platform_fees_paid in the email breakdown but don't deduct it from net
+        net_payout = food_delivery_fees + food_tips + ride_fares + ride_tips + prop22_topups
         ytd_total = get_driver_ytd_earnings(db, driver.id, year)
 
         send_monthly_earnings_summary_email(
