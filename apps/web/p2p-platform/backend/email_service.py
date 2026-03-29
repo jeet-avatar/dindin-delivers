@@ -2927,18 +2927,18 @@ def send_ride_cancelled_email(
 def get_driver_ytd_earnings(db, driver_id: int, year: int) -> float:
     """Sum all completed ride + order payouts for current year (1099-NEC tracking)."""
     from sqlalchemy import func, extract
-    from models import RideRequest, Order
+    from models import RideRequest, RideRequestStatus, Order, OrderStatus
 
     ride_total = db.query(func.sum(RideRequest.driver_payout)).filter(
         RideRequest.matched_driver_id == driver_id,
         extract('year', RideRequest.completed_at) == year,
-        RideRequest.status == 'completed'
+        RideRequest.status == RideRequestStatus.COMPLETED
     ).scalar() or 0
 
     order_total = db.query(func.sum(Order.delivery_fee)).filter(
         Order.driver_id == driver_id,
         extract('year', Order.delivered_at) == year,
-        Order.status == 'delivered'
+        Order.status == OrderStatus.DELIVERED
     ).scalar() or 0
 
     return float(ride_total) + float(order_total)
