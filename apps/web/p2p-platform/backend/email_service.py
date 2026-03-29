@@ -2925,23 +2925,45 @@ def send_ride_cancelled_email(
 
 
 def get_driver_ytd_earnings(db, driver_id: int, year: int) -> float:
-    """Sum all completed ride + order payouts for current year (1099-NEC tracking)."""
+    """Sum all completed ride + order net earnings for current year.
+
+    Matches what driver actually received:
+    - Rides: driver_payout + tip_amount (payout already has platform_fee deducted)
+    - Orders: delivery_fee + tip (driver keeps 100%, $0 platform fee for food)
+
+    Used for 1099-NEC threshold ($600) and monthly/quarterly report YTD totals.
+    Per IRS 1099-NEC rules: gross payments to independent contractor including tips.
+    """
     from sqlalchemy import func, extract
     from models import RideRequest, RideRequestStatus, Order, OrderStatus
 
-    ride_total = db.query(func.sum(RideRequest.driver_payout)).filter(
+    # Rides: driver_payout (fare minus platform fee) + tips
+    ride_payout = db.query(func.sum(RideRequest.driver_payout)).filter(
         RideRequest.matched_driver_id == driver_id,
         extract('year', RideRequest.completed_at) == year,
         RideRequest.status == RideRequestStatus.COMPLETED
     ).scalar() or 0
 
-    order_total = db.query(func.sum(Order.delivery_fee)).filter(
+    ride_tips = db.query(func.sum(RideRequest.tip_amount)).filter(
+        RideRequest.matched_driver_id == driver_id,
+        extract('year', RideRequest.completed_at) == year,
+        RideRequest.status == RideRequestStatus.COMPLETED
+    ).scalar() or 0
+
+    # Orders: delivery_fee + tips (driver keeps 100% for food delivery)
+    order_fees = db.query(func.sum(Order.delivery_fee)).filter(
         Order.driver_id == driver_id,
         extract('year', Order.delivered_at) == year,
         Order.status == OrderStatus.DELIVERED
     ).scalar() or 0
 
-    return float(ride_total) + float(order_total)
+    order_tips = db.query(func.sum(Order.tip)).filter(
+        Order.driver_id == driver_id,
+        extract('year', Order.delivered_at) == year,
+        Order.status == OrderStatus.DELIVERED
+    ).scalar() or 0
+
+    return float(ride_payout) + float(ride_tips) + float(order_fees) + float(order_tips)
 
 
 def send_prop22_earnings_statement_email(
