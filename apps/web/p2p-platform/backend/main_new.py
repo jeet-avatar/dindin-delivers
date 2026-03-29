@@ -8257,82 +8257,68 @@ async def trigger_monthly_report(
     from models import Prop22EarningPeriod, OrderStatus, RideRequestStatus, RideRequest
     try:
         body = await request.json()
-    driver_email = body.get("driver_email")
-    year = body.get("year", datetime.utcnow().year)
-    month = body.get("month", datetime.utcnow().month)
+        driver_email = body.get("driver_email")
+        year = body.get("year", datetime.utcnow().year)
+        month = body.get("month", datetime.utcnow().month)
 
-    if not driver_email:
-        raise HTTPException(status_code=400, detail="driver_email is required")
+        if not driver_email:
+            raise HTTPException(status_code=400, detail="driver_email is required")
 
-    driver = db.query(Driver).filter(Driver.email == driver_email).first()
-    if not driver:
-        raise HTTPException(status_code=404, detail=f"Driver with email {driver_email} not found")
+        driver = db.query(Driver).filter(Driver.email == driver_email).first()
+        if not driver:
+            raise HTTPException(status_code=404, detail=f"Driver with email {driver_email} not found")
 
-    # Compute stats for the specified month
-    _, last_day = calendar.monthrange(year, month)
-    month_start = datetime(year, month, 1)
-    month_end = datetime(year, month, last_day, 23, 59, 59)
+        _, last_day = calendar.monthrange(year, month)
+        month_start = datetime(year, month, 1)
+        month_end = datetime(year, month, last_day, 23, 59, 59)
 
-    # Food delivery stats
-    food_orders_q = db.query(Order).filter(
-        Order.driver_id == driver.id,
-        Order.status == OrderStatus.DELIVERED,
-        Order.delivered_at >= month_start,
-        Order.delivered_at <= month_end,
-    ).all()
-    food_orders = len(food_orders_q)
-    food_delivery_fees = sum(float(o.delivery_fee or 0) for o in food_orders_q)
-    food_tips = sum(float(o.tip or 0) for o in food_orders_q)
+        food_orders_q = db.query(Order).filter(
+            Order.driver_id == driver.id,
+            Order.status == OrderStatus.DELIVERED,
+            Order.delivered_at >= month_start,
+            Order.delivered_at <= month_end,
+        ).all()
+        food_orders = len(food_orders_q)
+        food_delivery_fees = sum(float(o.delivery_fee or 0) for o in food_orders_q)
+        food_tips = sum(float(o.tip or 0) for o in food_orders_q)
 
-    # Rideshare stats
-    rides_q = db.query(RideRequest).filter(
-        RideRequest.matched_driver_id == driver.id,
-        RideRequest.status == RideRequestStatus.COMPLETED,
-        RideRequest.completed_at >= month_start,
-        RideRequest.completed_at <= month_end,
-    ).all()
-    ride_count = len(rides_q)
-    ride_fares = sum(float(r.driver_payout or 0) for r in rides_q)
-    ride_tips = sum(float(r.tip_amount or 0) for r in rides_q)
-    platform_fees_paid = sum(float(r.platform_fee or 0) for r in rides_q)
+        rides_q = db.query(RideRequest).filter(
+            RideRequest.matched_driver_id == driver.id,
+            RideRequest.status == RideRequestStatus.COMPLETED,
+            RideRequest.completed_at >= month_start,
+            RideRequest.completed_at <= month_end,
+        ).all()
+        ride_count = len(rides_q)
+        ride_fares = sum(float(r.driver_payout or 0) for r in rides_q)
+        ride_tips = sum(float(r.tip_amount or 0) for r in rides_q)
+        platform_fees_paid = sum(float(r.platform_fee or 0) for r in rides_q)
 
-    # Prop 22 top-ups
-    periods = db.query(Prop22EarningPeriod).filter(
-        Prop22EarningPeriod.driver_id == driver.id,
-        Prop22EarningPeriod.period_end >= month_start,
-        Prop22EarningPeriod.period_end <= month_end,
-        Prop22EarningPeriod.status.in_(["PAID", "RECONCILED"]),
-    ).all()
-    prop22_topups = sum(float(p.top_up_amount or 0) for p in periods)
+        periods = db.query(Prop22EarningPeriod).filter(
+            Prop22EarningPeriod.driver_id == driver.id,
+            Prop22EarningPeriod.period_end >= month_start,
+            Prop22EarningPeriod.period_end <= month_end,
+            Prop22EarningPeriod.status.in_(["PAID", "RECONCILED"]),
+        ).all()
+        prop22_topups = sum(float(p.top_up_amount or 0) for p in periods)
 
-    net_payout = food_delivery_fees + food_tips + ride_fares + ride_tips - platform_fees_paid + prop22_topups
-    ytd_total = get_driver_ytd_earnings(db, driver.id, year)
+        net_payout = food_delivery_fees + food_tips + ride_fares + ride_tips - platform_fees_paid + prop22_topups
+        ytd_total = get_driver_ytd_earnings(db, driver.id, year)
 
-    send_monthly_earnings_summary_email(
-        driver_email=driver.email,
-        driver_name=f"{driver.first_name} {driver.last_name}".strip(),
-        year=year,
-        month=month,
-        food_orders=food_orders,
-        food_delivery_fees=food_delivery_fees,
-        food_tips=food_tips,
-        ride_count=ride_count,
-        ride_fares=ride_fares,
-        ride_tips=ride_tips,
-        platform_fees_paid=platform_fees_paid,
-        prop22_topups=prop22_topups,
-        net_payout=net_payout,
-        ytd_total=ytd_total,
-    )
+        send_monthly_earnings_summary_email(
+            driver_email=driver.email,
+            driver_name=f"{driver.first_name} {driver.last_name}".strip(),
+            year=year, month=month, food_orders=food_orders,
+            food_delivery_fees=food_delivery_fees, food_tips=food_tips,
+            ride_count=ride_count, ride_fares=ride_fares, ride_tips=ride_tips,
+            platform_fees_paid=platform_fees_paid, prop22_topups=prop22_topups,
+            net_payout=net_payout, ytd_total=ytd_total,
+        )
 
-    return {
-        "status": "sent",
-        "driver_email": driver.email,
-        "year": year,
-        "month": month,
-        "net_payout": net_payout,
-        "ytd_total": ytd_total,
-    }
+        return {
+            "status": "sent", "driver_email": driver.email,
+            "year": year, "month": month,
+            "net_payout": net_payout, "ytd_total": ytd_total,
+        }
     except HTTPException:
         raise
     except Exception as e:
