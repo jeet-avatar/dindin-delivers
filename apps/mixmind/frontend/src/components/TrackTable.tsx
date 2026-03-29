@@ -502,17 +502,21 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onA
         </div>
       </div>
 
-      {/* ── Genre filter chips ── */}
+      {/* ── Genre filter chips — horizontal scroll, single row ── */}
       {availableGenres.length > 0 && (
         <div style={{
-          display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '5px',
-          padding: '0 20px 10px', flexShrink: 0,
+          display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: '5px',
+          padding: '0 20px 8px', flexShrink: 0,
+          overflowX: 'auto', overflowY: 'hidden',
+          maxHeight: '34px',
+          scrollbarWidth: 'thin',
         }}>
           <button
             onClick={() => setGenreFilter('all')}
             style={{
-              fontSize: '11px', fontWeight: 500, padding: '4px 10px', borderRadius: '20px',
+              fontSize: '10px', fontWeight: 500, padding: '3px 8px', borderRadius: '12px',
               cursor: 'pointer', fontFamily: 'var(--font)', transition: 'all 0.15s', userSelect: 'none',
+              whiteSpace: 'nowrap', flexShrink: 0,
               background: genreFilter === 'all' ? 'var(--accent-soft)' : 'transparent',
               border: genreFilter === 'all' ? '1px solid rgba(124,58,237,0.3)' : '1px solid var(--border)',
               color: genreFilter === 'all' ? '#c4b5fd' : 'var(--text-secondary)',
@@ -528,8 +532,9 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onA
                 key={g}
                 onClick={() => setGenreFilter(g)}
                 style={{
-                  fontSize: '11px', fontWeight: 500, padding: '4px 10px', borderRadius: '20px',
+                  fontSize: '10px', fontWeight: 500, padding: '3px 8px', borderRadius: '12px',
                   cursor: 'pointer', fontFamily: 'var(--font)', transition: 'all 0.15s', userSelect: 'none',
+                  whiteSpace: 'nowrap', flexShrink: 0,
                   background: isActive ? gc.bg : 'transparent',
                   border: isActive ? `1px solid ${gc.border}` : '1px solid var(--border)',
                   color: isActive ? gc.text : 'var(--text-secondary)',
