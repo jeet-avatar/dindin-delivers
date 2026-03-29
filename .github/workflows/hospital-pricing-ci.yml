@@ -1,0 +1,114 @@
+name: Hospital Pricing CI
+
+on:
+  push:
+    paths:
+      - 'apps/hospital-pricing/**'
+      - '.github/workflows/hospital-pricing-ci.yml'
+  pull_request:
+    paths:
+      - 'apps/hospital-pricing/**'
+      - '.github/workflows/hospital-pricing-ci.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/hospital-pricing/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/hospital-pricing/backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        env:
+          JWT_SECRET_KEY: test-secret-key-at-least-32-chars-long
+          OPENAI_API_KEY: sk-test-placeholder
+        run: |
+          python -m pytest tests/ -v --tb=short \
+            --cov=. --cov-report=term-missing \
+            --cov-fail-under=60
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: apps/hospital-pricing/backend/.coverage
+
+  frontend-check:
+    name: Frontend Type Check + Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/hospital-pricing/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/hospital-pricing/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+  lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/hospital-pricing/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ruff
+        run: pip install ruff==0.9.2
+
+      - name: Run ruff
+        run: ruff check . --select E,W,F --ignore E501
+
+  docker-validate:
+    name: Docker Compose Validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/hospital-pricing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet

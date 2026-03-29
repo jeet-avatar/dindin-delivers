@@ -1,0 +1,41 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+alembic==1.14.0
+asyncpg==0.30.0
+aiosqlite==0.20.0
+pgvector==0.3.5
+psycopg2-binary==2.9.10
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# AI / LLM
+langchain==0.3.14
+langchain-openai==0.3.1
+langgraph==0.2.65
+langgraph-checkpoint-postgres==2.0.5
+openai==1.58.1
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# Document parsing
+pdfplumber==0.11.4
+unstructured[pdf]==0.15.14
+boto3==1.35.93
+
+# Task queue
+celery==5.4.0
+redis==5.2.1
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+pytest-mock==3.14.0
+httpx==0.28.1
+anyio==4.6.2
