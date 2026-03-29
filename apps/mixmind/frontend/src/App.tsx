@@ -7,7 +7,7 @@ import { DuplicatePanel } from './components/DuplicatePanel';
 import { USBPanel } from './components/USBPanel';
 import { SetBuilderPanel } from './components/SetBuilderPanel';
 import { useLibrary } from './hooks/useLibrary';
-import { sidecarGet, sidecarPost } from './hooks/useSidecar';
+import { sidecarGet, sidecarPost, sidecarUrl } from './hooks/useSidecar';
 import { AIPlaylistItem, Playlist, Track } from './types/track';
 import { MiniPlayer } from './components/MiniPlayer';
 import { DJWaveformView } from './components/DJWaveformView';
@@ -61,9 +61,21 @@ export default function App() {
   async function handleAnalyze(contentId: string) {
     setAnalyzingTrack(contentId);
     try {
-      await sidecarPost(`/api/tracks/${contentId}/analyze?force=false`, {});
+      const res = await fetch(
+        sidecarUrl(`/api/tracks/${contentId}/analyze?force=false`),
+        { method: 'POST', signal: AbortSignal.timeout(180000) }
+      );
+      const data = await res.json();
+      if (data.status === 'complete') {
+        alert(`Analysis complete! BPM: ${data.essentia?.bpm}, Key: ${data.essentia?.key_musical}`);
+      } else if (data.status === 'already_complete') {
+        alert('Already analyzed. Click with force=true to re-analyze.');
+      } else {
+        alert(`Analysis: ${data.status} — ${data.error || ''}`);
+      }
     } catch (e) {
       console.error('Analysis failed:', e);
+      alert('Analysis timed out or failed. Check sidecar logs.');
     } finally {
       setAnalyzingTrack(null);
     }

@@ -120,45 +120,39 @@ function drawBeatGrid(
     const isDown = bn === 1;
     if (isDown) barCount++;
 
-    // ── BEAT LINES — BLACK, CRISP ──
+    // ── BEAT LINES — WHITE ON DARK ──
     if (isDown) {
-      // Downbeat — thick black
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = zoomed ? 3 : 2;
+      // Downbeat — bright white, thick
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = zoomed ? 2.5 : 1.5;
       ctx.globalAlpha = 1;
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-      // White edge highlight
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-      ctx.lineWidth = 0.5;
-      ctx.beginPath(); ctx.moveTo(x + (zoomed ? 2 : 1), 0); ctx.lineTo(x + (zoomed ? 2 : 1), H); ctx.stroke();
 
       // Bar number
       if (zoomed) {
         const txt = barCount.toString();
         ctx.font = 'bold 11px -apple-system, sans-serif';
-        const tw = ctx.measureText(txt).width;
-        ctx.fillStyle = '#000'; ctx.fillRect(x + 3, 2, tw + 6, 15);
-        ctx.fillStyle = '#fff'; ctx.fillText(txt, x + 6, 14);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fillText(txt, x + 4, 13);
       } else {
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.font = 'bold 8px sans-serif';
-        if (barCount % 4 === 1) ctx.fillText(barCount.toString(), x + 2, 9);
+        if (barCount % 4 === 1) {
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.font = 'bold 8px sans-serif';
+          ctx.fillText(barCount.toString(), x + 2, 9);
+        }
       }
     } else {
-      // Beats 2,3,4 — thin black
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = zoomed ? 1.5 : 0.5;
-      ctx.globalAlpha = zoomed ? 0.8 : 0.4;
-      ctx.beginPath(); ctx.moveTo(x, zoomed ? 0 : H * 0.3); ctx.lineTo(x, H); ctx.stroke();
+      // Beats 2,3,4 — semi-transparent white
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = zoomed ? 1 : 0.5;
       ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.moveTo(x, zoomed ? 0 : H * 0.3); ctx.lineTo(x, H); ctx.stroke();
 
       // Beat number at bottom (zoomed only)
       if (zoomed) {
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(x + 1, H - 14, 10, 12);
-        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
         ctx.font = '9px sans-serif';
-        ctx.fillText(bn.toString(), x + 3, H - 4);
+        ctx.fillText(bn.toString(), x + 2, H - 3);
       }
     }
 
