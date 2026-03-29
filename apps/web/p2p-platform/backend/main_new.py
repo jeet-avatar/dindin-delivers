@@ -8252,6 +8252,18 @@ async def trigger_monthly_report(
     admin: User = Depends(require_admin),
 ):
     """Manually trigger monthly earnings summary for a specific driver + month."""
+    import calendar, traceback as tb
+    from email_service import send_monthly_earnings_summary_email, get_driver_ytd_earnings
+    from models import Prop22EarningPeriod, OrderStatus, RideRequestStatus
+    try:
+        return await _trigger_monthly_report_impl(request, db)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"trigger-monthly-report error: {tb.format_exc()}")
+        return JSONResponse(status_code=500, content={"detail": str(e), "traceback": tb.format_exc()})
+
+async def _trigger_monthly_report_impl(request, db):
     import calendar
     from email_service import send_monthly_earnings_summary_email, get_driver_ytd_earnings
     from models import Prop22EarningPeriod, OrderStatus, RideRequestStatus
