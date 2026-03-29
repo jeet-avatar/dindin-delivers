@@ -189,7 +189,7 @@ function SortArrow({ dir }: { dir: SortDir }) {
 
 // ── Column header widths (table-layout: fixed) ────────────────
 //  #  | title+artist | bpm | key | genre+energy | rating | dur | plays | added | actions
-const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '130px', '72px', '70px', '50px', '58px', '48px'];
+const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '130px', '72px', '70px', '50px', '58px', '180px'];
 
 // ── Main component ────────────────────────────────────────────
 
@@ -712,23 +712,23 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onA
                   </div>
 
                   {/* Actions */}
-                  <div className="row-action" style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                    {/* RB/MM analysis status dots */}
-                    <div style={{ display: 'flex', gap: '3px', alignItems: 'center', marginRight: '2px' }} title={
-                      (t.analysis_data_path ? 'Rekordbox analyzed' : 'Rekordbox: not analyzed')
-                      + ' / '
-                      + (t.mm_analyzed ? 'MixMind analyzed' : 'MixMind: not analyzed')
-                    }>
+                  <div className="row-action" style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                    {/* RB / MM analysis labels */}
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
                       <span style={{
-                        width: '7px', height: '7px', borderRadius: '50%', display: 'inline-block',
-                        background: t.analysis_data_path ? '#00E676' : 'rgba(255,255,255,0.12)',
-                        boxShadow: t.analysis_data_path ? '0 0 4px rgba(0,230,118,0.4)' : 'none',
-                      }} />
+                        fontSize: '8px', fontWeight: 700, padding: '2px 5px', borderRadius: '3px',
+                        fontFamily: 'ui-monospace, monospace', letterSpacing: '0.03em',
+                        background: t.analysis_data_path ? 'rgba(0,230,118,0.15)' : 'rgba(255,255,255,0.04)',
+                        color: t.analysis_data_path ? '#00E676' : 'rgba(255,255,255,0.2)',
+                        border: t.analysis_data_path ? '1px solid rgba(0,230,118,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                      }}>RB</span>
                       <span style={{
-                        width: '7px', height: '7px', borderRadius: '50%', display: 'inline-block',
-                        background: t.mm_analyzed ? '#AA00FF' : 'rgba(255,255,255,0.12)',
-                        boxShadow: t.mm_analyzed ? '0 0 4px rgba(170,0,255,0.4)' : 'none',
-                      }} />
+                        fontSize: '8px', fontWeight: 700, padding: '2px 5px', borderRadius: '3px',
+                        fontFamily: 'ui-monospace, monospace', letterSpacing: '0.03em',
+                        background: t.mm_analyzed ? 'rgba(170,0,255,0.15)' : 'rgba(255,255,255,0.04)',
+                        color: t.mm_analyzed ? '#AA00FF' : 'rgba(255,255,255,0.2)',
+                        border: t.mm_analyzed ? '1px solid rgba(170,0,255,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                      }}>MM</span>
                     </div>
                     {isPlayed && !isNowPlaying && (
                       <span style={{ fontSize: '9px', color: '#374151', fontWeight: 500 }}>played</span>
@@ -737,10 +737,10 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onA
                       <button
                         onClick={e => { e.stopPropagation(); onAddToSet(t); }}
                         style={{
-                          fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
-                          background: 'rgba(124,58,237,0.15)', color: '#a78bfa',
-                          border: '1px solid rgba(124,58,237,0.2)', cursor: 'pointer',
-                          fontFamily: 'var(--font)', flexShrink: 0, fontWeight: 500,
+                          fontSize: '9px', padding: '3px 8px', borderRadius: '5px',
+                          background: 'rgba(124,58,237,0.12)', color: '#a78bfa',
+                          border: '1px solid rgba(124,58,237,0.25)', cursor: 'pointer',
+                          fontFamily: 'var(--font)', flexShrink: 0, fontWeight: 600,
                         }}
                       >
                         + Set
@@ -748,16 +748,16 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onA
                     )}
                     {onAnalyze && (
                       <button
-                        title="Analyze stems — separates drums, bass, vocals, synths"
+                        title="Analyze — beat grid, stems, sections, cues"
                         disabled={analyzingTrack === t.content_id}
                         onClick={(e) => { e.stopPropagation(); onAnalyze(t.content_id); }}
                         style={{
                           background: analyzingTrack === t.content_id
                             ? 'rgba(168,85,247,0.3)'
-                            : 'rgba(168,85,247,0.15)',
-                          border: '1px solid rgba(168,85,247,0.4)',
+                            : 'rgba(168,85,247,0.12)',
+                          border: '1px solid rgba(168,85,247,0.35)',
                           cursor: analyzingTrack === t.content_id ? 'wait' : 'pointer',
-                          fontSize: '10px', padding: '3px 8px', borderRadius: '6px',
+                          fontSize: '9px', padding: '3px 8px', borderRadius: '5px',
                           color: '#c084fc', flexShrink: 0, fontWeight: 600,
                           fontFamily: 'var(--font)',
                           transition: 'all 0.15s',
