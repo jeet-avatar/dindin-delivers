@@ -189,7 +189,7 @@ function SortArrow({ dir }: { dir: SortDir }) {
 
 // ── Column header widths (table-layout: fixed) ────────────────
 //  #  | title+artist | bpm | key | genre+energy | rating | dur | plays | added | actions
-const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '130px', '72px', '70px', '50px', '58px', '180px'];
+const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '130px', '72px', '70px', '65px', '75px', '180px'];
 
 // ── Main component ────────────────────────────────────────────
 
