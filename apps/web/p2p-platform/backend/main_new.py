@@ -8333,135 +8333,128 @@ async def trigger_quarterly_report(
     admin: User = Depends(require_admin),
 ):
     """Manually trigger quarterly compliance report for specified quarter."""
-    import calendar
+    import calendar, traceback as _tb
     from sqlalchemy import func as sqla_func
     from email_service import send_quarterly_compliance_report_email, get_driver_ytd_earnings
     from models import Prop22EarningPeriod, OrderStatus, RideRequestStatus, RideRequest
+    try:
+        body = await request.json()
+        year = body.get("year", datetime.utcnow().year)
+        quarter = body.get("quarter", ((datetime.utcnow().month - 1) // 3) + 1)
 
-    body = await request.json()
-    year = body.get("year", datetime.utcnow().year)
-    quarter = body.get("quarter", ((datetime.utcnow().month - 1) // 3) + 1)
+        if quarter not in (1, 2, 3, 4):
+            raise HTTPException(status_code=400, detail="quarter must be 1, 2, 3, or 4")
 
-    if quarter not in (1, 2, 3, 4):
-        raise HTTPException(status_code=400, detail="quarter must be 1, 2, 3, or 4")
+        q_start_month = (quarter - 1) * 3 + 1
+        q_end_month = q_start_month + 2
+        _, q_end_day = calendar.monthrange(year, q_end_month)
+        q_start = datetime(year, q_start_month, 1)
+        q_end = datetime(year, q_end_month, q_end_day, 23, 59, 59)
 
-    q_start_month = (quarter - 1) * 3 + 1
-    q_end_month = q_start_month + 2
-    _, q_end_day = calendar.monthrange(year, q_end_month)
-    q_start = datetime(year, q_start_month, 1)
-    q_end = datetime(year, q_end_month, q_end_day, 23, 59, 59)
+        ride_driver_ids = {r[0] for r in db.query(RideRequest.matched_driver_id).filter(
+            RideRequest.status == RideRequestStatus.COMPLETED,
+            RideRequest.completed_at >= q_start,
+            RideRequest.completed_at <= q_end,
+            RideRequest.matched_driver_id.isnot(None),
+        ).distinct().all()}
 
-    # Get drivers with activity in this quarter
-    ride_driver_ids = {r[0] for r in db.query(RideRequest.matched_driver_id).filter(
-        RideRequest.status == RideRequestStatus.COMPLETED,
-        RideRequest.completed_at >= q_start,
-        RideRequest.completed_at <= q_end,
-        RideRequest.matched_driver_id.isnot(None),
-    ).distinct().all()}
+        food_driver_ids = {r[0] for r in db.query(Order.driver_id).filter(
+            Order.status == OrderStatus.DELIVERED,
+            Order.delivered_at >= q_start,
+            Order.delivered_at <= q_end,
+            Order.driver_id.isnot(None),
+        ).distinct().all()}
 
-    food_driver_ids = {r[0] for r in db.query(Order.driver_id).filter(
-        Order.status == OrderStatus.DELIVERED,
-        Order.delivered_at >= q_start,
-        Order.delivered_at <= q_end,
-        Order.driver_id.isnot(None),
-    ).distinct().all()}
+        all_driver_ids = ride_driver_ids | food_driver_ids
+        total_drivers = len(all_driver_ids)
 
-    all_driver_ids = ride_driver_ids | food_driver_ids
-    total_drivers = len(all_driver_ids)
+        periods = db.query(Prop22EarningPeriod).filter(
+            Prop22EarningPeriod.period_end >= q_start,
+            Prop22EarningPeriod.period_end <= q_end,
+        ).all()
 
-    # Prop 22 summary
-    periods = db.query(Prop22EarningPeriod).filter(
-        Prop22EarningPeriod.period_end >= q_start,
-        Prop22EarningPeriod.period_end <= q_end,
-    ).all()
+        total_hours = sum(float(p.engaged_hours or 0) for p in periods)
+        total_floor = sum(float(p.prop22_floor or 0) for p in periods)
+        total_topups = sum(float(p.top_up_amount or 0) for p in periods if p.status in ("PAID", "RECONCILED"))
+        drivers_with_topups = len({p.driver_id for p in periods if (p.top_up_amount or 0) > 0 and p.status in ("PAID", "RECONCILED")})
 
-    total_hours = sum(float(p.engaged_hours or 0) for p in periods)
-    total_floor = sum(float(p.prop22_floor or 0) for p in periods)
-    total_topups = sum(float(p.top_up_amount or 0) for p in periods if p.status in ("PAID", "RECONCILED"))
-    drivers_with_topups = len({p.driver_id for p in periods if (p.top_up_amount or 0) > 0 and p.status in ("PAID", "RECONCILED")})
+        prop22_summary = {
+            "total_hours": total_hours, "total_floor": total_floor,
+            "total_topups": total_topups, "drivers_with_topups": drivers_with_topups,
+        }
 
-    prop22_summary = {
-        "total_hours": total_hours,
-        "total_floor": total_floor,
-        "total_topups": total_topups,
-        "drivers_with_topups": drivers_with_topups,
-    }
+        driver_breakdown = []
+        threshold_drivers = []
+        approaching_drivers = []
 
-    # Per-driver breakdown
-    driver_breakdown = []
-    threshold_drivers = []
-    approaching_drivers = []
+        for did in all_driver_ids:
+            driver = db.query(Driver).filter(Driver.id == did).first()
+            if not driver:
+                continue
+            driver_name = f"{driver.first_name} {driver.last_name}".strip()
+            driver_periods = [p for p in periods if p.driver_id == did]
+            d_hours = sum(float(p.engaged_hours or 0) for p in driver_periods)
+            d_floor = sum(float(p.prop22_floor or 0) for p in driver_periods)
+            d_earned = sum(float(p.net_earnings or 0) for p in driver_periods)
+            d_topup = sum(float(p.top_up_amount or 0) for p in driver_periods if p.status in ("PAID", "RECONCILED"))
+            d_status = driver_periods[-1].status if driver_periods else "N/A"
 
-    for did in all_driver_ids:
-        driver = db.query(Driver).filter(Driver.id == did).first()
-        if not driver:
-            continue
-        driver_name = f"{driver.first_name} {driver.last_name}".strip()
-        driver_periods = [p for p in periods if p.driver_id == did]
-        d_hours = sum(float(p.engaged_hours or 0) for p in driver_periods)
-        d_floor = sum(float(p.prop22_floor or 0) for p in driver_periods)
-        d_earned = sum(float(p.net_earnings or 0) for p in driver_periods)
-        d_topup = sum(float(p.top_up_amount or 0) for p in driver_periods if p.status in ("PAID", "RECONCILED"))
-        d_status = driver_periods[-1].status if driver_periods else "N/A"
+            driver_breakdown.append({
+                "name": driver_name, "engaged_hours": d_hours, "floor": d_floor,
+                "earned": d_earned, "top_up": d_topup, "status": d_status,
+            })
 
-        driver_breakdown.append({
-            "name": driver_name, "engaged_hours": d_hours, "floor": d_floor,
-            "earned": d_earned, "top_up": d_topup, "status": d_status,
-        })
+            ytd = get_driver_ytd_earnings(db, did, year)
+            if ytd >= 600:
+                threshold_drivers.append({"name": driver_name, "ytd": ytd})
+            elif ytd >= 500:
+                approaching_drivers.append({"name": driver_name, "ytd": ytd})
 
-        ytd = get_driver_ytd_earnings(db, did, year)
-        if ytd >= 600:
-            threshold_drivers.append({"name": driver_name, "ytd": ytd})
-        elif ytd >= 500:
-            approaching_drivers.append({"name": driver_name, "ytd": ytd})
+        customer_ride_count = db.query(sqla_func.count(RideRequest.id)).filter(
+            RideRequest.status == RideRequestStatus.COMPLETED,
+            RideRequest.completed_at >= q_start,
+            RideRequest.completed_at <= q_end,
+        ).scalar() or 0
+        customer_order_count = db.query(sqla_func.count(Order.id)).filter(
+            Order.status == OrderStatus.DELIVERED,
+            Order.delivered_at >= q_start,
+            Order.delivered_at <= q_end,
+        ).scalar() or 0
 
-    # Revenue summary
-    customer_ride_count = db.query(sqla_func.count(RideRequest.id)).filter(
-        RideRequest.status == "completed",
-        RideRequest.completed_at >= q_start,
-        RideRequest.completed_at <= q_end,
-    ).scalar() or 0
-    customer_order_count = db.query(sqla_func.count(Order.id)).filter(
-        Order.status == "delivered",
-        Order.delivered_at >= q_start,
-        Order.delivered_at <= q_end,
-    ).scalar() or 0
+        customer_fees = float(customer_ride_count + customer_order_count) * 1.0
+        driver_fees_sum = db.query(sqla_func.sum(RideRequest.platform_fee)).filter(
+            RideRequest.status == RideRequestStatus.COMPLETED,
+            RideRequest.completed_at >= q_start,
+            RideRequest.completed_at <= q_end,
+        ).scalar() or 0
+        restaurant_fees = float(customer_order_count) * 1.0
 
-    customer_fees = float(customer_ride_count + customer_order_count) * 1.0
-    driver_fees_sum = db.query(sqla_func.sum(RideRequest.platform_fee)).filter(
-        RideRequest.status == "completed",
-        RideRequest.completed_at >= q_start,
-        RideRequest.completed_at <= q_end,
-    ).scalar() or 0
-    restaurant_fees = float(customer_order_count) * 1.0
+        revenue_summary = {
+            "customer_fees": customer_fees,
+            "driver_fees": float(driver_fees_sum) + restaurant_fees,
+            "net_revenue": customer_fees + float(driver_fees_sum) + restaurant_fees,
+        }
 
-    revenue_summary = {
-        "customer_fees": customer_fees,
-        "driver_fees": float(driver_fees_sum) + restaurant_fees,
-        "net_revenue": customer_fees + float(driver_fees_sum) + restaurant_fees,
-    }
+        send_quarterly_compliance_report_email(
+            admin_email="jeetnair.in@gmail.com",
+            year=year, quarter=quarter, total_drivers=total_drivers,
+            prop22_summary=prop22_summary, driver_breakdown=driver_breakdown,
+            threshold_drivers=threshold_drivers, approaching_drivers=approaching_drivers,
+            revenue_summary=revenue_summary,
+        )
 
-    send_quarterly_compliance_report_email(
-        admin_email="jeetnair.in@gmail.com",
-        year=year,
-        quarter=quarter,
-        total_drivers=total_drivers,
-        prop22_summary=prop22_summary,
-        driver_breakdown=driver_breakdown,
-        threshold_drivers=threshold_drivers,
-        approaching_drivers=approaching_drivers,
-        revenue_summary=revenue_summary,
-    )
-
-    return {
-        "status": "sent",
-        "admin_email": "jeetnair.in@gmail.com",
-        "year": year,
-        "quarter": quarter,
-        "total_drivers": total_drivers,
-        "threshold_drivers": len(threshold_drivers),
-        "approaching_drivers": len(approaching_drivers),
-    }
+        return {
+            "status": "sent", "admin_email": "jeetnair.in@gmail.com",
+            "year": year, "quarter": quarter,
+            "total_drivers": total_drivers,
+            "threshold_drivers": len(threshold_drivers),
+            "approaching_drivers": len(approaching_drivers),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"trigger-quarterly-report error: {_tb.format_exc()}")
+        return JSONResponse(status_code=500, content={"detail": str(e), "type": type(e).__name__, "traceback": _tb.format_exc()})
 
 
 # Client endpoints
