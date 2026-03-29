@@ -529,6 +529,29 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
             {Math.round(zoomBeats / 4)} bars
           </span>
         </div>
+
+        {/* Analysis source status */}
+        {dualData && (
+          <span style={{ fontSize: '9px', fontWeight: 600, marginLeft: '6px', padding: '2px 8px', borderRadius: '4px',
+            background: dualData.mixmind
+              ? 'rgba(170,0,255,0.15)' : dualData.rekordbox
+              ? 'rgba(0,230,118,0.15)' : 'rgba(255,68,68,0.15)',
+            color: dualData.mixmind
+              ? '#c084fc' : dualData.rekordbox
+              ? '#00E676' : '#ff4444',
+          }}>
+            {dualData.mixmind && dualData.rekordbox
+              ? 'Analyzed: RB + MM'
+              : dualData.mixmind
+              ? 'Analyzed: MixMind'
+              : dualData.rekordbox
+              ? 'Analyzed: Rekordbox'
+              : 'Not analyzed'}
+          </span>
+        )}
+        {!dualData && !loading && (
+          <span style={{ fontSize: '9px', color: '#ff4444', marginLeft: '6px' }}>Not analyzed</span>
+        )}
       </div>
 
       {/* ── Waveform panes ── */}
