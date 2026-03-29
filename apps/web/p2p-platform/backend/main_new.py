@@ -8254,7 +8254,7 @@ async def trigger_monthly_report(
     """Manually trigger monthly earnings summary for a specific driver + month."""
     import calendar
     from email_service import send_monthly_earnings_summary_email, get_driver_ytd_earnings
-    from models import Prop22EarningPeriod
+    from models import Prop22EarningPeriod, OrderStatus, RideRequestStatus
 
     body = await request.json()
     driver_email = body.get("driver_email")
@@ -8276,7 +8276,7 @@ async def trigger_monthly_report(
     # Food delivery stats
     food_orders_q = db.query(Order).filter(
         Order.driver_id == driver.id,
-        Order.status == "delivered",
+        Order.status == OrderStatus.DELIVERED,
         Order.delivered_at >= month_start,
         Order.delivered_at <= month_end,
     ).all()
@@ -8287,7 +8287,7 @@ async def trigger_monthly_report(
     # Rideshare stats
     rides_q = db.query(RideRequest).filter(
         RideRequest.matched_driver_id == driver.id,
-        RideRequest.status == "completed",
+        RideRequest.status == RideRequestStatus.COMPLETED,
         RideRequest.completed_at >= month_start,
         RideRequest.completed_at <= month_end,
     ).all()
@@ -8345,7 +8345,7 @@ async def trigger_quarterly_report(
     import calendar
     from sqlalchemy import func as sqla_func
     from email_service import send_quarterly_compliance_report_email, get_driver_ytd_earnings
-    from models import Prop22EarningPeriod
+    from models import Prop22EarningPeriod, OrderStatus, RideRequestStatus
 
     body = await request.json()
     year = body.get("year", datetime.utcnow().year)
@@ -8362,14 +8362,14 @@ async def trigger_quarterly_report(
 
     # Get drivers with activity in this quarter
     ride_driver_ids = {r[0] for r in db.query(RideRequest.matched_driver_id).filter(
-        RideRequest.status == "completed",
+        RideRequest.status == RideRequestStatus.COMPLETED,
         RideRequest.completed_at >= q_start,
         RideRequest.completed_at <= q_end,
         RideRequest.matched_driver_id.isnot(None),
     ).distinct().all()}
 
     food_driver_ids = {r[0] for r in db.query(Order.driver_id).filter(
-        Order.status == "delivered",
+        Order.status == OrderStatus.DELIVERED,
         Order.delivered_at >= q_start,
         Order.delivered_at <= q_end,
         Order.driver_id.isnot(None),
