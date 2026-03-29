@@ -67,42 +67,52 @@ async def get_library(db: Annotated[StateDB, Depends(get_state_db)]):
     hidden = db.hidden_ids(source=source)
     visible = [t for t in tracks if t.content_id not in hidden]
 
-    # Check which tracks have MixMind analysis (single query)
+    # Load MixMind analysis data (single query)
+    mm_data: dict[str, dict] = {}
     try:
         from sqlalchemy import text as _text
         analysis_db = _get_analysis_db()
         with analysis_db._engine.connect() as conn:
             rows = conn.execute(_text(
-                "SELECT content_id FROM analysis_cache WHERE status='complete'"
+                "SELECT content_id, bpm, key_musical, camelot, genre, energy, danceability "
+                "FROM analysis_cache WHERE status='complete'"
             )).fetchall()
-        mm_ids = {r[0] for r in rows}
+        for r in rows:
+            mm_data[r[0]] = {"bpm": r[1], "key_musical": r[2], "camelot": r[3],
+                             "genre": r[4], "energy": r[5], "danceability": r[6]}
         analysis_db.close()
     except Exception:
-        mm_ids = set()
+        pass
 
-    return {
-        "tracks": [TrackOut(
+    def _build_track(t):
+        mm = mm_data.get(t.content_id)
+        return TrackOut(
             content_id=t.content_id,
             source=t.source,
             title=t.title,
             artist=t.artist,
-            bpm=t.bpm,
-            key_musical=t.key_musical,
-            camelot=t.camelot,
+            # Use MixMind BPM/key if Rekordbox has none
+            bpm=t.bpm if t.bpm > 0 else (mm["bpm"] if mm else 0),
+            key_musical=t.key_musical if t.key_musical else (mm["key_musical"] if mm else ""),
+            camelot=t.camelot if t.camelot and t.camelot != "?" else (mm["camelot"] if mm else ""),
             rating=t.rating,
             duration_sec=t.duration_sec,
             cue_count=t.cue_count,
             cue_colors=t.cue_colors,
             file_path=t.file_path,
             analysis_data_path=t.analysis_data_path,
-            mm_analyzed=t.content_id in mm_ids,
-            genre=t.genre,
+            mm_analyzed=t.content_id in mm_data,
+            # Use MixMind genre if Rekordbox has none
+            genre=t.genre if t.genre else (mm["genre"] if mm and mm.get("genre") else ""),
             comment=t.comment,
             color_hex=t.color_hex,
             date_added=t.date_added,
             label=t.label,
             play_count=t.play_count,
-        ).model_dump() for t in visible],
+        ).model_dump()
+
+    return {
+        "tracks": [_build_track(t) for t in visible],
         "source": source,
         "total": len(visible),
     }
