@@ -8252,11 +8252,11 @@ async def trigger_monthly_report(
     admin: User = Depends(require_admin),
 ):
     """Manually trigger monthly earnings summary for a specific driver + month."""
-    import calendar
+    import calendar, traceback as _tb
     from email_service import send_monthly_earnings_summary_email, get_driver_ytd_earnings
     from models import Prop22EarningPeriod, OrderStatus, RideRequestStatus, RideRequest
-
-    body = await request.json()
+    try:
+        body = await request.json()
     driver_email = body.get("driver_email")
     year = body.get("year", datetime.utcnow().year)
     month = body.get("month", datetime.utcnow().month)
@@ -8333,6 +8333,11 @@ async def trigger_monthly_report(
         "net_payout": net_payout,
         "ytd_total": ytd_total,
     }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"trigger-monthly-report error: {_tb.format_exc()}")
+        return JSONResponse(status_code=500, content={"detail": str(e), "type": type(e).__name__, "traceback": _tb.format_exc()})
 
 
 @app.post("/api/admin/compliance/trigger-quarterly-report")
