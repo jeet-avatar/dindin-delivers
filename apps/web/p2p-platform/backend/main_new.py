@@ -8394,23 +8394,60 @@ async def trigger_quarterly_report(
             if not driver:
                 continue
             driver_name = f"{driver.first_name} {driver.last_name}".strip()
+
+            # Prop 22 periods (if reconciliation has run)
             driver_periods = [p for p in periods if p.driver_id == did]
-            d_hours = sum(float(p.engaged_hours or 0) for p in driver_periods)
             d_floor = sum(float(p.prop22_floor or 0) for p in driver_periods)
-            d_earned = sum(float(p.net_earnings or 0) for p in driver_periods)
             d_topup = sum(float(p.top_up_amount or 0) for p in driver_periods if p.status in ("PAID", "RECONCILED"))
             d_status = driver_periods[-1].status if driver_periods else "N/A"
 
+            # Calculate actual hours + earnings from ride/order data (always accurate)
+            driver_rides = db.query(RideRequest).filter(
+                RideRequest.matched_driver_id == did,
+                RideRequest.status == RideRequestStatus.COMPLETED,
+                RideRequest.completed_at >= q_start,
+                RideRequest.completed_at <= q_end,
+            ).all()
+            driver_orders = db.query(Order).filter(
+                Order.driver_id == did,
+                Order.status == OrderStatus.DELIVERED,
+                Order.delivered_at >= q_start,
+                Order.delivered_at <= q_end,
+            ).all()
+
+            # Engaged hours: use Prop 22 data if available, else estimate from ride duration
+            if driver_periods:
+                d_hours = sum(float(p.engaged_hours or 0) for p in driver_periods)
+            else:
+                ride_hours = 0.0
+                for r in driver_rides:
+                    if r.completed_at and r.matched_at:
+                        ride_hours += (r.completed_at - r.matched_at).total_seconds() / 3600
+                    elif r.completed_at and r.created_at:
+                        ride_hours += (r.completed_at - r.created_at).total_seconds() / 3600
+                order_hours = 0.0
+                for o in driver_orders:
+                    if o.delivered_at and getattr(o, 'driver_accepted_at', None):
+                        order_hours += (o.delivered_at - o.driver_accepted_at).total_seconds() / 3600
+                d_hours = ride_hours + order_hours
+
+            # Actual earned: driver_payout + tips
+            d_earned = (
+                sum(float(r.driver_payout or 0) + float(r.tip_amount or 0) for r in driver_rides) +
+                sum(float(o.delivery_fee or 0) + float(o.tip or 0) for o in driver_orders)
+            )
+
             driver_breakdown.append({
-                "name": driver_name, "engaged_hours": d_hours, "floor": d_floor,
-                "earned": d_earned, "top_up": d_topup, "status": d_status,
+                "name": driver_name, "engaged_hours": round(d_hours, 2),
+                "floor": round(d_floor, 2), "earned": round(d_earned, 2),
+                "top_up": round(d_topup, 2), "status": d_status,
             })
 
             ytd = get_driver_ytd_earnings(db, did, year)
             if ytd >= 600:
-                threshold_drivers.append({"name": driver_name, "ytd": ytd})
+                threshold_drivers.append({"name": driver_name, "ytd": round(ytd, 2)})
             elif ytd >= 500:
-                approaching_drivers.append({"name": driver_name, "ytd": ytd})
+                approaching_drivers.append({"name": driver_name, "ytd": round(ytd, 2)})
 
         customer_ride_count = db.query(sqla_func.count(RideRequest.id)).filter(
             RideRequest.status == RideRequestStatus.COMPLETED,
