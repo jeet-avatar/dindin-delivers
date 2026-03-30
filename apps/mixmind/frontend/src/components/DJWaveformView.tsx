@@ -212,6 +212,7 @@ function drawBeatGrid(
   beats: TrackAnlzData['beat_grid'],
   startMs: number, endMs: number,
   _zoomed?: boolean,
+  gridOffsetMs = 0,
 ) {
   // CDJ-3000 subtle beat grid — 3 levels of white lines only
   // Count bars even outside visible range so phrase markers align correctly
@@ -221,10 +222,12 @@ function drawBeatGrid(
     const isDown = beat.beat === 1;
     if (isDown) barCount++;
 
-    // Skip beats outside visible range (after counting)
-    if (beat.time_ms < startMs || beat.time_ms > endMs) continue;
+    const offsetTime = beat.time_ms + gridOffsetMs;
 
-    const x = ((beat.time_ms - startMs) / (endMs - startMs)) * W;
+    // Skip beats outside visible range (after counting)
+    if (offsetTime < startMs || offsetTime > endMs) continue;
+
+    const x = ((offsetTime - startMs) / (endMs - startMs)) * W;
 
     if (isDown && barCount % 16 === 1) {
       // Phrase marker — every 16 bars
@@ -255,6 +258,7 @@ function drawOverviewCanvas(
   canvas: HTMLCanvasElement, anlz: TrackAnlzData,
   duration: number, currentTime: number, wfStyle: WfStyle,
   hotCuesOverlay?: HotCueEntry[],
+  gridOffsetMs = 0,
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -279,7 +283,7 @@ function drawOverviewCanvas(
   drawWaveformBars(ctx, W, H, anlz, 0, waveLen, msToX, iToMs, wfStyle);
 
   // Beat grid
-  drawBeatGrid(ctx, W, H, anlz.beat_grid, 0, durationMs, false);
+  drawBeatGrid(ctx, W, H, anlz.beat_grid, 0, durationMs, false, gridOffsetMs);
 
   // Memory cue triangles
   for (const mc of anlz.memory_cues) {
@@ -326,6 +330,7 @@ function drawZoomedCanvas(
   canvas: HTMLCanvasElement, anlz: TrackAnlzData,
   duration: number, centerTime: number, beatsVisible: number, wfStyle: WfStyle,
   hotCuesOverlay?: HotCueEntry[],
+  gridOffsetMs = 0,
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -366,7 +371,7 @@ function drawZoomedCanvas(
   drawWaveformBars(ctx, W, H, anlz, startIdx, endIdx, msToX, iToMs, wfStyle);
 
   // Beat grid — ZOOMED mode (thick black lines, labels)
-  drawBeatGrid(ctx, W, H, anlz.beat_grid, startMs, endMs, true);
+  drawBeatGrid(ctx, W, H, anlz.beat_grid, startMs, endMs, true, gridOffsetMs);
 
   // Memory cues
   for (const mc of anlz.memory_cues) {
@@ -421,9 +426,10 @@ interface DJWaveformViewProps {
   onSeek: (sec: number) => void;
   analysisVersion?: number;  // increment to trigger ANLZ re-fetch after analysis
   hotCues?: HotCueEntry[];   // user-set cues from DJDeck (drawn as overlay on waveform)
+  gridOffsetMs?: number;     // beat grid nudge offset in ms
 }
 
-export function DJWaveformView({ track, currentTime, duration, onSeek, analysisVersion, hotCues: hotCuesOverlay }: DJWaveformViewProps) {
+export function DJWaveformView({ track, currentTime, duration, onSeek, analysisVersion, hotCues: hotCuesOverlay, gridOffsetMs = 0 }: DJWaveformViewProps) {
   const [dualData, setDualData] = useState<DualAnlzData | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchFailed, setFetchFailed] = useState(false);
@@ -559,12 +565,12 @@ export function DJWaveformView({ track, currentTime, duration, onSeek, analysisV
       if (!anlzData) return;
       const ov = overviewCanvasRef.current;
       const zm = zoomedCanvasRef.current;
-      if (ov && ov.width > 0) drawOverviewCanvas(ov, anlzData, duration, currentTime, wfStyle, hotCuesOverlay);
-      if (zm && zm.width > 0) drawZoomedCanvas(zm, anlzData, duration, zoomCenter, zoomBeats, wfStyle, hotCuesOverlay);
+      if (ov && ov.width > 0) drawOverviewCanvas(ov, anlzData, duration, currentTime, wfStyle, hotCuesOverlay, gridOffsetMs);
+      if (zm && zm.width > 0) drawZoomedCanvas(zm, anlzData, duration, zoomCenter, zoomBeats, wfStyle, hotCuesOverlay, gridOffsetMs);
     };
     render();
     return () => cancelAnimationFrame(rafRef.current);
-  }, [anlzData, duration, currentTime, zoomCenter, wfStyle, zoomBeats, hotCuesOverlay]);
+  }, [anlzData, duration, currentTime, zoomCenter, wfStyle, zoomBeats, hotCuesOverlay, gridOffsetMs]);
 
   function handleOverviewClick(e: React.MouseEvent<HTMLCanvasElement>) {
     const canvas = overviewCanvasRef.current;

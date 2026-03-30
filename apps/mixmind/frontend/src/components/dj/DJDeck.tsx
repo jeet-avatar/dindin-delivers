@@ -55,7 +55,8 @@ export function DJDeck({ deck, track, onClose, otherDeckBpm, isMaster, onBpmChan
 
   // Load hot cues from Rekordbox/MixMind ANLZ data when track changes
   useEffect(() => {
-    if (!track?.content_id) { setAnlzData(null); setHotCues(Array(8).fill(null)); return; }
+    if (!track?.content_id) { setAnlzData(null); setHotCues(Array(8).fill(null)); setGridOffset(0); return; }
+    setGridOffset(0);
     sidecarGet<DualAnlzData>(`/api/tracks/${track.content_id}/anlz`)
       .then(data => {
         setAnlzData(data);
@@ -338,6 +339,7 @@ export function DJDeck({ deck, track, onClose, otherDeckBpm, isMaster, onBpmChan
         duration={audio.duration}
         onSeek={actions.seek}
         hotCues={hotCues.filter((c): c is HotCueEntry => c !== null)}
+        gridOffsetMs={gridOffset}
       />
 
       {/* ── 8 PERFORMANCE PADS ── */}
