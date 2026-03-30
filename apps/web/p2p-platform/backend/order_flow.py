@@ -4225,10 +4225,22 @@ async def assign_driver(
     order.dispatched_at = datetime.now()
 
     # Prop 22: capture driver GPS at food delivery acceptance (BPC §7463 — engagement begins here)
-    # Primary: driver's last-known current_latitude/longitude (updated by driver location updates)
-    # Fallback: order.delivery_latitude (customer address) — only if driver GPS unavailable
-    order.prop22_acceptance_lat = getattr(driver, "current_latitude", None)
-    order.prop22_acceptance_lon = getattr(driver, "current_longitude", None)
+    # Primary: driver's current GPS IF within 50mi of restaurant (sanity check for stale GPS)
+    # Fallback: vendor/restaurant location (driver must be near restaurant to pick up)
+    _driver_lat = getattr(driver, "current_latitude", None)
+    _driver_lon = getattr(driver, "current_longitude", None)
+    _vendor_lat = vendor.latitude if vendor else None
+    _vendor_lon = vendor.longitude if vendor else None
+    _use_driver_gps = False
+    if _driver_lat is not None and _driver_lon is not None and _vendor_lat and _vendor_lon:
+        try:
+            from insurance.utils import haversine_miles as _hav
+            _dist = _hav(_driver_lat, _driver_lon, _vendor_lat, _vendor_lon)
+            _use_driver_gps = _dist is not None and _dist <= 50
+        except Exception:
+            pass
+    order.prop22_acceptance_lat = _driver_lat if _use_driver_gps else _vendor_lat
+    order.prop22_acceptance_lon = _driver_lon if _use_driver_gps else _vendor_lon
 
     # Insurance: Period 1 END + Period 2 START — driver accepted delivery
     try:
