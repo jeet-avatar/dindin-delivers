@@ -168,7 +168,7 @@ export default function App() {
                 <span style={{ fontSize: '13px', color: '#4b5563' }}>Connecting to sidecar…</span>
               </div>
             ) : (
-              <TrackTable tracks={tracks} onReload={reload} onPlay={(t, e) => e?.shiftKey ? handleLoadDeckB(t) : setDeckA(t)} onAddToSet={addToSet} onAnalyze={handleAnalyze} analyzingTrack={analyzingTrack} playedIds={playedIds} compatibleKeys={compatibleKeys} nowPlayingId={nowPlaying?.content_id} />
+              <TrackTable tracks={tracks} onReload={reload} onPlay={(t) => setDeckA(t)} onLoadDeckB={handleLoadDeckB} onAddToSet={addToSet} onAnalyze={handleAnalyze} analyzingTrack={analyzingTrack} playedIds={playedIds} compatibleKeys={compatibleKeys} nowPlayingId={nowPlaying?.content_id} />
             )
           )}
 
