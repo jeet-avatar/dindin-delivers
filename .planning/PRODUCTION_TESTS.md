@@ -119,9 +119,9 @@ Records driver's **home base** (33.625, -117.603) instead of where the driver ac
 
 ## MEDIUM BUGS (4)
 
-### BUG-6: Chat alias endpoint desync
+### BUG-6: Chat alias endpoint desync — PARTIALLY FIXED
 
-`/api/chat/messages/{ride_id}` returns 0 messages while `/api/p2p/ride-requests/{ride_id}/chat` returns 7 messages for the same ride. The endpoints are not reading from the same data source.
+`/api/chat/messages/{id}` shared path between order chat and ride chat (route conflict). Fix: added ride chat fallback in order chat endpoint + new `/api/chat/ride/{id}` path for ride-specific chat. `/api/p2p/ride-requests/{id}/chat` (main endpoint) works correctly. `/api/chat/ride/{id}` (new path) returns correct messages. `/api/chat/messages/{id}` still routes to order chat handler due to ECS task caching.
 
 ### ~~BUG-7: Vendor orders show $0.00 total~~ CLOSED — TEST SCRIPT ERROR
 
