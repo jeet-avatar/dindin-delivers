@@ -102,14 +102,9 @@ Records driver's **home base** (33.625, -117.603) instead of where the driver ac
 
 ---
 
-### BUG-4: All delivery fees are $12.99 (max cap)
+### ~~BUG-4: All delivery fees are $12.99 (max cap)~~ CLOSED — NOT A BUG
 
-**Severity:** HIGH
-**Endpoint:** `POST /api/orders` → `delivery_fee` in response
-
-Every single order across all 15 state/city combinations shows delivery_fee=$12.99 (the maximum cap). Expected range is $2.99-$12.99 based on distance formula: `max($2.99, min($12.99, $2.49 + distance_miles * $0.50))`.
-
-Possible cause: Restaurant (V40 Apple Test Restaurant) in Cupertino, CA (37.33, -122.01) is always far from all test delivery addresses, OR the distance calculation between restaurant and delivery address is not working.
+**Resolution:** V40 (Apple Test Restaurant) is in Cupertino, CA (37.33, -122.01). All test delivery addresses are 37-1,614 miles away. Fee formula `max($2.99, min($12.99, $2.49 + dist * $0.50))` caps at $12.99 for any distance >21mi. Expected behavior.
 
 ---
 
