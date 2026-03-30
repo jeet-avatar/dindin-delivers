@@ -146,98 +146,39 @@ function drawBeatGrid(
   ctx: CanvasRenderingContext2D, W: number, H: number,
   beats: TrackAnlzData['beat_grid'],
   startMs: number, endMs: number,
-  zoomed: boolean,
+  _zoomed?: boolean,
 ) {
+  // CDJ-3000 subtle beat grid — 3 levels of white lines only
+  // Count bars even outside visible range so phrase markers align correctly
   let barCount = 0;
 
   for (const beat of beats) {
-    if (beat.time_ms < startMs || beat.time_ms > endMs) {
-      // Still count bars for phrase numbering
-      if ((beat as any).beat === 1 || beat.beat === 1) barCount++;
-      continue;
-    }
-    const x = ((beat.time_ms - startMs) / (endMs - startMs)) * W;
-    const bn = (beat as any).beat ?? (beat as any).beat_number ?? 0;
-    const isDown = bn === 1;
+    const isDown = beat.beat === 1;
     if (isDown) barCount++;
 
-    // ── BEAT LINES — WHITE ON DARK ──
-    if (isDown) {
-      // Downbeat — bright white, thick
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.lineWidth = zoomed ? 2.5 : 1.5;
-      ctx.globalAlpha = 1;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    // Skip beats outside visible range (after counting)
+    if (beat.time_ms < startMs || beat.time_ms > endMs) continue;
 
-      // Bar number
-      if (zoomed) {
-        const txt = barCount.toString();
-        ctx.font = 'bold 11px -apple-system, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.9)';
-        ctx.fillText(txt, x + 4, 13);
-      } else {
-        if (barCount % 4 === 1) {
-          ctx.fillStyle = 'rgba(255,255,255,0.6)';
-          ctx.font = 'bold 8px sans-serif';
-          ctx.fillText(barCount.toString(), x + 2, 9);
-        }
-      }
-    } else {
-      // Beats 2,3,4 — semi-transparent white
+    const x = ((beat.time_ms - startMs) / (endMs - startMs)) * W;
+
+    if (isDown && barCount % 16 === 1) {
+      // Phrase marker — every 16 bars
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 2;
+    } else if (isDown) {
+      // Downbeat — bar boundary
       ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      ctx.lineWidth = zoomed ? 1 : 0.5;
-      ctx.globalAlpha = 1;
-      ctx.beginPath(); ctx.moveTo(x, zoomed ? 0 : H * 0.3); ctx.lineTo(x, H); ctx.stroke();
-
-      // Beat number at bottom (zoomed only)
-      if (zoomed) {
-        ctx.fillStyle = 'rgba(255,255,255,0.35)';
-        ctx.font = '9px sans-serif';
-        ctx.fillText(bn.toString(), x + 2, H - 3);
-      }
+      ctx.lineWidth = 1.5;
+    } else {
+      // Regular beat (2, 3, 4)
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 1;
     }
 
-    // ── PHRASE MARKERS (downbeats only) ──
-    if (!isDown) continue;
-
-    // 4-bar phrase (16 beats) — red triangle
-    if (barCount % 4 === 1) {
-      ctx.fillStyle = '#FF1744';
-      ctx.beginPath();
-      ctx.moveTo(x - 1, 0); ctx.lineTo(x + (zoomed ? 10 : 7), 0); ctx.lineTo(x + (zoomed ? 5 : 3), zoomed ? 10 : 7);
-      ctx.closePath(); ctx.fill();
-    }
-
-    // 8-bar phrase (32 beats) — cyan triangle + dashed line
-    if (barCount % 8 === 1) {
-      ctx.fillStyle = '#00E5FF';
-      ctx.beginPath();
-      ctx.moveTo(x - 2, 0); ctx.lineTo(x + (zoomed ? 13 : 9), 0); ctx.lineTo(x + (zoomed ? 6 : 4), zoomed ? 14 : 10);
-      ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = '#00E5FF'; ctx.lineWidth = 1; ctx.globalAlpha = 0.35;
-      ctx.setLineDash([6, 4]);
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-      ctx.setLineDash([]); ctx.globalAlpha = 1;
-    }
-
-    // 16-bar phrase (64 beats) — magenta thick line
-    if (barCount % 16 === 1) {
-      ctx.strokeStyle = '#FF00FF'; ctx.lineWidth = zoomed ? 3 : 2; ctx.globalAlpha = 0.7;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-      ctx.globalAlpha = 1;
-      if (zoomed) {
-        ctx.fillStyle = '#FF00FF'; ctx.font = 'bold 10px sans-serif';
-        ctx.fillText('16-BAR', x + 5, Math.round(H * 0.5));
-      }
-    }
-
-    // 32-bar phrase (128 beats) — double magenta
-    if (barCount % 32 === 1 && barCount > 1) {
-      ctx.strokeStyle = '#FF00FF'; ctx.lineWidth = zoomed ? 4 : 3; ctx.globalAlpha = 0.9;
-      ctx.beginPath(); ctx.moveTo(x - 2, 0); ctx.lineTo(x - 2, H); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + 2, 0); ctx.lineTo(x + 2, H); ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
   }
 }
 
