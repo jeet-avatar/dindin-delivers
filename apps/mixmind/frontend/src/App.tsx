@@ -22,39 +22,47 @@ export default function App() {
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [usbConnected] = useState(false);
   const [usbName] = useState<string | undefined>();
-  const [nowPlaying, setNowPlaying] = useState<Track | null>(null);
+  // ── Dual deck state ──────────────────────────────────────────────────────
+  const [deckA, setDeckA] = useState<Track | null>(null);
+  const [deckB, setDeckB] = useState<Track | null>(null);
+  const nowPlaying = deckA; // backwards compat for TrackTable highlight
+  const setNowPlaying = setDeckA; // default click loads Deck A
+
   const [setTracks, setSetTracks] = useState<Track[]>([]);
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
   const [compatibleKeys, setCompatibleKeys] = useState<string[]>([]);
   const [showCamelotWheel, setShowCamelotWheel] = useState(false);
 
-  // ── Lifted player state (shared between DJWaveformView and MiniPlayer) ────
-  const [playerCurrentTime, setPlayerCurrentTime] = useState(0);
-  const [playerDuration,    setPlayerDuration]    = useState(0);
-  // seekTo: set by DJWaveformView, consumed by MiniPlayer to seek the audio element
-  const [seekTo, setSeekTo] = useState<number | null>(null);
+  // Deck A player state
+  const [deckATime, setDeckATime] = useState(0);
+  const [deckADuration, setDeckADuration] = useState(0);
+  const [deckASeek, setDeckASeek] = useState<number | null>(null);
 
-  // Reset player state when track changes
-  useEffect(() => {
-    setPlayerCurrentTime(0);
-    setPlayerDuration(0);
-    setSeekTo(null);
-  }, [nowPlaying?.content_id]);
+  // Deck B player state
+  const [deckBTime, setDeckBTime] = useState(0);
+  const [deckBDuration, setDeckBDuration] = useState(0);
+  const [deckBSeek, setDeckBSeek] = useState<number | null>(null);
 
-  // Track played IDs and fetch compatible keys when now-playing changes
+  // Reset deck state when track changes
+  useEffect(() => { setDeckATime(0); setDeckADuration(0); setDeckASeek(null); }, [deckA?.content_id]);
+  useEffect(() => { setDeckBTime(0); setDeckBDuration(0); setDeckBSeek(null); }, [deckB?.content_id]);
+
+  // Track played IDs and fetch compatible keys from whichever deck last loaded
+  const activeTrack = deckA;
   useEffect(() => {
-    if (!nowPlaying?.content_id) { setCompatibleKeys([]); return; }
-    setPlayedIds(prev => new Set([...prev, nowPlaying.content_id]));
-    if (!nowPlaying.camelot || nowPlaying.camelot === '?') { setCompatibleKeys([]); return; }
-    sidecarGet<{ compatible: string[] }>('/api/library/compatible/' + nowPlaying.camelot)
+    if (!activeTrack?.content_id) { setCompatibleKeys([]); return; }
+    setPlayedIds(prev => new Set([...prev, activeTrack.content_id]));
+    if (!activeTrack.camelot || activeTrack.camelot === '?') { setCompatibleKeys([]); return; }
+    sidecarGet<{ compatible: string[] }>('/api/library/compatible/' + activeTrack.camelot)
       .then(r => setCompatibleKeys(r.compatible))
       .catch(() => setCompatibleKeys([]));
-  }, [nowPlaying?.content_id]);
+  }, [activeTrack?.content_id]);
 
-  function handleSeek(sec: number) {
-    // Use a fresh object to guarantee useEffect fires even for same-second seeks
-    setSeekTo(sec);
-  }
+  function handleSeek(sec: number) { setDeckASeek(sec); }
+  function handleSeekB(sec: number) { setDeckBSeek(sec); }
+
+  // Load to Deck B: hold Shift+click or use context menu
+  function handleLoadDeckB(track: Track) { setDeckB(track); }
 
   const [analyzingTrack, setAnalyzingTrack] = useState<string | null>(null);
 
@@ -160,7 +168,7 @@ export default function App() {
                 <span style={{ fontSize: '13px', color: '#4b5563' }}>Connecting to sidecar…</span>
               </div>
             ) : (
-              <TrackTable tracks={tracks} onReload={reload} onPlay={setNowPlaying} onAddToSet={addToSet} onAnalyze={handleAnalyze} analyzingTrack={analyzingTrack} playedIds={playedIds} compatibleKeys={compatibleKeys} nowPlayingId={nowPlaying?.content_id} />
+              <TrackTable tracks={tracks} onReload={reload} onPlay={(t, e) => e?.shiftKey ? handleLoadDeckB(t) : setDeckA(t)} onAddToSet={addToSet} onAnalyze={handleAnalyze} analyzingTrack={analyzingTrack} playedIds={playedIds} compatibleKeys={compatibleKeys} nowPlayingId={nowPlaying?.content_id} />
             )
           )}
 
@@ -242,28 +250,45 @@ export default function App() {
         <AIChatSidebar onPlaylistCreated={handlePlaylistCreated} tracks={tracks} />
       </div>
 
-      {/* ── DJ Waveform View + Mini Player (shown when track is playing) ── */}
-      {nowPlaying && (
-        <>
-          <DJWaveformView
-            track={nowPlaying}
-            currentTime={playerCurrentTime}
-            duration={playerDuration}
-            onSeek={handleSeek}
-          />
-          <MiniPlayer
-            track={nowPlaying}
-            onCurrentTimeChange={setPlayerCurrentTime}
-            onDurationChange={setPlayerDuration}
-            seekTo={seekTo}
-            onClose={() => setNowPlaying(null)}
-            onOpenCamelotWheel={() => setShowCamelotWheel(true)}
-          />
-        </>
+      {/* ── Dual Deck CDJ Layout ── */}
+      {(deckA || deckB) && (
+        <div style={{ display: 'flex', flexShrink: 0, borderTop: '1px solid #222' }}>
+          {/* DECK A */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '2px solid #222', position: 'relative' }}>
+            {deckA ? (
+              <>
+                <DJWaveformView track={deckA} currentTime={deckATime} duration={deckADuration} onSeek={handleSeek} />
+                <MiniPlayer track={deckA} onCurrentTimeChange={setDeckATime} onDurationChange={setDeckADuration}
+                  seekTo={deckASeek} onClose={() => setDeckA(null)} onOpenCamelotWheel={() => setShowCamelotWheel(true)} />
+              </>
+            ) : (
+              <div style={{ height: '340px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}>
+                <span style={{ fontSize: '14px', color: '#333', letterSpacing: '2px' }}>DECK A</span>
+              </div>
+            )}
+            <div style={{ position: 'absolute', top: 4, left: 8, fontSize: '10px', fontWeight: 700, color: '#FF8C00', letterSpacing: '1px', opacity: 0.6, pointerEvents: 'none' }}>A</div>
+          </div>
+
+          {/* DECK B */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            {deckB ? (
+              <>
+                <DJWaveformView track={deckB} currentTime={deckBTime} duration={deckBDuration} onSeek={handleSeekB} />
+                <MiniPlayer track={deckB} onCurrentTimeChange={setDeckBTime} onDurationChange={setDeckBDuration}
+                  seekTo={deckBSeek} onClose={() => setDeckB(null)} />
+              </>
+            ) : (
+              <div style={{ height: '340px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}>
+                <span style={{ fontSize: '14px', color: '#333', letterSpacing: '2px' }}>DECK B — Shift+Click to load</span>
+              </div>
+            )}
+            <div style={{ position: 'absolute', top: 4, left: 8, fontSize: '10px', fontWeight: 700, color: '#00E5FF', letterSpacing: '1px', opacity: 0.6, pointerEvents: 'none' }}>B</div>
+          </div>
+        </div>
       )}
-      {showCamelotWheel && nowPlaying && (
+      {showCamelotWheel && activeTrack && (
         <CamelotWheel
-          currentCamelot={nowPlaying.camelot}
+          currentCamelot={activeTrack.camelot}
           compatibleKeys={compatibleKeys}
           onClose={() => setShowCamelotWheel(false)}
         />

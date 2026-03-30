@@ -561,119 +561,100 @@ export function DJWaveformView({ track, currentTime, duration, onSeek, analysisV
     transition: 'all 0.12s',
   });
 
+  const bpm = anlzData ? (anlzData.bpm > 0 ? anlzData.bpm : track.bpm) : track.bpm;
+  const timeRemaining = duration > 0 ? -(duration - currentTime) : 0;
+  const timeRemStr = timeRemaining < 0
+    ? `-${Math.floor(Math.abs(timeRemaining) / 60)}:${Math.floor(Math.abs(timeRemaining) % 60).toString().padStart(2, '0')}`
+    : '0:00';
+
+  // Effective source for indicator
+  const effectiveSource = dualData
+    ? (anlzSource === 'rb' ? 'RB' : anlzSource === 'mm' ? 'MM' : dualData.mixmind ? 'MM' : 'RB')
+    : null;
+
   return (
     <div style={{
-      background: '#000000', borderTop: '1px solid #1a1a2e', borderBottom: '1px solid #1a1a2e',
-      flexShrink: 0, display: 'flex', flexDirection: 'column',
+      background: '#000', display: 'flex', flexDirection: 'column',
+      border: '1px solid #222', flexShrink: 0, height: '340px',
+      fontFamily: "-apple-system, 'Helvetica Neue', sans-serif",
     }}>
-      {/* ── Header bar ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px',
-        borderBottom: '1px solid rgba(255,255,255,0.04)', minHeight: '34px', flexShrink: 0, flexWrap: 'wrap',
-      }}>
-        <span style={{ fontSize: '12px', fontWeight: 600, color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
-          {track.title}
-        </span>
-        <span style={{ fontSize: '10px', color: '#6b7280', whiteSpace: 'nowrap' }}>{track.artist}</span>
-        {anlzData && (
-          <>
-            <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(124,58,237,0.15)', color: '#a78bfa', fontFeatureSettings: '"tnum"' }}>
-              {Math.round(anlzData.bpm > 0 ? anlzData.bpm : track.bpm)} BPM
-            </span>
-            <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#6b7280' }}>
-              {track.camelot}
-            </span>
-          </>
-        )}
-        <span style={{ fontSize: '9px', color: '#374151', fontFeatureSettings: '"tnum"' }}>
-          {formatTime(currentTime)} / {formatTime(duration)}
-        </span>
 
-        {/* Waveform style selector */}
-        <div style={{ display: 'flex', gap: '2px', background: 'rgba(255,255,255,0.04)', borderRadius: '5px', padding: '2px', marginLeft: '4px' }}>
-          {([
-            { key: '3band' as WfStyle, label: '3Band', color: '#FFA600' },
-            { key: 'rgb' as WfStyle, label: 'RGB', color: '#00FF00' },
-            { key: 'blue' as WfStyle, label: 'BLUE', color: '#0066FF' },
-          ]).map(s => (
-            <button key={s.key} onClick={() => setWfStyle(s.key)} style={btnStyle(wfStyle === s.key, s.color)}>
-              {s.label}
-            </button>
-          ))}
+      {/* ── TOP INFO BAR (80px) ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', padding: '8px 16px',
+        height: '60px', flexShrink: 0, borderBottom: '1px solid #1a1a1a', gap: '12px',
+      }}>
+        {/* Album art placeholder */}
+        <div style={{
+          width: 42, height: 42, borderRadius: '4px', border: '1px solid #333',
+          background: 'linear-gradient(135deg, #1a0a2e, #0a1628)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '20px', flexShrink: 0,
+        }}>&#9835;</div>
+
+        {/* Track info */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '15px', fontWeight: 600, color: '#fff', letterSpacing: '0.3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {track.title}
+          </div>
+          <div style={{ fontSize: '11px', color: '#888', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {track.artist}
+          </div>
         </div>
 
-        {/* Source toggle */}
-        {dualData && (
+        {/* Controls cluster — floating right side */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          {/* Style toggle */}
           <div style={{ display: 'flex', gap: '2px', background: 'rgba(255,255,255,0.04)', borderRadius: '5px', padding: '2px' }}>
             {([
-              { key: 'rb' as AnlzSource, label: 'RB', color: '#00E676', available: !!dualData.rekordbox },
-              { key: 'mm' as AnlzSource, label: 'MM', color: '#AA00FF', available: !!dualData.mixmind },
-              { key: 'auto' as AnlzSource, label: 'Auto', color: '#7C4DFF', available: true },
-            ]).map(b => (
-              <button key={b.key} onClick={() => setAnlzSource(b.key)} disabled={!b.available} style={btnStyle(anlzSource === b.key, b.color, b.available)}>
-                {b.label}
+              { key: '3band' as WfStyle, label: '3Band', color: '#FFA600' },
+              { key: 'rgb' as WfStyle, label: 'RGB', color: '#00FF00' },
+              { key: 'blue' as WfStyle, label: 'BLUE', color: '#0066FF' },
+            ]).map(s => (
+              <button key={s.key} onClick={() => setWfStyle(s.key)} style={btnStyle(wfStyle === s.key, s.color)}>
+                {s.label}
               </button>
             ))}
           </div>
-        )}
 
-        {/* Zoom control */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '4px' }}>
-          <span style={{ fontSize: '9px', color: '#6b7280' }}>Zoom:</span>
+          {/* Source toggle */}
+          {dualData && (
+            <div style={{ display: 'flex', gap: '2px', background: 'rgba(255,255,255,0.04)', borderRadius: '5px', padding: '2px' }}>
+              {([
+                { key: 'rb' as AnlzSource, label: 'RB', color: '#00E676', available: !!dualData.rekordbox },
+                { key: 'mm' as AnlzSource, label: 'MM', color: '#AA00FF', available: !!dualData.mixmind },
+                { key: 'auto' as AnlzSource, label: 'Auto', color: '#7C4DFF', available: true },
+              ]).map(b => (
+                <button key={b.key} onClick={() => setAnlzSource(b.key)} disabled={!b.available} style={btnStyle(anlzSource === b.key, b.color, b.available)}>
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Zoom */}
           <input type="range" min="8" max="128" step="8" value={zoomBeats}
             onChange={e => setZoomBeats(parseInt(e.target.value))}
-            style={{ width: '80px', accentColor: '#7c3aed' }} />
-          <span style={{ fontSize: '9px', color: '#6b7280', fontFeatureSettings: '"tnum"', minWidth: '40px' }}>
-            {Math.round(zoomBeats / 4)} bars
-          </span>
+            style={{ width: '60px', accentColor: '#555' }} />
         </div>
 
-        {/* Active source indicator + availability */}
-        {dualData && (() => {
-          const effectiveSource = anlzSource === 'rb' ? 'RB'
-            : anlzSource === 'mm' ? 'MM'
-            : dualData.mixmind ? 'MM' : 'RB';
-          const dotColor = effectiveSource === 'MM' ? '#AA00FF' : '#00E676';
-          const hasRB = !!dualData.rekordbox;
-          const hasMM = !!dualData.mixmind;
-          const availLabel = hasRB && hasMM ? 'RB + MM' : hasRB ? 'RB only' : hasMM ? 'MM only' : 'none';
-          return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
-              <span style={{
-                fontSize: '9px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
-                background: effectiveSource === 'MM' ? 'rgba(170,0,255,0.15)' : 'rgba(0,230,118,0.15)',
-                color: effectiveSource === 'MM' ? '#AA00FF' : '#00E676',
-                display: 'flex', alignItems: 'center', gap: '4px',
-              }}>
-                <span style={{
-                  width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
-                  background: dotColor,
-                }} />
-                Source: {effectiveSource}
-              </span>
-              <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)', fontFamily: 'ui-monospace, monospace' }}>
-                [{availLabel}]
-              </span>
-            </div>
-          );
-        })()}
-        {!dualData && !loading && (
-          <span style={{ fontSize: '9px', color: '#ff4444', marginLeft: '6px' }}>Not analyzed</span>
-        )}
+        {/* Track meta — right aligned */}
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{ fontSize: '14px', color: '#aaa' }}>{formatTime(duration)}</div>
+          <div style={{ fontSize: '14px', color: '#00E676', fontWeight: 600, marginTop: '2px' }}>{track.camelot || '—'}</div>
+        </div>
       </div>
 
-      {/* ── Waveform panes ── */}
-      <div style={{ display: 'flex', height: '100px', position: 'relative' }}>
-        {/* Toast notification */}
+      {/* ── MAIN WAVEFORM (flex fill) ── */}
+      <div ref={zoomedWrapRef} style={{ flex: 1, position: 'relative', background: '#000', overflow: 'hidden' }}>
+        {/* Toast */}
         {toast && (
           <div style={{
             position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
             background: 'rgba(170,0,255,0.9)', color: '#fff', padding: '4px 16px',
             borderRadius: '4px', fontSize: '11px', fontWeight: 600, zIndex: 20,
             pointerEvents: 'none', fontFamily: 'ui-monospace, monospace',
-          }}>
-            {toast}
-          </div>
+          }}>{toast}</div>
         )}
         {loading && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', zIndex: 10 }}>
@@ -682,30 +663,71 @@ export function DJWaveformView({ track, currentTime, duration, onSeek, analysisV
         )}
         {noAnlz && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: '11px', color: '#4b5563' }}>No waveform data</span>
+            <span style={{ fontSize: '14px', color: '#4b5563' }}>No waveform data</span>
           </div>
         )}
+        <canvas ref={zoomedCanvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+        {/* Stem legend overlay */}
+        {anlzData?.waveform_4stem && (
+          <div style={{ position: 'absolute', top: 6, right: 10, display: 'flex', gap: '8px', fontSize: '9px', opacity: 0.5, pointerEvents: 'none' }}>
+            {[{ l: 'Drums', c: STEM_DRUMS }, { l: 'Bass', c: STEM_BASS }, { l: 'Vocals', c: STEM_VOCALS }, { l: 'Other', c: STEM_OTHER }].map(s => (
+              <span key={s.l} style={{ display: 'flex', alignItems: 'center', gap: '3px', color: 'rgba(255,255,255,0.5)' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.c, display: 'inline-block' }} />
+                {s.l}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
-        {/* Overview (left) */}
-        <div ref={overviewWrapRef} style={{ flex: '0 0 50%', borderRight: '1px solid rgba(255,255,255,0.06)', position: 'relative' }}>
-          <canvas ref={overviewCanvasRef} onClick={handleOverviewClick}
-            style={{ width: '100%', height: '100%', display: 'block', cursor: 'pointer' }} />
-          {/* Stem legend */}
-          {anlzData?.waveform_4stem && (
-            <div style={{ position: 'absolute', top: 3, right: 3, display: 'flex', gap: '5px', fontSize: '7px', opacity: 0.6, pointerEvents: 'none' }}>
-              {[{ l: 'Drums', c: STEM_DRUMS }, { l: 'Bass', c: STEM_BASS }, { l: 'Vocals', c: STEM_VOCALS }, { l: 'Other', c: STEM_OTHER }].map(s => (
-                <span key={s.l} style={{ display: 'flex', alignItems: 'center', gap: '2px', color: 'rgba(255,255,255,0.6)' }}>
-                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.c, display: 'inline-block' }} />
-                  {s.l}
-                </span>
-              ))}
-            </div>
-          )}
+      {/* ── PHASE METER (28px) ── */}
+      <div style={{
+        height: '28px', flexShrink: 0, borderTop: '1px solid #1a1a1a', borderBottom: '1px solid #1a1a1a',
+        display: 'flex', alignItems: 'center', padding: '0 20px', gap: '10px',
+      }}>
+        <span style={{ fontSize: '10px', color: '#555', letterSpacing: '1px' }}>PHASE</span>
+        <div style={{ flex: 1, height: '4px', background: '#111', borderRadius: '2px', position: 'relative' }}>
+          <div style={{
+            position: 'absolute', left: '50%', top: '-3px',
+            width: '6px', height: '10px', background: '#00E676',
+            borderRadius: '2px', transform: 'translateX(-3px)',
+          }} />
         </div>
+      </div>
 
-        {/* Zoomed (right) */}
-        <div ref={zoomedWrapRef} style={{ flex: '0 0 50%', position: 'relative' }}>
-          <canvas ref={zoomedCanvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+      {/* ── OVERVIEW STRIP (52px) ── */}
+      <div ref={overviewWrapRef} style={{ height: '52px', flexShrink: 0, borderTop: '1px solid #1a1a1a', position: 'relative', background: '#000' }}>
+        <canvas ref={overviewCanvasRef} onClick={handleOverviewClick}
+          style={{ width: '100%', height: '100%', display: 'block', cursor: 'pointer' }} />
+      </div>
+
+      {/* ── BOTTOM BAR (44px) ── */}
+      <div style={{
+        height: '44px', flexShrink: 0, borderTop: '1px solid #1a1a1a',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 20px', fontSize: '13px',
+      }}>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          <span style={{ color: '#555', fontSize: '11px', letterSpacing: '1px' }}>A.CUE</span>
+          <span style={{ fontSize: '16px', color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{timeRemStr}</span>
+        </div>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          <span style={{ color: '#555', fontSize: '11px', letterSpacing: '1px' }}>SINGLE</span>
+          <span style={{ color: '#00E676', fontSize: '14px' }}>+0.00%</span>
+          <span style={{
+            background: '#FF8C00', color: '#000', padding: '3px 12px',
+            borderRadius: '4px', fontWeight: 700, fontSize: '16px',
+            fontVariantNumeric: 'tabular-nums',
+          }}>{bpm.toFixed(2)}</span>
+          <span style={{ color: '#00E676', fontSize: '14px', fontWeight: 600 }}>{track.camelot || '—'}</span>
+          {/* Source indicator */}
+          {effectiveSource && (
+            <span style={{
+              fontSize: '9px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
+              background: effectiveSource === 'MM' ? 'rgba(170,0,255,0.15)' : 'rgba(0,230,118,0.15)',
+              color: effectiveSource === 'MM' ? '#AA00FF' : '#00E676',
+            }}>{effectiveSource}</span>
+          )}
         </div>
       </div>
     </div>

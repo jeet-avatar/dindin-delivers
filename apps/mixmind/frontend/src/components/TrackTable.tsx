@@ -12,7 +12,7 @@ interface Props {
   tracks: Track[];
   onSelect?: (track: Track) => void;
   onReload?: () => void;
-  onPlay?: (track: Track) => void;
+  onPlay?: (track: Track, e?: React.MouseEvent) => void;
   onAddToSet?: (track: Track) => void;
   onAnalyze?: (contentId: string) => void;
   analyzingTrack?: string | null;
@@ -275,10 +275,10 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onA
     else { setSortKey(key); setSortDir('asc'); }
   }
 
-  function handleRowClick(t: Track) {
+  function handleRowClick(t: Track, e?: React.MouseEvent) {
     setActiveId(t.content_id);
     onSelect?.(t);
-    if (t.file_path) onPlay?.(t);
+    if (t.file_path) onPlay?.(t, e);
   }
 
   // ── Render ──────────────────────────────────────────────────
@@ -607,7 +607,7 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onA
               return (
                 <div
                   key={t.content_id}
-                  onClick={() => handleRowClick(t)}
+                  onClick={(e) => handleRowClick(t, e)}
                   style={{
                     position: 'absolute', top: vRow.start, width: '100%',
                     height: vRow.size,
