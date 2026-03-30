@@ -377,4 +377,26 @@ Plans:
 - [ ] 19-05-PLAN.md -- Analyze to UI update: post-analysis refresh, toast notification, no page reload
 
 *Roadmap created: 2026-02-21*
-*Last updated: 2026-03-29 -- Phase 19 added (CDJ-3000 Waveform Replica for MixMind)*
+*Last updated: 2026-03-29 -- Phase 20 added (CDJ-3000 Functional Controls)*
+
+### Phase 20: CDJ-3000 Functional Controls
+**Goal**: Make every button in the CDJ-3000 DJDeck component fully functional -- no stubbed buttons, no dead state, every control does exactly what it does on real CDJ-3000 hardware
+**Depends on**: Phase 19 (CDJ-3000 Waveform Replica)
+**Requirements**: CDJ-01, CDJ-02, CDJ-03, CDJ-04, CDJ-05, CDJ-06, CDJ-07, CDJ-08, CDJ-09, CDJ-10
+**Success Criteria** (what must be TRUE):
+  1. Hot cues load from Rekordbox ANLZ data when a track loads and display on waveform
+  2. Loop enforcement runs in the audio engine (not React render), loops are audio-tight
+  3. Pitch fader is draggable (click + drag), not just click-to-position
+  4. CUE button correctly distinguishes tap (set cue) from hold (preview) with no race condition
+  5. SYNC matches this deck's BPM to the other deck's effective BPM
+  6. MASTER designates sync source (exclusive -- one deck at a time)
+  7. QUANTIZE and SLIP toggle on/off with visual feedback
+  8. Beat grid nudge buttons visually shift beat grid lines on the waveform
+**Plans**: 5 plans (all sequential -- Wave 1 through Wave 5)
+
+Plans:
+- [ ] 20-01-PLAN.md -- Load Rekordbox hot cues on track load, merge with user-set cues, display on waveform
+- [ ] 20-02-PLAN.md -- Move loop enforcement from React render to audio engine RAF tick
+- [ ] 20-03-PLAN.md -- Draggable pitch fader + fix CUE button click/mousedown race condition
+- [ ] 20-04-PLAN.md -- Wire SYNC/MASTER/QUANTIZE/SLIP buttons with real logic and cross-deck BPM sharing
+- [ ] 20-05-PLAN.md -- Wire beat grid nudge to waveform display via gridOffsetMs prop
