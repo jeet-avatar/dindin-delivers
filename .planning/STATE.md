@@ -414,6 +414,7 @@ None
 | 251 | Save 255+ production test results to PRODUCTION_TESTS.md — CA/AZ/TX rides+orders, 14 bugs documented | 2026-03-30 | 69913fc0 | [251-save-all-production-test-results-to-pers](./quick/251-save-all-production-test-results-to-pers/) |
 | 252 | Fix BUG-1+2: prop22 acceptance GPS sanity check — 50mi threshold, fallback to pickup coords | 2026-03-30 | 3fcff240 | [252-fix-bug-1-prop22-engaged-miles-uses-driv](./quick/252-fix-bug-1-prop22-engaged-miles-uses-driv/) |
 | 253 | BUG-3 investigated: not a bug — V42/V47 offline restaurants, V136 works with correct IDs | 2026-03-30 | — | [253-fix-bug-3-food-orders-from-non-v40-vendo](./quick/253-fix-bug-3-food-orders-from-non-v40-vendo/) |
+| 254 | BUG-4 investigated: not a bug — restaurant in Cupertino, all deliveries >21mi = $12.99 cap | 2026-03-30 | — | [254-investigate-bug-4-all-delivery-fees-are-](./quick/254-investigate-bug-4-all-delivery-fees-are-/) |
 
 ## Session Continuity
 
