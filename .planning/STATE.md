@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 
 ## Current Position
 
-Phase: 20 (CDJ-3000 Functional Controls)
-Plan: 4 of 5 complete in current phase
-Status: Plan 20-04 complete: SYNC/MASTER/QUANTIZE/SLIP buttons wired with cross-deck BPM sharing.
-Last activity: 2026-03-30 - Completed Phase 20-04: Sync/Master/Quantize/Slip controls
+Phase: 20 (CDJ-3000 Functional Controls) -- COMPLETE
+Plan: 5 of 5 complete in current phase
+Status: Phase 20 complete: All CDJ-3000 functional controls wired (hot cues, loops, beat jump, pitch, sync, grid nudge).
+Last activity: 2026-03-30 - Completed Phase 20-05: Beat grid nudge wiring
 
-Progress: [################################........] 80% (4/5 plans in phase 20)
+Progress: [########################################] 100% (5/5 plans in phase 20)
 
 ## Completed Milestones
 
@@ -120,6 +120,7 @@ Progress: [################################........] 80% (4/5 plans in phase 20)
 - [Phase 20-02]: Loop enforcement uses refs for RAF-tick access; useEffect bridges React state to engine refs
 - [Phase 20-03]: 150ms timer threshold for CUE tap/hold discrimination; global mouse event pattern for pitch drag
 - [Phase 20]: SYNC uses pitch% formula ((targetBpm/originalBpm)-1)*100; MASTER state in App.tsx for exclusivity; QUANTIZE/SLIP visual-only toggles deferred to future
+- [Phase 20-05]: Offset applied inside drawBeatGrid via parameter rather than mutating beat_grid data
 
 ### Blockers
 
