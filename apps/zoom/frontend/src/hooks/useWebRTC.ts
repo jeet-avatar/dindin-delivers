@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-const SIGNALING_URL = 'ws://localhost:3001';
-const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+// Always connect to /ws on same host — Vite proxies in dev, unified server in prod
+const SIGNALING_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+];
 
 interface UseWebRTCOptions {
   room: string;
@@ -36,26 +41,22 @@ export function useWebRTC({ room, name }: UseWebRTCOptions): UseWebRTCReturn {
   const localStreamRef = useRef<MediaStream | null>(null);
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
 
-  // Send message through signaling
   const send = useCallback((msg: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg));
     }
   }, []);
 
-  // Create peer connection and set up handlers
   const createPeerConnection = useCallback(() => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     pcRef.current = pc;
 
-    // Send ICE candidates to remote peer
     pc.onicecandidate = (e) => {
       if (e.candidate) {
         send({ type: 'ice-candidate', candidate: e.candidate });
       }
     };
 
-    // Receive remote tracks
     const remote = new MediaStream();
     setRemoteStream(remote);
     pc.ontrack = (e) => {
@@ -63,7 +64,6 @@ export function useWebRTC({ room, name }: UseWebRTCOptions): UseWebRTCReturn {
       setRemoteStream(new MediaStream(remote.getTracks()));
     };
 
-    // Add local tracks to connection
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
         pc.addTrack(track, localStreamRef.current!);
@@ -73,7 +73,6 @@ export function useWebRTC({ room, name }: UseWebRTCOptions): UseWebRTCReturn {
     return pc;
   }, [send]);
 
-  // Initialize: get media, connect to signaling
   useEffect(() => {
     let cancelled = false;
 
@@ -89,7 +88,6 @@ export function useWebRTC({ room, name }: UseWebRTCOptions): UseWebRTCReturn {
         cameraTrackRef.current = stream.getVideoTracks()[0] || null;
         setLocalStream(stream);
 
-        // Connect to signaling server
         const ws = new WebSocket(SIGNALING_URL);
         wsRef.current = ws;
 
@@ -97,12 +95,15 @@ export function useWebRTC({ room, name }: UseWebRTCOptions): UseWebRTCReturn {
           send({ type: 'join', room, name });
         };
 
+        ws.onerror = () => {
+          setError('Cannot connect to signaling server');
+        };
+
         ws.onmessage = async (event) => {
           const msg = JSON.parse(event.data);
 
           if (msg.type === 'peer-joined') {
             setPeerName(msg.name);
-            // If we're the one who was already in the room, create offer
             const pc = pcRef.current || createPeerConnection();
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
@@ -141,7 +142,7 @@ export function useWebRTC({ room, name }: UseWebRTCOptions): UseWebRTCReturn {
           }
         };
       } catch (err) {
-        setError('Could not access camera/microphone');
+        setError('Could not access camera/microphone. Please allow access and reload.');
         console.error(err);
       }
     }
@@ -187,7 +188,6 @@ export function useWebRTC({ room, name }: UseWebRTCOptions): UseWebRTCReturn {
         await sender.replaceTrack(screenTrack);
         setIsScreenSharing(true);
 
-        // When user stops sharing via browser UI
         screenTrack.onended = async () => {
           if (cameraTrackRef.current) {
             await sender.replaceTrack(cameraTrackRef.current);
