@@ -17903,31 +17903,19 @@ def send_ride_request_chat(
 
 @app.get("/api/chat/messages/{ride_id}")
 def get_chat_messages(ride_id: int, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
-    """Get chat messages for a ride (alias endpoint)"""
-    return {
-        "ride_id": ride_id,
-        "messages": [],
-        "total": 0
-    }
+    """Get chat messages for a ride (alias — delegates to main chat endpoint)"""
+    return get_ride_request_chat(ride_request_id=ride_id, db=db, _auth=_auth)
 
 
 @app.post("/api/chat/messages/{ride_id}")
 def send_chat_message(
     ride_id: int,
-    message: str = Form(...),
+    chat_request: RideChatMessageRequest,
     db: Session = Depends(get_db),
     _auth: dict = Depends(require_any_auth),
 ):
-    """Send a chat message (alias endpoint)"""
-    message_id = ride_id * 1000 + 1
-
-    return {
-        "success": True,
-        "message_id": message_id,
-        "ride_id": ride_id,
-        "message": message,
-        "created_at": datetime.utcnow().isoformat()
-    }
+    """Send a chat message (alias — delegates to main chat endpoint)"""
+    return send_ride_request_chat(ride_request_id=ride_id, chat_request=chat_request, db=db, _auth=_auth)
 
 
 # ==================== DELIVERY DECISION ENDPOINTS ====================
