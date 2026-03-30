@@ -448,6 +448,14 @@ async def create_ride_request(data: CreateRideRequestInput, request: Request, cu
             detail="You already have 3 open ride requests. Please wait or cancel existing ones."
         )
 
+    # Reject rides where pickup and dropoff are the same location
+    if (data.pickup_latitude == data.dropoff_latitude and
+            data.pickup_longitude == data.dropoff_longitude):
+        raise HTTPException(
+            status_code=400,
+            detail="Pickup and dropoff locations must be different"
+        )
+
     # Block customers with unpaid balance from new bookings
     if customer.has_unpaid_balance:
         raise HTTPException(
