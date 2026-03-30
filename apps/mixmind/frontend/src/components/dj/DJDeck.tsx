@@ -138,11 +138,10 @@ export function DJDeck({ deck, track, onClose }: DJDeckProps) {
     setHotCues(prev => { const next = [...prev]; next[index] = null; return next; });
   }
 
-  // ── Loop logic (check in animation frame) ──
-  // Simple loop: if loopActive and currentTime > loopOut, seek back to loopIn
-  if (loopActive && loopIn !== null && loopOut !== null && audio.currentTime >= loopOut) {
-    actions.seek(loopIn);
-  }
+  // ── Sync loop state to audio engine (enforcement runs in RAF tick) ──
+  useEffect(() => {
+    actions.setLoop(loopActive, loopIn, loopOut);
+  }, [loopActive, loopIn, loopOut, actions]);
 
   function handleLoopIn() {
     setLoopIn(audio.currentTime);
