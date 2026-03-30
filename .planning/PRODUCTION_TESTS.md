@@ -123,9 +123,9 @@ Records driver's **home base** (33.625, -117.603) instead of where the driver ac
 
 `/api/chat/messages/{ride_id}` returns 0 messages while `/api/p2p/ride-requests/{ride_id}/chat` returns 7 messages for the same ride. The endpoints are not reading from the same data source.
 
-### BUG-7: Vendor orders show $0.00 total
+### ~~BUG-7: Vendor orders show $0.00 total~~ CLOSED — TEST SCRIPT ERROR
 
-`GET /api/erp/orders/vendor/{id}` returns `total_amount: 0.00` for all orders in the vendor's order list. Vendor cannot see actual order amounts, affecting revenue tracking.
+**Resolution:** API returns `"total": 27.92` correctly. Test script used wrong field name `o.get("total_amount",0)` instead of `o.get("total",0)`. Vendor CAN see order amounts. Not a bug.
 
 ### BUG-8: Order status update requires admin auth
 
@@ -139,17 +139,17 @@ Records driver's **home base** (33.625, -117.603) instead of where the driver ac
 
 ## LOW BUGS (3)
 
-### BUG-10: Same pickup/dropoff coordinates accepted
+### ~~BUG-10: Same pickup/dropoff coordinates accepted~~ FIXED (Quick-256)
 
-Ride request with identical pickup and dropoff creates an $8 min-fare ride to nowhere. Should reject with 400.
+Added validation in `bid_routes.py:451` — rejects with 400 "Pickup and dropoff locations must be different".
 
 ### BUG-11: No geofencing for extreme coordinates
 
 South Pole to North Pole ride accepted ($17,435 fare). No validation for serviceable area.
 
-### BUG-12: Empty items array creates order
+### ~~BUG-12: Empty items array creates order~~ FIXED (Quick-256)
 
-`POST /api/orders` with `"items":[]` creates an order with $0 subtotal + delivery fee. Should reject with 400.
+Added validation in `stripe_integration.py:185` — rejects with 400 "Order must contain at least one item".
 
 ---
 

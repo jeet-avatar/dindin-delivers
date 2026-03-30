@@ -182,6 +182,10 @@ async def create_order(
     Called from mobile app when user places order
     """
 
+    # Reject empty orders
+    if not order_data.items or len(order_data.items) == 0:
+        raise HTTPException(status_code=400, detail="Order must contain at least one item")
+
     # Verify vendor exists
     vendor = db.query(Vendor).filter(Vendor.id == order_data.vendor_id).first()
     if not vendor:

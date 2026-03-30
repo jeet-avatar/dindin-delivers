@@ -415,7 +415,8 @@ None
 | 252 | Fix BUG-1+2: prop22 acceptance GPS sanity check — 50mi threshold, fallback to pickup coords | 2026-03-30 | 3fcff240 | [252-fix-bug-1-prop22-engaged-miles-uses-driv](./quick/252-fix-bug-1-prop22-engaged-miles-uses-driv/) |
 | 253 | BUG-3 investigated: not a bug — V42/V47 offline restaurants, V136 works with correct IDs | 2026-03-30 | — | [253-fix-bug-3-food-orders-from-non-v40-vendo](./quick/253-fix-bug-3-food-orders-from-non-v40-vendo/) |
 | 254 | BUG-4 investigated: not a bug — restaurant in Cupertino, all deliveries >21mi = $12.99 cap | 2026-03-30 | — | [254-investigate-bug-4-all-delivery-fees-are-](./quick/254-investigate-bug-4-all-delivery-fees-are-/) |
-| 255 | Fix BUG-5: strip HTML tags in sanitize_input + use html.escape (was double-encoding) | 2026-03-30 | pending | [255-fix-bug-5-xss-not-sanitized-in-registrat](./quick/255-fix-bug-5-xss-not-sanitized-in-registrat/) |
+| 255 | Fix BUG-5: strip HTML tags in sanitize_input + use html.escape (was double-encoding) | 2026-03-30 | 61ef33e8 | [255-fix-bug-5-xss-not-sanitized-in-registrat](./quick/255-fix-bug-5-xss-not-sanitized-in-registrat/) |
+| 256 | Fix BUG-6 chat alias, BUG-7 closed, BUG-10 same-coords reject, BUG-12 empty items reject | 2026-03-30 | pending | [256-fix-bug-6-chat-alias-endpoint-api-chat-m](./quick/256-fix-bug-6-chat-alias-endpoint-api-chat-m/) |
 
 ## Session Continuity
 
