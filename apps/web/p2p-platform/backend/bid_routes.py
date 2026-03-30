@@ -725,16 +725,20 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
             accepting_driver.ride_accept_count = (accepting_driver.ride_accept_count or 0) + 1
 
         # Prop 22: capture driver GPS at acceptance moment (BPC §7463 — engagement begins at matched_at)
-        # Primary: driver's current_latitude/longitude from their last known position update
+        # Primary: driver's current_latitude/longitude IF within 50mi of pickup (sanity check for stale GPS)
         # Fallback: ride pickup_latitude/longitude (slightly overstates engaged miles — legally safer)
-        ride_request.prop22_acceptance_lat = (
-            (accepting_driver.current_latitude if accepting_driver else None)
-            or ride_request.pickup_latitude
-        )
-        ride_request.prop22_acceptance_lon = (
-            (accepting_driver.current_longitude if accepting_driver else None)
-            or ride_request.pickup_longitude
-        )
+        _driver_lat = accepting_driver.current_latitude if accepting_driver else None
+        _driver_lon = accepting_driver.current_longitude if accepting_driver else None
+        _use_driver_gps = False
+        if _driver_lat is not None and _driver_lon is not None and ride_request.pickup_latitude and ride_request.pickup_longitude:
+            try:
+                from insurance.utils import haversine_miles as _hav
+                _dist = _hav(_driver_lat, _driver_lon, ride_request.pickup_latitude, ride_request.pickup_longitude)
+                _use_driver_gps = _dist is not None and _dist <= 50
+            except Exception:
+                pass
+        ride_request.prop22_acceptance_lat = _driver_lat if _use_driver_gps else ride_request.pickup_latitude
+        ride_request.prop22_acceptance_lon = _driver_lon if _use_driver_gps else ride_request.pickup_longitude
 
         # Insurance: Period 1 END + Period 2 START — ride matched
         try:
