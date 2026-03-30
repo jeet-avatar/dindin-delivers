@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 20 (CDJ-3000 Functional Controls)
-Plan: 1 of 5 complete in current phase
-Status: Plan 20-01 complete: Hot cue loading from Rekordbox ANLZ + waveform overlay rendering.
-Last activity: 2026-03-30 - Completed Phase 20-01: Hot cue loading and waveform overlay
+Plan: 2 of 5 complete in current phase
+Status: Plan 20-02 complete: Loop enforcement moved from React render to audio engine RAF tick.
+Last activity: 2026-03-30 - Completed Phase 20-02: Loop enforcement in audio engine
 
-Progress: [########..................................] 20% (1/5 plans in phase 20)
+Progress: [################..........................] 40% (2/5 plans in phase 20)
 
 ## Completed Milestones
 
@@ -117,6 +117,7 @@ Progress: [########..................................] 20% (1/5 plans in phase 2
 - [Phase 19]: Borrow RB waveform_preview as fallback when MM source lacks 4-stem waveform data to prevent blank display
 - [Phase 19-05]: Dual trigger approach: analysisVersion prop + custom DOM event for post-analysis re-fetch flexibility
 - [Phase 20-01]: Fetch ANLZ in DJDeck separately for pad state population; deduplicate overlay by slot; map auto_cues to HotCueEntry shape
+- [Phase 20-02]: Loop enforcement uses refs for RAF-tick access; useEffect bridges React state to engine refs
 
 ### Blockers
 
@@ -286,6 +287,7 @@ None
 | Phase 19 P01 | 3min | 1 tasks | 1 files |
 | Phase 19 P04 | 2min | 1 tasks | 1 files |
 | Phase 20 P01 | 2min | 1 tasks | 2 files |
+| Phase 20 P02 | 4min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
