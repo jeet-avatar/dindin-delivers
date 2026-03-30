@@ -17901,20 +17901,20 @@ def send_ride_request_chat(
     }
 
 
-@app.get("/api/chat/messages/{ride_id}")
-def get_chat_messages(ride_id: int, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
-    """Get chat messages for a ride (alias — delegates to main chat endpoint)"""
+@app.get("/api/chat/ride/{ride_id}")
+def get_ride_chat_messages_alias(ride_id: int, db: Session = Depends(get_db), _auth: dict = Depends(require_any_auth)):
+    """Get ride chat messages — distinct path to avoid conflict with /api/chat/messages/{order_id}"""
     return get_ride_request_chat(ride_request_id=ride_id, db=db, _auth=_auth)
 
 
-@app.post("/api/chat/messages/{ride_id}")
-def send_chat_message(
+@app.post("/api/chat/ride/{ride_id}")
+def send_ride_chat_message_alias(
     ride_id: int,
     chat_request: RideChatMessageRequest,
     db: Session = Depends(get_db),
     _auth: dict = Depends(require_any_auth),
 ):
-    """Send a chat message (alias — delegates to main chat endpoint)"""
+    """Send ride chat message — distinct path to avoid conflict with /api/chat/messages/{order_id}"""
     return send_ride_request_chat(ride_request_id=ride_id, chat_request=chat_request, db=db, _auth=_auth)
 
 
@@ -18706,6 +18706,27 @@ async def web_get_chat_messages(
     ).first()
 
     if not conversation:
+        # No order conversation — check if this ID is a ride request with ride chat
+        from models import RideChatMessage
+        ride_msgs = db.query(RideChatMessage).filter(
+            RideChatMessage.ride_request_id == order_id
+        ).order_by(RideChatMessage.created_at.asc()).all()
+        if ride_msgs:
+            return {
+                "success": True,
+                "ride_request_id": order_id,
+                "messages": [
+                    {
+                        "id": msg.id,
+                        "sender_type": msg.sender_type,
+                        "sender_id": msg.sender_id,
+                        "message": msg.message,
+                        "created_at": msg.created_at.isoformat() if msg.created_at else None
+                    }
+                    for msg in ride_msgs
+                ],
+                "total": len(ride_msgs)
+            }
         return {"success": True, "messages": [], "count": 0}
 
     messages = db.query(ChatMessage).filter(
