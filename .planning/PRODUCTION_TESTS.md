@@ -96,20 +96,9 @@ Records driver's **home base** (33.625, -117.603) instead of where the driver ac
 
 ## HIGH BUGS (3)
 
-### BUG-3: Food orders from non-V40 vendors fail (HTTP 400)
+### ~~BUG-3: Food orders from non-V40 vendors fail (HTTP 400)~~ CLOSED — NOT A BUG
 
-**Severity:** HIGH
-**Endpoints:** `POST /api/orders` with vendor_id != 40
-
-Orders from V42 (Il Sole Cucina), V47 (Season Thai), V136 (Gtesh's Kitchen) all return HTTP 400. Only V40 (Apple Test Restaurant) accepts orders consistently. Menu item IDs from those vendors' menus are rejected even when using correct item IDs from their `/api/vendors/{id}/menu` responses.
-
-**Tested:**
-- V42 item 96 (Ravioli ai Fichi, $19.50) → 400
-- V47 item 261 (Pad Thai, $15.95) → 400
-- V136 item 541 (Butter Chicken, $13.99) → 400
-- V40 item 469 (Classic Cheeseburger, $12.99) → 200 ✅
-
-**Possible cause:** Menu item ID mismatch or vendor-specific validation failing.
+**Resolution:** V42 and V47 return "Restaurant is currently offline" — correct behavior. V136 works fine with correct item ID 498 (order 393 created, $17.37). Original test used wrong item IDs for V136 and the other vendors are simply offline (data issue, not code bug).
 
 ---
 

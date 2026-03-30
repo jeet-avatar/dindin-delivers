@@ -413,6 +413,7 @@ None
 | 250 | Build all 6 apps — iOS 1129/235/225 to TestFlight + Android vC=42/38/37 to Firebase | 2026-03-29 | 8c188dde | [250-build-all-6-apps-3-ios-to-testflight-3-a](./quick/250-build-all-6-apps-3-ios-to-testflight-3-a/) |
 | 251 | Save 255+ production test results to PRODUCTION_TESTS.md — CA/AZ/TX rides+orders, 14 bugs documented | 2026-03-30 | 69913fc0 | [251-save-all-production-test-results-to-pers](./quick/251-save-all-production-test-results-to-pers/) |
 | 252 | Fix BUG-1+2: prop22 acceptance GPS sanity check — 50mi threshold, fallback to pickup coords | 2026-03-30 | 3fcff240 | [252-fix-bug-1-prop22-engaged-miles-uses-driv](./quick/252-fix-bug-1-prop22-engaged-miles-uses-driv/) |
+| 253 | BUG-3 investigated: not a bug — V42/V47 offline restaurants, V136 works with correct IDs | 2026-03-30 | — | [253-fix-bug-3-food-orders-from-non-v40-vendo](./quick/253-fix-bug-3-food-orders-from-non-v40-vendo/) |
 
 ## Session Continuity
 
