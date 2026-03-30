@@ -716,25 +716,33 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onLoadDeckB, on
                   <div className="row-action" style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
                     {/* Deck load buttons */}
                     {t.file_path && (
-                      <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+                      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
                         <button
                           onClick={e => { e.stopPropagation(); onPlay?.(t); }}
                           title="Load to Deck A"
                           style={{
-                            fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px',
-                            background: 'rgba(255,140,0,0.15)', color: '#FF8C00',
-                            border: '1px solid rgba(255,140,0,0.3)', cursor: 'pointer',
-                            fontFamily: 'ui-monospace, monospace',
-                          }}>A</button>
+                            fontSize: '12px', fontWeight: 800, padding: '6px 14px', borderRadius: '6px',
+                            background: 'rgba(255,140,0,0.2)', color: '#FF8C00',
+                            border: '2px solid rgba(255,140,0,0.5)', cursor: 'pointer',
+                            fontFamily: 'ui-monospace, monospace', letterSpacing: '1px',
+                            transition: 'all 0.12s',
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,140,0,0.4)'; e.currentTarget.style.color = '#fff'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,140,0,0.2)'; e.currentTarget.style.color = '#FF8C00'; }}
+                        >DECK A</button>
                         <button
                           onClick={e => { e.stopPropagation(); onLoadDeckB?.(t); }}
                           title="Load to Deck B"
                           style={{
-                            fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px',
-                            background: 'rgba(0,229,255,0.15)', color: '#00E5FF',
-                            border: '1px solid rgba(0,229,255,0.3)', cursor: 'pointer',
-                            fontFamily: 'ui-monospace, monospace',
-                          }}>B</button>
+                            fontSize: '12px', fontWeight: 800, padding: '6px 14px', borderRadius: '6px',
+                            background: 'rgba(0,229,255,0.2)', color: '#00E5FF',
+                            border: '2px solid rgba(0,229,255,0.5)', cursor: 'pointer',
+                            fontFamily: 'ui-monospace, monospace', letterSpacing: '1px',
+                            transition: 'all 0.12s',
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,229,255,0.4)'; e.currentTarget.style.color = '#fff'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,229,255,0.2)'; e.currentTarget.style.color = '#00E5FF'; }}
+                        >DECK B</button>
                       </div>
                     )}
                     {/* RB / MM analysis labels */}
