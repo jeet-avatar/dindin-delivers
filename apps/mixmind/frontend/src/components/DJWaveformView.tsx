@@ -390,9 +390,10 @@ interface DJWaveformViewProps {
   currentTime: number;
   duration: number;
   onSeek: (sec: number) => void;
+  analysisVersion?: number;  // increment to trigger ANLZ re-fetch after analysis
 }
 
-export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWaveformViewProps) {
+export function DJWaveformView({ track, currentTime, duration, onSeek, analysisVersion }: DJWaveformViewProps) {
   const [dualData, setDualData] = useState<DualAnlzData | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchFailed, setFetchFailed] = useState(false);
@@ -400,6 +401,7 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
   const [anlzSource, setAnlzSource] = useState<AnlzSource>('auto');
   const [wfStyle, setWfStyle] = useState<WfStyle>('3band');
   const [zoomBeats, setZoomBeats] = useState<number>(64);
+  const [toast, setToast] = useState<string | null>(null);
 
   const overviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const zoomedCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -441,13 +443,13 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
     }
   }
 
-  // Fetch ANLZ data
-  useEffect(() => {
-    setDualData(null); setFetchFailed(false);
+  // Re-usable ANLZ fetch — called on mount, analysisVersion change, and custom events
+  const refetchAnlz = useCallback((isRefresh = false) => {
     if (!track.content_id) return;
     setLoading(true);
     sidecarGet<DualAnlzData>(`/api/tracks/${track.content_id}/anlz`)
       .then(data => {
+        const prevHadMm = isRefresh && dualData?.mixmind != null;
         if (!('rekordbox' in data) && 'beat_grid' in data) {
           const flat = data as unknown as TrackAnlzData;
           setDualData({ rekordbox: flat, mixmind: null, active_source: 'rekordbox' });
@@ -458,12 +460,46 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
             ? (data.mixmind.beat_grid[0]?.time_ms ?? 0) / 1000
             : (data.rekordbox?.first_beat_ms ?? 0) / 1000;
           setZoomCenter(primary);
+
+          // Toast + event when MM data becomes newly available
+          if (isRefresh && !prevHadMm && data.mixmind) {
+            setToast('MixMind analysis ready');
+            setTimeout(() => setToast(null), 3000);
+            window.dispatchEvent(new CustomEvent('mixmind:analysis-complete', {
+              detail: { content_id: track.content_id, mm_analyzed: true },
+            }));
+          }
         }
         setFetchFailed(false);
       })
       .catch(() => { setDualData(null); setFetchFailed(true); })
       .finally(() => setLoading(false));
+  }, [track.content_id, dualData]);
+
+  // Initial fetch + re-fetch when analysisVersion prop changes
+  useEffect(() => {
+    setDualData(null); setFetchFailed(false);
+    refetchAnlz(false);
   }, [track.content_id]);
+
+  // Re-fetch when analysisVersion changes (prop-based trigger from parent)
+  useEffect(() => {
+    if (analysisVersion != null && analysisVersion > 0) {
+      refetchAnlz(true);
+    }
+  }, [analysisVersion]);
+
+  // Custom event listener fallback — allows any component to trigger re-fetch
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent;
+      if (ce.detail?.content_id === track.content_id) {
+        refetchAnlz(true);
+      }
+    };
+    window.addEventListener('mixmind:analysis-complete', handler);
+    return () => window.removeEventListener('mixmind:analysis-complete', handler);
+  }, [track.content_id, refetchAnlz]);
 
   useEffect(() => {
     if (duration > 0 && currentTime > 0) setZoomCenter(currentTime);
@@ -628,6 +664,17 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
 
       {/* ── Waveform panes ── */}
       <div style={{ display: 'flex', height: '100px', position: 'relative' }}>
+        {/* Toast notification */}
+        {toast && (
+          <div style={{
+            position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(170,0,255,0.9)', color: '#fff', padding: '4px 16px',
+            borderRadius: '4px', fontSize: '11px', fontWeight: 600, zIndex: 20,
+            pointerEvents: 'none', fontFamily: 'ui-monospace, monospace',
+          }}>
+            {toast}
+          </div>
+        )}
         {loading && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', zIndex: 10 }}>
             <div style={{ width: '20px', height: '20px', border: '2px solid #7c3aed', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
