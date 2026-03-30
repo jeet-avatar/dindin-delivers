@@ -99,30 +99,95 @@ function drawWaveformBars(
       ctx.fillRect(x, centerY, barW, halfBar);
     }
   } else if (wb && startIdx < wb.length) {
-    // 3-band waveform — mirrored bars from center, 3Band color blend
+    // 3-band waveform — mirrored bars from center
     const barW = 3;
-    for (let i = startIdx; i < Math.min(endIdx, wb.length); i++) {
-      const x = msToX(iToMs(i));
-      if (x < -barW || x > W + barW) continue;
-      const c = wb[i];
-      const total = c.low + c.mid + c.high;
-      if (total === 0) continue;
 
-      const barHeight = (total / (255 * 3)) * H * 0.85;
-      const halfBar = barHeight / 2;
+    if (wfStyle === 'rgb') {
+      // RGB Mode: three overlapping color channels drawn back-to-front
+      const prevAlpha = ctx.globalAlpha;
+      ctx.globalAlpha = 0.7;
+      for (let i = startIdx; i < Math.min(endIdx, wb.length); i++) {
+        const x = msToX(iToMs(i));
+        if (x < -barW || x > W + barW) continue;
+        const c = wb[i];
 
-      // Color depends on wfStyle — 3band is default, rgb and blue fall through to 3band for now
-      const blend = blend3Band(c.low, c.mid, c.high);
-      const br = blend.brightness;
-      ctx.fillStyle = `rgba(${blend.r},${blend.g},${blend.b},${(0.5 + br * 0.5).toFixed(2)})`;
+        // Red channel (bass) — drawn first (back)
+        if (c.low > 0) {
+          const hR = (c.low / 255) * H * 0.85;
+          const halfR = hR / 2;
+          ctx.fillStyle = '#FF0000';
+          ctx.fillRect(x, centerY - halfR, barW, halfR);
+          ctx.fillRect(x, centerY, barW, halfR);
+        }
+        // Green channel (mid) — drawn second (middle)
+        if (c.mid > 0) {
+          const hG = (c.mid / 255) * H * 0.85;
+          const halfG = hG / 2;
+          ctx.fillStyle = '#00FF00';
+          ctx.fillRect(x, centerY - halfG, barW, halfG);
+          ctx.fillRect(x, centerY, barW, halfG);
+        }
+        // Blue channel (high) — drawn last (front)
+        if (c.high > 0) {
+          const hB = (c.high / 255) * H * 0.85;
+          const halfB = hB / 2;
+          ctx.fillStyle = '#0066FF';
+          ctx.fillRect(x, centerY - halfB, barW, halfB);
+          ctx.fillRect(x, centerY, barW, halfB);
+        }
+      }
+      ctx.globalAlpha = prevAlpha;
 
-      // Draw mirrored bars from center
-      ctx.fillRect(x, centerY - halfBar, barW, halfBar);
-      ctx.fillRect(x, centerY, barW, halfBar);
+    } else if (wfStyle === 'blue') {
+      // BLUE Mode: monochrome blue, brightness from amplitude, shade from frequency content
+      for (let i = startIdx; i < Math.min(endIdx, wb.length); i++) {
+        const x = msToX(iToMs(i));
+        if (x < -barW || x > W + barW) continue;
+        const c = wb[i];
+        const total = c.low + c.mid + c.high;
+        if (total === 0) continue;
+
+        const amplitude = total / (255 * 3);
+        const barHeight = amplitude * H * 0.85;
+        const halfBar = barHeight / 2;
+
+        // More high = lighter/brighter blue, more low = deeper/darker blue
+        const highRatio = c.high / Math.max(total, 1);
+        const r = Math.round(highRatio * 80);
+        const g = Math.round(highRatio * 120);
+        const b = Math.round(150 + amplitude * 105);
+        const alpha = (0.5 + amplitude * 0.5).toFixed(2);
+
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.fillRect(x, centerY - halfBar, barW, halfBar);
+        ctx.fillRect(x, centerY, barW, halfBar);
+      }
+
+    } else {
+      // 3Band Mode (default): blue/orange/white weighted blend
+      for (let i = startIdx; i < Math.min(endIdx, wb.length); i++) {
+        const x = msToX(iToMs(i));
+        if (x < -barW || x > W + barW) continue;
+        const c = wb[i];
+        const total = c.low + c.mid + c.high;
+        if (total === 0) continue;
+
+        const barHeight = (total / (255 * 3)) * H * 0.85;
+        const halfBar = barHeight / 2;
+
+        const blend = blend3Band(c.low, c.mid, c.high);
+        const br = blend.brightness;
+        ctx.fillStyle = `rgba(${blend.r},${blend.g},${blend.b},${(0.5 + br * 0.5).toFixed(2)})`;
+
+        ctx.fillRect(x, centerY - halfBar, barW, halfBar);
+        ctx.fillRect(x, centerY, barW, halfBar);
+      }
     }
   } else if (wp && wp.length > 0) {
-    // Mono waveform preview — fallback, monochrome blue, mirrored from center
+    // Mono waveform preview — fallback, mirrored from center
+    // Color depends on wfStyle
     const barW = 3;
+    const monoColor = wfStyle === 'rgb' ? '0,255,0' : wfStyle === 'blue' ? '0,102,255' : '0,85,225';
     for (let i = startIdx; i < Math.min(endIdx, wp.length); i++) {
       const x = msToX(iToMs(i));
       if (x < -barW || x > W + barW) continue;
@@ -131,7 +196,7 @@ function drawWaveformBars(
       const barHeight = (amp / 255) * H * 0.85;
       const halfBar = barHeight / 2;
       const alpha = (0.5 + (amp / 255) * 0.5).toFixed(2);
-      ctx.fillStyle = `rgba(0,85,225,${alpha})`;
+      ctx.fillStyle = `rgba(${monoColor},${alpha})`;
       ctx.fillRect(x, centerY - halfBar, barW, halfBar);
       ctx.fillRect(x, centerY, barW, halfBar);
     }
@@ -486,9 +551,13 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
 
         {/* Waveform style selector */}
         <div style={{ display: 'flex', gap: '2px', background: 'rgba(255,255,255,0.04)', borderRadius: '5px', padding: '2px', marginLeft: '4px' }}>
-          {(['3band', 'rgb', 'blue'] as WfStyle[]).map(s => (
-            <button key={s} onClick={() => setWfStyle(s)} style={btnStyle(wfStyle === s, '#0055E1')}>
-              {s === '3band' ? '3Band' : s === 'rgb' ? 'RGB' : 'BLUE'}
+          {([
+            { key: '3band' as WfStyle, label: '3Band', color: '#FFA600' },
+            { key: 'rgb' as WfStyle, label: 'RGB', color: '#00FF00' },
+            { key: 'blue' as WfStyle, label: 'BLUE', color: '#0066FF' },
+          ]).map(s => (
+            <button key={s.key} onClick={() => setWfStyle(s.key)} style={btnStyle(wfStyle === s.key, s.color)}>
+              {s.label}
             </button>
           ))}
         </div>
