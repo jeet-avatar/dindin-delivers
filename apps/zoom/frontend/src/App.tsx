@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { JoinScreen } from './components/JoinScreen';
+import { CallScreen } from './components/CallScreen';
 
 export default function App() {
   const [joined, setJoined] = useState<{ name: string; room: string } | null>(null);
@@ -8,5 +9,11 @@ export default function App() {
     return <JoinScreen onJoin={(name, room) => setJoined({ name, room })} />;
   }
 
-  return <div>Call screen placeholder — Room: {joined.room}</div>;
+  return (
+    <CallScreen
+      name={joined.name}
+      room={joined.room}
+      onLeave={() => setJoined(null)}
+    />
+  );
 }
