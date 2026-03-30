@@ -13,6 +13,7 @@ interface Props {
   onSelect?: (track: Track) => void;
   onReload?: () => void;
   onPlay?: (track: Track, e?: React.MouseEvent) => void;
+  onLoadDeckB?: (track: Track) => void;
   onAddToSet?: (track: Track) => void;
   onAnalyze?: (contentId: string) => void;
   analyzingTrack?: string | null;
@@ -193,7 +194,7 @@ const COL_WIDTHS = ['44px', 'auto', '70px', '70px', '130px', '72px', '70px', '65
 
 // ── Main component ────────────────────────────────────────────
 
-export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onAnalyze, analyzingTrack, playedIds, compatibleKeys, nowPlayingId }: Props) {
+export function TrackTable({ tracks, onSelect, onReload, onPlay, onLoadDeckB, onAddToSet, onAnalyze, analyzingTrack, playedIds, compatibleKeys, nowPlayingId }: Props) {
   const [sortKey, setSortKey]   = useState<SortKey>('bpm');
   const [sortDir, setSortDir]   = useState<SortDir>('desc');
   const [search, setSearch]     = useState('');
@@ -713,6 +714,29 @@ export function TrackTable({ tracks, onSelect, onReload, onPlay, onAddToSet, onA
 
                   {/* Actions */}
                   <div className="row-action" style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                    {/* Deck load buttons */}
+                    {t.file_path && (
+                      <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); onPlay?.(t); }}
+                          title="Load to Deck A"
+                          style={{
+                            fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px',
+                            background: 'rgba(255,140,0,0.15)', color: '#FF8C00',
+                            border: '1px solid rgba(255,140,0,0.3)', cursor: 'pointer',
+                            fontFamily: 'ui-monospace, monospace',
+                          }}>A</button>
+                        <button
+                          onClick={e => { e.stopPropagation(); onLoadDeckB?.(t); }}
+                          title="Load to Deck B"
+                          style={{
+                            fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px',
+                            background: 'rgba(0,229,255,0.15)', color: '#00E5FF',
+                            border: '1px solid rgba(0,229,255,0.3)', cursor: 'pointer',
+                            fontFamily: 'ui-monospace, monospace',
+                          }}>B</button>
+                      </div>
+                    )}
                     {/* RB / MM analysis labels */}
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
                       <span style={{
