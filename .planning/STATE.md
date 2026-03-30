@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 19 (CDJ-3000 Waveform Replica)
-Plan: 3 of 5 complete in current phase
-Status: Phase 19-03 complete: Three CDJ-3000 waveform color modes (3Band/RGB/BLUE) with mode-specific toggles.
-Last activity: 2026-03-30 - Completed Phase 19-03: CDJ-3000 color modes
+Plan: 4 of 5 complete in current phase
+Status: Phase 19-04 complete: CDJ-style RB/MM/Auto source toggle with colored badges and waveform fallback.
+Last activity: 2026-03-30 - Completed Phase 19-04: Source toggle polish
 
-Progress: [########################................] 60% (3/5 plans in phase 19)
+Progress: [################################........] 80% (4/5 plans in phase 19)
 
 ## Completed Milestones
 
@@ -114,6 +114,7 @@ Progress: [########################................] 60% (3/5 plans in phase 19)
 - [Phase quick-249]: 1099 dedup via Communication table template_name + year check; YTD computed on-the-fly; quarterly report to jeetnair.in@gmail.com
 - [Phase 19]: Used rgba with brightness-scaled alpha for CDJ-3000 3Band waveform rendering
 - [Phase 19-02]: CDJ-3000 beat grid: count bars before visibility skip for correct phrase alignment; zoomed param unused — grid identical in both views
+- [Phase 19]: Borrow RB waveform_preview as fallback when MM source lacks 4-stem waveform data to prevent blank display
 
 ### Blockers
 
@@ -281,6 +282,7 @@ None
 | Phase quick-247 P01 | 2min | 2 tasks | 3 files |
 | Phase Q-248 P01 | 186 | 3 tasks | 4 files |
 | Phase 19 P01 | 3min | 1 tasks | 1 files |
+| Phase 19 P04 | 2min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
