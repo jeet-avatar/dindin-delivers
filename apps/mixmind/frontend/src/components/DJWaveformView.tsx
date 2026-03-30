@@ -254,6 +254,7 @@ function drawBeatGrid(
 function drawOverviewCanvas(
   canvas: HTMLCanvasElement, anlz: TrackAnlzData,
   duration: number, currentTime: number, wfStyle: WfStyle,
+  hotCuesOverlay?: HotCueEntry[],
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -296,6 +297,19 @@ function drawOverviewCanvas(
     ctx.textAlign = 'center'; ctx.fillText(hc.slot, x, 8); ctx.textAlign = 'left';
   }
 
+  // User-set cues overlay (from DJDeck state)
+  if (hotCuesOverlay) {
+    const anlzSlots = new Set(anlz.hot_cues.map(c => c.slot));
+    for (const hc of hotCuesOverlay) {
+      if (anlzSlots.has(hc.slot)) continue; // already drawn from ANLZ
+      const x = msToX(hc.time_ms);
+      ctx.fillStyle = hc.color_hex;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x - 5, 9); ctx.lineTo(x + 5, 9); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.font = 'bold 7px ui-monospace, monospace';
+      ctx.textAlign = 'center'; ctx.fillText(hc.slot, x, 8); ctx.textAlign = 'left';
+    }
+  }
+
   // Playhead
   if (duration > 0) {
     const px = (currentTime / duration) * W;
@@ -311,6 +325,7 @@ function drawOverviewCanvas(
 function drawZoomedCanvas(
   canvas: HTMLCanvasElement, anlz: TrackAnlzData,
   duration: number, centerTime: number, beatsVisible: number, wfStyle: WfStyle,
+  hotCuesOverlay?: HotCueEntry[],
 ) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -371,6 +386,20 @@ function drawZoomedCanvas(
     ctx.textAlign = 'center'; ctx.fillText(hc.slot, x, 10); ctx.textAlign = 'left';
   }
 
+  // User-set cues overlay (from DJDeck state)
+  if (hotCuesOverlay) {
+    const anlzSlots = new Set(anlz.hot_cues.map(c => c.slot));
+    for (const hc of hotCuesOverlay) {
+      if (anlzSlots.has(hc.slot)) continue; // already drawn from ANLZ
+      if (hc.time_ms < startMs || hc.time_ms > endMs) continue;
+      const x = msToX(hc.time_ms);
+      ctx.fillStyle = hc.color_hex;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x - 6, 11); ctx.lineTo(x + 6, 11); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.font = 'bold 8px ui-monospace, monospace';
+      ctx.textAlign = 'center'; ctx.fillText(hc.slot, x, 10); ctx.textAlign = 'left';
+    }
+  }
+
   // Playhead at 35% from left with glow
   const px = W * PLAYHEAD_RATIO;
   // Glow (6px wide, 15% opacity)
@@ -391,9 +420,10 @@ interface DJWaveformViewProps {
   duration: number;
   onSeek: (sec: number) => void;
   analysisVersion?: number;  // increment to trigger ANLZ re-fetch after analysis
+  hotCues?: HotCueEntry[];   // user-set cues from DJDeck (drawn as overlay on waveform)
 }
 
-export function DJWaveformView({ track, currentTime, duration, onSeek, analysisVersion }: DJWaveformViewProps) {
+export function DJWaveformView({ track, currentTime, duration, onSeek, analysisVersion, hotCues: hotCuesOverlay }: DJWaveformViewProps) {
   const [dualData, setDualData] = useState<DualAnlzData | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchFailed, setFetchFailed] = useState(false);
@@ -529,12 +559,12 @@ export function DJWaveformView({ track, currentTime, duration, onSeek, analysisV
       if (!anlzData) return;
       const ov = overviewCanvasRef.current;
       const zm = zoomedCanvasRef.current;
-      if (ov && ov.width > 0) drawOverviewCanvas(ov, anlzData, duration, currentTime, wfStyle);
-      if (zm && zm.width > 0) drawZoomedCanvas(zm, anlzData, duration, zoomCenter, zoomBeats, wfStyle);
+      if (ov && ov.width > 0) drawOverviewCanvas(ov, anlzData, duration, currentTime, wfStyle, hotCuesOverlay);
+      if (zm && zm.width > 0) drawZoomedCanvas(zm, anlzData, duration, zoomCenter, zoomBeats, wfStyle, hotCuesOverlay);
     };
     render();
     return () => cancelAnimationFrame(rafRef.current);
-  }, [anlzData, duration, currentTime, zoomCenter, wfStyle, zoomBeats]);
+  }, [anlzData, duration, currentTime, zoomCenter, wfStyle, zoomBeats, hotCuesOverlay]);
 
   function handleOverviewClick(e: React.MouseEvent<HTMLCanvasElement>) {
     const canvas = overviewCanvasRef.current;

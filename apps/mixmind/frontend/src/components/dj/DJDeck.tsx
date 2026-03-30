@@ -1,10 +1,11 @@
 // src/components/dj/DJDeck.tsx
 // Self-contained CDJ-3000 deck: screen + pads + transport + pitch + loop + beat jump + grid
 
-import { useState, useCallback } from 'react';
-import { Track, HotCueEntry } from '../../types/track';
+import { useState, useCallback, useEffect } from 'react';
+import { Track, HotCueEntry, DualAnlzData } from '../../types/track';
 import { DJWaveformView } from '../DJWaveformView';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { sidecarGet } from '../../hooks/useSidecar';
 
 type DeckId = 'A' | 'B';
 
@@ -45,7 +46,36 @@ export function DJDeck({ deck, track, onClose }: DJDeckProps) {
 
   // ── Hot cues (local state — will sync with backend later) ──
   const [hotCues, setHotCues] = useState<(HotCueEntry | null)[]>(Array(8).fill(null));
+  const [anlzData, setAnlzData] = useState<DualAnlzData | null>(null);
   const [padMode, setPadMode] = useState<'hotcue' | 'beatloop' | 'beatjump'>('hotcue');
+
+  // Load hot cues from Rekordbox/MixMind ANLZ data when track changes
+  useEffect(() => {
+    if (!track?.content_id) { setAnlzData(null); setHotCues(Array(8).fill(null)); return; }
+    sidecarGet<DualAnlzData>(`/api/tracks/${track.content_id}/anlz`)
+      .then(data => {
+        setAnlzData(data);
+        // Load hot cues from rekordbox data (or mixmind auto_cues mapped to HotCueEntry)
+        const source = data.rekordbox ?? data.mixmind;
+        if (source) {
+          const rbCues: HotCueEntry[] = 'hot_cues' in source
+            ? (source as { hot_cues: HotCueEntry[] }).hot_cues
+            : ('auto_cues' in source
+              ? (source as { auto_cues: { slot: string; time_ms: number; color_hex: string; label: string }[] }).auto_cues.map(c => ({
+                  slot: c.slot, time_ms: c.time_ms, color_hex: c.color_hex,
+                  label: c.label, is_loop: false, loop_out_ms: null,
+                }))
+              : []);
+          const padState: (HotCueEntry | null)[] = Array(8).fill(null);
+          for (const cue of rbCues) {
+            const idx = SLOTS.indexOf(cue.slot);
+            if (idx >= 0 && idx < 8) padState[idx] = cue;
+          }
+          setHotCues(padState);
+        }
+      })
+      .catch(() => setAnlzData(null));
+  }, [track?.content_id]);
 
   // ── Loop state ──
   const [loopActive, setLoopActive] = useState(false);
@@ -256,6 +286,7 @@ export function DJDeck({ deck, track, onClose }: DJDeckProps) {
         currentTime={audio.currentTime}
         duration={audio.duration}
         onSeek={actions.seek}
+        hotCues={hotCues.filter((c): c is HotCueEntry => c !== null)}
       />
 
       {/* ── 8 PERFORMANCE PADS ── */}
