@@ -26,6 +26,11 @@ export default function App() {
   const [deckB, setDeckB] = useState<Track | null>(null);
   const nowPlaying = deckA;
 
+  // ── Cross-deck BPM sharing + master state ──
+  const [deckABpm, setDeckABpm] = useState(0);
+  const [deckBBpm, setDeckBBpm] = useState(0);
+  const [masterDeck, setMasterDeck] = useState<'A' | 'B' | null>(null);
+
   const [setTracks, setSetTracks] = useState<Track[]>([]);
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
   const [compatibleKeys, setCompatibleKeys] = useState<string[]>([]);
@@ -234,11 +239,21 @@ export default function App() {
       {(deckA || deckB) && (
         <div style={{ display: 'flex', flexShrink: 0, borderTop: '1px solid #222', overflow: 'auto' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <DJDeck deck="A" track={deckA} onClose={() => setDeckA(null)} />
+            <DJDeck deck="A" track={deckA} onClose={() => setDeckA(null)}
+              otherDeckBpm={deckBBpm}
+              isMaster={masterDeck === 'A'}
+              onBpmChange={setDeckABpm}
+              onMasterChange={(isMaster) => setMasterDeck(isMaster ? 'A' : (masterDeck === 'A' ? null : masterDeck))}
+            />
           </div>
           <div style={{ width: '2px', background: '#222', flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <DJDeck deck="B" track={deckB} onClose={() => setDeckB(null)} />
+            <DJDeck deck="B" track={deckB} onClose={() => setDeckB(null)}
+              otherDeckBpm={deckABpm}
+              isMaster={masterDeck === 'B'}
+              onBpmChange={setDeckBBpm}
+              onMasterChange={(isMaster) => setMasterDeck(isMaster ? 'B' : (masterDeck === 'B' ? null : masterDeck))}
+            />
           </div>
         </div>
       )}

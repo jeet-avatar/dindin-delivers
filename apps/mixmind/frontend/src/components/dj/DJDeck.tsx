@@ -13,6 +13,10 @@ interface DJDeckProps {
   deck: DeckId;
   track: Track | null;
   onClose?: () => void;
+  otherDeckBpm?: number;
+  isMaster?: boolean;
+  onBpmChange?: (bpm: number) => void;
+  onMasterChange?: (isMaster: boolean) => void;
 }
 
 const PITCH_RANGES = [6, 10, 16, 100] as const;
@@ -40,7 +44,7 @@ function fmt(sec: number) {
   return `${neg ? '-' : ''}${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export function DJDeck({ deck, track, onClose }: DJDeckProps) {
+export function DJDeck({ deck, track, onClose, otherDeckBpm, isMaster, onBpmChange, onMasterChange }: DJDeckProps) {
   const [audio, actions] = useAudioEngine(track?.file_path ?? null, track?.bpm ?? 128);
   const deckColor = deck === 'A' ? '#FF8C00' : '#00E5FF';
 
@@ -88,6 +92,31 @@ export function DJDeck({ deck, track, onClose }: DJDeckProps) {
 
   // ── Grid offset ──
   const [gridOffset, setGridOffset] = useState(0);
+
+  // ── Sync / Master / Quantize / Slip state ──
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const [quantize, setQuantize] = useState(false);
+  const [slip, setSlip] = useState(false);
+
+  // Report this deck's effective BPM to parent for cross-deck sync
+  useEffect(() => {
+    onBpmChange?.(audio.effectiveBpm);
+  }, [audio.effectiveBpm, onBpmChange]);
+
+  // SYNC handler: match this deck's BPM to the other deck's effective BPM
+  function handleSync() {
+    if (!otherDeckBpm || otherDeckBpm <= 0 || !track?.bpm) return;
+    // effectiveBpm = originalBpm * (1 + pitchPercent/100)
+    // pitchPercent = ((targetBpm / originalBpm) - 1) * 100
+    const targetPitch = ((otherDeckBpm / track.bpm) - 1) * 100;
+    actions.setPitchPercent(targetPitch);
+    setSyncEnabled(true);
+  }
+
+  // MASTER handler: toggle this deck as the sync master
+  function handleMaster() {
+    onMasterChange?.(!isMaster);
+  }
 
   // ── Pitch fader drag state ──
   const [isDraggingPitch, setIsDraggingPitch] = useState(false);
@@ -204,6 +233,7 @@ export function DJDeck({ deck, track, onClose }: DJDeckProps) {
     // 0=top=+max, 1=bottom=-max
     const pct = audio.pitchRange - ratio * 2 * audio.pitchRange;
     actions.setPitchPercent(pct);
+    setSyncEnabled(false); // Manual pitch change disengages sync
   }
 
   useEffect(() => {
@@ -462,10 +492,14 @@ export function DJDeck({ deck, track, onClose }: DJDeckProps) {
 
           {/* Sync row */}
           <div style={{ display: 'flex', gap: '2px', marginTop: '2px' }}>
-            <div style={{ ...S.smBtn(), color: '#FF006E', borderColor: 'rgba(255,0,110,.2)' }}>SYNC</div>
-            <div style={{ ...S.smBtn(), color: '#FFE100', borderColor: 'rgba(255,225,0,.2)' }}>MASTER</div>
-            <div style={{ ...S.smBtn(), color: '#AA00FF', borderColor: 'rgba(170,0,255,.2)' }}>QUANT</div>
-            <div style={{ ...S.smBtn(), color: '#00E5FF', borderColor: 'rgba(0,229,255,.15)' }}>SLIP</div>
+            <div style={{ ...S.smBtn(syncEnabled), color: '#FF006E', borderColor: syncEnabled ? 'rgba(255,0,110,.4)' : 'rgba(255,0,110,.2)' }}
+              onClick={handleSync}>SYNC</div>
+            <div style={{ ...S.smBtn(!!isMaster), color: '#FFE100', borderColor: isMaster ? 'rgba(255,225,0,.4)' : 'rgba(255,225,0,.2)' }}
+              onClick={handleMaster}>MASTER</div>
+            <div style={{ ...S.smBtn(quantize), color: '#AA00FF', borderColor: quantize ? 'rgba(170,0,255,.4)' : 'rgba(170,0,255,.2)' }}
+              onClick={() => setQuantize(q => !q)}>QUANT</div>
+            <div style={{ ...S.smBtn(slip), color: '#00E5FF', borderColor: slip ? 'rgba(0,229,255,.3)' : 'rgba(0,229,255,.15)' }}
+              onClick={() => setSlip(s => !s)}>SLIP</div>
           </div>
         </div>
 
