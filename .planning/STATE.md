@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 
 ## Current Position
 
-Phase: 19 (CDJ-3000 Waveform Replica) -- COMPLETE
-Plan: 5 of 5 complete in current phase
-Status: Phase 19 complete: All 5 plans delivered -- waveform rendering, beat grid, color modes, source toggle, post-analysis refresh.
-Last activity: 2026-03-30 - Completed Phase 19-05: Post-analysis waveform refresh
+Phase: 20 (CDJ-3000 Functional Controls)
+Plan: 1 of 5 complete in current phase
+Status: Plan 20-01 complete: Hot cue loading from Rekordbox ANLZ + waveform overlay rendering.
+Last activity: 2026-03-30 - Completed Phase 20-01: Hot cue loading and waveform overlay
 
-Progress: [########################################] 100% (5/5 plans in phase 19)
+Progress: [########..................................] 20% (1/5 plans in phase 20)
 
 ## Completed Milestones
 
@@ -116,6 +116,7 @@ Progress: [########################################] 100% (5/5 plans in phase 19
 - [Phase 19-02]: CDJ-3000 beat grid: count bars before visibility skip for correct phrase alignment; zoomed param unused — grid identical in both views
 - [Phase 19]: Borrow RB waveform_preview as fallback when MM source lacks 4-stem waveform data to prevent blank display
 - [Phase 19-05]: Dual trigger approach: analysisVersion prop + custom DOM event for post-analysis re-fetch flexibility
+- [Phase 20-01]: Fetch ANLZ in DJDeck separately for pad state population; deduplicate overlay by slot; map auto_cues to HotCueEntry shape
 
 ### Blockers
 
@@ -284,6 +285,7 @@ None
 | Phase Q-248 P01 | 186 | 3 tasks | 4 files |
 | Phase 19 P01 | 3min | 1 tasks | 1 files |
 | Phase 19 P04 | 2min | 1 tasks | 1 files |
+| Phase 20 P01 | 2min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
