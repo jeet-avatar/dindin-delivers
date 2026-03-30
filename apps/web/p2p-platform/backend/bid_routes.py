@@ -364,6 +364,12 @@ def serialize_ride_request(request: RideRequest, include_bids: bool = False) -> 
         "platform_fee": float(request.platform_fee) if getattr(request, 'platform_fee', None) else None,
         "driver_payout": float(request.driver_payout) if getattr(request, 'driver_payout', None) else None,
         "driver_arrived_at": request.driver_arrived_at.isoformat() if getattr(request, 'driver_arrived_at', None) else None,
+        # Prop 22 compliance fields
+        "prop22_acceptance_lat": float(request.prop22_acceptance_lat) if getattr(request, 'prop22_acceptance_lat', None) else None,
+        "prop22_acceptance_lon": float(request.prop22_acceptance_lon) if getattr(request, 'prop22_acceptance_lon', None) else None,
+        "prop22_engaged_hours": float(request.prop22_engaged_hours) if getattr(request, 'prop22_engaged_hours', None) else None,
+        "prop22_engaged_miles": float(request.prop22_engaged_miles) if getattr(request, 'prop22_engaged_miles', None) else None,
+        "prop22_floor_amount": float(request.prop22_floor_amount) if getattr(request, 'prop22_floor_amount', None) else None,
     }
 
     if include_bids and request.bids:
