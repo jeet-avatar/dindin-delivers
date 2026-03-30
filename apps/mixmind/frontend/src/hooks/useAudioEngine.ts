@@ -31,6 +31,7 @@ export interface AudioEngineActions {
   nudgeFaster: () => void;    // jog outer ring forward
   nudgeSlower: () => void;    // jog outer ring backward
   nudgeStop: () => void;
+  setLoop: (active: boolean, inSec: number | null, outSec: number | null) => void;
 }
 
 export function useAudioEngine(
@@ -52,6 +53,11 @@ export function useAudioEngine(
 
   const nudgeRef = useRef(false);
   const animRef = useRef(0);
+
+  // Loop enforcement refs (audio-tight, read inside RAF tick)
+  const loopInRef = useRef<number | null>(null);
+  const loopOutRef = useRef<number | null>(null);
+  const loopActiveRef = useRef(false);
 
   // Effective BPM
   const rate = 1 + pitchPercent / 100;
@@ -103,6 +109,12 @@ export function useAudioEngine(
     const tick = () => {
       animRef.current = requestAnimationFrame(tick);
       if (audio && !audio.paused) {
+        // Loop enforcement — audio-tight, runs every frame
+        if (loopActiveRef.current && loopInRef.current !== null && loopOutRef.current !== null) {
+          if (audio.currentTime >= loopOutRef.current) {
+            audio.currentTime = loopInRef.current;
+          }
+        }
         setCurrentTime(audio.currentTime);
       }
     };
@@ -224,6 +236,12 @@ export function useAudioEngine(
     audio.playbackRate = Math.max(0.1, 1 + pitchPercent / 100);
   }, [pitchPercent]);
 
+  const setLoop = useCallback((active: boolean, inSec: number | null, outSec: number | null) => {
+    loopActiveRef.current = active;
+    loopInRef.current = inSec;
+    loopOutRef.current = outSec;
+  }, []);
+
   const state: AudioEngineState = {
     isPlaying, currentTime, duration,
     pitchPercent, pitchRange, masterTempo,
@@ -235,6 +253,7 @@ export function useAudioEngine(
     setCuePoint, returnToCue, cuePreviw: cuePreviw, cueRelease,
     setPitchPercent: setPitch, setPitchRange: setRange, toggleMasterTempo,
     nudgeFaster, nudgeSlower, nudgeStop,
+    setLoop,
   };
 
   return [state, actions];
