@@ -245,6 +245,7 @@ Note: Phases 07 and 08 are technically independent and could run in parallel.
 | 16. Lifecycle Agents (Food + Rideshare) | 0/5 | Not started | - | - |
 | 17. Voice Routing Agent | 0/4 | Not started | - | - |
 | 18. Ops Orchestrator + Admin Ops Board | 0/4 | Not started | - | - |
+| 19. CDJ-3000 Waveform Replica | 0/5 | Not started | - | - |
 
 ---
 
@@ -354,5 +355,26 @@ Plans:
 - [ ] 18-03-PLAN.md -- Admin ops API endpoints (all 6 read-only endpoints, require_admin auth)
 - [ ] 18-04-PLAN.md -- Admin portal /admin/ops React page: real-time ops board
 
+---
+
+### Phase 19: CDJ-3000 Waveform Replica
+**Goal**: Replace the broken DJWaveformView.tsx with a pixel-perfect CDJ-3000 display replica -- mirrored 3Band waveform, subtle beat grid, 3 color modes, source toggle, post-analysis UI update
+**Depends on**: None (MixMind standalone feature)
+**Requirements**: SPEC-01, SPEC-02, SPEC-03, SPEC-04, SPEC-05
+**Success Criteria** (what must be TRUE):
+  1. Waveform renders mirrored bars from center with CDJ-3000 3Band color blend (blue bass, orange mid, white high)
+  2. Beat grid uses 3 levels of subtle white lines (regular 0.06, downbeat 0.25, phrase 0.4 opacity)
+  3. Three color modes (3Band/RGB/BLUE) are visually distinct and togglable
+  4. RB/MM/Auto source toggle shows colored badges and updates waveform on switch
+  5. After MixMind analysis, waveform refreshes without page reload with toast notification
+**Plans**: 5 plans (all sequential -- Wave 1 through Wave 5)
+
+Plans:
+- [ ] 19-01-PLAN.md -- Waveform rendering: 3Band blend algorithm, mirrored bars from center, playhead at 35%
+- [ ] 19-02-PLAN.md -- Beat grid: subtle CDJ-3000 white lines (regular/downbeat/phrase markers)
+- [ ] 19-03-PLAN.md -- CDJ/RGB/BLUE style toggle: 3 visually distinct color modes
+- [ ] 19-04-PLAN.md -- RB/MM/Auto source toggle: colored badges, status label, waveform update on switch
+- [ ] 19-05-PLAN.md -- Analyze to UI update: post-analysis refresh, toast notification, no page reload
+
 *Roadmap created: 2026-02-21*
-*Last updated: 2026-03-25 -- Phases 13-18 added (Prop 22 + v2.0 Compliance & AI Agents)*
+*Last updated: 2026-03-29 -- Phase 19 added (CDJ-3000 Waveform Replica for MixMind)*
