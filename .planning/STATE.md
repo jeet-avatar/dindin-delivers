@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 20 (CDJ-3000 Functional Controls) -- COMPLETE
 Plan: 5 of 5 complete in current phase
 Status: Phase 20 complete: All CDJ-3000 functional controls wired (hot cues, loops, beat jump, pitch, sync, grid nudge).
-Last activity: 2026-03-30 - Completed quick task 251: Save production test results
+Last activity: 2026-03-30 - Completed quick task 252: Fix Prop 22 acceptance GPS (BUG-1+2)
 
 Progress: [########################################] 100% (5/5 plans in phase 20)
 
@@ -411,7 +411,8 @@ None
 | 249 | Build compliance email system — 4 email templates, scheduler hooks, admin endpoints, 1099 tracking | 2026-03-28 | a9052fcc | [249-build-compliance-email-system-4-email-te](./quick/249-build-compliance-email-system-4-email-te/) |
 
 | 250 | Build all 6 apps — iOS 1129/235/225 to TestFlight + Android vC=42/38/37 to Firebase | 2026-03-29 | 8c188dde | [250-build-all-6-apps-3-ios-to-testflight-3-a](./quick/250-build-all-6-apps-3-ios-to-testflight-3-a/) |
-| 251 | Save 255+ production test results to PRODUCTION_TESTS.md — CA/AZ/TX rides+orders, 14 bugs documented | 2026-03-30 | pending | [251-save-all-production-test-results-to-pers](./quick/251-save-all-production-test-results-to-pers/) |
+| 251 | Save 255+ production test results to PRODUCTION_TESTS.md — CA/AZ/TX rides+orders, 14 bugs documented | 2026-03-30 | 69913fc0 | [251-save-all-production-test-results-to-pers](./quick/251-save-all-production-test-results-to-pers/) |
+| 252 | Fix BUG-1+2: prop22 acceptance GPS sanity check — 50mi threshold, fallback to pickup coords | 2026-03-30 | 3fcff240 | [252-fix-bug-1-prop22-engaged-miles-uses-driv](./quick/252-fix-bug-1-prop22-engaged-miles-uses-driv/) |
 
 ## Session Continuity
 
