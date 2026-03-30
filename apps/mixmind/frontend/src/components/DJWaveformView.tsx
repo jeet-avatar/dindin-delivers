@@ -408,11 +408,13 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
   const rafRef = useRef<number>(0);
 
   // Derive effective anlz data from dual response
-  function mmToAnlz(mm: MixMindAnalysis): TrackAnlzData {
+  function mmToAnlz(mm: MixMindAnalysis, rbFallbackPreview?: number[]): TrackAnlzData {
+    // When MM has no 4-stem waveform, borrow RB's waveform_preview so we don't show blank
+    const hasWaveform = mm.waveform_4stem && mm.waveform_4stem.length > 0;
     return {
       beat_grid: mm.beat_grid,
       first_beat_ms: mm.beat_grid.length > 0 ? mm.beat_grid[0].time_ms : 0,
-      waveform_preview: [],
+      waveform_preview: hasWaveform ? [] : (rbFallbackPreview ?? []),
       waveform_3band: null,
       sections: mm.sections,
       hot_cues: mm.auto_cues.map((c: AutoCueEntry): HotCueEntry => ({
@@ -428,12 +430,14 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
 
   let anlzData: TrackAnlzData | null = null;
   if (dualData) {
+    const rbPreview = dualData.rekordbox?.waveform_preview;
     if (anlzSource === 'mm' && dualData.mixmind) {
-      anlzData = mmToAnlz(dualData.mixmind);
+      anlzData = mmToAnlz(dualData.mixmind, rbPreview);
     } else if (anlzSource === 'rb' && dualData.rekordbox) {
       anlzData = dualData.rekordbox;
     } else {
-      anlzData = dualData.mixmind ? mmToAnlz(dualData.mixmind) : dualData.rekordbox;
+      // Auto: prefer MM, fall back to RB
+      anlzData = dualData.mixmind ? mmToAnlz(dualData.mixmind, rbPreview) : dualData.rekordbox;
     }
   }
 
@@ -588,25 +592,35 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
           </span>
         </div>
 
-        {/* Analysis source status */}
-        {dualData && (
-          <span style={{ fontSize: '9px', fontWeight: 600, marginLeft: '6px', padding: '2px 8px', borderRadius: '4px',
-            background: dualData.mixmind
-              ? 'rgba(170,0,255,0.15)' : dualData.rekordbox
-              ? 'rgba(0,230,118,0.15)' : 'rgba(255,68,68,0.15)',
-            color: dualData.mixmind
-              ? '#c084fc' : dualData.rekordbox
-              ? '#00E676' : '#ff4444',
-          }}>
-            {dualData.mixmind && dualData.rekordbox
-              ? 'Analyzed: RB + MM'
-              : dualData.mixmind
-              ? 'Analyzed: MixMind'
-              : dualData.rekordbox
-              ? 'Analyzed: Rekordbox'
-              : 'Not analyzed'}
-          </span>
-        )}
+        {/* Active source indicator + availability */}
+        {dualData && (() => {
+          const effectiveSource = anlzSource === 'rb' ? 'RB'
+            : anlzSource === 'mm' ? 'MM'
+            : dualData.mixmind ? 'MM' : 'RB';
+          const dotColor = effectiveSource === 'MM' ? '#AA00FF' : '#00E676';
+          const hasRB = !!dualData.rekordbox;
+          const hasMM = !!dualData.mixmind;
+          const availLabel = hasRB && hasMM ? 'RB + MM' : hasRB ? 'RB only' : hasMM ? 'MM only' : 'none';
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
+              <span style={{
+                fontSize: '9px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px',
+                background: effectiveSource === 'MM' ? 'rgba(170,0,255,0.15)' : 'rgba(0,230,118,0.15)',
+                color: effectiveSource === 'MM' ? '#AA00FF' : '#00E676',
+                display: 'flex', alignItems: 'center', gap: '4px',
+              }}>
+                <span style={{
+                  width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
+                  background: dotColor,
+                }} />
+                Source: {effectiveSource}
+              </span>
+              <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)', fontFamily: 'ui-monospace, monospace' }}>
+                [{availLabel}]
+              </span>
+            </div>
+          );
+        })()}
         {!dualData && !loading && (
           <span style={{ fontSize: '9px', color: '#ff4444', marginLeft: '6px' }}>Not analyzed</span>
         )}
