@@ -401,9 +401,10 @@ None
 | 248 | Frontend 4-stem types, DJWaveformView stem rendering + legend, Analyze button in TrackTable, App handler | 2026-03-27 | e550d150 | [248-add-waveform4stem-essentiaresult-typescr](./quick/248-add-waveform4stem-essentiaresult-typescr/) |
 | 249 | Build compliance email system — 4 email templates, scheduler hooks, admin endpoints, 1099 tracking | 2026-03-28 | a9052fcc | [249-build-compliance-email-system-4-email-te](./quick/249-build-compliance-email-system-4-email-te/) |
 
+| 250 | Build all 6 apps — iOS 1129/235/225 to TestFlight + Android vC=42/38/37 to Firebase | 2026-03-29 | 8c188dde | [250-build-all-6-apps-3-ios-to-testflight-3-a](./quick/250-build-all-6-apps-3-ios-to-testflight-3-a/) |
+
 ## Session Continuity
 
-Last session: 2026-03-28
-Stopped at: Quick task 249 complete — compliance email system built (Prop 22 statement, monthly summary, quarterly report, 1099 alert)
-Stopped at: Quick task 248 complete — full stem analysis pipeline built (Q-246 through Q-248). Ready for DMG rebuild + pip install deps.
-Resume file: none
+Last session: 2026-03-29
+Stopped at: E2E testing complete — 40+ rides, 10+ food orders on production. Compliance emails working. Prop 22 calculates but driver GPS stale (needs app-based location update). All 6 apps distributed. Next: more extensive testing with fixed GPS + nursery feature for Rajesh.
+Resume file: ~/.claude/handoffs/2026-03-29-e2e-compliance-testing-builds.md
