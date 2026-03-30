@@ -1,7 +1,7 @@
 // src/components/dj/DJDeck.tsx
 // Self-contained CDJ-3000 deck: screen + pads + transport + pitch + loop + beat jump + grid
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Track, HotCueEntry, DualAnlzData } from '../../types/track';
 import { DJWaveformView } from '../DJWaveformView';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
@@ -88,6 +88,14 @@ export function DJDeck({ deck, track, onClose }: DJDeckProps) {
 
   // ── Grid offset ──
   const [gridOffset, setGridOffset] = useState(0);
+
+  // ── Pitch fader drag state ──
+  const [isDraggingPitch, setIsDraggingPitch] = useState(false);
+  const pitchTrackRef = useRef<HTMLDivElement>(null);
+
+  // ── CUE button timing refs ──
+  const cueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cueHoldRef = useRef(false);
 
   const msPerBeat = audio.effectiveBpm > 0 ? 60000 / audio.effectiveBpm : 500;
 
@@ -187,14 +195,28 @@ export function DJDeck({ deck, track, onClose }: DJDeckProps) {
     setGridOffset(prev => prev + direction);
   }
 
-  // ── CUE button behavior ──
-  function handleCue() {
-    if (audio.isPlaying) {
-      actions.returnToCue();
-    } else {
-      actions.setCuePoint();
-    }
+  // ── Pitch fader drag helpers ──
+  function pitchFromMouseY(clientY: number) {
+    const el = pitchTrackRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    // 0=top=+max, 1=bottom=-max
+    const pct = audio.pitchRange - ratio * 2 * audio.pitchRange;
+    actions.setPitchPercent(pct);
   }
+
+  useEffect(() => {
+    if (!isDraggingPitch) return;
+    const handleMove = (e: MouseEvent) => { e.preventDefault(); pitchFromMouseY(e.clientY); };
+    const handleUp = () => setIsDraggingPitch(false);
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [isDraggingPitch, audio.pitchRange]);
 
   // ── Pitch range cycle ──
   function cycleRange() {
@@ -341,9 +363,43 @@ export function DJDeck({ deck, track, onClose }: DJDeckProps) {
 
         {/* Transport column */}
         <div style={{ width: '50px', display: 'flex', flexDirection: 'column', gap: '3px', paddingTop: '8px' }}>
-          <div style={S.btn('#FF8C00')} onClick={handleCue}
-            onMouseDown={e => { if (e.button === 0 && !audio.isPlaying) actions.cuePreviw(); }}
-            onMouseUp={() => { if (!audio.isPlaying) actions.cueRelease(); }}
+          <div style={S.btn('#FF8C00')}
+            onMouseDown={e => {
+              if (e.button !== 0) return;
+              cueHoldRef.current = false;
+              if (audio.isPlaying) {
+                // Playing: return to cue immediately on press
+                actions.returnToCue();
+                return;
+              }
+              // Paused: start a timer — if held >150ms, it's a preview hold
+              cueTimerRef.current = setTimeout(() => {
+                cueHoldRef.current = true;
+                actions.cuePreviw();
+              }, 150);
+            }}
+            onMouseUp={() => {
+              if (cueTimerRef.current) {
+                clearTimeout(cueTimerRef.current);
+                cueTimerRef.current = null;
+              }
+              if (cueHoldRef.current) {
+                // Was a hold-preview — return to cue
+                actions.cueRelease();
+                cueHoldRef.current = false;
+              } else if (!audio.isPlaying) {
+                // Was a short tap while paused — set cue point
+                actions.setCuePoint();
+              }
+            }}
+            onMouseLeave={() => {
+              // If mouse leaves while holding, treat as release
+              if (cueHoldRef.current) {
+                if (cueTimerRef.current) clearTimeout(cueTimerRef.current);
+                actions.cueRelease();
+                cueHoldRef.current = false;
+              }
+            }}
           >CUE</div>
           <div style={S.btn('#00E676', audio.isPlaying)} onClick={actions.togglePlay}>
             {audio.isPlaying ? '⏸' : '▶'}
@@ -422,12 +478,8 @@ export function DJDeck({ deck, track, onClose }: DJDeckProps) {
           <div style={{ fontSize: '5px', color: '#333', letterSpacing: '.5px', cursor: 'pointer' }}
             onClick={cycleRange}>±{audio.pitchRange}%</div>
           <div style={S.pitchTrack}
-            onClick={e => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const ratio = (e.clientY - rect.top) / rect.height; // 0=top=+max, 1=bottom=-max
-              const pct = audio.pitchRange - ratio * 2 * audio.pitchRange;
-              actions.setPitchPercent(pct);
-            }}
+            ref={pitchTrackRef}
+            onMouseDown={e => { e.preventDefault(); setIsDraggingPitch(true); pitchFromMouseY(e.clientY); }}
           >
             <div style={{ position: 'absolute', top: '50%', left: '-2px', right: '-2px', height: '1px', background: 'rgba(255,255,255,.15)' }} />
             <div style={{
