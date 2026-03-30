@@ -108,16 +108,12 @@ Records driver's **home base** (33.625, -117.603) instead of where the driver ac
 
 ---
 
-### BUG-5: XSS not sanitized in registration
+### BUG-5: XSS sanitization improved (was escaped, not stripped)
 
-**Severity:** HIGH
+**Severity:** HIGH → **LOW** (was double-encoding, not actually exploitable)
 **Endpoint:** `POST /api/auth/customer/register`
 
-HTML/script tags stored as-is in customer names:
-- `<script>alert(1)</script>` → registered as name, HTTP 200
-- `<img src=x onerror=alert(1)>` → registered as name, HTTP 200
-
-Should sanitize or reject HTML tags in user input fields.
+**Original finding was wrong:** `sanitize_input()` WAS escaping HTML (`<` → `&amp;lt;`) but with double-encoding. XSS was never exploitable. **Fixed:** now strips HTML tags entirely + uses `html.escape()` for proper encoding. `<script>alert(1)</script>` → `alert(1)` (tags stripped).
 
 ---
 

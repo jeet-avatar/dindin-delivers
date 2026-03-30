@@ -1291,17 +1291,13 @@ def sanitize_input(text: str) -> str:
     """Sanitize user input to prevent XSS attacks"""
     if not text:
         return text
-    # Escape HTML special characters
-    replacements = {
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#x27;',
-        '&': '&amp;',
-    }
-    for char, escaped in replacements.items():
-        text = text.replace(char, escaped)
-    return text
+    import html
+    import re
+    # Strip HTML tags entirely (names should never contain HTML)
+    text = re.sub(r'<[^>]+>', '', text)
+    # Escape any remaining special characters
+    text = html.escape(text, quote=True)
+    return text.strip()
 
 
 async def get_current_customer(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
