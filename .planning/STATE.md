@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 20 (CDJ-3000 Functional Controls)
-Plan: 3 of 5 complete in current phase
-Status: Plan 20-03 complete: Draggable pitch fader + CUE button tap/hold fix.
-Last activity: 2026-03-30 - Completed Phase 20-03: Pitch fader drag + CUE button fix
+Plan: 4 of 5 complete in current phase
+Status: Plan 20-04 complete: SYNC/MASTER/QUANTIZE/SLIP buttons wired with cross-deck BPM sharing.
+Last activity: 2026-03-30 - Completed Phase 20-04: Sync/Master/Quantize/Slip controls
 
-Progress: [########################..................] 60% (3/5 plans in phase 20)
+Progress: [################################........] 80% (4/5 plans in phase 20)
 
 ## Completed Milestones
 
@@ -119,6 +119,7 @@ Progress: [########################..................] 60% (3/5 plans in phase 2
 - [Phase 20-01]: Fetch ANLZ in DJDeck separately for pad state population; deduplicate overlay by slot; map auto_cues to HotCueEntry shape
 - [Phase 20-02]: Loop enforcement uses refs for RAF-tick access; useEffect bridges React state to engine refs
 - [Phase 20-03]: 150ms timer threshold for CUE tap/hold discrimination; global mouse event pattern for pitch drag
+- [Phase 20]: SYNC uses pitch% formula ((targetBpm/originalBpm)-1)*100; MASTER state in App.tsx for exclusivity; QUANTIZE/SLIP visual-only toggles deferred to future
 
 ### Blockers
 
@@ -290,6 +291,7 @@ None
 | Phase 20 P01 | 2min | 1 tasks | 2 files |
 | Phase 20 P02 | 4min | 1 tasks | 2 files |
 | Phase 20 P03 | 3min | 2 tasks | 1 files |
+| Phase 20 P04 | 148s | 1 tasks | 2 files |
 
 ## Accumulated Context
 
