@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { ControlBar } from './ControlBar';
 
@@ -6,6 +6,12 @@ interface CallScreenProps {
   name: string;
   room: string;
   onLeave: () => void;
+}
+
+function getInviteLink(room: string): string {
+  const url = new URL(window.location.origin);
+  url.searchParams.set('room', room);
+  return url.toString();
 }
 
 export function CallScreen({ name, room, onLeave }: CallScreenProps) {
@@ -25,6 +31,7 @@ export function CallScreen({ name, room, onLeave }: CallScreenProps) {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (localVideoRef.current && localStream) {
@@ -43,9 +50,20 @@ export function CallScreen({ name, room, onLeave }: CallScreenProps) {
     onLeave();
   };
 
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(getInviteLink(room));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="call-screen">
-      <div className="room-info">Room: {room}</div>
+      <div className="room-header">
+        <span className="room-code">Room: {room}</span>
+        <button className="copy-link-btn" onClick={handleCopyLink}>
+          {copied ? 'Copied!' : 'Copy Invite Link'}
+        </button>
+      </div>
 
       {error && <div className="error">{error}</div>}
 
@@ -57,7 +75,14 @@ export function CallScreen({ name, room, onLeave }: CallScreenProps) {
           playsInline
         />
         {!peerName && !error && (
-          <div className="waiting">Waiting for someone to join...</div>
+          <div className="waiting">
+            <div className="waiting-text">Waiting for the other person...</div>
+            <div className="waiting-hint">Send them this link:</div>
+            <div className="waiting-link" onClick={handleCopyLink}>
+              {getInviteLink(room)}
+            </div>
+            <div className="waiting-copied">{copied ? 'Link copied!' : 'Click to copy'}</div>
+          </div>
         )}
         {peerName && (
           <div className="peer-name">{peerName}</div>

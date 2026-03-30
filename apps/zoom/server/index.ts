@@ -1,13 +1,48 @@
 import { WebSocketServer, WebSocket } from 'ws';
+import { createServer } from 'http';
+import { readFileSync, existsSync } from 'fs';
+import { join, extname } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-const wss = new WebSocketServer({ port: 3001 });
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PORT = parseInt(process.env.PORT || '3001');
+const STATIC_DIR = join(__dirname, '..', 'frontend', 'dist');
 
-// room name → [socket, socket]
+const MIME: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+};
+
+// HTTP server — serves the built frontend
+const server = createServer((req, res) => {
+  let filePath = join(STATIC_DIR, req.url === '/' ? 'index.html' : req.url!);
+
+  if (!existsSync(filePath)) {
+    filePath = join(STATIC_DIR, 'index.html'); // SPA fallback
+  }
+
+  try {
+    const content = readFileSync(filePath);
+    res.writeHead(200, { 'Content-Type': MIME[extname(filePath)] || 'application/octet-stream' });
+    res.end(content);
+  } catch {
+    res.writeHead(404);
+    res.end('Not found');
+  }
+});
+
+// WebSocket signaling on /ws path
+const wss = new WebSocketServer({ server, path: '/ws' });
+
 const rooms = new Map<string, { ws: WebSocket; name: string }[]>();
 
 wss.on('connection', (ws) => {
   let currentRoom: string | null = null;
-  let currentName: string = '';
 
   ws.on('message', (raw) => {
     let msg: { type: string; [key: string]: unknown };
@@ -21,7 +56,6 @@ wss.on('connection', (ws) => {
       const room = msg.room as string;
       const name = msg.name as string;
       currentRoom = room;
-      currentName = name;
 
       if (!rooms.has(room)) rooms.set(room, []);
       const peers = rooms.get(room)!;
@@ -33,7 +67,6 @@ wss.on('connection', (ws) => {
 
       peers.push({ ws, name });
 
-      // Notify all peers in the room about the new joiner
       for (const peer of peers) {
         if (peer.ws !== ws) {
           peer.ws.send(JSON.stringify({ type: 'peer-joined', name }));
@@ -43,7 +76,6 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // Relay offer, answer, ice-candidate to the other peer
     if (['offer', 'answer', 'ice-candidate'].includes(msg.type) && currentRoom) {
       const peers = rooms.get(currentRoom);
       if (!peers) return;
@@ -60,7 +92,6 @@ wss.on('connection', (ws) => {
     const peers = rooms.get(currentRoom);
     if (!peers) return;
 
-    // Remove this socket from the room
     const remaining = peers.filter((p) => p.ws !== ws);
     if (remaining.length === 0) {
       rooms.delete(currentRoom);
@@ -73,4 +104,6 @@ wss.on('connection', (ws) => {
   });
 });
 
-console.log('Signaling server running on ws://localhost:3001');
+server.listen(PORT, () => {
+  console.log(`Zietra Meet running at http://localhost:${PORT}`);
+});
