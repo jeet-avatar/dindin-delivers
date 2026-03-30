@@ -1,6 +1,6 @@
 // src/components/DJWaveformView.tsx
 // CDJ-3000 style split-pane waveform view with:
-// - Selectable waveform color styles (Stacked / Overlap / Saturated)
+// - Selectable waveform color styles (3Band / RGB / Blue)
 // - Black beat grid lines with 4/8/16/32 bar phrase markers
 // - Zoom controls with position slider
 // - RB / MM / Auto source toggle
@@ -11,14 +11,21 @@ import { Track, TrackAnlzData, HotCueEntry, Waveform4Stem, DualAnlzData, MixMind
 import { sidecarGet } from '../hooks/useSidecar';
 
 type AnlzSource = 'rb' | 'mm' | 'auto';
-type WfStyle = 'stacked' | 'overlap' | 'saturated';
+type WfStyle = '3band' | 'rgb' | 'blue';
+
+// CDJ-3000 3Band base colors
+const BAND_BLUE   = { r: 0x00, g: 0x55, b: 0xE1 };  // #0055E1 — bass
+const BAND_ORANGE = { r: 0xFF, g: 0xA6, b: 0x00 };  // #FFA600 — mid
+const BAND_WHITE  = { r: 0xFF, g: 0xFF, b: 0xFF };  // #FFFFFF — high
 
 // 4-stem colors (Demucs)
 const STEM_DRUMS  = '#FF3D00';
 const STEM_BASS   = '#AA00FF';
 const STEM_VOCALS = '#00E5FF';
 const STEM_OTHER  = '#FFEA00';
-const CDJ_MONO    = '#7C4DFF';
+
+// Playhead position: 35% from left edge
+const PLAYHEAD_RATIO = 0.35;
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -28,7 +35,24 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Waveform drawing — supports 3 styles
+// 3Band color blend helper — CDJ-3000 algorithm
+// ---------------------------------------------------------------------------
+
+function blend3Band(low: number, mid: number, high: number): { r: number; g: number; b: number; brightness: number } {
+  const total = low + mid + high;
+  if (total === 0) return { r: 0, g: 0, b: 0, brightness: 0 };
+  const wl = low / total;
+  const wm = mid / total;
+  const wh = high / total;
+  const r = Math.round(BAND_BLUE.r * wl + BAND_ORANGE.r * wm + BAND_WHITE.r * wh);
+  const g = Math.round(BAND_BLUE.g * wl + BAND_ORANGE.g * wm + BAND_WHITE.g * wh);
+  const b = Math.round(BAND_BLUE.b * wl + BAND_ORANGE.b * wm + BAND_WHITE.b * wh);
+  const brightness = Math.min(1, total / 400);
+  return { r, g, b, brightness };
+}
+
+// ---------------------------------------------------------------------------
+// Waveform drawing — supports 3 styles: 3band, rgb, blue
 // ---------------------------------------------------------------------------
 
 function drawWaveformBars(
@@ -40,59 +64,76 @@ function drawWaveformBars(
   const w4 = anlz.waveform_4stem;
   const wb = anlz.waveform_3band;
   const wp = anlz.waveform_preview;
+  const centerY = H / 2;
+
+  // Center line (barely visible)
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, Math.floor(centerY), W, 1);
 
   if (w4 && startIdx < w4.length) {
-    // 4-stem Demucs
+    // 4-stem Demucs — mirrored from center
     const visLen = Math.min(endIdx, w4.length) - startIdx;
     const barW = Math.max(1, W / visLen);
     for (let i = startIdx; i < Math.min(endIdx, w4.length); i++) {
       const x = msToX(iToMs(i));
       const c = w4[i];
-      const dH = (c.drums  / 255) * H * 0.35;
-      const bH = (c.bass   / 255) * H * 0.25;
-      const vH = (c.vocals / 255) * H * 0.25;
-      const oH = (c.other  / 255) * H * 0.20;
-      let y = H;
-      ctx.fillStyle = STEM_DRUMS;  ctx.fillRect(x, y - dH, barW, dH); y -= dH;
-      ctx.fillStyle = STEM_BASS;   ctx.fillRect(x, y - bH, barW, bH); y -= bH;
-      ctx.fillStyle = STEM_VOCALS; ctx.fillRect(x, y - vH, barW, vH); y -= vH;
-      ctx.fillStyle = STEM_OTHER;  ctx.fillRect(x, y - oH, barW, oH);
+      const total = c.drums + c.bass + c.vocals + c.other;
+      const barHeight = (total / (255 * 4)) * H * 0.85;
+      const halfBar = barHeight / 2;
+
+      // Use weighted stem color
+      const stemTotal = Math.max(total, 1);
+      const stems = [
+        { val: c.drums, r: 0xFF, g: 0x3D, b: 0x00 },
+        { val: c.bass, r: 0xAA, g: 0x00, b: 0xFF },
+        { val: c.vocals, r: 0x00, g: 0xE5, b: 0xFF },
+        { val: c.other, r: 0xFF, g: 0xEA, b: 0x00 },
+      ];
+      let r = 0, g = 0, b = 0;
+      for (const s of stems) {
+        const w = s.val / stemTotal;
+        r += s.r * w; g += s.g * w; b += s.b * w;
+      }
+      ctx.fillStyle = `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+      ctx.fillRect(x, centerY - halfBar, barW, halfBar);
+      ctx.fillRect(x, centerY, barW, halfBar);
     }
   } else if (wb && startIdx < wb.length) {
-    const visLen = Math.min(endIdx, wb.length) - startIdx;
-    const barW = Math.max(1, W / visLen);
+    // 3-band waveform — mirrored bars from center, 3Band color blend
+    const barW = 3;
     for (let i = startIdx; i < Math.min(endIdx, wb.length); i++) {
       const x = msToX(iToMs(i));
+      if (x < -barW || x > W + barW) continue;
       const c = wb[i];
+      const total = c.low + c.mid + c.high;
+      if (total === 0) continue;
 
-      if (wfStyle === 'stacked') {
-        const lH = (c.low / 170) * H * 0.50; ctx.fillStyle = '#FF1744'; ctx.fillRect(x, H - lH, barW + 0.5, lH);
-        const mH = (c.mid / 170) * H * 0.35; ctx.fillStyle = '#00E676'; ctx.fillRect(x, H - lH - mH, barW + 0.5, mH);
-        const hH = (c.high / 170) * H * 0.30; ctx.fillStyle = '#00B0FF'; ctx.fillRect(x, H - lH - mH - hH, barW + 0.5, hH);
-      } else if (wfStyle === 'overlap') {
-        const lH = (c.low / 160) * H * 0.90; ctx.fillStyle = 'rgba(255,23,68,0.85)'; ctx.fillRect(x, H - lH, barW + 0.5, lH);
-        const mH = (c.mid / 160) * H * 0.65; ctx.fillStyle = 'rgba(0,230,118,0.70)'; ctx.fillRect(x, H - mH, barW + 0.5, mH);
-        const hH = (c.high / 160) * H * 0.45; ctx.fillStyle = 'rgba(0,176,255,0.60)'; ctx.fillRect(x, H - hH, barW + 0.5, hH);
-      } else {
-        // saturated
-        const total = c.low + c.mid + c.high;
-        const bH = Math.max(1, (total / 300) * H);
-        const mx = Math.max(c.low, c.mid, c.high, 1);
-        const r = Math.min(255, Math.round((c.low / mx) * 255 * 1.5));
-        const g = Math.min(255, Math.round((c.mid / mx) * 255 * 1.5));
-        const b = Math.min(255, Math.round((c.high / mx) * 255 * 1.5));
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
-        ctx.fillRect(x, H - bH, barW + 0.5, bH);
-      }
+      const barHeight = (total / (255 * 3)) * H * 0.85;
+      const halfBar = barHeight / 2;
+
+      // Color depends on wfStyle — 3band is default, rgb and blue fall through to 3band for now
+      const blend = blend3Band(c.low, c.mid, c.high);
+      const br = blend.brightness;
+      ctx.fillStyle = `rgba(${blend.r},${blend.g},${blend.b},${(0.5 + br * 0.5).toFixed(2)})`;
+
+      // Draw mirrored bars from center
+      ctx.fillRect(x, centerY - halfBar, barW, halfBar);
+      ctx.fillRect(x, centerY, barW, halfBar);
     }
   } else if (wp && wp.length > 0) {
-    const visLen = Math.min(endIdx, wp.length) - startIdx;
-    const barW = Math.max(1, W / visLen);
+    // Mono waveform preview — fallback, monochrome blue, mirrored from center
+    const barW = 3;
     for (let i = startIdx; i < Math.min(endIdx, wp.length); i++) {
       const x = msToX(iToMs(i));
-      const bH = (wp[i] / 255) * H;
-      ctx.fillStyle = CDJ_MONO;
-      ctx.fillRect(x, H - bH, barW + 0.5, bH);
+      if (x < -barW || x > W + barW) continue;
+      const amp = wp[i];
+      if (amp === 0) continue;
+      const barHeight = (amp / 255) * H * 0.85;
+      const halfBar = barHeight / 2;
+      const alpha = (0.5 + (amp / 255) * 0.5).toFixed(2);
+      ctx.fillStyle = `rgba(0,85,225,${alpha})`;
+      ctx.fillRect(x, centerY - halfBar, barW, halfBar);
+      ctx.fillRect(x, centerY, barW, halfBar);
     }
   }
 }
@@ -213,7 +254,7 @@ function drawOverviewCanvas(
   const W = canvas.width, H = canvas.height;
   const durationMs = duration * 1000;
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#0c0c10';
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, W, H);
   if (durationMs <= 0) return;
 
@@ -270,16 +311,19 @@ function drawZoomedCanvas(
   const W = canvas.width, H = canvas.height;
   const durationMs = duration * 1000;
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#0c0c10';
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, W, H);
   if (durationMs <= 0 || anlz.beat_grid.length === 0) return;
 
   const avgBpm = anlz.bpm > 0 ? anlz.bpm : 120;
   const msPerBeat = 60_000 / avgBpm;
-  const halfWindowMs = (beatsVisible / 2) * msPerBeat;
+  const totalWindowBeats = beatsVisible;
   const centerMs = centerTime * 1000;
-  const startMs = centerMs - halfWindowMs;
-  const endMs = centerMs + halfWindowMs;
+  // Playhead at 35% from left — asymmetric window
+  const leftMs = (totalWindowBeats * PLAYHEAD_RATIO) * msPerBeat;
+  const rightMs = (totalWindowBeats * (1 - PLAYHEAD_RATIO)) * msPerBeat;
+  const startMs = centerMs - leftMs;
+  const endMs = centerMs + rightMs;
   const windowMs = endMs - startMs;
 
   const waveLen = anlz.waveform_4stem?.length ?? anlz.waveform_3band?.length ?? anlz.waveform_preview.length;
@@ -321,9 +365,13 @@ function drawZoomedCanvas(
     ctx.textAlign = 'center'; ctx.fillText(hc.slot, x, 10); ctx.textAlign = 'left';
   }
 
-  // Playhead (centered)
-  const px = W / 2;
-  ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1.5;
+  // Playhead at 35% from left with glow
+  const px = W * PLAYHEAD_RATIO;
+  // Glow (6px wide, 15% opacity)
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fillRect(px - 3, 0, 6, H);
+  // Solid playhead line (2px white)
+  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
 }
 
@@ -344,7 +392,7 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
   const [fetchFailed, setFetchFailed] = useState(false);
   const [zoomCenter, setZoomCenter] = useState<number>(0);
   const [anlzSource, setAnlzSource] = useState<AnlzSource>('auto');
-  const [wfStyle, setWfStyle] = useState<WfStyle>('stacked');
+  const [wfStyle, setWfStyle] = useState<WfStyle>('3band');
   const [zoomBeats, setZoomBeats] = useState<number>(64);
 
   const overviewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -469,7 +517,7 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
 
   return (
     <div style={{
-      background: '#0c0c10', borderTop: '1px solid #1a1a2e', borderBottom: '1px solid #1a1a2e',
+      background: '#000000', borderTop: '1px solid #1a1a2e', borderBottom: '1px solid #1a1a2e',
       flexShrink: 0, display: 'flex', flexDirection: 'column',
     }}>
       {/* ── Header bar ── */}
@@ -497,9 +545,9 @@ export function DJWaveformView({ track, currentTime, duration, onSeek }: DJWavef
 
         {/* Waveform style selector */}
         <div style={{ display: 'flex', gap: '2px', background: 'rgba(255,255,255,0.04)', borderRadius: '5px', padding: '2px', marginLeft: '4px' }}>
-          {(['stacked', 'overlap', 'saturated'] as WfStyle[]).map(s => (
-            <button key={s} onClick={() => setWfStyle(s)} style={btnStyle(wfStyle === s, '#FF1744')}>
-              {s === 'stacked' ? 'CDJ' : s === 'overlap' ? 'OVR' : 'SAT'}
+          {(['3band', 'rgb', 'blue'] as WfStyle[]).map(s => (
+            <button key={s} onClick={() => setWfStyle(s)} style={btnStyle(wfStyle === s, '#0055E1')}>
+              {s === '3band' ? '3Band' : s === 'rgb' ? 'RGB' : 'BLUE'}
             </button>
           ))}
         </div>
