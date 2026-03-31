@@ -5,6 +5,37 @@ Captures meeting audio -> Whisper transcription -> Claude answers -> Floating ov
 """
 
 import os, sys, time, queue, threading, io, wave, struct, math
+
+# ── FIX SSL FOR BUNDLED PYINSTALLER APPS ──────────────────────────────────────
+import ssl
+
+def _get_ssl_context():
+    """Build SSL context that works in PyInstaller bundles."""
+    try:
+        import certifi
+        ca_file = certifi.where()
+        if os.path.exists(ca_file):
+            return ssl.create_default_context(cafile=ca_file)
+    except Exception:
+        pass
+    try:
+        base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        ca_file = os.path.join(base, 'certifi', 'cacert.pem')
+        if os.path.exists(ca_file):
+            return ssl.create_default_context(cafile=ca_file)
+    except Exception:
+        pass
+    try:
+        return ssl.create_default_context()
+    except Exception:
+        pass
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+_SSL_CONTEXT = _get_ssl_context()
+
 import tkinter as tk
 from tkinter import ttk
 import numpy as np
@@ -35,50 +66,119 @@ _APP_TOKEN    = "ia-token-8f3k2p9x"
 _CONFIG_URL   = "https://0q8mtozfra.execute-api.us-east-1.amazonaws.com/get-app-config"
 _LICENSE_FILE = os.path.expanduser("~/.oa-license")
 
+def _get_device_id():
+    """Get unique hardware ID for this Windows PC."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["wmic", "csproduct", "get", "UUID"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if line and line != "UUID":
+                return line
+    except Exception:
+        pass
+    # Fallback: MAC address hash
+    try:
+        import uuid
+        return str(uuid.getnode())
+    except Exception:
+        return "unknown"
+
 def _get_license_key():
-    """Read license key from ~/.oa-license or prompt via dialog on first launch."""
+    """Read license key from ~/.oa-license or prompt via guided dialog on first launch."""
     if os.path.exists(_LICENSE_FILE):
         with open(_LICENSE_FILE) as _f:
             _key = _f.read().strip()
         if _key:
             return _key
+
     import tkinter as _tk
-    import tkinter.simpledialog as _tsd
+    import tkinter.messagebox as _tmb
+
     _root = _tk.Tk()
     _root.withdraw()
+
+    # Step 1: Welcome + instructions
+    _tmb.showinfo(
+        "Welcome to Interview Assistant",
+        "Thanks for purchasing Interview Assistant!\n\n"
+        "To activate, you need your License Key.\n\n"
+        "Here's how to find it:\n\n"
+        "1. Go to offerletter.ai/interview in your browser\n"
+        "2. If you just purchased, the page should show your License Key\n"
+        "3. Click 'Copy License Key' on the page\n"
+        "4. Come back here and paste it\n\n"
+        "Click OK when you're ready to enter your key.",
+    )
+
+    # Step 2: Ask for the key
+    import tkinter.simpledialog as _tsd
     _key = _tsd.askstring(
-        "Activate Interview Assistant",
-        "Enter your License Key from offerletter.ai/interview\n\n"
-        "After purchasing, click 'Copy License Key' on the setup page.",
+        "Enter License Key",
+        "Paste your License Key below:\n\n"
+        "(It looks like: cs_live_a1mRf2Ee...)\n",
         parent=_root,
     )
     _root.destroy()
+
     if _key and _key.strip():
+        _key = _key.strip()
         with open(_LICENSE_FILE, "w") as _f:
-            _f.write(_key.strip())
-        return _key.strip()
+            _f.write(_key)
+        return _key
+
     raise SystemExit("License key required. Get yours at offerletter.ai/interview after purchasing.")
 
 def _fetch_api_keys():
-    """Fetch API keys from config server using purchase license key."""
+    """Fetch API keys from config server using purchase license key + device ID."""
     _session_id = _get_license_key()
+    _device_id = _get_device_id()
     try:
         _req = _urllib_request.Request(
             _CONFIG_URL,
-            data=_json.dumps({"app_token": _APP_TOKEN, "session_id": _session_id}).encode(),
+            data=_json.dumps({"app_token": _APP_TOKEN, "session_id": _session_id, "device_id": _device_id}).encode(),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with _urllib_request.urlopen(_req, timeout=10) as _resp:
+        with _urllib_request.urlopen(_req, timeout=15, context=_SSL_CONTEXT) as _resp:
             _data = _json.loads(_resp.read())
         if "error" in _data:
+            # Delete invalid license so user can re-enter
+            if os.path.exists(_LICENSE_FILE):
+                os.remove(_LICENSE_FILE)
+            import tkinter as _tk
+            import tkinter.messagebox as _tmb
+            _r = _tk.Tk(); _r.withdraw()
+            _tmb.showerror(
+                "Invalid License Key",
+                f"Your license key was not recognized.\n\n"
+                f"Error: {_data['error']}\n\n"
+                f"Please check that you copied the full key from\n"
+                f"offerletter.ai/interview after purchasing.\n\n"
+                f"Restart the app to try again."
+            )
+            _r.destroy()
             raise SystemExit(f"License error: {_data['error']}")
         return _data["openai_key"], _data["anthropic_key"]
     except SystemExit:
         raise
     except Exception as _e:
         print(f"Could not fetch API config: {_e}")
-        raise SystemExit("Cannot start: failed to load API configuration. Check your internet connection.")
+        import tkinter as _tk
+        import tkinter.messagebox as _tmb
+        _r = _tk.Tk(); _r.withdraw()
+        _tmb.showerror(
+            "Connection Error",
+            f"Could not connect to the activation server.\n\n"
+            f"Error: {_e}\n\n"
+            f"Please check your internet connection and try again.\n"
+            f"If this persists, contact support@offerletter.ai"
+        )
+        _r.destroy()
+        raise SystemExit("Cannot start: failed to load API configuration.")
 
 OPENAI_API_KEY, ANTHROPIC_API_KEY = _fetch_api_keys()
 
