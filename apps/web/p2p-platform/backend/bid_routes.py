@@ -456,6 +456,25 @@ async def create_ride_request(data: CreateRideRequestInput, request: Request, cu
             detail="Pickup and dropoff locations must be different"
         )
 
+    # Geofence: reject rides outside US service area (generous bounding box)
+    # Continental US: lat 24.5-49.5, lon -125 to -66.5 (includes Hawaii: lat 18.9-22.3, lon -160.3 to -154.8)
+    def _in_service_area(lat, lon):
+        continental = 24.5 <= lat <= 49.5 and -125.0 <= lon <= -66.5
+        hawaii = 18.9 <= lat <= 22.3 and -160.3 <= lon <= -154.8
+        alaska = 51.0 <= lat <= 71.5 and -180.0 <= lon <= -129.0
+        return continental or hawaii or alaska
+
+    if not _in_service_area(data.pickup_latitude, data.pickup_longitude):
+        raise HTTPException(
+            status_code=400,
+            detail="Pickup location is outside our service area (US only)"
+        )
+    if not _in_service_area(data.dropoff_latitude, data.dropoff_longitude):
+        raise HTTPException(
+            status_code=400,
+            detail="Dropoff location is outside our service area (US only)"
+        )
+
     # Block customers with unpaid balance from new bookings
     if customer.has_unpaid_balance:
         raise HTTPException(

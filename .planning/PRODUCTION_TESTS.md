@@ -143,9 +143,9 @@ Records driver's **home base** (33.625, -117.603) instead of where the driver ac
 
 Added validation in `bid_routes.py:451` — rejects with 400 "Pickup and dropoff locations must be different".
 
-### BUG-11: No geofencing for extreme coordinates
+### ~~BUG-11: No geofencing for extreme coordinates~~ FIXED (Quick-257)
 
-South Pole to North Pole ride accepted ($17,435 fare). No validation for serviceable area.
+Added US bounding box geofencing in `bid_routes.py:458-474`. Covers Continental US + Hawaii + Alaska. Rejects South/North Pole, London, Tokyo, Mexico City with 400 "outside our service area".
 
 ### ~~BUG-12: Empty items array creates order~~ FIXED (Quick-256)
 
