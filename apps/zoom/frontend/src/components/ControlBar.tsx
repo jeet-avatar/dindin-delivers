@@ -2,6 +2,7 @@ interface ControlBarProps {
   isMuted: boolean;
   isCamOff: boolean;
   isScreenSharing: boolean;
+  canScreenShare: boolean;
   onToggleMute: () => void;
   onToggleCam: () => void;
   onToggleScreenShare: () => void;
@@ -12,6 +13,7 @@ export function ControlBar({
   isMuted,
   isCamOff,
   isScreenSharing,
+  canScreenShare,
   onToggleMute,
   onToggleCam,
   onToggleScreenShare,
@@ -33,13 +35,15 @@ export function ControlBar({
       >
         {isCamOff ? '📷' : '📹'}
       </button>
-      <button
-        className={isScreenSharing ? 'control-btn active' : 'control-btn'}
-        onClick={onToggleScreenShare}
-        title={isScreenSharing ? 'Stop Sharing' : 'Share Screen'}
-      >
-        🖥️
-      </button>
+      {canScreenShare && (
+        <button
+          className={isScreenSharing ? 'control-btn active' : 'control-btn'}
+          onClick={onToggleScreenShare}
+          title={isScreenSharing ? 'Stop Sharing' : 'Share Screen'}
+        >
+          🖥️
+        </button>
+      )}
       <button className="control-btn end-call" onClick={onEndCall} title="End Call">
         📞
       </button>
