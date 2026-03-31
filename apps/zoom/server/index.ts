@@ -39,18 +39,22 @@ const server = createServer((req, res) => {
 // WebSocket signaling on /ws path
 const wss = new WebSocketServer({ server, path: '/ws' });
 
+// Log upgrade attempts
+server.on('upgrade', (req) => {
+  console.log(`WS upgrade: ${req.url} from ${req.headers['x-forwarded-for'] || req.socket.remoteAddress}`);
+});
+
 const rooms = new Map<string, { ws: WebSocket; name: string }[]>();
 
 // Heartbeat to keep ALB from killing idle connections
 const PING_INTERVAL = 30_000;
 
 wss.on('connection', (ws) => {
+  console.log(`WS connected. Total clients: ${wss.clients.size}`);
   let currentRoom: string | null = null;
   const pingTimer = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) ws.ping();
   }, PING_INTERVAL);
-  ws.on('close', () => clearInterval(pingTimer));
-
   ws.on('message', (raw) => {
     let msg: { type: string; [key: string]: unknown };
     try {
@@ -58,6 +62,8 @@ wss.on('connection', (ws) => {
     } catch {
       return;
     }
+
+    console.log(`WS msg: ${msg.type} ${msg.type === 'join' ? `room=${msg.room} name=${msg.name}` : ''}`);
 
     if (msg.type === 'join') {
       const room = msg.room as string;
@@ -95,6 +101,8 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+    clearInterval(pingTimer);
+    console.log(`WS disconnected. Total clients: ${wss.clients.size}`);
     if (!currentRoom) return;
     const peers = rooms.get(currentRoom);
     if (!peers) return;
