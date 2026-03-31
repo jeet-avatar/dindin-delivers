@@ -41,8 +41,15 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 
 const rooms = new Map<string, { ws: WebSocket; name: string }[]>();
 
+// Heartbeat to keep ALB from killing idle connections
+const PING_INTERVAL = 30_000;
+
 wss.on('connection', (ws) => {
   let currentRoom: string | null = null;
+  const pingTimer = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) ws.ping();
+  }, PING_INTERVAL);
+  ws.on('close', () => clearInterval(pingTimer));
 
   ws.on('message', (raw) => {
     let msg: { type: string; [key: string]: unknown };

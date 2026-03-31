@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useWebRTC } from '../hooks/useWebRTC';
+import { useWebRTC, ConnectionState } from '../hooks/useWebRTC';
 import { ControlBar } from './ControlBar';
 
 interface CallScreenProps {
@@ -14,14 +14,26 @@ function getInviteLink(room: string): string {
   return url.toString();
 }
 
+function connectionLabel(state: ConnectionState): string {
+  switch (state) {
+    case 'waiting': return 'Waiting for the other person...';
+    case 'connecting': return 'Connecting...';
+    case 'connected': return 'Connected';
+    case 'reconnecting': return 'Reconnecting...';
+    case 'failed': return 'Connection failed. Retrying...';
+  }
+}
+
 export function CallScreen({ name, room, onLeave }: CallScreenProps) {
   const {
     localStream,
     remoteStream,
     peerName,
+    connectionState,
     isMuted,
     isCamOff,
     isScreenSharing,
+    canScreenShare,
     toggleMute,
     toggleCam,
     toggleScreenShare,
@@ -36,12 +48,14 @@ export function CallScreen({ name, room, onLeave }: CallScreenProps) {
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(() => {});
     }
   }, [localStream]);
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(() => {});
     }
   }, [remoteStream]);
 
@@ -60,6 +74,9 @@ export function CallScreen({ name, room, onLeave }: CallScreenProps) {
     <div className="call-screen">
       <div className="room-header">
         <span className="room-code">Room: {room}</span>
+        <span className={`connection-state ${connectionState}`}>
+          {connectionLabel(connectionState)}
+        </span>
         <button className="copy-link-btn" onClick={handleCopyLink}>
           {copied ? 'Copied!' : 'Copy Invite Link'}
         </button>
@@ -74,7 +91,7 @@ export function CallScreen({ name, room, onLeave }: CallScreenProps) {
           autoPlay
           playsInline
         />
-        {!peerName && !error && (
+        {connectionState === 'waiting' && !error && (
           <div className="waiting">
             <div className="waiting-text">Waiting for the other person...</div>
             <div className="waiting-hint">Send them this link:</div>
@@ -84,7 +101,22 @@ export function CallScreen({ name, room, onLeave }: CallScreenProps) {
             <div className="waiting-copied">{copied ? 'Link copied!' : 'Click to copy'}</div>
           </div>
         )}
-        {peerName && (
+        {connectionState === 'connecting' && (
+          <div className="waiting">
+            <div className="waiting-text">Connecting...</div>
+          </div>
+        )}
+        {connectionState === 'reconnecting' && (
+          <div className="waiting">
+            <div className="waiting-text">Reconnecting...</div>
+          </div>
+        )}
+        {connectionState === 'failed' && (
+          <div className="waiting">
+            <div className="waiting-text">Connection failed. Retrying...</div>
+          </div>
+        )}
+        {peerName && connectionState === 'connected' && (
           <div className="peer-name">{peerName}</div>
         )}
         <video
@@ -100,6 +132,7 @@ export function CallScreen({ name, room, onLeave }: CallScreenProps) {
         isMuted={isMuted}
         isCamOff={isCamOff}
         isScreenSharing={isScreenSharing}
+        canScreenShare={canScreenShare}
         onToggleMute={toggleMute}
         onToggleCam={toggleCam}
         onToggleScreenShare={toggleScreenShare}
