@@ -418,6 +418,7 @@ None
 | 255 | Fix BUG-5: strip HTML tags in sanitize_input + use html.escape (was double-encoding) | 2026-03-30 | 61ef33e8 | [255-fix-bug-5-xss-not-sanitized-in-registrat](./quick/255-fix-bug-5-xss-not-sanitized-in-registrat/) |
 | 256 | Fix BUG-6 chat alias, BUG-7 closed, BUG-10 same-coords reject, BUG-12 empty items reject | 2026-03-30 | 9166d848 | [256-fix-bug-6-chat-alias-endpoint-api-chat-m](./quick/256-fix-bug-6-chat-alias-endpoint-api-chat-m/) |
 | 257 | Fix BUG-6 chat route conflict fallback + BUG-11 US geofencing for ride requests | 2026-03-31 | pending | [257-fix-bug-6-route-conflict-and-bug-11-geof](./quick/257-fix-bug-6-route-conflict-and-bug-11-geof/) |
+| 258 | One-click NetSuite campaign send for BrandMonkz ($2/hr staff aug, Peter Samuel) | 2026-03-31 | 6b9e78bb | [258-build-one-click-campaign-send-for-brandm](./quick/258-build-one-click-campaign-send-for-brandm/) |
 
 ## Session Continuity
 
