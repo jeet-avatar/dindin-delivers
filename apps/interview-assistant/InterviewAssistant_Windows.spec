@@ -35,6 +35,7 @@ a = Analysis(
         'anyio._backends._trio',
         'sniffio',
         'certifi',
+        'ssl',
         'h11',
         'queue',
         'wave',
