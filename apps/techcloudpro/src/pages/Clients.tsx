@@ -1,5 +1,4 @@
 import { Helmet } from 'react-helmet-async'
-import { Building2 } from 'lucide-react'
 import { Scene3D } from '../components/3d'
 import { SectionHeader, GlassCard } from '../components/ui'
 import { CTABlock } from '../components/sections'
@@ -14,7 +13,7 @@ export default function Clients() {
       </Helmet>
 
       {/* Hero */}
-      <section className="relative py-28 md:py-36 overflow-hidden">
+      <section className="relative py-24 md:py-32 overflow-hidden">
         <Scene3D showMesh={false} />
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
           <SectionHeader
@@ -26,15 +25,20 @@ export default function Clients() {
       </section>
 
       {/* Client grid */}
-      <section className="py-16 px-6 md:px-12 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+      <section className="py-12 px-6 md:px-12 lg:px-20 max-w-[1400px] mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {clients.map(client => (
-            <GlassCard key={client.name} className="group">
-              <div className="w-12 h-12 rounded-xl bg-[var(--glass)] border border-[var(--glass-border)] flex items-center justify-center mb-4 [.light_&]:bg-gray-50">
-                <Building2 size={22} className="text-[var(--text-muted)]" />
+            <GlassCard key={client.name} className="group flex flex-col">
+              <div className="h-16 flex items-center justify-center mb-4 rounded-xl bg-white/80 [.light_&]:bg-gray-50 p-3">
+                <img
+                  src={`/images/clients/${client.logo}`}
+                  alt={client.name}
+                  className="max-h-12 max-w-[140px] object-contain"
+                  loading="lazy"
+                />
               </div>
               <h3 className="text-[15px] font-bold mb-2">{client.name}</h3>
-              <p className="text-[11.5px] text-[var(--text-muted)] leading-relaxed">{client.description}</p>
+              <p className="text-[11.5px] text-[var(--text-muted)] leading-relaxed flex-1">{client.description}</p>
             </GlassCard>
           ))}
         </div>
