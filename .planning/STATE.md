@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 20 (CDJ-3000 Functional Controls) -- COMPLETE
 Plan: 5 of 5 complete in current phase
 Status: Phase 20 complete: All CDJ-3000 functional controls wired (hot cues, loops, beat jump, pitch, sync, grid nudge).
-Last activity: 2026-03-31 - Completed quick task 258: One-click NetSuite campaign send for BrandMonkz
+Last activity: 2026-04-01 - Completed quick task 259: Fix BrandMonkz campaign email to be fully multi-tenant
 
 Progress: [########################################] 100% (5/5 plans in phase 20)
 
@@ -420,6 +420,7 @@ None
 | 256 | Fix BUG-6 chat alias, BUG-7 closed, BUG-10 same-coords reject, BUG-12 empty items reject | 2026-03-30 | 9166d848 | [256-fix-bug-6-chat-alias-endpoint-api-chat-m](./quick/256-fix-bug-6-chat-alias-endpoint-api-chat-m/) |
 | 257 | Fix BUG-6 chat route conflict fallback + BUG-11 US geofencing for ride requests | 2026-03-31 | pending | [257-fix-bug-6-route-conflict-and-bug-11-geof](./quick/257-fix-bug-6-route-conflict-and-bug-11-geof/) |
 | 258 | One-click NetSuite campaign send for BrandMonkz ($2/hr staff aug, Peter Samuel) | 2026-03-31 | 6b9e78bb | [258-build-one-click-campaign-send-for-brandm](./quick/258-build-one-click-campaign-send-for-brandm/) |
+| 259 | Fix BrandMonkz campaign email to be fully multi-tenant — each tenant uses their own EmailServerConfig for campaigns | 2026-04-01 | 8c323ca9 | [259-fix-brandmonkz-campaign-email-to-be-full](./quick/259-fix-brandmonkz-campaign-email-to-be-full/) |
 
 ## Session Continuity
 
