@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 20 (CDJ-3000 Functional Controls) -- COMPLETE
 Plan: 5 of 5 complete in current phase
 Status: Phase 20 complete: All CDJ-3000 functional controls wired (hot cues, loops, beat jump, pitch, sync, grid nudge).
-Last activity: 2026-04-01 - Completed quick task 261: Throttled campaign sending for BrandMonkz
+Last activity: 2026-04-01 - Completed quick task 262: Campaign Builder UI — speed selector, throttled send, live progress
 
 Progress: [########################################] 100% (5/5 plans in phase 20)
 
@@ -422,7 +422,8 @@ None
 | 258 | One-click NetSuite campaign send for BrandMonkz ($2/hr staff aug, Peter Samuel) | 2026-03-31 | 6b9e78bb | [258-build-one-click-campaign-send-for-brandm](./quick/258-build-one-click-campaign-send-for-brandm/) |
 | 259 | Fix BrandMonkz campaign email to be fully multi-tenant — each tenant uses their own EmailServerConfig for campaigns | 2026-04-01 | 8c323ca9 | [259-fix-brandmonkz-campaign-email-to-be-full](./quick/259-fix-brandmonkz-campaign-email-to-be-full/) |
 | 260 | Deep audit BrandMonkz CRM — routes, email sends, nginx, CORS, rate limiters (15 issues found) | 2026-04-01 | 4e7887da | [260-deep-audit-brandmonkz-crm-routes-email-s](./quick/260-deep-audit-brandmonkz-crm-routes-email-s/) |
-| 261 | Throttled campaign sending — 1 email per 5 min, validation, progress tracking | 2026-04-01 | pending | [261-throttled-campaign-sending-1-email-per-5](./quick/261-throttled-campaign-sending-1-email-per-5/) |
+| 261 | Throttled campaign sending — 1 email per 5 min, validation, progress tracking | 2026-04-01 | 058e1546 | [261-throttled-campaign-sending-1-email-per-5](./quick/261-throttled-campaign-sending-1-email-per-5/) |
+| 262 | Campaign Builder UI — speed selector, throttled send, live progress bar | 2026-04-01 | pending | [262-campaign-builder-ui-speed-selector-throt](./quick/262-campaign-builder-ui-speed-selector-throt/) |
 
 ## Session Continuity
 
