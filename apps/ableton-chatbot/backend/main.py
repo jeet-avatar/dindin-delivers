@@ -21,7 +21,7 @@ from pydantic import BaseModel, EmailStr
 
 from claude_tools import ABLETON_TOOLS, SYSTEM_PROMPT, tool_to_osc
 from database import init_db, get_user_by_email, get_user_by_id, create_user, is_subscribed, update_user_password
-from musai_auth import hash_password, verify_password, create_token, decode_token
+from beatmind_auth import hash_password, verify_password, create_token, decode_token
 from stripe_routes import router as stripe_router
 from security import (
     enforce_secrets, rate_limit, get_client_ip,
@@ -403,6 +403,9 @@ async def chat(req: ChatRequest, request: Request, user: dict = Depends(require_
 
     # Rate limit: 30 messages per user per minute
     rate_limit(f"chat:{user['id']}", max_requests=30, window_seconds=60)
+
+    # Block prompt injection attempts
+    check_prompt_injection(req.message)
 
     session_id = req.session_id or str(uuid.uuid4())
     if session_id not in sessions:

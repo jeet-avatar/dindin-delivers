@@ -203,7 +203,10 @@ class DoSProtectionMiddleware(BaseHTTPMiddleware):
 
         # 1. Block obviously oversized bodies early (before parsing)
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > self.MAX_BODY_BYTES:
+        try:
+            if content_length and int(content_length) > self.MAX_BODY_BYTES:
+                return JSONResponse({"detail": "Request too large"}, status_code=413)
+        except ValueError:
             return JSONResponse({"detail": "Request too large"}, status_code=413)
 
         # 2. Global IP rate limit (all endpoints combined)

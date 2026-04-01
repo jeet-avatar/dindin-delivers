@@ -17,7 +17,7 @@ EXPOSE 8000
 
 USER appuser
 
-# NOTE: ECS task def may override to /data/musai.db for backward compat with existing EFS data
+# NOTE: ECS task def may override DB_PATH if needed
 ENV DB_PATH=/data/beatmind.db
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
