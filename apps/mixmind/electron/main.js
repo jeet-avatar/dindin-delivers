@@ -22,9 +22,10 @@ const http = require('http');
 app.setAsDefaultProtocolClient('mixmind');
 
 const PORT_FILE = path.join(os.homedir(), '.mixmind-port');
+const SIDECAR_BIN = process.platform === 'win32' ? 'mixmind-sidecar.exe' : 'mixmind-sidecar';
 const SIDECAR_PATH = app.isPackaged
-  ? path.join(process.resourcesPath, 'sidecar', 'mixmind-sidecar')
-  : path.join(__dirname, '..', 'sidecar', 'dist', 'mixmind-sidecar', 'mixmind-sidecar');
+  ? path.join(process.resourcesPath, 'sidecar', 'mixmind-sidecar', SIDECAR_BIN)
+  : path.join(__dirname, '..', 'sidecar', 'dist', 'mixmind-sidecar', SIDECAR_BIN);
 
 let sidecarProcess = null;
 let mainWindow = null;
@@ -162,25 +163,42 @@ app.on('open-url', (event, url) => {
   handleDeepLink(url);
 });
 
-// ── Keychain helpers (macOS `security` CLI) ───────────────────────────────────
+// ── Token storage (macOS Keychain / Windows credential file) ─────────────────
+
+const TOKEN_FILE = path.join(os.homedir(), '.mixmind', 'credentials.json');
 
 function storeJWTInKeychain(token) {
   try {
-    execSync(
-      `security add-generic-password -s mixmind-jwt -a mixmind -w "${token}" -U`,
-      { stdio: 'ignore' }
-    );
+    if (process.platform === 'darwin') {
+      const { spawnSync } = require('child_process');
+      spawnSync('security', ['add-generic-password', '-s', 'mixmind-jwt', '-a', 'mixmind', '-w', token, '-U'], {
+        stdio: 'ignore',
+      });
+    } else {
+      // Windows/Linux: store in user-only credential file
+      const dir = path.dirname(TOKEN_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(TOKEN_FILE, JSON.stringify({ token }), { mode: 0o600 });
+    }
   } catch (e) {
-    console.error('Keychain write failed:', e.message);
+    console.error('Token store failed:', e.message);
   }
 }
 
 function loadJWTFromKeychain() {
   try {
-    return execSync(
-      'security find-generic-password -s mixmind-jwt -w',
-      { stdio: ['ignore', 'pipe', 'ignore'] }
-    ).toString().trim();
+    if (process.platform === 'darwin') {
+      return execSync(
+        'security find-generic-password -s mixmind-jwt -w',
+        { stdio: ['ignore', 'pipe', 'ignore'] }
+      ).toString().trim();
+    } else {
+      if (fs.existsSync(TOKEN_FILE)) {
+        const data = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
+        return data.token || null;
+      }
+      return null;
+    }
   } catch (_) {
     return null;
   }

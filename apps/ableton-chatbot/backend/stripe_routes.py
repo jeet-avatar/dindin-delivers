@@ -39,7 +39,7 @@ async def create_checkout_session(request: Request):
     if not auth.startswith("Bearer "):
         raise HTTPException(401, "Unauthorized")
 
-    from musai_auth import decode_token
+    from beatmind_auth import decode_token
     from database import get_user_by_id
     from jose import JWTError
     try:
@@ -75,7 +75,7 @@ async def create_checkout_session(request: Request):
 @router.post("/portal")
 async def customer_portal(request: Request):
     """Create Stripe Customer Portal session for authenticated user."""
-    from musai_auth import decode_token
+    from beatmind_auth import decode_token
     from database import get_user_by_id
     from jose import JWTError
 
