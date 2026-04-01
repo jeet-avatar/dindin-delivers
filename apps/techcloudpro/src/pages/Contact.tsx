@@ -1,12 +1,168 @@
+import { useState } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { SectionHeader } from '../components/ui'
+import { Send, CheckCircle, AlertCircle, MapPin, Mail, Phone } from 'lucide-react'
+import { Scene3D } from '../components/3d'
+import { SectionHeader, GlassCard, Button } from '../components/ui'
+
+type Status = 'idle' | 'sending' | 'success' | 'error'
+
+const serviceOptions = ['NetSuite ERP', 'Cybersecurity', 'AI & Private LLM', 'IT Staffing', 'Other']
 
 export default function Contact() {
+  const [status, setStatus] = useState<Status>('idle')
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setStatus('sending')
+
+    const form = e.currentTarget
+    const data = Object.fromEntries(new FormData(form))
+
+    // Honeypot check
+    if (data._honey) { setStatus('success'); return }
+
+    try {
+      const res = await fetch('/api/contact.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (res.ok) {
+        setStatus('success')
+        form.reset()
+      } else {
+        setStatus('error')
+      }
+    } catch {
+      setStatus('error')
+    }
+  }
+
+  const inputClass = 'w-full px-4 py-3 rounded-xl bg-[var(--glass)] border border-[var(--glass-border)] text-[var(--text)] text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors [.light_&]:bg-white'
+
   return (
     <>
-      <Helmet><title>Contact | TechCloudPro</title></Helmet>
-      <section className="min-h-[60vh] flex items-center justify-center px-6">
-        <SectionHeader label="Coming Soon" title="Contact" subtitle="This page will be built in a later wave." />
+      <Helmet>
+        <title>Contact Us — Get a Free Consultation | TechCloudPro</title>
+        <meta name="description" content="Schedule a free consultation with TechCloudPro. 40 hours of free discovery sessions included." />
+      </Helmet>
+
+      <section className="relative py-28 md:py-32 overflow-hidden">
+        <Scene3D showMesh={false} />
+        <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
+          <SectionHeader
+            label="Get In Touch"
+            title="Ready to Transform Your Business?"
+            subtitle="Schedule a free consultation. 40 hours of discovery sessions included. We'll get back to you within 24 hours."
+          />
+        </div>
+      </section>
+
+      <section className="py-12 px-6 md:px-12 max-w-6xl mx-auto">
+        <div className="grid lg:grid-cols-5 gap-10">
+          {/* Form */}
+          <div className="lg:col-span-3">
+            <GlassCard className="p-8">
+              {status === 'success' ? (
+                <div className="text-center py-12">
+                  <CheckCircle size={48} className="text-emerald-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold mb-2">Message Sent!</h3>
+                  <p className="text-[var(--text-muted)]">We'll get back to you within 24 hours.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {/* Honeypot */}
+                  <input type="text" name="_honey" className="hidden" tabIndex={-1} autoComplete="off" />
+
+                  <div className="grid md:grid-cols-2 gap-5">
+                    <div>
+                      <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-dim)] mb-2">Full Name *</label>
+                      <input type="text" id="name" name="name" required className={inputClass} placeholder="John Smith" />
+                    </div>
+                    <div>
+                      <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-dim)] mb-2">Email *</label>
+                      <input type="email" id="email" name="email" required className={inputClass} placeholder="john@company.com" />
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-5">
+                    <div>
+                      <label htmlFor="company" className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-dim)] mb-2">Company</label>
+                      <input type="text" id="company" name="company" className={inputClass} placeholder="Acme Corp" />
+                    </div>
+                    <div>
+                      <label htmlFor="phone" className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-dim)] mb-2">Phone</label>
+                      <input type="tel" id="phone" name="phone" className={inputClass} placeholder="+1 (555) 000-0000" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="service" className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-dim)] mb-2">Service of Interest</label>
+                    <select id="service" name="service" className={`${inputClass} cursor-pointer`}>
+                      <option value="">Select a service</option>
+                      {serviceOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="message" className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-dim)] mb-2">Message</label>
+                    <textarea id="message" name="message" rows={5} className={`${inputClass} resize-none`} placeholder="Tell us about your needs..." />
+                  </div>
+
+                  {status === 'error' && (
+                    <div className="flex items-center gap-2 text-rose-400 text-sm">
+                      <AlertCircle size={16} />
+                      <span>Something went wrong. Please try again or email us directly.</span>
+                    </div>
+                  )}
+
+                  <Button type="submit" size="lg" className="w-full justify-center">
+                    {status === 'sending' ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>Send Message <Send size={16} /></>
+                    )}
+                  </Button>
+                </form>
+              )}
+            </GlassCard>
+          </div>
+
+          {/* Contact info */}
+          <div className="lg:col-span-2 space-y-5">
+            <GlassCard className="p-6">
+              <div className="flex items-start gap-3">
+                <Mail size={20} className="text-blue-400 flex-shrink-0 mt-1" />
+                <div>
+                  <h4 className="text-sm font-bold mb-1">Email Us</h4>
+                  <a href="mailto:jm@techcloudpro.com" className="text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors block">jm@techcloudpro.com</a>
+                  <a href="mailto:rajesh@techcloudpro.com" className="text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors block">rajesh@techcloudpro.com</a>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard className="p-6">
+              <div className="flex items-start gap-3">
+                <Phone size={20} className="text-emerald-400 flex-shrink-0 mt-1" />
+                <div>
+                  <h4 className="text-sm font-bold mb-1">Call Us</h4>
+                  <p className="text-[13px] text-[var(--text-muted)]">Contact us for a direct consultation</p>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard className="p-6">
+              <div className="flex items-start gap-3">
+                <MapPin size={20} className="text-purple-400 flex-shrink-0 mt-1" />
+                <div>
+                  <h4 className="text-sm font-bold mb-1">Global Presence</h4>
+                  <p className="text-[13px] text-[var(--text-muted)]">North America &bull; India</p>
+                  <p className="text-[12px] text-[var(--text-muted)] mt-1">Serving clients across 120+ countries</p>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+        </div>
       </section>
     </>
   )
