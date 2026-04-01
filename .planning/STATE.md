@@ -121,6 +121,7 @@ Progress: [########################################] 100% (5/5 plans in phase 20
 - [Phase 20-03]: 150ms timer threshold for CUE tap/hold discrimination; global mouse event pattern for pitch drag
 - [Phase 20]: SYNC uses pitch% formula ((targetBpm/originalBpm)-1)*100; MASTER state in App.tsx for exclusivity; QUANTIZE/SLIP visual-only toggles deferred to future
 - [Phase 20-05]: Offset applied inside drawBeatGrid via parameter rather than mutating beat_grid data
+- [Phase quick-259]: Campaign sends use ONLY per-user verified EmailServerConfig — no env SMTP/SES fallback
 
 ### Blockers
 
