@@ -1,14 +1,14 @@
-import { Helmet } from 'react-helmet-async'
 import { HeroCarousel, StatsRibbon, PillarGrid, ClientMarquee, CTABlock } from '../components/sections'
-import { SectionHeader } from '../components/ui'
+import { SectionHeader, SEO } from '../components/ui'
 
 export default function Home() {
   return (
     <>
-      <Helmet>
-        <title>TechCloudPro — Enterprise AI, ERP, Cybersecurity & IT Staffing</title>
-        <meta name="description" content="Transform your business with TechCloudPro — Private AI deployment, Oracle NetSuite ERP, CyberArk cybersecurity, and IT staffing solutions." />
-      </Helmet>
+      <SEO
+        title="Enterprise AI, ERP, Cybersecurity & IT Staffing"
+        description="Transform your business with TechCloudPro — Private AI deployment, Oracle NetSuite ERP, CyberArk cybersecurity, and IT staffing solutions."
+        path="/"
+      />
 
       <HeroCarousel />
       <StatsRibbon />

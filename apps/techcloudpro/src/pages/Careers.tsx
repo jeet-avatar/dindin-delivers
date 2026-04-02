@@ -1,7 +1,6 @@
-import { Helmet } from 'react-helmet-async'
 import { Briefcase, Globe, Rocket, Heart } from 'lucide-react'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard, Button } from '../components/ui'
+import { SectionHeader, GlassCard, Button, SEO } from '../components/ui'
 
 const perks = [
   { icon: Rocket, title: 'Work on Cutting-Edge Tech', description: 'From AI/LLM deployments to NetSuite implementations — you\'ll work on the latest enterprise technology.', color: 'text-blue-400 bg-blue-500/12' },
@@ -13,10 +12,11 @@ const perks = [
 export default function Careers() {
   return (
     <>
-      <Helmet>
-        <title>Careers — Join Our Team | TechCloudPro</title>
-        <meta name="description" content="Join TechCloudPro — work on cutting-edge AI, ERP, and cybersecurity projects with a global team." />
-      </Helmet>
+      <SEO
+        title="Careers — Join Our Team"
+        description="Join TechCloudPro — work on cutting-edge AI, ERP, and cybersecurity projects with a global team."
+        path="/careers"
+      />
 
       <section className="relative py-28 md:py-36 overflow-hidden">
         <Scene3D showMesh={false} />

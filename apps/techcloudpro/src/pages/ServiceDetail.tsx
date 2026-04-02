@@ -1,8 +1,7 @@
 import { useParams, Navigate } from 'react-router'
-import { Helmet } from 'react-helmet-async'
 import { Monitor, Shield, Sparkles, Users, CheckCircle } from 'lucide-react'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard, Badge } from '../components/ui'
+import { SectionHeader, GlassCard, Badge, SEO } from '../components/ui'
 import { CTABlock } from '../components/sections'
 import { pillars, type PillarColor } from '../data/services'
 
@@ -46,10 +45,11 @@ export default function ServiceDetail() {
 
   return (
     <>
-      <Helmet>
-        <title>{pillar.title} — {pillar.label} | TechCloudPro</title>
-        <meta name="description" content={pillar.description} />
-      </Helmet>
+      <SEO
+        title={`${pillar.title} — ${pillar.label}`}
+        description={pillar.description}
+        path={`/services/${pillar.slug}`}
+      />
 
       {/* Hero */}
       <section className={`relative py-28 md:py-36 overflow-hidden bg-gradient-to-br ${heroGradients[pillar.color]}`}>

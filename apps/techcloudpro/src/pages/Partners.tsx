@@ -1,17 +1,17 @@
-import { Helmet } from 'react-helmet-async'
 import { Handshake } from 'lucide-react'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard } from '../components/ui'
+import { SectionHeader, GlassCard, SEO } from '../components/ui'
 import { CTABlock } from '../components/sections'
 import { partners } from '../data/partners'
 
 export default function Partners() {
   return (
     <>
-      <Helmet>
-        <title>Technology Partners | TechCloudPro</title>
-        <meta name="description" content="TechCloudPro partners with Oracle NetSuite, CyberArk, Planful, and Zietra to deliver best-in-class enterprise solutions." />
-      </Helmet>
+      <SEO
+        title="Technology Partners"
+        description="TechCloudPro partners with Oracle NetSuite, CyberArk, Planful, and Zietra to deliver best-in-class enterprise solutions."
+        path="/partners"
+      />
 
       <section className="relative py-28 md:py-36 overflow-hidden">
         <Scene3D showMesh={false} />

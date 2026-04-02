@@ -1,7 +1,6 @@
-import { Helmet } from 'react-helmet-async'
 import { Target, Eye, Shield, Zap } from 'lucide-react'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard } from '../components/ui'
+import { SectionHeader, GlassCard, SEO } from '../components/ui'
 import { CTABlock } from '../components/sections'
 
 const values = [
@@ -14,10 +13,11 @@ const values = [
 export default function About() {
   return (
     <>
-      <Helmet>
-        <title>About Us — Our Story | TechCloudPro</title>
-        <meta name="description" content="TechCloudPro is a Zietra Technologies Inc. company delivering enterprise AI, ERP, cybersecurity, and IT staffing solutions." />
-      </Helmet>
+      <SEO
+        title="About Us — Our Story"
+        description="TechCloudPro is a Zietra Technologies Inc. company delivering enterprise AI, ERP, cybersecurity, and IT staffing solutions with 200+ clients and 15+ years of experience."
+        path="/about"
+      />
 
       {/* Hero */}
       <section className="relative py-28 md:py-36 overflow-hidden">

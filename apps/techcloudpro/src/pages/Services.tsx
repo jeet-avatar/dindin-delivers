@@ -1,15 +1,15 @@
-import { Helmet } from 'react-helmet-async'
 import { Scene3D } from '../components/3d'
-import { SectionHeader } from '../components/ui'
+import { SectionHeader, SEO } from '../components/ui'
 import { PillarGrid, CTABlock } from '../components/sections'
 
 export default function Services() {
   return (
     <>
-      <Helmet>
-        <title>Services — AI, ERP, Cybersecurity & IT Staffing | TechCloudPro</title>
-        <meta name="description" content="Full-spectrum technology services: Private AI deployment, Oracle NetSuite ERP, CyberArk cybersecurity, and IT staffing solutions." />
-      </Helmet>
+      <SEO
+        title="Services — AI, ERP, Cybersecurity & IT Staffing"
+        description="Full-spectrum technology services: Private AI deployment, Oracle NetSuite ERP, CyberArk cybersecurity, and IT staffing solutions."
+        path="/services"
+      />
 
       {/* Hero */}
       <section className="relative py-28 md:py-36 overflow-hidden">
