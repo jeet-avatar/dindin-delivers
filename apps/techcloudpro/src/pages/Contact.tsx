@@ -155,7 +155,7 @@ export default function Contact() {
                 <MapPin size={20} className="text-purple-400 flex-shrink-0 mt-1" />
                 <div>
                   <h4 className="text-sm font-bold mb-1">Global Offices</h4>
-                  <p className="text-[12px] text-[var(--text-muted)] mt-1">6 offices across 5 countries</p>
+                  <p className="text-[12px] text-[var(--text-muted)] mt-1">7 offices across 5 countries</p>
                 </div>
               </div>
             </GlassCard>
@@ -174,26 +174,15 @@ export default function Contact() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           <GlassCard className="p-6">
             <div className="flex items-center gap-2 mb-3">
-              <MapPin size={16} style={{ color: '#60A5FA' }} />
-              <h3 className="text-sm font-bold">Toronto, Canada</h3>
-              <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider" style={{ background: 'rgba(59,130,246,0.12)', color: '#60A5FA' }}>HQ</span>
-            </div>
-            <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
-              100 King Street West, Suite 5700<br />
-              Toronto, ON M5X 1C7<br />
-              Canada
-            </p>
-          </GlassCard>
-
-          <GlassCard className="p-6">
-            <div className="flex items-center gap-2 mb-3">
               <MapPin size={16} style={{ color: '#FB923C' }} />
-              <h3 className="text-sm font-bold">Los Angeles, USA</h3>
+              <h3 className="text-sm font-bold">Beverly Hills, USA</h3>
+              <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider" style={{ background: 'rgba(249,115,22,0.12)', color: '#FB923C' }}>Head Office</span>
             </div>
+            <p className="text-[12px] font-semibold text-[var(--text-dim)] mb-1">Vibing World Inc</p>
             <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
-              10100 Santa Monica Blvd, Suite 300<br />
-              Los Angeles, CA 90067<br />
-              United States
+              8383 Wilshire Blvd, Suite 800<br />
+              Beverly Hills, CA 90211<br />
+              <span className="text-[12px]">Phone: +1-866-983-2425</span>
             </p>
           </GlassCard>
 
@@ -202,10 +191,36 @@ export default function Contact() {
               <MapPin size={16} style={{ color: '#FB923C' }} />
               <h3 className="text-sm font-bold">New York, USA</h3>
             </div>
+            <p className="text-[12px] font-semibold text-[var(--text-dim)] mb-1">Vibing World Inc</p>
             <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
-              1345 Avenue of the Americas, 33rd Floor<br />
-              New York, NY 10105<br />
-              United States
+              477 Madison Avenue, 6th Floor<br />
+              New York, NY 10022
+            </p>
+          </GlassCard>
+
+          <GlassCard className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin size={16} style={{ color: '#FB923C' }} />
+              <h3 className="text-sm font-bold">Phoenix, USA</h3>
+            </div>
+            <p className="text-[12px] font-semibold text-[var(--text-dim)] mb-1">Vibing World Inc</p>
+            <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+              Two North Central Ave<br />
+              18th and 19th Floor<br />
+              Phoenix, AZ 85004
+            </p>
+          </GlassCard>
+
+          <GlassCard className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin size={16} style={{ color: '#60A5FA' }} />
+              <h3 className="text-sm font-bold">Toronto, Canada</h3>
+            </div>
+            <p className="text-[12px] font-semibold text-[var(--text-dim)] mb-1">Vibing Technologies Limited</p>
+            <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+              1275-B (First Floor), Jane Street<br />
+              Toronto, Ontario M6M 4Y1<br />
+              <span className="text-[12px]">Phone: +1-647-865-4739</span>
             </p>
           </GlassCard>
 
@@ -214,10 +229,11 @@ export default function Contact() {
               <MapPin size={16} style={{ color: '#34D399' }} />
               <h3 className="text-sm font-bold">Melbourne, Australia</h3>
             </div>
+            <p className="text-[12px] font-semibold text-[var(--text-dim)] mb-1">Vibing Technology Pty. Ltd.</p>
             <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
-              477 Collins Street, Level 22<br />
-              Melbourne, VIC 3000<br />
-              Australia
+              Unit 804, 60 Lorimer Street<br />
+              Melbourne, Victoria 3008<br />
+              <span className="text-[12px]">Phone: +61 435919419</span>
             </p>
           </GlassCard>
 
@@ -237,12 +253,13 @@ export default function Contact() {
             <div className="flex items-center gap-2 mb-3">
               <MapPin size={16} style={{ color: '#22D3EE' }} />
               <h3 className="text-sm font-bold">Bangalore, India</h3>
+              <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider" style={{ background: 'rgba(6,182,212,0.12)', color: '#22D3EE' }}>India HQ</span>
             </div>
+            <p className="text-[12px] font-semibold text-[var(--text-dim)] mb-1">Vibing Techcloud Solutions (P) Ltd.</p>
             <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
-              Prestige Tech Park, Marathahalli<br />
-              Outer Ring Road<br />
-              Bangalore, Karnataka 560103<br />
-              India
+              2M – 419, 2nd Floor, East of NGEF Layout<br />
+              Kasturi Nagar, Bangalore – 560043<br />
+              <span className="text-[12px]">Phone: +91-80-41464689</span>
             </p>
           </GlassCard>
         </div>
