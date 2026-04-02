@@ -26,6 +26,29 @@ export interface HeroSlide {
 
 export const heroSlides: HeroSlide[] = [
   {
+    badge: { label: 'AI-Powered Enterprise Solutions', variant: 'new', icon: 'Sparkles' },
+    heading: 'We Build ',
+    gradientText: 'Intelligent Products',
+    gradientClass: 'grad-text-blue',
+    lead: 'From private LLM deployment to AI-powered CRM, music production intelligence to event platforms — we don\'t just consult, we build. Meet BrandMonkz, BeatMind, and VibingTicket.',
+    pills: [
+      { label: 'Private LLM Deployment', variant: 'fire' },
+      { label: 'BrandMonkz CRM', variant: 'gem' },
+      { label: 'BeatMind AI', variant: 'bolt' },
+      { label: 'VibingTicket', variant: 'leaf' },
+      { label: 'Agentic AI', variant: 'fire' },
+      { label: 'Enterprise RAG', variant: 'default' },
+    ],
+    ctaText: 'Explore Our AI & Products',
+    ctaHref: '/products',
+    ctaColor: 'blue',
+    cards: [
+      { icon: 'Brain', iconColor: 'blue', title: 'Private AI Deploy', subtitle: 'LLMs inside your VPN — zero data leakage', metric: { value: '50K+', label: 'Docs/Day' }, tag: { label: 'Enterprise', variant: 'new' }, barColor: 'blue' },
+      { icon: 'Zap', iconColor: 'orange', title: 'BrandMonkz CRM', subtitle: 'AI-powered campaigns, pipeline, lead scoring', tag: { label: 'Live Product', variant: 'hot' }, barWidth: '85%', barColor: 'orange' },
+      { icon: 'Music', iconColor: 'purple', title: 'BeatMind + VibingTicket', subtitle: 'AI music assistant & event ticketing platform', tag: { label: 'Our Products', variant: 'trend' }, barColor: 'purple' },
+    ],
+  },
+  {
     badge: { label: 'NetSuite Next Is Here', variant: 'hot', icon: 'Zap' },
     heading: 'The Future of ',
     gradientText: 'Cloud ERP',
