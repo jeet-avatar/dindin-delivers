@@ -36,7 +36,7 @@ export function Footer() {
         </div>
         <div className="border-t border-[var(--glass-border)] pt-6 text-center">
           <p className="text-[11px] text-[var(--text-muted)]">
-            &copy; {year} TechCloudPro &mdash; A Zietra Technologies Inc. Company. All rights reserved.
+            &copy; {year} TechCloudPro &mdash; A Vibing World Inc. Company. All rights reserved.
             {' '}&bull;{' '}
             <Link to="/privacy-policy" className="hover:text-[var(--text)] transition-colors">Privacy Policy</Link>
             {' '}&bull;{' '}

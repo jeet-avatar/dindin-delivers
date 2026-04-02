@@ -50,7 +50,7 @@ export default function PrivacyPolicy() {
             </div>
 
             <p className="text-xs text-[var(--text-muted)] pt-4 border-t border-[var(--glass-border)]">
-              &copy; {new Date().getFullYear()} TechCloudPro — A Zietra Technologies Inc. Company. Last updated: April 2026.
+              &copy; {new Date().getFullYear()} TechCloudPro — A Vibing World Inc. Company. Last updated: April 2026.
             </p>
           </div>
         </div>
