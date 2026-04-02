@@ -56,6 +56,7 @@ export default function Contact() {
         <Scene3D showMesh={false} />
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
           <SectionHeader
+            as="h1"
             label="Get In Touch"
             title="Ready to Transform Your Business?"
             subtitle="Schedule a free consultation. 40 hours of discovery sessions included. We'll get back to you within 24 hours."

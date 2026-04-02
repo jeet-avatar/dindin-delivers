@@ -3,9 +3,10 @@ interface SectionHeaderProps {
   title: string
   subtitle?: string
   className?: string
+  as?: 'h1' | 'h2'
 }
 
-export function SectionHeader({ label, title, subtitle, className = '' }: SectionHeaderProps) {
+export function SectionHeader({ label, title, subtitle, className = '', as: Tag = 'h2' }: SectionHeaderProps) {
   return (
     <div className={`text-center ${className}`}>
       {label && (
@@ -13,9 +14,9 @@ export function SectionHeader({ label, title, subtitle, className = '' }: Sectio
           {label}
         </p>
       )}
-      <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-4">
+      <Tag className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-4">
         {title}
-      </h2>
+      </Tag>
       {subtitle && (
         <p className="text-base text-[var(--text-dim)] max-w-xl mx-auto leading-relaxed">
           {subtitle}

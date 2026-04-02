@@ -37,6 +37,7 @@ export default function CaseStudies() {
         <Scene3D showMesh={false} />
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
           <SectionHeader
+            as="h1"
             label="Success Stories"
             title="Real Results, Real Impact"
             subtitle="From private LLM deployments to NetSuite implementations, CyberArk security to rapid team scaling — see how we deliver measurable outcomes for enterprises worldwide."

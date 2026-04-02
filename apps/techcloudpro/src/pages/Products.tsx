@@ -18,6 +18,7 @@ export default function Products() {
         <Scene3D showMesh={false} />
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
           <SectionHeader
+            as="h1"
             label="Our Products"
             title="Built by TechCloudPro, Powered by Innovation"
             subtitle="We don't just consult — we build. Our product portfolio spans AI-powered SaaS, CRM platforms, and event technology, all crafted with the same enterprise-grade engineering we bring to our clients."
