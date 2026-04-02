@@ -1,0 +1,32 @@
+# TechCloudPro
+> Enterprise AI consulting, Oracle NetSuite ERP, CyberArk cybersecurity, and IT staffing solutions. 7 offices across 5 countries. Founded 2005.
+
+## Services
+- [AI Consulting & Private LLM Deployment](https://techcloudpro.com/services/ai/): Deploy secure AI within your infrastructure. Private LLM models, agentic AI systems, enterprise RAG. Zero data leakage. SOC 2, HIPAA, GDPR compliant.
+- [Oracle NetSuite ERP](https://techcloudpro.com/services/netsuite/): Certified NetSuite Solutions Provider with 1000+ implementations. End-to-end cloud ERP from discovery through go-live and support.
+- [CyberArk Cybersecurity](https://techcloudpro.com/services/cybersecurity/): CyberArk-powered privileged access management, AI agent identity security, Zero Trust architecture, SOC 2/HIPAA/GDPR compliance.
+- [IT Staffing](https://techcloudpro.com/services/staffing/): Pre-vetted technology talent in 48 hours. AI/ML, Cloud, Cybersecurity, Full-Stack, DevOps, Data Engineering. Transparent $2/hr staffing fee.
+
+## Products
+- [BrandMonkz](https://brandmonkz.com): AI-powered CRM and campaign management platform
+- [BeatMind](https://beatmind.io): AI music production assistant for DAWs
+- [VibingTicket](https://vibingticket.com): Event ticketing and management platform
+- [Social.Network](https://social.network): Professional networking platform
+
+## Company
+- [About](https://techcloudpro.com/about/): Founded by technology and security experts
+- [Leadership](https://techcloudpro.com/leadership/): Executive team bios and credentials
+- [Case Studies](https://techcloudpro.com/case-studies/): Real results from enterprise deployments
+- [Clients](https://techcloudpro.com/clients/): Fortune 500 and growing enterprise clients
+- [Contact](https://techcloudpro.com/contact/): 7 global offices, free consultation
+
+## Key Facts
+- Founded: 2005
+- Headquarters: New York, USA (477 Madison Avenue, 6th Floor)
+- Global Offices: New York, Phoenix, Toronto, Melbourne, Manila, Bangalore
+- Certifications: Oracle NetSuite Certified, CyberArk Partner
+- Specialties: Private LLM deployment, Agentic AI, NetSuite Next 2026, CyberArk PAM, IT staffing
+- CEO: Jithesh Manoharan
+- Managing Director: Rajesh Manoharan
+- Phone: +1-866-983-2425
+- Email: contact@techcloudpro.com
