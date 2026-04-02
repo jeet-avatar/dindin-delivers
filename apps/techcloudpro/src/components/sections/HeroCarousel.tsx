@@ -9,6 +9,43 @@ import { heroSlides } from '../../data/heroSlides'
 /* ─── Animated 3D visual per slide ─── */
 function SlideVisual({ index }: { index: number }) {
   if (index === 0) {
+    // AI & Products: neural network / brain visual
+    return (
+      <div className="relative w-full h-full flex items-center justify-center">
+        {/* Central AI brain */}
+        <div className="relative" style={{ animation: 'float-card 10s ease-in-out infinite' }}>
+          <div className="w-32 h-32 rounded-full border-2 flex items-center justify-center" style={{ borderColor: 'rgba(59,130,246,0.3)', background: 'rgba(59,130,246,0.05)' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" strokeWidth="1.5" className="w-14 h-14">
+              <path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/>
+              <path d="M16 14a4 4 0 0 1 0 8H8a4 4 0 0 1 0-8"/>
+              <line x1="9" y1="18" x2="9" y2="22"/><line x1="15" y1="18" x2="15" y2="22"/>
+            </svg>
+          </div>
+          {/* Orbiting rings */}
+          <div className="absolute inset-[-20px] rounded-full border" style={{ borderColor: 'rgba(139,92,246,0.15)', animation: 'orbit 15s linear infinite' }} />
+          <div className="absolute inset-[-40px] rounded-full border" style={{ borderColor: 'rgba(6,182,212,0.1)', animation: 'orbit 20s linear infinite reverse' }} />
+        </div>
+        {/* Product cards */}
+        <div className="absolute top-0 right-4 w-[170px] rounded-xl p-3" style={{ border: '1px solid rgba(59,130,246,0.15)', background: 'rgba(59,130,246,0.05)', animation: 'float-card 7s ease-in-out infinite' }}>
+          <div className="text-[10px] font-semibold" style={{ color: '#60A5FA' }}>Private LLM</div>
+          <div className="text-[9px] mt-1" style={{ color: 'rgba(148,163,184,0.8)' }}>50K+ docs/day &bull; Zero leakage</div>
+          <div className="flex items-baseline gap-1 mt-1.5"><span className="text-lg font-extrabold" style={{ color: '#60A5FA' }}>AI</span><span className="text-[8px]" style={{ color: 'rgba(148,163,184,0.6)' }}>Enterprise</span></div>
+        </div>
+        <div className="absolute bottom-8 left-0 w-[160px] rounded-xl p-3" style={{ border: '1px solid rgba(249,115,22,0.15)', background: 'rgba(249,115,22,0.05)', animation: 'float-card 6s ease-in-out infinite', animationDelay: '-2s' }}>
+          <div className="text-[10px] font-semibold" style={{ color: '#FB923C' }}>BrandMonkz CRM</div>
+          <div className="text-[9px] mt-1" style={{ color: 'rgba(148,163,184,0.8)' }}>Campaigns &bull; Pipeline &bull; Leads</div>
+        </div>
+        <div className="absolute bottom-0 right-8 w-[150px] rounded-xl p-3" style={{ border: '1px solid rgba(139,92,246,0.15)', background: 'rgba(139,92,246,0.05)', animation: 'float-card 8s ease-in-out infinite', animationDelay: '-4s' }}>
+          <div className="text-[10px] font-semibold" style={{ color: '#A78BFA' }}>BeatMind &bull; VibingTicket</div>
+          <div className="text-[9px] mt-1" style={{ color: 'rgba(148,163,184,0.8)' }}>AI Music &bull; Event Ticketing</div>
+        </div>
+        {/* Glow */}
+        <div className="absolute w-40 h-40 rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ background: 'rgba(59,130,246,0.15)', filter: 'blur(60px)' }} />
+      </div>
+    )
+  }
+
+  if (index === 1) {
     // NetSuite: rotating dashboard/ERP visual
     return (
       <div className="relative w-full h-full flex items-center justify-center" style={{ perspective: '800px' }}>
@@ -48,7 +85,7 @@ function SlideVisual({ index }: { index: number }) {
     )
   }
 
-  if (index === 1) {
+  if (index === 2) {
     // Cybersecurity + AI: shield + nodes network
     return (
       <div className="relative w-full h-full flex items-center justify-center">
