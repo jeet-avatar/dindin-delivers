@@ -18,6 +18,7 @@ export default function Leadership() {
         <Scene3D showMesh={false} />
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
           <SectionHeader
+            as="h1"
             label="Our Team"
             title="Meet Our Executive Leadership"
             subtitle="The leadership team at TechCloudPro guides us to enable disruptive technologies, customized integrations, and turnkey implementations — combining subject matter expertise with domain knowledge."

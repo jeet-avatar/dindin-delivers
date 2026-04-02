@@ -17,6 +17,7 @@ export default function Clients() {
         <Scene3D showMesh={false} />
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
           <SectionHeader
+            as="h1"
             label="A Growing Clientele"
             title="Happy Clients Are Our Measure Of Success"
             subtitle="TechCloudPro has partnered with small, medium and large enterprises on their digital transformation journey, taking them ahead of competitors with technology solutions that cater to their dynamic and growing needs."

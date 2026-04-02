@@ -24,6 +24,7 @@ export default function About() {
         <Scene3D showMesh={false} />
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
           <SectionHeader
+            as="h1"
             label="About TechCloudPro"
             title="Pioneering Enterprise Technology Solutions"
             subtitle="Founded by technology and security experts, TechCloudPro was born from the need to deliver truly integrated enterprise solutions — where AI, ERP, cybersecurity, and talent converge."

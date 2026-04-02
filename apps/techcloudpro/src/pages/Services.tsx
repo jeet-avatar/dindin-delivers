@@ -16,6 +16,7 @@ export default function Services() {
         <Scene3D showMesh={false} />
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
           <SectionHeader
+            as="h1"
             label="Our Core Practices"
             title="Full-Spectrum Technology Services"
             subtitle="From AI strategy to ERP deployment, cybersecurity to IT talent — four interconnected pillars powering enterprise transformation."
