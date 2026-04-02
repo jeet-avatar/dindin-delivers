@@ -34,7 +34,10 @@ export default function Clients() {
                   src={`/images/clients/${client.logo}`}
                   alt={client.name}
                   className="max-h-12 max-w-[140px] object-contain"
+                  width={140}
+                  height={48}
                   loading="lazy"
+                  decoding="async"
                 />
               </div>
               <h3 className="text-[15px] font-bold mb-2">{client.name}</h3>
