@@ -410,18 +410,33 @@
 <div class="footer">
   <div class="footer-name">Peter Samuel</div>
   <div class="footer-title">Director of Staffing — TechCloudPro</div>
-  <div style="margin-top: 10px;"><a href="mailto:peter@techcloudpro.com" class="footer-contact">peter@techcloudpro.com</a></div>
+  <div style="margin-top: 10px;"><a href="mailto:jm@techcloudpro.com" class="footer-contact">jm@techcloudpro.com</a></div>
 </div>
 
 <script>
 function handleSubmit(e) {
   e.preventDefault();
-  var data = Object.fromEntries(new FormData(e.target));
-  var subject = encodeURIComponent('Staff Augmentation Request \u2014 ' + data.company);
-  var body = encodeURIComponent('Name: ' + data.firstName + ' ' + data.lastName + '\nEmail: ' + data.email + '\nCompany: ' + data.company + '\nPhone: ' + data.phone + '\nRole: ' + data.role + '\nMessage: ' + data.message);
-  document.getElementById('contactForm').style.display = 'none';
-  document.getElementById('successMsg').style.display = 'block';
-  window.location.href = 'mailto:peter@techcloudpro.com?subject=' + subject + '&body=' + body;
+  var fd = Object.fromEntries(new FormData(e.target));
+  var payload = {
+    name: fd.firstName + ' ' + fd.lastName,
+    email: fd.email,
+    company: fd.company || '',
+    phone: fd.phone || '',
+    service: 'IT Staffing',
+    message: (fd.role ? 'Role Needed: ' + fd.role + '\n' : '') + (fd.message || ''),
+    _source: 'staffing-landing'
+  };
+  fetch('/api/contact.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function(r) { return r.json(); }).then(function() {
+    document.getElementById('contactForm').style.display = 'none';
+    document.getElementById('successMsg').style.display = 'block';
+  }).catch(function() {
+    document.getElementById('contactForm').style.display = 'none';
+    document.getElementById('successMsg').style.display = 'block';
+  });
 }
 
 function toggleTheme() {
