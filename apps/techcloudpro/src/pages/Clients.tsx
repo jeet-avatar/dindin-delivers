@@ -1,16 +1,16 @@
-import { Helmet } from 'react-helmet-async'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard } from '../components/ui'
+import { SectionHeader, GlassCard, SEO } from '../components/ui'
 import { CTABlock } from '../components/sections'
 import { clients } from '../data/clients'
 
 export default function Clients() {
   return (
     <>
-      <Helmet>
-        <title>Clients — Our Enterprise Partners | TechCloudPro</title>
-        <meta name="description" content="TechCloudPro partners with Fortune 500 and growing enterprises on their digital transformation journey." />
-      </Helmet>
+      <SEO
+        title="Clients — Our Enterprise Partners"
+        description="TechCloudPro partners with Fortune 500 and growing enterprises including AbbVie, Accenture, BNY Mellon, Mercedes-Benz, and more."
+        path="/clients"
+      />
 
       {/* Hero */}
       <section className="relative py-24 md:py-32 overflow-hidden">

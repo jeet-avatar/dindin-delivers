@@ -1,11 +1,10 @@
-import { Helmet } from 'react-helmet-async'
 import { Scene3D } from '../components/3d'
-import { Button } from '../components/ui'
+import { Button, SEO } from '../components/ui'
 
 export default function NotFound() {
   return (
     <>
-      <Helmet><title>404 — Page Not Found | TechCloudPro</title></Helmet>
+      <SEO title="404 — Page Not Found" description="This page doesn't exist." path="/404" />
       <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
         <Scene3D showMesh={false} />
         <div className="relative z-10 text-center px-6">

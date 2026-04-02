@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Helmet } from 'react-helmet-async'
 import { Send, CheckCircle, AlertCircle, MapPin, Mail, Phone } from 'lucide-react'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard, Button } from '../components/ui'
+import { SectionHeader, GlassCard, Button, SEO } from '../components/ui'
 
 type Status = 'idle' | 'sending' | 'success' | 'error'
 
@@ -42,10 +41,11 @@ export default function Contact() {
 
   return (
     <>
-      <Helmet>
-        <title>Contact Us — Get a Free Consultation | TechCloudPro</title>
-        <meta name="description" content="Schedule a free consultation with TechCloudPro. 40 hours of free discovery sessions included." />
-      </Helmet>
+      <SEO
+        title="Contact Us — Get a Free Consultation"
+        description="Schedule a free consultation with TechCloudPro. 40 hours of free discovery sessions included."
+        path="/contact"
+      />
 
       <section className="relative py-28 md:py-32 overflow-hidden">
         <Scene3D showMesh={false} />

@@ -1,13 +1,13 @@
-import { Helmet } from 'react-helmet-async'
-import { SectionHeader } from '../components/ui'
+import { SectionHeader, SEO } from '../components/ui'
 
 export default function PrivacyPolicy() {
   return (
     <>
-      <Helmet>
-        <title>Privacy Policy | TechCloudPro</title>
-        <meta name="description" content="TechCloudPro privacy policy — how we collect, use, and protect your information." />
-      </Helmet>
+      <SEO
+        title="Privacy Policy"
+        description="TechCloudPro privacy policy — how we collect, use, and protect your information."
+        path="/privacy-policy"
+      />
 
       <section className="py-28 md:py-32 px-6">
         <div className="max-w-3xl mx-auto">
