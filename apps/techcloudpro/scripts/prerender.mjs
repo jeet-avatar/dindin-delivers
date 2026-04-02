@@ -39,6 +39,21 @@ const routes = [
   '/blog/identity-security-trends-2026',
   '/blog/staff-augmentation-vs-managed-services',
   '/blog/rag-vs-fine-tuning-enterprise-ai',
+  '/blog/agentic-ai-enterprise-use-cases',
+  '/blog/ai-governance-framework-eu-ai-act-2026',
+  '/blog/netsuite-vs-sage-intacct-2026',
+  '/blog/soc-2-compliance-checklist-2026',
+  '/blog/enterprise-llm-cost-optimization',
+  '/blog/netsuite-data-migration-checklist',
+  '/blog/machine-identity-secrets-management-guide',
+  '/blog/nearshore-vs-offshore-development-2026',
+  '/blog/cybersecurity-salary-guide-2026',
+  '/blog/incident-response-plan-template',
+  '/blog/netsuite-for-manufacturing-guide',
+  '/blog/build-remote-engineering-team-playbook',
+  '/blog/tech-skills-gap-2026-report',
+  '/blog/pam-implementation-best-practices-90-day',
+  '/blog/netsuite-shopify-integration-guide',
 ]
 
 async function prerender() {
