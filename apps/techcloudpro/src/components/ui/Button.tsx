@@ -27,8 +27,9 @@ const sizes = {
 export function Button({ children, variant = 'primary', size = 'md', href, external, onClick, className = '', type = 'button' }: ButtonProps) {
   const classes = `inline-flex items-center gap-2 font-semibold font-[family-name:var(--font-heading)] cursor-pointer transition-all duration-200 ${variants[variant]} ${sizes[size]} ${className}`
 
-  if (href && external) {
-    return <a href={href} target="_blank" rel="noopener noreferrer" className={classes}>{children}</a>
+  const isExternal = external || href?.startsWith('http') || href?.startsWith('mailto:') || href?.startsWith('tel:')
+  if (href && isExternal) {
+    return <a href={href} target={href?.startsWith('mailto:') || href?.startsWith('tel:') ? undefined : '_blank'} rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined} className={classes}>{children}</a>
   }
   if (href) {
     return <Link to={href} className={classes}>{children}</Link>
