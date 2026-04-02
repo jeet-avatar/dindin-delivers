@@ -46,7 +46,7 @@ export default function PrivacyPolicy() {
 
             <div>
               <h3 className="text-lg font-bold text-[var(--text)] mb-3">7. Contact Us</h3>
-              <p>If you have any questions about this privacy policy, please contact us at <a href="mailto:jm@techcloudpro.com" className="text-blue-400 hover:underline">jm@techcloudpro.com</a>.</p>
+              <p>If you have any questions about this privacy policy, please contact us at <a href="mailto:contact@techcloudpro.com" className="text-blue-400 hover:underline">contact@techcloudpro.com</a>.</p>
             </div>
 
             <p className="text-xs text-[var(--text-muted)] pt-4 border-t border-[var(--glass-border)]">

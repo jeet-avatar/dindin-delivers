@@ -135,8 +135,7 @@ export default function Contact() {
                 <Mail size={20} className="text-blue-400 flex-shrink-0 mt-1" />
                 <div>
                   <h4 className="text-sm font-bold mb-1">Email Us</h4>
-                  <a href="mailto:jm@techcloudpro.com" className="text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors block">jm@techcloudpro.com</a>
-                  <a href="mailto:rajesh@techcloudpro.com" className="text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors block">rajesh@techcloudpro.com</a>
+                  <a href="mailto:contact@techcloudpro.com" className="text-[13px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors block">contact@techcloudpro.com</a>
                 </div>
               </div>
             </GlassCard>

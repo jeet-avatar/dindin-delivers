@@ -50,7 +50,7 @@ export default function Careers() {
       <section className="py-16 px-6 md:px-12 max-w-4xl mx-auto text-center">
         <h2 className="text-3xl font-bold mb-4">Open Positions</h2>
         <p className="text-[var(--text-dim)] mb-8">We're currently hiring across all practice areas. Send your resume and a note about what excites you.</p>
-        <Button href="mailto:jm@techcloudpro.com" size="lg">
+        <Button href="mailto:contact@techcloudpro.com" size="lg">
           Send Your Resume
         </Button>
       </section>
