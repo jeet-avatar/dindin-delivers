@@ -30,6 +30,15 @@ const routes = [
   '/blog/netsuite-oneworld-implementation-checklist',
   '/blog/why-enterprise-ai-projects-fail',
   '/blog/cyberark-vs-delinea-vs-beyondtrust-pam-comparison',
+  '/blog/netsuite-vs-sap-business-one-mid-market',
+  '/blog/zero-trust-implementation-roadmap-mid-size',
+  '/blog/ai-center-of-excellence-playbook',
+  '/blog/contract-to-hire-vs-direct-placement-tech',
+  '/blog/cloud-pam-aws-azure-setup-guide',
+  '/blog/hire-netsuite-developer-guide',
+  '/blog/identity-security-trends-2026',
+  '/blog/staff-augmentation-vs-managed-services',
+  '/blog/rag-vs-fine-tuning-enterprise-ai',
 ]
 
 async function prerender() {
