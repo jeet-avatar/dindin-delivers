@@ -1,5 +1,6 @@
 import { HeroCarousel, StatsRibbon, PillarGrid, ClientMarquee, CTABlock } from '../components/sections'
 import { SectionHeader, SEO } from '../components/ui'
+import { SchemaMarkup } from '../components/ui/SchemaMarkup'
 
 export default function Home() {
   return (
@@ -9,6 +10,7 @@ export default function Home() {
         description="Transform your business with TechCloudPro — Private AI deployment, Oracle NetSuite ERP, CyberArk cybersecurity, and IT staffing solutions."
         path="/"
       />
+      <SchemaMarkup page="home" />
 
       <HeroCarousel />
       <StatsRibbon />
