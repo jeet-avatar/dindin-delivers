@@ -4,12 +4,12 @@ import { SectionHeader, GlassCard, Badge, Button, SEO } from '../components/ui'
 import { CTABlock } from '../components/sections'
 
 const capabilities = [
-  { icon: Server, title: 'Private LLM Deployment', description: 'Deploy GPT-class models entirely within your VPN. No third-party APIs, no data leaving your infrastructure. Complete sovereignty over your AI stack.', badge: { label: 'Most Popular', variant: 'hot' as const }, color: 'text-blue-400 bg-blue-500/12' },
-  { icon: Bot, title: 'Agentic AI Systems', description: 'Autonomous AI agents that reason, plan, and execute complex workflows — document processing, claims handling, compliance monitoring — with full audit trail.', badge: { label: 'New', variant: 'new' as const }, color: 'text-purple-400 bg-purple-500/12' },
-  { icon: FileSearch, title: 'Enterprise RAG', description: 'Retrieval-augmented generation across your proprietary knowledge base. Semantic search over millions of documents with cited, accurate answers.', color: 'text-cyan-400 bg-cyan-500/12' },
-  { icon: Brain, title: 'Model Fine-Tuning', description: 'Industry-specific fine-tuning on your data. Legal, financial, healthcare, manufacturing — models that speak your domain language.', color: 'text-emerald-400 bg-emerald-500/12' },
-  { icon: MessageSquare, title: 'Conversational AI', description: 'Customer-facing and internal AI assistants. Natural language interfaces for your existing systems — ERP, CRM, knowledge base, support.', color: 'text-orange-400 bg-orange-500/12' },
-  { icon: Activity, title: 'MLOps & Monitoring', description: 'Continuous model monitoring, drift detection, performance optimization. Full lifecycle management from training to production.', color: 'text-rose-400 bg-rose-500/12' },
+  { icon: Server, title: 'Private LLM Deployment', description: 'Deploy GPT-class models entirely within your VPN. No third-party APIs, no data leaving your infrastructure. Complete sovereignty over your AI stack.', badge: { label: 'Most Popular', variant: 'hot' as const }, iconBg: 'rgba(59,130,246,0.12)', iconColor: '#60A5FA' },
+  { icon: Bot, title: 'Agentic AI Systems', description: 'Autonomous AI agents that reason, plan, and execute complex workflows — document processing, claims handling, compliance monitoring — with full audit trail.', badge: { label: 'New', variant: 'new' as const }, iconBg: 'rgba(139,92,246,0.12)', iconColor: '#A78BFA' },
+  { icon: FileSearch, title: 'Enterprise RAG', description: 'Retrieval-augmented generation across your proprietary knowledge base. Semantic search over millions of documents with cited, accurate answers.', iconBg: 'rgba(6,182,212,0.12)', iconColor: '#22D3EE' },
+  { icon: Brain, title: 'Model Fine-Tuning', description: 'Industry-specific fine-tuning on your data. Legal, financial, healthcare, manufacturing — models that speak your domain language.', iconBg: 'rgba(16,185,129,0.12)', iconColor: '#34D399' },
+  { icon: MessageSquare, title: 'Conversational AI', description: 'Customer-facing and internal AI assistants. Natural language interfaces for your existing systems — ERP, CRM, knowledge base, support.', iconBg: 'rgba(249,115,22,0.12)', iconColor: '#FB923C' },
+  { icon: Activity, title: 'MLOps & Monitoring', description: 'Continuous model monitoring, drift detection, performance optimization. Full lifecycle management from training to production.', iconBg: 'rgba(244,63,94,0.12)', iconColor: '#FB7185' },
 ]
 
 const process = [
@@ -82,27 +82,27 @@ export default function AIConsulting() {
         />
         <div className="grid md:grid-cols-3 gap-6">
           <GlassCard className="text-center p-8">
-            <div className="w-14 h-14 rounded-2xl bg-rose-500/12 text-rose-400 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(244,63,94,0.12)', color: '#FB7185' }}>
               <Lock size={26} />
             </div>
             <h3 className="text-lg font-bold mb-2">Third-Party APIs</h3>
-            <p className="text-sm text-rose-400 font-semibold mb-2">The Problem</p>
+            <p className="text-sm font-semibold mb-2" style={{ color: '#FB7185' }}>The Problem</p>
             <p className="text-sm text-[var(--text-muted)]">Your data leaves your infrastructure. You have no control over how it's stored, processed, or retained by the provider.</p>
           </GlassCard>
           <GlassCard className="text-center p-8">
-            <div className="w-14 h-14 rounded-2xl bg-blue-500/12 text-blue-400 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(59,130,246,0.12)', color: '#60A5FA' }}>
               <Shield size={26} />
             </div>
             <h3 className="text-lg font-bold mb-2">Our Approach</h3>
-            <p className="text-sm text-blue-400 font-semibold mb-2">The Solution</p>
+            <p className="text-sm font-semibold mb-2" style={{ color: '#60A5FA' }}>The Solution</p>
             <p className="text-sm text-[var(--text-muted)]">Models run inside YOUR VPN. Data never leaves your infrastructure. No external API calls. Complete audit trail.</p>
           </GlassCard>
           <GlassCard className="text-center p-8">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/12 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(16,185,129,0.12)', color: '#34D399' }}>
               <Target size={26} />
             </div>
             <h3 className="text-lg font-bold mb-2">The Result</h3>
-            <p className="text-sm text-emerald-400 font-semibold mb-2">The Outcome</p>
+            <p className="text-sm font-semibold mb-2" style={{ color: '#34D399' }}>The Outcome</p>
             <p className="text-sm text-[var(--text-muted)]">Enterprise AI with zero compromise. Full regulatory compliance. Measurable ROI. Your data, your models, your control.</p>
           </GlassCard>
         </div>
@@ -119,7 +119,7 @@ export default function AIConsulting() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {capabilities.map(cap => (
             <GlassCard key={cap.title} color="ai" className="p-7">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${cap.color}`}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: cap.iconBg, color: cap.iconColor }}>
                 <cap.icon size={22} />
               </div>
               <div className="flex items-start gap-2 mb-2">
@@ -143,13 +143,13 @@ export default function AIConsulting() {
         <div className="space-y-6">
           {process.map(phase => (
             <div key={phase.step} className="flex gap-6 items-start p-6 rounded-2xl bg-[var(--glass)] border border-[var(--glass-border)] [.light_&]:bg-white [.light_&]:shadow-sm">
-              <div className="w-14 h-14 rounded-xl bg-blue-500/12 flex items-center justify-center flex-shrink-0">
-                <span className="text-lg font-extrabold text-blue-400">{phase.step}</span>
+              <div className="w-14 h-14 rounded-xl bg-[rgba(59,130,246,0.12)] flex items-center justify-center flex-shrink-0">
+                <span className="text-lg font-extrabold text-[#60A5FA]">{phase.step}</span>
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h3 className="text-base font-bold">{phase.title}</h3>
-                  <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">{phase.duration}</span>
+                  <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-[#60A5FA] border border-blue-500/20">{phase.duration}</span>
                 </div>
                 <p className="text-sm text-[var(--text-muted)] leading-relaxed">{phase.description}</p>
               </div>
@@ -169,11 +169,11 @@ export default function AIConsulting() {
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
           {useCases.map(uc => (
             <GlassCard key={uc.industry} className="p-6">
-              <h3 className="text-base font-bold mb-4 text-blue-400">{uc.industry}</h3>
+              <h3 className="text-base font-bold mb-4 text-[#60A5FA]">{uc.industry}</h3>
               <ul className="space-y-2">
                 {uc.cases.map(c => (
                   <li key={c} className="flex items-start gap-2 text-sm text-[var(--text-muted)]">
-                    <CheckCircle size={14} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                    <CheckCircle size={14} className="text-[#60A5FA] flex-shrink-0 mt-0.5" />
                     <span>{c}</span>
                   </li>
                 ))}
@@ -193,7 +193,7 @@ export default function AIConsulting() {
         <div className="grid md:grid-cols-2 gap-4">
           {differentiators.map(d => (
             <div key={d} className="flex items-start gap-3 p-4 rounded-xl bg-[var(--glass)] border border-[var(--glass-border)] [.light_&]:bg-white [.light_&]:shadow-sm">
-              <CheckCircle size={18} className="text-blue-400 flex-shrink-0 mt-0.5" />
+              <CheckCircle size={18} className="text-[#60A5FA] flex-shrink-0 mt-0.5" />
               <p className="text-sm text-[var(--text-dim)]">{d}</p>
             </div>
           ))}
