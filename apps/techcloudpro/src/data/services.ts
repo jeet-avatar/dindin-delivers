@@ -7,6 +7,13 @@ export interface SubService {
   badge?: { label: string; variant: BadgeVariant }
 }
 
+export interface Testimonial {
+  quote: string
+  name: string
+  title: string
+  company: string
+}
+
 export interface ServicePillar {
   slug: string
   color: PillarColor
@@ -14,9 +21,12 @@ export interface ServicePillar {
   title: string
   tagline: string
   description: string
+  longDescription?: string
   icon: string // lucide icon name
   subServices: SubService[]
   whyChooseUs: string[]
+  testimonial?: Testimonial
+  stats?: { label: string; value: string }[]
 }
 
 export const pillars: ServicePillar[] = [
@@ -27,7 +37,20 @@ export const pillars: ServicePillar[] = [
     title: 'Cloud ERP & Beyond',
     tagline: 'Certified partner. NetSuite Next ready.',
     description: 'As a Certified NetSuite Solutions Provider with 1000+ implementations, we deliver end-to-end cloud ERP solutions — from discovery and architecture through go-live and ongoing support. Our team of certified consultants brings deep industry expertise across retail, manufacturing, fashion, F&B, and software.',
+    longDescription: 'The NetSuite landscape is evolving rapidly. NetSuite Next 2026 introduces AI-powered analytics, predictive financial planning, and SuiteCloud AI — and most implementation partners are still learning how to deploy them. We have been delivering NetSuite solutions for over 15 years, across 1,000+ business users, and our consultants hold multiple Oracle certifications. Whether you are migrating from legacy ERP, implementing a new OneWorld multi-subsidiary setup, or optimizing an existing deployment with SuiteScript 2.1, our team delivers from discovery through go-live with 40 hours of free consultation included. We also provide ongoing managed services, 24/7 support, and Planful FP&A integration for finance teams that need real-time forecasting alongside their ERP data.',
     icon: 'Monitor',
+    stats: [
+      { label: 'Implementations', value: '1,000+' },
+      { label: 'Years Experience', value: '15+' },
+      { label: 'Free Consultation', value: '40 hrs' },
+      { label: 'Support', value: '24/7' },
+    ],
+    testimonial: {
+      quote: 'TechCloudPro delivered our NetSuite OneWorld implementation across 3 subsidiaries in under 4 months. Their team understood our retail workflows from day one.',
+      name: 'Director of Operations',
+      title: 'Fortune 500 Retail Client',
+      company: 'Enterprise Retail',
+    },
     subServices: [
       { name: 'NetSuite Next 2026', description: 'Latest release with AI-powered analytics and predictive planning', badge: { label: 'Hot', variant: 'hot' } },
       { name: 'AI-Powered Analytics', description: 'Intelligent insights, anomaly detection, and automated reporting', badge: { label: 'New', variant: 'new' } },
@@ -55,7 +78,20 @@ export const pillars: ServicePillar[] = [
     title: 'Identity-First Security',
     tagline: 'CyberArk-powered. The new perimeter is identity.',
     description: 'In the age of AI agents and machine identities, traditional perimeter security is not enough. Our cybersecurity division, born from real-world threat discovery during a client engagement, delivers CyberArk-powered privileged access management and comprehensive security operations.',
+    longDescription: 'Our cybersecurity practice was born from a real incident — during a client ERP implementation, we discovered unauthorized privileged access that could have exposed millions of records. That experience shaped our identity-first security approach. Today, with AI agents operating as autonomous identities and machine-to-machine communication driving enterprise workflows, the attack surface has expanded beyond traditional perimeters. We deliver CyberArk PAM/PAS implementations that treat every identity — human, machine, or AI agent — as a potential attack vector requiring least-privilege access and full audit trails. Our team has maintained zero security breaches across all deployments, and we hold compliance expertise across SOC 2, HIPAA, GDPR, and ISO 27001. From post-quantum cryptography readiness to SSO blast radius containment, we help enterprises stay ahead of threats that have not materialized yet.',
     icon: 'Shield',
+    stats: [
+      { label: 'Security Breaches', value: '0' },
+      { label: 'Compliance Frameworks', value: '4+' },
+      { label: 'Identity Types Secured', value: '3' },
+      { label: 'Avg Response Time', value: '<4 hrs' },
+    ],
+    testimonial: {
+      quote: 'They found a critical privileged access vulnerability during our ERP implementation that our existing security team had missed for 2 years. We immediately expanded the engagement to a full CyberArk deployment.',
+      name: 'CISO',
+      title: 'Global Financial Services Firm',
+      company: 'Financial Services',
+    },
     subServices: [
       { name: 'AI Agent Identity Security', description: 'Treat AI agents as identities — least privilege, full audit trail', badge: { label: 'Hot', variant: 'hot' } },
       { name: 'Machine Identity Management', description: 'Secure machine identities that drive trust in banking and enterprise', badge: { label: 'New', variant: 'new' } },
@@ -111,7 +147,20 @@ export const pillars: ServicePillar[] = [
     title: 'IT Talent On Demand',
     tagline: 'Pre-vetted, certified talent in weeks — not months.',
     description: 'The AI skills gap is widening. NetSuite consultants are in record demand. Cybersecurity roles take 6+ months to fill. We deliver pre-vetted, certified IT professionals — contract, permanent, or dedicated teams — in weeks, not months. All backed by our deep domain expertise.',
+    longDescription: 'The technology talent crisis is real — 90% of organizations face IT skills gaps in cloud and security roles, and specialized engineers take 85+ days to hire through traditional channels. We deliver in 48 hours. Our staffing model is built on transparency: a flat $2/hr staffing fee, visible to both client and contractor. The engineer keeps everything else. This approach has driven 3.2x year-over-year growth in talent demand fulfilled, because both sides trust the arrangement. Whether you need a single NetSuite consultant for a 3-month project, a dedicated offshore team for ongoing operations, or permanent AI/ML engineers to build your internal capability, we match pre-vetted, certified professionals from our talent pool of 200+ engineers across AI/ML, Cloud, Cybersecurity, Full-Stack, DevOps, and Data Engineering.',
     icon: 'Users',
+    stats: [
+      { label: 'Time to Hire', value: '48 hrs' },
+      { label: 'Staffing Fee', value: '$2/hr' },
+      { label: 'Talent Pool', value: '200+' },
+      { label: 'YoY Growth', value: '3.2x' },
+    ],
+    testimonial: {
+      quote: 'We needed 5 NetSuite developers for a SuiteCommerce build. TechCloudPro delivered all 5 within a week, and the transparent pricing meant our CFO approved it in a single meeting.',
+      name: 'VP of Engineering',
+      title: 'E-commerce Platform',
+      company: 'Retail Technology',
+    },
     subServices: [
       { name: 'AI/ML Engineers', description: 'Machine learning engineers, data scientists, and AI specialists', badge: { label: 'High Demand', variant: 'hot' } },
       { name: 'NetSuite Certified Consultants', description: 'ERP consultants, administrators, and SuiteScript developers', badge: { label: 'Hot', variant: 'hot' } },

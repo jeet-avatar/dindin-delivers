@@ -18,6 +18,7 @@ const Partners = lazy(() => import('./pages/Partners'))
 const Careers = lazy(() => import('./pages/Careers'))
 const Contact = lazy(() => import('./pages/Contact'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
+const TermsOfService = lazy(() => import('./pages/TermsOfService'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function Loading() {
@@ -50,6 +51,7 @@ export default function App() {
                 <Route path="/careers" element={<Careers />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsOfService />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
