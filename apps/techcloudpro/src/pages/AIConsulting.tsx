@@ -1,6 +1,7 @@
 import { Shield, Lock, Server, Brain, Bot, FileSearch, MessageSquare, Activity, Target, CheckCircle, ArrowRight } from 'lucide-react'
 import { Scene3D } from '../components/3d'
 import { SectionHeader, GlassCard, Badge, Button, SEO } from '../components/ui'
+import { SchemaMarkup } from '../components/ui/SchemaMarkup'
 import { CTABlock } from '../components/sections'
 
 const capabilities = [
@@ -45,6 +46,15 @@ export default function AIConsulting() {
         title="AI Consulting — Private LLM & Agentic AI Solutions"
         description="Deploy secure AI within your infrastructure. Private LLM models, agentic AI systems, enterprise RAG — zero data leakage, complete sovereignty. SOC 2, HIPAA, GDPR compliant."
         path="/services/ai"
+      />
+      <SchemaMarkup
+        page="service-detail"
+        serviceSlug="ai"
+        breadcrumbs={[
+          { name: 'Home', url: 'https://techcloudpro.com/' },
+          { name: 'Services', url: 'https://techcloudpro.com/services' },
+          { name: 'AI Consulting', url: 'https://techcloudpro.com/services/ai' },
+        ]}
       />
 
       {/* Hero */}

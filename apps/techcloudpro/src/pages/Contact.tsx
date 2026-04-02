@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Send, CheckCircle, AlertCircle, MapPin, Mail, Phone } from 'lucide-react'
 import { Scene3D } from '../components/3d'
 import { SectionHeader, GlassCard, Button, SEO } from '../components/ui'
+import { SchemaMarkup } from '../components/ui/SchemaMarkup'
 
 type Status = 'idle' | 'sending' | 'success' | 'error'
 
@@ -46,6 +47,10 @@ export default function Contact() {
         description="Schedule a free consultation with TechCloudPro. 40 hours of free discovery sessions included."
         path="/contact"
       />
+      <SchemaMarkup page="contact" breadcrumbs={[
+        { name: 'Home', url: 'https://techcloudpro.com/' },
+        { name: 'Contact', url: 'https://techcloudpro.com/contact' },
+      ]} />
 
       <section className="relative py-28 md:py-32 overflow-hidden">
         <Scene3D showMesh={false} />

@@ -2,6 +2,7 @@ import { useParams, Navigate } from 'react-router'
 import { Monitor, Shield, Sparkles, Users, CheckCircle } from 'lucide-react'
 import { Scene3D } from '../components/3d'
 import { SectionHeader, GlassCard, Badge, SEO } from '../components/ui'
+import { SchemaMarkup } from '../components/ui/SchemaMarkup'
 import { CTABlock } from '../components/sections'
 import { pillars, type PillarColor } from '../data/services'
 
@@ -49,6 +50,15 @@ export default function ServiceDetail() {
         title={`${pillar.title} — ${pillar.label}`}
         description={pillar.description}
         path={`/services/${pillar.slug}`}
+      />
+      <SchemaMarkup
+        page="service-detail"
+        serviceSlug={pillar.slug}
+        breadcrumbs={[
+          { name: 'Home', url: 'https://techcloudpro.com/' },
+          { name: 'Services', url: 'https://techcloudpro.com/services' },
+          { name: pillar.label, url: `https://techcloudpro.com/services/${pillar.slug}` },
+        ]}
       />
 
       {/* Hero */}
