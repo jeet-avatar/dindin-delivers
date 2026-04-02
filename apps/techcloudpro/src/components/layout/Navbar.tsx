@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import { Moon, Sun, Menu, X, Zap } from 'lucide-react'
+import { Moon, Sun, Menu, X } from 'lucide-react'
 import { useTheme } from '../../hooks/useTheme'
 import { mainNav } from '../../data/navigation'
 import { Button } from '../ui/Button'
@@ -13,12 +13,8 @@ export function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-[1000] px-6 md:px-12 py-3.5 flex items-center justify-between backdrop-blur-2xl border-b border-[var(--glass-border)] transition-colors duration-300 bg-[var(--bg)]/85">
       {/* Logo */}
-      <Link to="/" className="flex items-center gap-2 text-xl font-extrabold tracking-tight">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
-          <Zap size={15} className="text-white" />
-        </div>
-        <span className="grad-text-blue">TechCloud</span>
-        <span className="text-[var(--text-muted)] font-normal">Pro</span>
+      <Link to="/" className="flex items-center">
+        <img src="/tcplogo.png" alt="TechCloudPro" className="h-8 md:h-9" />
       </Link>
 
       {/* Desktop nav */}
