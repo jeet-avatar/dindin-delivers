@@ -11,7 +11,7 @@ const SITE = 'https://techcloudpro.com'
 const SITE_NAME = 'TechCloudPro'
 
 export function SEO({ title, description, path, type = 'website' }: SEOProps) {
-  const url = `${SITE}${path}`
+  const url = path === '/' ? `${SITE}/` : `${SITE}${path}/`
   const fullTitle = `${title} | ${SITE_NAME}`
 
   return (
