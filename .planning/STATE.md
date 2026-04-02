@@ -425,6 +425,7 @@ None
 | 261 | Throttled campaign sending — 1 email per 5 min, validation, progress tracking | 2026-04-01 | 058e1546 | [261-throttled-campaign-sending-1-email-per-5](./quick/261-throttled-campaign-sending-1-email-per-5/) |
 | 262 | Campaign Builder UI — speed selector, throttled send, live progress bar | 2026-04-01 | 0f301bf4 | [262-campaign-builder-ui-speed-selector-throt](./quick/262-campaign-builder-ui-speed-selector-throt/) |
 | 263 | Phase 3: Campaign analytics — click tracking, open tracking, engagement scoring | 2026-04-01 | pending | [263-phase-3-campaign-analytics-click-trackin](./quick/263-phase-3-campaign-analytics-click-trackin/) |
+| 264 | Campaign wizard: sent-contact filtering and per-contact campaign history badges | 2026-04-02 | 5d03f1d1 | [264-campaign-wizard-sent-contact-filtering-a](./quick/264-campaign-wizard-sent-contact-filtering-a/) |
 
 ## Session Continuity
 
