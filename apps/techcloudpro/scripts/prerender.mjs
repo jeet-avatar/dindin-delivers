@@ -23,6 +23,13 @@ const routes = [
   '/contact',
   '/privacy-policy',
   '/terms',
+  '/blog',
+  '/blog/private-llm-deployment-enterprise-guide',
+  '/blog/netsuite-2026-1-release-guide',
+  '/blog/ai-engineer-staffing-rates-2026',
+  '/blog/netsuite-oneworld-implementation-checklist',
+  '/blog/why-enterprise-ai-projects-fail',
+  '/blog/cyberark-vs-delinea-vs-beyondtrust-pam-comparison',
 ]
 
 async function prerender() {

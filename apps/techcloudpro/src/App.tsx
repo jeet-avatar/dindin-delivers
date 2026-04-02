@@ -17,6 +17,8 @@ const Products = lazy(() => import('./pages/Products'))
 const Partners = lazy(() => import('./pages/Partners'))
 const Careers = lazy(() => import('./pages/Careers'))
 const Contact = lazy(() => import('./pages/Contact'))
+const Blog = lazy(() => import('./pages/Blog'))
+const BlogPost = lazy(() => import('./pages/BlogPost'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const TermsOfService = lazy(() => import('./pages/TermsOfService'))
 const NotFound = lazy(() => import('./pages/NotFound'))
@@ -50,6 +52,8 @@ export default function App() {
                 <Route path="/partners" element={<Partners />} />
                 <Route path="/careers" element={<Careers />} />
                 <Route path="/contact" element={<Contact />} />
+                <Route path="/blog" element={<Blog />} />
+                <Route path="/blog/:slug" element={<BlogPost />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<TermsOfService />} />
                 <Route path="*" element={<NotFound />} />
