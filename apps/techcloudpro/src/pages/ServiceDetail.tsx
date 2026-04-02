@@ -80,6 +80,47 @@ export default function ServiceDetail() {
         </div>
       </section>
 
+      {/* Stats ribbon */}
+      {pillar.stats && (
+        <section className="py-12 px-6 border-b border-[var(--glass-border)]">
+          <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            {pillar.stats.map(stat => (
+              <div key={stat.label}>
+                <div className="text-3xl md:text-4xl font-extrabold grad-text-blue">{stat.value}</div>
+                <div className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Deep description + testimonial */}
+      {(pillar.longDescription || pillar.testimonial) && (
+        <section className="py-16 px-6 md:px-12 max-w-4xl mx-auto">
+          {pillar.longDescription && (
+            <p className="text-base text-[var(--text-dim)] leading-relaxed mb-10">
+              {pillar.longDescription}
+            </p>
+          )}
+          {pillar.testimonial && (
+            <div className="rounded-2xl bg-[var(--glass)] border border-[var(--glass-border)] p-8 [.light_&]:bg-white [.light_&]:shadow-sm">
+              <p className="text-[15px] text-[var(--text)] leading-relaxed italic mb-4">
+                "{pillar.testimonial.quote}"
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                  {pillar.testimonial.name.charAt(0)}
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-[var(--text)]">{pillar.testimonial.name}</div>
+                  <div className="text-xs text-[var(--text-muted)]">{pillar.testimonial.title} — {pillar.testimonial.company}</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Sub-services grid */}
       <section className="py-20 px-6 md:px-12 max-w-7xl mx-auto">
         <SectionHeader

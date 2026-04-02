@@ -22,6 +22,7 @@ const routes = [
   '/careers',
   '/contact',
   '/privacy-policy',
+  '/terms',
 ]
 
 async function prerender() {
