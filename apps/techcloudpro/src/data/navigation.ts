@@ -6,6 +6,7 @@ export interface NavLink {
 export const mainNav: NavLink[] = [
   { label: 'Home', href: '/' },
   { label: 'Services', href: '/services' },
+  { label: 'Products', href: '/products' },
   { label: 'Clients', href: '/clients' },
   { label: 'Case Studies', href: '/case-studies' },
   { label: 'About', href: '/about' },
@@ -40,6 +41,7 @@ export const footerSections = [
     title: 'Resources',
     links: [
       { label: 'Case Studies', href: '/case-studies' },
+      { label: 'Products', href: '/products' },
       { label: 'Partners', href: '/partners' },
     ],
   },
