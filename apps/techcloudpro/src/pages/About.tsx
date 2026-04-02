@@ -15,7 +15,7 @@ export default function About() {
     <>
       <SEO
         title="About Us — Our Story"
-        description="TechCloudPro is a Zietra Technologies Inc. company delivering enterprise AI, ERP, cybersecurity, and IT staffing solutions with 200+ clients and 15+ years of experience."
+        description="TechCloudPro is a Vibing World Inc. company delivering enterprise AI, ERP, cybersecurity, and IT staffing solutions with 200+ clients and 15+ years of experience."
         path="/about"
       />
 
@@ -34,7 +34,7 @@ export default function About() {
       {/* Story */}
       <section className="py-16 px-6 md:px-12 max-w-4xl mx-auto">
         <div className="space-y-6 text-[var(--text-dim)] leading-relaxed">
-          <p>TechCloudPro is a <strong className="text-[var(--text)]">Zietra Technologies Inc.</strong> company, delivering enterprise-grade technology solutions across four interconnected practice areas: Oracle NetSuite ERP, Cybersecurity, AI & Private LLM, and IT Staffing.</p>
+          <p>TechCloudPro is a <strong className="text-[var(--text)]">Vibing World Inc.</strong> company, delivering enterprise-grade technology solutions across four interconnected practice areas: Oracle NetSuite ERP, Cybersecurity, AI & Private LLM, and IT Staffing.</p>
           <p>With over 15 years of experience, 200+ enterprise clients, and 1000+ successful implementations, we've established ourselves as a trusted partner for businesses navigating their digital transformation journey. Our clientele spans Fortune 500 companies to fast-growing startups across retail, manufacturing, fashion, F&B, pharmaceuticals, financial services, and technology.</p>
           <p>Our cybersecurity division was conceived during a client ERP engagement when we discovered critical vulnerabilities in their privileged access infrastructure. That real-world threat discovery led us to partner with CyberArk and build a full-fledged security practice — a testament to our proactive, client-first approach.</p>
           <p>Today, we're at the forefront of the AI revolution, deploying private LLM models within enterprise VPN infrastructure, building agentic AI systems, and helping organizations secure the emerging machine identity landscape — all while continuing to deliver world-class ERP implementations and IT talent.</p>
