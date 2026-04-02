@@ -154,13 +154,97 @@ export default function Contact() {
               <div className="flex items-start gap-3">
                 <MapPin size={20} className="text-purple-400 flex-shrink-0 mt-1" />
                 <div>
-                  <h4 className="text-sm font-bold mb-1">Global Presence</h4>
-                  <p className="text-[13px] text-[var(--text-muted)]">North America &bull; India</p>
-                  <p className="text-[12px] text-[var(--text-muted)] mt-1">Serving clients across 120+ countries</p>
+                  <h4 className="text-sm font-bold mb-1">Global Offices</h4>
+                  <p className="text-[12px] text-[var(--text-muted)] mt-1">6 offices across 5 countries</p>
                 </div>
               </div>
             </GlassCard>
           </div>
+        </div>
+      </section>
+
+      {/* Office Locations */}
+      <section className="py-16 px-6 md:px-12 max-w-7xl mx-auto">
+        <SectionHeader
+          label="Our Offices"
+          title="Global Presence"
+          subtitle="Strategically located across North America, Asia-Pacific, and India to serve our clients worldwide."
+          className="mb-12"
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <GlassCard className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin size={16} style={{ color: '#60A5FA' }} />
+              <h3 className="text-sm font-bold">Toronto, Canada</h3>
+              <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider" style={{ background: 'rgba(59,130,246,0.12)', color: '#60A5FA' }}>HQ</span>
+            </div>
+            <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+              100 King Street West, Suite 5700<br />
+              Toronto, ON M5X 1C7<br />
+              Canada
+            </p>
+          </GlassCard>
+
+          <GlassCard className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin size={16} style={{ color: '#FB923C' }} />
+              <h3 className="text-sm font-bold">Los Angeles, USA</h3>
+            </div>
+            <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+              10100 Santa Monica Blvd, Suite 300<br />
+              Los Angeles, CA 90067<br />
+              United States
+            </p>
+          </GlassCard>
+
+          <GlassCard className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin size={16} style={{ color: '#FB923C' }} />
+              <h3 className="text-sm font-bold">New York, USA</h3>
+            </div>
+            <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+              1345 Avenue of the Americas, 33rd Floor<br />
+              New York, NY 10105<br />
+              United States
+            </p>
+          </GlassCard>
+
+          <GlassCard className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin size={16} style={{ color: '#34D399' }} />
+              <h3 className="text-sm font-bold">Melbourne, Australia</h3>
+            </div>
+            <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+              477 Collins Street, Level 22<br />
+              Melbourne, VIC 3000<br />
+              Australia
+            </p>
+          </GlassCard>
+
+          <GlassCard className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin size={16} style={{ color: '#A78BFA' }} />
+              <h3 className="text-sm font-bold">Manila, Philippines</h3>
+            </div>
+            <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+              Bonifacio Global City, 32nd Street<br />
+              Taguig, Metro Manila 1634<br />
+              Philippines
+            </p>
+          </GlassCard>
+
+          <GlassCard className="p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <MapPin size={16} style={{ color: '#22D3EE' }} />
+              <h3 className="text-sm font-bold">Bangalore, India</h3>
+            </div>
+            <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+              Prestige Tech Park, Marathahalli<br />
+              Outer Ring Road<br />
+              Bangalore, Karnataka 560103<br />
+              India
+            </p>
+          </GlassCard>
         </div>
       </section>
     </>
