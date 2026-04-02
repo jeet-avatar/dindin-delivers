@@ -11,6 +11,7 @@ export const mainNav: NavLink[] = [
   { label: 'Case Studies', href: '/case-studies' },
   { label: 'About', href: '/about' },
   { label: 'Leadership', href: '/leadership' },
+  { label: 'Blog', href: '/blog' },
   { label: 'Careers', href: '/careers' },
   { label: 'Contact', href: '/contact' },
 ]
@@ -40,6 +41,7 @@ export const footerSections = [
   {
     title: 'Resources',
     links: [
+      { label: 'Blog & Insights', href: '/blog' },
       { label: 'Case Studies', href: '/case-studies' },
       { label: 'Products', href: '/products' },
       { label: 'Partners', href: '/partners' },
