@@ -104,6 +104,12 @@ h1, h2, h3, h4, h5, h6 {
   100% { background-position: 0 60px; }
 }
 
+/* Aurora wave */
+@keyframes aurora-wave {
+  0%, 100% { transform: translateX(-15%) scaleY(1) rotate(-2deg); }
+  50% { transform: translateX(15%) scaleY(1.5) rotate(2deg); }
+}
+
 /* Client marquee */
 @keyframes marquee {
   0% { transform: translateX(0); }
