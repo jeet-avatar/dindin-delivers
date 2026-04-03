@@ -44,10 +44,33 @@ export function CallScreen({ name, room, password, onLeave }: CallScreenProps) {
   const [unreadChat, setUnreadChat] = useState(0);
   const [viewMode, setViewMode] = useState<'gallery' | 'speaker'>('gallery');
   const [pinnedPeerId, setPinnedPeerId] = useState<string | null>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   const prevMsgCountRef = useRef(0);
   const showChatRef = useRef(false);
   showChatRef.current = showChat;
+
+  // ── Back button interception ───────────────────────────────────────────
+  // When the user hits the browser back button during a meeting, re-push the
+  // history state and show the leave confirmation instead of navigating away.
+  useEffect(() => {
+    const handlePopState = () => {
+      window.history.pushState({ inMeeting: true }, '');
+      setShowLeaveConfirm(true);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // ── Tab close / refresh guard ──────────────────────────────────────────
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   // Unread chat tracking
   useEffect(() => {
@@ -75,7 +98,11 @@ export function CallScreen({ name, room, password, onLeave }: CallScreenProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleEndCall = () => {
+  // Shows confirmation modal — called by Leave button and back button
+  const handleEndCall = () => setShowLeaveConfirm(true);
+
+  // Actually leaves — called only after confirmation
+  const confirmLeave = () => {
     rtc.endCall();
     onLeave();
   };
@@ -203,8 +230,30 @@ export function CallScreen({ name, room, password, onLeave }: CallScreenProps) {
         recordingState={rtc.recordingState}
         myPeerId={rtc.myPeerId}
         onConsent={rtc.sendRecordingConsent}
-        onLeave={handleEndCall}
+        onLeave={confirmLeave}
       />
+
+      {showLeaveConfirm && (
+        <div className="modal-backdrop" style={{ zIndex: 70 }}>
+          <div className="leave-confirm-modal">
+            <h3>Leave meeting?</h3>
+            <p>You can rejoin with the same room code.</p>
+            <div className="leave-confirm-actions">
+              <button className="leave-confirm-stay" onClick={() => setShowLeaveConfirm(false)}>
+                Stay
+              </button>
+              <button className="leave-confirm-leave" onClick={confirmLeave}>
+                Leave Meeting
+              </button>
+              {rtc.isHost && (
+                <button className="leave-confirm-end-all" onClick={() => { rtc.endMeetingForAll(); confirmLeave(); }}>
+                  End for Everyone
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSettings && (
         <DevicePickerModal

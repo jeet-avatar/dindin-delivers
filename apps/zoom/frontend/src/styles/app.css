@@ -922,6 +922,66 @@ body {
 /* panel-open replaces chat-open */
 .call-screen.panel-open .video-area { /* handled by flex */ }
 
+/* ===== LEAVE CONFIRMATION MODAL ===== */
+.leave-confirm-modal {
+  background: var(--bg-card);
+  border: 1px solid #333;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 360px;
+  width: 90%;
+  text-align: center;
+}
+.leave-confirm-modal h3 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+.leave-confirm-modal p {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  margin-bottom: 1.5rem;
+}
+.leave-confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.leave-confirm-stay {
+  background: transparent;
+  border: 1px solid #444;
+  color: var(--text);
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.leave-confirm-stay:hover { background: #2a2a3e; }
+.leave-confirm-leave {
+  background: var(--danger);
+  border: none;
+  color: #fff;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.leave-confirm-leave:hover { opacity: 0.85; }
+.leave-confirm-end-all {
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.leave-confirm-end-all:hover { background: rgba(230,57,70,0.12); }
+
 /* ===== RECORDING CONSENT ===== */
 .consent-modal {
   background: var(--bg-card);
