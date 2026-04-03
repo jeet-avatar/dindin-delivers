@@ -82,7 +82,7 @@ const organizationSchema = {
     'https://www.glassdoor.com/Overview/Working-at-TechCloudPro',
     'https://www.facebook.com/techcloudpro',
     'https://twitter.com/techcloudpro',
-    'https://www.wikidata.org/wiki/Q131414964',
+    'https://www.wikidata.org/wiki/Q138861599',
   ],
 }
 
