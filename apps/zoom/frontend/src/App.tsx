@@ -15,10 +15,12 @@ export default function App() {
     const url = new URL(window.location.href);
     if (joined) {
       url.searchParams.set('room', joined.room);
+      // pushState creates a real history entry so the back button can be intercepted
+      window.history.pushState({ inMeeting: true }, '', url.toString());
     } else {
       url.searchParams.delete('room');
+      window.history.replaceState({}, '', url.toString());
     }
-    window.history.replaceState({}, '', url.toString());
   }, [joined]);
 
   if (!joined) {
