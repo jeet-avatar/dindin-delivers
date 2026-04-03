@@ -601,6 +601,91 @@ body {
   z-index: 2;
 }
 
+/* ===== SCREENSHARE LAYOUT (Zoom-style) ===== */
+.screenshare-layout {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  gap: 0;
+}
+
+/* Thumbnail strip at the top — remote participants */
+.screenshare-strip {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-deep);
+  overflow-x: auto;
+  flex-shrink: 0;
+  height: 112px;
+  scrollbar-width: thin;
+}
+.screenshare-strip .video-tile {
+  width: 160px;
+  min-width: 160px;
+  height: 100px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+/* Main stage — screen share video fills remaining space */
+.screenshare-main-tile {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+.screenshare-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.screenshare-label {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  border-radius: 12px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Floating PiP — your own camera in the bottom-right corner */
+.screenshare-pip {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 180px;
+  height: 120px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  border: 2px solid rgba(255,255,255,0.15);
+  z-index: 20;
+  cursor: move;
+}
+.screenshare-pip .video-tile {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+.screenshare-pip .tile-label {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+}
+/* Hide pin button in PiP */
+.screenshare-pip .pin-btn { display: none; }
+
 /* ===== SPEAKER VIEW LAYOUT ===== */
 .speaker-layout {
   display: flex;

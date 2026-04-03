@@ -1,6 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RemotePeer } from '../hooks/useWebRTC';
 
+function ScreenShareTile({ stream }: { stream: MediaStream }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    ref.current.srcObject = stream;
+    ref.current.play().catch(() => {});
+  }, [stream]);
+  return (
+    <div className="screenshare-main-tile">
+      <video ref={ref} autoPlay playsInline muted className="screenshare-video" />
+      <div className="screenshare-label">You are presenting</div>
+    </div>
+  );
+}
+
 interface VideoTileProps {
   stream: MediaStream | null;
   name: string;
@@ -72,6 +87,7 @@ interface VideoGridProps {
   localName: string;
   remotePeers: RemotePeer[];
   isCamOff: boolean;
+  screenStream?: MediaStream | null;
   viewMode?: 'gallery' | 'speaker';
   activeSpeakerId?: string | null;
   pinnedPeerId?: string | null;
@@ -82,6 +98,7 @@ interface VideoGridProps {
 
 export function VideoGrid({
   localStream, localName, remotePeers, isCamOff,
+  screenStream = null,
   viewMode = 'gallery',
   activeSpeakerId = null,
   pinnedPeerId = null,
@@ -90,6 +107,46 @@ export function VideoGrid({
   onPinPeer,
 }: VideoGridProps) {
   const totalParticipants = 1 + remotePeers.length;
+
+  // ── Screenshare layout (Zoom-style) ────────────────────────────────────
+  // Screen content fills the stage; local camera becomes a floating PiP;
+  // remote participants collapse to a thumbnail strip along the top.
+  if (screenStream) {
+    return (
+      <div className="video-grid screenshare-layout">
+        {/* Thumbnail strip — remote participants */}
+        {remotePeers.length > 0 && (
+          <div className="screenshare-strip">
+            {remotePeers.map(peer => (
+              <VideoTile
+                key={peer.id}
+                stream={peer.stream}
+                name={peer.name}
+                connectionState={peer.connectionState}
+                isActiveSpeaker={activeSpeakerId === peer.id}
+                isHandRaised={handRaisedMap?.get(peer.id)}
+                onPin={onPinPeer ? () => onPinPeer(pinnedPeerId === peer.id ? null : peer.id) : undefined}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Main stage — screen share content */}
+        <ScreenShareTile stream={screenStream} />
+
+        {/* Floating PiP — local camera */}
+        <div className="screenshare-pip">
+          <VideoTile
+            stream={isCamOff ? null : localStream}
+            name={`${localName} (You)`}
+            muted
+            mirrored
+            isHandRaised={handRaisedMap?.get(myPeerId || '')}
+          />
+        </div>
+      </div>
+    );
+  }
 
   // Determine who to feature in speaker view
   const featuredId = pinnedPeerId || activeSpeakerId;

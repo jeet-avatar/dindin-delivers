@@ -73,6 +73,7 @@ export interface UseWebRTCReturn {
   isMuted: boolean;
   isCamOff: boolean;
   isScreenSharing: boolean;
+  screenStream: MediaStream | null;
   canScreenShare: boolean;
   chatMessages: ChatMessage[];
   handRaisedMap: Map<string, boolean>;
@@ -104,6 +105,7 @@ export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTC
   const [isMuted, setIsMuted] = useState(false);
   const [isCamOff, setIsCamOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [handRaisedMap, setHandRaisedMap] = useState<Map<string, boolean>>(new Map());
   const [reactions, setReactions] = useState<ReactionEvent[]>([]);
@@ -462,6 +464,7 @@ export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTC
           if (sender) await sender.replaceTrack(screenTrack);
         }
         setIsScreenSharing(true);
+        setScreenStream(screen);
 
         screenTrack.onended = async () => {
           for (const pc of pcsRef.current.values()) {
@@ -471,6 +474,7 @@ export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTC
           screenStreamRef.current?.getTracks().forEach(t => t.stop());
           screenStreamRef.current = null;
           setIsScreenSharing(false);
+          setScreenStream(null);
         };
       } catch { /* cancelled */ }
     } else {
@@ -481,6 +485,7 @@ export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTC
       screenStreamRef.current?.getTracks().forEach(t => t.stop());
       screenStreamRef.current = null;
       setIsScreenSharing(false);
+      setScreenStream(null);
     }
   }, [isScreenSharing, canScreenShare]);
 
@@ -561,7 +566,7 @@ export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTC
 
   return {
     localStream, remotePeers, myPeerId, isHost,
-    isMuted, isCamOff, isScreenSharing, canScreenShare,
+    isMuted, isCamOff, isScreenSharing, screenStream, canScreenShare,
     chatMessages, handRaisedMap, reactions, recordingState,
     broadcastRecordingStart, broadcastRecordingStop, sendRecordingConsent,
     toggleMute, toggleCam, toggleScreenShare,

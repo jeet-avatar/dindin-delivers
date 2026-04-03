@@ -160,6 +160,7 @@ export function CallScreen({ name, room, password, onLeave }: CallScreenProps) {
             localName={name}
             remotePeers={rtc.remotePeers}
             isCamOff={rtc.isCamOff}
+            screenStream={rtc.screenStream}
             viewMode={viewMode}
             activeSpeakerId={activeSpeakerId}
             pinnedPeerId={pinnedPeerId}
