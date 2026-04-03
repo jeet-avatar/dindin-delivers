@@ -69,8 +69,20 @@ const organizationSchema = {
       addressCountry: 'IN',
     },
   ],
+  numberOfEmployees: {
+    '@type': 'QuantitativeValue',
+    minValue: 200,
+    maxValue: 500,
+  },
   sameAs: [
     'https://www.linkedin.com/company/techcloudpro',
+    'https://www.crunchbase.com/organization/techcloudpro',
+    'https://clutch.co/profile/techcloudpro',
+    'https://www.g2.com/sellers/techcloudpro',
+    'https://www.glassdoor.com/Overview/Working-at-TechCloudPro',
+    'https://www.facebook.com/techcloudpro',
+    'https://twitter.com/techcloudpro',
+    'https://www.wikidata.org/wiki/Q131414964',
   ],
 }
 
