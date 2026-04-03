@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Interview Assistant (Windows) — Real-time AI coaching during Zoom/Teams interviews
+Career Companion (Windows) — Real-time AI coaching during Zoom/Teams interviews
 Captures meeting audio -> Whisper transcription -> Claude answers -> Floating overlay
 """
 
@@ -103,8 +103,8 @@ def _get_license_key():
 
     # Step 1: Welcome + instructions
     _tmb.showinfo(
-        "Welcome to Interview Assistant",
-        "Thanks for purchasing Interview Assistant!\n\n"
+        "Welcome to Career Companion",
+        "Thanks for purchasing Career Companion!\n\n"
         "To activate, you need your License Key.\n\n"
         "Here's how to find it:\n\n"
         "1. Go to offerletter.ai/interview in your browser\n"
@@ -524,7 +524,7 @@ def answer_generation_thread(update_answer_callback, stream_chunk_callback, stat
 class InterviewOverlay:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("🎯 Interview Assistant")
+        self.root.title("🎯 Career Companion")
         # Position bottom-right corner — out of typical shared window area
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
@@ -564,7 +564,7 @@ class InterviewOverlay:
         top = tk.Frame(root, bg="#1a2635", pady=8)
         top.pack(fill="x")
 
-        tk.Label(top, text="🎯  Interview Assistant",
+        tk.Label(top, text="🎯  Career Companion",
                  bg="#1a2635", fg="#7dd3fc",
                  font=("Inter", 13, "bold")).pack(side="left", padx=14)
 
@@ -850,7 +850,7 @@ class InterviewOverlay:
 # ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print("🎯 Interview Assistant (Windows) starting...")
+    print("🎯 Career Companion (Windows) starting...")
     print("   Ctrl+Shift+H = hide/show   |   Alt+F4 = quit   |   drag title bar to move")
     print()
 
