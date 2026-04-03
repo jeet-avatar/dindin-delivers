@@ -21,21 +21,16 @@ export default function Contact() {
     // Honeypot check
     if (data._honey) { setStatus('success'); return }
 
-    try {
-      const res = await fetch('/api/contact.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (res.ok) {
-        setStatus('success')
-        form.reset()
-      } else {
-        setStatus('error')
-      }
-    } catch {
-      setStatus('error')
-    }
+    await new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', 'https://script.google.com/macros/s/AKfycbwViyeodzio8FG_JyGzlpfXE3dbVIkoGxFr9QH3rgZ1JxyTE_9APyZTzUVx1ncO3r4oMA/exec')
+      xhr.setRequestHeader('Content-Type', 'text/plain')
+      xhr.onloadend = () => resolve()
+      xhr.onerror = () => resolve()
+      xhr.send(JSON.stringify(data))
+    })
+    setStatus('success')
+    form.reset()
   }
 
   const inputClass = 'w-full px-4 py-3 rounded-xl bg-[var(--glass)] border border-[var(--glass-border)] text-[var(--text)] text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors [.light_&]:bg-white'
