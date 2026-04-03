@@ -13,8 +13,8 @@ REGION = os.environ.get("AWS_REGION", "us-east-1")
 TABLE_NAME = "offerletter-verified-sessions"
 STRIPE_SECRET_NAME = "offerletter/production/stripe-secret"
 S3_BUCKET = "offerletter.ai"
-S3_KEY_MAC = "downloads/Interview Assistant.dmg"
-S3_KEY_WIN = "downloads/InterviewAssistant.exe"
+S3_KEY_MAC = "downloads/Career Companion.dmg"
+S3_KEY_WIN = "downloads/CareerCompanion.exe"
 PRESIGN_EXPIRY = 900  # 15 minutes
 
 CORS = {
