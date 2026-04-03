@@ -1,6 +1,6 @@
 import { Handshake } from 'lucide-react'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard, SEO } from '../components/ui'
+import { SectionHeader, GlassCard, SEO, SchemaMarkup } from '../components/ui'
 import { CTABlock } from '../components/sections'
 import { partners } from '../data/partners'
 
@@ -12,6 +12,7 @@ export default function Partners() {
         description="TechCloudPro partners with Oracle NetSuite, CyberArk, Planful, and Zietra to deliver best-in-class enterprise solutions."
         path="/partners"
       />
+      <SchemaMarkup page="partners" breadcrumbs={[{ name: 'Home', url: 'https://techcloudpro.com' }, { name: 'Partners', url: 'https://techcloudpro.com/partners' }]} />
 
       <section className="relative py-28 md:py-36 overflow-hidden">
         <Scene3D showMesh={false} />
