@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-// Always connect to /ws on same host — Vite proxies in dev, unified server in prod
 const SIGNALING_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  // Free TURN servers from Metered.ca (relay fallback for NAT traversal)
   {
     urls: 'turn:a.relay.metered.ca:80',
     username: 'e8dd65e92f3b1eff0f29b848',
@@ -24,49 +22,109 @@ const ICE_SERVERS: RTCIceServer[] = [
   },
 ];
 
-export type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'failed' | 'waiting';
+export interface RemotePeer {
+  id: string;
+  name: string;
+  stream: MediaStream | null;
+  connectionState: 'connecting' | 'connected' | 'failed';
+}
+
+export interface ChatMessage {
+  fromId: string;
+  fromName: string;
+  text: string;
+  timestamp: number;
+  isMe?: boolean;
+}
+
+export interface AnnotationStroke {
+  tool: 'pen' | 'eraser';
+  color: string;
+  size: number;
+  points: { x: number; y: number }[];
+}
 
 interface UseWebRTCOptions {
   room: string;
   name: string;
+  password?: string;
 }
 
-interface UseWebRTCReturn {
+export interface RecordingState {
+  isRecording: boolean;
+  recorderId: string | null;
+  recorderName: string | null;
+  startedAt: number | null;
+  consents: Map<string, boolean>; // peerId → consented
+}
+
+export interface ReactionEvent {
+  id: string;
+  emoji: string;
+  fromName: string;
+  timestamp: number;
+}
+
+export interface UseWebRTCReturn {
   localStream: MediaStream | null;
-  remoteStream: MediaStream | null;
-  peerName: string | null;
-  connectionState: ConnectionState;
+  remotePeers: RemotePeer[];
+  myPeerId: string | null;
+  isHost: boolean;
   isMuted: boolean;
   isCamOff: boolean;
   isScreenSharing: boolean;
   canScreenShare: boolean;
+  chatMessages: ChatMessage[];
+  handRaisedMap: Map<string, boolean>;
+  reactions: ReactionEvent[];
+  recordingState: RecordingState;
+  broadcastRecordingStart: () => void;
+  broadcastRecordingStop: () => void;
+  sendRecordingConsent: (consented: boolean) => void;
   toggleMute: () => void;
   toggleCam: () => void;
   toggleScreenShare: () => void;
+  sendChat: (text: string) => void;
+  sendAnnotation: (data: AnnotationStroke) => void;
+  setAnnotationListener: (cb: ((data: AnnotationStroke) => void) | null) => void;
+  toggleHandRaise: () => void;
+  sendReaction: (emoji: string) => void;
+  endMeetingForAll: () => void;
+  kickPeer: (peerId: string) => void;
+  replaceLocalTrack: (kind: 'audio' | 'video', newTrack: MediaStreamTrack) => Promise<void>;
   endCall: () => void;
   error: string | null;
 }
 
-export function useWebRTC({ room, name }: UseWebRTCOptions): UseWebRTCReturn {
+export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTCReturn {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [peerName, setPeerName] = useState<string | null>(null);
-  const [connectionState, setConnectionState] = useState<ConnectionState>('waiting');
+  const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([]);
+  const [myPeerId, setMyPeerId] = useState<string | null>(null);
+  const [isHost, setIsHost] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isCamOff, setIsCamOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [handRaisedMap, setHandRaisedMap] = useState<Map<string, boolean>>(new Map());
+  const [reactions, setReactions] = useState<ReactionEvent[]>([]);
+  const [recordingState, setRecordingState] = useState<RecordingState>({
+    isRecording: false, recorderId: null, recorderName: null, startedAt: null, consents: new Map(),
+  });
   const [error, setError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
-  const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
+  const remotePeersRef = useRef<RemotePeer[]>([]);
+  const peerNamesRef = useRef<Map<string, string>>(new Map());
+  const myPeerIdRef = useRef<string | null>(null);
+  const annotationCbRef = useRef<((data: AnnotationStroke) => void) | null>(null);
   const wsRetryCount = useRef(0);
   const cleanedUp = useRef(false);
 
-  // Check if screen share is available (not on iOS)
   const canScreenShare = typeof navigator.mediaDevices?.getDisplayMedia === 'function';
 
   const send = useCallback((msg: Record<string, unknown>) => {
@@ -75,44 +133,70 @@ export function useWebRTC({ room, name }: UseWebRTCOptions): UseWebRTCReturn {
     }
   }, []);
 
-  const createPeerConnection = useCallback(() => {
+  const updatePeers = useCallback(() => {
+    setRemotePeers([...remotePeersRef.current]);
+  }, []);
+
+  const updateRemotePeer = useCallback((peerId: string, update: Partial<RemotePeer>) => {
+    const idx = remotePeersRef.current.findIndex(p => p.id === peerId);
+    if (idx >= 0) {
+      remotePeersRef.current[idx] = { ...remotePeersRef.current[idx], ...update };
+      updatePeers();
+    }
+  }, [updatePeers]);
+
+  const addRemotePeer = useCallback((peerId: string, peerName: string) => {
+    if (remotePeersRef.current.find(p => p.id === peerId)) return;
+    peerNamesRef.current.set(peerId, peerName);
+    remotePeersRef.current.push({
+      id: peerId,
+      name: peerName,
+      stream: null,
+      connectionState: 'connecting',
+    });
+    updatePeers();
+  }, [updatePeers]);
+
+  const removeRemotePeer = useCallback((peerId: string) => {
+    const pc = pcsRef.current.get(peerId);
+    if (pc) { pc.close(); pcsRef.current.delete(peerId); }
+    pendingCandidatesRef.current.delete(peerId);
+    peerNamesRef.current.delete(peerId);
+    remotePeersRef.current = remotePeersRef.current.filter(p => p.id !== peerId);
+    updatePeers();
+  }, [updatePeers]);
+
+  const createPC = useCallback((remotePeerId: string): RTCPeerConnection => {
+    const existing = pcsRef.current.get(remotePeerId);
+    if (existing) { existing.close(); }
+
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    pcRef.current = pc;
+    pcsRef.current.set(remotePeerId, pc);
 
     pc.onicecandidate = (e) => {
       if (e.candidate) {
-        send({ type: 'ice-candidate', candidate: e.candidate });
+        send({ type: 'ice-candidate', targetId: remotePeerId, candidate: e.candidate });
       }
     };
 
-    // Monitor ICE connection state
     pc.oniceconnectionstatechange = () => {
-      const state = pc.iceConnectionState;
-      if (state === 'connected' || state === 'completed') {
-        setConnectionState('connected');
-      } else if (state === 'disconnected') {
-        setConnectionState('reconnecting');
-      } else if (state === 'failed') {
-        setConnectionState('failed');
-        // Attempt ICE restart
+      const s = pc.iceConnectionState;
+      if (s === 'connected' || s === 'completed') {
+        updateRemotePeer(remotePeerId, { connectionState: 'connected' });
+      } else if (s === 'failed') {
+        updateRemotePeer(remotePeerId, { connectionState: 'failed' });
         pc.restartIce();
-      } else if (state === 'checking') {
-        setConnectionState('connecting');
       }
     };
 
-    // Receive remote tracks — use e.track (not e.streams[0] which can be undefined in Safari)
-    const remote = new MediaStream();
-    setRemoteStream(remote);
+    const remoteStream = new MediaStream();
     pc.ontrack = (e) => {
-      const track = e.track;
-      if (!remote.getTrackById(track.id)) {
-        remote.addTrack(track);
+      if (!remoteStream.getTrackById(e.track.id)) {
+        remoteStream.addTrack(e.track);
       }
-      setRemoteStream(new MediaStream(remote.getTracks()));
+      updateRemotePeer(remotePeerId, { stream: new MediaStream(remoteStream.getTracks()) });
     };
 
-    // Add local tracks
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
         pc.addTrack(track, localStreamRef.current!);
@@ -120,44 +204,42 @@ export function useWebRTC({ room, name }: UseWebRTCOptions): UseWebRTCReturn {
     }
 
     return pc;
-  }, [send]);
+  }, [send, updateRemotePeer]);
 
-  // Drain queued ICE candidates after remote description is set
-  const drainCandidates = useCallback(async () => {
-    const pc = pcRef.current;
-    if (!pc || !pc.remoteDescription) return;
-    for (const candidate of pendingCandidates.current) {
-      try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (err) {
-        console.warn('Failed to add queued ICE candidate:', err);
-      }
+  const drainCandidates = useCallback(async (peerId: string) => {
+    const pc = pcsRef.current.get(peerId);
+    if (!pc?.remoteDescription) return;
+    const q = pendingCandidatesRef.current.get(peerId) || [];
+    for (const c of q) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch { /* skip */ }
     }
-    pendingCandidates.current = [];
+    pendingCandidatesRef.current.delete(peerId);
   }, []);
 
-  // Connect to signaling server with reconnection
   const connectSignaling = useCallback((stream: MediaStream) => {
     if (cleanedUp.current) return;
-
     const ws = new WebSocket(SIGNALING_URL);
     wsRef.current = ws;
 
     ws.onopen = () => {
       wsRetryCount.current = 0;
-      send({ type: 'join', room, name });
+      send({ type: 'join', room, name, password: password || undefined });
     };
 
     ws.onerror = () => {
-      if (!cleanedUp.current) {
-        setError('Cannot connect to server. Retrying...');
-      }
+      if (!cleanedUp.current) setError('Cannot connect to server. Retrying...');
     };
 
     ws.onclose = () => {
       if (cleanedUp.current) return;
-      // Reconnect with exponential backoff
-      const delay = Math.min(1000 * Math.pow(2, wsRetryCount.current), 30000);
+      // Clean stale state from previous connection before reconnect
+      pcsRef.current.forEach(pc => pc.close());
+      pcsRef.current.clear();
+      pendingCandidatesRef.current.clear();
+      peerNamesRef.current.clear();
+      remotePeersRef.current = [];
+      setRemotePeers([]);
+      const delay = Math.min(1000 * 2 ** wsRetryCount.current, 30000);
       wsRetryCount.current++;
       setTimeout(() => connectSignaling(stream), delay);
     };
@@ -165,182 +247,326 @@ export function useWebRTC({ room, name }: UseWebRTCOptions): UseWebRTCReturn {
     ws.onmessage = async (event) => {
       const msg = JSON.parse(event.data);
 
-      if (msg.type === 'peer-joined') {
-        setPeerName(msg.name);
-        setConnectionState('connecting');
-        const pc = pcRef.current || createPeerConnection();
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        send({ type: 'offer', sdp: pc.localDescription });
-      }
-
-      if (msg.type === 'offer') {
-        setConnectionState('connecting');
-        const pc = pcRef.current || createPeerConnection();
-        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-        await drainCandidates();
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        send({ type: 'answer', sdp: pc.localDescription });
-      }
-
-      if (msg.type === 'answer') {
-        if (pcRef.current) {
-          await pcRef.current.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-          await drainCandidates();
-        }
-      }
-
-      if (msg.type === 'ice-candidate') {
-        if (pcRef.current?.remoteDescription) {
-          try {
-            await pcRef.current.addIceCandidate(new RTCIceCandidate(msg.candidate));
-          } catch (err) {
-            console.warn('Failed to add ICE candidate:', err);
+      switch (msg.type) {
+        case 'joined': {
+          myPeerIdRef.current = msg.peerId;
+          setMyPeerId(msg.peerId);
+          setIsHost(msg.isHost);
+          setError(null);
+          // Register existing peers — they will send offers
+          for (const p of msg.peers as { id: string; name: string }[]) {
+            addRemotePeer(p.id, p.name);
           }
-        } else {
-          // Queue candidates until remote description is set
-          pendingCandidates.current.push(msg.candidate);
+          break;
         }
-      }
 
-      if (msg.type === 'peer-left') {
-        setPeerName(null);
-        setRemoteStream(null);
-        setConnectionState('waiting');
-        pcRef.current?.close();
-        pcRef.current = null;
-        pendingCandidates.current = [];
-      }
+        case 'peer-joined': {
+          // We are existing — create PC and send offer to newcomer
+          addRemotePeer(msg.peerId, msg.name);
+          const pc = createPC(msg.peerId);
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          send({ type: 'offer', targetId: msg.peerId, sdp: pc.localDescription });
+          break;
+        }
 
-      if (msg.type === 'error') {
-        setError(msg.message as string);
+        case 'offer': {
+          const fromId = msg.fromId as string;
+          const peerName = peerNamesRef.current.get(fromId) || 'Peer';
+          addRemotePeer(fromId, peerName);
+          const pc = createPC(fromId);
+          await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+          await drainCandidates(fromId);
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          send({ type: 'answer', targetId: fromId, sdp: pc.localDescription });
+          break;
+        }
+
+        case 'answer': {
+          const pc = pcsRef.current.get(msg.fromId);
+          if (pc) {
+            await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+            await drainCandidates(msg.fromId);
+          }
+          break;
+        }
+
+        case 'ice-candidate': {
+          const pc = pcsRef.current.get(msg.fromId);
+          if (pc?.remoteDescription) {
+            try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch { /* skip */ }
+          } else {
+            const q = pendingCandidatesRef.current.get(msg.fromId) || [];
+            q.push(msg.candidate);
+            pendingCandidatesRef.current.set(msg.fromId, q);
+          }
+          break;
+        }
+
+        case 'peer-left':
+          removeRemotePeer(msg.peerId);
+          break;
+
+        case 'host-transfer':
+          setIsHost(true);
+          break;
+
+        case 'chat':
+          setChatMessages(prev => [...prev, {
+            fromId: msg.fromId,
+            fromName: msg.fromName,
+            text: msg.text,
+            timestamp: msg.timestamp,
+            isMe: msg.fromId === myPeerIdRef.current,
+          }]);
+          break;
+
+        case 'annotation':
+          annotationCbRef.current?.(msg.data as AnnotationStroke);
+          break;
+
+        case 'kicked':
+          setError('You have been removed from the room by the host.');
+          cleanedUp.current = true;
+          ws.close();
+          break;
+
+        case 'hand-raise':
+          setHandRaisedMap(prev => {
+            const next = new Map(prev);
+            if (msg.raised) next.set(msg.peerId as string, true);
+            else next.delete(msg.peerId as string);
+            return next;
+          });
+          break;
+
+        case 'reaction':
+          setReactions(prev => [...prev, {
+            id: `${msg.fromId}-${Date.now()}`,
+            emoji: msg.emoji as string,
+            fromName: msg.fromName as string,
+            timestamp: Date.now(),
+          }]);
+          break;
+
+        case 'recording-start':
+          setRecordingState({
+            isRecording: true,
+            recorderId: msg.recorderId as string,
+            recorderName: msg.recorderName as string,
+            startedAt: msg.timestamp as number,
+            consents: new Map(),
+          });
+          break;
+
+        case 'recording-consent':
+          setRecordingState(prev => {
+            const consents = new Map(prev.consents);
+            consents.set(msg.peerId as string, msg.consented as boolean);
+            return { ...prev, consents };
+          });
+          break;
+
+        case 'recording-stop':
+          setRecordingState({
+            isRecording: false, recorderId: null, recorderName: null, startedAt: null, consents: new Map(),
+          });
+          break;
+
+        case 'meeting-ended':
+          setError('The host has ended the meeting.');
+          cleanedUp.current = true;
+          ws.close();
+          break;
+
+        case 'error':
+          setError(msg.message as string);
+          break;
       }
     };
-  }, [room, name, send, createPeerConnection, drainCandidates]);
+  }, [room, name, password, send, createPC, addRemotePeer, removeRemotePeer, drainCandidates]);
 
-  // Initialize
   useEffect(() => {
     let cancelled = false;
     cleanedUp.current = false;
 
-    async function init() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: true,
-        });
-        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+    (async () => {
+      let stream: MediaStream | null = null;
 
+      // Try video+audio, then audio-only, then video-only, then no media
+      const attempts: MediaStreamConstraints[] = [
+        { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: true },
+        { audio: true },
+        { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } },
+      ];
+
+      for (const constraints of attempts) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          break;
+        } catch { /* try next */ }
+      }
+
+      if (cancelled) { stream?.getTracks().forEach(t => t.stop()); return; }
+
+      if (stream) {
         localStreamRef.current = stream;
         cameraTrackRef.current = stream.getVideoTracks()[0] || null;
         setLocalStream(stream);
-
-        connectSignaling(stream);
-      } catch (err) {
-        setError('Could not access camera/microphone. Please allow access and reload.');
-        console.error(err);
+        if (!stream.getAudioTracks().length) setError('Microphone unavailable — others won\'t hear you.');
+        if (!stream.getVideoTracks().length) setError('Camera unavailable — others won\'t see you.');
+      } else {
+        setError('Camera and microphone unavailable. You can still chat.');
       }
-    }
 
-    init();
+      // Always connect signaling — even without media, user can chat and see others
+      connectSignaling(stream || new MediaStream());
+    })();
 
-    // iOS Safari doesn't fire beforeunload — use pagehide
     const cleanup = () => {
       cleanedUp.current = true;
-      localStreamRef.current?.getTracks().forEach((t) => t.stop());
-      screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-      pcRef.current?.close();
+      localStreamRef.current?.getTracks().forEach(t => t.stop());
+      screenStreamRef.current?.getTracks().forEach(t => t.stop());
+      pcsRef.current.forEach(pc => pc.close());
+      pcsRef.current.clear();
       wsRef.current?.close();
     };
 
-    const cleanupEvent = /iPad|iPhone|iPod/.test(navigator.userAgent) ? 'pagehide' : 'beforeunload';
-    window.addEventListener(cleanupEvent, cleanup);
-
-    return () => {
-      cancelled = true;
-      cleanup();
-      window.removeEventListener(cleanupEvent, cleanup);
-    };
+    const evt = /iPad|iPhone|iPod/.test(navigator.userAgent) ? 'pagehide' : 'beforeunload';
+    window.addEventListener(evt, cleanup);
+    return () => { cancelled = true; cleanup(); window.removeEventListener(evt, cleanup); };
   }, [connectSignaling]);
 
   const toggleMute = useCallback(() => {
-    const audioTrack = localStreamRef.current?.getAudioTracks()[0];
-    if (audioTrack) {
-      audioTrack.enabled = !audioTrack.enabled;
-      setIsMuted(!audioTrack.enabled);
-    }
+    const t = localStreamRef.current?.getAudioTracks()[0];
+    if (t) { t.enabled = !t.enabled; setIsMuted(!t.enabled); }
   }, []);
 
   const toggleCam = useCallback(() => {
-    const videoTrack = localStreamRef.current?.getVideoTracks()[0];
-    if (videoTrack) {
-      videoTrack.enabled = !videoTrack.enabled;
-      setIsCamOff(!videoTrack.enabled);
-    }
+    const t = localStreamRef.current?.getVideoTracks()[0];
+    if (t) { t.enabled = !t.enabled; setIsCamOff(!t.enabled); }
   }, []);
 
   const toggleScreenShare = useCallback(async () => {
     if (!canScreenShare) return;
-    const pc = pcRef.current;
-    if (!pc) return;
-    const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-    if (!sender) return;
 
     if (!isScreenSharing) {
       try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        screenStreamRef.current = screenStream;
-        const screenTrack = screenStream.getVideoTracks()[0];
-        await sender.replaceTrack(screenTrack);
+        const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        screenStreamRef.current = screen;
+        const screenTrack = screen.getVideoTracks()[0];
+
+        for (const pc of pcsRef.current.values()) {
+          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) await sender.replaceTrack(screenTrack);
+        }
         setIsScreenSharing(true);
 
         screenTrack.onended = async () => {
-          if (cameraTrackRef.current) {
-            await sender.replaceTrack(cameraTrackRef.current);
+          for (const pc of pcsRef.current.values()) {
+            const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+            if (sender && cameraTrackRef.current) await sender.replaceTrack(cameraTrackRef.current);
           }
-          screenStreamRef.current?.getTracks().forEach((t) => t.stop());
+          screenStreamRef.current?.getTracks().forEach(t => t.stop());
           screenStreamRef.current = null;
           setIsScreenSharing(false);
         };
-      } catch {
-        // User cancelled
-      }
+      } catch { /* cancelled */ }
     } else {
-      if (cameraTrackRef.current) {
-        await sender.replaceTrack(cameraTrackRef.current);
+      for (const pc of pcsRef.current.values()) {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender && cameraTrackRef.current) await sender.replaceTrack(cameraTrackRef.current);
       }
-      screenStreamRef.current?.getTracks().forEach((t) => t.stop());
+      screenStreamRef.current?.getTracks().forEach(t => t.stop());
       screenStreamRef.current = null;
       setIsScreenSharing(false);
     }
   }, [isScreenSharing, canScreenShare]);
 
+  const sendChat = useCallback((text: string) => {
+    if (text.trim()) send({ type: 'chat', text: text.trim() });
+  }, [send]);
+
+  const sendAnnotation = useCallback((data: AnnotationStroke) => {
+    send({ type: 'annotation', data });
+  }, [send]);
+
+  const setAnnotationListener = useCallback((cb: ((data: AnnotationStroke) => void) | null) => {
+    annotationCbRef.current = cb;
+  }, []);
+
+  const broadcastRecordingStart = useCallback(() => {
+    send({ type: 'recording-start' });
+  }, [send]);
+
+  const broadcastRecordingStop = useCallback(() => {
+    send({ type: 'recording-stop' });
+  }, [send]);
+
+  const sendRecordingConsent = useCallback((consented: boolean) => {
+    send({ type: 'recording-consent', consented });
+  }, [send]);
+
+  const toggleHandRaise = useCallback(() => {
+    const current = handRaisedMap.get(myPeerIdRef.current || '');
+    send({ type: 'hand-raise', raised: !current });
+  }, [send, handRaisedMap]);
+
+  const sendReaction = useCallback((emoji: string) => {
+    send({ type: 'reaction', emoji });
+  }, [send]);
+
+  const endMeetingForAll = useCallback(() => {
+    send({ type: 'end-meeting' });
+  }, [send]);
+
+  const kickPeer = useCallback((peerId: string) => {
+    send({ type: 'kick', targetId: peerId });
+  }, [send]);
+
+  const replaceLocalTrack = useCallback(async (kind: 'audio' | 'video', newTrack: MediaStreamTrack) => {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+
+    // Remove old track of this kind from the local stream
+    const oldTracks = kind === 'audio' ? stream.getAudioTracks() : stream.getVideoTracks();
+    oldTracks.forEach(t => { stream.removeTrack(t); t.stop(); });
+
+    // Add new track
+    stream.addTrack(newTrack);
+    if (kind === 'video') cameraTrackRef.current = newTrack;
+
+    // Replace in all peer connections
+    for (const pc of pcsRef.current.values()) {
+      const sender = pc.getSenders().find(s => s.track?.kind === kind);
+      if (sender) await sender.replaceTrack(newTrack);
+    }
+
+    setLocalStream(new MediaStream(stream.getTracks()));
+  }, []);
+
   const endCall = useCallback(() => {
     cleanedUp.current = true;
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
-    screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-    pcRef.current?.close();
+    localStreamRef.current?.getTracks().forEach(t => t.stop());
+    screenStreamRef.current?.getTracks().forEach(t => t.stop());
+    pcsRef.current.forEach(pc => pc.close());
+    pcsRef.current.clear();
     wsRef.current?.close();
     setLocalStream(null);
-    setRemoteStream(null);
-    setPeerName(null);
-    setConnectionState('waiting');
+    setRemotePeers([]);
+    remotePeersRef.current = [];
+    setChatMessages([]);
   }, []);
 
   return {
-    localStream,
-    remoteStream,
-    peerName,
-    connectionState,
-    isMuted,
-    isCamOff,
-    isScreenSharing,
-    canScreenShare,
-    toggleMute,
-    toggleCam,
-    toggleScreenShare,
-    endCall,
-    error,
+    localStream, remotePeers, myPeerId, isHost,
+    isMuted, isCamOff, isScreenSharing, canScreenShare,
+    chatMessages, handRaisedMap, reactions, recordingState,
+    broadcastRecordingStart, broadcastRecordingStop, sendRecordingConsent,
+    toggleMute, toggleCam, toggleScreenShare,
+    sendChat, sendAnnotation, setAnnotationListener,
+    toggleHandRaise, sendReaction, endMeetingForAll, kickPeer, replaceLocalTrack,
+    endCall, error,
   };
 }

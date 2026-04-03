@@ -1,16 +1,20 @@
 FROM node:20-slim
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 RUN npm install -g tsx
 
 COPY server/package.json server/package-lock.json ./server/
-RUN cd server && npm ci
+RUN cd server && npm ci --production
 
 COPY server/index.ts ./server/
 COPY frontend/dist ./frontend/dist
 
 EXPOSE 3001
 ENV PORT=3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:3001/ || exit 1
 
 WORKDIR /app/server
 CMD ["tsx", "index.ts"]

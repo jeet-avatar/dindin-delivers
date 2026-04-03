@@ -1,0 +1,68 @@
+name: Deploy Zietra Meet
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/zoom/**'
+
+jobs:
+  deploy:
+    name: Build and Deploy Zietra Meet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/zoom/frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: apps/zoom/frontend
+        run: |
+          npm ci
+          npx vite build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        working-directory: apps/zoom
+        env:
+          IMAGE: 134607809447.dkr.ecr.us-east-1.amazonaws.com/zietra-meet:latest
+        run: |
+          docker build --platform linux/amd64 -f deploy/Dockerfile -t zietra-meet .
+          docker tag zietra-meet $IMAGE
+          docker push $IMAGE
+
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster dollor-production \
+            --service zietra-meet-service \
+            --force-new-deployment \
+            --region us-east-1 \
+            --query 'service.serviceArn' \
+            --output text
+
+      - name: Wait for service to stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster dollor-production \
+            --services zietra-meet-service \
+            --region us-east-1
+          echo "Zietra Meet deployed successfully → https://meet.vibingticket.com"

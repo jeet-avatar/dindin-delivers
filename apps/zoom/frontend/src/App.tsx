@@ -7,7 +7,8 @@ function getRoomFromURL(): string | null {
 }
 
 export default function App() {
-  const [joined, setJoined] = useState<{ name: string; room: string } | null>(null);
+  const [joined, setJoined] = useState<{ name: string; room: string; password?: string } | null>(null);
+  const [sessionKey, setSessionKey] = useState(0);
   const [initialRoom] = useState<string | null>(getRoomFromURL);
 
   useEffect(() => {
@@ -21,8 +22,21 @@ export default function App() {
   }, [joined]);
 
   if (!joined) {
-    return <JoinScreen onJoin={(name, room) => setJoined({ name, room })} initialRoom={initialRoom} />;
+    return (
+      <JoinScreen
+        onJoin={(name, room, password) => setJoined({ name, room, password })}
+        initialRoom={initialRoom}
+      />
+    );
   }
 
-  return <CallScreen name={joined.name} room={joined.room} onLeave={() => setJoined(null)} />;
+  return (
+    <CallScreen
+      name={joined.name}
+      room={joined.room}
+      password={joined.password}
+      key={sessionKey}
+      onLeave={() => { setJoined(null); setSessionKey(k => k + 1); }}
+    />
+  );
 }
