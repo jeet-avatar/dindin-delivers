@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 20 (CDJ-3000 Functional Controls) -- COMPLETE
 Plan: 5 of 5 complete in current phase
 Status: Phase 20 complete: All CDJ-3000 functional controls wired (hot cues, loops, beat jump, pitch, sync, grid nudge).
-Last activity: 2026-04-03 - Completed quick task 265: VibingTicket Playwright E2E tests (Aria, Sarah, auth, contact/newsletter) — 22 new tests, 36 suite passes, 0 regressions
+Last activity: 2026-04-03 - Completed quick task 266: BrandMonkz campaigns page hardcoded values fixed — real company counts + real creator names deployed to production
 
 Progress: [########################################] 100% (5/5 plans in phase 20)
 
@@ -427,6 +427,7 @@ None
 | 263 | Phase 3: Campaign analytics — click tracking, open tracking, engagement scoring | 2026-04-01 | pending | [263-phase-3-campaign-analytics-click-trackin](./quick/263-phase-3-campaign-analytics-click-trackin/) |
 | 264 | Campaign wizard: sent-contact filtering and per-contact campaign history badges | 2026-04-02 | 5d03f1d1 | [264-campaign-wizard-sent-contact-filtering-a](./quick/264-campaign-wizard-sent-contact-filtering-a/) |
 | 265 | write missing Playwright E2E tests for VibingTicket — fix playwright.config.cjs testDir to ./tests, then write tests/e2e/aria-bot.spec.cjs, sarah-bot.spec.cjs, auth-flow.spec.cjs, contact-newsletter.spec.cjs — run all tests and confirm pass against https://www.vibingticket.com | 2026-04-03 | 329cab1 | [265-write-missing-playwright-e2e-tests-for-v](./quick/265-write-missing-playwright-e2e-tests-for-v/) |
+| 266 | fix hardcoded values on BrandMonkz campaigns page — totalCompanies fake formula + createdBy static string | 2026-04-03 | 671e7216 | [266-fix-hardcoded-values-on-brandmonkz-campa](./quick/266-fix-hardcoded-values-on-brandmonkz-campa/) |
 
 ## Session Continuity
 
