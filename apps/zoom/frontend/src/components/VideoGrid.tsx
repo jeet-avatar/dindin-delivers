@@ -1,0 +1,183 @@
+import { useEffect, useRef, useState } from 'react';
+import type { RemotePeer } from '../hooks/useWebRTC';
+
+interface VideoTileProps {
+  stream: MediaStream | null;
+  name: string;
+  muted?: boolean;
+  mirrored?: boolean;
+  connectionState?: string;
+  isActiveSpeaker?: boolean;
+  isPinned?: boolean;
+  isHandRaised?: boolean;
+  onPin?: () => void;
+}
+
+function VideoTile({ stream, name, muted, mirrored, connectionState, isActiveSpeaker, isPinned, isHandRaised, onPin }: VideoTileProps) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [showPin, setShowPin] = useState(false);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    if (stream) {
+      ref.current.srcObject = stream;
+      ref.current.play().catch(() => {});
+    } else {
+      ref.current.srcObject = null;
+    }
+  }, [stream]);
+
+  const tileClass = [
+    'video-tile',
+    isActiveSpeaker ? 'active-speaker' : '',
+    isPinned ? 'pinned' : '',
+  ].filter(Boolean).join(' ');
+
+  return (
+    <div
+      className={tileClass}
+      onMouseEnter={() => setShowPin(true)}
+      onMouseLeave={() => setShowPin(false)}
+    >
+      <video
+        ref={ref}
+        autoPlay
+        playsInline
+        muted={muted}
+        className={mirrored ? 'mirrored' : ''}
+      />
+      <div className="tile-label">
+        <span className="tile-name">{name}</span>
+        {isHandRaised && <span className="tile-hand">✋</span>}
+        {connectionState && connectionState !== 'connected' && (
+          <span className={`tile-state ${connectionState}`}>{connectionState}</span>
+        )}
+      </div>
+      {!stream && (
+        <div className="tile-placeholder">
+          <div className="avatar">{name.charAt(0).toUpperCase()}</div>
+        </div>
+      )}
+      {showPin && onPin && (
+        <button className="pin-btn" onClick={onPin} title={isPinned ? 'Unpin' : 'Pin'}>
+          {isPinned ? '📌' : '📍'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+interface VideoGridProps {
+  localStream: MediaStream | null;
+  localName: string;
+  remotePeers: RemotePeer[];
+  isCamOff: boolean;
+  viewMode?: 'gallery' | 'speaker';
+  activeSpeakerId?: string | null;
+  pinnedPeerId?: string | null;
+  myPeerId?: string | null;
+  handRaisedMap?: Map<string, boolean>;
+  onPinPeer?: (id: string | null) => void;
+}
+
+export function VideoGrid({
+  localStream, localName, remotePeers, isCamOff,
+  viewMode = 'gallery',
+  activeSpeakerId = null,
+  pinnedPeerId = null,
+  myPeerId = null,
+  handRaisedMap,
+  onPinPeer,
+}: VideoGridProps) {
+  const totalParticipants = 1 + remotePeers.length;
+
+  // Determine who to feature in speaker view
+  const featuredId = pinnedPeerId || activeSpeakerId;
+
+  if (viewMode === 'speaker' && totalParticipants > 1 && featuredId) {
+    const featuredPeer = remotePeers.find(p => p.id === featuredId);
+    const isLocalFeatured = featuredId === myPeerId;
+    const otherPeers = remotePeers.filter(p => p.id !== featuredId);
+
+    return (
+      <div className="video-grid speaker-layout">
+        <div className="speaker-main">
+          {isLocalFeatured ? (
+            <VideoTile
+              stream={isCamOff ? null : localStream}
+              name={`${localName} (You)`}
+              muted
+              mirrored
+              isActiveSpeaker
+              isHandRaised={handRaisedMap?.get(myPeerId || '')}
+            />
+          ) : featuredPeer ? (
+            <VideoTile
+              stream={featuredPeer.stream}
+              name={featuredPeer.name}
+              connectionState={featuredPeer.connectionState}
+              isActiveSpeaker
+              isPinned={pinnedPeerId === featuredPeer.id}
+              isHandRaised={handRaisedMap?.get(featuredPeer.id)}
+              onPin={onPinPeer ? () => onPinPeer(pinnedPeerId === featuredPeer.id ? null : featuredPeer.id) : undefined}
+            />
+          ) : null}
+        </div>
+        <div className="speaker-strip">
+          {!isLocalFeatured && (
+            <VideoTile
+              stream={isCamOff ? null : localStream}
+              name={`${localName} (You)`}
+              muted
+              mirrored
+              isHandRaised={handRaisedMap?.get(myPeerId || '')}
+            />
+          )}
+          {otherPeers.map(peer => (
+            <VideoTile
+              key={peer.id}
+              stream={peer.stream}
+              name={peer.name}
+              connectionState={peer.connectionState}
+              isActiveSpeaker={activeSpeakerId === peer.id}
+              isHandRaised={handRaisedMap?.get(peer.id)}
+              onPin={onPinPeer ? () => onPinPeer(pinnedPeerId === peer.id ? null : peer.id) : undefined}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Gallery view (existing behavior, unchanged)
+  const gridClass =
+    totalParticipants <= 1 ? 'grid-1' :
+    totalParticipants === 2 ? 'grid-2' :
+    totalParticipants <= 4 ? 'grid-4' :
+    totalParticipants <= 6 ? 'grid-6' : 'grid-8';
+
+  return (
+    <div className={`video-grid ${gridClass}`}>
+      {remotePeers.map((peer) => (
+        <VideoTile
+          key={peer.id}
+          stream={peer.stream}
+          name={peer.name}
+          connectionState={peer.connectionState}
+          isActiveSpeaker={activeSpeakerId === peer.id}
+          isPinned={pinnedPeerId === peer.id}
+          isHandRaised={handRaisedMap?.get(peer.id)}
+          onPin={onPinPeer ? () => onPinPeer(pinnedPeerId === peer.id ? null : peer.id) : undefined}
+        />
+      ))}
+      <VideoTile
+        stream={isCamOff ? null : localStream}
+        name={`${localName} (You)`}
+        muted
+        mirrored
+        isActiveSpeaker={activeSpeakerId === myPeerId}
+        isHandRaised={handRaisedMap?.get(myPeerId || '')}
+      />
+    </div>
+  );
+}

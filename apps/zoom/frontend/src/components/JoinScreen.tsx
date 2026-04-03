@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 interface JoinScreenProps {
-  onJoin: (name: string, room: string) => void;
+  onJoin: (name: string, room: string, password?: string) => void;
   initialRoom: string | null;
 }
 
@@ -18,6 +18,8 @@ function getInviteLink(room: string): string {
 export function JoinScreen({ onJoin, initialRoom }: JoinScreenProps) {
   const [name, setName] = useState('');
   const [room, setRoom] = useState(initialRoom || '');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export function JoinScreen({ onJoin, initialRoom }: JoinScreenProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim() && room.trim()) {
-      onJoin(name.trim(), room.trim());
+      onJoin(name.trim(), room.trim(), password || undefined);
     }
   };
 
@@ -40,8 +42,15 @@ export function JoinScreen({ onJoin, initialRoom }: JoinScreenProps) {
 
   return (
     <div className="join-screen">
+      <div className="join-logo">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="12" fill="#4cc9f0" />
+          <path d="M14 18a2 2 0 012-2h10a2 2 0 012 2v12a2 2 0 01-2 2H16a2 2 0 01-2-2V18z" fill="#1a1a2e" />
+          <path d="M28 21l6-3v12l-6-3V21z" fill="#1a1a2e" />
+        </svg>
+      </div>
       <h1>Zietra Meet</h1>
-      <p className="subtitle">Simple 2-person video calls</p>
+      <p className="subtitle">Video calls for up to 8 people</p>
 
       <form onSubmit={handleSubmit}>
         <input
@@ -50,6 +59,7 @@ export function JoinScreen({ onJoin, initialRoom }: JoinScreenProps) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           autoFocus
+          maxLength={40}
         />
         <div className="room-input">
           <input
@@ -58,10 +68,38 @@ export function JoinScreen({ onJoin, initialRoom }: JoinScreenProps) {
             value={room}
             onChange={(e) => setRoom(e.target.value)}
           />
-          <button type="button" onClick={() => setRoom(generateRoomCode())}>
-            New
-          </button>
+          <button type="button" onClick={() => setRoom(generateRoomCode())}>New</button>
         </div>
+
+        <div className="password-section">
+          <label className="password-toggle">
+            <input
+              type="checkbox"
+              checked={showPassword}
+              onChange={(e) => {
+                setShowPassword(e.target.checked);
+                if (!e.target.checked) setPassword('');
+              }}
+            />
+            <span>Password-protect room</span>
+          </label>
+          {showPassword && (
+            <input
+              type="password"
+              placeholder="Room password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          )}
+        </div>
+
+        <p className="terms-notice">
+          By joining, you agree to our{' '}
+          <a href="https://www.zietra.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>
+          {' '}and{' '}
+          <a href="https://www.zietra.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+          Meetings may be recorded by participants with consent.
+        </p>
         <button type="submit" className="join-btn" disabled={!name.trim() || !room.trim()}>
           Join Room
         </button>
@@ -69,18 +107,18 @@ export function JoinScreen({ onJoin, initialRoom }: JoinScreenProps) {
 
       {room.trim() && (
         <div className="invite-section">
-          <p className="invite-label">Send this link to the other person:</p>
+          <p className="invite-label">Send this link to invite others:</p>
           <div className="invite-link-box">
             <span className="invite-link">{getInviteLink(room.trim())}</span>
             <button className="copy-btn" onClick={handleCopyLink}>
-              {copied ? 'Copied!' : 'Copy Link'}
+              {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
         </div>
       )}
 
       {initialRoom && (
-        <p className="invited-msg">You were invited to room <strong>{initialRoom}</strong>. Enter your name and join.</p>
+        <p className="invited-msg">You were invited to room <strong>{initialRoom}</strong></p>
       )}
     </div>
   );
