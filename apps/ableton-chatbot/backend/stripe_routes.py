@@ -136,10 +136,19 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
     from database import db, update_user_subscription
 
+    # StripeObject (Stripe SDK v7+) does not support .get() — use getattr() or [] access
+    def _field(obj, key, default=None):
+        """Safe field access for both StripeObject and plain dicts."""
+        try:
+            return obj[key]
+        except (KeyError, TypeError):
+            return default
+
     if event_type == "checkout.session.completed":
-        user_id = data.get("metadata", {}).get("user_id")
-        customer_id = data.get("customer")
-        subscription_id = data.get("subscription")
+        metadata = _field(data, "metadata") or {}
+        user_id = _field(metadata, "user_id")
+        customer_id = _field(data, "customer")
+        subscription_id = _field(data, "subscription")
         if user_id:
             with db() as conn:
                 conn.execute(
@@ -149,7 +158,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             log.info("Subscription activated: user_id=%s", user_id)
 
     elif event_type == "invoice.payment_succeeded":
-        customer_id = data.get("customer")
+        customer_id = _field(data, "customer")
         with db() as conn:
             conn.execute(
                 "UPDATE users SET subscription_status='active' WHERE stripe_customer_id=?",
@@ -157,7 +166,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             )
 
     elif event_type in ("customer.subscription.deleted", "invoice.payment_failed"):
-        customer_id = data.get("customer")
+        customer_id = _field(data, "customer")
         with db() as conn:
             conn.execute(
                 "UPDATE users SET subscription_status='inactive' WHERE stripe_customer_id=?",
