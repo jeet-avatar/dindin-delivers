@@ -426,6 +426,7 @@ None
 | 262 | Campaign Builder UI — speed selector, throttled send, live progress bar | 2026-04-01 | 0f301bf4 | [262-campaign-builder-ui-speed-selector-throt](./quick/262-campaign-builder-ui-speed-selector-throt/) |
 | 263 | Phase 3: Campaign analytics — click tracking, open tracking, engagement scoring | 2026-04-01 | pending | [263-phase-3-campaign-analytics-click-trackin](./quick/263-phase-3-campaign-analytics-click-trackin/) |
 | 264 | Campaign wizard: sent-contact filtering and per-contact campaign history badges | 2026-04-02 | 5d03f1d1 | [264-campaign-wizard-sent-contact-filtering-a](./quick/264-campaign-wizard-sent-contact-filtering-a/) |
+| 265 | write missing Playwright E2E tests for VibingTicket — fix playwright.config.cjs testDir to ./tests, then write tests/e2e/aria-bot.spec.cjs, sarah-bot.spec.cjs, auth-flow.spec.cjs, contact-newsletter.spec.cjs — run all tests and confirm pass against https://www.vibingticket.com | 2026-04-03 | 329cab1 | [265-write-missing-playwright-e2e-tests-for-v](./quick/265-write-missing-playwright-e2e-tests-for-v/) |
 
 ## Session Continuity
 
