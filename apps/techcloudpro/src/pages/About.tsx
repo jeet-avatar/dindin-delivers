@@ -1,6 +1,6 @@
 import { Target, Eye, Shield, Zap } from 'lucide-react'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard, SEO } from '../components/ui'
+import { SectionHeader, GlassCard, SEO, SchemaMarkup } from '../components/ui'
 import { CTABlock } from '../components/sections'
 
 const values = [
@@ -18,6 +18,7 @@ export default function About() {
         description="TechCloudPro is a Vibing World Inc. company delivering enterprise AI, ERP, cybersecurity, and IT staffing solutions with 200+ clients and 15+ years of experience."
         path="/about"
       />
+      <SchemaMarkup page="about" breadcrumbs={[{ name: 'Home', url: 'https://techcloudpro.com' }, { name: 'About', url: 'https://techcloudpro.com/about' }]} />
 
       {/* Hero */}
       <section className="relative py-28 md:py-36 overflow-hidden">

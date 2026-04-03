@@ -1,6 +1,6 @@
 import { Briefcase, Globe, Rocket, Heart } from 'lucide-react'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard, Button, SEO } from '../components/ui'
+import { SectionHeader, GlassCard, Button, SEO, SchemaMarkup } from '../components/ui'
 
 const perks = [
   { icon: Rocket, title: 'Work on Cutting-Edge Tech', description: 'From AI/LLM deployments to NetSuite implementations — you\'ll work on the latest enterprise technology.', color: 'text-blue-400 bg-blue-500/12' },
@@ -17,6 +17,7 @@ export default function Careers() {
         description="Join TechCloudPro — work on cutting-edge AI, ERP, and cybersecurity projects with a global team."
         path="/careers"
       />
+      <SchemaMarkup page="careers" breadcrumbs={[{ name: 'Home', url: 'https://techcloudpro.com' }, { name: 'Careers', url: 'https://techcloudpro.com/careers' }]} />
 
       <section className="relative py-28 md:py-36 overflow-hidden">
         <Scene3D showMesh={false} />

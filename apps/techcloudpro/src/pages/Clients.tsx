@@ -1,5 +1,5 @@
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard, SEO } from '../components/ui'
+import { SectionHeader, GlassCard, SEO, SchemaMarkup } from '../components/ui'
 import { CTABlock } from '../components/sections'
 import { clients } from '../data/clients'
 
@@ -11,6 +11,7 @@ export default function Clients() {
         description="TechCloudPro partners with Fortune 500 and growing enterprises including AbbVie, Accenture, BNY Mellon, Mercedes-Benz, and more."
         path="/clients"
       />
+      <SchemaMarkup page="about" breadcrumbs={[{ name: 'Home', url: 'https://techcloudpro.com' }, { name: 'Clients', url: 'https://techcloudpro.com/clients' }]} />
 
       {/* Hero */}
       <section className="relative py-24 md:py-32 overflow-hidden">

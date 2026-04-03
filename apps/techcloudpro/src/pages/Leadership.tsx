@@ -1,6 +1,6 @@
 import { ExternalLink, Mail, User } from 'lucide-react'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard, SEO } from '../components/ui'
+import { SectionHeader, GlassCard, SEO, SchemaMarkup } from '../components/ui'
 import { CTABlock } from '../components/sections'
 import { team } from '../data/team'
 
@@ -12,6 +12,7 @@ export default function Leadership() {
         description="Meet the executive leadership team at TechCloudPro — experienced technology leaders driving enterprise transformation."
         path="/leadership"
       />
+      <SchemaMarkup page="leadership" breadcrumbs={[{ name: 'Home', url: 'https://techcloudpro.com' }, { name: 'Leadership', url: 'https://techcloudpro.com/leadership' }]} />
 
       {/* Hero */}
       <section className="relative py-28 md:py-36 overflow-hidden">

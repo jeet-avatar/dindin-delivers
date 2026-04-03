@@ -1,5 +1,5 @@
 import { Scene3D } from '../components/3d'
-import { SectionHeader, SEO } from '../components/ui'
+import { SectionHeader, SEO, SchemaMarkup } from '../components/ui'
 import { PillarGrid, CTABlock } from '../components/sections'
 
 export default function Services() {
@@ -10,6 +10,7 @@ export default function Services() {
         description="Full-spectrum technology services: Private AI deployment, Oracle NetSuite ERP, CyberArk cybersecurity, and IT staffing solutions."
         path="/services"
       />
+      <SchemaMarkup page="services" breadcrumbs={[{ name: 'Home', url: 'https://techcloudpro.com' }, { name: 'Services', url: 'https://techcloudpro.com/services' }]} />
 
       {/* Hero */}
       <section className="relative py-28 md:py-36 overflow-hidden">

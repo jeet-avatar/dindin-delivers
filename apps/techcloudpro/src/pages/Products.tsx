@@ -1,6 +1,6 @@
 import { ExternalLink, CheckCircle, Box } from 'lucide-react'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, GlassCard, Button, SEO } from '../components/ui'
+import { SectionHeader, GlassCard, Button, SEO, SchemaMarkup } from '../components/ui'
 import { CTABlock } from '../components/sections'
 import { products } from '../data/products'
 
@@ -12,6 +12,7 @@ export default function Products() {
         description="Explore TechCloudPro's product portfolio: BrandMonkz CRM, BeatMind AI music assistant, and VibingTicket event ticketing platform."
         path="/products"
       />
+      <SchemaMarkup page="products" breadcrumbs={[{ name: 'Home', url: 'https://techcloudpro.com' }, { name: 'Products', url: 'https://techcloudpro.com/products' }]} />
 
       {/* Hero */}
       <section className="relative py-24 md:py-32 overflow-hidden">

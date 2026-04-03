@@ -1,4 +1,4 @@
-import { SectionHeader, SEO } from '../components/ui'
+import { SectionHeader, SEO, SchemaMarkup } from '../components/ui'
 
 export default function PrivacyPolicy() {
   return (
@@ -8,6 +8,7 @@ export default function PrivacyPolicy() {
         description="TechCloudPro privacy policy — how we collect, use, and protect your information."
         path="/privacy-policy"
       />
+      <SchemaMarkup page="privacy-policy" breadcrumbs={[{ name: 'Home', url: 'https://techcloudpro.com' }, { name: 'Privacy Policy', url: 'https://techcloudpro.com/privacy-policy' }]} />
 
       <section className="py-28 md:py-32 px-6">
         <div className="max-w-3xl mx-auto">

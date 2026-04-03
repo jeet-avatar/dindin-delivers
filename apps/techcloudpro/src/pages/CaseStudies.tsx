@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Quote, Filter } from 'lucide-react'
 import { Scene3D } from '../components/3d'
-import { SectionHeader, SEO } from '../components/ui'
+import { SectionHeader, SEO, SchemaMarkup } from '../components/ui'
 import { CTABlock } from '../components/sections'
 import { caseStudies, type CaseCategory } from '../data/caseStudies'
 
@@ -31,6 +31,7 @@ export default function CaseStudies() {
         description="See how TechCloudPro delivers measurable results — private LLM deployments processing 50K+ docs/day, NetSuite ERP for Fortune 500, CyberArk securing 12K accounts."
         path="/case-studies"
       />
+      <SchemaMarkup page="case-studies" breadcrumbs={[{ name: 'Home', url: 'https://techcloudpro.com' }, { name: 'Case Studies', url: 'https://techcloudpro.com/case-studies' }]} />
 
       {/* Hero */}
       <section className="relative py-24 md:py-28 overflow-hidden">
