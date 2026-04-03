@@ -72,6 +72,17 @@ const routes = [
   '/blog/ai-data-governance-enterprise',
   '/blog/multimodal-ai-enterprise-guide',
   '/blog/ai-in-healthcare-enterprise',
+  '/blog/netsuite-implementation-cost-guide-2026',
+  '/blog/netsuite-vs-quickbooks-enterprise-comparison',
+  '/blog/netsuite-cpq-configure-price-quote-guide',
+  '/blog/netsuite-for-nonprofits-guide',
+  '/blog/netsuite-openair-psa-professional-services-guide',
+  '/blog/ai-supply-chain-optimization-guide',
+  '/blog/cmmc-2-compliance-guide-defense-contractors',
+  '/blog/enterprise-ai-model-selection-guide-2026',
+  '/blog/it-consulting-rates-2026-guide',
+  '/blog/cloud-security-posture-management-cspm-guide',
+  '/blog/prompt-engineering-enterprise-guide',
 ]
 
 async function prerender() {
