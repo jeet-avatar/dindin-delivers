@@ -420,17 +420,18 @@ function handleSubmit(e) {
     message: (fd.role ? 'Role: ' + fd.role + '\n' : '') + (fd.message || ''),
     _source: 'netsuite-landing'
   };
-  fetch('/api/contact.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).then(function(r) { return r.json(); }).then(function() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', 'https://script.google.com/macros/s/AKfycbwViyeodzio8FG_JyGzlpfXE3dbVIkoGxFr9QH3rgZ1JxyTE_9APyZTzUVx1ncO3r4oMA/exec');
+  xhr.setRequestHeader('Content-Type', 'text/plain');
+  xhr.onloadend = function() {
     document.getElementById('contactForm').style.display = 'none';
     document.getElementById('successMsg').style.display = 'block';
-  }).catch(function() {
+  };
+  xhr.onerror = function() {
     document.getElementById('contactForm').style.display = 'none';
     document.getElementById('successMsg').style.display = 'block';
-  });
+  };
+  xhr.send(JSON.stringify(payload));
 }
 
 function toggleTheme() {
