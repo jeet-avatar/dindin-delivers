@@ -300,6 +300,85 @@ FORMAT YOUR RESPONSE AS:
 📌 KEY POINT: [one-line strongest differentiator to emphasize]
 """
 
+# ── RESEARCH PROMPT CONSTANTS ─────────────────────────────────────────────────
+RESEARCH_COMPANY_PROMPT = """You are a career research assistant. Given a company name, provide a concise brief for a job candidate preparing for an interview.
+
+Return exactly these sections (use the exact headers):
+## Company Overview
+2-3 sentences: what they do, size/stage, key markets.
+
+## Business Model
+How they make money. 2-3 bullet points.
+
+## Recent News & Strategy
+Top 2-3 notable recent developments (funding, product launches, acquisitions, layoffs, pivots).
+
+## Culture & Values
+Their stated values and what employees say about working there. 2-3 bullets.
+
+## Talking Points
+3 things the candidate should mention to show they did their homework.
+
+Be factual and concise. If you don't know something, say so rather than fabricate."""
+
+RESEARCH_ROLE_PROMPT = """You are a career research assistant. Given a job role title, explain what this role actually involves day-to-day.
+
+Return exactly these sections (use the exact headers):
+## Role Overview
+What this person does in 2-3 sentences.
+
+## Core Responsibilities
+Top 5 day-to-day responsibilities as bullet points.
+
+## Key Skills Required
+Technical and soft skills — 5-6 bullets.
+
+## Common Interview Questions
+5 questions typically asked for this role.
+
+## Success Metrics
+How performance is typically measured in this role. 3-4 bullets.
+
+Be practical and specific. Focus on what actually matters for the role."""
+
+RESEARCH_PEOPLE_PROMPT = """You are a career research assistant. Given a company name, provide insights about typical team culture and key people dynamics.
+
+Return exactly these sections (use the exact headers):
+## Hiring Manager Mindset
+What hiring managers at this type of company typically look for. 3-4 bullets.
+
+## Team Culture Signals
+What to look for in the interview to understand the team dynamic. 3-4 bullets.
+
+## Questions to Ask Them
+5 smart questions the candidate can ask to impress and learn.
+
+## Red Flags to Watch For
+3-4 potential warning signs based on common patterns for this company type.
+
+Be candid and practical. This is confidential career coaching."""
+
+RESEARCH_CHEATSHEET_PROMPT = """You are a career research assistant. Create a quick-reference cheat sheet for an interview.
+
+Return exactly these sections (use the exact headers):
+## 30-Second Pitch
+A template the candidate can customize: "I'm [X] with [Y] years in [Z], specializing in [A]. I've [achievement]. I'm excited about [company] because [reason]."
+
+## STAR Stories to Prepare
+4 behavioral question templates with the situation archetype to prepare for:
+- Leadership story
+- Conflict resolution story
+- Failure/learning story
+- Achievement story
+
+## Numbers to Know
+Key metrics about the company to drop naturally: funding, employee count, growth rate, key customers.
+
+## One-Line Differentiators
+3 ways to stand out from other candidates for this role.
+
+Keep it actionable — this is a last-minute prep sheet."""
+
 # ── QUEUES ────────────────────────────────────────────────────────────────────
 audio_queue     = queue.Queue()
 answer_queue    = queue.Queue()
@@ -557,8 +636,31 @@ class InterviewOverlay:
         self.root.bind("<Escape>",    lambda e: self._toggle_visibility())
         self.root.protocol("WM_DELETE_WINDOW", self._quit)
 
+    def _configure_styles(self):
+        """Configure ttk styles for the mode switcher tab bar."""
+        style = ttk.Style(self.root)
+        style.theme_use("clam")
+        style.configure("Career.TNotebook",
+            background="#0f1923",
+            borderwidth=0,
+            tabmargins=[0, 0, 0, 0]
+        )
+        style.configure("Career.TNotebook.Tab",
+            background="#1a2635",
+            foreground="#94a3b8",
+            padding=[14, 8],
+            font=("Inter", 10, "bold"),
+            borderwidth=0,
+            focuscolor="#0f1923"
+        )
+        style.map("Career.TNotebook.Tab",
+            background=[("selected", "#0f1923"), ("active", "#1e3a5f")],
+            foreground=[("selected", "#7dd3fc"), ("active", "#e2e8f0")]
+        )
+
     def _build_ui(self):
         root = self.root
+        self._configure_styles()
 
         # ── Top bar ──
         top = tk.Frame(root, bg="#1a2635", pady=8)
@@ -592,11 +694,52 @@ class InterviewOverlay:
 
         tk.Frame(root, bg="#1e3a5f", height=1).pack(fill="x", pady=6)
 
+        # ── Bottom bar (pack before notebook so expand works correctly) ──
+        bottom = tk.Frame(root, bg="#1a2635", pady=6)
+        bottom.pack(fill="x", side="bottom")
+        tk.Label(bottom,
+                 text="Ctrl+Shift+H hide/show  •  Alt+F4 quit  •  drag to move",
+                 bg="#1a2635", fg="#374151",
+                 font=("Inter", 9)).pack()
+
+        # ── Mode switcher notebook ──
+        self.notebook = ttk.Notebook(root, style="Career.TNotebook")
+        self.notebook.pack(fill="both", expand=True, padx=0, pady=0)
+
+        self.research_frame  = tk.Frame(self.notebook, bg="#0f1923")
+        self.interview_frame = tk.Frame(self.notebook, bg="#0f1923")
+        self.negotiate_frame = tk.Frame(self.notebook, bg="#0f1923")
+        self.succeed_frame   = tk.Frame(self.notebook, bg="#0f1923")
+
+        self.notebook.add(self.research_frame,  text="🔍 Research")
+        self.notebook.add(self.interview_frame, text="🎤 Interview")
+        self.notebook.add(self.negotiate_frame, text="🤝 Negotiate")
+        self.notebook.add(self.succeed_frame,   text="🚀 Succeed")
+
+        self._build_research_tab()
+        self._build_interview_tab()
+        self._build_placeholder_tab(
+            self.negotiate_frame, "🤝", "Negotiate Mode",
+            "Offer negotiation coaching coming soon.\n\nWill help you negotiate salary, equity,\nand benefits with confidence."
+        )
+        self._build_placeholder_tab(
+            self.succeed_frame, "🚀", "Succeed Mode",
+            "Onboarding & 30-60-90 day planning coming soon.\n\nWill help you nail your first 90 days\nand build momentum fast."
+        )
+
+        # Make draggable via top bar
+        top.bind("<Button-1>",   self._on_drag_start)
+        top.bind("<B1-Motion>",  self._on_drag_motion)
+
+    def _build_interview_tab(self):
+        """Build the Interview tab — existing transcript + manual entry + answer widgets."""
+        root = self.interview_frame
+
         # ── Interviewer transcript ──
         tk.Label(root, text="🎤  INTERVIEWER",
                  bg="#0f1923", fg="#0891b2",
                  font=("Inter", 10, "bold"), anchor="w",
-                 padx=14).pack(fill="x")
+                 padx=14).pack(fill="x", pady=(8, 0))
 
         self.transcript_text = tk.Text(
             root, height=5, bg="#111d2b", fg="#cbd5e1",
@@ -632,7 +775,6 @@ class InterviewOverlay:
         self.manual_entry.insert(0, "Type question here and press Enter...")
         self.manual_entry.config(fg="#475569")
 
-        # Clear placeholder on focus
         def on_focus_in(e):
             if self.manual_entry.get() == "Type question here and press Enter...":
                 self.manual_entry.delete(0, "end")
@@ -674,7 +816,6 @@ class InterviewOverlay:
         self.answer_text.pack(fill="both", expand=True, padx=12, pady=(2, 8))
         self.answer_text.config(state="disabled")
 
-        # ── Tag styles ──
         self.answer_text.tag_configure("answer_label",
             foreground="#7dd3fc", font=("Inter", 11, "bold"))
         self.answer_text.tag_configure("answer_body",
@@ -684,17 +825,208 @@ class InterviewOverlay:
         self.answer_text.tag_configure("key_body",
             foreground="#fcd34d", font=("Inter", 11, "italic"))
 
-        # ── Bottom bar ──
-        bottom = tk.Frame(root, bg="#1a2635", pady=6)
-        bottom.pack(fill="x", side="bottom")
-        tk.Label(bottom,
-                 text="Ctrl+Shift+H hide/show  •  Alt+F4 quit  •  drag to move",
-                 bg="#1a2635", fg="#374151",
-                 font=("Inter", 9)).pack()
+    def _build_placeholder_tab(self, frame, icon, title, description):
+        """Build a coming-soon placeholder tab."""
+        tk.Label(frame, text=icon, bg="#0f1923", fg="#94a3b8",
+                 font=("Inter", 40)).pack(pady=(60, 12))
+        tk.Label(frame, text=title, bg="#0f1923", fg="#7dd3fc",
+                 font=("Inter", 16, "bold")).pack()
+        tk.Label(frame, text=description, bg="#0f1923", fg="#64748b",
+                 font=("Inter", 11), justify="center").pack(pady=(12, 0))
 
-        # Make draggable via top bar
-        top.bind("<Button-1>",   self._on_drag_start)
-        top.bind("<B1-Motion>",  self._on_drag_motion)
+    def _build_research_tab(self):
+        """Build the Research tab — company/role inputs + scrollable card area."""
+        root = self.research_frame
+
+        # ── Input area ──
+        input_frame = tk.Frame(root, bg="#1a2635", pady=10)
+        input_frame.pack(fill="x", padx=0, pady=0)
+
+        # Company row
+        company_row = tk.Frame(input_frame, bg="#1a2635")
+        company_row.pack(fill="x", padx=12, pady=(0, 6))
+        tk.Label(company_row, text="🏢 Company:", bg="#1a2635", fg="#94a3b8",
+                 font=("Inter", 10), width=10, anchor="w").pack(side="left")
+        self.company_entry = tk.Entry(
+            company_row, bg="#0f1923", fg="#e2e8f0",
+            font=("Inter", 11), relief="flat",
+            insertbackground="#7dd3fc",
+            highlightthickness=1, highlightcolor="#0891b2",
+            highlightbackground="#1e3a5f"
+        )
+        self.company_entry.pack(side="left", fill="x", expand=True, ipady=4)
+
+        # Role row
+        role_row = tk.Frame(input_frame, bg="#1a2635")
+        role_row.pack(fill="x", padx=12, pady=(0, 8))
+        tk.Label(role_row, text="💼 Role:", bg="#1a2635", fg="#94a3b8",
+                 font=("Inter", 10), width=10, anchor="w").pack(side="left")
+        self.role_entry = tk.Entry(
+            role_row, bg="#0f1923", fg="#e2e8f0",
+            font=("Inter", 11), relief="flat",
+            insertbackground="#7dd3fc",
+            highlightthickness=1, highlightcolor="#0891b2",
+            highlightbackground="#1e3a5f"
+        )
+        self.role_entry.pack(side="left", fill="x", expand=True, ipady=4)
+
+        # Generate button
+        self.research_btn = tk.Button(
+            input_frame, text="🔍  Generate Research Brief",
+            bg="#0891b2", fg="white",
+            font=("Inter", 11, "bold"),
+            relief="flat", pady=8,
+            command=self._start_research
+        )
+        self.research_btn.pack(fill="x", padx=12, pady=(0, 4))
+
+        # Research status label
+        self.research_status_var = tk.StringVar(value="")
+        tk.Label(root, textvariable=self.research_status_var,
+                 bg="#0f1923", fg="#94a3b8",
+                 font=("Inter", 9, "italic"), anchor="w",
+                 padx=14).pack(fill="x")
+
+        # ── Scrollable card area ──
+        canvas_container = tk.Frame(root, bg="#0f1923")
+        canvas_container.pack(fill="both", expand=True, padx=0, pady=0)
+
+        self.research_canvas = tk.Canvas(
+            canvas_container, bg="#0f1923",
+            highlightthickness=0, borderwidth=0
+        )
+        scrollbar = tk.Scrollbar(canvas_container, orient="vertical",
+                                  command=self.research_canvas.yview)
+        self.research_canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side="right", fill="y")
+        self.research_canvas.pack(side="left", fill="both", expand=True)
+
+        self.research_cards_frame = tk.Frame(self.research_canvas, bg="#0f1923")
+        self._research_canvas_window = self.research_canvas.create_window(
+            (0, 0), window=self.research_cards_frame, anchor="nw"
+        )
+
+        def _on_frame_configure(e):
+            self.research_canvas.configure(
+                scrollregion=self.research_canvas.bbox("all")
+            )
+
+        def _on_canvas_configure(e):
+            self.research_canvas.itemconfig(
+                self._research_canvas_window, width=e.width
+            )
+
+        self.research_cards_frame.bind("<Configure>", _on_frame_configure)
+        self.research_canvas.bind("<Configure>", _on_canvas_configure)
+
+        # Mouse wheel scrolling
+        def _on_mousewheel(e):
+            self.research_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        self.research_canvas.bind("<MouseWheel>", _on_mousewheel)
+
+    def _render_research_card(self, title: str, content: str):
+        """Render a collapsible research card into the cards frame."""
+        card = tk.Frame(self.research_cards_frame, bg="#1a2635",
+                        relief="flat", bd=0)
+        card.pack(fill="x", padx=12, pady=(6, 0))
+
+        # State
+        is_open = [True]
+
+        # Header row
+        header = tk.Frame(card, bg="#1e3a5f", cursor="hand2")
+        header.pack(fill="x")
+
+        toggle_lbl = tk.Label(header, text="▼", bg="#1e3a5f", fg="#7dd3fc",
+                               font=("Inter", 10), padx=6)
+        toggle_lbl.pack(side="left")
+
+        tk.Label(header, text=title, bg="#1e3a5f", fg="#e2e8f0",
+                 font=("Inter", 10, "bold"), anchor="w",
+                 pady=6).pack(side="left", fill="x", expand=True)
+
+        # Body
+        body = tk.Frame(card, bg="#1a2635")
+        body.pack(fill="x")
+
+        text_widget = tk.Text(
+            body, bg="#1a2635", fg="#cbd5e1",
+            font=("Inter", 10), wrap="word",
+            relief="flat", padx=10, pady=8,
+            height=1,  # will auto-expand via pack
+            state="normal"
+        )
+        text_widget.insert("end", content)
+        text_widget.config(state="disabled")
+        # Calculate height based on content lines
+        line_count = content.count("\n") + 1
+        text_widget.config(height=min(line_count + 1, 20))
+        text_widget.pack(fill="x")
+
+        def toggle(_event=None):
+            if is_open[0]:
+                body.pack_forget()
+                toggle_lbl.config(text="▶")
+                is_open[0] = False
+            else:
+                body.pack(fill="x")
+                toggle_lbl.config(text="▼")
+                is_open[0] = True
+
+        header.bind("<Button-1>", toggle)
+        toggle_lbl.bind("<Button-1>", toggle)
+
+    def _start_research(self):
+        """Validate inputs and launch research thread."""
+        company = self.company_entry.get().strip()
+        role    = self.role_entry.get().strip()
+        if not company or not role:
+            self.research_status_var.set("⚠️  Enter both company and role to generate a brief.")
+            return
+
+        # Clear existing cards
+        for widget in self.research_cards_frame.winfo_children():
+            widget.destroy()
+
+        self.research_btn.config(state="disabled", text="🔄  Researching...")
+        self.research_status_var.set("⏳  Generating research brief — this takes ~30 seconds...")
+
+        t = threading.Thread(
+            target=self._run_research_thread,
+            args=(company, role),
+            daemon=True
+        )
+        t.start()
+
+    def _run_research_thread(self, company: str, role: str):
+        """Run 4 sequential Claude API calls and render cards as each completes."""
+        cards = [
+            ("🏢 Company Brief",       RESEARCH_COMPANY_PROMPT,    f"Research this company for a job interview: {company}"),
+            ("💼 Role Breakdown",      RESEARCH_ROLE_PROMPT,       f"Break down this role for a job interview: {role} at {company}"),
+            ("👥 People & Culture",    RESEARCH_PEOPLE_PROMPT,     f"Give me people and culture insights for: {company}"),
+            ("⚡ Interview Cheatsheet", RESEARCH_CHEATSHEET_PROMPT, f"Create an interview cheat sheet for: {role} at {company}"),
+        ]
+
+        for title, system_prompt, user_msg in cards:
+            try:
+                self.root.after(0, lambda t=title: self.research_status_var.set(f"⏳  Generating: {t}..."))
+                response = anthropic_client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=600,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": user_msg}]
+                )
+                content = response.content[0].text.strip()
+                self.root.after(0, lambda t=title, c=content: self._render_research_card(t, c))
+            except Exception as e:
+                err_content = f"Error generating {title}: {e}"
+                self.root.after(0, lambda t=title, c=err_content: self._render_research_card(t, c))
+
+        self.root.after(0, lambda: self.research_btn.config(
+            state="normal", text="🔍  Generate Research Brief"
+        ))
+        self.root.after(0, lambda: self.research_status_var.set("✅  Research complete!"))
 
     def _on_drag_start(self, event):
         self._drag_x = event.x
