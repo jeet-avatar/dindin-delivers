@@ -37,12 +37,13 @@ export function useDevicePicker() {
   const refreshDevices = useCallback(async () => {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      setAudioInputs(
-        devices.filter(d => d.kind === 'audioinput').map(d => ({ deviceId: d.deviceId, label: d.label || `Mic ${d.deviceId.slice(0, 6)}` }))
-      );
-      setVideoInputs(
-        devices.filter(d => d.kind === 'videoinput').map(d => ({ deviceId: d.deviceId, label: d.label || `Camera ${d.deviceId.slice(0, 6)}` }))
-      );
+      const audioDev = devices.filter(d => d.kind === 'audioinput').map(d => ({ deviceId: d.deviceId, label: d.label || `Mic ${d.deviceId.slice(0, 6)}` }));
+      const videoDev = devices.filter(d => d.kind === 'videoinput').map(d => ({ deviceId: d.deviceId, label: d.label || `Camera ${d.deviceId.slice(0, 6)}` }));
+      setAudioInputs(audioDev);
+      setVideoInputs(videoDev);
+      // Auto-select first device if none chosen yet
+      if (audioDev.length) setSelectedAudioId(prev => prev || audioDev[0].deviceId);
+      if (videoDev.length) setSelectedVideoId(prev => prev || videoDev[0].deviceId);
     } catch { /* permission denied */ }
   }, []);
 
