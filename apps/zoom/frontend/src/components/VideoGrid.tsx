@@ -53,9 +53,10 @@ interface VideoTileProps {
   isPinned?: boolean;
   isHandRaised?: boolean;
   onPin?: () => void;
+  videoStyle?: React.CSSProperties;
 }
 
-function VideoTile({ stream, name, muted, mirrored, connectionState, isActiveSpeaker, isPinned, isHandRaised, onPin }: VideoTileProps) {
+function VideoTile({ stream, name, muted, mirrored, connectionState, isActiveSpeaker, isPinned, isHandRaised, onPin, videoStyle }: VideoTileProps) {
   const ref = useRef<HTMLVideoElement>(null);
   const [showPin, setShowPin] = useState(false);
 
@@ -87,6 +88,7 @@ function VideoTile({ stream, name, muted, mirrored, connectionState, isActiveSpe
         playsInline
         muted={muted}
         className={mirrored ? 'mirrored' : ''}
+        style={videoStyle}
       />
       <div className="tile-label">
         <span className="tile-name">{name}</span>
@@ -121,6 +123,7 @@ interface VideoGridProps {
   myPeerId?: string | null;
   handRaisedMap?: Map<string, boolean>;
   onPinPeer?: (id: string | null) => void;
+  localVideoFilter?: string;
 }
 
 export function VideoGrid({
@@ -132,7 +135,9 @@ export function VideoGrid({
   myPeerId = null,
   handRaisedMap,
   onPinPeer,
+  localVideoFilter,
 }: VideoGridProps) {
+  const localStyle: React.CSSProperties | undefined = localVideoFilter ? { filter: localVideoFilter } : undefined;
   const totalParticipants = 1 + remotePeers.length;
 
   // ── Screenshare layout (Zoom-style) ────────────────────────────────────
@@ -169,6 +174,7 @@ export function VideoGrid({
             muted
             mirrored
             isHandRaised={handRaisedMap?.get(myPeerId || '')}
+            videoStyle={localStyle}
           />
         </div>
       </div>
@@ -194,6 +200,7 @@ export function VideoGrid({
               mirrored
               isActiveSpeaker
               isHandRaised={handRaisedMap?.get(myPeerId || '')}
+              videoStyle={localStyle}
             />
           ) : featuredPeer ? (
             <VideoTile
@@ -215,6 +222,7 @@ export function VideoGrid({
               muted
               mirrored
               isHandRaised={handRaisedMap?.get(myPeerId || '')}
+              videoStyle={localStyle}
             />
           )}
           {otherPeers.map(peer => (
@@ -261,6 +269,7 @@ export function VideoGrid({
         mirrored
         isActiveSpeaker={activeSpeakerId === myPeerId}
         isHandRaised={handRaisedMap?.get(myPeerId || '')}
+        videoStyle={localStyle}
       />
     </div>
   );
