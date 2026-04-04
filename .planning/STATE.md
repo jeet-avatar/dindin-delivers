@@ -428,6 +428,7 @@ None
 | 264 | Campaign wizard: sent-contact filtering and per-contact campaign history badges | 2026-04-02 | 5d03f1d1 | [264-campaign-wizard-sent-contact-filtering-a](./quick/264-campaign-wizard-sent-contact-filtering-a/) |
 | 265 | write missing Playwright E2E tests for VibingTicket — fix playwright.config.cjs testDir to ./tests, then write tests/e2e/aria-bot.spec.cjs, sarah-bot.spec.cjs, auth-flow.spec.cjs, contact-newsletter.spec.cjs — run all tests and confirm pass against https://www.vibingticket.com | 2026-04-03 | 329cab1 | [265-write-missing-playwright-e2e-tests-for-v](./quick/265-write-missing-playwright-e2e-tests-for-v/) |
 | 266 | fix hardcoded values on BrandMonkz campaigns page — totalCompanies fake formula + createdBy static string | 2026-04-03 | 671e7216 | [266-fix-hardcoded-values-on-brandmonkz-campa](./quick/266-fix-hardcoded-values-on-brandmonkz-campa/) |
+| 267 | add upgraded avatars and camera settings panel to Zietra Meet | 2026-04-04 | 5e60ba45 | [267-add-upgraded-avatars-and-camera-settings](./quick/267-add-upgraded-avatars-and-camera-settings/) |
 
 ## Session Continuity
 
