@@ -196,6 +196,7 @@ export function CallScreen({ name, room, password, onLeave }: CallScreenProps) {
             onPinPeer={setPinnedPeerId}
             localVideoFilter={devices.cssFilter}
             remoteSharingPeer={rtc.remotePeers.find(p => p.id === rtc.remoteSharingPeerId) ?? null}
+            remoteSharingPeerId={rtc.remoteSharingPeerId}
           />
           <EmojiReactions reactions={rtc.reactions} />
           <AnnotationCanvas

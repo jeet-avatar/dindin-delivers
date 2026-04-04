@@ -616,38 +616,20 @@ body {
 }
 
 /* ===== SCREENSHARE LAYOUT (Zoom-style) ===== */
+/* ── Screenshare layout: row flex (Zoom-style) ── */
 .screenshare-layout {
-  position: relative;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   width: 100%;
   height: 100%;
   background: #000;
   gap: 0;
 }
 
-/* Thumbnail strip at the top — remote participants */
-.screenshare-strip {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--bg-deep);
-  overflow-x: auto;
-  flex-shrink: 0;
-  height: 112px;
-  scrollbar-width: thin;
-}
-.screenshare-strip .video-tile {
-  width: 160px;
-  min-width: 160px;
-  height: 100px;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-/* Main stage — screen share video fills remaining space */
+/* Main stage — screen share fills all remaining width */
 .screenshare-main-tile {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   position: relative;
   display: flex;
@@ -659,6 +641,10 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+.screenshare-loading {
+  color: rgba(255,255,255,0.5);
+  font-size: 0.9rem;
 }
 .screenshare-label {
   position: absolute;
@@ -674,31 +660,35 @@ body {
   white-space: nowrap;
 }
 
-/* Floating PiP — your own camera in the bottom-right corner */
-.screenshare-pip {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
+/* Right sidebar — camera tiles, Zoom-style vertical strip */
+.screenshare-sidebar {
   width: 180px;
-  height: 120px;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
-  border: 2px solid rgba(255,255,255,0.15);
-  z-index: 20;
-  cursor: move;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-deep);
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
-.screenshare-pip .video-tile {
+.screenshare-sidebar-tile {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.screenshare-sidebar-tile .video-tile {
   width: 100%;
   height: 100%;
-  border-radius: 0;
+  border-radius: 6px;
 }
-.screenshare-pip .tile-label {
+.screenshare-sidebar-tile .tile-label {
   font-size: 0.65rem;
   padding: 2px 6px;
 }
-/* Hide pin button in PiP */
-.screenshare-pip .pin-btn { display: none; }
+.screenshare-sidebar-tile .pin-btn { display: none; }
 
 /* ===== SPEAKER VIEW LAYOUT ===== */
 .speaker-layout {

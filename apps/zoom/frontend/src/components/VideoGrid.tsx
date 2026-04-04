@@ -29,16 +29,20 @@ function getInitials(name: string): string {
     .join('');
 }
 
-function ScreenShareTile({ stream, label }: { stream: MediaStream; label: string }) {
+function ScreenShareTile({ stream, label }: { stream: MediaStream | null; label: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     if (!ref.current) return;
     ref.current.srcObject = stream;
-    ref.current.play().catch(() => {});
+    if (stream) ref.current.play().catch(() => {});
   }, [stream]);
   return (
     <div className="screenshare-main-tile">
-      <video ref={ref} autoPlay playsInline muted className="screenshare-video" />
+      {stream ? (
+        <video ref={ref} autoPlay playsInline muted className="screenshare-video" />
+      ) : (
+        <div className="screenshare-loading">Waiting for screen share…</div>
+      )}
       <div className="screenshare-label">{label}</div>
     </div>
   );
@@ -126,6 +130,7 @@ interface VideoGridProps {
   onPinPeer?: (id: string | null) => void;
   localVideoFilter?: string;
   remoteSharingPeer?: RemotePeer | null;
+  remoteSharingPeerId?: string | null;
 }
 
 export function VideoGrid({
@@ -139,32 +144,46 @@ export function VideoGrid({
   onPinPeer,
   localVideoFilter,
   remoteSharingPeer,
+  remoteSharingPeerId,
 }: VideoGridProps) {
   const localStyle: React.CSSProperties | undefined = localVideoFilter ? { filter: localVideoFilter } : undefined;
   const totalParticipants = 1 + remotePeers.length;
 
   // ── Screenshare layout (Zoom-style) ────────────────────────────────────
-  // Triggered when: YOU are sharing (screenStream set), OR a remote peer is sharing.
-  const remoteShareStream = remoteSharingPeer?.stream ?? null;
-  const activeShareStream = screenStream ?? remoteShareStream;
+  // Trigger on the signal (remoteSharingPeerId set) OR local screenStream —
+  // do NOT wait for stream to be non-null (avoids race where signal arrives before track).
+  const isRemoteSharing = !!(remoteSharingPeer || remoteSharingPeerId);
+  const activeShareStream = screenStream ?? remoteSharingPeer?.stream ?? null;
   const shareLabel = screenStream
     ? 'You are presenting'
-    : remoteSharingPeer ? `${remoteSharingPeer.name} is presenting` : '';
+    : remoteSharingPeer ? `${remoteSharingPeer.name} is presenting` : 'Screen share in progress';
 
-  if (activeShareStream) {
-    // In remote-share mode, exclude the sharer from the strip (their stream is on stage)
-    const stripPeers = screenStream
+  if (screenStream || isRemoteSharing) {
+    // Sidebar: local camera + non-sharing remote peers (like Zoom right panel)
+    const sidebarPeers = screenStream
       ? remotePeers
-      : remotePeers.filter(p => p.id !== remoteSharingPeer?.id);
+      : remotePeers.filter(p => p.id !== remoteSharingPeer?.id && p.id !== remoteSharingPeerId);
 
     return (
       <div className="video-grid screenshare-layout">
-        {/* Thumbnail strip — participants not on stage */}
-        {stripPeers.length > 0 && (
-          <div className="screenshare-strip">
-            {stripPeers.map(peer => (
+        {/* Main stage — screen share (fills all remaining space) */}
+        <ScreenShareTile stream={activeShareStream} label={shareLabel} />
+
+        {/* Right sidebar — all cameras, Zoom-style */}
+        <div className="screenshare-sidebar">
+          <div className="screenshare-sidebar-tile">
+            <VideoTile
+              stream={isCamOff ? null : localStream}
+              name={`${localName} (You)`}
+              muted
+              mirrored
+              isHandRaised={handRaisedMap?.get(myPeerId || '')}
+              videoStyle={localStyle}
+            />
+          </div>
+          {sidebarPeers.map(peer => (
+            <div key={peer.id} className="screenshare-sidebar-tile">
               <VideoTile
-                key={peer.id}
                 stream={peer.stream}
                 name={peer.name}
                 connectionState={peer.connectionState}
@@ -172,23 +191,8 @@ export function VideoGrid({
                 isHandRaised={handRaisedMap?.get(peer.id)}
                 onPin={onPinPeer ? () => onPinPeer(pinnedPeerId === peer.id ? null : peer.id) : undefined}
               />
-            ))}
-          </div>
-        )}
-
-        {/* Main stage — screen share content */}
-        <ScreenShareTile stream={activeShareStream} label={shareLabel} />
-
-        {/* Floating PiP — local camera */}
-        <div className="screenshare-pip">
-          <VideoTile
-            stream={isCamOff ? null : localStream}
-            name={`${localName} (You)`}
-            muted
-            mirrored
-            isHandRaised={handRaisedMap?.get(myPeerId || '')}
-            videoStyle={localStyle}
-          />
+            </div>
+          ))}
         </div>
       </div>
     );
