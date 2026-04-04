@@ -316,6 +316,20 @@ body {
   font-weight: 700;
 }
 
+/* ===== GRADIENT AVATAR TILES ===== */
+.avatar-tile {
+  background: var(--bg); /* fallback; overridden by inline style */
+}
+.avatar-initials {
+  font-size: clamp(1.2rem, 4vw, 2.5rem);
+  font-weight: 700;
+  color: rgba(255,255,255,0.92);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  letter-spacing: 0.04em;
+  user-select: none;
+  pointer-events: none;
+}
+
 /* ===== CONTROL BAR ===== */
 .control-bar {
   display: flex;

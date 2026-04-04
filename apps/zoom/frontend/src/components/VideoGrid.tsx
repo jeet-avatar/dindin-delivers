@@ -1,6 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RemotePeer } from '../hooks/useWebRTC';
 
+// ── Avatar helpers ────────────────────────────────────────────────────────
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg, #667eea, #764ba2)',
+  'linear-gradient(135deg, #f093fb, #f5576c)',
+  'linear-gradient(135deg, #4facfe, #00f2fe)',
+  'linear-gradient(135deg, #43e97b, #38f9d7)',
+  'linear-gradient(135deg, #fa709a, #fee140)',
+  'linear-gradient(135deg, #a18cd1, #fbc2eb)',
+  'linear-gradient(135deg, #ffecd2, #fcb69f)',
+  'linear-gradient(135deg, #30cfd0, #667eea)',
+];
+
+function getAvatarStyle(name: string): React.CSSProperties {
+  const hash = Array.from(name).reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0);
+  const gradient = AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
+  return { background: gradient };
+}
+
+function getInitials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(w => w.charAt(0).toUpperCase())
+    .join('');
+}
+
 function ScreenShareTile({ stream }: { stream: MediaStream }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -69,8 +96,8 @@ function VideoTile({ stream, name, muted, mirrored, connectionState, isActiveSpe
         )}
       </div>
       {!stream && (
-        <div className="tile-placeholder">
-          <div className="avatar">{name.charAt(0).toUpperCase()}</div>
+        <div className="tile-placeholder avatar-tile" style={getAvatarStyle(name)}>
+          <span className="avatar-initials">{getInitials(name)}</span>
         </div>
       )}
       {showPin && onPin && (
