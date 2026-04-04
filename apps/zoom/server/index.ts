@@ -189,6 +189,16 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // Screen share signal — broadcast so all peers switch to screenshare layout
+    if (msg.type === 'screen-share' && currentRoom) {
+      const room = rooms.get(currentRoom);
+      if (!room) return;
+      for (const peer of room.peers) {
+        sendTo(peer.ws, { type: 'screen-share', peerId, sharing: !!msg.sharing });
+      }
+      return;
+    }
+
     // Emoji reaction — broadcast to all
     if (msg.type === 'reaction' && currentRoom) {
       const room = rooms.get(currentRoom);

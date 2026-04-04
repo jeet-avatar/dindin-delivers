@@ -75,6 +75,7 @@ export interface UseWebRTCReturn {
   isScreenSharing: boolean;
   screenStream: MediaStream | null;
   canScreenShare: boolean;
+  remoteSharingPeerId: string | null;
   chatMessages: ChatMessage[];
   handRaisedMap: Map<string, boolean>;
   reactions: ReactionEvent[];
@@ -106,6 +107,7 @@ export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTC
   const [isCamOff, setIsCamOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const [remoteSharingPeerId, setRemoteSharingPeerId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [handRaisedMap, setHandRaisedMap] = useState<Map<string, boolean>>(new Map());
   const [reactions, setReactions] = useState<ReactionEvent[]>([]);
@@ -343,6 +345,10 @@ export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTC
           });
           break;
 
+        case 'screen-share':
+          setRemoteSharingPeerId(msg.sharing ? (msg.peerId as string) : null);
+          break;
+
         case 'reaction':
           setReactions(prev => [...prev, {
             id: `${msg.fromId}-${Date.now()}`,
@@ -465,6 +471,7 @@ export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTC
         }
         setIsScreenSharing(true);
         setScreenStream(screen);
+        send({ type: 'screen-share', sharing: true });
 
         screenTrack.onended = async () => {
           for (const pc of pcsRef.current.values()) {
@@ -475,6 +482,7 @@ export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTC
           screenStreamRef.current = null;
           setIsScreenSharing(false);
           setScreenStream(null);
+          send({ type: 'screen-share', sharing: false });
         };
       } catch { /* cancelled */ }
     } else {
@@ -486,8 +494,9 @@ export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTC
       screenStreamRef.current = null;
       setIsScreenSharing(false);
       setScreenStream(null);
+      send({ type: 'screen-share', sharing: false });
     }
-  }, [isScreenSharing, canScreenShare]);
+  }, [isScreenSharing, canScreenShare, send]);
 
   const sendChat = useCallback((text: string) => {
     if (text.trim()) send({ type: 'chat', text: text.trim() });
@@ -566,7 +575,7 @@ export function useWebRTC({ room, name, password }: UseWebRTCOptions): UseWebRTC
 
   return {
     localStream, remotePeers, myPeerId, isHost,
-    isMuted, isCamOff, isScreenSharing, screenStream, canScreenShare,
+    isMuted, isCamOff, isScreenSharing, screenStream, canScreenShare, remoteSharingPeerId,
     chatMessages, handRaisedMap, reactions, recordingState,
     broadcastRecordingStart, broadcastRecordingStop, sendRecordingConsent,
     toggleMute, toggleCam, toggleScreenShare,
