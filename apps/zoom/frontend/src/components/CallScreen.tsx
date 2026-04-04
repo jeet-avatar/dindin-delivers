@@ -264,6 +264,18 @@ export function CallScreen({ name, room, password, onLeave }: CallScreenProps) {
           onSelectAudio={(id) => handleDeviceSwitch('audio', id)}
           onSelectVideo={(id) => handleDeviceSwitch('video', id)}
           onClose={() => setShowSettings(false)}
+          resolution={devices.resolution}
+          fps={devices.fps}
+          brightness={devices.brightness}
+          contrast={devices.contrast}
+          blurEnabled={devices.blurEnabled}
+          onResolutionChange={devices.setResolution}
+          onFpsChange={devices.setFps}
+          onBrightnessChange={devices.setBrightness}
+          onContrastChange={devices.setContrast}
+          onBlurChange={devices.setBlurEnabled}
+          onSave={() => { /* cssFilter from devices.cssFilter is applied to local video by VideoGrid */ }}
+          getVideoConstraints={devices.getVideoConstraints}
         />
       )}
 
