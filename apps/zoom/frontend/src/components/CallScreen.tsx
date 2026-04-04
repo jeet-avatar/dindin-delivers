@@ -194,6 +194,7 @@ export function CallScreen({ name, room, password, onLeave }: CallScreenProps) {
             myPeerId={rtc.myPeerId}
             handRaisedMap={rtc.handRaisedMap}
             onPinPeer={setPinnedPeerId}
+            localVideoFilter={devices.cssFilter}
           />
           <EmojiReactions reactions={rtc.reactions} />
           <AnnotationCanvas
@@ -274,7 +275,15 @@ export function CallScreen({ name, room, password, onLeave }: CallScreenProps) {
           onBrightnessChange={devices.setBrightness}
           onContrastChange={devices.setContrast}
           onBlurChange={devices.setBlurEnabled}
-          onSave={() => { /* cssFilter from devices.cssFilter is applied to local video by VideoGrid */ }}
+          onSave={async () => {
+            if (!devices.selectedVideoId) return;
+            try {
+              const constraints = { video: devices.getVideoConstraints(devices.selectedVideoId, devices.resolution, devices.fps) };
+              const stream = await navigator.mediaDevices.getUserMedia(constraints);
+              const track = stream.getVideoTracks()[0];
+              if (track) await rtc.replaceLocalTrack('video', track);
+            } catch { /* device unavailable */ }
+          }}
           getVideoConstraints={devices.getVideoConstraints}
         />
       )}
