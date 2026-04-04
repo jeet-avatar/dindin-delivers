@@ -23,6 +23,7 @@ function getInitials(name: string): string {
   return name
     .trim()
     .split(/\s+/)
+    .filter(w => /^[a-zA-Z]/.test(w))
     .slice(0, 2)
     .map(w => w.charAt(0).toUpperCase())
     .join('');
