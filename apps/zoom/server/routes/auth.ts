@@ -10,7 +10,7 @@ export const authRouter = Router();
 
 const APP_URL = process.env.APP_URL || 'https://meet.vibingticket.com';
 
-// GET /api/auth/code — exchange short code for session JWT, redirect to setup page
+// GET /api/auth/code — exchange short magic code for session JWT, redirect to app
 authRouter.get('/code', async (req, res) => {
   const { code } = req.query as { code?: string };
   if (!code) return res.status(400).json({ error: 'code_required' });
@@ -21,18 +21,6 @@ authRouter.get('/code', async (req, res) => {
   if (!rows[0]) return res.redirect(`${APP_URL}/?error=expired_link`);
   const sessionToken = signJwt({ host_id: rows[0].host_id, type: 'session' }, '7d');
   res.redirect(`${APP_URL}/?session=${sessionToken}`);
-});
-
-// POST /api/auth/magic — exchange magic JWT for session JWT (legacy, kept for compatibility)
-authRouter.post('/magic', (req, res) => {
-  const { token } = req.body as { token?: string };
-  if (!token) return res.status(400).json({ error: 'token_required' });
-  const payload = verifyJwt(token) as { host_id?: string; type?: string } | null;
-  if (!payload || payload.type !== 'magic' || !payload.host_id) {
-    return res.status(401).json({ error: 'invalid_or_expired_magic_link' });
-  }
-  const sessionToken = signJwt({ host_id: payload.host_id, type: 'session' }, '7d');
-  res.json({ token: sessionToken });
 });
 
 // GET /api/auth/google — start Google OAuth
@@ -52,9 +40,9 @@ authRouter.get('/google/callback', async (req, res) => {
   }
   try {
     await exchangeGoogleCode(code, payload.host_id);
-    res.redirect(`${APP_URL}/schedule/setup?calendar=connected`);
+    res.redirect(`${APP_URL}/?calendar=connected`);
   } catch {
-    res.redirect(`${APP_URL}/schedule/setup?calendar=error`);
+    res.redirect(`${APP_URL}/?calendar=error`);
   }
 });
 
@@ -75,8 +63,8 @@ authRouter.get('/microsoft/callback', async (req, res) => {
   }
   try {
     await exchangeMicrosoftCode(code, payload.host_id);
-    res.redirect(`${APP_URL}/schedule/setup?calendar=connected`);
+    res.redirect(`${APP_URL}/?calendar=connected`);
   } catch {
-    res.redirect(`${APP_URL}/schedule/setup?calendar=error`);
+    res.redirect(`${APP_URL}/?calendar=error`);
   }
 });
