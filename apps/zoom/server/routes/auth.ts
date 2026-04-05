@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
+import { pool } from '../db.js';
 import { signJwt, verifyJwt } from '../auth.js';
 import { getGoogleAuthUrl, exchangeGoogleCode } from '../calendar/google.js';
 import { getMicrosoftAuthUrl, exchangeMicrosoftCode } from '../calendar/microsoft.js';
@@ -9,7 +10,20 @@ export const authRouter = Router();
 
 const APP_URL = process.env.APP_URL || 'https://meet.vibingticket.com';
 
-// POST /api/auth/magic — exchange magic JWT for session JWT
+// GET /api/auth/code — exchange short code for session JWT, redirect to setup page
+authRouter.get('/code', async (req, res) => {
+  const { code } = req.query as { code?: string };
+  if (!code) return res.status(400).json({ error: 'code_required' });
+  const { rows } = await pool.query(
+    `DELETE FROM magic_codes WHERE code = $1 AND expires_at > NOW() RETURNING host_id`,
+    [code]
+  );
+  if (!rows[0]) return res.redirect(`${APP_URL}/?error=expired_link`);
+  const sessionToken = signJwt({ host_id: rows[0].host_id, type: 'session' }, '7d');
+  res.redirect(`${APP_URL}/?session=${sessionToken}`);
+});
+
+// POST /api/auth/magic — exchange magic JWT for session JWT (legacy, kept for compatibility)
 authRouter.post('/magic', (req, res) => {
   const { token } = req.body as { token?: string };
   if (!token) return res.status(400).json({ error: 'token_required' });
