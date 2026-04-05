@@ -172,14 +172,20 @@ export function CallScreen({ name, room, password, onLeave }: CallScreenProps) {
 
       <div className="call-body">
         <div className="video-area">
-          {rtc.remotePeers.length === 0 && !rtc.error && (
+          {!rtc.myPeerId && !rtc.error && (
             <div className="waiting-overlay">
-              <div className="waiting-text">Waiting for others to join...</div>
-              <div className="waiting-hint">Share this link:</div>
+              <div className="waiting-spinner" />
+              <div className="waiting-text">Connecting to room {room}…</div>
+            </div>
+          )}
+          {rtc.myPeerId && rtc.remotePeers.length === 0 && !rtc.error && (
+            <div className="waiting-overlay">
+              <div className="waiting-text">You&apos;re in! Waiting for others to join…</div>
+              <div className="waiting-hint">Share this link to invite:</div>
               <div className="waiting-link" onClick={handleCopyLink}>
                 {getInviteLink(room)}
               </div>
-              <div className="waiting-copied">{copied ? 'Link copied!' : 'Click to copy'}</div>
+              <div className="waiting-copied">{copied ? '✓ Link copied!' : 'Click to copy'}</div>
             </div>
           )}
           <VideoGrid
