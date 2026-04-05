@@ -37,7 +37,7 @@ hostsRouter.post('/register', async (req, res) => {
      ON CONFLICT (code) DO UPDATE SET host_id = EXCLUDED.host_id, expires_at = EXCLUDED.expires_at`,
     [code, host.id, expiresAt]
   );
-  const magicLink = `${process.env.APP_URL || 'https://meet.vibingticket.com'}/auth?code=${code}`;
+  const magicLink = `${process.env.APP_URL || 'https://meet.vibingticket.com'}/api/auth/code?code=${code}`;
 
   try {
     await sendEmail({

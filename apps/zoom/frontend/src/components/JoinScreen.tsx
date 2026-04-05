@@ -27,33 +27,13 @@ export function JoinScreen({ onJoin, initialRoom }: JoinScreenProps) {
 
   useEffect(() => {
     if (!room) setRoom(generateRoomCode());
-    // Handle magic link return: /?session=<token> (server redirects after short-code exchange)
-    const params = new URLSearchParams(window.location.search);
-    const session = params.get('session');
+    // Magic link lands here as /?session=<token> after server exchanges the short code
+    const session = new URLSearchParams(window.location.search).get('session');
     if (session) {
       localStorage.setItem('zm_host_token', session);
       window.history.replaceState({}, '', window.location.pathname);
       setScheduleToken(session);
       setActiveTab('schedule');
-    }
-    // Legacy: direct magic JWT in URL
-    const magic = params.get('magic');
-    if (magic && !session) {
-      fetch('/api/auth/magic', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: magic }),
-      })
-        .then(r => r.json())
-        .then(({ token }) => {
-          if (token) {
-            localStorage.setItem('zm_host_token', token);
-            window.history.replaceState({}, '', window.location.pathname);
-            setScheduleToken(token);
-            setActiveTab('schedule');
-          }
-        })
-        .catch(() => {});
     }
   }, []);
 
