@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 RUN npm install -g tsx
 
 COPY server/package.json server/package-lock.json ./server/
-RUN cd server && npm ci --production
+RUN cd server && npm install --production --ignore-scripts
 
 COPY server/index.ts ./server/
 COPY server/db.ts server/auth.ts server/email.ts server/ical.ts server/slugs.ts server/crypto.ts ./server/
