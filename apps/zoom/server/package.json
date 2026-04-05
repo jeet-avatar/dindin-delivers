@@ -3,14 +3,31 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx index.ts"
+    "start": "tsx index.ts",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@azure/msal-node": "^5.1.2",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.3.2",
+    "googleapis": "^171.4.0",
+    "ical-generator": "^10.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^8.0.4",
+    "pg": "^8.20.0",
     "ws": "^8.16.0"
   },
   "devDependencies": {
-    "tsx": "^4.7.0",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/nodemailer": "^8.0.0",
+    "@types/pg": "^8.20.0",
+    "@types/supertest": "^7.2.0",
     "@types/ws": "^8.5.10",
-    "typescript": "^5.4.0"
+    "supertest": "^7.2.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.2"
   }
 }
