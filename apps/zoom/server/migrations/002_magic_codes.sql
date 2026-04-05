@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS magic_codes (
+  code       TEXT PRIMARY KEY,
+  host_id    UUID NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL
+);

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { randomBytes } from 'crypto';
 import { pool } from '../db.js';
 import { signJwt } from '../auth.js';
 import { generateUniqueSlug } from '../slugs.js';
@@ -28,17 +29,21 @@ hostsRouter.post('/register', async (req, res) => {
     host = result.rows[0];
   }
 
-  const magicToken = signJwt({ host_id: host.id, type: 'magic' }, '15m');
-  const magicLink = `${process.env.APP_URL || 'https://meet.vibingticket.com'}/schedule/setup?magic=${magicToken}`;
+  // Short code (32 hex chars) stored in DB — avoids long JWT URLs that break in email clients
+  const code = randomBytes(16).toString('hex');
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  await pool.query(
+    `INSERT INTO magic_codes (code, host_id, expires_at) VALUES ($1, $2, $3)
+     ON CONFLICT (code) DO UPDATE SET host_id = EXCLUDED.host_id, expires_at = EXCLUDED.expires_at`,
+    [code, host.id, expiresAt]
+  );
+  const magicLink = `${process.env.APP_URL || 'https://meet.vibingticket.com'}/auth?code=${code}`;
 
   try {
     await sendEmail({
       to: email,
       subject: 'Your Zietra Meet login link',
-      html: `<p>Hi ${name},</p>
-<p>Click below to set up your booking page:</p>
-<p><a href="${magicLink}">Set up my booking page</a></p>
-<p>This link expires in 15 minutes.</p>`,
+      html: `<p>Hi ${name},</p><p>Click the link below to set up your booking page:</p><p><a href="${magicLink}" style="background:#4cc9f0;padding:10px 20px;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Set up my booking page</a></p><p style="color:#888;font-size:12px">Or copy this URL: ${magicLink}</p><p style="color:#888;font-size:12px">This link expires in 15 minutes.</p>`,
     });
   } catch (err) {
     console.error('Magic link email failed:', (err as Error).message);
