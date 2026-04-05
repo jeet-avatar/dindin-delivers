@@ -131,3 +131,76 @@ hostsRouter.post('/me/availability', requireHostAuth, async (req, res) => {
     client.release();
   }
 });
+
+// GET /api/host/:slug/slots?from=YYYY-MM-DD&to=YYYY-MM-DD
+hostsRouter.get('/:slug/slots', async (req, res) => {
+  const { slug } = req.params;
+  const hostRow = (await pool.query(
+    'SELECT id, timezone, slot_minutes, disabled_at FROM hosts WHERE booking_slug = $1',
+    [slug]
+  )).rows[0];
+  if (!hostRow) return res.status(404).json({ error: 'host_not_found' });
+  if (hostRow.disabled_at) return res.status(403).json({ error: 'booking_disabled' });
+
+  const now = new Date();
+  const fromStr = req.query.from as string | undefined;
+  const toStr = req.query.to as string | undefined;
+  const from = fromStr ? new Date(fromStr + 'T00:00:00Z') : new Date(now.toISOString().split('T')[0] + 'T00:00:00Z');
+  const to = toStr ? new Date(toStr + 'T23:59:59Z') : new Date(from.getTime() + 7 * 24 * 3600_000);
+  if (to.getTime() - from.getTime() > 30 * 24 * 3600_000) {
+    return res.status(400).json({ error: 'max_range_30_days' });
+  }
+
+  const { computeSlotsFromRules, subtractBusyWindows } = await import('../calendar/slots.js');
+  const { getGoogleBusyTimes } = await import('../calendar/google.js');
+  const { getMicrosoftBusyTimes } = await import('../calendar/microsoft.js');
+
+  // Helper to fetch already-booked meeting windows from DB
+  const fetchBookedWindows = async (hostId: string) => {
+    const booked = (await pool.query(
+      `SELECT scheduled_at, duration_min FROM meetings WHERE host_id=$1 AND status='confirmed' AND scheduled_at BETWEEN $2 AND $3`,
+      [hostId, from, to]
+    )).rows;
+    return booked.map((r: any) => ({
+      start: new Date(r.scheduled_at),
+      end: new Date(new Date(r.scheduled_at).getTime() + r.duration_min * 60_000),
+    }));
+  };
+
+  const tokenRow = (await pool.query(
+    'SELECT provider FROM calendar_tokens WHERE host_id = $1 LIMIT 1',
+    [hostRow.id]
+  )).rows[0];
+
+  const rules = (await pool.query(
+    'SELECT day_of_week, start_time, end_time FROM availability_rules WHERE host_id = $1',
+    [hostRow.id]
+  )).rows;
+  if (rules.length === 0) return res.json({ slots: [], warning: 'host_no_availability_set' });
+
+  let busyWindows: { start: Date; end: Date }[] = [];
+  let slots: Date[] = [];
+
+  if (tokenRow?.provider === 'google') {
+    try {
+      busyWindows = await getGoogleBusyTimes(hostRow.id, from, to);
+    } catch {
+      return res.status(503).json({ error: 'calendar_unavailable' });
+    }
+    const allBusy = [...busyWindows, ...(await fetchBookedWindows(hostRow.id))];
+    slots = subtractBusyWindows(computeSlotsFromRules(rules, from, to, hostRow.slot_minutes, hostRow.timezone), allBusy, hostRow.slot_minutes);
+  } else if (tokenRow?.provider === 'microsoft') {
+    try {
+      busyWindows = await getMicrosoftBusyTimes(hostRow.id, from, to);
+    } catch {
+      return res.status(503).json({ error: 'calendar_unavailable' });
+    }
+    const allBusy = [...busyWindows, ...(await fetchBookedWindows(hostRow.id))];
+    slots = subtractBusyWindows(computeSlotsFromRules(rules, from, to, hostRow.slot_minutes, hostRow.timezone), allBusy, hostRow.slot_minutes);
+  } else {
+    const allSlots = computeSlotsFromRules(rules, from, to, hostRow.slot_minutes, hostRow.timezone);
+    slots = subtractBusyWindows(allSlots, await fetchBookedWindows(hostRow.id), hostRow.slot_minutes);
+  }
+
+  res.json({ slots: slots.map(s => s.toISOString()) });
+});
