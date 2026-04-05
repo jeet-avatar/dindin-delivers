@@ -54,12 +54,12 @@ export function ScheduleTab({ initialToken }: Props) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <a
-          href="/api/auth/google"
+          href={`/api/auth/google?token=${encodeURIComponent(token)}`}
           className="join-btn"
           style={{ textAlign: 'center' }}
         >Connect Google Calendar</a>
         <a
-          href="/api/auth/microsoft"
+          href={`/api/auth/microsoft?token=${encodeURIComponent(token)}`}
           className="join-btn"
           style={{ textAlign: 'center', background: 'var(--bg-card)', color: 'var(--text)' }}
         >Connect Microsoft Calendar</a>
