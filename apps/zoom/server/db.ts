@@ -18,7 +18,7 @@ export async function runMigrations(): Promise<void> {
         applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    const migrations = ['001_initial.sql'];
+    const migrations = ['001_initial.sql', '002_magic_codes.sql'];
     for (const file of migrations) {
       const { rows } = await client.query(
         'SELECT version FROM schema_migrations WHERE version = $1',
