@@ -86,30 +86,33 @@ bookingRouter.post('/:slug', async (req, res) => {
   const joinLink = `${process.env.APP_URL || 'https://meet.vibingticket.com'}/?room=${roomCode}`;
   const timeStr = scheduledAt.toUTCString();
 
-  await sendEmail({
-    to: guest_email.trim(),
-    subject: `Confirmed: ${title}`,
-    replyTo: host.email,
-    html: `<h2>Meeting confirmed!</h2>
+  try {
+    await sendEmail({
+      to: guest_email.trim(),
+      subject: `Confirmed: ${title}`,
+      replyTo: host.email,
+      html: `<h2>Meeting confirmed!</h2>
 <p><strong>${title}</strong></p>
 <p><strong>When:</strong> ${timeStr}</p>
 <p><strong>Duration:</strong> ${host.slot_minutes} minutes</p>
 <p><a href="${joinLink}" style="background:#4cc9f0;padding:10px 20px;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Join Meeting</a></p>
 <p><a href="${cancelLink}">Cancel this meeting</a></p>`,
-    attachments: icsAttachment,
-  });
-
-  await sendEmail({
-    to: host.email,
-    subject: `New booking: ${title} — ${guest_name}`,
-    replyTo: guest_email.trim(),
-    html: `<h2>New meeting booked!</h2>
+      attachments: icsAttachment,
+    });
+    await sendEmail({
+      to: host.email,
+      subject: `New booking: ${title} — ${guest_name}`,
+      replyTo: guest_email.trim(),
+      html: `<h2>New meeting booked!</h2>
 <p><strong>${guest_name}</strong> booked <strong>${title}</strong></p>
 <p><strong>When:</strong> ${timeStr}</p>
 ${guest_notes ? `<p><strong>Notes:</strong> ${guest_notes}</p>` : ''}
 <p><a href="${joinLink}" style="background:#4cc9f0;padding:10px 20px;color:#000;text-decoration:none;border-radius:6px;font-weight:bold;">Join Meeting</a></p>`,
-    attachments: icsAttachment,
-  });
+      attachments: icsAttachment,
+    });
+  } catch (err) {
+    console.error('Booking confirmation email failed:', (err as Error).message);
+  }
 
   res.status(201).json({
     id: meetingId,

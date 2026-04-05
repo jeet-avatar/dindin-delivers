@@ -31,14 +31,18 @@ hostsRouter.post('/register', async (req, res) => {
   const magicToken = signJwt({ host_id: host.id, type: 'magic' }, '15m');
   const magicLink = `${process.env.APP_URL || 'https://meet.vibingticket.com'}/schedule/setup?magic=${magicToken}`;
 
-  await sendEmail({
-    to: email,
-    subject: 'Your Zietra Meet login link',
-    html: `<p>Hi ${name},</p>
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Your Zietra Meet login link',
+      html: `<p>Hi ${name},</p>
 <p>Click below to set up your booking page:</p>
 <p><a href="${magicLink}">Set up my booking page</a></p>
 <p>This link expires in 15 minutes.</p>`,
-  });
+    });
+  } catch (err) {
+    console.error('Magic link email failed:', (err as Error).message);
+  }
 
   res.json({ message: 'magic_link_sent' });
 });

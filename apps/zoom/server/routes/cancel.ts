@@ -76,20 +76,23 @@ cancelRouter.post('/cancel', async (req, res) => {
   }, 'CANCEL');
   const icsAttachment = [{ filename: 'cancel.ics', content: cancelIcs, contentType: 'text/calendar' }];
 
-  await sendEmail({
-    to: meeting.guest_email,
-    subject: `Cancelled: ${meeting.title}`,
-    html: `<p>Your meeting <strong>${meeting.title}</strong> on ${new Date(meeting.scheduled_at).toUTCString()} has been cancelled.</p>`,
-    attachments: icsAttachment,
-  });
-
-  await sendEmail({
-    to: meeting.host_email,
-    subject: `Booking cancelled: ${meeting.title} — ${meeting.guest_name}`,
-    replyTo: meeting.guest_email,
-    html: `<p><strong>${meeting.guest_name}</strong> cancelled <strong>${meeting.title}</strong> on ${new Date(meeting.scheduled_at).toUTCString()}.</p>`,
-    attachments: icsAttachment,
-  });
+  try {
+    await sendEmail({
+      to: meeting.guest_email,
+      subject: `Cancelled: ${meeting.title}`,
+      html: `<p>Your meeting <strong>${meeting.title}</strong> on ${new Date(meeting.scheduled_at).toUTCString()} has been cancelled.</p>`,
+      attachments: icsAttachment,
+    });
+    await sendEmail({
+      to: meeting.host_email,
+      subject: `Booking cancelled: ${meeting.title} — ${meeting.guest_name}`,
+      replyTo: meeting.guest_email,
+      html: `<p><strong>${meeting.guest_name}</strong> cancelled <strong>${meeting.title}</strong> on ${new Date(meeting.scheduled_at).toUTCString()}.</p>`,
+      attachments: icsAttachment,
+    });
+  } catch (err) {
+    console.error('Cancellation email failed:', (err as Error).message);
+  }
 
   res.json({ ok: true });
 });
