@@ -8,6 +8,11 @@ COPY server/package.json server/package-lock.json ./server/
 RUN cd server && npm ci --production
 
 COPY server/index.ts ./server/
+COPY server/db.ts server/auth.ts server/email.ts server/ical.ts server/slugs.ts server/crypto.ts ./server/
+COPY server/migrations/ ./server/migrations/
+COPY server/routes/ ./server/routes/
+COPY server/middleware/ ./server/middleware/
+COPY server/calendar/ ./server/calendar/
 COPY frontend/dist ./frontend/dist
 
 EXPOSE 3001
