@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 
 const transport = nodemailer.createTransport({
-  host: 'email-smtp.us-east-1.amazonaws.com',
+  host: 'smtp.office365.com',
   port: 587,
   secure: false,
   auth: {
