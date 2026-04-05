@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react';
 import { JoinScreen } from './components/JoinScreen';
 import { CallScreen } from './components/CallScreen';
+import { BookingPage } from './pages/BookingPage';
+import { CancelPage } from './pages/CancelPage';
 
 function getRoomFromURL(): string | null {
   return new URLSearchParams(window.location.search).get('room');
+}
+
+function getPath(): string {
+  return window.location.pathname;
 }
 
 export default function App() {
   const [joined, setJoined] = useState<{ name: string; room: string; password?: string } | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
   const [initialRoom] = useState<string | null>(getRoomFromURL);
+  const [path] = useState(getPath);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -22,6 +29,13 @@ export default function App() {
       window.history.replaceState({}, '', url.toString());
     }
   }, [joined]);
+
+  // Route: /book/:slug
+  const bookMatch = path.match(/^\/book\/([a-z0-9-]+)$/);
+  if (bookMatch) return <BookingPage slug={bookMatch[1]} />;
+
+  // Route: /cancel
+  if (path === '/cancel') return <CancelPage />;
 
   if (!joined) {
     return (

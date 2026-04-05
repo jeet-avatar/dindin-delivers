@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ScheduleTab } from './ScheduleTab';
 
 interface JoinScreenProps {
   onJoin: (name: string, room: string, password?: string) => void;
@@ -21,9 +22,30 @@ export function JoinScreen({ onJoin, initialRoom }: JoinScreenProps) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'join' | 'schedule'>('join');
+  const [scheduleToken, setScheduleToken] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!room) setRoom(generateRoomCode());
+    // Handle magic link return: /schedule/setup?magic=<token>
+    const magic = new URLSearchParams(window.location.search).get('magic');
+    if (magic) {
+      fetch('/api/auth/magic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: magic }),
+      })
+        .then(r => r.json())
+        .then(({ token }) => {
+          if (token) {
+            localStorage.setItem('zm_host_token', token);
+            window.history.replaceState({}, '', window.location.pathname);
+            setScheduleToken(token);
+            setActiveTab('schedule');
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -52,6 +74,23 @@ export function JoinScreen({ onJoin, initialRoom }: JoinScreenProps) {
       <h1>Zietra Meet</h1>
       <p className="subtitle">Video calls for up to 8 people</p>
 
+      {/* Tab bar */}
+      <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-deep, #12122a)', borderRadius: '8px', padding: '4px', marginBottom: '1.5rem' }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('join')}
+          style={{ flex: 1, padding: '8px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: activeTab === 'join' ? 600 : 400, background: activeTab === 'join' ? '#4cc9f0' : 'transparent', color: activeTab === 'join' ? '#000' : 'var(--text-muted, #aaa)' }}
+        >Join Now</button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('schedule')}
+          style={{ flex: 1, padding: '8px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: activeTab === 'schedule' ? 600 : 400, background: activeTab === 'schedule' ? '#4cc9f0' : 'transparent', color: activeTab === 'schedule' ? '#000' : 'var(--text-muted, #aaa)' }}
+        >Schedule</button>
+      </div>
+
+      {activeTab === 'schedule' ? (
+        <ScheduleTab initialToken={scheduleToken} />
+      ) : (
       <form onSubmit={handleSubmit}>
         <input
           type="text"
@@ -104,8 +143,9 @@ export function JoinScreen({ onJoin, initialRoom }: JoinScreenProps) {
           Join Room
         </button>
       </form>
+      )}
 
-      {room.trim() && (
+      {activeTab === 'join' && room.trim() && (
         <div className="invite-section">
           <p className="invite-label">Send this link to invite others:</p>
           <div className="invite-link-box">
@@ -117,7 +157,7 @@ export function JoinScreen({ onJoin, initialRoom }: JoinScreenProps) {
         </div>
       )}
 
-      {initialRoom && (
+      {activeTab === 'join' && initialRoom && (
         <p className="invited-msg">You were invited to room <strong>{initialRoom}</strong></p>
       )}
     </div>
