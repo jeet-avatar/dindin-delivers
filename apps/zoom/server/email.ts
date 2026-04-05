@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 
 const transport = nodemailer.createTransport({
-  host: 'smtp.office365.com',
+  host: 'email-smtp.us-east-1.amazonaws.com',
   port: 587,
   secure: false,
   auth: {
@@ -20,7 +20,7 @@ interface SendEmailOptions {
 
 export async function sendEmail(opts: SendEmailOptions): Promise<void> {
   await transport.sendMail({
-    from: `Zietra Meet <${process.env.SMTP_USER}>`,
+    from: 'Zietra Meet <peter@techcloudpro.com>',
     to: opts.to,
     subject: opts.subject,
     html: opts.html,
