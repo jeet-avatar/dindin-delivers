@@ -40,7 +40,7 @@ Add calendar-aware meeting scheduling to Zietra Meet. Hosts register once, conne
 - `JoinScreen` — adds "Schedule" tab alongside existing "Join Now"
 - `ScheduleSetup` — host registration + calendar connection flow
 - `BookingPage` — route `/book/:slug` — guest-facing slot picker (no auth)
-- `CancelPage` — route `/cancel?token=` — confirms cancellation after clicking email link
+- `CancelPage` — route `/cancel?nonce=` — confirms cancellation after clicking email link
 - `CalendarConnect` — OAuth consent UI for Google / Microsoft
 - `AvailabilityEditor` — manual hours fallback
 - Confirmation screen post-booking
@@ -263,7 +263,7 @@ Generated server-side at booking time, stored in `meetings.room_code`. No pre-re
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `POST` | `/api/book/:slug` | None | Book a slot — body: `{ scheduled_at, guest_name, guest_email, guest_notes? }` |
-| `GET` | `/api/meeting/cancel` | None | Cancel landing page redirect — query: `?token={cancel_token}` — returns `302` to `/cancel?token=` |
+| `GET` | `/api/meeting/cancel` | None | Cancel landing page redirect — query: `?token={cancel_token}` — validates token, sets short-lived nonce on meeting row, returns `302` to `/cancel?nonce={nonce}` |
 | `GET` | `/api/meeting/by-nonce/:nonce` | None | Fetch meeting title+time for cancel confirmation page (nonce must be valid and unexpired) |
 | `POST` | `/api/meeting/cancel` | None | Confirm cancellation — body: `{ nonce }` — validates nonce, cancels meeting, sends emails, invalidates nonce |
 
@@ -401,7 +401,7 @@ ATTENDEE: mailto:{guest_email}
 - OAuth tokens AES-256-GCM encrypted at rest — plaintext never stored
 - OAuth CSRF protected by signed state JWT (10 min expiry)
 - Cancel token in POST body only — never in server access logs from a GET
-- Cancel page: `GET /api/meeting/cancel?token=` returns 302 to frontend `/cancel?token=` — user clicks "Confirm" before the POST fires
+- Cancel page: `GET /api/meeting/cancel?token={cancel_token}` sets a short-lived nonce on the meeting row, then returns `302` to `/cancel?nonce={nonce}` — the permanent cancel_token never appears in the redirect URL or browser history
 - Rate limiting on all unauthenticated email-sending endpoints
 - All secrets via AWS Secrets Manager
 
