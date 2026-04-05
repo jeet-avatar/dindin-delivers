@@ -273,19 +273,19 @@ Generated server-side at booking time, stored in `meetings.room_code`. No pre-re
 
 ## Email Flow
 
-All emails sent via `smtp.office365.com:587`, auth: `peter@techcloudpro.com`. The `vibingticket.com` domain must be added as an authorized "send as" domain in Peter's Office 365 tenant so `From: noreply@vibingticket.com` passes SPF/DKIM.
+All emails sent via `smtp.office365.com:587`, auth: `peter@techcloudpro.com` — same SMTP credentials already used by BrandMonkz TechCloudPro campaigns. No new O365 configuration needed. `From` address uses the authenticated domain `techcloudpro.com` to pass SPF/DKIM.
 
 ### Booking confirmation — two emails:
 
 **Guest confirmation**
-- `From:` `Zietra Meet <noreply@vibingticket.com>`
+- `From:` `Zietra Meet <peter@techcloudpro.com>`
 - `Reply-To:` `{host_email}`
 - `Subject:` `Confirmed: {title}`
 - Body: time (formatted in guest's timezone), duration, join link, cancel link (`https://meet.vibingticket.com/api/meeting/cancel?token={cancel_token}`), "Add to Calendar" buttons
 - Attachment: `invite.ics` with `METHOD:REQUEST`
 
 **Host notification**
-- `From:` `Zietra Meet <noreply@vibingticket.com>`
+- `From:` `Zietra Meet <peter@techcloudpro.com>`
 - `Reply-To:` `{guest_email}`
 - `Subject:` `New booking: {title} — {guest_name}`
 - Body: guest name, notes (if any), time, join link
@@ -295,7 +295,7 @@ All emails sent via `smtp.office365.com:587`, auth: `peter@techcloudpro.com`. Th
 
 - `Subject:` `Cancelled: {title}` → guest
 - `Subject:` `Booking cancelled: {title} — {guest_name}` → host
-- Both `From: noreply@vibingticket.com`
+- Both `From: Zietra Meet <peter@techcloudpro.com>`
 - Attachment: `cancel.ics` with `METHOD:CANCEL` and matching `UID` field
 
 ### `.ics` content
@@ -308,7 +308,7 @@ DTSTART: {scheduled_at as UTC DATE-TIME, e.g. 20260410T140000Z}
 DTEND: {(new Date(scheduled_at.getTime() + duration_min * 60_000)) as UTC DATE-TIME, e.g. 20260410T143000Z}
 DESCRIPTION: Join: https://meet.vibingticket.com/?room={room_code}\nRoom: {room_code}
 URL: https://meet.vibingticket.com/?room={room_code}
-ORGANIZER: mailto:noreply@vibingticket.com
+ORGANIZER: mailto:peter@techcloudpro.com
 ATTENDEE: mailto:{guest_email}
 ```
 
@@ -372,9 +372,10 @@ ATTENDEE: mailto:{guest_email}
 ### VibingTicket RDS
 - Engine: PostgreSQL 15, `db.t3.micro`, `us-east-1`, DB name: `vibingticket`
 
-### Office 365 — Required Before Launch
-- Add `vibingticket.com` as an authorized sender domain in Peter's O365 tenant (send-as / shared mailbox or relay connector)
-- Without this, `From: noreply@vibingticket.com` will fail SPF and bounce
+### SMTP — No Setup Required
+- Reuse existing BrandMonkz SMTP: `smtp.office365.com:587`, auth: `peter@techcloudpro.com`
+- Store credentials in `vibingticket/smtp` in AWS Secrets Manager (copy values from BrandMonkz `.env`)
+- `From: Zietra Meet <peter@techcloudpro.com>` is within the authenticated domain — no O365 changes needed
 
 ### AWS Secrets Manager
 | Secret path | Contents |
@@ -436,4 +437,4 @@ ATTENDEE: mailto:{guest_email}
 - Import `.ics` into Google Calendar, Apple Calendar, Outlook → event appears with correct time and join link
 - Cancel → `METHOD:CANCEL` `.ics` removes event from calendar apps
 - Click join link from calendar → room code pre-filled
-- O365 send-as: confirm `From: noreply@vibingticket.com` not flagged as spam
+- SMTP delivery: confirm `From: Zietra Meet <peter@techcloudpro.com>` arrives correctly (same auth path as BrandMonkz — no new verification needed)
