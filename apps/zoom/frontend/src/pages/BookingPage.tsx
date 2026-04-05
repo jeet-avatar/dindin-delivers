@@ -6,7 +6,7 @@ interface Props { slug: string; }
 type Step = 'loading' | 'pick-slot' | 'confirm' | 'done' | 'error';
 
 const page: React.CSSProperties = {
-  minHeight: '100vh',
+  height: '100vh',
   background: 'var(--bg)',
   display: 'flex',
   justifyContent: 'center',
