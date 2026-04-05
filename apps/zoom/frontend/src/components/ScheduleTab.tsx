@@ -13,6 +13,7 @@ export function ScheduleTab({ initialToken }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [calendarSetup, setCalendarSetup] = useState<'none' | 'manual'>('none');
 
   // When token is set, fetch host profile for the booking slug
@@ -33,11 +34,14 @@ export function ScheduleTab({ initialToken }: Props) {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
+    setLoading(true);
     try {
       await api.registerHost(name, email);
       setStep('check-email');
     } catch { setError('Registration failed. Please try again.'); }
+    finally { setLoading(false); }
   };
 
   const APP_URL = window.location.origin;
@@ -100,8 +104,8 @@ export function ScheduleTab({ initialToken }: Props) {
         required
       />
       {error && <p style={{ color: '#f5576c', fontSize: '0.85rem' }}>{error}</p>}
-      <button type="submit" className="join-btn" disabled={!name.trim() || !email.trim()}>
-        Get my booking link →
+      <button type="submit" className="join-btn" disabled={!name.trim() || !email.trim() || loading}>
+        {loading ? 'Sending…' : 'Get my booking link →'}
       </button>
     </form>
   );
