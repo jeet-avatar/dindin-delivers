@@ -708,7 +708,7 @@ class InterviewOverlay:
 
         self.research_frame  = tk.Frame(self.notebook, bg="#0f1923")
         self.interview_frame = tk.Frame(self.notebook, bg="#0f1923")
-        self.negotiate_frame = tk.Frame(self.notebook, bg="#0f1923")
+        self.negotiate_frame = NegotiateFrame(self.notebook, anthropic_client)
         self.succeed_frame   = SucceedMode(self.notebook, anthropic_client=anthropic_client)
 
         self.notebook.add(self.research_frame,  text="🔍 Research")
@@ -718,11 +718,7 @@ class InterviewOverlay:
 
         self._build_research_tab()
         self._build_interview_tab()
-        self._build_placeholder_tab(
-            self.negotiate_frame, "🤝", "Negotiate Mode",
-            "Offer negotiation coaching coming soon.\n\nWill help you negotiate salary, equity,\nand benefits with confidence."
-        )
-        # Succeed Mode is fully built by SucceedMode class
+        # NegotiateFrame and SucceedMode build themselves
 
         # Make draggable via top bar
         top.bind("<Button-1>",   self._on_drag_start)
@@ -1172,6 +1168,940 @@ class InterviewOverlay:
 
     def run(self):
         self.root.mainloop()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NEGOTIATE MODE
+# ─────────────────────────────────────────────────────────────────────────────
+
+class OfferAnalyzerFrame(tk.Frame):
+    """Paste an offer letter → structured breakdown + counter script."""
+
+    BG      = "#0f0f1a"
+    CARD_BG = "#1a1a2e"
+    FG      = "#e2e8f0"
+    ACCENT  = "#7c3aed"
+    BTN_FG  = "#ffffff"
+
+    _EXTRACT_SYSTEM = (
+        "You are a compensation analyst. Extract structured data from the offer letter text "
+        "provided by the user. Respond ONLY with a JSON object — no prose, no markdown fences. "
+        'Schema: {"base_salary": string, "signing_bonus": string, "annual_bonus": string, '
+        '"equity": string, "vesting_schedule": string, "pto_days": string, '
+        '"health_benefits": string, "retirement": string, "start_date": string, '
+        '"notable_clauses": [list of strings]}. '
+        'Use "Not mentioned" for any field absent from the letter.'
+    )
+
+    _COUNTER_SYSTEM = (
+        "You are a senior salary negotiation coach. Given the structured offer data, write a "
+        "word-for-word counter script the candidate can read verbatim on a phone call. "
+        "Format:\n"
+        "## Opening (30 seconds)\n<script>\n\n"
+        "## Counter Ask\n<script>\n\n"
+        "## If They Push Back\n<script>\n\n"
+        "## Closing\n<script>\n\n"
+        "Be confident, professional, and specific. Do not add preamble."
+    )
+
+    def __init__(self, parent, client, **kwargs):
+        super().__init__(parent, bg=self.BG, **kwargs)
+        self._client  = client
+        self._parsed  = {}
+        self._build()
+
+    def _build(self):
+        tk.Label(self, text="📄 Offer Letter Analyzer",
+                 bg=self.BG, fg=self.ACCENT,
+                 font=("Helvetica", 15, "bold"),
+                 anchor="w", padx=20, pady=14).pack(fill="x")
+
+        tk.Label(self, text="Paste your full offer letter below.",
+                 bg=self.BG, fg="#94a3b8",
+                 font=("Helvetica", 10), anchor="w", padx=20).pack(fill="x")
+
+        input_card = tk.Frame(self, bg=self.CARD_BG, padx=16, pady=12)
+        input_card.pack(fill="x", padx=20, pady=(8, 0))
+
+        self._offer_text = tk.Text(
+            input_card, height=10, wrap="word",
+            bg="#16213e", fg=self.FG,
+            insertbackground=self.FG,
+            font=("Helvetica", 10),
+            relief="flat", bd=0,
+        )
+        self._offer_text.pack(fill="both", expand=True)
+        self._offer_text.insert("1.0", "Paste offer letter text here...")
+        self._offer_text.bind("<FocusIn>",  self._clear_placeholder)
+        self._offer_text.bind("<FocusOut>", self._restore_placeholder)
+
+        self._analyze_btn = tk.Button(
+            self, text="Analyze Offer →",
+            bg=self.ACCENT, fg=self.BTN_FG,
+            activebackground="#6d28d9",
+            font=("Helvetica", 11, "bold"),
+            relief="flat", bd=0, padx=20, pady=8,
+            cursor="hand2",
+            command=self._run_analysis,
+        )
+        self._analyze_btn.pack(anchor="e", padx=20, pady=(8, 0))
+
+        self._status = tk.Label(self, text="",
+                                bg=self.BG, fg="#94a3b8",
+                                font=("Helvetica", 9))
+        self._status.pack(anchor="e", padx=20)
+
+        results_outer = tk.Frame(self, bg=self.BG)
+        results_outer.pack(fill="both", expand=True, padx=20, pady=10)
+
+        left = tk.Frame(results_outer, bg=self.CARD_BG, padx=12, pady=10)
+        left.pack(side="left", fill="both", expand=True, padx=(0, 6))
+
+        tk.Label(left, text="Offer Breakdown",
+                 bg=self.CARD_BG, fg=self.ACCENT,
+                 font=("Helvetica", 11, "bold")).pack(anchor="w")
+
+        self._breakdown_text = tk.Text(
+            left, wrap="word", state="disabled",
+            bg=self.CARD_BG, fg=self.FG,
+            font=("Helvetica", 10), relief="flat", bd=0,
+        )
+        self._breakdown_text.pack(fill="both", expand=True)
+
+        right = tk.Frame(results_outer, bg=self.CARD_BG, padx=12, pady=10)
+        right.pack(side="left", fill="both", expand=True, padx=(6, 0))
+
+        tk.Label(right, text="Counter Script",
+                 bg=self.CARD_BG, fg=self.ACCENT,
+                 font=("Helvetica", 11, "bold")).pack(anchor="w")
+
+        self._script_text = tk.Text(
+            right, wrap="word", state="disabled",
+            bg=self.CARD_BG, fg=self.FG,
+            font=("Helvetica", 10), relief="flat", bd=0,
+        )
+        self._script_text.pack(fill="both", expand=True)
+
+    def _clear_placeholder(self, _event=None):
+        if self._offer_text.get("1.0", "end-1c") == "Paste offer letter text here...":
+            self._offer_text.delete("1.0", "end")
+            self._offer_text.configure(fg=self.FG)
+
+    def _restore_placeholder(self, _event=None):
+        if not self._offer_text.get("1.0", "end-1c").strip():
+            self._offer_text.insert("1.0", "Paste offer letter text here...")
+            self._offer_text.configure(fg="#64748b")
+
+    def _set_text(self, widget: tk.Text, content: str):
+        widget.configure(state="normal")
+        widget.delete("1.0", "end")
+        widget.insert("1.0", content)
+        widget.configure(state="disabled")
+
+    def _run_analysis(self):
+        raw = self._offer_text.get("1.0", "end-1c").strip()
+        if not raw or raw == "Paste offer letter text here...":
+            self._status.configure(text="⚠ Paste an offer letter first.", fg="#f59e0b")
+            return
+
+        self._analyze_btn.configure(state="disabled", text="Analyzing…")
+        self._status.configure(text="Step 1/2 — extracting data…", fg="#94a3b8")
+        self._set_text(self._breakdown_text, "")
+        self._set_text(self._script_text, "")
+
+        threading.Thread(target=self._analysis_worker, args=(raw,), daemon=True).start()
+
+    def _analysis_worker(self, raw: str):
+        import json as _j
+        try:
+            resp1 = self._client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1024,
+                system=self._EXTRACT_SYSTEM,
+                messages=[{"role": "user", "content": raw}],
+            )
+            json_str = resp1.content[0].text.strip()
+            if json_str.startswith("```"):
+                lines = json_str.split("\n")
+                json_str = "\n".join(lines[1:-1])
+            self._parsed = _j.loads(json_str)
+
+            lines = []
+            labels = [
+                ("base_salary",      "Base Salary"),
+                ("signing_bonus",    "Signing Bonus"),
+                ("annual_bonus",     "Annual Bonus / Target"),
+                ("equity",           "Equity / RSUs"),
+                ("vesting_schedule", "Vesting Schedule"),
+                ("pto_days",         "PTO"),
+                ("health_benefits",  "Health Benefits"),
+                ("retirement",       "401k / Retirement"),
+                ("start_date",       "Start Date"),
+            ]
+            for key, label in labels:
+                val = self._parsed.get(key, "Not mentioned")
+                lines.append(f"{label}:\n  {val}\n")
+
+            clauses = self._parsed.get("notable_clauses", [])
+            if clauses:
+                lines.append("Notable Clauses:")
+                for c in clauses:
+                    lines.append(f"  • {c}")
+
+            breakdown_output = "\n".join(lines)
+            self.after(0, lambda: self._set_text(self._breakdown_text, breakdown_output))
+            self.after(0, lambda: self._status.configure(
+                text="Step 2/2 — writing counter script…", fg="#94a3b8"))
+
+            summary = "\n".join(f"{k}: {v}" for k, v in self._parsed.items())
+            resp2 = self._client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1500,
+                system=self._COUNTER_SYSTEM,
+                messages=[{"role": "user", "content": summary}],
+            )
+            script = resp2.content[0].text.strip()
+
+            self.after(0, lambda: self._set_text(self._script_text, script))
+            self.after(0, lambda: self._status.configure(
+                text="Done — review your breakdown and counter script.", fg="#22c55e"))
+
+        except Exception as exc:
+            self.after(0, lambda: self._status.configure(
+                text=f"Error: {exc}", fg="#ef4444"))
+        finally:
+            self.after(0, lambda: self._analyze_btn.configure(
+                state="normal", text="Analyze Offer →"))
+
+
+class MultiOfferFrame(tk.Frame):
+    """Side-by-side comparison of up to 3 offers with Claude recommendation."""
+
+    BG      = "#0f0f1a"
+    CARD_BG = "#1a1a2e"
+    FG      = "#e2e8f0"
+    ACCENT  = "#7c3aed"
+    BTN_FG  = "#ffffff"
+    COL_HDR = "#6d28d9"
+
+    _COMPARE_SYSTEM = (
+        "You are a compensation strategy expert. The user has provided details for up to 3 job "
+        "offers. Produce a structured comparison covering:\n"
+        "1. Total Comp (Year 1 and Year 4)\n"
+        "2. Equity analysis\n"
+        "3. Growth trajectory\n"
+        "4. Risk factors\n"
+        "5. Your recommendation with a clear rationale\n\n"
+        'Be direct and specific. Use markdown headers. If a field is blank, note it as '
+        '"Not provided" rather than skipping it.'
+    )
+
+    _FIELDS = [
+        ("company",    "Company Name"),
+        ("role",       "Role / Title"),
+        ("base",       "Base Salary"),
+        ("bonus",      "Bonus / Target"),
+        ("equity",     "Equity (total $)"),
+        ("vesting",    "Vesting (years)"),
+        ("pto",        "PTO (days)"),
+        ("location",   "Location / Remote"),
+        ("start_date", "Start Date"),
+    ]
+
+    def __init__(self, parent, client, **kwargs):
+        super().__init__(parent, bg=self.BG, **kwargs)
+        self._client = client
+        self._entries: list = []
+        self._build()
+
+    def _build(self):
+        tk.Label(self, text="⚖️  Multi-Offer Comparison",
+                 bg=self.BG, fg=self.ACCENT,
+                 font=("Helvetica", 15, "bold"),
+                 anchor="w", padx=20, pady=14).pack(fill="x")
+
+        tk.Label(self, text="Fill in details for up to 3 offers, then click Compare.",
+                 bg=self.BG, fg="#94a3b8",
+                 font=("Helvetica", 10), anchor="w", padx=20).pack(fill="x")
+
+        grid_frame = tk.Frame(self, bg=self.BG)
+        grid_frame.pack(fill="x", padx=20, pady=(10, 0))
+
+        headers = ["Offer A", "Offer B", "Offer C"]
+        for col, hdr in enumerate(headers):
+            tk.Label(grid_frame, text=hdr,
+                     bg=self.COL_HDR, fg="#ffffff",
+                     font=("Helvetica", 10, "bold"),
+                     anchor="center", pady=6).grid(
+                row=0, column=col + 1, sticky="ew", padx=3)
+            self._entries.append({})
+
+        grid_frame.columnconfigure(0, weight=0, minsize=130)
+        for c in range(1, 4):
+            grid_frame.columnconfigure(c, weight=1)
+
+        for row_idx, (key, label) in enumerate(self._FIELDS):
+            tk.Label(grid_frame, text=label,
+                     bg=self.BG, fg=self.FG,
+                     font=("Helvetica", 9),
+                     anchor="w").grid(row=row_idx + 1, column=0, sticky="w", pady=2, padx=(0, 6))
+
+            for col_idx in range(3):
+                var = tk.StringVar()
+                entry = tk.Entry(grid_frame, textvariable=var,
+                                 bg="#16213e", fg=self.FG,
+                                 insertbackground=self.FG,
+                                 font=("Helvetica", 9),
+                                 relief="flat", bd=1,
+                                 highlightthickness=1,
+                                 highlightcolor=self.ACCENT,
+                                 highlightbackground="#3b3b5c")
+                entry.grid(row=row_idx + 1, column=col_idx + 1,
+                           sticky="ew", padx=3, pady=2, ipady=3)
+                self._entries[col_idx][key] = var
+
+        btn_row = tk.Frame(self, bg=self.BG)
+        btn_row.pack(fill="x", padx=20, pady=8)
+
+        self._compare_btn = tk.Button(
+            btn_row, text="Compare Offers →",
+            bg=self.ACCENT, fg=self.BTN_FG,
+            activebackground="#6d28d9",
+            font=("Helvetica", 11, "bold"),
+            relief="flat", bd=0, padx=20, pady=8,
+            cursor="hand2",
+            command=self._run_compare,
+        )
+        self._compare_btn.pack(side="right")
+
+        self._status = tk.Label(btn_row, text="",
+                                bg=self.BG, fg="#94a3b8",
+                                font=("Helvetica", 9))
+        self._status.pack(side="right", padx=12)
+
+        result_card = tk.Frame(self, bg=self.CARD_BG, padx=16, pady=12)
+        result_card.pack(fill="both", expand=True, padx=20, pady=(0, 14))
+
+        tk.Label(result_card, text="Analysis & Recommendation",
+                 bg=self.CARD_BG, fg=self.ACCENT,
+                 font=("Helvetica", 11, "bold")).pack(anchor="w")
+
+        self._result_text = tk.Text(
+            result_card, wrap="word", state="disabled",
+            bg=self.CARD_BG, fg=self.FG,
+            font=("Helvetica", 10), relief="flat", bd=0,
+        )
+        self._result_text.pack(fill="both", expand=True)
+
+    def _set_text(self, widget: tk.Text, content: str):
+        widget.configure(state="normal")
+        widget.delete("1.0", "end")
+        widget.insert("1.0", content)
+        widget.configure(state="disabled")
+
+    def _run_compare(self):
+        offer_blocks = []
+        for idx, offer_vars in enumerate(self._entries):
+            company = offer_vars["company"].get().strip()
+            if not company:
+                continue
+            lines = [f"=== Offer {chr(65 + idx)} ({company}) ==="]
+            for key, label in self._FIELDS:
+                val = offer_vars[key].get().strip() or "Not provided"
+                lines.append(f"{label}: {val}")
+            offer_blocks.append("\n".join(lines))
+
+        if not offer_blocks:
+            self._status.configure(text="⚠ Fill in at least one offer.", fg="#f59e0b")
+            return
+
+        self._compare_btn.configure(state="disabled", text="Comparing…")
+        self._status.configure(text="Asking Claude…", fg="#94a3b8")
+        self._set_text(self._result_text, "")
+
+        prompt = "\n\n".join(offer_blocks)
+        threading.Thread(target=self._compare_worker, args=(prompt,), daemon=True).start()
+
+    def _compare_worker(self, prompt: str):
+        try:
+            resp = self._client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=2000,
+                system=self._COMPARE_SYSTEM,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            result = resp.content[0].text.strip()
+            self.after(0, lambda: self._set_text(self._result_text, result))
+            self.after(0, lambda: self._status.configure(text="Done.", fg="#22c55e"))
+        except Exception as exc:
+            self.after(0, lambda: self._status.configure(
+                text=f"Error: {exc}", fg="#ef4444"))
+        finally:
+            self.after(0, lambda: self._compare_btn.configure(
+                state="normal", text="Compare Offers →"))
+
+
+class TotalCompFrame(tk.Frame):
+    """
+    Pure-math total compensation calculator.
+    Inputs: base, bonus%, signing, equity_shares, strike_price, current_fmv,
+            vesting_years, benefits_annual.
+    Outputs: Year 1 TC, Year 4 TC, equity value at vest.
+    Bar chart: tkinter Canvas only — no matplotlib dependency.
+    """
+
+    BG      = "#0f0f1a"
+    CARD_BG = "#1a1a2e"
+    FG      = "#e2e8f0"
+    ACCENT  = "#7c3aed"
+    BARS    = ["#7c3aed", "#2563eb", "#059669", "#d97706", "#dc2626"]
+
+    BAR_LABELS = [
+        "Base Salary",
+        "Annual Bonus",
+        "Benefits",
+        "Equity (Year 1)",
+        "Equity (Year 4)",
+    ]
+
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, bg=self.BG, **kwargs)
+        self._vars: dict = {}
+        self._build()
+
+    def _build(self):
+        tk.Label(self, text="🧮 Total Comp Calculator",
+                 bg=self.BG, fg=self.ACCENT,
+                 font=("Helvetica", 15, "bold"),
+                 anchor="w", padx=20, pady=14).pack(fill="x")
+
+        tk.Label(self, text="Pure math — no AI used. Enter your offer details.",
+                 bg=self.BG, fg="#94a3b8",
+                 font=("Helvetica", 10), anchor="w", padx=20).pack(fill="x")
+
+        body = tk.Frame(self, bg=self.BG)
+        body.pack(fill="both", expand=True, padx=20, pady=10)
+
+        input_card = tk.Frame(body, bg=self.CARD_BG, padx=16, pady=14)
+        input_card.pack(side="left", fill="y", padx=(0, 10))
+
+        fields = [
+            ("base",            "Base Salary ($)"),
+            ("bonus_pct",       "Target Bonus (%)"),
+            ("signing",         "Signing Bonus ($)"),
+            ("equity_shares",   "Equity Shares / RSUs"),
+            ("strike_price",    "Strike / Grant Price ($)"),
+            ("current_fmv",     "Current FMV per Share ($)"),
+            ("vesting_years",   "Vesting Period (years)"),
+            ("benefits_annual", "Benefits Value ($/year)"),
+        ]
+
+        for key, label in fields:
+            tk.Label(input_card, text=label,
+                     bg=self.CARD_BG, fg=self.FG,
+                     font=("Helvetica", 9), anchor="w").pack(fill="x", pady=(4, 0))
+            var = tk.StringVar(value="0")
+            entry = tk.Entry(input_card, textvariable=var,
+                             bg="#16213e", fg=self.FG,
+                             insertbackground=self.FG,
+                             font=("Helvetica", 10),
+                             relief="flat", bd=1,
+                             highlightthickness=1,
+                             highlightcolor=self.ACCENT,
+                             highlightbackground="#3b3b5c",
+                             width=18)
+            entry.pack(fill="x", pady=(0, 2), ipady=4)
+            self._vars[key] = var
+
+        tk.Button(
+            input_card, text="Calculate →",
+            bg=self.ACCENT, fg="#ffffff",
+            activebackground="#6d28d9",
+            font=("Helvetica", 11, "bold"),
+            relief="flat", bd=0, pady=8,
+            cursor="hand2",
+            command=self._calculate,
+        ).pack(fill="x", pady=(12, 0))
+
+        self._error_label = tk.Label(input_card, text="",
+                                     bg=self.CARD_BG, fg="#ef4444",
+                                     font=("Helvetica", 9), wraplength=160)
+        self._error_label.pack(fill="x", pady=(4, 0))
+
+        right = tk.Frame(body, bg=self.BG)
+        right.pack(side="left", fill="both", expand=True)
+
+        summary_card = tk.Frame(right, bg=self.CARD_BG, padx=16, pady=12)
+        summary_card.pack(fill="x")
+
+        self._summary_labels: dict = {}
+        for key, label in [
+            ("year1_tc",   "Year 1 Total Comp"),
+            ("year4_tc",   "Year 4 Total Comp"),
+            ("equity_val", "Equity Value at Full Vest"),
+        ]:
+            row = tk.Frame(summary_card, bg=self.CARD_BG)
+            row.pack(fill="x", pady=3)
+            tk.Label(row, text=label + ":",
+                     bg=self.CARD_BG, fg="#94a3b8",
+                     font=("Helvetica", 10)).pack(side="left")
+            lbl = tk.Label(row, text="—",
+                           bg=self.CARD_BG, fg="#22c55e",
+                           font=("Helvetica", 12, "bold"))
+            lbl.pack(side="right")
+            self._summary_labels[key] = lbl
+
+        chart_card = tk.Frame(right, bg=self.CARD_BG, padx=16, pady=12)
+        chart_card.pack(fill="both", expand=True, pady=(10, 0))
+
+        tk.Label(chart_card, text="Compensation Breakdown",
+                 bg=self.CARD_BG, fg=self.ACCENT,
+                 font=("Helvetica", 10, "bold")).pack(anchor="w")
+
+        self._canvas = tk.Canvas(chart_card, bg=self.CARD_BG,
+                                 highlightthickness=0, height=200)
+        self._canvas.pack(fill="both", expand=True, pady=(6, 0))
+        self._canvas.bind("<Configure>", self._redraw_chart)
+        self._chart_values: list = []
+
+    @staticmethod
+    def _parse(var: tk.StringVar) -> float:
+        raw = var.get().replace("$", "").replace(",", "").strip()
+        if not raw:
+            return 0.0
+        return float(raw)
+
+    def calculate(
+        self,
+        base: float,
+        bonus_pct: float,
+        signing: float,
+        equity_shares: float,
+        strike_price: float,
+        current_fmv: float,
+        vesting_years: float,
+        benefits_annual: float,
+    ) -> dict:
+        """
+        Pure-math total comp calculation.
+        Returns dict with year1_tc, year4_tc, equity_value_at_vest,
+        annual_bonus, shares_per_year, equity_year1, equity_year4.
+        """
+        annual_bonus    = base * (bonus_pct / 100.0)
+        equity_gain_per = max(0.0, current_fmv - strike_price)
+        vesting_y       = max(1.0, vesting_years)
+        shares_per_year = equity_shares / vesting_y
+        equity_year1    = shares_per_year * equity_gain_per
+        equity_year4    = min(4.0, vesting_y) / vesting_y * equity_shares * equity_gain_per
+
+        year1_tc = base + annual_bonus + signing + equity_year1 + benefits_annual
+        year4_tc = (base * 4) + (annual_bonus * 4) + equity_year4 + (benefits_annual * 4)
+
+        return {
+            "year1_tc":             year1_tc,
+            "year4_tc":             year4_tc,
+            "equity_value_at_vest": equity_shares * equity_gain_per,
+            "annual_bonus":         annual_bonus,
+            "equity_year1":         equity_year1,
+            "equity_year4":         equity_year4,
+        }
+
+    def _calculate(self):
+        try:
+            base            = self._parse(self._vars["base"])
+            bonus_pct       = self._parse(self._vars["bonus_pct"])
+            signing         = self._parse(self._vars["signing"])
+            equity_shares   = self._parse(self._vars["equity_shares"])
+            strike_price    = self._parse(self._vars["strike_price"])
+            current_fmv     = self._parse(self._vars["current_fmv"])
+            vesting_years   = self._parse(self._vars["vesting_years"])
+            benefits_annual = self._parse(self._vars["benefits_annual"])
+        except ValueError:
+            self._error_label.configure(text="⚠ Enter numbers only (no letters).")
+            return
+
+        self._error_label.configure(text="")
+
+        result = self.calculate(
+            base, bonus_pct, signing, equity_shares,
+            strike_price, current_fmv, vesting_years, benefits_annual,
+        )
+
+        def fmt(n: float) -> str:
+            return f"${n:,.0f}"
+
+        self._summary_labels["year1_tc"].configure(text=fmt(result["year1_tc"]))
+        self._summary_labels["year4_tc"].configure(text=fmt(result["year4_tc"]))
+        self._summary_labels["equity_val"].configure(
+            text=fmt(result["equity_value_at_vest"]))
+
+        self._chart_values = [
+            base,
+            result["annual_bonus"],
+            benefits_annual,
+            result["equity_year1"],
+            result["equity_year4"],
+        ]
+        self._redraw_chart()
+
+    def _redraw_chart(self, _event=None):
+        self._canvas.delete("all")
+        values = self._chart_values
+        if not values or max(values) <= 0:
+            return
+
+        w = self._canvas.winfo_width()
+        h = self._canvas.winfo_height()
+        if w < 10 or h < 10:
+            return
+
+        padding_left  = 110
+        padding_right = 60
+        padding_top   = 10
+        padding_bot   = 10
+
+        n_bars     = len(values)
+        bar_area_h = h - padding_top - padding_bot
+        bar_h      = max(12, (bar_area_h // n_bars) - 6)
+        max_val    = max(values)
+        bar_max_w  = w - padding_left - padding_right
+
+        for i, (val, label) in enumerate(zip(values, self.BAR_LABELS)):
+            y_center = padding_top + i * (bar_area_h // n_bars) + bar_h // 2
+            y0 = y_center - bar_h // 2
+            y1 = y_center + bar_h // 2
+
+            self._canvas.create_text(
+                padding_left - 6, y_center,
+                text=label, anchor="e",
+                fill=self.FG, font=("Helvetica", 8),
+            )
+
+            fill_w = int(bar_max_w * (val / max_val)) if max_val > 0 else 0
+            color  = self.BARS[i % len(self.BARS)]
+            if fill_w > 0:
+                self._canvas.create_rectangle(
+                    padding_left, y0,
+                    padding_left + fill_w, y1,
+                    fill=color, outline="",
+                )
+
+            self._canvas.create_text(
+                padding_left + fill_w + 4, y_center,
+                text=f"${val:,.0f}", anchor="w",
+                fill="#94a3b8", font=("Helvetica", 8),
+            )
+
+
+class EmailDraftFrame(tk.Frame):
+    """
+    Inputs: company, role, current offer, target comp, notes.
+    Claude generates 3 sections: Subject Line, Negotiation Email, Follow-Up Email.
+    Each section has its own Copy button.
+    """
+
+    BG      = "#0f0f1a"
+    CARD_BG = "#1a1a2e"
+    FG      = "#e2e8f0"
+    ACCENT  = "#7c3aed"
+    BTN_FG  = "#ffffff"
+
+    _EMAIL_SYSTEM = (
+        "You are a professional career coach specializing in salary negotiation. "
+        "Generate exactly three sections separated by the delimiters shown. "
+        "Do not deviate from this format.\n\n"
+        "===SUBJECT===\n<one-line email subject>\n"
+        "===EMAIL===\n<full negotiation email body>\n"
+        "===FOLLOWUP===\n<full follow-up email body (send if no reply after 5 days)>\n\n"
+        "Rules:\n"
+        "- Address the hiring manager by name if provided\n"
+        "- Be warm, confident, and professional — not aggressive\n"
+        "- Anchor to a specific number in the counter\n"
+        "- Keep the email under 200 words\n"
+        "- Keep the follow-up under 120 words\n"
+        "- No placeholders like [YOUR NAME] — use the details provided"
+    )
+
+    _SECTIONS = [
+        ("subject",  "Subject Line",     "===SUBJECT===",  "===EMAIL==="),
+        ("email",    "Negotiation Email", "===EMAIL===",    "===FOLLOWUP==="),
+        ("followup", "Follow-Up Email",  "===FOLLOWUP===", None),
+    ]
+
+    def __init__(self, parent, client, **kwargs):
+        super().__init__(parent, bg=self.BG, **kwargs)
+        self._client       = client
+        self._input_vars: dict = {}
+        self._section_texts: dict = {}
+        self._build()
+
+    def _build(self):
+        tk.Label(self, text="✉️  Negotiation Email Generator",
+                 bg=self.BG, fg=self.ACCENT,
+                 font=("Helvetica", 15, "bold"),
+                 anchor="w", padx=20, pady=14).pack(fill="x")
+
+        body = tk.Frame(self, bg=self.BG)
+        body.pack(fill="both", expand=True, padx=20, pady=(0, 14))
+
+        input_card = tk.Frame(body, bg=self.CARD_BG, padx=16, pady=14)
+        input_card.pack(side="left", fill="y", padx=(0, 10))
+
+        single_fields = [
+            ("hiring_manager", "Hiring Manager Name"),
+            ("company",        "Company"),
+            ("role",           "Role / Title"),
+            ("current_offer",  "Current Offer ($)"),
+            ("target_comp",    "Your Counter ($)"),
+        ]
+
+        for key, label in single_fields:
+            tk.Label(input_card, text=label,
+                     bg=self.CARD_BG, fg=self.FG,
+                     font=("Helvetica", 9), anchor="w").pack(fill="x", pady=(4, 0))
+            var = tk.StringVar()
+            tk.Entry(input_card, textvariable=var,
+                     bg="#16213e", fg=self.FG,
+                     insertbackground=self.FG,
+                     font=("Helvetica", 10),
+                     relief="flat", bd=1,
+                     highlightthickness=1,
+                     highlightcolor=self.ACCENT,
+                     highlightbackground="#3b3b5c",
+                     width=22).pack(fill="x", ipady=4, pady=(0, 2))
+            self._input_vars[key] = var
+
+        tk.Label(input_card, text="Additional Notes",
+                 bg=self.CARD_BG, fg=self.FG,
+                 font=("Helvetica", 9), anchor="w").pack(fill="x", pady=(4, 0))
+        self._notes = tk.Text(
+            input_card, height=4, wrap="word",
+            bg="#16213e", fg=self.FG,
+            insertbackground=self.FG,
+            font=("Helvetica", 9),
+            relief="flat", bd=1,
+            highlightthickness=1,
+            highlightcolor=self.ACCENT,
+            highlightbackground="#3b3b5c",
+            width=22,
+        )
+        self._notes.pack(fill="x", ipady=4, pady=(0, 8))
+
+        self._generate_btn = tk.Button(
+            input_card, text="Generate Emails →",
+            bg=self.ACCENT, fg=self.BTN_FG,
+            activebackground="#6d28d9",
+            font=("Helvetica", 11, "bold"),
+            relief="flat", bd=0, pady=8,
+            cursor="hand2",
+            command=self._run_generate,
+        )
+        self._generate_btn.pack(fill="x")
+
+        self._status = tk.Label(input_card, text="",
+                                bg=self.CARD_BG, fg="#94a3b8",
+                                font=("Helvetica", 9), wraplength=170)
+        self._status.pack(fill="x", pady=(4, 0))
+
+        right = tk.Frame(body, bg=self.BG)
+        right.pack(side="left", fill="both", expand=True)
+
+        for key, title, _start_delim, _end_delim in self._SECTIONS:
+            section = tk.Frame(right, bg=self.CARD_BG, padx=12, pady=8)
+            section.pack(fill="both", expand=True, pady=(0, 6))
+
+            hdr = tk.Frame(section, bg=self.CARD_BG)
+            hdr.pack(fill="x")
+            tk.Label(hdr, text=title,
+                     bg=self.CARD_BG, fg=self.ACCENT,
+                     font=("Helvetica", 10, "bold")).pack(side="left")
+            tk.Button(
+                hdr, text="Copy",
+                bg="#3b3b5c", fg="#c4b5fd",
+                activebackground="#4c1d95",
+                font=("Helvetica", 8),
+                relief="flat", bd=0, padx=8, pady=2,
+                cursor="hand2",
+                command=lambda k=key: self._copy_section(k),
+            ).pack(side="right")
+
+            txt = tk.Text(
+                section, wrap="word", state="disabled",
+                bg=self.CARD_BG, fg=self.FG,
+                font=("Helvetica", 9), relief="flat", bd=0,
+                height=4,
+            )
+            txt.pack(fill="both", expand=True, pady=(4, 0))
+            self._section_texts[key] = txt
+
+    def _set_text(self, widget: tk.Text, content: str):
+        widget.configure(state="normal")
+        widget.delete("1.0", "end")
+        widget.insert("1.0", content)
+        widget.configure(state="disabled")
+
+    def _copy_section(self, key: str):
+        txt = self._section_texts[key]
+        content = txt.get("1.0", "end-1c").strip()
+        if content:
+            self.clipboard_clear()
+            self.clipboard_append(content)
+
+    @staticmethod
+    def parse_sections(raw: str) -> dict:
+        """Parse Claude output into {subject, email, followup}."""
+        result = {}
+        delimiters = ["===SUBJECT===", "===EMAIL===", "===FOLLOWUP==="]
+        keys       = ["subject",       "email",       "followup"]
+
+        for i, (delim, key) in enumerate(zip(delimiters, keys)):
+            start = raw.find(delim)
+            if start == -1:
+                result[key] = ""
+                continue
+            content_start = start + len(delim)
+            end = len(raw)
+            if i + 1 < len(delimiters):
+                next_pos = raw.find(delimiters[i + 1], content_start)
+                if next_pos != -1:
+                    end = next_pos
+            result[key] = raw[content_start:end].strip()
+
+        return result
+
+    def _run_generate(self):
+        company       = self._input_vars["company"].get().strip()
+        current_offer = self._input_vars["current_offer"].get().strip()
+        target_comp   = self._input_vars["target_comp"].get().strip()
+
+        if not company or not current_offer or not target_comp:
+            self._status.configure(
+                text="⚠ Fill in Company, Current Offer, and Target.", fg="#f59e0b")
+            return
+
+        hiring_manager = self._input_vars["hiring_manager"].get().strip() or "the hiring team"
+        role           = self._input_vars["role"].get().strip()
+        notes          = self._notes.get("1.0", "end-1c").strip()
+
+        prompt = (
+            f"Hiring Manager: {hiring_manager}\n"
+            f"Company: {company}\n"
+            f"Role: {role}\n"
+            f"Current Offer: {current_offer}\n"
+            f"My Counter: {target_comp}\n"
+        )
+        if notes:
+            prompt += f"Additional Context: {notes}\n"
+
+        self._generate_btn.configure(state="disabled", text="Generating…")
+        self._status.configure(text="Drafting emails…", fg="#94a3b8")
+        for txt in self._section_texts.values():
+            self._set_text(txt, "")
+
+        threading.Thread(target=self._generate_worker, args=(prompt,), daemon=True).start()
+
+    def _generate_worker(self, prompt: str):
+        try:
+            resp = self._client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1500,
+                system=self._EMAIL_SYSTEM,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw      = resp.content[0].text
+            sections = self.parse_sections(raw)
+
+            for key, content in sections.items():
+                self.after(0, lambda t=self._section_texts[key], c=content:
+                           self._set_text(t, c))
+
+            self.after(0, lambda: self._status.configure(
+                text="Done — click Copy to use each section.", fg="#22c55e"))
+        except Exception as exc:
+            self.after(0, lambda: self._status.configure(
+                text=f"Error: {exc}", fg="#ef4444"))
+        finally:
+            self.after(0, lambda: self._generate_btn.configure(
+                state="normal", text="Generate Emails →"))
+
+
+class NegotiateFrame(tk.Frame):
+    """💰 Negotiate Mode — four salary tools in a left-nav layout."""
+
+    NAV_WIDTH  = 170
+    NAV_BG     = "#1e1e2e"
+    NAV_SEL    = "#7c3aed"
+    NAV_FG     = "#e2e8f0"
+    CONTENT_BG = "#0f0f1a"
+
+    TOOLS = [
+        ("📄", "Offer Analyzer"),
+        ("⚖️",  "Compare Offers"),
+        ("🧮", "Total Comp"),
+        ("✉️",  "Email Draft"),
+    ]
+
+    def __init__(self, parent, client, **kwargs):
+        super().__init__(parent, bg=self.CONTENT_BG, **kwargs)
+        self._client   = client
+        self._nav_btns = []
+        self._frames   = {}
+        self._active   = None
+
+        self._build_layout()
+        self._show_tool(0)
+
+    def _build_layout(self):
+        self._nav = tk.Frame(self, width=self.NAV_WIDTH, bg=self.NAV_BG)
+        self._nav.pack(side="left", fill="y")
+        self._nav.pack_propagate(False)
+
+        tk.Label(
+            self._nav, text="💰 Negotiate",
+            bg=self.NAV_BG, fg="#a78bfa",
+            font=("Helvetica", 13, "bold"),
+            pady=18,
+        ).pack(fill="x")
+
+        tk.Frame(self._nav, bg="#3b3b5c", height=1).pack(fill="x", padx=12)
+
+        for idx, (icon, label) in enumerate(self.TOOLS):
+            btn = tk.Button(
+                self._nav,
+                text=f"  {icon}  {label}",
+                anchor="w",
+                bg=self.NAV_BG, fg=self.NAV_FG,
+                activebackground=self.NAV_SEL,
+                activeforeground="#ffffff",
+                relief="flat", bd=0,
+                padx=10, pady=11,
+                font=("Helvetica", 11),
+                cursor="hand2",
+                command=lambda i=idx: self._show_tool(i),
+            )
+            btn.pack(fill="x")
+            self._nav_btns.append(btn)
+
+        self._content = tk.Frame(self, bg=self.CONTENT_BG)
+        self._content.pack(side="left", fill="both", expand=True)
+
+        self._frames[0] = OfferAnalyzerFrame(self._content, self._client)
+        self._frames[1] = MultiOfferFrame(self._content, self._client)
+        self._frames[2] = TotalCompFrame(self._content)
+        self._frames[3] = EmailDraftFrame(self._content, self._client)
+
+        for frame in self._frames.values():
+            frame.place(relwidth=1, relheight=1)
+
+    def _show_tool(self, idx: int):
+        for i, btn in enumerate(self._nav_btns):
+            if i == idx:
+                btn.configure(bg=self.NAV_SEL, fg="#ffffff")
+            else:
+                btn.configure(bg=self.NAV_BG, fg=self.NAV_FG)
+
+        self._frames[idx].lift()
+        self._active = idx
 
 
 # ─────────────────────────────────────────────────────────────────────────────
