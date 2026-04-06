@@ -430,11 +430,6 @@ export function BookingPage({ slug }: Props) {
     (async () => {
       try {
         const host = await api.getHost(slug);
-        if (!host.calendar_connected) {
-          setErrorMsg("The host hasn't connected their calendar yet.");
-          setStep('error');
-          return;
-        }
         setHostInfo({ name: host.name, slot_minutes: host.slot_minutes });
         const { slots } = await api.getSlots(slug);
         setAllSlots(slots);
