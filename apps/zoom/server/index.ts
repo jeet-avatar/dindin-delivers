@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { randomUUID } from 'crypto';
 import rateLimit from 'express-rate-limit';
+import jwt from 'jsonwebtoken';
 import { runMigrations } from './db.js';
 import { hostsRouter } from './routes/hosts.js';
 import { authRouter } from './routes/auth.js';
@@ -59,7 +60,22 @@ const PING_INTERVAL = 30_000;
 
 // ── Room state ───────────────────────────────────────────────────────────────
 interface Peer { id: string; ws: WebSocket; name: string; }
-interface Room { peers: Peer[]; password: string | null; hostId: string; }
+
+interface TranscriptMessage {
+  speaker: string;
+  text: string;
+  timestamp: string;
+}
+
+interface Room {
+  peers: Peer[];
+  password: string | null;
+  hostId: string;
+  transcript: TranscriptMessage[];  // accumulated during meeting
+  dealId?: string;                  // BrandMonkz deal ID (set on room creation)
+  launchosUserId?: string;          // for entitlement tracking
+}
+
 const rooms = new Map<string, Room>();
 
 server.on('upgrade', (req) => {
@@ -91,7 +107,9 @@ wss.on('connection', (ws) => {
         if (room.password && room.password !== pwd) { sendTo(ws, { type: 'error', message: 'Incorrect room password' }); return; }
         if (room.peers.length >= MAX_ROOM_SIZE) { sendTo(ws, { type: 'error', message: `Room is full (max ${MAX_ROOM_SIZE})` }); return; }
       } else {
-        room = { peers: [], password: pwd, hostId: peerId };
+        const dealId = (msg.dealId as string) || undefined;
+        const launchosUserId = (msg.launchosUserId as string) || undefined;
+        room = { peers: [], password: pwd, hostId: peerId, transcript: [], dealId, launchosUserId };
         rooms.set(roomCode, room);
       }
       currentRoom = roomCode;
@@ -112,6 +130,19 @@ wss.on('connection', (ws) => {
       const sender = room.peers.find(p => p.id === peerId);
       const chatMsg = { type: 'chat', fromId: peerId, fromName: sender?.name || 'Unknown', text: (msg.text as string).slice(0, 2000), timestamp: Date.now() };
       for (const peer of room.peers) sendTo(peer.ws, chatMsg);
+      return;
+    }
+    if (msg.type === 'transcript' && currentRoom) {
+      // Client sends: { type: 'transcript', text: string, speaker: string }
+      const room = rooms.get(currentRoom); if (!room) return;
+      if (msg.text) {
+        const sender = room.peers.find(p => p.id === peerId);
+        room.transcript.push({
+          speaker: (msg.speaker as string) || sender?.name || 'Unknown',
+          text: (msg.text as string).slice(0, 5000),
+          timestamp: new Date().toISOString(),
+        });
+      }
       return;
     }
     if (msg.type === 'annotation' && currentRoom) {
@@ -189,8 +220,50 @@ wss.on('connection', (ws) => {
     const room = rooms.get(currentRoom); if (!room) return;
     room.peers = room.peers.filter(p => p.id !== peerId);
     if (room.peers.length === 0) {
+      // Capture transcript and dealId before deleting room
+      const transcriptSnapshot = [...room.transcript];
+      const dealId = room.dealId;
+      // Clear transcript from memory immediately (PII protection)
+      room.transcript = [];
       rooms.delete(currentRoom);
       console.log(`Room ${currentRoom} deleted (empty)`);
+
+      // Fire async summary if transcript exists and dealId is set
+      if (transcriptSnapshot.length > 0 && dealId) {
+        const roomCode = currentRoom;
+        setImmediate(async () => {
+          try {
+            const { summarizeMeeting } = await import('./services/meetingSummary.js');
+            const summary = await summarizeMeeting(transcriptSnapshot);
+            if (!summary) { console.log(`[meeting-summary] Empty summary for room ${roomCode}`); return; }
+            const serviceToken = jwt.sign(
+              { service: 'zietra-meet', iat: Math.floor(Date.now() / 1000) },
+              process.env.LAUNCHOS_JWT_SECRET!,
+              { expiresIn: '60s' },
+            );
+            const brandmonkzUrl = process.env.BRANDMONKZ_API_URL || 'https://brandmonkz.com';
+            const resp = await fetch(
+              `${brandmonkzUrl}/api/deals/${dealId}/meeting-notes`,
+              {
+                method: 'PATCH',
+                headers: {
+                  'x-launchos-token': serviceToken,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ notes: summary, meeting_ended_at: new Date().toISOString() }),
+              },
+            );
+            if (!resp.ok) {
+              const body = await resp.text();
+              console.error(`[meeting-summary] BrandMonkz returned ${resp.status}: ${body}`);
+            } else {
+              console.log(`[meeting-summary] Summary posted to deal ${dealId} (room ${roomCode})`);
+            }
+          } catch (err: any) {
+            console.error('[meeting-summary] Failed:', err.message);
+          }
+        });
+      }
     } else {
       if (room.hostId === peerId) {
         room.hostId = room.peers[0].id;
