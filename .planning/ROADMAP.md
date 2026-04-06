@@ -400,3 +400,47 @@ Plans:
 - [ ] 20-03-PLAN.md -- Draggable pitch fader + fix CUE button click/mousedown race condition
 - [ ] 20-04-PLAN.md -- Wire SYNC/MASTER/QUANTIZE/SLIP buttons with real logic and cross-deck BPM sharing
 - [ ] 20-05-PLAN.md -- Wire beat grid nudge to waveform display via gridOffsetMs prop
+
+---
+
+### Phase 21: TechCloudPro Website Redesign
+**Goal**: Build and deploy a complete multi-page TechCloudPro website with dark/light themes, 3D glassmorphism design, 91 pre-rendered routes, blog, contact form
+**Depends on**: None
+**Requirements**: TCP-WEB-01 through TCP-WEB-10
+**Status**: COMPLETE (shipped 2026-04-03)
+**Plans**: 1 plan (PLAN.md)
+
+---
+
+### Phase 22: TechCloudPro LaunchOS — SMB Growth Platform
+**Goal**: Ship TechCloudPro LaunchOS v1 — the all-in-one SMB growth platform that connects BrandMonkz (CRM), Social.Network (AI video + social posting), VibingTicket (AI workers), WebRTC meetings, and SEO under a single unified dashboard with Stripe billing and tier-based entitlement enforcement
+**Depends on**: Phase 21 (TechCloudPro website must exist for landing page)
+**Requirements**: LOS-01, LOS-02, LOS-03, LOS-04, LOS-05, LOS-06, LOS-07, LOS-08, LOS-09, LOS-10, LOS-11
+**Success Criteria** (what must be TRUE):
+  1. Single login unlocks all tools (BrandMonkz hub + Social.Network + VibingTicket + WebRTC meetings) per tier
+  2. BrandMonkz campaign copy triggers Social.Network video generation via connector API
+  3. Social.Network video embed fires watch-time webhook events back to BrandMonkz lead score API
+  4. WebRTC meeting AI summary auto-synced to BrandMonkz deal record post-meeting
+  5. ElevenLabs TTS integrated into Social.Network video render pipeline with per-tier character caps (Starter 3.5K, Growth 21K, Scale 500K)
+  6. Tier entitlement service enforces caps across all 4 apps (contacts, emails, videos, AI outputs, meeting hours)
+  7. Single Stripe subscription (3 price IDs: $79/$149/$249/mo) unlocks correct entitlement tier
+  8. ActiveCampaign migration importer accepts CSV contacts + maps fields to BrandMonkz in under 30 min
+  9. Consolidation calculator live on techcloudpro.com/launchos pricing section
+  10. LaunchOS landing page live at techcloudpro.com/launchos with hero, automation flow, pricing, 30-day free trial CTA
+  11. Gross margin verified: Growth tier avg cost ≤ $18/user/month against $149 revenue
+**Plans**: 11 plans across 4 waves
+
+Plans:
+- [ ] 22-01-PLAN.md -- Wave 1: Entitlement service + Stripe unified billing (3 price IDs, tier enforcement API)
+- [ ] 22-02-PLAN.md -- Wave 1: ElevenLabs TTS integration into Social.Network video render pipeline + per-tier caps
+- [ ] 22-03-PLAN.md -- Wave 2: BrandMonkz → Social.Network connector (campaign copy triggers video gen job)
+- [ ] 22-04-PLAN.md -- Wave 2: Social.Network → BrandMonkz connector (video watch-time webhook → lead score API)
+- [ ] 22-05-PLAN.md -- Wave 2: WebRTC meeting → CRM sync (AI summary → BrandMonkz deal record post-meeting)
+- [ ] 22-06-PLAN.md -- Wave 2: AI Strategy Bot (Claude Sonnet — 10Q onboarding → GTM plan → BrandMonkz config)
+- [ ] 22-07-PLAN.md -- Wave 3: Unified LaunchOS dashboard (single login, tool hub, BrandMonkz as primary shell)
+- [ ] 22-08-PLAN.md -- Wave 3: ActiveCampaign migration importer (CSV contacts + automation re-creation wizard)
+- [ ] 22-09-PLAN.md -- Wave 3: Consolidation calculator (client-side, techcloudpro.com/launchos pricing section)
+- [ ] 22-10-PLAN.md -- Wave 3: LaunchOS landing page (techcloudpro.com/launchos — hero, flow, pricing, CTA)
+- [ ] 22-11-PLAN.md -- Wave 4: End-to-end integration smoke test + margin verification (cost ≤ $18/Growth user)
+
+*Last updated: 2026-04-04 -- Phase 22 added (LaunchOS SMB platform)*
