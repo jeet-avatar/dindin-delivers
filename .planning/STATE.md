@@ -289,6 +289,9 @@ Progress: [####################################....] 82% (9/11 plans in phase 22
 - [Phase 22-02]: In-memory job queue sufficient for v1 — upgrade to Redis-backed BullMQ if horizontal scaling needed
 - [Phase 22-02]: Dockerfile uses node:20 (not alpine) in production stage for Chromium compatibility with Remotion
 - [Phase 22-02]: tts_character 402 is music-only fallback, not a job failure — keeps render success rate high
+- [Phase 22]: Used lazy Stripe initialization in getStripe() factory — Stripe SDK v17 throws at construction if STRIPE_SECRET_KEY is empty
+- [Phase 22]: Task definition uses plain env vars for bootstrap; Secrets Manager wiring requires creating secrets and IAM policy updates before production
+- [Phase 22]: Self-bootstrapping CI/CD workflow registers ECS task def and creates service on first run
 
 ### Blockers
 
@@ -462,6 +465,7 @@ None
 | Phase 20 P03 | 3min | 2 tasks | 1 files |
 | Phase 20 P04 | 148s | 1 tasks | 2 files |
 | Phase 22 P02 | 5 | 3 tasks | 10 files |
+| Phase 22 P01 | 29 | 3 tasks | 11 files |
 
 ## Accumulated Context
 
