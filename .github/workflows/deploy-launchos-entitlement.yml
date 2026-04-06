@@ -57,29 +57,19 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Check if task definition exists; if not, register from committed template
-          if aws ecs describe-task-definition --task-definition launchos-entitlement --region $AWS_REGION 2>/dev/null; then
-            echo "Task definition exists — downloading latest revision"
-            aws ecs describe-task-definition \
-              --task-definition launchos-entitlement \
-              --query taskDefinition > task-definition.json
-            echo "bootstrapped=false" >> $GITHUB_OUTPUT
-          else
-            echo "Task definition not found — bootstrapping from template"
-            # Update image in template to current build
-            sed -i "s|134607809447.dkr.ecr.us-east-1.amazonaws.com/launchos-entitlement:latest|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" apps/launchos-entitlement/task-definition.json
-            aws ecs register-task-definition \
-              --cli-input-json file://apps/launchos-entitlement/task-definition.json \
-              --region $AWS_REGION
-            aws ecs describe-task-definition \
-              --task-definition launchos-entitlement \
-              --query taskDefinition > task-definition.json
-            echo "bootstrapped=true" >> $GITHUB_OUTPUT
-          fi
+          # Always re-register task definition from committed template with current image
+          # This ensures the latest template (no Secrets Manager, just env vars) is used
+          echo "Registering task definition from template with image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          # Update image in template to current build
+          sed -i "s|134607809447.dkr.ecr.us-east-1.amazonaws.com/launchos-entitlement:latest|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" apps/launchos-entitlement/task-definition.json
+          aws ecs register-task-definition \
+            --cli-input-json file://apps/launchos-entitlement/task-definition.json \
+            --region $AWS_REGION
+          aws ecs describe-task-definition \
+            --task-definition launchos-entitlement \
+            --query taskDefinition > task-definition.json
 
       - name: Bootstrap ECS service if needed
-        env:
-          BOOTSTRAPPED: ${{ steps.taskdef-bootstrap.outputs.bootstrapped }}
         run: |
           SERVICE_STATUS=$(aws ecs describe-services \
             --cluster $ECS_CLUSTER \

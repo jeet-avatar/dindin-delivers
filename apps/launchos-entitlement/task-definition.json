@@ -20,36 +20,10 @@
         {
           "name": "REDIS_URL",
           "value": "redis://dollor-redis.uwva3u.0001.use1.cache.amazonaws.com:6379"
-        }
-      ],
-      "secrets": [
-        {
-          "name": "LAUNCHOS_JWT_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/launchos-jwt-secret"
-        },
-        {
-          "name": "STRIPE_SECRET_KEY",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/stripe-vT8WRA:STRIPE_SECRET_KEY::"
-        },
-        {
-          "name": "STRIPE_WEBHOOK_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/launchos-stripe-webhook"
-        },
-        {
-          "name": "STRIPE_PRICE_STARTER",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/launchos-stripe-prices:STRIPE_PRICE_STARTER::"
-        },
-        {
-          "name": "STRIPE_PRICE_GROWTH",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/launchos-stripe-prices:STRIPE_PRICE_GROWTH::"
-        },
-        {
-          "name": "STRIPE_PRICE_SCALE",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/launchos-stripe-prices:STRIPE_PRICE_SCALE::"
         },
         {
           "name": "FRONTEND_URL",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/launchos-config:FRONTEND_URL::"
+          "value": "https://techcloudpro.com"
         }
       ],
       "logConfiguration": {
