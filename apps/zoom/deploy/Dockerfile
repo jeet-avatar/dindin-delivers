@@ -13,6 +13,7 @@ COPY server/migrations/ ./server/migrations/
 COPY server/routes/ ./server/routes/
 COPY server/middleware/ ./server/middleware/
 COPY server/calendar/ ./server/calendar/
+COPY server/services/ ./server/services/
 COPY frontend/dist ./frontend/dist
 
 EXPOSE 3001
