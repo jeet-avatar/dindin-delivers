@@ -6,10 +6,19 @@ import { TIER_TO_STRIPE_PRICE, TierName } from '../config/tiers';
 
 const router = Router();
 
-// Initialize Stripe client with pinned API version
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-02-24.acacia',
-});
+// Lazy Stripe initialization — avoid crash at module load when STRIPE_SECRET_KEY is unset
+// Stripe SDK v17 throws "Neither apiKey nor config.authenticator provided" on empty string
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+    }
+    _stripe = new Stripe(key, { apiVersion: '2025-02-24.acacia' });
+  }
+  return _stripe;
+}
 
 // Shared Redis connection (reuse same ElastiCache as entitlements)
 const redis = new Redis(
@@ -69,7 +78,7 @@ router.post(
     const frontendUrl = process.env.FRONTEND_URL || 'https://techcloudpro.com';
 
     try {
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         mode: 'subscription',
         payment_method_types: ['card'],
         line_items: [{ price: priceId, quantity: 1 }],
@@ -118,7 +127,7 @@ router.post(
     let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(req.body as Buffer, sig, webhookSecret);
+      event = getStripe().webhooks.constructEvent(req.body as Buffer, sig, webhookSecret);
     } catch (err) {
       console.warn('[stripe/webhook] Signature verification failed:', err);
       res.status(400).json({ error: 'Invalid signature' });
@@ -226,7 +235,7 @@ router.post(
     const frontendUrl = process.env.FRONTEND_URL || 'https://techcloudpro.com';
 
     try {
-      const session = await stripe.billingPortal.sessions.create({
+      const session = await getStripe().billingPortal.sessions.create({
         customer: stripe_customer_id,
         return_url: `${frontendUrl}/launchos/dashboard`,
       });
