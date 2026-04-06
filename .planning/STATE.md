@@ -292,6 +292,8 @@ Progress: [####################################....] 82% (9/11 plans in phase 22
 - [Phase 22]: Used lazy Stripe initialization in getStripe() factory — Stripe SDK v17 throws at construction if STRIPE_SECRET_KEY is empty
 - [Phase 22]: Task definition uses plain env vars for bootstrap; Secrets Manager wiring requires creating secrets and IAM policy updates before production
 - [Phase 22]: Self-bootstrapping CI/CD workflow registers ECS task def and creates service on first run
+- [Phase 22-06]: Used authenticate not authenticateToken alias for CRM route auth middleware; both are the same function but authenticate is canonical in this codebase
+- [Phase 22-06]: Added gtmPlan String? to User model via prisma db push; stores latest GTM plan as JSON on user record to avoid new table
 
 ### Blockers
 
@@ -466,6 +468,7 @@ None
 | Phase 20 P04 | 148s | 1 tasks | 2 files |
 | Phase 22 P02 | 5 | 3 tasks | 10 files |
 | Phase 22 P01 | 29 | 3 tasks | 11 files |
+| Phase 22 P06 | 4 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
