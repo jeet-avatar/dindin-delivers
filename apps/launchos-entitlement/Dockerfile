@@ -29,10 +29,10 @@ RUN npm ci --omit=dev --quiet
 # Copy compiled output from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Non-root user for security
-RUN addgroup -g 1000 appgroup && adduser -u 1000 -G appgroup -D appuser
-RUN chown -R appuser:appgroup /app
-USER appuser
+# Use the built-in non-root 'node' user from node:alpine
+# (node:alpine already ships uid/gid 1000 as 'node', creating new group fails)
+RUN chown -R node:node /app
+USER node
 
 EXPOSE 4000
 
