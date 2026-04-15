@@ -4,15 +4,16 @@ import Link from 'next/link'
 import { siteConfig } from '@/lib/config'
 import { SchemaMarkup } from '@/components/ui/SchemaMarkup'
 import { HeroBannerCarousel } from '@/components/ui/HeroBannerCarousel'
+import { GoogleReviews } from '@/components/ui/GoogleReviews'
 
 export const metadata: Metadata = {
   title: 'Primary Care & Weight Loss Doctor | Dr. Arpana Pillay',
   description:
-    'Dr. Arpana Pillay is a board-certified Internal Medicine physician offering primary care, GLP-1 weight loss programs, urgent care, and telehealth in Central Florida. Accepting new patients.',
+    'Dr. Arpana Pillay is an Internal Medicine physician offering primary care, GLP-1 weight loss programs, urgent care, and telehealth in Central Florida. Accepting new patients.',
   openGraph: {
     title: 'Primary Care & Weight Loss Doctor | Dr. Arpana Pillay',
     description:
-      'Dr. Arpana Pillay is a board-certified Internal Medicine physician offering primary care, GLP-1 weight loss programs, urgent care, and telehealth in Central Florida.',
+      'Dr. Arpana Pillay is an Internal Medicine physician offering primary care, GLP-1 weight loss programs, urgent care, and telehealth in Central Florida.',
     url: `${siteConfig.siteUrl}/`,
   },
 }
@@ -82,8 +83,8 @@ const stats = [
 
 const whyUs = [
   {
-    title: 'Board-Certified Physician',
-    desc: 'Dr. Pillay is board-certified in Internal Medicine with over 10 years of clinical experience.',
+    title: 'Experienced Physician',
+    desc: 'Dr. Pillay is an Internal Medicine physician with over 10 years of clinical experience.',
     icon: (
       <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -137,7 +138,7 @@ export default function HomePage() {
           <div className="flex justify-center">
             <div className="relative w-72 h-[380px] lg:w-96 lg:h-[460px] rounded-2xl overflow-hidden shadow-xl">
               <Image
-                src="/dr-pillay.jpg"
+                src="/photos/dr-pillay-portrait.jpg"
                 alt="Dr. Arpana Pillay, Internal Medicine Physician at Vish Medical"
                 fill
                 className="object-cover object-top"
@@ -157,14 +158,14 @@ export default function HomePage() {
               Expert Care, Personal Touch
             </h2>
             <p className="text-slate-600 mb-4 leading-relaxed">
-              Dr. Arpana Pillay is a board-certified Internal Medicine physician with over 10 years of clinical experience. She specializes in primary care, chronic disease management, and physician-supervised weight loss programs.
+              Dr. Arpana Pillay is an Internal Medicine physician with over 10 years of clinical experience. She specializes in primary care, chronic disease management, and physician-supervised weight loss programs.
             </p>
             <p className="text-slate-600 mb-6 leading-relaxed">
               At Vish Medical, she combines evidence-based medicine with a compassionate, patient-centered approach — taking the time to understand your goals and build a plan that actually works for your life.
             </p>
             <ul className="space-y-2 mb-8" aria-label="Dr. Pillay credentials">
               {[
-                'Board-Certified, Internal Medicine',
+                'Internal Medicine Physician',
                 'GLP-1 Medical Weight Loss Specialist',
                 'Telehealth & In-Office Care',
                 'Accepting New Patients — Orlando, FL',
@@ -270,6 +271,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── GOOGLE REVIEWS ───────────────────────────────── */}
+      <GoogleReviews />
 
       {/* ── FINAL CTA ────────────────────────────────────────── */}
       <section className="bg-primary py-16 lg:py-20 px-4 sm:px-6 lg:px-8">
