@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customScript xmlns="http://www.netsuite.com/namespace/metadata/v2">
+    <!-- Deployment for User Event Script on Purchase Order -->
+    <scriptId>customscript_vendorref_ue</scriptId>
+    <name>VendorRef User Event</name>
+    <description>Sets a default value for the VendorRef field on Purchase Orders.</description>
+    <scriptFile>[/SuiteScripts/UserEventScript.js]</scriptFile>
+    <scriptType>USER_EVENT</scriptType>
+    <notifyAdmins>false</notifyAdmins>
+    <logLevel>DEBUG</logLevel>
+    <isInactive>false</isInactive>
+    <appliesTo>
+        <appliesToRecord>purchaseorder</appliesToRecord>
+    </appliesTo>
+</customScript>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customscript scriptid="customscript_salesorder_memo_mandatory" xmlns="http://www.netsuite.com/namespace/metadata/sdf">
+    <name>Sales Order Memo Mandatory</name>
+    <description>User Event Script to make Memo field mandatory on Sales Orders</description>
+    <scriptfile>./UserEventScript.js</scriptfile>
+    <scriptdeployments>
+        <scriptdeployment scriptid="customdeploy_salesorder_memo_mandatory">
+            <status>RELEASED</status>
+            <title>Sales Order Memo Mandatory</title>
+            <appliesTo>salesorder</appliesTo>
+            <loglevel>DEBUG</loglevel>
+        </scriptdeployment>
+    </scriptdeployments>
+</customscript>
