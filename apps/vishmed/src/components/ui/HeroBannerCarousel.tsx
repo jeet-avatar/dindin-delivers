@@ -6,16 +6,16 @@ import Link from 'next/link'
 
 const slides = [
   {
-    image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1600&q=80',
-    imageAlt: 'Board-certified physician providing expert medical care in Central Florida',
+    image: '/photos/patient-consultation.jpg',
+    imageAlt: 'Internal Medicine physician providing expert medical care in Central Florida',
     heading: 'The Journey Begins with You',
-    sub: 'Board-certified Internal Medicine physician Dr. Arpana Pillay delivers personalized primary care, metabolic wellness, and weight loss programs — right here in Orlando.',
+    sub: 'Internal Medicine physician Dr. Arpana Pillay delivers personalized primary care, metabolic wellness, and weight loss programs — right here in Orlando.',
     badge: 'Accepting New Patients',
     cta: { label: 'Book Appointment', href: '/contact' },
     ctaSecondary: { label: 'Meet Dr. Pillay', href: '/about' },
   },
   {
-    image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1600&q=80',
+    image: '/photos/nurse-bp-check.jpg',
     imageAlt: 'Medical weight loss program with GLP-1 FDA-approved treatments',
     heading: 'Real Results. Medical Science.',
     sub: 'Physician-supervised GLP-1 programs — Semaglutide & Tirzepatide — deliver 15–20% average body weight reduction. FDA-approved. Starting at $99 consultation.',
@@ -24,7 +24,7 @@ const slides = [
     ctaSecondary: { label: 'See All Services', href: '/services' },
   },
   {
-    image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=1600&q=80',
+    image: '/photos/reception-desk.jpg',
     imageAlt: 'Telehealth and in-office care available in Central Florida',
     heading: 'Care That Fits Your Life',
     sub: 'Telehealth appointments Monday–Friday evenings. In-office Saturdays 9 AM–4 PM. Expert care on your schedule — new patients always welcome.',

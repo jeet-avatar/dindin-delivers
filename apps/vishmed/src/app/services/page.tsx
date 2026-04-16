@@ -7,7 +7,7 @@ import { SchemaMarkup } from '@/components/ui/SchemaMarkup'
 export const metadata: Metadata = {
   title: 'Medical Services | Primary Care, Weight Loss & More',
   description:
-    'Vish Medical offers GLP-1 medical weight loss, primary care, urgent care, specialty screenings, and telehealth in Central Florida. Board-certified Internal Medicine physician.',
+    'Vish Medical offers GLP-1 medical weight loss, primary care, urgent care, specialty screenings, and telehealth in Central Florida. Internal Medicine physician.',
   openGraph: {
     title: 'Medical Services | Primary Care, Weight Loss & More',
     url: `${siteConfig.siteUrl}/services`,
@@ -70,8 +70,8 @@ const services = [
       'Lab work coordination and results review',
       'Referrals to specialists when needed',
     ],
-    image: `${UNSPLASH}-1631217868264-e5b90bb7e133?auto=format&fit=crop&w=900&q=80`,
-    imageAlt: 'Doctor consulting with patient in a primary care setting',
+    image: '/photos/patient-consultation.jpg',
+    imageAlt: 'Dr. Pillay consulting with a patient at Vish Medical',
     cta: { label: 'Book Appointment', href: '/contact' },
   },
   {
@@ -88,8 +88,8 @@ const services = [
       'Heart and lung condition evaluations',
       'Thyroid function testing',
     ],
-    image: `${UNSPLASH}-1527613426441-4da17471b66d?auto=format&fit=crop&w=900&q=80`,
-    imageAlt: 'Clinical laboratory setting for medical screenings',
+    image: '/photos/nurse-bp-check.jpg',
+    imageAlt: 'Clinical health screening and diagnostics at Vish Medical',
     cta: { label: 'Book Screening', href: '/contact' },
   },
   {
@@ -133,10 +133,10 @@ const services = [
 const banners = [
   {
     id: 'banner-trust',
-    image: `${UNSPLASH}-1551601651-2a8555f1a136?auto=format&fit=crop&w=1600&q=80`,
-    imageAlt: 'Expert medical team at Vish Medical',
+    image: '/photos/dr-pillay-team.jpg',
+    imageAlt: 'Dr. Pillay and the Vish Medical care team',
     heading: 'Expert Care You Can Trust',
-    subheading: 'Board-certified Internal Medicine physician with 10+ years of clinical experience — right here in Orlando.',
+    subheading: 'Internal Medicine physician with 10+ years of clinical experience — right here in Orlando.',
     cta: { label: 'Meet Dr. Pillay', href: '/about' },
   },
   {
@@ -202,7 +202,7 @@ export default function ServicesPage() {
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="font-heading text-3xl lg:text-4xl font-bold mb-3">Medical Services</h1>
           <p className="text-blue-200 text-lg max-w-2xl mx-auto leading-relaxed">
-            Comprehensive care from a board-certified Internal Medicine physician — in-office and via telehealth.
+            Comprehensive care from an Internal Medicine physician — in-office and via telehealth.
           </p>
         </div>
       </section>

@@ -22,17 +22,24 @@ export function Header() {
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 rounded focus-visible:outline-[3px] focus-visible:outline-primary"
+          className="flex items-center gap-2.5 rounded focus-visible:outline-[3px] focus-visible:outline-primary"
           aria-label="Vish Medical — Home"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="Vish Medical Logo"
-            width={160}
-            height={80}
-            className="h-14 w-auto object-contain"
-          />
+          {/* Icon mark only — crop out the baked-in text at the bottom of the PNG */}
+          <div className="relative h-11 w-11 overflow-hidden flex-shrink-0" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt=""
+              className="absolute top-0 left-0 w-full"
+              style={{ height: '130%' }}
+            />
+          </div>
+          {/* Wordmark using site typography */}
+          <span className="font-heading font-bold text-xl leading-none">
+            <span className="text-primary">Vish</span>
+            <span className="text-slate-700"> Medical</span>
+          </span>
         </Link>
 
         {/* Desktop Nav */}

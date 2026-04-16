@@ -144,6 +144,57 @@ export default function PatientInfoPage() {
         </div>
       </section>
 
+      {/* Trusted Health Resources */}
+      <section className="py-12 lg:py-16 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="font-heading text-2xl font-bold text-slate-800 mb-2">Trusted Health Resources</h2>
+          <p className="text-slate-500 mb-8 text-sm">Reliable information from leading medical authorities and health organizations.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              {
+                name: 'Healthline',
+                description: 'Evidence-based health articles, drug information, and wellness guides reviewed by medical experts.',
+                href: 'https://www.healthline.com',
+                badge: 'Health & Wellness',
+              },
+              {
+                name: 'CDC — Centers for Disease Control',
+                description: 'Authoritative information on disease prevention, vaccinations, and public health guidelines.',
+                href: 'https://www.cdc.gov',
+                badge: 'Public Health',
+              },
+              {
+                name: 'MedlinePlus (NIH)',
+                description: 'Comprehensive health information from the U.S. National Library of Medicine — medications, conditions, and more.',
+                href: 'https://medlineplus.gov',
+                badge: 'NIH Resource',
+              },
+              {
+                name: 'Mayo Clinic',
+                description: 'In-depth condition guides, symptom checkers, and treatment overviews from one of the world\'s leading medical centers.',
+                href: 'https://www.mayoclinic.org',
+                badge: 'Medical Reference',
+              },
+            ].map((resource) => (
+              <a
+                key={resource.name}
+                href={resource.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex flex-col gap-2 bg-slate-50 border border-slate-100 rounded-2xl p-5 hover:border-primary/30 hover:shadow-md motion-safe:transition-all"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-heading font-semibold text-slate-800 group-hover:text-primary motion-safe:transition-colors">{resource.name}</span>
+                  <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full whitespace-nowrap">{resource.badge}</span>
+                </div>
+                <p className="text-slate-500 text-sm leading-relaxed">{resource.description}</p>
+                <span className="text-primary text-xs font-semibold mt-auto">Visit resource &rarr;</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="bg-primary text-white py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto text-center">

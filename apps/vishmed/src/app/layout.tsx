@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     template: '%s | Vish Medical',
   },
   description:
-    'Board-certified Internal Medicine physician Dr. Arpana Pillay offers primary care, weight loss, urgent care, and telehealth in Central Florida. Accepting new patients.',
+    'Internal Medicine physician Dr. Arpana Pillay offers primary care, weight loss, urgent care, and telehealth in Central Florida. Accepting new patients.',
   keywords: [
     'primary care doctor',
     'weight loss doctor',

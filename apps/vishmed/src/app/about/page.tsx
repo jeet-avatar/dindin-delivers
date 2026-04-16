@@ -7,7 +7,7 @@ import { SchemaMarkup } from '@/components/ui/SchemaMarkup'
 export const metadata: Metadata = {
   title: 'About Dr. Arpana Pillay | Internal Medicine Physician',
   description:
-    'Learn about Dr. Arpana Pillay, a board-certified Internal Medicine physician with over 10 years of experience providing compassionate primary care in Central Florida.',
+    'Learn about Dr. Arpana Pillay, an Internal Medicine physician with over 10 years of experience providing compassionate primary care in Central Florida.',
   openGraph: {
     title: 'About Dr. Arpana Pillay | Internal Medicine Physician',
     url: `${siteConfig.siteUrl}/about`,
@@ -19,7 +19,7 @@ const physicianSchema = {
   '@type': 'Physician',
   name: 'Dr. Arpana Pillay',
   description:
-    'Board-certified Internal Medicine physician with over 10 years of experience in primary care, weight loss management, and telehealth services in Central Florida.',
+    'Internal Medicine physician with over 10 years of experience in primary care, weight loss management, and telehealth services in Central Florida.',
   medicalSpecialty: 'InternalMedicine',
   worksFor: {
     '@type': 'MedicalClinic',
@@ -30,7 +30,7 @@ const physicianSchema = {
 
 const credentials = [
   { label: 'Degree', value: 'Doctor of Medicine (MD)' },
-  { label: 'Certification', value: 'Board Certified, Internal Medicine' },
+  { label: 'Certification', value: 'Internal Medicine' },
   { label: 'Experience', value: '10+ Years Clinical Practice' },
   { label: 'Specialty', value: 'Internal Medicine & Primary Care' },
   { label: 'Telehealth', value: 'Licensed to Practice Telehealth in Florida' },
@@ -69,7 +69,7 @@ export default function AboutPage() {
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
           <div className="relative w-full h-96 rounded-2xl overflow-hidden bg-slate-100">
             <Image
-              src="/dr-pillay.jpg"
+              src="/photos/dr-pillay-portrait.jpg"
               alt="Dr. Arpana Pillay, Internal Medicine Physician at Vish Medical"
               fill
               className="object-cover object-top"
@@ -80,8 +80,8 @@ export default function AboutPage() {
             <h2 className="font-heading text-2xl font-bold text-slate-800 mb-6">A Physician Who Listens</h2>
             <div className="space-y-4 text-slate-600 leading-relaxed text-base">
               <p>
-                Dr. Arpana Pillay brings over 10 years of clinical experience to every patient encounter. A board-certified
-                Internal Medicine physician, she founded Vish Medical with a singular mission: to provide the kind of
+                Dr. Arpana Pillay brings over 10 years of clinical experience to every patient encounter. An Internal Medicine
+                physician, she founded Vish Medical with a singular mission: to provide the kind of
                 thoughtful, personalized healthcare that truly makes a difference in people&apos;s lives. Her practice is built
                 on the belief that prevention is the most powerful medicine available.
               </p>

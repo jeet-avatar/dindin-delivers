@@ -38,7 +38,7 @@ export default function PrivacyPolicyPage() {
                 <a href={siteConfig.siteUrl} className="text-primary underline underline-offset-2 hover:text-primary-dark">
                   {siteConfig.siteUrl}
                 </a>
-                . Dr. Pillay is a board-certified Internal Medicine physician providing primary care, weight loss, urgent
+                . Dr. Pillay is an Internal Medicine physician providing primary care, weight loss, urgent
                 care, and telehealth services. As a healthcare provider, Vish Medical is a Covered Entity under HIPAA and
                 is committed to maintaining the privacy and security of your health information.
               </p>
