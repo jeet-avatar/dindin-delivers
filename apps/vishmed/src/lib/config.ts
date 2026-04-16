@@ -5,7 +5,7 @@ export const siteConfig = {
   email: process.env.NEXT_PUBLIC_PRACTICE_EMAIL ?? 'info@vishmedical.com',
   address: process.env.NEXT_PUBLIC_PRACTICE_ADDRESS ?? '9486 Narcoossee Rd, Orlando, FL 32827',
   calendlyUrl: process.env.NEXT_PUBLIC_CALENDLY_URL ?? '',
-  googleCalendarUrl: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_URL ?? 'https://calendar.app.google/foAFs3hGVrHWmbbG9',
+  googleCalendarUrl: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_URL ?? '',
   ga4Id: process.env.NEXT_PUBLIC_GA4_ID ?? '',
   mapsEmbedUrl: process.env.NEXT_PUBLIC_GOOGLE_MAPS_EMBED_URL ?? '',
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://vishmed.com',
