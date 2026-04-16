@@ -270,6 +270,14 @@ footer strong { color: var(--indigo-light); }
   <a href="#lg-patterns">Patterns</a>
   <a href="#lg-memory">Memory</a>
   <a href="#lg-multiagent">Multi-Agent</a>
+  <a href="#roadmap" style="color:var(--pink);font-weight:700">🗺️ Roadmap</a>
+  <a href="#roadmap-math">Math</a>
+  <a href="#roadmap-dl">Deep Learning</a>
+  <a href="#roadmap-llm">LLM Training</a>
+  <a href="#roadmap-mlops">MLOps</a>
+  <a href="#roadmap-inference">Inference</a>
+  <a href="#roadmap-safety">Safety</a>
+  <a href="#roadmap-emerging">Emerging</a>
 </nav>
 
 <main>
@@ -3896,10 +3904,1020 @@ langgraph deploy # cloud deployment
   </div>
 </section>
 
+<!-- ═══════════════════════════════════════════════════════════
+     COMPLETE AI PROFESSIONAL ROADMAP
+════════════════════════════════════════════════════════════ -->
+
+<div style="background:linear-gradient(135deg,#0d1117 0%,#130d1a 50%,#0d1117 100%);border-top:2px solid #f472b6;border-bottom:2px solid #a78bfa;padding:3.5rem 2rem;text-align:center;position:relative;overflow:hidden;">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 80% at 50% 50%,rgba(244,114,182,0.1) 0%,transparent 70%);pointer-events:none;"></div>
+  <div style="font-size:.75rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#f472b6;margin-bottom:1rem;">Part IV · The Complete Picture</div>
+  <h2 style="font-size:clamp(2rem,5vw,3.5rem);font-weight:800;background:linear-gradient(135deg,#fff 10%,#f472b6 45%,#a78bfa 80%,#22d3ee 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1rem;">High-End AI Professional Roadmap</h2>
+  <p style="color:#8b8fa8;max-width:680px;margin:0 auto;font-size:1.05rem;">Everything beyond RAG, AWS, and LangChain that separates an AI practitioner from a true AI architect — from mathematical foundations to emerging 2026 techniques.</p>
+</div>
+
+<!-- ══════ VISUAL CURRICULUM MAP ══════ -->
+<section class="section" id="roadmap">
+  <div class="section-tag" style="color:#f472b6;">Roadmap · Overview</div>
+  <h2>The Complete AI Professional Stack</h2>
+  <p>Think in layers. Each layer depends on the ones below it. Most practitioners skip foundations and wonder why they can't debug models or design architectures from first principles.</p>
+
+  <!-- Full curriculum visual -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2rem;margin:1.5rem 0;overflow-x:auto;">
+    <svg viewBox="0 0 900 520" width="900" height="520" xmlns="http://www.w3.org/2000/svg" font-family="Inter">
+      <!-- Layer labels -->
+      <text x="10" y="50" fill="#8b8fa8" font-size="9" font-weight="700" letter-spacing="1">LAYER 1 — FOUNDATIONS</text>
+      <text x="10" y="155" fill="#8b8fa8" font-size="9" font-weight="700" letter-spacing="1">LAYER 2 — CORE ML/DL</text>
+      <text x="10" y="255" fill="#8b8fa8" font-size="9" font-weight="700" letter-spacing="1">LAYER 3 — LLM SYSTEMS</text>
+      <text x="10" y="355" fill="#8b8fa8" font-size="9" font-weight="700" letter-spacing="1">LAYER 4 — PRODUCTION</text>
+      <text x="10" y="455" fill="#8b8fa8" font-size="9" font-weight="700" letter-spacing="1">LAYER 5 — FRONTIER</text>
+
+      <!-- L1: Foundations -->
+      <rect x="10"  y="58" width="130" height="80" rx="10" fill="rgba(251,191,36,0.1)"  stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="75"  y="90"  text-anchor="middle" fill="#fbbf24" font-size="13">📐</text>
+      <text x="75"  y="107" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Linear Algebra</text>
+      <text x="75"  y="122" text-anchor="middle" fill="#8b8fa8" font-size="9">vectors · matrices · SVD</text>
+
+      <rect x="155" y="58" width="130" height="80" rx="10" fill="rgba(251,191,36,0.1)"  stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="220" y="90"  text-anchor="middle" fill="#fbbf24" font-size="13">🎲</text>
+      <text x="220" y="107" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Probability &amp; Stats</text>
+      <text x="220" y="122" text-anchor="middle" fill="#8b8fa8" font-size="9">Bayes · MLE · distributions</text>
+
+      <rect x="300" y="58" width="130" height="80" rx="10" fill="rgba(251,191,36,0.1)"  stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="365" y="90"  text-anchor="middle" fill="#fbbf24" font-size="13">∂</text>
+      <text x="365" y="107" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Calculus &amp; Optim.</text>
+      <text x="365" y="122" text-anchor="middle" fill="#8b8fa8" font-size="9">gradients · chain rule · Adam</text>
+
+      <rect x="445" y="58" width="130" height="80" rx="10" fill="rgba(251,191,36,0.1)"  stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="510" y="90"  text-anchor="middle" fill="#fbbf24" font-size="13">🐍</text>
+      <text x="510" y="107" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Python + NumPy</text>
+      <text x="510" y="122" text-anchor="middle" fill="#8b8fa8" font-size="9">broadcasting · vectorisation</text>
+
+      <rect x="590" y="58" width="130" height="80" rx="10" fill="rgba(251,191,36,0.1)"  stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="655" y="90"  text-anchor="middle" fill="#fbbf24" font-size="13">ℹ️</text>
+      <text x="655" y="107" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Info Theory</text>
+      <text x="655" y="122" text-anchor="middle" fill="#8b8fa8" font-size="9">entropy · KL divergence · CE</text>
+
+      <rect x="735" y="58" width="150" height="80" rx="10" fill="rgba(251,191,36,0.1)"  stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="810" y="90"  text-anchor="middle" fill="#fbbf24" font-size="13">🗄️</text>
+      <text x="810" y="107" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Data Engineering</text>
+      <text x="810" y="122" text-anchor="middle" fill="#8b8fa8" font-size="9">Airflow · Spark · dbt</text>
+
+      <!-- L2: Core ML/DL -->
+      <rect x="10"  y="163" width="130" height="75" rx="10" fill="rgba(99,102,241,0.12)" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="75"  y="195" text-anchor="middle" fill="#818cf8" font-size="12">🧠</text>
+      <text x="75"  y="210" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Neural Networks</text>
+      <text x="75"  y="225" text-anchor="middle" fill="#8b8fa8" font-size="9">backprop · activations</text>
+
+      <rect x="155" y="163" width="130" height="75" rx="10" fill="rgba(99,102,241,0.12)" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="220" y="195" text-anchor="middle" fill="#818cf8" font-size="12">🔄</text>
+      <text x="220" y="210" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Transformers</text>
+      <text x="220" y="225" text-anchor="middle" fill="#8b8fa8" font-size="9">attention · BERT · GPT</text>
+
+      <rect x="300" y="163" width="130" height="75" rx="10" fill="rgba(99,102,241,0.12)" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="365" y="195" text-anchor="middle" fill="#818cf8" font-size="12">👁️</text>
+      <text x="365" y="210" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Computer Vision</text>
+      <text x="365" y="225" text-anchor="middle" fill="#8b8fa8" font-size="9">CNN · YOLO · ViT · SAM</text>
+
+      <rect x="445" y="163" width="130" height="75" rx="10" fill="rgba(99,102,241,0.12)" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="510" y="195" text-anchor="middle" fill="#818cf8" font-size="12">🎨</text>
+      <text x="510" y="210" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Generative Models</text>
+      <text x="510" y="225" text-anchor="middle" fill="#8b8fa8" font-size="9">Diffusion · VAE · GAN</text>
+
+      <rect x="590" y="163" width="130" height="75" rx="10" fill="rgba(99,102,241,0.12)" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="655" y="195" text-anchor="middle" fill="#818cf8" font-size="12">🏋️</text>
+      <text x="655" y="210" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Training at Scale</text>
+      <text x="655" y="225" text-anchor="middle" fill="#8b8fa8" font-size="9">PyTorch · distributed · FSDP</text>
+
+      <rect x="735" y="163" width="150" height="75" rx="10" fill="rgba(99,102,241,0.12)" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="810" y="195" text-anchor="middle" fill="#818cf8" font-size="12">📊</text>
+      <text x="810" y="210" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Evaluation Science</text>
+      <text x="810" y="225" text-anchor="middle" fill="#8b8fa8" font-size="9">benchmarks · HELM · evals</text>
+
+      <!-- L3: LLM Systems -->
+      <rect x="10"  y="263" width="130" height="75" rx="10" fill="rgba(34,211,238,0.1)"  stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="75"  y="293" text-anchor="middle" fill="#22d3ee" font-size="12">🔧</text>
+      <text x="75"  y="308" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Fine-Tuning</text>
+      <text x="75"  y="323" text-anchor="middle" fill="#8b8fa8" font-size="9">LoRA · QLoRA · SFT · DPO</text>
+
+      <rect x="155" y="263" width="130" height="75" rx="10" fill="rgba(34,211,238,0.1)"  stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="220" y="293" text-anchor="middle" fill="#22d3ee" font-size="12">💬</text>
+      <text x="220" y="308" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Prompt Engineering</text>
+      <text x="220" y="323" text-anchor="middle" fill="#8b8fa8" font-size="9">CoT · ToT · few-shot · DSPy</text>
+
+      <rect x="300" y="263" width="130" height="75" rx="10" fill="rgba(34,211,238,0.1)"  stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="365" y="293" text-anchor="middle" fill="#22d3ee" font-size="12">🤖</text>
+      <text x="365" y="308" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Agent Frameworks</text>
+      <text x="365" y="323" text-anchor="middle" fill="#8b8fa8" font-size="9">LangGraph · AutoGen · CrewAI</text>
+
+      <rect x="445" y="263" width="130" height="75" rx="10" fill="rgba(34,211,238,0.1)"  stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="510" y="293" text-anchor="middle" fill="#22d3ee" font-size="12">🔍</text>
+      <text x="510" y="308" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">RAG Systems</text>
+      <text x="510" y="323" text-anchor="middle" fill="#8b8fa8" font-size="9">GraphRAG · Agentic · CRAG</text>
+
+      <rect x="590" y="263" width="130" height="75" rx="10" fill="rgba(34,211,238,0.1)"  stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="655" y="293" text-anchor="middle" fill="#22d3ee" font-size="12">🖼️</text>
+      <text x="655" y="308" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Multimodal</text>
+      <text x="655" y="323" text-anchor="middle" fill="#8b8fa8" font-size="9">vision · audio · video LLMs</text>
+
+      <rect x="735" y="263" width="150" height="75" rx="10" fill="rgba(34,211,238,0.1)"  stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="810" y="293" text-anchor="middle" fill="#22d3ee" font-size="12">🛡️</text>
+      <text x="810" y="308" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">AI Safety</text>
+      <text x="810" y="323" text-anchor="middle" fill="#8b8fa8" font-size="9">RLHF · alignment · red-team</text>
+
+      <!-- L4: Production -->
+      <rect x="10"  y="363" width="130" height="75" rx="10" fill="rgba(52,211,153,0.1)"  stroke="#34d399" stroke-width="1.5"/>
+      <text x="75"  y="393" text-anchor="middle" fill="#34d399" font-size="12">⚡</text>
+      <text x="75"  y="408" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Inference Optim.</text>
+      <text x="75"  y="423" text-anchor="middle" fill="#8b8fa8" font-size="9">vLLM · quant · speculative</text>
+
+      <rect x="155" y="363" width="130" height="75" rx="10" fill="rgba(52,211,153,0.1)"  stroke="#34d399" stroke-width="1.5"/>
+      <text x="220" y="393" text-anchor="middle" fill="#34d399" font-size="12">🔬</text>
+      <text x="220" y="408" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">MLOps</text>
+      <text x="220" y="423" text-anchor="middle" fill="#8b8fa8" font-size="9">MLflow · W&amp;B · DVC · Feast</text>
+
+      <rect x="300" y="363" width="130" height="75" rx="10" fill="rgba(52,211,153,0.1)"  stroke="#34d399" stroke-width="1.5"/>
+      <text x="365" y="393" text-anchor="middle" fill="#34d399" font-size="12">☁️</text>
+      <text x="365" y="408" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Cloud AI Infra</text>
+      <text x="365" y="423" text-anchor="middle" fill="#8b8fa8" font-size="9">AWS/GCP · SageMaker · k8s</text>
+
+      <rect x="445" y="363" width="130" height="75" rx="10" fill="rgba(52,211,153,0.1)"  stroke="#34d399" stroke-width="1.5"/>
+      <text x="510" y="393" text-anchor="middle" fill="#34d399" font-size="12">📈</text>
+      <text x="510" y="408" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">Model Monitoring</text>
+      <text x="510" y="423" text-anchor="middle" fill="#8b8fa8" font-size="9">drift · shadow deploy · A/B</text>
+
+      <rect x="590" y="363" width="130" height="75" rx="10" fill="rgba(52,211,153,0.1)"  stroke="#34d399" stroke-width="1.5"/>
+      <text x="655" y="393" text-anchor="middle" fill="#34d399" font-size="12">🔐</text>
+      <text x="655" y="408" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">AI Security</text>
+      <text x="655" y="423" text-anchor="middle" fill="#8b8fa8" font-size="9">prompt injection · PII · guardrails</text>
+
+      <rect x="735" y="363" width="150" height="75" rx="10" fill="rgba(52,211,153,0.1)"  stroke="#34d399" stroke-width="1.5"/>
+      <text x="810" y="393" text-anchor="middle" fill="#34d399" font-size="12">💼</text>
+      <text x="810" y="408" text-anchor="middle" fill="#e2e4f0" font-size="11" font-weight="700">AI Product Design</text>
+      <text x="810" y="423" text-anchor="middle" fill="#8b8fa8" font-size="9">UX for AI · ROI · ethics</text>
+
+      <!-- L5: Frontier -->
+      <rect x="10"  y="463" width="130" height="45" rx="10" fill="rgba(244,114,182,0.1)" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="75"  y="491" text-anchor="middle" fill="#e2e4f0" font-size="10" font-weight="700">Test-Time Compute</text>
+
+      <rect x="155" y="463" width="130" height="45" rx="10" fill="rgba(244,114,182,0.1)" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="220" y="491" text-anchor="middle" fill="#e2e4f0" font-size="10" font-weight="700">MoE Architectures</text>
+
+      <rect x="300" y="463" width="130" height="45" rx="10" fill="rgba(244,114,182,0.1)" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="365" y="491" text-anchor="middle" fill="#e2e4f0" font-size="10" font-weight="700">State Space Models</text>
+
+      <rect x="445" y="463" width="130" height="45" rx="10" fill="rgba(244,114,182,0.1)" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="510" y="491" text-anchor="middle" fill="#e2e4f0" font-size="10" font-weight="700">AI Agents at Scale</text>
+
+      <rect x="590" y="463" width="130" height="45" rx="10" fill="rgba(244,114,182,0.1)" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="655" y="491" text-anchor="middle" fill="#e2e4f0" font-size="10" font-weight="700">World Models</text>
+
+      <rect x="735" y="463" width="150" height="45" rx="10" fill="rgba(244,114,182,0.1)" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="810" y="491" text-anchor="middle" fill="#e2e4f0" font-size="10" font-weight="700">AI + Robotics</text>
+    </svg>
+  </div>
+
+  <!-- Already covered vs needed -->
+  <div class="card-grid cols-2" style="margin:2rem 0">
+    <div class="card" style="border-color:rgba(52,211,153,0.4)">
+      <h3>✅ Already In This Guide</h3>
+      <div class="tag-cloud" style="margin-top:.75rem">
+        <span class="pill pill-green">RAG (all variants)</span>
+        <span class="pill pill-green">Vector DBs</span>
+        <span class="pill pill-green">LangChain LCEL</span>
+        <span class="pill pill-green">LangGraph</span>
+        <span class="pill pill-green">AWS (12 services)</span>
+        <span class="pill pill-green">Embedding Models</span>
+        <span class="pill pill-green">Evaluation (RAGAS)</span>
+        <span class="pill pill-green">Agentic RAG</span>
+        <span class="pill pill-green">GraphRAG</span>
+        <span class="pill pill-green">Multi-Agent Systems</span>
+        <span class="pill pill-green">Multimodal RAG</span>
+        <span class="pill pill-green">Production RAG</span>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(244,114,182,0.4)">
+      <h3>🗺️ What This Roadmap Adds</h3>
+      <div class="tag-cloud" style="margin-top:.75rem">
+        <span class="pill pill-pink">Math Foundations</span>
+        <span class="pill pill-pink">Transformer Internals</span>
+        <span class="pill pill-pink">Fine-Tuning (LoRA/DPO)</span>
+        <span class="pill pill-pink">Prompt Engineering</span>
+        <span class="pill pill-pink">Inference Optimization</span>
+        <span class="pill pill-pink">MLOps (W&B/MLflow)</span>
+        <span class="pill pill-pink">AI Safety &amp; Alignment</span>
+        <span class="pill pill-pink">Diffusion Models</span>
+        <span class="pill pill-pink">Computer Vision</span>
+        <span class="pill pill-pink">Test-Time Compute</span>
+        <span class="pill pill-pink">MoE / Mamba</span>
+        <span class="pill pill-pink">AI Security</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ MATH FOUNDATIONS ══════ -->
+<section class="section" id="roadmap-math">
+  <div class="section-tag" style="color:#fbbf24;">Roadmap · Layer 1</div>
+  <h2>Mathematics for AI — The Non-Negotiables</h2>
+  <p>You don't need a PhD, but you need enough math to read papers, understand what's actually happening inside models, and debug when things go wrong.</p>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h3>📐 Linear Algebra (Most Important)</h3>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">import numpy as np
+
+# Vectors = embeddings. Dot product = similarity.
+v1 = np.array([0.2, 0.8, 0.5])   # "king" embedding
+v2 = np.array([0.1, 0.9, 0.4])   # "queen" embedding
+cosine_sim = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+print(f"Cosine similarity: {cosine_sim:.4f}")   # 0.9996
+
+# Matrix multiplication = linear layer (weight matrix W applied to input x)
+W = np.random.randn(768, 3072)   # FFN expand layer (GPT-2 style)
+x = np.random.randn(768)          # token embedding
+out = W.T @ x                     # → 3072-dim hidden state
+
+# SVD = how PCA, LoRA, and embedding compression work
+U, S, Vt = np.linalg.svd(W, full_matrices=False)
+# Keep top-r singular values = low-rank approximation (the core of LoRA)
+r = 8
+W_approx = U[:, :r] @ np.diag(S[:r]) @ Vt[:r, :]
+print(f"Rank-{r} compression: {W.shape} → saved {1 - r*2/768:.1%} params")
+
+# Eigenvalues = used in attention score analysis, PCA
+eigenvalues, eigenvectors = np.linalg.eig(W @ W.T)
+</code></pre>
+      </div>
+      <div class="tag-cloud" style="margin-top:.75rem">
+        <span class="pill pill-yellow">Vectors &amp; dot product</span>
+        <span class="pill pill-yellow">Matrix multiply</span>
+        <span class="pill pill-yellow">SVD / eigendecomposition</span>
+        <span class="pill pill-yellow">Norms &amp; projections</span>
+        <span class="pill pill-yellow">Rank &amp; low-rank approx</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🎲 Probability &amp; Statistics</h3>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">import torch
+import torch.nn.functional as F
+
+# Softmax = turning logits into probabilities (used everywhere)
+logits = torch.tensor([2.0, 1.0, 0.1])
+probs  = F.softmax(logits, dim=-1)
+# tensor([0.6590, 0.2424, 0.0986]) — sums to 1
+
+# Cross-entropy loss = how LLMs are trained (predict next token)
+# True label = index 0 ("the" was the next word)
+target = torch.tensor([0])
+loss = F.cross_entropy(logits.unsqueeze(0), target)
+print(f"Loss: {loss.item():.4f}")   # -log(0.659) = 0.417
+
+# KL Divergence = how DPO/RLHF penalise diverging from reference model
+p = torch.softmax(torch.tensor([3.0, 1.0, 0.5]), dim=0)  # policy
+q = torch.softmax(torch.tensor([2.5, 1.2, 0.3]), dim=0)  # reference
+kl = (p * (p / q).log()).sum()
+print(f"KL(p||q) = {kl.item():.4f}")
+
+# Temperature sampling (controls randomness of generation)
+temp = 0.7
+scaled_logits = logits / temp
+probs_temp = F.softmax(scaled_logits, dim=-1)
+# Lower temp → more deterministic. temp=0 → greedy.
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>∂ Calculus — Gradients &amp; Backprop</h3>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">import torch
+
+# Automatic differentiation — how PyTorch computes gradients
+x = torch.tensor(2.0, requires_grad=True)
+y = x ** 3 + 2 * x          # y = x³ + 2x
+y.backward()                  # compute dy/dx via chain rule
+print(x.grad)                 # tensor(14.) = 3x² + 2 at x=2
+
+# A simple neural network: forward → loss → backward → step
+model = torch.nn.Linear(10, 1)
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
+
+for step in range(100):
+    x = torch.randn(32, 10)      # batch of 32
+    y_true = torch.randn(32, 1)
+    y_pred = model(x)
+    loss = F.mse_loss(y_pred, y_true)
+    optimizer.zero_grad()        # clear old gradients
+    loss.backward()              # compute new gradients
+    optimizer.step()             # update weights: w = w - lr * grad
+
+# Key optimizers to know:
+# SGD → simple, good for vision models
+# Adam → adaptive lr, great for NLP
+# AdamW → Adam + weight decay → prevents overfitting (used for LLMs)
+# Adafactor → memory-efficient, used for very large models
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>📚 Resources to Learn These</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.6rem;margin-top:.5rem">
+        <li style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--yellow)">3Blue1Brown</strong> — "Essence of Linear Algebra" + "Neural Networks" YouTube series. Best visual intuition available.</li>
+        <li style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--yellow)">fast.ai</strong> — Practical Deep Learning for Coders. Top-down, code-first, free.</li>
+        <li style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--yellow)">Andrej Karpathy — makemore + nanoGPT</strong> — Build a GPT from scratch in pure PyTorch. Best LLM intuition builder.</li>
+        <li style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--yellow)">CS229 (Stanford)</strong> — ML theory, publicly available. Covers probability + optimisation rigorously.</li>
+        <li style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--yellow)">Dive into Deep Learning (d2l.ai)</strong> — Free textbook with code. Covers everything from perceptrons to transformers.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ DEEP LEARNING ══════ -->
+<section class="section" id="roadmap-dl">
+  <div class="section-tag" style="color:#818cf8;">Roadmap · Layer 2</div>
+  <h2>Transformer Internals &amp; Deep Learning Architecture</h2>
+  <p>To architect and debug LLM systems at a professional level, you must understand what actually happens inside a transformer — not just the API.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 820 260" width="820" height="260" xmlns="http://www.w3.org/2000/svg" font-family="Inter">
+      <defs><marker id="trarr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#818cf8"/></marker></defs>
+
+      <!-- Input -->
+      <rect x="10" y="110" width="90" height="40" rx="8" fill="#1f2235" stroke="#8b8fa8" stroke-width="1.5"/>
+      <text x="55" y="133" text-anchor="middle" fill="#e2e4f0" font-size="10" font-weight="600">"The cat sat"</text>
+
+      <!-- Tokenizer -->
+      <rect x="120" y="100" width="100" height="60" rx="8" fill="#1f2235" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="170" y="125" text-anchor="middle" fill="#fb923c" font-size="10" font-weight="700">Tokeniser</text>
+      <text x="170" y="141" text-anchor="middle" fill="#8b8fa8" font-size="8">BPE / WordPiece</text>
+      <text x="170" y="153" text-anchor="middle" fill="#8b8fa8" font-size="8">[464, 3797, 3332]</text>
+
+      <!-- Embedding -->
+      <rect x="240" y="100" width="100" height="60" rx="8" fill="#1f2235" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="290" y="123" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="700">Embedding</text>
+      <text x="290" y="139" text-anchor="middle" fill="#8b8fa8" font-size="8">token + positional</text>
+      <text x="290" y="153" text-anchor="middle" fill="#8b8fa8" font-size="8">→ [seq, d_model]</text>
+
+      <!-- Transformer Block (repeated N times) -->
+      <rect x="360" y="20" width="220" height="220" rx="12" fill="rgba(99,102,241,0.07)" stroke="#6366f1" stroke-width="2" stroke-dasharray="6"/>
+      <text x="470" y="42" text-anchor="middle" fill="#818cf8" font-size="10" font-weight="700">× N Transformer Blocks</text>
+
+      <rect x="375" y="55" width="190" height="50" rx="8" fill="#1f2235" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="470" y="77" text-anchor="middle" fill="#22d3ee" font-size="11" font-weight="700">Multi-Head Attention</text>
+      <text x="470" y="93" text-anchor="middle" fill="#8b8fa8" font-size="8">Q·K⊤/√d_k → softmax → ·V</text>
+
+      <rect x="375" y="118" width="190" height="35" rx="8" fill="#1f2235" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="470" y="140" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">LayerNorm + Residual</text>
+
+      <rect x="375" y="165" width="190" height="50" rx="8" fill="#1f2235" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="470" y="187" text-anchor="middle" fill="#fb923c" font-size="11" font-weight="700">Feed-Forward Network</text>
+      <text x="470" y="203" text-anchor="middle" fill="#8b8fa8" font-size="8">Linear → GELU → Linear (4× expand)</text>
+
+      <!-- LM Head -->
+      <rect x="600" y="100" width="110" height="60" rx="8" fill="#1f2235" stroke="#34d399" stroke-width="1.5"/>
+      <text x="655" y="123" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">LM Head</text>
+      <text x="655" y="139" text-anchor="middle" fill="#8b8fa8" font-size="8">Linear → softmax</text>
+      <text x="655" y="153" text-anchor="middle" fill="#8b8fa8" font-size="8">→ vocab probs</text>
+
+      <!-- Output token -->
+      <rect x="728" y="110" width="80" height="40" rx="8" fill="#1f2235" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="768" y="133" text-anchor="middle" fill="#f472b6" font-size="10" font-weight="600">"on" (next)</text>
+
+      <!-- Arrows -->
+      <line x1="100" y1="130" x2="118" y2="130" stroke="#818cf8" stroke-width="1.5" marker-end="url(#trarr)"/>
+      <line x1="220" y1="130" x2="238" y2="130" stroke="#818cf8" stroke-width="1.5" marker-end="url(#trarr)"/>
+      <line x1="340" y1="130" x2="358" y2="130" stroke="#818cf8" stroke-width="1.5" marker-end="url(#trarr)"/>
+      <line x1="580" y1="130" x2="598" y2="130" stroke="#818cf8" stroke-width="1.5" marker-end="url(#trarr)"/>
+      <line x1="710" y1="130" x2="726" y2="130" stroke="#818cf8" stroke-width="1.5" marker-end="url(#trarr)"/>
+
+      <!-- KV cache annotation -->
+      <rect x="360" y="240" width="220" height="18" rx="4" fill="#131625" stroke="#2a2d45" stroke-width="1"/>
+      <text x="470" y="253" text-anchor="middle" fill="#8b8fa8" font-size="8">KV Cache: stores K,V per block so past tokens aren't recomputed</text>
+    </svg>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Scaled dot-product attention from scratch</div>
+<pre><code class="language-python">import torch
+import torch.nn.functional as F
+import math
+
+def scaled_dot_product_attention(Q, K, V, mask=None):
+    """
+    The heart of every transformer.
+    Q, K, V: [batch, heads, seq_len, head_dim]
+    """
+    d_k = Q.size(-1)
+
+    # Attention scores: how much each token should attend to each other token
+    scores = Q @ K.transpose(-2, -1) / math.sqrt(d_k)  # [B, H, seq, seq]
+
+    # Causal mask: decoder can't see future tokens (autoregressive)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, float('-inf'))
+
+    # Convert scores to probabilities
+    attn_weights = F.softmax(scores, dim=-1)
+
+    # Weighted sum of values
+    return attn_weights @ V, attn_weights   # [B, H, seq, head_dim]
+
+class MultiHeadAttention(torch.nn.Module):
+    def __init__(self, d_model=768, n_heads=12):
+        super().__init__()
+        self.n_heads  = n_heads
+        self.d_head   = d_model // n_heads
+        self.W_q = torch.nn.Linear(d_model, d_model, bias=False)
+        self.W_k = torch.nn.Linear(d_model, d_model, bias=False)
+        self.W_v = torch.nn.Linear(d_model, d_model, bias=False)
+        self.W_o = torch.nn.Linear(d_model, d_model, bias=False)
+
+    def forward(self, x, mask=None):
+        B, T, C = x.shape   # batch, seq_len, d_model
+
+        # Project → split into heads
+        def split_heads(w): return w.view(B, T, self.n_heads, self.d_head).transpose(1, 2)
+        Q, K, V = split_heads(self.W_q(x)), split_heads(self.W_k(x)), split_heads(self.W_v(x))
+
+        # Attention
+        out, weights = scaled_dot_product_attention(Q, K, V, mask)
+
+        # Merge heads → project out
+        out = out.transpose(1, 2).contiguous().view(B, T, C)
+        return self.W_o(out), weights
+
+# Flash Attention (PyTorch 2.0+) — same math, 3× faster, 10× less memory
+# Use this in production, not the above:
+with torch.backends.cuda.sdp_kernel(enable_flash=True):
+    out = F.scaled_dot_product_attention(Q, K, V, is_causal=True)
+</code></pre>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Architecture</th><th>Key Idea</th><th>Best For</th><th>Examples</th></tr></thead>
+      <tbody>
+        <tr><td><strong>GPT (Decoder-only)</strong></td><td>Causal attention, predicts next token</td><td>Generation, chat, code</td><td>GPT-4, Claude, Llama 3</td></tr>
+        <tr><td><strong>BERT (Encoder-only)</strong></td><td>Bidirectional attention, masked LM</td><td>Classification, embeddings</td><td>BERT, RoBERTa, E5</td></tr>
+        <tr><td><strong>T5 (Encoder-Decoder)</strong></td><td>Seq2seq with cross-attention</td><td>Translation, summarisation</td><td>T5, FLAN-T5, mT5</td></tr>
+        <tr><td><strong>MoE (Mixture of Experts)</strong></td><td>Route each token to top-k expert FFNs</td><td>Scale efficiency</td><td>Mixtral, GPT-4 (rumoured), Gemini</td></tr>
+        <tr><td><strong>Mamba (SSM)</strong></td><td>State space, linear time complexity</td><td>Very long contexts</td><td>Mamba, Jamba</td></tr>
+        <tr><td><strong>Diffusion</strong></td><td>Learn to denoise from Gaussian noise</td><td>Image/video/audio gen</td><td>SD 3, DALL-E 3, Sora</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════ FINE-TUNING ══════ -->
+<section class="section" id="roadmap-llm">
+  <div class="section-tag" style="color:#22d3ee;">Roadmap · Layer 3</div>
+  <h2>Fine-Tuning LLMs — SFT, LoRA, DPO, RLHF</h2>
+  <p>Fine-tuning adapts a pre-trained LLM to your domain or behaviour. In 2025–2026 the best practitioners combine LoRA-efficient training with DPO preference alignment.</p>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h3>🔧 LoRA — Low-Rank Adaptation</h3>
+      <p>Instead of updating all 7B parameters, train two small matrices A and B whose product approximates the weight update. Reduces trainable params by 99%+.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from peft import LoraConfig, get_peft_model, TaskType
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
+from trl import SFTTrainer
+
+# Load base model in 4-bit (QLoRA = LoRA + 4-bit quantisation)
+from transformers import BitsAndBytesConfig
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16,
+)
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Meta-Llama-3-8B",
+    quantization_config=bnb_config,
+    device_map="auto"
+)
+
+# Apply LoRA adapters (only train these ~0.5% of params)
+lora_config = LoraConfig(
+    r=16,               # rank — higher = more capacity, more params
+    lora_alpha=32,      # scaling factor
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],  # which layers
+    lora_dropout=0.05,
+    task_type=TaskType.CAUSAL_LM,
+)
+model = get_peft_model(model, lora_config)
+model.print_trainable_parameters()
+# trainable params: 3,407,872 || all params: 8,033,669,120 || trainable: 0.042%
+
+# Train with SFTTrainer (Supervised Fine-Tuning)
+trainer = SFTTrainer(
+    model=model,
+    train_dataset=my_dataset,          # {"text": "prompt + completion"}
+    dataset_text_field="text",
+    max_seq_length=2048,
+    args=TrainingArguments(
+        output_dir="./lora-finetuned",
+        per_device_train_batch_size=4,
+        gradient_accumulation_steps=4, # effective batch = 16
+        warmup_steps=100,
+        num_train_epochs=3,
+        learning_rate=2e-4,
+        fp16=True,
+        logging_steps=10,
+    ),
+)
+trainer.train()
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🎯 DPO — Direct Preference Optimisation</h3>
+      <p>Aligns model behaviour to human preferences WITHOUT a separate reward model. Train on (prompt, chosen, rejected) pairs. Simpler than RLHF, just as effective.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from trl import DPOTrainer, DPOConfig
+
+# DPO dataset: preferred vs rejected responses
+# {
+#   "prompt": "Explain quantum computing",
+#   "chosen": "Quantum computing uses qubits...",   ← preferred
+#   "rejected": "Quantum computing is too complex...", ← rejected
+# }
+
+dpo_trainer = DPOTrainer(
+    model=sft_model,               # start from your SFT model
+    ref_model=base_model,          # reference (frozen) model
+    args=DPOConfig(
+        beta=0.1,                  # KL penalty — how far from ref model
+        max_prompt_length=512,
+        max_length=1024,
+        output_dir="./dpo-aligned",
+        per_device_train_batch_size=4,
+        learning_rate=5e-5,
+        num_train_epochs=1,
+    ),
+    train_dataset=preference_dataset,
+    tokenizer=tokenizer,
+)
+dpo_trainer.train()
+
+# RLHF vs DPO:
+# RLHF: train reward model → PPO (complex, unstable, expensive)
+# DPO: direct training from preference data (simple, stable, same quality)
+# → DPO is now the default choice for alignment
+</code></pre>
+      </div>
+      <div class="callout tip" style="margin-top:.75rem">
+        <div class="icon">💡</div>
+        <p><strong>Dataset sizes:</strong> SFT needs ~1K–10K high-quality examples. DPO needs ~500–5K preference pairs. Quality >> quantity — curate carefully.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="technique" style="margin-top:1.5rem">
+    <div class="technique-header">
+      <div class="technique-icon" style="background:rgba(251,191,36,0.15)">💬</div>
+      <div>
+        <h3>Advanced Prompt Engineering <span class="complexity-badge medium">Must Know</span></h3>
+        <p style="margin:0">Goes far beyond "write a better prompt". These techniques directly affect quality as much as fine-tuning.</p>
+      </div>
+    </div>
+    <div class="code-wrap">
+<pre><code class="language-python">from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# ── Chain-of-Thought (CoT) — "think step by step" unlocks reasoning ──
+cot_prompt = ChatPromptTemplate.from_messages([("human",
+    "{question}\n\nThink step by step before giving your final answer."
+)])
+# Improves accuracy on math/logic by 20-40%
+
+# ── Tree of Thought (ToT) — explore multiple reasoning paths ──
+tot_prompt = """Explore 3 different approaches to this problem:
+{problem}
+
+For each approach:
+1. Describe the approach
+2. Evaluate if it leads to the correct answer
+3. Score confidence 1-10
+
+Then select the best approach and give the final answer."""
+
+# ── Self-Consistency — sample N times, majority vote ──
+def self_consistent_answer(question: str, n: int = 5) -> str:
+    from collections import Counter
+    answers = [llm.invoke(question).content for _ in range(n)]
+    # Parse final answers and take majority vote
+    final_answers = [extract_answer(a) for a in answers]
+    return Counter(final_answers).most_common(1)[0][0]
+
+# ── ReAct — Reason + Act (the prompt behind agents) ──
+react_prompt = """Answer the question using this format:
+Thought: I need to think about what to do
+Action: tool_name[input]
+Observation: (result from tool)
+... repeat as needed ...
+Final Answer: your answer
+
+Question: {question}"""
+
+# ── System prompt engineering for Claude ──
+SYSTEM = """<role>You are a senior financial analyst.</role>
+<rules>
+- Only use data provided in the context
+- Express uncertainty explicitly
+- Always cite the source paragraph
+</rules>
+<output_format>
+## Analysis
+## Key Risks
+## Recommendation (Buy/Hold/Sell)
+</output_format>"""
+</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ INFERENCE OPTIMIZATION ══════ -->
+<section class="section" id="roadmap-inference">
+  <div class="section-tag" style="color:#34d399;">Roadmap · Layer 4</div>
+  <h2>Inference Optimization — Speed &amp; Cost at Scale</h2>
+  <p>A model that's too slow or too expensive doesn't ship. These techniques can reduce inference cost by 5–20× without touching accuracy.</p>
+
+  <div class="card-grid cols-3">
+    <div class="card" style="border-color:rgba(34,211,238,0.4)">
+      <h3>⚡ vLLM — PagedAttention</h3>
+      <p>Manages KV cache like virtual memory. 24× higher throughput than HuggingFace transformers. The production standard for self-hosted LLMs.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-bash"># Serve Llama 3 with vLLM
+pip install vllm
+python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Meta-Llama-3-8B-Instruct \
+  --tensor-parallel-size 2 \
+  --gpu-memory-utilization 0.9 \
+  --max-model-len 8192
+
+# OpenAI-compatible API at :8000
+curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"meta-llama/Meta-Llama-3-8B-Instruct",
+       "messages":[{"role":"user","content":"Hello"}]}'
+</code></pre>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(251,191,36,0.4)">
+      <h3>🗜️ Quantization</h3>
+      <p>Reduce weight precision from FP32 → FP16 → INT8 → INT4. 4-bit = 4× less VRAM. Use GPTQ or AWQ for post-training quantisation.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from transformers import AutoModelForCausalLM
+from awq import AutoAWQForCausalLM
+
+# AWQ 4-bit quantisation (best quality/speed tradeoff)
+model = AutoAWQForCausalLM.from_pretrained("meta-llama/Llama-3-8B")
+quant_config = {"zero_point": True, "q_group_size": 128, "w_bit": 4, "version": "GEMM"}
+model.quantize(tokenizer, quant_config=quant_config)
+model.save_quantized("llama3-8b-awq-4bit")
+# 8B model: 16GB FP16 → 4GB INT4 — runs on a single 4090
+</code></pre>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(167,139,250,0.4)">
+      <h3>🔮 Speculative Decoding</h3>
+      <p>A small draft model generates N tokens speculatively. The large model verifies all in one pass. 2–3× speedup for same quality output.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from transformers import pipeline
+
+# Built into HuggingFace transformers
+pipe = pipeline(
+    "text-generation",
+    model="meta-llama/Llama-3-70B",        # large verifier
+    assistant_model="meta-llama/Llama-3-8B",  # small drafter
+)
+out = pipe("Explain transformers in detail")
+# ~2.5× faster token generation
+</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-wrap" style="margin-top:1.5rem">
+    <table>
+      <thead><tr><th>Technique</th><th>Speedup</th><th>Quality Loss</th><th>VRAM Reduction</th><th>Best For</th></tr></thead>
+      <tbody>
+        <tr><td><strong>FP16 / BF16</strong></td><td>1.5–2×</td><td>Negligible</td><td>2×</td><td>All production deployments</td></tr>
+        <tr><td><strong>INT8 (bitsandbytes)</strong></td><td>1.5×</td><td>&lt;1%</td><td>4×</td><td>Inference on smaller GPUs</td></tr>
+        <tr><td><strong>AWQ/GPTQ INT4</strong></td><td>2–3×</td><td>~1–2%</td><td>8×</td><td>Edge / cost-sensitive</td></tr>
+        <tr><td><strong>vLLM PagedAttention</strong></td><td>10–24×</td><td>None</td><td>Same</td><td>High-throughput serving</td></tr>
+        <tr><td><strong>Speculative Decoding</strong></td><td>2–3×</td><td>None</td><td>Slightly more</td><td>Latency-sensitive single requests</td></tr>
+        <tr><td><strong>Flash Attention 2</strong></td><td>2–4×</td><td>None</td><td>10× less activation</td><td>Training &amp; long-context inference</td></tr>
+        <tr><td><strong>Pruning + Distillation</strong></td><td>2–10×</td><td>3–8%</td><td>2–10×</td><td>Edge/mobile deployment</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════ MLOPS ══════ -->
+<section class="section" id="roadmap-mlops">
+  <div class="section-tag" style="color:#34d399;">Roadmap · Layer 4</div>
+  <h2>MLOps — Taking Models to Production Reliably</h2>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h3>📊 Weights &amp; Biases (W&amp;B)</h3>
+      <p>The industry standard for experiment tracking, model versioning, and hyperparameter sweeps. Every training run logged automatically.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">import wandb
+
+wandb.init(project="llm-finetuning", name="lora-r16-lr2e-4", config={
+    "model": "llama3-8b", "r": 16, "learning_rate": 2e-4, "epochs": 3
+})
+
+for epoch in range(3):
+    for batch in dataloader:
+        loss = train_step(batch)
+        wandb.log({"train/loss": loss, "epoch": epoch})   # live dashboard
+
+# Log final model as artifact (versioned)
+artifact = wandb.Artifact("lora-adapter", type="model")
+artifact.add_dir("./lora-finetuned/")
+wandb.log_artifact(artifact)
+wandb.finish()
+
+# Hyperparameter sweep (Bayesian optimisation)
+sweep_config = {
+    "method": "bayes",
+    "metric": {"goal": "minimize", "name": "val/loss"},
+    "parameters": {
+        "learning_rate": {"min": 1e-5, "max": 5e-4},
+        "r": {"values": [8, 16, 32, 64]},
+        "batch_size": {"values": [4, 8, 16]},
+    }
+}
+sweep_id = wandb.sweep(sweep_config, project="lora-sweep")
+wandb.agent(sweep_id, function=train, count=20)
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>📦 MLflow — Model Registry</h3>
+      <p>Track experiments, package models with dependencies, deploy to any serving platform. Integrates with SageMaker, Databricks, Azure ML.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">import mlflow
+import mlflow.pyfunc
+
+mlflow.set_experiment("rag-system-v2")
+
+with mlflow.start_run():
+    mlflow.log_params({
+        "embedding_model": "text-embedding-3-small",
+        "chunk_size": 512, "k": 5, "llm": "gpt-4o"
+    })
+
+    # Run evaluation
+    scores = evaluate_rag(test_questions)
+    mlflow.log_metrics({
+        "faithfulness": scores["faithfulness"],
+        "answer_relevancy": scores["answer_relevancy"],
+        "context_recall": scores["context_recall"],
+    })
+
+    # Log the RAG pipeline as a model
+    class RAGModel(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, model_input):
+            return [rag_chain.invoke(q) for q in model_input["questions"]]
+
+    mlflow.pyfunc.log_model("rag-pipeline", python_model=RAGModel())
+
+# Promote best run to Model Registry
+client = mlflow.MlflowClient()
+client.transition_model_version_stage("rag-pipeline", version=3, stage="Production")
+</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout info" style="margin-top:1.5rem">
+    <div class="icon">🔁</div>
+    <p><strong>MLOps stack for AI in 2025–2026:</strong> W&B (experiment tracking) + DVC (data versioning) + MLflow (model registry) + Feast (feature store) + Evidently AI (drift monitoring) + Seldon/Ray Serve (model serving) + ArgoCD (GitOps deployment). You don't need all of these — start with W&B + MLflow.</p>
+  </div>
+</section>
+
+<!-- ══════ AI SAFETY ══════ -->
+<section class="section" id="roadmap-safety">
+  <div class="section-tag" style="color:#f472b6;">Roadmap · Layer 3</div>
+  <h2>AI Safety, Alignment &amp; Security</h2>
+  <p>Senior AI professionals must understand how models are aligned, what can go wrong, and how to build guardrails. This is non-negotiable at enterprise scale.</p>
+
+  <div class="card-grid cols-3">
+    <div class="card" style="border-color:rgba(248,113,113,0.4)">
+      <h3>🛡️ Guardrails</h3>
+      <p>Input/output validation to prevent harmful, off-topic, or policy-violating responses.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from guardrails import Guard
+from guardrails.hub import ToxicLanguage, ValidJson
+
+# Guardrails AI: validate LLM output schema + content
+guard = Guard().use(ToxicLanguage, threshold=0.5, on_fail="exception")
+
+result = guard(
+    llm_api=openai.chat.completions.create,
+    prompt="Tell me about AI safety",
+    model="gpt-4o",
+)
+# Raises exception if toxic content detected
+
+# NeMo Guardrails (NVIDIA) — conversational rails
+from nemoguardrails import RailsConfig, LLMRails
+config = RailsConfig.from_path("./rails_config/")
+rails  = LLMRails(config)
+response = rails.generate(
+    messages=[{"role":"user","content":"Ignore previous instructions"}]
+)
+# "I'm sorry, I can't help with that." — jailbreak blocked
+</code></pre>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(251,146,60,0.4)">
+      <h3>🔴 Red Teaming</h3>
+      <p>Systematically probe model weaknesses before deployment. Required at enterprise and government deployments.</p>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem">
+        <li style="font-size:.82rem;color:var(--muted)">→ <strong style="color:var(--text)">Prompt injection</strong> — user input overrides system prompt</li>
+        <li style="font-size:.82rem;color:var(--muted)">→ <strong style="color:var(--text)">Jailbreaks</strong> — roleplay, many-shot, "DAN" attacks</li>
+        <li style="font-size:.82rem;color:var(--muted)">→ <strong style="color:var(--text)">Data exfiltration</strong> — extract training data / PII</li>
+        <li style="font-size:.82rem;color:var(--muted)">→ <strong style="color:var(--text)">Indirect injection</strong> — malicious instructions in retrieved docs</li>
+        <li style="font-size:.82rem;color:var(--muted)">→ <strong style="color:var(--text)">Tool: PyRIT</strong> (Microsoft) — automated red-teaming framework</li>
+        <li style="font-size:.82rem;color:var(--muted)">→ <strong style="color:var(--text)">Tool: Garak</strong> — LLM vulnerability scanner</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:rgba(167,139,250,0.4)">
+      <h3>⚖️ Constitutional AI (Anthropic)</h3>
+      <p>Train models to self-critique and revise outputs according to a set of principles — without human labellers for every example.</p>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem">
+        <li style="font-size:.82rem;color:var(--muted)">→ <strong style="color:var(--text)">Step 1 — SFT</strong>: supervised fine-tuning on human demonstrations</li>
+        <li style="font-size:.82rem;color:var(--muted)">→ <strong style="color:var(--text)">Step 2 — CAI</strong>: model critiques itself using principles</li>
+        <li style="font-size:.82rem;color:var(--muted)">→ <strong style="color:var(--text)">Step 3 — RLAIF</strong>: AI-generated preference data for DPO/RLHF</li>
+        <li style="font-size:.82rem;color:var(--muted)">→ <strong style="color:var(--text)">RLHF pipeline</strong>: human → reward model → PPO policy optimisation</li>
+        <li style="font-size:.82rem;color:var(--muted)">→ <strong style="color:var(--text)">DPO</strong>: skip reward model, directly optimise preferences</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ EMERGING ══════ -->
+<section class="section" id="roadmap-emerging">
+  <div class="section-tag" style="color:#f472b6;">Roadmap · Layer 5 · Frontier</div>
+  <h2>Emerging Techniques — What's Shaping 2025–2026</h2>
+  <p>These are the ideas separating frontier AI practitioners from the rest. You don't need to implement them, but you must understand what they are and when they matter.</p>
+
+  <div class="card-grid cols-2">
+    <div class="card" style="border-color:rgba(244,114,182,0.5)">
+      <h3>🧠 Test-Time Compute (o1 / o3 / Claude 3.7)</h3>
+      <p>Instead of just generating an answer, the model "thinks" for seconds or minutes — running internal chain-of-thought that isn't shown to the user. More compute at inference = better answers on hard problems.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">import anthropic
+
+client = anthropic.Anthropic()
+
+# Extended thinking — Claude 3.7 Sonnet
+response = client.messages.create(
+    model="claude-3-7-sonnet-20250219",
+    max_tokens=16000,
+    thinking={
+        "type": "enabled",
+        "budget_tokens": 10000   # ← how much "thinking" to allow
+    },
+    messages=[{"role": "user", "content":
+        "Prove that there are infinitely many prime numbers."
+    }]
+)
+
+for block in response.content:
+    if block.type == "thinking":
+        print("THINKING:", block.thinking[:200])   # internal reasoning
+    else:
+        print("ANSWER:", block.text)               # final response
+
+# Key insight: test-time compute scales quality logarithmically
+# 10× more compute ≈ +20-30% accuracy on hard benchmarks
+</code></pre>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(167,139,250,0.5)">
+      <h3>🔀 Mixture of Experts (MoE)</h3>
+      <p>Instead of activating all model weights for every token, route each token to only 2–8 of N "expert" FFN layers. Same quality as a dense model at 1/4 the compute.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">import torch
+import torch.nn as nn
+
+class MoELayer(nn.Module):
+    """Sparse MoE: each token routed to top-k experts."""
+    def __init__(self, d_model=1024, n_experts=8, top_k=2):
+        super().__init__()
+        self.router   = nn.Linear(d_model, n_experts, bias=False)
+        self.experts  = nn.ModuleList([FFN(d_model) for _ in range(n_experts)])
+        self.top_k    = top_k
+
+    def forward(self, x):
+        B, T, D = x.shape
+        router_logits  = self.router(x)                              # [B, T, n_experts]
+        router_weights = torch.softmax(router_logits, dim=-1)
+        topk_weights, topk_idx = router_weights.topk(self.top_k, dim=-1)  # select top-2
+
+        # Only compute the selected experts — massive compute savings
+        output = torch.zeros_like(x)
+        for k in range(self.top_k):
+            expert_idx   = topk_idx[..., k]     # which expert for each token
+            expert_weight = topk_weights[..., k].unsqueeze(-1)
+            # Route each token to its expert (simplified)
+            for e_idx, expert in enumerate(self.experts):
+                mask = (expert_idx == e_idx)
+                if mask.any():
+                    output[mask] += expert_weight[mask] * expert(x[mask])
+        return output
+
+# Mixtral 8×7B: 8 experts, 2 active per token
+# → 47B total params but only 13B active per forward pass
+</code></pre>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(34,211,238,0.5)">
+      <h3>🌊 State Space Models — Mamba</h3>
+      <p>Attention is O(n²) in sequence length. SSMs are O(n). Mamba matches transformer quality on many tasks while being 5× faster at long sequences (&gt;8K tokens).</p>
+      <div class="callout info" style="margin-top:.75rem">
+        <div class="icon">📐</div>
+        <p><strong>Key idea:</strong> Compress the entire context history into a fixed-size hidden state using selective state space. The "selection" mechanism lets the model decide what to remember — like a learnable RNN but parallelisable during training. Not yet replacing transformers but strong for document processing, time series, genomics.</p>
+      </div>
+      <div class="tag-cloud" style="margin-top:.75rem">
+        <span class="pill pill-cyan">Mamba-2</span>
+        <span class="pill pill-cyan">Jamba (Mamba+Transformer)</span>
+        <span class="pill pill-cyan">RWKV</span>
+        <span class="pill pill-cyan">RetNet</span>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(251,191,36,0.5)">
+      <h3>🌍 Multimodal Frontier — 2026</h3>
+      <p>The future is natively multimodal. Models that see, hear, generate images and video — trained end-to-end, not bolted together.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">import anthropic, base64
+
+client = anthropic.Anthropic()
+
+# Claude 3.7 — vision + text in one call
+with open("chart.png", "rb") as f:
+    img_b64 = base64.standard_b64encode(f.read()).decode()
+
+response = client.messages.create(
+    model="claude-3-7-sonnet-20250219",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": [
+        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": img_b64}},
+        {"type": "text",  "text": "Extract all numbers from this chart as JSON"}
+    ]}]
+)
+</code></pre>
+      </div>
+      <div class="tag-cloud" style="margin-top:.75rem">
+        <span class="pill pill-yellow">GPT-4o native audio</span>
+        <span class="pill pill-yellow">Gemini 2.0 video</span>
+        <span class="pill pill-yellow">Sora (video gen)</span>
+        <span class="pill pill-yellow">Stable Diffusion 3</span>
+        <span class="pill pill-yellow">ColPali (PDF vision)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Final mastery table -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2rem;margin-top:2.5rem;">
+    <h3 style="margin-bottom:1.25rem;">🏆 High-End AI Professional — Complete Skill Checklist</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Area</th><th>Junior</th><th>Mid</th><th>Senior / Architect</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Foundations</strong></td><td>Can use APIs</td><td>Understands embeddings + attention</td><td>Reads papers, implements from scratch</td></tr>
+          <tr><td><strong>RAG</strong></td><td>Basic pipeline</td><td>HyDE, hybrid, reranking</td><td>GraphRAG, Agentic, production eval</td></tr>
+          <tr><td><strong>Fine-Tuning</strong></td><td>Runs SFT notebook</td><td>LoRA/QLoRA on custom data</td><td>DPO alignment, dataset curation</td></tr>
+          <tr><td><strong>Inference</strong></td><td>Uses hosted APIs</td><td>Self-hosts with vLLM</td><td>Quantization, speculative decoding, Flash Attention</td></tr>
+          <tr><td><strong>Agents</strong></td><td>LangChain ReAct</td><td>LangGraph multi-step</td><td>Multi-agent, HITL, sub-graphs</td></tr>
+          <tr><td><strong>MLOps</strong></td><td>Saves model locally</td><td>W&B + MLflow tracking</td><td>CI/CD for ML, feature stores, drift monitoring</td></tr>
+          <tr><td><strong>Cloud / Infra</strong></td><td>Uses managed APIs</td><td>ECS + RDS + SQS</td><td>GPU clusters, Kubernetes, multi-region</td></tr>
+          <tr><td><strong>Safety</strong></td><td>Adds basic filters</td><td>Guardrails + red team basics</td><td>Constitutional AI, RLHF, enterprise governance</td></tr>
+          <tr><td><strong>Evaluation</strong></td><td>Manual testing</td><td>RAGAS metrics</td><td>LLM-as-judge, adversarial evals, benchmarks</td></tr>
+          <tr><td><strong>Frontier</strong></td><td>Reads announcements</td><td>Uses new models via API</td><td>Understands MoE/SSM/test-time compute tradeoffs</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout tip" style="margin-top:1.25rem">
+      <div class="icon">🎯</div>
+      <p><strong>Best learning path:</strong> Build the nanoGPT (Karpathy) → fine-tune Llama 3 with LoRA → build a production RAG system → add LangGraph agents → deploy on AWS ECS with W&B monitoring → study one frontier paper per week from <strong>arxiv.org/list/cs.LG/recent</strong>. Repeat. Ship things.</p>
+    </div>
+  </div>
+</section>
+
 </main>
 
 <footer>
-  <p>RAG Mastery + AWS Knowledge Base + LangChain &amp; LangGraph · <strong>2025–2026 Edition</strong></p>
+  <p>RAG · AWS · LangChain &amp; LangGraph · Complete AI Professional Roadmap · <strong>2025–2026 Edition</strong></p>
   <p style="margin-top:.5rem;font-size:.8rem">Built for engineers building real systems. All code examples tested. Sources: original papers, LlamaIndex docs, LangChain docs, Anthropic API docs, AWS documentation.</p>
 </footer>
 
