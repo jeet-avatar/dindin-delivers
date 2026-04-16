@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     await transporter.sendMail({
       from: `"Vish Medical Website" <${process.env.SMTP_USER}>`,
-      to: process.env.CONTACT_TO_EMAIL,
+      to: process.env.CONTACT_TO_EMAIL ?? 'drpillaymd@vishmed.com, jcetina@vishmed.com',
       replyTo: email,
       subject: `New Contact Form Submission from ${name}`,
       text: [
