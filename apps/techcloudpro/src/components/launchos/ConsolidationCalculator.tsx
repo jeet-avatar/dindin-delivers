@@ -139,7 +139,7 @@ export default function ConsolidationCalculator() {
           </div>
           <ArrowRight size={20} style={{ color: C.textMuted, flexShrink: 0 }} />
           <div className="text-right">
-            <p className="text-xs mb-1" style={{ color: C.textMuted }}>LaunchOS Growth</p>
+            <p className="text-xs mb-1" style={{ color: C.textMuted }}>Zietra Growth</p>
             <p className="text-3xl font-black" style={{ color: C.orange }}>
               ${launchosPrice}<span className="text-base font-normal" style={{ color: C.textMuted }}>/mo</span>
             </p>
@@ -161,7 +161,7 @@ export default function ConsolidationCalculator() {
           <div className="rounded-xl p-4 text-center mb-4"
             style={{ background: C.orangeDim, border: `1px solid ${C.borderHot}` }}>
             <p className="text-base font-bold mb-0.5" style={{ color: C.orange }}>
-              LaunchOS also adds AI video + AI workers + meetings
+              Zietra also adds AI video + AI workers + meetings
             </p>
             <p className="text-sm" style={{ color: C.textDim }}>Select more tools to see full savings</p>
           </div>

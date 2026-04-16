@@ -50,7 +50,7 @@ export default function App() {
                 <Route path="/about" element={<About />} />
                 <Route path="/leadership" element={<Leadership />} />
                 <Route path="/products" element={<Products />} />
-                <Route path="/launchos" element={<LaunchOS />} />
+                <Route path="/zietra" element={<LaunchOS />} />
                 <Route path="/partners" element={<Partners />} />
                 <Route path="/careers" element={<Careers />} />
                 <Route path="/contact" element={<Contact />} />

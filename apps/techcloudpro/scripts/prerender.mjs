@@ -18,7 +18,7 @@ const routes = [
   '/about',
   '/leadership',
   '/products',
-  '/launchos',
+  '/zietra',
   '/partners',
   '/careers',
   '/contact',

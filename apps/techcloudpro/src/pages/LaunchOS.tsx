@@ -200,9 +200,9 @@ export default function LaunchOS() {
   return (
     <>
       <SEO
-        title="LaunchOS — Your Entire Marketing Team, One Platform"
-        description="LaunchOS replaces 5–6 SaaS tools with one AI-powered platform: CRM, AI video generation, social publishing, email campaigns, and video meetings. $79/mo. 30-day free trial."
-        path="/launchos"
+        title="Zietra — Your Entire Marketing Team, One Platform"
+        description="Zietra replaces 5–6 SaaS tools with one AI-powered platform: CRM, AI video generation, social publishing, email campaigns, and video meetings. $79/mo. 30-day free trial."
+        path="/zietra"
       />
 
       {/* ── HERO ──────────────────────────────────────────────────────── */}
@@ -230,14 +230,14 @@ export default function LaunchOS() {
           </h1>
 
           <p className="text-xl mb-10 max-w-2xl mx-auto" style={{ color: C.textDim }}>
-            LaunchOS replaces 5–6 disconnected SaaS tools with a single integrated system that
+            Zietra replaces 5–6 disconnected SaaS tools with a single integrated system that
             autonomously executes your full go-to-market stack: CRM, AI video, social publishing,
             email campaigns, and video meetings.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
             <a
-              href="https://brandmonkz.com/signup?utm_source=launchos&utm_medium=hero&utm_campaign=launchos-landing"
+              href="https://brandmonkz.com/signup?utm_source=zietra&utm_medium=hero&utm_campaign=zietra-landing"
               className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold text-lg text-white transition-all hover:opacity-90"
               style={{ background: `linear-gradient(135deg, ${C.orange}, ${C.orangeLight})` }}
             >
@@ -277,12 +277,12 @@ export default function LaunchOS() {
           <SectionLabel>The Aha Moment</SectionLabel>
           <blockquote className="text-2xl md:text-3xl font-semibold leading-relaxed italic"
             style={{ color: C.text }}>
-            "I wrote one paragraph about my new service. LaunchOS drafted a 5-email campaign,
+            "I wrote one paragraph about my new service. Zietra drafted a 5-email campaign,
             generated a 60-second marketing video, posted it to LinkedIn and Instagram, emailed
             my 800 contacts with personalised follow-ups, scored the leads who opened it, and
             booked three discovery calls —&nbsp;while I slept."
           </blockquote>
-          <p className="mt-6 text-sm" style={{ color: C.textMuted }}>— What every LaunchOS user experiences in Week 2</p>
+          <p className="mt-6 text-sm" style={{ color: C.textMuted }}>— What every Zietra user experiences in Week 2</p>
         </div>
       </section>
 
@@ -367,7 +367,7 @@ export default function LaunchOS() {
       <section className="py-20 px-6" style={{ background: C.bg }}>
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <SectionLabel>Why LaunchOS</SectionLabel>
+            <SectionLabel>Why Zietra</SectionLabel>
             <h2 className="text-3xl md:text-4xl font-extrabold" style={{ color: C.text }}>
               No competitor does this
             </h2>
@@ -381,7 +381,7 @@ export default function LaunchOS() {
               <thead>
                 <tr style={{ background: C.bgElevated }}>
                   <th className="text-left p-4 font-semibold" style={{ color: C.textDim }}>Feature</th>
-                  <th className="p-4 font-bold text-center" style={{ color: C.orange }}>LaunchOS</th>
+                  <th className="p-4 font-bold text-center" style={{ color: C.orange }}>Zietra</th>
                   <th className="p-4 text-center font-semibold" style={{ color: C.textMuted }}>GoHighLevel</th>
                   <th className="p-4 text-center font-semibold hidden sm:table-cell" style={{ color: C.textMuted }}>HubSpot</th>
                   <th className="p-4 text-center font-semibold hidden md:table-cell" style={{ color: C.textMuted }}>ActiveCampaign</th>
@@ -474,7 +474,7 @@ export default function LaunchOS() {
                 </ul>
 
                 <a
-                  href={`https://brandmonkz.com/signup?plan=${tier.utm}&utm_source=launchos&utm_medium=pricing`}
+                  href={`https://brandmonkz.com/signup?plan=${tier.utm}&utm_source=zietra&utm_medium=pricing`}
                   className="block text-center py-3.5 px-6 rounded-xl font-bold text-white transition-all hover:opacity-90"
                   style={{ background: `linear-gradient(135deg, ${C.orange}, ${C.orangeLight})` }}
                 >
@@ -490,7 +490,7 @@ export default function LaunchOS() {
               Calculate Your Exact Savings
             </h3>
             <p className="text-center mb-8" style={{ color: C.textDim }}>
-              Select the tools you currently pay for and see how much you save with LaunchOS Growth.
+              Select the tools you currently pay for and see how much you save with Zietra Growth.
             </p>
             <ConsolidationCalculator />
           </div>
@@ -503,7 +503,7 @@ export default function LaunchOS() {
           <div className="text-center mb-14">
             <SectionLabel>Free Sample Pack</SectionLabel>
             <h2 className="text-3xl md:text-4xl font-extrabold" style={{ color: C.text }}>
-              See exactly what LaunchOS generates
+              See exactly what Zietra generates
             </h2>
             <p className="mt-3 max-w-xl mx-auto" style={{ color: C.textDim }}>
               We built a full campaign for Apex Fitness Studio — email, follow-up, and a
@@ -619,7 +619,7 @@ export default function LaunchOS() {
               You'll be live with more features at a lower price today.
             </p>
             <a
-              href="https://brandmonkz.com/signup?plan=growth&utm_source=launchos&utm_medium=migration&utm_campaign=ac-migration"
+              href="https://brandmonkz.com/signup?plan=growth&utm_source=zietra&utm_medium=migration&utm_campaign=ac-migration"
               className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-bold text-white transition-all hover:opacity-90"
               style={{ background: `linear-gradient(135deg, ${C.orange}, ${C.orangeLight})` }}
             >
@@ -644,7 +644,7 @@ export default function LaunchOS() {
               Join businesses saving $93+ per month. Full platform access for 30 days — no credit card.
             </p>
             <a
-              href="https://brandmonkz.com/signup?utm_source=launchos&utm_medium=footer&utm_campaign=launchos-landing"
+              href="https://brandmonkz.com/signup?utm_source=zietra&utm_medium=footer&utm_campaign=zietra-landing"
               className="inline-flex items-center gap-2 px-10 py-4 rounded-xl font-bold text-lg text-white transition-all hover:opacity-90"
               style={{ background: `linear-gradient(135deg, ${C.orange}, ${C.orangeLight})` }}
             >
