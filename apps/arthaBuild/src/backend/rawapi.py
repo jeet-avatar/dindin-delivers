@@ -285,6 +285,10 @@ app.include_router(knowledge_router)
 from routers.analytics import router as analytics_router
 app.include_router(analytics_router)
 
+# Phase 19 D-1: Blog reactions + comments (public + admin moderation)
+from routers.blog_engagement import router as blog_engagement_router
+app.include_router(blog_engagement_router)
+
 # Phase 16: /api/v1/ prefix alias for chats router — same handler functions, versioned prefix.
 # The chats router already has prefix="/api/chats". We create a second APIRouter with
 # prefix="/api/v1/chats" that re-registers the identical endpoint callables so both

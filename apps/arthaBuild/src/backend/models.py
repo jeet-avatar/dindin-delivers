@@ -203,3 +203,32 @@ class AnalyticsEvent(Base):
     element = Column(String, nullable=True)         # CSS selector or element name
     value = Column(String, nullable=True)           # arbitrary string value for the event
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class BlogReaction(Base):
+    """Phase 19 D: Anonymous reaction (insightful/hot/saved) on a blog post.
+    IP is SHA-256 hashed — never stored raw. UNIQUE(post_slug, reaction, ip_hash)
+    prevents the same IP from spamming the same reaction.
+    """
+    __tablename__ = "blog_reactions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    post_slug = Column(String, nullable=False)
+    reaction = Column(String, nullable=False)       # "insightful" | "hot" | "saved"
+    ip_hash = Column(String, nullable=False)        # sha256 of client IP
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class BlogComment(Base):
+    """Phase 19 D: Moderated blog comment with optional nested replies.
+    status: pending | approved | rejected. is_team_reply marks ArthaBuild-team replies.
+    """
+    __tablename__ = "blog_comments"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    post_slug = Column(String, nullable=False)
+    parent_id = Column(Integer, ForeignKey("blog_comments.id"), nullable=True)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=True)
+    body = Column(String, nullable=False)
+    status = Column(String, default="pending", nullable=False)   # pending|approved|rejected
+    is_team_reply = Column(Integer, default=0, nullable=False)   # 1 = ArthaBuild team reply
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

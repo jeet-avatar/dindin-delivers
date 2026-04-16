@@ -49,6 +49,7 @@ _SKIP_PREFIXES = (
     "/static",
     "/assets",
     "/favicon",
+    "/api/blog/",  # Phase 19 D-1: public blog reactions + comments (admin routes live under /api/admin/blog/)
 )
 
 
