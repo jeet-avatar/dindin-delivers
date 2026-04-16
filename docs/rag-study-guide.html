@@ -1,0 +1,2751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RAG Mastery — Complete Study Guide 2025–2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<style>
+:root {
+  --bg: #0d0f1a;
+  --bg2: #131625;
+  --card: #1a1d2e;
+  --card2: #1f2235;
+  --border: #2a2d45;
+  --text: #e2e4f0;
+  --muted: #8b8fa8;
+  --indigo: #6366f1;
+  --indigo-light: #818cf8;
+  --cyan: #22d3ee;
+  --green: #34d399;
+  --orange: #fb923c;
+  --pink: #f472b6;
+  --yellow: #fbbf24;
+  --red: #f87171;
+  --purple: #a78bfa;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; line-height: 1.7; }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(13,15,26,0.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem; height: 56px;
+  display: flex; align-items: center; gap: 2rem;
+  overflow-x: auto;
+}
+nav a {
+  color: var(--muted); text-decoration: none; font-size: 0.8rem;
+  font-weight: 500; white-space: nowrap; transition: color .2s;
+}
+nav a:hover { color: var(--indigo-light); }
+nav .logo { color: var(--text); font-weight: 700; font-size: 0.95rem; margin-right: 1rem; flex-shrink: 0; }
+nav .logo span { color: var(--cyan); }
+
+/* ── LAYOUT ── */
+main { padding-top: 56px; }
+.section { padding: 5rem 2rem; max-width: 1100px; margin: 0 auto; }
+.section + .section { border-top: 1px solid var(--border); }
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  padding: 6rem 2rem 4rem; position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.35);
+  color: var(--indigo-light); border-radius: 99px;
+  padding: .35rem 1rem; font-size: .8rem; font-weight: 600;
+  margin-bottom: 2rem; letter-spacing: .04em;
+}
+.hero h1 {
+  font-size: clamp(2.4rem, 6vw, 4.5rem); font-weight: 800;
+  line-height: 1.1; margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, #fff 30%, var(--indigo-light) 60%, var(--cyan) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero p { font-size: 1.15rem; color: var(--muted); max-width: 640px; margin: 0 auto 3rem; }
+.stats-row {
+  display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center;
+  margin-top: 1rem;
+}
+.stat {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 1.2rem 2rem; text-align: center;
+}
+.stat .num { font-size: 2rem; font-weight: 800; color: var(--cyan); }
+.stat .label { font-size: .8rem; color: var(--muted); margin-top: .2rem; }
+
+/* ── HEADINGS ── */
+.section-tag {
+  display: inline-block; font-size: .75rem; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--indigo-light); margin-bottom: .75rem;
+}
+h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; margin-bottom: .75rem; }
+h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: .5rem; color: var(--text); }
+p { color: var(--muted); margin-bottom: 1rem; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.5rem;
+}
+.card-grid { display: grid; gap: 1.25rem; }
+.card-grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.card-grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.card-grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+/* ── TECHNIQUE BLOCK ── */
+.technique {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 2rem; margin-bottom: 2rem;
+}
+.technique-header {
+  display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem;
+}
+.technique-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; flex-shrink: 0;
+}
+.complexity-badge {
+  display: inline-block; font-size: .7rem; font-weight: 700;
+  padding: .2rem .6rem; border-radius: 99px; margin-left: .5rem;
+  letter-spacing: .05em;
+}
+.easy { background: rgba(52,211,153,0.15); color: var(--green); }
+.medium { background: rgba(251,191,36,0.15); color: var(--yellow); }
+.hard { background: rgba(248,113,113,0.15); color: var(--red); }
+
+/* ── SVG DIAGRAMS ── */
+.diagram {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;
+  overflow-x: auto;
+}
+.diagram svg { display: block; max-width: 100%; margin: 0 auto; }
+
+/* ── CODE ── */
+.code-wrap { position: relative; margin: 1.25rem 0; }
+.code-label {
+  position: absolute; top: .6rem; right: .8rem;
+  font-size: .7rem; font-weight: 600; color: var(--muted);
+  font-family: 'JetBrains Mono', monospace; z-index: 1;
+}
+pre[class*="language-"] {
+  border-radius: 12px !important; margin: 0 !important;
+  border: 1px solid var(--border) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: .82rem !important; line-height: 1.6 !important;
+}
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; margin: 1.5rem 0; border-radius: 12px; border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; }
+th { background: var(--card2); font-size: .8rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: .8rem 1.2rem; text-align: left; }
+td { padding: .75rem 1.2rem; font-size: .88rem; border-top: 1px solid var(--border); color: var(--text); }
+tr:hover td { background: rgba(255,255,255,0.02); }
+.check { color: var(--green); }
+.cross { color: var(--red); }
+
+/* ── PILLS ── */
+.pill {
+  display: inline-block; font-size: .75rem; font-weight: 600;
+  padding: .25rem .7rem; border-radius: 99px; margin: .15rem;
+}
+.pill-indigo { background: rgba(99,102,241,0.15); color: var(--indigo-light); border: 1px solid rgba(99,102,241,0.3); }
+.pill-cyan { background: rgba(34,211,238,0.1); color: var(--cyan); border: 1px solid rgba(34,211,238,0.25); }
+.pill-green { background: rgba(52,211,153,0.1); color: var(--green); border: 1px solid rgba(52,211,153,0.25); }
+.pill-orange { background: rgba(251,146,60,0.1); color: var(--orange); border: 1px solid rgba(251,146,60,0.25); }
+.pill-pink { background: rgba(244,114,182,0.1); color: var(--pink); border: 1px solid rgba(244,114,182,0.25); }
+.pill-purple { background: rgba(167,139,250,0.1); color: var(--purple); border: 1px solid rgba(167,139,250,0.25); }
+
+/* ── CALLOUT ── */
+.callout {
+  display: flex; gap: 1rem; padding: 1rem 1.25rem;
+  border-radius: 10px; margin: 1.25rem 0;
+  border-left: 3px solid;
+}
+.callout.info { background: rgba(99,102,241,0.07); border-color: var(--indigo); }
+.callout.tip { background: rgba(52,211,153,0.07); border-color: var(--green); }
+.callout.warn { background: rgba(251,191,36,0.07); border-color: var(--yellow); }
+.callout .icon { font-size: 1.1rem; flex-shrink: 0; margin-top: .1rem; }
+.callout p { margin: 0; font-size: .88rem; }
+
+/* ── FLOW NODE ── */
+.flow { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin: 1.25rem 0; }
+.flow-node {
+  display: inline-flex; align-items: center; gap: .4rem;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 8px; padding: .4rem .9rem; font-size: .82rem; font-weight: 600;
+}
+.flow-arrow { color: var(--muted); font-size: 1.2rem; }
+
+/* ── GRID CHUNKS ── */
+.chunk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.chunk-card {
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1rem; text-align: center;
+}
+.chunk-card .chunk-icon { font-size: 1.8rem; margin-bottom: .5rem; }
+.chunk-card h4 { font-size: .85rem; font-weight: 700; margin-bottom: .3rem; }
+.chunk-card p { font-size: .75rem; margin: 0; }
+
+/* ── PROGRESS BAR ── */
+.metric-row { display: flex; flex-direction: column; gap: .6rem; margin: 1rem 0; }
+.metric-item { display: flex; align-items: center; gap: 1rem; }
+.metric-label { font-size: .8rem; font-weight: 600; min-width: 120px; color: var(--text); }
+.metric-bar { flex: 1; height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.metric-fill { height: 100%; border-radius: 99px; transition: width 1s ease; }
+.metric-val { font-size: .8rem; color: var(--muted); min-width: 40px; text-align: right; }
+
+/* ── TAG CLOUD ── */
+.tag-cloud { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+
+/* ── MODEL TABLE ── */
+.model-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: .5rem; padding: .75rem 0; border-bottom: 1px solid var(--border); font-size: .85rem; align-items: center; }
+.model-row.header { color: var(--muted); font-size: .75rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+
+/* ── FOOTER ── */
+footer {
+  text-align: center; padding: 3rem 2rem;
+  border-top: 1px solid var(--border); color: var(--muted); font-size: .85rem;
+}
+footer strong { color: var(--indigo-light); }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════ NAV ══════════ -->
+<nav>
+  <span class="logo">RAG + <span>AWS</span></span>
+  <a href="#basics">Basics</a>
+  <a href="#chunking">Chunking</a>
+  <a href="#embeddings">Embeddings</a>
+  <a href="#vectordbs">Vector DBs</a>
+  <a href="#advanced">Advanced RAG</a>
+  <a href="#graphrag">GraphRAG</a>
+  <a href="#agentic">Agentic RAG</a>
+  <a href="#multimodal">Multimodal</a>
+  <a href="#frameworks">Frameworks</a>
+  <a href="#evaluation">Evaluation</a>
+  <a href="#production">Production</a>
+  <a href="#anthropic">Anthropic</a>
+  <a href="#aws-overview" style="color:var(--orange);font-weight:700">☁️ AWS</a>
+  <a href="#aws-s3">S3</a>
+  <a href="#aws-ec2">EC2</a>
+  <a href="#aws-lambda">Lambda</a>
+  <a href="#aws-databases">Databases</a>
+  <a href="#aws-networking">Networking</a>
+  <a href="#aws-containers">Containers</a>
+  <a href="#aws-security">IAM/Security</a>
+  <a href="#aws-messaging">SQS/SNS</a>
+  <a href="#aws-observability">Observability</a>
+  <a href="#aws-decision">AWS Guide</a>
+</nav>
+
+<main>
+
+<!-- ══════════ HERO ══════════ -->
+<section class="hero">
+  <div class="hero-badge">📚 2025–2026 Edition · Regularly Updated</div>
+  <h1>Retrieval-Augmented<br/>Generation Mastery</h1>
+  <p>From Basic RAG to GraphRAG, Agentic Systems, and Production Deployments — every technique explained with architecture diagrams and real code examples.</p>
+  <div class="stats-row">
+    <div class="stat"><div class="num">12+</div><div class="label">Techniques Covered</div></div>
+    <div class="stat"><div class="num">25+</div><div class="label">Code Examples</div></div>
+    <div class="stat"><div class="num">6</div><div class="label">Vector DB Compared</div></div>
+    <div class="stat"><div class="num">3</div><div class="label">Eval Frameworks</div></div>
+  </div>
+</section>
+
+<!-- ══════════ 1. BASICS ══════════ -->
+<section class="section" id="basics">
+  <div class="section-tag">01 · Foundation</div>
+  <h2>Basic RAG Architecture</h2>
+  <p>RAG grounds an LLM's responses in retrieved, real-world documents — eliminating hallucinations and making knowledge updatable without retraining.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 820 180" width="820" height="180" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#6366f1"/>
+        </marker>
+      </defs>
+      <!-- boxes -->
+      <rect x="10" y="60" width="120" height="60" rx="10" fill="#1f2235" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="70" y="87" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="12" font-weight="600">User Query</text>
+      <text x="70" y="107" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="10">"What is RAG?"</text>
+
+      <rect x="180" y="60" width="130" height="60" rx="10" fill="#1f2235" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="245" y="87" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="12" font-weight="600">Embed Query</text>
+      <text x="245" y="107" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="10">text-embedding-3</text>
+
+      <rect x="360" y="60" width="130" height="60" rx="10" fill="#1f2235" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="425" y="87" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="12" font-weight="600">Vector Search</text>
+      <text x="425" y="107" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="10">Top-K chunks</text>
+
+      <rect x="540" y="60" width="130" height="60" rx="10" fill="#1f2235" stroke="#34d399" stroke-width="1.5"/>
+      <text x="605" y="87" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="12" font-weight="600">Build Prompt</text>
+      <text x="605" y="107" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="10">context + query</text>
+
+      <rect x="720" y="60" width="90" height="60" rx="10" fill="#1f2235" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="765" y="87" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="12" font-weight="600">LLM</text>
+      <text x="765" y="107" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="10">Generate</text>
+
+      <!-- arrows -->
+      <line x1="130" y1="90" x2="178" y2="90" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="310" y1="90" x2="358" y2="90" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="490" y1="90" x2="538" y2="90" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="670" y1="90" x2="718" y2="90" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- knowledge base icon -->
+      <rect x="360" y="145" width="130" height="28" rx="6" fill="#131625" stroke="#2a2d45" stroke-width="1"/>
+      <text x="425" y="163" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="10">📦 Vector Store (indexed docs)</text>
+      <line x1="425" y1="145" x2="425" y2="120" stroke="#2a2d45" stroke-width="1" stroke-dasharray="4"/>
+    </svg>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · OpenAI + ChromaDB</div>
+<pre><code class="language-python">from openai import OpenAI
+import chromadb
+
+client = OpenAI()
+chroma = chromadb.Client()
+collection = chroma.get_or_create_collection("docs")
+
+def embed(text: str) -> list[float]:
+    res = client.embeddings.create(model="text-embedding-3-small", input=text)
+    return res.data[0].embedding
+
+def index_documents(docs: list[str]):
+    """Embed and store documents in the vector store."""
+    embeddings = [embed(doc) for doc in docs]
+    collection.add(
+        documents=docs,
+        embeddings=embeddings,
+        ids=[f"doc_{i}" for i in range(len(docs))]
+    )
+
+def rag_query(question: str, k: int = 3) -> str:
+    # 1️⃣ Embed the user query
+    q_emb = embed(question)
+
+    # 2️⃣ Retrieve top-k similar chunks
+    results = collection.query(query_embeddings=[q_emb], n_results=k)
+    context = "\n\n".join(results["documents"][0])
+
+    # 3️⃣ Augment prompt with retrieved context
+    prompt = f"""Use ONLY the context below to answer the question.
+
+Context:
+{context}
+
+Question: {question}"""
+
+    # 4️⃣ Generate answer
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content
+
+# Usage
+index_documents(["RAG grounds LLMs in real documents...", "Retrieval happens via vector search..."])
+answer = rag_query("What is RAG?")
+print(answer)
+</code></pre>
+  </div>
+
+  <div class="callout info">
+    <div class="icon">💡</div>
+    <p><strong>Why RAG beats fine-tuning for most use-cases:</strong> RAG lets you update knowledge in seconds (re-index), costs ~$0 per update, and provides citations. Fine-tuning bakes knowledge into weights — expensive, slow, opaque.</p>
+  </div>
+</section>
+
+<!-- ══════════ 2. CHUNKING ══════════ -->
+<section class="section" id="chunking">
+  <div class="section-tag">02 · Preprocessing</div>
+  <h2>Chunking Strategies</h2>
+  <p>How you split documents is as important as the retrieval model. Wrong chunk size kills recall and precision.</p>
+
+  <div class="chunk-grid">
+    <div class="chunk-card">
+      <div class="chunk-icon">✂️</div>
+      <h4>Fixed-Size</h4>
+      <p>Split every N tokens. Simple but breaks sentences mid-thought.</p>
+      <span class="pill pill-green">Fast</span>
+    </div>
+    <div class="chunk-card">
+      <div class="chunk-icon">🔤</div>
+      <h4>Sentence</h4>
+      <p>NLTK / spaCy sentence boundaries. Clean, natural splits.</p>
+      <span class="pill pill-cyan">Balanced</span>
+    </div>
+    <div class="chunk-card">
+      <div class="chunk-icon">🧠</div>
+      <h4>Semantic</h4>
+      <p>Embed sentences, split on cosine distance jumps. Slow but accurate.</p>
+      <span class="pill pill-indigo">Best Quality</span>
+    </div>
+    <div class="chunk-card">
+      <div class="chunk-icon">🌳</div>
+      <h4>RAPTOR</h4>
+      <p>Recursive summarization tree. Handles multi-scale questions.</p>
+      <span class="pill pill-purple">Multi-Level</span>
+    </div>
+    <div class="chunk-card">
+      <div class="chunk-icon">📑</div>
+      <h4>Document-Aware</h4>
+      <p>Markdown headers, HTML tags, PDF structure as boundaries.</p>
+      <span class="pill pill-orange">Structure-Safe</span>
+    </div>
+    <div class="chunk-card">
+      <div class="chunk-icon">🔗</div>
+      <h4>Sliding Window</h4>
+      <p>Overlapping chunks (e.g. 512 tokens, 64 overlap) preserve context.</p>
+      <span class="pill pill-pink">Context-Safe</span>
+    </div>
+    <div class="chunk-card">
+      <div class="chunk-icon">📦</div>
+      <h4>Parent-Child</h4>
+      <p>Store small chunks for search, return large parent for generation.</p>
+      <span class="pill pill-indigo">Precision+Context</span>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Semantic Chunking</div>
+<pre><code class="language-python">from langchain_experimental.text_splitter import SemanticChunker
+from langchain_openai import OpenAIEmbeddings
+
+# Semantic chunker splits where embedding similarity drops sharply
+splitter = SemanticChunker(
+    embeddings=OpenAIEmbeddings(model="text-embedding-3-small"),
+    breakpoint_threshold_type="percentile",   # or "standard_deviation"
+    breakpoint_threshold_amount=85,            # split at 85th percentile jumps
+)
+
+docs = splitter.create_documents([long_text])
+print(f"Created {len(docs)} semantically coherent chunks")
+
+# ── Parent-Child pattern ──
+from langchain.retrievers import ParentDocumentRetriever
+from langchain.storage import InMemoryStore
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000)
+child_splitter  = RecursiveCharacterTextSplitter(chunk_size=400)
+
+retriever = ParentDocumentRetriever(
+    vectorstore=vectorstore,
+    docstore=InMemoryStore(),
+    child_splitter=child_splitter,
+    parent_splitter=parent_splitter,
+)
+# Search returns small child chunks → fetches big parent for LLM context
+</code></pre>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Strategy</th><th>Chunk Size Sweet Spot</th><th>Best For</th><th>Main Risk</th></tr></thead>
+      <tbody>
+        <tr><td>Fixed-Size</td><td>512–1024 tokens</td><td>Homogeneous text, high throughput</td><td>Splits mid-sentence</td></tr>
+        <tr><td>Semantic</td><td>Variable</td><td>Technical docs, research papers</td><td>Slow & costly to compute</td></tr>
+        <tr><td>Parent-Child</td><td>Child 200–400 / Parent 1500–2000</td><td>Balancing precision + context</td><td>Storage overhead</td></tr>
+        <tr><td>RAPTOR</td><td>Multi-level summaries</td><td>Long-form, multi-section docs</td><td>Complexity, latency</td></tr>
+        <tr><td>Sliding Window</td><td>512 + 64 overlap</td><td>Dense factual text (legal, medical)</td><td>Duplicate info in retrieval</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════ 3. EMBEDDINGS ══════════ -->
+<section class="section" id="embeddings">
+  <div class="section-tag">03 · Representation</div>
+  <h2>Embedding Models</h2>
+  <p>Embeddings are the heart of retrieval quality. Different models excel at different domains and languages.</p>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h3>🏆 OpenAI text-embedding-3-large</h3>
+      <p>Best all-around for English. 3072 dims, supports Matryoshka truncation. ~$0.13/M tokens.</p>
+      <div class="metric-row">
+        <div class="metric-item">
+          <span class="metric-label">MTEB Score</span>
+          <div class="metric-bar"><div class="metric-fill" style="width:95%;background:var(--indigo)"></div></div>
+          <span class="metric-val">64.6</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Speed</span>
+          <div class="metric-bar"><div class="metric-fill" style="width:70%;background:var(--cyan)"></div></div>
+          <span class="metric-val">Fast</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🚀 Cohere embed-v3</h3>
+      <p>Multilingual (100+ langs), 1024 dims, supports int8 quantization. Input-type aware (query vs doc).</p>
+      <div class="metric-row">
+        <div class="metric-item">
+          <span class="metric-label">MTEB Score</span>
+          <div class="metric-bar"><div class="metric-fill" style="width:90%;background:var(--indigo)"></div></div>
+          <span class="metric-val">64.0</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Multilingual</span>
+          <div class="metric-bar"><div class="metric-fill" style="width:100%;background:var(--green)"></div></div>
+          <span class="metric-val">★★★★★</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🔓 nomic-embed-text-v1.5 (Open)</h3>
+      <p>8192 token context (vs 512 for most), Apache 2.0, runs locally. Excellent for long docs.</p>
+      <div class="metric-row">
+        <div class="metric-item">
+          <span class="metric-label">Context Length</span>
+          <div class="metric-bar"><div class="metric-fill" style="width:100%;background:var(--orange)"></div></div>
+          <span class="metric-val">8192</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Cost</span>
+          <div class="metric-bar"><div class="metric-fill" style="width:100%;background:var(--green)"></div></div>
+          <span class="metric-val">$0</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>⚡ ColBERT / ColPali</h3>
+      <p>Late-interaction: embed every token, not just [CLS]. MaxSim retrieval — dramatically better recall.</p>
+      <div class="metric-row">
+        <div class="metric-item">
+          <span class="metric-label">Recall@10</span>
+          <div class="metric-bar"><div class="metric-fill" style="width:98%;background:var(--pink)"></div></div>
+          <span class="metric-val">98%</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Storage</span>
+          <div class="metric-bar"><div class="metric-fill" style="width:40%;background:var(--yellow)"></div></div>
+          <span class="metric-val">High</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Matryoshka Representation Learning (MRL)</div>
+<pre><code class="language-python"># MRL: truncate embedding dimensions without retraining
+# text-embedding-3-* supports this natively
+
+from openai import OpenAI
+
+client = OpenAI()
+
+def embed_mrl(text: str, dims: int = 256) -> list[float]:
+    """
+    Smaller dims = cheaper storage + faster search, small accuracy drop.
+    dims=256  → 6× smaller, ~2% accuracy loss
+    dims=1536 → balanced (default small model)
+    dims=3072 → maximum quality (large model)
+    """
+    res = client.embeddings.create(
+        model="text-embedding-3-large",
+        input=text,
+        dimensions=dims   # ← MRL truncation
+    )
+    return res.data[0].embedding
+
+# Hybrid retrieval: combine dense + sparse (BM25)
+from langchain.retrievers import EnsembleRetriever
+from langchain_community.retrievers import BM25Retriever
+
+bm25 = BM25Retriever.from_documents(docs)
+bm25.k = 4
+
+dense = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+# 60% dense, 40% BM25 — best of both worlds
+hybrid = EnsembleRetriever(
+    retrievers=[bm25, dense],
+    weights=[0.4, 0.6]
+)
+</code></pre>
+  </div>
+</section>
+
+<!-- ══════════ 4. VECTOR DBs ══════════ -->
+<section class="section" id="vectordbs">
+  <div class="section-tag">04 · Storage</div>
+  <h2>Vector Databases</h2>
+  <p>Choosing the right vector store depends on scale, latency requirements, filtering needs, and whether you need managed hosting.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Database</th><th>Best For</th><th>Filtering</th><th>Scale</th><th>Managed</th><th>Open Source</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Qdrant</strong></td>
+          <td>Production RAG, Rust-based speed</td>
+          <td>✅ Payload filters</td>
+          <td>1B+ vectors</td>
+          <td class="check">✓ Cloud</td>
+          <td class="check">✓ Apache 2.0</td>
+        </tr>
+        <tr>
+          <td><strong>Pinecone</strong></td>
+          <td>Serverless, zero-ops</td>
+          <td>✅ Metadata</td>
+          <td>Unlimited</td>
+          <td class="check">✓ Fully managed</td>
+          <td class="cross">✗</td>
+        </tr>
+        <tr>
+          <td><strong>pgvector</strong></td>
+          <td>Existing PostgreSQL users</td>
+          <td>✅ Full SQL</td>
+          <td>~10M vectors</td>
+          <td class="check">✓ Supabase/RDS</td>
+          <td class="check">✓ PostgreSQL ext</td>
+        </tr>
+        <tr>
+          <td><strong>Weaviate</strong></td>
+          <td>Multi-modal, hybrid search built-in</td>
+          <td>✅ GraphQL</td>
+          <td>100M+ vectors</td>
+          <td class="check">✓ Cloud</td>
+          <td class="check">✓ BSD 3</td>
+        </tr>
+        <tr>
+          <td><strong>Chroma</strong></td>
+          <td>Local dev, prototyping</td>
+          <td>✅ Where filters</td>
+          <td>~1M vectors</td>
+          <td class="cross">✗</td>
+          <td class="check">✓ Apache 2.0</td>
+        </tr>
+        <tr>
+          <td><strong>Milvus</strong></td>
+          <td>Billion-scale enterprise</td>
+          <td>✅ Scalar + vector</td>
+          <td>10B+ vectors</td>
+          <td class="check">✓ Zilliz Cloud</td>
+          <td class="check">✓ Apache 2.0</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Qdrant with Payload Filtering</div>
+<pre><code class="language-python">from qdrant_client import QdrantClient, models
+
+client = QdrantClient(url="http://localhost:6333")
+
+# Create collection with HNSW index
+client.create_collection(
+    collection_name="docs",
+    vectors_config=models.VectorParams(size=1536, distance=models.Distance.COSINE),
+    hnsw_config=models.HnswConfigDiff(m=16, ef_construct=100)  # tune for recall/speed
+)
+
+# Upsert with metadata payload
+client.upsert(
+    collection_name="docs",
+    points=[
+        models.PointStruct(
+            id=1,
+            vector=embed("Climate change impacts 2024"),
+            payload={"source": "ipcc.pdf", "year": 2024, "category": "climate"}
+        )
+    ]
+)
+
+# Filtered semantic search — only docs from 2024+, climate category
+results = client.search(
+    collection_name="docs",
+    query_vector=embed("global warming effects"),
+    query_filter=models.Filter(
+        must=[
+            models.FieldCondition(key="year", range=models.Range(gte=2024)),
+            models.FieldCondition(key="category", match=models.MatchValue(value="climate"))
+        ]
+    ),
+    limit=5
+)
+</code></pre>
+  </div>
+</section>
+
+<!-- ══════════ 5. ADVANCED RAG ══════════ -->
+<section class="section" id="advanced">
+  <div class="section-tag">05 · Advanced Techniques</div>
+  <h2>Advanced RAG</h2>
+  <p>Each technique solves a specific failure mode in Naive RAG. Understand the problem first, then apply the fix.</p>
+
+  <!-- HyDE -->
+  <div class="technique">
+    <div class="technique-header">
+      <div class="technique-icon" style="background:rgba(99,102,241,0.15)">🔮</div>
+      <div>
+        <h3>HyDE — Hypothetical Document Embeddings <span class="complexity-badge medium">Medium</span></h3>
+        <p style="margin:0">Problem: User queries are short &amp; ambiguous. Documents are long &amp; specific. Their embeddings live in different vector spaces.</p>
+      </div>
+    </div>
+
+    <div class="diagram">
+      <svg viewBox="0 0 820 130" width="820" height="130" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#6366f1"/></marker></defs>
+
+        <rect x="10" y="35" width="130" height="60" rx="10" fill="#1f2235" stroke="#6366f1" stroke-width="1.5"/>
+        <text x="75" y="60" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="600">User Query</text>
+        <text x="75" y="78" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">"How do vaccines work?"</text>
+
+        <rect x="190" y="35" width="150" height="60" rx="10" fill="#1f2235" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="265" y="57" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="600">LLM Generates</text>
+        <text x="265" y="73" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">Hypothetical Answer</text>
+        <text x="265" y="87" text-anchor="middle" fill="#6366f1" font-family="Inter" font-size="9">"Vaccines train immune..."</text>
+
+        <rect x="390" y="35" width="130" height="60" rx="10" fill="#1f2235" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="455" y="60" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="600">Embed Hypothesis</text>
+        <text x="455" y="78" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">→ doc-like vector space</text>
+
+        <rect x="570" y="35" width="120" height="60" rx="10" fill="#1f2235" stroke="#34d399" stroke-width="1.5"/>
+        <text x="630" y="60" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="600">Retrieve Real</text>
+        <text x="630" y="78" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">Docs (better match!)</text>
+
+        <rect x="740" y="35" width="70" height="60" rx="10" fill="#1f2235" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="775" y="65" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="600">LLM</text>
+
+        <line x1="140" y1="65" x2="188" y2="65" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <line x1="340" y1="65" x2="388" y2="65" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <line x1="520" y1="65" x2="568" y2="65" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <line x1="690" y1="65" x2="738" y2="65" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr2)"/>
+      </svg>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label">Python · HyDE</div>
+<pre><code class="language-python">from openai import OpenAI
+client = OpenAI()
+
+def hyde_retrieve(query: str, vectorstore, k: int = 5):
+    # Step 1: Generate a hypothetical document
+    hyp_doc = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{
+            "role": "system",
+            "content": "Write a factual paragraph that would directly answer this question."
+        }, {
+            "role": "user",
+            "content": query
+        }]
+    ).choices[0].message.content
+
+    # Step 2: Embed the hypothesis (lives in doc-space, not query-space)
+    hyp_embedding = embed(hyp_doc)
+
+    # Step 3: Search with the hypothesis embedding
+    results = vectorstore.similarity_search_by_vector(hyp_embedding, k=k)
+    return results
+
+# HyDE improves recall by ~15-20% on knowledge-intensive tasks
+</code></pre>
+    </div>
+  </div>
+
+  <!-- RAG-Fusion -->
+  <div class="technique">
+    <div class="technique-header">
+      <div class="technique-icon" style="background:rgba(34,211,238,0.15)">🔀</div>
+      <div>
+        <h3>RAG-Fusion — Multi-Query + RRF <span class="complexity-badge medium">Medium</span></h3>
+        <p style="margin:0">Problem: A single query misses relevant docs phrased differently. Solution: generate N query variations and fuse their ranked results.</p>
+      </div>
+    </div>
+
+    <div class="diagram">
+      <svg viewBox="0 0 820 160" width="820" height="160" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="arr3" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#22d3ee"/></marker></defs>
+
+        <rect x="10" y="55" width="120" height="50" rx="10" fill="#1f2235" stroke="#6366f1" stroke-width="1.5"/>
+        <text x="70" y="78" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="600">Original Query</text>
+        <text x="70" y="95" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">1 question</text>
+
+        <rect x="175" y="10" width="140" height="40" rx="8" fill="#1f2235" stroke="#22d3ee" stroke-width="1"/>
+        <text x="245" y="35" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10">Query variant 1</text>
+        <rect x="175" y="60" width="140" height="40" rx="8" fill="#1f2235" stroke="#22d3ee" stroke-width="1"/>
+        <text x="245" y="85" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10">Query variant 2</text>
+        <rect x="175" y="110" width="140" height="40" rx="8" fill="#1f2235" stroke="#22d3ee" stroke-width="1"/>
+        <text x="245" y="135" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10">Query variant 3</text>
+
+        <line x1="130" y1="80" x2="173" y2="30" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#arr3)"/>
+        <line x1="130" y1="80" x2="173" y2="80" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#arr3)"/>
+        <line x1="130" y1="80" x2="173" y2="130" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#arr3)"/>
+
+        <rect x="360" y="55" width="120" height="50" rx="10" fill="#1f2235" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="420" y="78" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="600">Vector Search</text>
+        <text x="420" y="95" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">3× independent</text>
+
+        <line x1="315" y1="30" x2="358" y2="65" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#arr3)"/>
+        <line x1="315" y1="80" x2="358" y2="80" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#arr3)"/>
+        <line x1="315" y1="130" x2="358" y2="95" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#arr3)"/>
+
+        <rect x="530" y="55" width="120" height="50" rx="10" fill="#1f2235" stroke="#34d399" stroke-width="1.5"/>
+        <text x="590" y="75" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="600">RRF Fusion</text>
+        <text x="590" y="90" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">Reciprocal Rank</text>
+        <text x="590" y="103" text-anchor="middle" fill="#34d399" font-family="Inter" font-size="9">re-ranking</text>
+
+        <rect x="700" y="55" width="100" height="50" rx="10" fill="#1f2235" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="750" y="78" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="600">Generate</text>
+        <text x="750" y="95" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">Best context</text>
+
+        <line x1="480" y1="80" x2="528" y2="80" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <line x1="650" y1="80" x2="698" y2="80" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arr3)"/>
+      </svg>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label">Python · RAG-Fusion with RRF</div>
+<pre><code class="language-python">from langchain.load import dumps, loads
+
+def generate_query_variants(query: str, n: int = 4) -> list[str]:
+    prompt = f"""Generate {n} different ways to ask this question.
+Output only the questions, one per line.
+Original: {query}"""
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content.strip().split("\n")
+
+def reciprocal_rank_fusion(results: list[list], k: int = 60) -> list:
+    """RRF score = Σ 1/(k + rank). Promotes docs appearing high across many queries."""
+    fused_scores: dict = {}
+    for docs in results:
+        for rank, doc in enumerate(docs):
+            doc_str = dumps(doc)
+            fused_scores[doc_str] = fused_scores.get(doc_str, 0) + 1 / (k + rank + 1)
+    return [
+        loads(doc) for doc, _ in
+        sorted(fused_scores.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+def rag_fusion_query(query: str, vectorstore, k: int = 5):
+    variants = generate_query_variants(query)
+    all_results = [vectorstore.similarity_search(q, k=k) for q in variants]
+    return reciprocal_rank_fusion(all_results)[:k]
+</code></pre>
+    </div>
+  </div>
+
+  <!-- Self-RAG -->
+  <div class="technique">
+    <div class="technique-header">
+      <div class="technique-icon" style="background:rgba(244,114,182,0.15)">🤔</div>
+      <div>
+        <h3>Self-RAG — Adaptive Retrieval with Reflection <span class="complexity-badge hard">Hard</span></h3>
+        <p style="margin:0">The LLM decides when to retrieve, critiques its own output, and generates special reflection tokens to self-assess relevance and support.</p>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-node" style="border-color:var(--indigo)">📝 Query</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--yellow)">🔍 Retrieve?<br/><small>[Retrieve] token</small></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--cyan)">📄 Docs</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--purple)">✅ Relevant?<br/><small>[ISREL] token</small></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--green)">📝 Generate</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--orange)">🎯 Supported?<br/><small>[ISSUP] token</small></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--pink)">⭐ Useful?<br/><small>[ISUSE] token</small></div>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label">Python · Self-RAG pattern (simplified)</div>
+<pre><code class="language-python"># Full Self-RAG requires a fine-tuned model (selfrag/selfrag_llama2_7b on HuggingFace)
+# This shows the conceptual pattern using prompting
+
+SELF_RAG_PROMPT = """You are a Self-RAG assistant. For each question:
+1. Decide if retrieval is needed → output [Retrieve] or [No Retrieve]
+2. If retrieved docs are relevant → output [ISREL: yes/no]
+3. Generate answer grounded in docs → output [ISSUP: fully/partially/no]
+4. Rate your answer → output [ISUSE: 5/4/3/2/1]"""
+
+def self_rag(query: str, vectorstore) -> dict:
+    # First pass: decide if retrieval is needed
+    decision = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": SELF_RAG_PROMPT},
+            {"role": "user", "content": f"Question: {query}\nShould I retrieve? Output [Retrieve] or [No Retrieve]."}
+        ]
+    ).choices[0].message.content
+
+    if "[Retrieve]" in decision:
+        docs = vectorstore.similarity_search(query, k=3)
+        context = "\n".join(d.page_content for d in docs)
+    else:
+        context = ""  # Answer from parametric knowledge
+
+    # Generate with self-critique tokens
+    answer = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": f"Context: {context}\nQ: {query}\nAnswer + critique tokens:"}]
+    ).choices[0].message.content
+
+    return {"answer": answer, "retrieved": bool(context), "context": context}
+</code></pre>
+    </div>
+  </div>
+
+  <!-- CRAG -->
+  <div class="technique">
+    <div class="technique-header">
+      <div class="technique-icon" style="background:rgba(52,211,153,0.15)">🔄</div>
+      <div>
+        <h3>CRAG — Corrective RAG <span class="complexity-badge medium">Medium</span></h3>
+        <p style="margin:0">When retrieved docs score low relevance, CRAG automatically falls back to web search and re-ranks before generating.</p>
+      </div>
+    </div>
+
+    <div class="flow">
+      <div class="flow-node">📝 Query</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--cyan)">🔍 Retrieve</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--yellow)">⚖️ Score Relevance</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--green)">Score &gt; 0.7?</div>
+      <span class="flow-arrow">✅→</span>
+      <div class="flow-node" style="border-color:var(--indigo)">📝 Generate</div>
+    </div>
+    <div class="flow">
+      <div class="flow-node" style="border-color:var(--red);margin-left:14rem">Score &lt; 0.7 → 🌐 Web Search</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--orange)">🔀 Re-rank + Strip</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node" style="border-color:var(--indigo)">📝 Generate</div>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label">Python · CRAG with LangGraph</div>
+<pre><code class="language-python">from langgraph.graph import StateGraph, END
+from langchain_community.tools.tavily_search import TavilySearchResults
+
+web_search = TavilySearchResults(max_results=3)
+
+def grade_documents(state):
+    """Score retrieval relevance; flag for web search if low."""
+    docs, question = state["documents"], state["question"]
+    filtered, web_needed = [], False
+    for doc in docs:
+        grade = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content":
+                f"Is this document relevant to '{question}'?\nDoc: {doc.page_content[:500]}\nAnswer yes/no"}]
+        ).choices[0].message.content.lower()
+        if "yes" in grade:
+            filtered.append(doc)
+        else:
+            web_needed = True
+    return {"documents": filtered, "web_search": web_needed, "question": question}
+
+def web_search_node(state):
+    results = web_search.invoke(state["question"])
+    new_docs = [Document(page_content=r["content"]) for r in results]
+    return {"documents": state["documents"] + new_docs}
+
+# Build CRAG graph
+workflow = StateGraph(dict)
+workflow.add_node("retrieve", retrieve_node)
+workflow.add_node("grade_documents", grade_documents)
+workflow.add_node("web_search", web_search_node)
+workflow.add_node("generate", generate_node)
+workflow.add_conditional_edges("grade_documents", lambda s: "web_search" if s["web_search"] else "generate")
+</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 6. GRAPHRAG ══════════ -->
+<section class="section" id="graphrag">
+  <div class="section-tag">06 · Graph-Enhanced</div>
+  <h2>GraphRAG &amp; Knowledge Graph RAG</h2>
+  <p>Standard RAG retrieves isolated text chunks. GraphRAG builds a knowledge graph first, enabling multi-hop reasoning across connected entities.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 700 260" width="700" height="260" xmlns="http://www.w3.org/2000/svg">
+      <!-- Nodes -->
+      <circle cx="350" cy="60" r="30" fill="rgba(99,102,241,0.2)" stroke="#6366f1" stroke-width="2"/>
+      <text x="350" y="56" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">Claude</text>
+      <text x="350" y="70" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">AI Model</text>
+
+      <circle cx="150" cy="160" r="28" fill="rgba(34,211,238,0.15)" stroke="#22d3ee" stroke-width="2"/>
+      <text x="150" y="156" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">Anthropic</text>
+      <text x="150" y="170" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">Company</text>
+
+      <circle cx="550" cy="160" r="28" fill="rgba(52,211,153,0.15)" stroke="#34d399" stroke-width="2"/>
+      <text x="550" y="156" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">RAG</text>
+      <text x="550" y="170" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">Technique</text>
+
+      <circle cx="250" cy="230" r="24" fill="rgba(251,146,60,0.15)" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="250" y="226" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9" font-weight="700">Dario</text>
+      <text x="250" y="238" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">Person</text>
+
+      <circle cx="450" cy="230" r="24" fill="rgba(167,139,250,0.15)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="450" y="226" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9" font-weight="700">LangChain</text>
+      <text x="450" y="238" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">Framework</text>
+
+      <!-- Edges -->
+      <line x1="323" y1="78" x2="175" y2="142" stroke="#6366f1" stroke-width="1.5" opacity="0.7"/>
+      <text x="230" y="103" fill="#8b8fa8" font-family="Inter" font-size="9">made_by</text>
+
+      <line x1="377" y1="78" x2="525" y2="142" stroke="#6366f1" stroke-width="1.5" opacity="0.7"/>
+      <text x="465" y="103" fill="#8b8fa8" font-family="Inter" font-size="9">uses</text>
+
+      <line x1="165" y1="185" x2="232" y2="210" stroke="#22d3ee" stroke-width="1.2" opacity="0.6"/>
+      <text x="183" y="204" fill="#8b8fa8" font-family="Inter" font-size="9">founded_by</text>
+
+      <line x1="525" y1="183" x2="470" y2="210" stroke="#34d399" stroke-width="1.2" opacity="0.6"/>
+      <text x="497" y="202" fill="#8b8fa8" font-family="Inter" font-size="9">implemented_in</text>
+
+      <line x1="275" y1="228" x2="428" y2="228" stroke="#fb923c" stroke-width="1" opacity="0.5" stroke-dasharray="4"/>
+      <text x="352" y="222" fill="#8b8fa8" font-family="Inter" font-size="8">collaborates</text>
+
+      <!-- Legend -->
+      <rect x="10" y="10" width="100" height="60" rx="8" fill="#131625" stroke="#2a2d45" stroke-width="1"/>
+      <text x="60" y="28" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9" font-weight="700">LEGEND</text>
+      <circle cx="22" cy="42" r="5" fill="rgba(99,102,241,0.3)" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="32" y="46" fill="#8b8fa8" font-family="Inter" font-size="8">Entity Node</text>
+      <line x1="15" y1="57" x2="30" y2="57" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="35" y="61" fill="#8b8fa8" font-family="Inter" font-size="8">Relationship</text>
+    </svg>
+  </div>
+
+  <div class="card-grid cols-2" style="margin:1.5rem 0">
+    <div class="card">
+      <h3>🏢 Microsoft GraphRAG</h3>
+      <p>Clusters entities using the Leiden algorithm, generates community summaries at each level, enables global &amp; local search modes.</p>
+      <div class="tag-cloud">
+        <span class="pill pill-indigo">Leiden Clustering</span>
+        <span class="pill pill-cyan">Community Summaries</span>
+        <span class="pill pill-green">Global Search</span>
+        <span class="pill pill-purple">Local Search</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🦙 LlamaIndex KG Index</h3>
+      <p>Auto-extracts (subject, predicate, object) triples using an LLM, stores in NetworkX/Neo4j, retrieves via keyword or embedding search on graph.</p>
+      <div class="tag-cloud">
+        <span class="pill pill-orange">SPO Triples</span>
+        <span class="pill pill-cyan">Neo4j</span>
+        <span class="pill pill-green">NetworkX</span>
+        <span class="pill pill-pink">Multi-hop</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · LlamaIndex Knowledge Graph</div>
+<pre><code class="language-python">from llama_index.core import KnowledgeGraphIndex, SimpleDirectoryReader
+from llama_index.core.graph_stores import SimpleGraphStore
+from llama_index.llms.openai import OpenAI as LlamaOpenAI
+
+# Load documents
+documents = SimpleDirectoryReader("./data").load_data()
+
+# Build KG Index — LLM extracts SPO triples automatically
+kg_index = KnowledgeGraphIndex.from_documents(
+    documents,
+    llm=LlamaOpenAI(model="gpt-4o"),
+    max_triplets_per_chunk=10,
+    include_embeddings=True,   # hybrid: graph + vector
+    graph_store=SimpleGraphStore(),
+)
+
+# Query with graph traversal
+query_engine = kg_index.as_query_engine(
+    include_text=True,
+    response_mode="tree_summarize",
+    embedding_mode="hybrid",   # keyword + vector on graph
+    similarity_top_k=5,
+)
+
+# Multi-hop: "What did the CEO of the company that built Claude found before Anthropic?"
+response = query_engine.query("What companies did Dario Amodei found?")
+print(response)
+
+# Visualize the graph
+kg_index.get_networkx_graph()  # → export to Gephi / pyvis
+</code></pre>
+  </div>
+
+  <div class="callout tip">
+    <div class="icon">🌟</div>
+    <p><strong>When to use GraphRAG:</strong> Multi-hop questions ("Who is the CEO of the company that built X?"), relationship queries, large document sets with cross-document dependencies (e.g. medical literature, legal case networks).</p>
+  </div>
+</section>
+
+<!-- ══════════ 7. AGENTIC RAG ══════════ -->
+<section class="section" id="agentic">
+  <div class="section-tag">07 · Agentic Systems</div>
+  <h2>Agentic RAG</h2>
+  <p>Agentic RAG combines retrieval with autonomous tool use, planning, and multi-step reasoning. The LLM acts as an agent that decides what to retrieve and when.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 720 200" width="720" height="200" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="arr4" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#34d399"/></marker></defs>
+
+      <!-- Central agent -->
+      <circle cx="360" cy="100" r="45" fill="rgba(99,102,241,0.15)" stroke="#6366f1" stroke-width="2"/>
+      <text x="360" y="96" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="13" font-weight="700">🤖 Agent</text>
+      <text x="360" y="114" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="10">(LLM + ReAct)</text>
+
+      <!-- Tools -->
+      <rect x="10" y="15" width="110" height="40" rx="8" fill="#1f2235" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="65" y="40" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">🔍 Vector Search</text>
+
+      <rect x="10" y="80" width="110" height="40" rx="8" fill="#1f2235" stroke="#34d399" stroke-width="1.5"/>
+      <text x="65" y="105" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">🌐 Web Search</text>
+
+      <rect x="10" y="145" width="110" height="40" rx="8" fill="#1f2235" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="65" y="170" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">🐍 Code Exec</text>
+
+      <rect x="600" y="15" width="110" height="40" rx="8" fill="#1f2235" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="655" y="40" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">📊 SQL Query</text>
+
+      <rect x="600" y="80" width="110" height="40" rx="8" fill="#1f2235" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="655" y="105" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">📧 Email/API</text>
+
+      <rect x="600" y="145" width="110" height="40" rx="8" fill="#1f2235" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="655" y="170" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">🧮 Calculator</text>
+
+      <!-- Arrows -->
+      <line x1="120" y1="35" x2="317" y2="80" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#arr4)" opacity="0.7"/>
+      <line x1="120" y1="100" x2="315" y2="100" stroke="#34d399" stroke-width="1.2" marker-end="url(#arr4)" opacity="0.7"/>
+      <line x1="120" y1="165" x2="317" y2="120" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#arr4)" opacity="0.7"/>
+      <line x1="600" y1="35" x2="403" y2="80" stroke="#fb923c" stroke-width="1.2" marker-end="url(#arr4)" opacity="0.7"/>
+      <line x1="600" y1="100" x2="405" y2="100" stroke="#f472b6" stroke-width="1.2" marker-end="url(#arr4)" opacity="0.7"/>
+      <line x1="600" y1="165" x2="403" y2="120" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#arr4)" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · ReAct Agentic RAG with LangGraph</div>
+<pre><code class="language-python">from langgraph.prebuilt import create_react_agent
+from langchain_openai import ChatOpenAI
+from langchain.tools import tool
+
+@tool
+def search_docs(query: str) -> str:
+    """Search internal knowledge base for relevant documents."""
+    results = vectorstore.similarity_search(query, k=3)
+    return "\n\n".join(r.page_content for r in results)
+
+@tool
+def web_search(query: str) -> str:
+    """Search the web for current information not in the knowledge base."""
+    results = tavily.invoke(query)
+    return str(results[:2])
+
+@tool
+def execute_python(code: str) -> str:
+    """Execute Python code for calculations and data analysis."""
+    import subprocess
+    result = subprocess.run(["python3", "-c", code], capture_output=True, text=True, timeout=10)
+    return result.stdout or result.stderr
+
+# Build ReAct agent — it autonomously decides which tools to call and when
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+agent = create_react_agent(
+    model=llm,
+    tools=[search_docs, web_search, execute_python],
+    prompt="You are a research assistant. Use tools to answer questions accurately."
+)
+
+# The agent will:
+# 1. Think: "I need to search docs first"
+# 2. Act: call search_docs
+# 3. Observe: get results
+# 4. Think: "I need more recent data"
+# 5. Act: call web_search
+# 6. Observe: get results
+# 7. Generate: synthesize final answer
+
+result = agent.invoke({"messages": [("user", "What is the latest RAG benchmark score for GPT-4o?")]})
+</code></pre>
+  </div>
+
+  <div class="callout warn">
+    <div class="icon">⚠️</div>
+    <p><strong>Agentic RAG risks:</strong> Infinite loops (cap max iterations at 10), cost blowup (each tool call = tokens), prompt injection via retrieved docs. Always sandbox code execution and validate tool outputs.</p>
+  </div>
+</section>
+
+<!-- ══════════ 8. MULTIMODAL ══════════ -->
+<section class="section" id="multimodal">
+  <div class="section-tag">08 · Multimodal</div>
+  <h2>Multimodal RAG</h2>
+  <p>Retrieve and reason over images, charts, PDFs, audio, and video — not just text.</p>
+
+  <div class="card-grid cols-3">
+    <div class="card">
+      <h3>🖼️ ColPali (2024)</h3>
+      <p>Embeds entire PDF page screenshots with PaliGemma. No OCR needed. Best for charts, diagrams, scanned docs. Top MTEB visual score.</p>
+      <div class="tag-cloud">
+        <span class="pill pill-indigo">Page-level</span>
+        <span class="pill pill-green">No OCR</span>
+        <span class="pill pill-cyan">PaliGemma</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🤖 Vision LLM RAG</h3>
+      <p>Describe images/charts with GPT-4o Vision, store descriptions as text chunks, retrieve and feed original image to LLM for generation.</p>
+      <div class="tag-cloud">
+        <span class="pill pill-orange">GPT-4o Vision</span>
+        <span class="pill pill-purple">Hybrid Store</span>
+        <span class="pill pill-pink">Claude 3.7</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🎧 Audio RAG</h3>
+      <p>Whisper transcription → chunk → embed → retrieve. Add speaker diarization (pyannote) for meeting/podcast Q&amp;A.</p>
+      <div class="tag-cloud">
+        <span class="pill pill-cyan">Whisper</span>
+        <span class="pill pill-green">Diarization</span>
+        <span class="pill pill-indigo">Timestamps</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Multi-modal RAG (image + text)</div>
+<pre><code class="language-python">import base64
+from pathlib import Path
+
+def describe_image(image_path: str) -> str:
+    """Use GPT-4o Vision to generate a rich text description of an image."""
+    img_data = base64.b64encode(Path(image_path).read_bytes()).decode()
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Describe this image in detail, including all text, data, charts, and visual elements."},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_data}"}}
+            ]
+        }]
+    )
+    return response.choices[0].message.content
+
+# Index: store both description (for retrieval) and image path (for generation)
+def index_images(image_paths: list[str]):
+    for path in image_paths:
+        description = describe_image(path)
+        vectorstore.add_texts(
+            texts=[description],
+            metadatas=[{"image_path": path, "type": "image"}]
+        )
+
+# Retrieve: get description, return original image to the LLM
+def multimodal_rag(query: str) -> str:
+    results = vectorstore.similarity_search(query, k=2, filter={"type": "image"})
+    images_b64 = []
+    for doc in results:
+        img_data = base64.b64encode(Path(doc.metadata["image_path"]).read_bytes()).decode()
+        images_b64.append(img_data)
+
+    messages = [{"role": "user", "content": [
+        {"type": "text", "text": f"Answer using these images: {query}"},
+        *[{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img}"}} for img in images_b64]
+    ]}]
+    return client.chat.completions.create(model="gpt-4o", messages=messages).choices[0].message.content
+</code></pre>
+  </div>
+</section>
+
+<!-- ══════════ 9. FRAMEWORKS ══════════ -->
+<section class="section" id="frameworks">
+  <div class="section-tag">09 · Tooling</div>
+  <h2>RAG Frameworks</h2>
+  <p>Don't reinvent the wheel. Pick a framework based on your use-case, then customize.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Framework</th><th>Best For</th><th>Learning Curve</th><th>Production Ready</th><th>Unique Feature</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>LlamaIndex</strong></td>
+          <td>Data-intensive RAG, structured data, agents</td>
+          <td><span class="pill pill-orange">Medium</span></td>
+          <td class="check">✓ Yes</td>
+          <td>Property Graph Index, 100+ data loaders</td>
+        </tr>
+        <tr>
+          <td><strong>LangChain</strong></td>
+          <td>Chains, agents, broad ecosystem</td>
+          <td><span class="pill pill-orange">Medium</span></td>
+          <td class="check">✓ Yes</td>
+          <td>LCEL, LangSmith tracing, 600+ integrations</td>
+        </tr>
+        <tr>
+          <td><strong>Haystack</strong></td>
+          <td>Production NLP pipelines, search</td>
+          <td><span class="pill pill-green">Low</span></td>
+          <td class="check">✓ Yes</td>
+          <td>Pipeline YAML config, Haystack Hub</td>
+        </tr>
+        <tr>
+          <td><strong>DSPy</strong></td>
+          <td>Optimising prompts &amp; RAG pipelines</td>
+          <td><span class="pill pill-red">High</span></td>
+          <td class="check">✓ Yes</td>
+          <td>Automatic prompt optimization (MIPRO, BootstrapFewShot)</td>
+        </tr>
+        <tr>
+          <td><strong>Ragas</strong></td>
+          <td>Evaluating RAG quality (not building)</td>
+          <td><span class="pill pill-green">Low</span></td>
+          <td class="check">✓ Yes</td>
+          <td>Automated faithfulness/relevancy/context metrics</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · LlamaIndex Advanced Pipeline</div>
+<pre><code class="language-python">from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.core.node_parser import SemanticSplitterNodeParser
+from llama_index.core.ingestion import IngestionPipeline
+from llama_index.core.postprocessor import SentenceTransformerRerank
+from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.vector_stores.qdrant import QdrantVectorStore
+
+# Ingestion pipeline: transform docs → nodes → embeddings → store
+pipeline = IngestionPipeline(
+    transformations=[
+        SemanticSplitterNodeParser(
+            embed_model=OpenAIEmbedding(model="text-embedding-3-small"),
+            breakpoint_percentile_threshold=95
+        ),
+        OpenAIEmbedding(model="text-embedding-3-small"),  # embed nodes
+    ],
+    vector_store=QdrantVectorStore(client=qdrant_client, collection_name="docs")
+)
+
+nodes = pipeline.run(documents=SimpleDirectoryReader("./docs").load_data())
+
+# Query with reranking (cross-encoder re-scores top-20 → return top-5)
+index = VectorStoreIndex(nodes, storage_context=storage_ctx)
+reranker = SentenceTransformerRerank(model="cross-encoder/ms-marco-MiniLM-L-6-v2", top_n=5)
+
+query_engine = index.as_query_engine(
+    similarity_top_k=20,          # retrieve 20
+    node_postprocessors=[reranker], # rerank → 5
+    response_mode="compact"
+)
+
+response = query_engine.query("Explain RAG-Fusion")
+print(response.source_nodes[0].score)  # rerank score
+</code></pre>
+  </div>
+</section>
+
+<!-- ══════════ 10. EVALUATION ══════════ -->
+<section class="section" id="evaluation">
+  <div class="section-tag">10 · Quality</div>
+  <h2>Evaluation Frameworks</h2>
+  <p>You can't improve what you don't measure. These four metrics cover the full RAG quality surface.</p>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h3>📐 Faithfulness</h3>
+      <p>Is every claim in the answer supported by the retrieved context? Catches hallucinations introduced by the generator.</p>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-top:.75rem">
+        <div class="metric-bar" style="flex:1;height:10px"><div class="metric-fill" style="width:92%;background:var(--green)"></div></div>
+        <span style="font-size:.85rem;color:var(--green);font-weight:700">0.92 ✓</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🎯 Answer Relevance</h3>
+      <p>Does the answer actually address what was asked? Penalises verbose or off-topic responses.</p>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-top:.75rem">
+        <div class="metric-bar" style="flex:1;height:10px"><div class="metric-fill" style="width:78%;background:var(--yellow)"></div></div>
+        <span style="font-size:.85rem;color:var(--yellow);font-weight:700">0.78 ~</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🔍 Context Precision</h3>
+      <p>Of everything retrieved, how much was actually needed? High noise = low precision.</p>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-top:.75rem">
+        <div class="metric-bar" style="flex:1;height:10px"><div class="metric-fill" style="width:85%;background:var(--cyan)"></div></div>
+        <span style="font-size:.85rem;color:var(--cyan);font-weight:700">0.85 ✓</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>📦 Context Recall</h3>
+      <p>Did the retrieved context contain all the information needed to answer correctly?</p>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-top:.75rem">
+        <div class="metric-bar" style="flex:1;height:10px"><div class="metric-fill" style="width:70%;background:var(--orange)"></div></div>
+        <span style="font-size:.85rem;color:var(--orange);font-weight:700">0.70 ⚠</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · RAGAS Evaluation</div>
+<pre><code class="language-python">from ragas import evaluate
+from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
+from datasets import Dataset
+
+# Build evaluation dataset
+eval_data = Dataset.from_dict({
+    "question":  ["What is RAG?", "Who invented the Transformer?"],
+    "answer":    ["RAG augments LLMs with external retrieval...", "The Transformer was introduced by Vaswani et al..."],
+    "contexts":  [
+        ["RAG stands for Retrieval-Augmented Generation..."],
+        ["Attention Is All You Need, Vaswani et al., 2017..."]
+    ],
+    "ground_truth": ["RAG uses retrieval to augment generation.", "Vaswani et al. invented the Transformer in 2017."]
+})
+
+results = evaluate(
+    eval_data,
+    metrics=[faithfulness, answer_relevancy, context_precision, context_recall]
+)
+
+print(results.to_pandas()[["faithfulness","answer_relevancy","context_precision","context_recall"]])
+# faithfulness  answer_relevancy  context_precision  context_recall
+#         0.92              0.87               0.91            0.78
+</code></pre>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · DeepEval (Unit Test Style)</div>
+<pre><code class="language-python">from deepeval import assert_test
+from deepeval.metrics import FaithfulnessMetric, HallucinationMetric, AnswerRelevancyMetric
+from deepeval.test_case import LLMTestCase
+
+# DeepEval integrates with pytest — RAG quality as CI/CD gates
+def test_rag_faithfulness():
+    test_case = LLMTestCase(
+        input="What is CRAG?",
+        actual_output="CRAG uses a relevance grader to decide when to use web search as fallback.",
+        retrieval_context=["CRAG corrects retrieval by scoring doc relevance..."],
+    )
+
+    faithfulness = FaithfulnessMetric(threshold=0.8, model="gpt-4o", include_reason=True)
+    hallucination = HallucinationMetric(threshold=0.2)
+
+    assert_test(test_case, [faithfulness, hallucination])
+    # Fails CI if faithfulness < 0.8 or hallucination > 0.2
+</code></pre>
+  </div>
+</section>
+
+<!-- ══════════ 11. PRODUCTION ══════════ -->
+<section class="section" id="production">
+  <div class="section-tag">11 · Deployment</div>
+  <h2>Production Considerations</h2>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h3>⚡ Latency Optimization</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem">
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Embedding cache</strong> — Redis TTL on frequent queries (50–80% cache hit typical)</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">HNSW tuning</strong> — ef=64 balances recall (98%) vs latency (&lt;5ms)</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Async retrieval</strong> — asyncio.gather for parallel chunk fetches</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Streaming</strong> — stream LLM tokens, don't wait for full response</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Quantized embeddings</strong> — int8 Cohere v3 = 4× smaller, &lt;1% quality loss</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>💰 Cost Control</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem">
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">MRL truncation</strong> — 256 dims = 12× cheaper than 3072, ~2% accuracy loss</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Small embed model</strong> — nomic-embed (free, local) for non-critical paths</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Context window discipline</strong> — top-3 chunks, not top-20</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Generator routing</strong> — GPT-4o-mini for simple Qs, GPT-4o for complex</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Batch indexing</strong> — $0.00002/1K tokens vs $0.00013 at inference</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🔐 Security</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem">
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Prompt injection</strong> — retrieved docs can inject instructions; use guardrails</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Access control</strong> — filter vectorstore by user permissions before retrieval</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">PII in docs</strong> — scan chunks before indexing (Presidio, AWS Comprehend)</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Source attribution</strong> — always return source URLs/page numbers for auditing</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>📊 Observability</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem">
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">LangSmith</strong> — trace every retrieval+generation call end-to-end</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Arize Phoenix</strong> — open-source LLM observability, embedding drift</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Key metrics</strong> — latency P50/P95/P99, token cost/query, retrieval hit rate</li>
+        <li style="font-size:.88rem;color:var(--muted)">→ <strong style="color:var(--text)">Embedding drift</strong> — alert when query dist drifts from index dist</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Production RAG with caching + streaming + tracing</div>
+<pre><code class="language-python">import redis, hashlib, asyncio
+from openai import AsyncOpenAI
+
+aclient = AsyncOpenAI()
+cache = redis.Redis(host="localhost", port=6379)
+
+def cache_key(text: str) -> str:
+    return f"emb:{hashlib.sha256(text.encode()).hexdigest()}"
+
+async def embed_cached(text: str) -> list[float]:
+    """Embedding with Redis cache — avoids re-embedding identical queries."""
+    key = cache_key(text)
+    if cached := cache.get(key):
+        return eval(cached)  # deserialize
+    emb = (await aclient.embeddings.create(model="text-embedding-3-small", input=text)).data[0].embedding
+    cache.setex(key, 3600, str(emb))  # 1hr TTL
+    return emb
+
+async def rag_stream(question: str, vectorstore):
+    """Full async RAG with streaming generator output."""
+    q_emb = await embed_cached(question)
+    docs = await asyncio.to_thread(vectorstore.similarity_search_by_vector, q_emb, k=3)
+    context = "\n\n".join(d.page_content for d in docs)
+
+    prompt = f"Context:\n{context}\n\nQuestion: {question}\nAnswer:"
+    stream = await aclient.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        stream=True   # ← stream tokens as they arrive
+    )
+    async for chunk in stream:
+        if chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content  # stream to client
+</code></pre>
+  </div>
+</section>
+
+<!-- ══════════ 12. ANTHROPIC ══════════ -->
+<section class="section" id="anthropic">
+  <div class="section-tag">12 · Anthropic Models</div>
+  <h2>Claude for RAG Applications</h2>
+  <p>Claude models are a top choice for the generation step in RAG, especially for tasks requiring careful reasoning, long-context handling, and instruction following.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Model</th><th>Released</th><th>Context</th><th>RAG Sweet Spot</th><th>Cost (input/1M)</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Claude 1.x</strong></td><td>Mar 2023</td><td>9K</td><td>Historical baseline</td><td>N/A (retired)</td>
+        </tr>
+        <tr>
+          <td><strong>Claude 2.1</strong></td><td>Nov 2023</td><td>200K</td><td>Long-doc RAG</td><td>$8</td>
+        </tr>
+        <tr>
+          <td><strong>Claude 3 Haiku</strong></td><td>Mar 2024</td><td>200K</td><td>High-throughput, cost-sensitive</td><td>$0.25</td>
+        </tr>
+        <tr>
+          <td><strong>Claude 3 Sonnet</strong></td><td>Mar 2024</td><td>200K</td><td>Balanced RAG workloads</td><td>$3</td>
+        </tr>
+        <tr>
+          <td><strong>Claude 3 Opus</strong></td><td>Mar 2024</td><td>200K</td><td>Complex multi-hop reasoning</td><td>$15</td>
+        </tr>
+        <tr>
+          <td><strong>Claude 3.5 Sonnet</strong></td><td>Jun 2024</td><td>200K</td><td>Best price/performance for RAG</td><td>$3</td>
+        </tr>
+        <tr>
+          <td><strong>Claude 3.5 Haiku</strong></td><td>Nov 2024</td><td>200K</td><td>Fast, cheap agentic RAG</td><td>$0.80</td>
+        </tr>
+        <tr>
+          <td><strong>Claude 3.7 Sonnet</strong></td><td>Feb 2025</td><td>200K</td><td>Extended thinking, multi-step RAG</td><td>$3</td>
+        </tr>
+        <tr>
+          <td><strong>Claude 4 Series</strong></td><td>2025</td><td>200K+</td><td>Most capable generation step</td><td>Varies</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Claude RAG with Extended Thinking</div>
+<pre><code class="language-python">import anthropic
+
+client = anthropic.Anthropic()
+
+def claude_rag(question: str, context_docs: list[str]) -> str:
+    """
+    Claude 3.7 Sonnet with extended thinking — ideal for complex
+    multi-step RAG where reasoning quality matters most.
+    """
+    context = "\n\n---\n\n".join(context_docs)
+
+    response = client.messages.create(
+        model="claude-3-7-sonnet-20250219",
+        max_tokens=8000,
+        thinking={"type": "enabled", "budget_tokens": 5000},  # extended thinking
+        messages=[{
+            "role": "user",
+            "content": f"""You are a research assistant. Use ONLY the provided context.
+
+<context>
+{context}
+</context>
+
+<question>{question}</question>
+
+Answer with citations. If the context is insufficient, say so."""
+        }]
+    )
+
+    # Extract thinking + answer separately
+    thinking_text = next((b.thinking for b in response.content if b.type == "thinking"), "")
+    answer = next(b.text for b in response.content if b.type == "text")
+    return answer
+
+# Also works with prompt caching — reduces costs up to 90% on repeated context
+response = client.messages.create(
+    model="claude-3-5-sonnet-20241022",
+    max_tokens=1024,
+    messages=[{
+        "role": "user",
+        "content": [{
+            "type": "text",
+            "text": large_context,
+            "cache_control": {"type": "ephemeral"}  # cache the context prefix
+        }, {
+            "type": "text",
+            "text": question
+        }]
+    }]
+)
+</code></pre>
+  </div>
+
+  <div class="callout info">
+    <div class="icon">🔍</div>
+    <p><strong>On "unreleased" Anthropic models:</strong> Anthropic does not publicly disclose models that are in development or trained but not released. Any specific claims about named unreleased models circulating online are speculation, not official announcements. The safest source is <strong>anthropic.com/news</strong> and the official API model list.</p>
+  </div>
+</section>
+
+<!-- ══════════ DECISION GUIDE ══════════ -->
+<section class="section" id="decision">
+  <div class="section-tag">Quick Reference</div>
+  <h2>Which RAG Technique Should I Use?</h2>
+
+  <div class="card-grid cols-3" style="margin-top:1.5rem">
+    <div class="card" style="border-color:rgba(99,102,241,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">🎯</div>
+      <h3>Query is vague / short</h3>
+      <p>Use <strong style="color:var(--indigo-light)">HyDE</strong> — generate a hypothetical answer and use that embedding for retrieval.</p>
+    </div>
+    <div class="card" style="border-color:rgba(34,211,238,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">🔀</div>
+      <h3>Missing relevant docs</h3>
+      <p>Use <strong style="color:var(--cyan)">RAG-Fusion</strong> — multiple query variants catch documents phrased differently.</p>
+    </div>
+    <div class="card" style="border-color:rgba(52,211,153,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">⚡</div>
+      <h3>Fresh info needed</h3>
+      <p>Use <strong style="color:var(--green)">CRAG</strong> — auto-fallback to web search when internal docs score low relevance.</p>
+    </div>
+    <div class="card" style="border-color:rgba(251,146,60,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">🌐</div>
+      <h3>Multi-hop questions</h3>
+      <p>Use <strong style="color:var(--orange)">GraphRAG</strong> — traverse entity relationships across documents.</p>
+    </div>
+    <div class="card" style="border-color:rgba(167,139,250,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">🤖</div>
+      <h3>Complex, multi-step tasks</h3>
+      <p>Use <strong style="color:var(--purple)">Agentic RAG</strong> — LLM plans and uses tools autonomously.</p>
+    </div>
+    <div class="card" style="border-color:rgba(244,114,182,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">🖼️</div>
+      <h3>Charts / PDFs / images</h3>
+      <p>Use <strong style="color:var(--pink)">ColPali or Vision RAG</strong> — page-level visual embeddings or describe-then-retrieve.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     AWS KNOWLEDGE BASE
+════════════════════════════════════════════════════════════ -->
+
+<!-- AWS HERO DIVIDER -->
+<div style="background:linear-gradient(135deg,#0d1117 0%,#1a0f00 50%,#0d1117 100%);border-top:2px solid #f97316;border-bottom:2px solid #f97316;padding:3.5rem 2rem;text-align:center;position:relative;overflow:hidden;">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 80% at 50% 50%,rgba(249,115,22,0.12) 0%,transparent 70%);pointer-events:none;"></div>
+  <div style="font-size:.75rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#fb923c;margin-bottom:1rem;">Part II</div>
+  <h2 style="font-size:clamp(2rem,5vw,3.5rem);font-weight:800;background:linear-gradient(135deg,#fff 20%,#fb923c 60%,#fbbf24 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1rem;">Amazon Web Services</h2>
+  <p style="color:#8b8fa8;max-width:600px;margin:0 auto;font-size:1.05rem;">Complete practical guide — every major service, when to use it, real code, architecture patterns, and cost tips.</p>
+  <div style="display:flex;gap:1.5rem;flex-wrap:wrap;justify-content:center;margin-top:2rem;">
+    <div style="background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);border-radius:10px;padding:.8rem 1.5rem;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#fb923c;">200+</div><div style="font-size:.75rem;color:#8b8fa8;">AWS Services</div></div>
+    <div style="background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);border-radius:10px;padding:.8rem 1.5rem;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#fb923c;">33%</div><div style="font-size:.75rem;color:#8b8fa8;">Cloud market share</div></div>
+    <div style="background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);border-radius:10px;padding:.8rem 1.5rem;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#fb923c;">12</div><div style="font-size:.75rem;color:#8b8fa8;">Services deep-dived</div></div>
+    <div style="background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);border-radius:10px;padding:.8rem 1.5rem;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#fbbf24;">20+</div><div style="font-size:.75rem;color:#8b8fa8;">Code examples</div></div>
+  </div>
+</div>
+
+<!-- ── AWS OVERVIEW ── -->
+<section class="section" id="aws-overview">
+  <div class="section-tag" style="color:#fb923c;">AWS · Overview</div>
+  <h2>The AWS Mental Model</h2>
+  <p>AWS is a collection of building blocks. The key is knowing which block solves which problem — don't memorise all 200+ services, learn the 15 that cover 95% of real workloads.</p>
+
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2rem;margin:1.5rem 0;">
+    <svg viewBox="0 0 900 340" width="900" height="340" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="awsarr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#fb923c"/></marker>
+      </defs>
+
+      <!-- Internet -->
+      <ellipse cx="60" cy="170" rx="50" ry="30" fill="rgba(34,211,238,0.1)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="60" y="165" text-anchor="middle" fill="#22d3ee" font-family="Inter" font-size="11" font-weight="700">🌐</text>
+      <text x="60" y="180" text-anchor="middle" fill="#22d3ee" font-family="Inter" font-size="10">Internet</text>
+
+      <!-- CloudFront -->
+      <rect x="145" y="145" width="100" height="50" rx="8" fill="#1f2235" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="195" y="167" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">CloudFront</text>
+      <text x="195" y="183" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">CDN / WAF</text>
+
+      <!-- Route53 -->
+      <rect x="145" y="60" width="100" height="45" rx="8" fill="#1f2235" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="195" y="79" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">Route 53</text>
+      <text x="195" y="95" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">DNS</text>
+
+      <!-- VPC box -->
+      <rect x="280" y="30" width="580" height="290" rx="12" fill="rgba(249,115,22,0.03)" stroke="rgba(249,115,22,0.25)" stroke-width="1.5" stroke-dasharray="6"/>
+      <text x="295" y="52" fill="#fb923c" font-family="Inter" font-size="10" font-weight="700">VPC (Virtual Private Cloud)</text>
+
+      <!-- ALB -->
+      <rect x="310" y="140" width="110" height="50" rx="8" fill="#1f2235" stroke="#34d399" stroke-width="1.5"/>
+      <text x="365" y="162" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">ALB</text>
+      <text x="365" y="178" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">Load Balancer</text>
+
+      <!-- ECS / EC2 -->
+      <rect x="460" y="100" width="110" height="50" rx="8" fill="#1f2235" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="515" y="122" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">ECS / EC2</text>
+      <text x="515" y="138" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">Compute</text>
+
+      <rect x="460" y="185" width="110" height="50" rx="8" fill="#1f2235" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="515" y="207" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">Lambda</text>
+      <text x="515" y="223" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">Serverless</text>
+
+      <!-- Databases -->
+      <rect x="620" y="80" width="110" height="45" rx="8" fill="#1f2235" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="675" y="99" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">RDS / Aurora</text>
+      <text x="675" y="115" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">SQL Database</text>
+
+      <rect x="620" y="145" width="110" height="45" rx="8" fill="#1f2235" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="675" y="164" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">DynamoDB</text>
+      <text x="675" y="180" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">NoSQL</text>
+
+      <rect x="620" y="210" width="110" height="45" rx="8" fill="#1f2235" stroke="#34d399" stroke-width="1.5"/>
+      <text x="675" y="229" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">ElastiCache</text>
+      <text x="675" y="245" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">Redis / Cache</text>
+
+      <!-- S3 -->
+      <rect x="460" y="270" width="110" height="40" rx="8" fill="#1f2235" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="515" y="294" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">S3</text>
+
+      <!-- SQS -->
+      <rect x="310" y="260" width="110" height="40" rx="8" fill="#1f2235" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="365" y="284" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="700">SQS / SNS</text>
+
+      <!-- Secrets Manager -->
+      <rect x="760" y="150" width="85" height="45" rx="8" fill="#1f2235" stroke="#f87171" stroke-width="1.5"/>
+      <text x="803" y="169" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9" font-weight="700">Secrets</text>
+      <text x="803" y="185" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">Manager</text>
+
+      <!-- Arrows -->
+      <line x1="110" y1="170" x2="143" y2="170" stroke="#fb923c" stroke-width="1.2" marker-end="url(#awsarr)"/>
+      <line x1="245" y1="170" x2="308" y2="170" stroke="#fb923c" stroke-width="1.2" marker-end="url(#awsarr)"/>
+      <line x1="420" y1="160" x2="458" y2="135" stroke="#fb923c" stroke-width="1.2" marker-end="url(#awsarr)"/>
+      <line x1="420" y1="165" x2="458" y2="205" stroke="#fb923c" stroke-width="1.2" marker-end="url(#awsarr)"/>
+      <line x1="570" y1="120" x2="618" y2="100" stroke="#6366f1" stroke-width="1" marker-end="url(#awsarr)" opacity="0.7"/>
+      <line x1="570" y1="130" x2="618" y2="163" stroke="#6366f1" stroke-width="1" marker-end="url(#awsarr)" opacity="0.7"/>
+      <line x1="570" y1="205" x2="618" y2="228" stroke="#f472b6" stroke-width="1" marker-end="url(#awsarr)" opacity="0.7"/>
+      <line x1="107" y1="155" x2="143" y2="90" stroke="#a78bfa" stroke-width="1" marker-end="url(#awsarr)" opacity="0.6"/>
+    </svg>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Category</th><th>Service</th><th>One-liner</th><th>When NOT to use</th></tr></thead>
+      <tbody>
+        <tr><td>Compute</td><td><strong>EC2</strong></td><td>Virtual machine — full OS control</td><td>Short-lived tasks (&lt;15 min) → use Lambda</td></tr>
+        <tr><td>Compute</td><td><strong>Lambda</strong></td><td>Function-as-a-service, event-driven</td><td>Long-running processes (&gt;15 min) → use ECS</td></tr>
+        <tr><td>Containers</td><td><strong>ECS / EKS</strong></td><td>Run Docker containers at scale</td><td>Simple apps — over-engineering</td></tr>
+        <tr><td>Storage</td><td><strong>S3</strong></td><td>Unlimited object storage</td><td>Frequent random reads/writes → use EFS/EBS</td></tr>
+        <tr><td>Database</td><td><strong>RDS / Aurora</strong></td><td>Managed PostgreSQL / MySQL</td><td>Massive scale &gt;100k writes/s → DynamoDB</td></tr>
+        <tr><td>Database</td><td><strong>DynamoDB</strong></td><td>Managed NoSQL, millisecond latency</td><td>Complex joins / ACID transactions → RDS</td></tr>
+        <tr><td>Cache</td><td><strong>ElastiCache</strong></td><td>Managed Redis / Memcached</td><td>Persistent data → it's a cache, not a DB</td></tr>
+        <tr><td>Networking</td><td><strong>CloudFront</strong></td><td>CDN + WAF + edge caching</td><td>Internal-only APIs with no public traffic</td></tr>
+        <tr><td>Messaging</td><td><strong>SQS</strong></td><td>Durable message queue, decouples services</td><td>Real-time fanout → use SNS or EventBridge</td></tr>
+        <tr><td>Security</td><td><strong>IAM</strong></td><td>Identity, roles, permissions for everything</td><td>Never skip — always use least-privilege</td></tr>
+        <tr><td>Security</td><td><strong>Secrets Manager</strong></td><td>Store API keys, DB passwords securely</td><td>Public config values → use SSM Parameter Store</td></tr>
+        <tr><td>Observability</td><td><strong>CloudWatch</strong></td><td>Logs, metrics, alarms, dashboards</td><td>Complex APM needs → pair with X-Ray or Datadog</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ── S3 ── -->
+<section class="section" id="aws-s3">
+  <div class="section-tag" style="color:#fb923c;">AWS · Storage</div>
+  <h2>S3 — Simple Storage Service</h2>
+  <p>Virtually unlimited object storage. Durability: 99.999999999% (11 nines). The backbone of almost every AWS architecture.</p>
+
+  <div class="card-grid cols-3" style="margin:1.5rem 0">
+    <div class="card" style="border-color:rgba(249,115,22,0.4)">
+      <h3>🗂️ Storage Classes</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.4rem;margin-top:.5rem">
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Standard</strong> — hot data, frequent access, $0.023/GB</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Standard-IA</strong> — infrequent access, 40% cheaper</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Intelligent-Tiering</strong> — auto-moves between tiers</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Glacier</strong> — archival, retrieval in mins/hours, $0.004/GB</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Glacier Deep Archive</strong> — $0.00099/GB, 12hr retrieval</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:rgba(52,211,153,0.4)">
+      <h3>🔒 Access Control</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.4rem;margin-top:.5rem">
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Bucket Policy</strong> — JSON, controls access at bucket level</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">IAM Policy</strong> — controls which identities can access</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Pre-signed URLs</strong> — temporary access without credentials</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Block Public Access</strong> — always enable on account level</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">S3 Object Lock</strong> — WORM compliance (financial, medical)</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:rgba(99,102,241,0.4)">
+      <h3>⚡ Power Features</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.4rem;margin-top:.5rem">
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">S3 Select</strong> — query CSV/JSON inside objects (no download)</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Event Notifications</strong> — trigger Lambda on upload</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Multipart Upload</strong> — required for objects &gt;100MB</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Transfer Acceleration</strong> — CloudFront edge → 50% faster uploads</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--text)">Replication (CRR/SRR)</strong> — cross-region / same-region</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · boto3 S3 — upload, pre-signed URL, lifecycle</div>
+<pre><code class="language-python">import boto3
+from botocore.exceptions import ClientError
+
+s3 = boto3.client("s3", region_name="us-east-1")
+
+# ── Upload a file ──
+s3.upload_file(
+    Filename="report.pdf",
+    Bucket="my-bucket",
+    Key="reports/2025/report.pdf",
+    ExtraArgs={
+        "ContentType": "application/pdf",
+        "ServerSideEncryption": "AES256",   # always encrypt at rest
+        "StorageClass": "STANDARD_IA",       # cheaper for infrequent reads
+    }
+)
+
+# ── Generate pre-signed URL (expires in 1 hour) ──
+url = s3.generate_presigned_url(
+    "get_object",
+    Params={"Bucket": "my-bucket", "Key": "reports/2025/report.pdf"},
+    ExpiresIn=3600
+)
+print(url)  # share with client — no AWS credentials needed
+
+# ── Multipart upload for large files ──
+from boto3.s3.transfer import TransferConfig
+config = TransferConfig(multipart_threshold=25 * 1024 * 1024)  # 25MB threshold
+s3.upload_file("bigfile.zip", "my-bucket", "uploads/bigfile.zip", Config=config)
+
+# ── Set lifecycle rule — move to Glacier after 90 days, delete after 365 ──
+s3.put_bucket_lifecycle_configuration(
+    Bucket="my-bucket",
+    LifecycleConfiguration={"Rules": [{
+        "ID": "archive-old-reports",
+        "Status": "Enabled",
+        "Filter": {"Prefix": "reports/"},
+        "Transitions": [{"Days": 90, "StorageClass": "GLACIER"}],
+        "Expiration": {"Days": 365}
+    }]}
+)
+
+# ── Trigger Lambda on new object ──
+# (done in S3 console → Event notifications → Lambda function)
+# Lambda handler receives: event["Records"][0]["s3"]["bucket"]["name"] + key
+</code></pre>
+  </div>
+
+  <div class="callout tip">
+    <div class="icon">💰</div>
+    <p><strong>S3 Cost Tips:</strong> Enable S3 Intelligent-Tiering for any bucket where access patterns are unknown — it costs $0.0025/1K objects/month but can save 40-90% on storage. Always enable Block Public Access. Use server-side encryption (free). Request counts cost money — batch small operations.</p>
+  </div>
+</section>
+
+<!-- ── EC2 ── -->
+<section class="section" id="aws-ec2">
+  <div class="section-tag" style="color:#fb923c;">AWS · Compute</div>
+  <h2>EC2 — Elastic Compute Cloud</h2>
+  <p>Virtual machines in the cloud. You choose the OS, CPU, RAM, storage. The most flexible compute option — but also the most to manage.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Family</th><th>Type</th><th>Use Case</th><th>Example</th><th>vCPU / RAM</th></tr></thead>
+      <tbody>
+        <tr><td><strong>General</strong></td><td>t4g, m7g</td><td>Web servers, small DBs, dev/staging</td><td>t3.micro</td><td>2 / 1 GB</td></tr>
+        <tr><td><strong>Compute</strong></td><td>c7g, c6i</td><td>High-CPU: encoding, ML inference, HPC</td><td>c6i.2xlarge</td><td>8 / 16 GB</td></tr>
+        <tr><td><strong>Memory</strong></td><td>r7g, x2gd</td><td>In-memory DBs, large caches, SAP</td><td>r6g.2xlarge</td><td>8 / 64 GB</td></tr>
+        <tr><td><strong>GPU</strong></td><td>p4d, g5</td><td>ML training, video rendering, CUDA</td><td>g5.xlarge</td><td>4 / 16 GB + A10G</td></tr>
+        <tr><td><strong>Storage</strong></td><td>i4i, d3</td><td>High I/O, data warehousing, Hadoop</td><td>i4i.xlarge</td><td>4 / 32 GB + NVMe</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-grid cols-3" style="margin:1.5rem 0">
+    <div class="card" style="border-color:rgba(52,211,153,0.4)">
+      <h3>💰 Pricing Models</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem">
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--green)">On-Demand</strong> — pay per second, no commitment. Most expensive.</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--cyan)">Reserved (1-3yr)</strong> — up to 72% off. Predictable workloads.</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--yellow)">Spot</strong> — up to 90% off. Can be interrupted. Batch/ML workloads.</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--orange)">Savings Plans</strong> — flexible, 66% off. Cross instance family.</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:rgba(99,102,241,0.4)">
+      <h3>💾 Storage (EBS)</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem">
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--indigo-light)">gp3</strong> — default, 3000 IOPS baseline. $0.08/GB/month.</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--purple)">io2 Block Express</strong> — up to 256K IOPS. Databases.</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--cyan)">st1</strong> — throughput-optimised HDD. Log processing.</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--muted)">sc1</strong> — cold HDD. Cheapest, low access frequency.</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:rgba(244,114,182,0.4)">
+      <h3>🛡️ Auto Scaling</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem">
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--pink)">Launch Template</strong> — defines the AMI, instance type, SG, IAM role</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--pink)">ASG</strong> — min/max/desired count, scaling policies</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--pink)">Target Tracking</strong> — keep CPU at 70%, auto-adds instances</li>
+        <li style="font-size:.83rem;color:var(--muted)"><strong style="color:var(--pink)">Warm Pools</strong> — pre-initialized instances, sub-30s scale-out</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Bash · Launch EC2 + configure with user-data script</div>
+<pre><code class="language-bash"># Launch an EC2 instance (al2023, t3.micro, us-east-1)
+aws ec2 run-instances \
+  --image-id ami-0c02fb55956c7d316 \
+  --instance-type t3.micro \
+  --key-name my-keypair \
+  --security-group-ids sg-xxxxxxxxxx \
+  --subnet-id subnet-xxxxxxxxxx \
+  --iam-instance-profile Name=MyAppRole \
+  --user-data '#!/bin/bash
+    yum update -y
+    yum install -y docker
+    systemctl start docker
+    systemctl enable docker
+    docker pull my-app:latest
+    docker run -d -p 80:8000 my-app:latest' \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=my-app}]' \
+  --count 1
+
+# Connect via SSM Session Manager (no SSH key needed — more secure)
+aws ssm start-session --target i-xxxxxxxxxxxxxxxxx
+
+# Create a snapshot of EBS volume
+aws ec2 create-snapshot \
+  --volume-id vol-xxxxxxxxxx \
+  --description "Before deployment snapshot $(date +%Y-%m-%d)"
+
+# Allocate and associate Elastic IP
+EIP=$(aws ec2 allocate-address --domain vpc --query AllocationId --output text)
+aws ec2 associate-address --instance-id i-xxxxxxxxxx --allocation-id $EIP
+</code></pre>
+  </div>
+</section>
+
+<!-- ── LAMBDA ── -->
+<section class="section" id="aws-lambda">
+  <div class="section-tag" style="color:#fb923c;">AWS · Serverless</div>
+  <h2>Lambda — Serverless Functions</h2>
+  <p>Run code without managing servers. You pay only for the milliseconds your function actually runs. Scales to zero, scales to millions.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 820 160" width="820" height="160" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="larr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#f472b6"/></marker></defs>
+
+      <!-- Triggers -->
+      <rect x="10" y="20" width="100" height="35" rx="7" fill="#1f2235" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="60" y="42" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">API Gateway</text>
+
+      <rect x="10" y="65" width="100" height="35" rx="7" fill="#1f2235" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="60" y="87" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">S3 Event</text>
+
+      <rect x="10" y="110" width="100" height="35" rx="7" fill="#1f2235" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="60" y="132" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">SQS / SNS</text>
+
+      <!-- Lambda -->
+      <rect x="160" y="55" width="130" height="60" rx="10" fill="rgba(244,114,182,0.15)" stroke="#f472b6" stroke-width="2"/>
+      <text x="225" y="80" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="13" font-weight="700">λ Lambda</text>
+      <text x="225" y="100" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">Python / Node / Go / Java</text>
+
+      <!-- Outputs -->
+      <rect x="345" y="20" width="100" height="35" rx="7" fill="#1f2235" stroke="#34d399" stroke-width="1.5"/>
+      <text x="395" y="42" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">DynamoDB</text>
+
+      <rect x="345" y="65" width="100" height="35" rx="7" fill="#1f2235" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="395" y="87" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">S3 Write</text>
+
+      <rect x="345" y="110" width="100" height="35" rx="7" fill="#1f2235" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="395" y="132" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">SES / SNS</text>
+
+      <!-- Arrows -->
+      <line x1="110" y1="37" x2="158" y2="72" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#larr)"/>
+      <line x1="110" y1="82" x2="158" y2="85" stroke="#6366f1" stroke-width="1.2" marker-end="url(#larr)"/>
+      <line x1="110" y1="127" x2="158" y2="100" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#larr)"/>
+      <line x1="290" y1="72" x2="343" y2="37" stroke="#f472b6" stroke-width="1.2" marker-end="url(#larr)"/>
+      <line x1="290" y1="85" x2="343" y2="82" stroke="#f472b6" stroke-width="1.2" marker-end="url(#larr)"/>
+      <line x1="290" y1="100" x2="343" y2="127" stroke="#f472b6" stroke-width="1.2" marker-end="url(#larr)"/>
+
+      <!-- Limits box -->
+      <rect x="480" y="30" width="320" height="110" rx="10" fill="#131625" stroke="#2a2d45" stroke-width="1"/>
+      <text x="640" y="52" text-anchor="middle" fill="#fb923c" font-family="Inter" font-size="11" font-weight="700">Lambda Limits (know these!)</text>
+      <text x="490" y="72" fill="#8b8fa8" font-family="Inter" font-size="9">⏱ Max timeout: 15 minutes</text>
+      <text x="490" y="88" fill="#8b8fa8" font-family="Inter" font-size="9">💾 Max memory: 10 GB</text>
+      <text x="490" y="104" fill="#8b8fa8" font-family="Inter" font-size="9">📦 Deployment package: 50 MB (250 MB unzipped)</text>
+      <text x="490" y="120" fill="#8b8fa8" font-family="Inter" font-size="9">🔁 Concurrency: 1000 default (can increase)</text>
+      <text x="490" y="136" fill="#8b8fa8" font-family="Inter" font-size="9">💰 First 1M requests/month FREE forever</text>
+    </svg>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Lambda handler patterns</div>
+<pre><code class="language-python">import json, boto3, os
+
+# ── Pattern 1: API Gateway trigger (REST API) ──
+def handler_api(event, context):
+    body = json.loads(event.get("body", "{}"))
+    name = body.get("name", "World")
+    return {
+        "statusCode": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps({"message": f"Hello, {name}!"})
+    }
+
+# ── Pattern 2: S3 trigger (process uploaded file) ──
+def handler_s3(event, context):
+    s3 = boto3.client("s3")
+    for record in event["Records"]:
+        bucket = record["s3"]["bucket"]["name"]
+        key    = record["s3"]["object"]["key"]
+        obj    = s3.get_object(Bucket=bucket, Key=key)
+        content = obj["Body"].read().decode("utf-8")
+        print(f"Processing {key}: {len(content)} bytes")
+        # ... process and write result back to S3
+
+# ── Pattern 3: SQS trigger (process messages) ──
+def handler_sqs(event, context):
+    for record in event["Records"]:
+        message = json.loads(record["body"])
+        process_job(message)
+    # SQS automatically deletes messages on success
+
+# ── Powertools for best practices ──
+from aws_lambda_powertools import Logger, Tracer, Metrics
+from aws_lambda_powertools.metrics import MetricUnit
+
+logger  = Logger(service="my-service")
+tracer  = Tracer()
+metrics = Metrics(namespace="MyApp")
+
+@logger.inject_lambda_context
+@tracer.capture_lambda_handler
+@metrics.log_metrics
+def handler(event, context):
+    metrics.add_metric(name="RequestCount", unit=MetricUnit.Count, value=1)
+    logger.info("Processing request", extra={"event": event})
+    # structured JSON logs + X-Ray traces + CloudWatch metrics — all wired up
+</code></pre>
+  </div>
+
+  <div class="callout warn">
+    <div class="icon">🥶</div>
+    <p><strong>Cold starts:</strong> First invocation of a Lambda container takes 200ms–2s. Fix with <strong>Provisioned Concurrency</strong> (keeps containers warm, costs ~$0.015/hr per unit) or use Lambda SnapStart for JVM. For Python/Node cold starts are &lt;200ms — usually acceptable.</p>
+  </div>
+</section>
+
+<!-- ── DATABASES ── -->
+<section class="section" id="aws-databases">
+  <div class="section-tag" style="color:#fb923c;">AWS · Data</div>
+  <h2>Databases — RDS, Aurora, DynamoDB</h2>
+
+  <div class="card-grid cols-2">
+    <div class="card" style="border-color:rgba(34,211,238,0.4)">
+      <h3>🐘 RDS / Aurora PostgreSQL</h3>
+      <p>Managed relational DB. Aurora is 5× faster than standard RDS and automatically replicates across 3 AZs with 6 copies of data.</p>
+      <div class="tag-cloud">
+        <span class="pill pill-cyan">ACID</span>
+        <span class="pill pill-cyan">Auto-backups</span>
+        <span class="pill pill-cyan">Read Replicas</span>
+        <span class="pill pill-cyan">Multi-AZ failover</span>
+        <span class="pill pill-cyan">Aurora Serverless v2</span>
+      </div>
+      <div class="callout tip" style="margin-top:1rem">
+        <div class="icon">💡</div>
+        <p><strong>Aurora Serverless v2</strong> scales from 0.5 to 128 ACUs in seconds — perfect for variable workloads. Minimum cost: ~$43/month.</p>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(251,191,36,0.4)">
+      <h3>⚡ DynamoDB</h3>
+      <p>Key-value + document NoSQL. Single-digit millisecond at any scale. No schema to manage. Global tables for multi-region active-active.</p>
+      <div class="tag-cloud">
+        <span class="pill pill-yellow">On-demand pricing</span>
+        <span class="pill pill-yellow">Global Tables</span>
+        <span class="pill pill-yellow">DynamoDB Streams</span>
+        <span class="pill pill-yellow">DAX (microsecond)</span>
+        <span class="pill pill-yellow">TTL (auto-expire)</span>
+      </div>
+      <div class="callout warn" style="margin-top:1rem">
+        <div class="icon">⚠️</div>
+        <p><strong>Design access patterns first</strong> — DynamoDB's single-table design requires knowing queries upfront. Wrong key design = full table scans = $$$.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · RDS (psycopg2) + DynamoDB patterns</div>
+<pre><code class="language-python">import boto3, psycopg2
+
+# ── RDS PostgreSQL via psycopg2 ──
+# Get connection string from Secrets Manager (never hardcode)
+def get_db_connection():
+    sm = boto3.client("secretsmanager")
+    secret = sm.get_secret_value(SecretId="prod/postgres/main")
+    creds = json.loads(secret["SecretString"])
+    return psycopg2.connect(
+        host=creds["host"], port=5432,
+        database=creds["dbname"],
+        user=creds["username"], password=creds["password"],
+        sslmode="require"         # always require SSL on RDS
+    )
+
+# ── DynamoDB single-table design ──
+dynamodb = boto3.resource("dynamodb")
+table = dynamodb.Table("app-table")
+
+# Write an item
+table.put_item(Item={
+    "PK": "USER#usr_123",          # partition key
+    "SK": "PROFILE#usr_123",       # sort key
+    "name": "Alice",
+    "email": "alice@example.com",
+    "ttl": int(time.time()) + 86400 * 30,  # auto-expire in 30 days
+})
+
+# Query all items for a user (one partition key, many sort keys)
+response = table.query(
+    KeyConditionExpression=Key("PK").eq("USER#usr_123") & Key("SK").begins_with("ORDER#"),
+    ScanIndexForward=False,   # newest first
+    Limit=20
+)
+
+# Conditional write (optimistic locking)
+try:
+    table.update_item(
+        Key={"PK": "PRODUCT#p1", "SK": "PRODUCT#p1"},
+        UpdateExpression="SET stock = stock - :qty",
+        ConditionExpression="stock >= :qty",
+        ExpressionAttributeValues={":qty": 5}
+    )
+except dynamodb.meta.client.exceptions.ConditionalCheckFailedException:
+    print("Out of stock!")
+
+# DynamoDB Streams → trigger Lambda on every write
+# (wired in AWS console / CDK / Terraform)
+</code></pre>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Factor</th><th>Choose RDS/Aurora</th><th>Choose DynamoDB</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Data model</strong></td><td>Complex relations, JOINs, foreign keys</td><td>Key-value, documents, simple access patterns</td></tr>
+        <tr><td><strong>Scale</strong></td><td>&lt;100k writes/sec, TB scale</td><td>Unlimited writes, single-digit ms at any scale</td></tr>
+        <tr><td><strong>Query flexibility</strong></td><td>Ad-hoc SQL, complex aggregations</td><td>Known access patterns only — no ad-hoc</td></tr>
+        <tr><td><strong>Transactions</strong></td><td>Full ACID, multi-table transactions</td><td>Limited (up to 25 items per transaction)</td></tr>
+        <tr><td><strong>Cost at low load</strong></td><td>Fixed ~$43+/month minimum</td><td>On-demand: pay per request, $0 when idle</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ── NETWORKING ── -->
+<section class="section" id="aws-networking">
+  <div class="section-tag" style="color:#fb923c;">AWS · Networking</div>
+  <h2>VPC, CloudFront, Route 53, ALB</h2>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h3>🌐 VPC Architecture Best Practices</h3>
+      <div class="flow" style="flex-direction:column;align-items:flex-start;gap:.75rem">
+        <div style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--text)">CIDR:</strong> Use /16 for VPC (65,536 IPs), /24 for subnets (251 usable)</div>
+        <div style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--text)">3 AZs:</strong> Always deploy across 3 Availability Zones for HA</div>
+        <div style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--text)">Public subnets:</strong> ALB, NAT Gateway, Bastion hosts only</div>
+        <div style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--text)">Private subnets:</strong> EC2/ECS/Lambda, RDS, ElastiCache — no direct internet</div>
+        <div style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--text)">NAT Gateway:</strong> Private subnet → internet egress. $0.045/hr + data transfer</div>
+        <div style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--text)">VPC Endpoints:</strong> Private connection to S3/DynamoDB — no NAT needed, faster + cheaper</div>
+        <div style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--text)">Security Groups:</strong> Stateful firewall at instance level (allow inbound = allow return)</div>
+        <div style="font-size:.85rem;color:var(--muted)"><strong style="color:var(--text)">NACLs:</strong> Stateless firewall at subnet level (must allow both directions)</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>⚡ CloudFront CDN</h3>
+      <p>450+ edge locations. Serves static assets from cache, proxies dynamic requests to your origin.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-bash"># Invalidate CloudFront cache after deploy
+aws cloudfront create-invalidation \
+  --distribution-id E1234567890ABC \
+  --paths "/index.html" "/assets/*"
+
+# Check distribution status
+aws cloudfront get-distribution \
+  --id E1234567890ABC \
+  --query "Distribution.Status"
+</code></pre>
+      </div>
+      <div class="tag-cloud" style="margin-top:.75rem">
+        <span class="pill pill-orange">WAF integration</span>
+        <span class="pill pill-orange">Lambda@Edge</span>
+        <span class="pill pill-orange">S3 OAC</span>
+        <span class="pill pill-orange">HTTPS everywhere</span>
+        <span class="pill pill-orange">Geo-restriction</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · boto3 Route 53 + ALB health check</div>
+<pre><code class="language-python">import boto3
+
+route53 = boto3.client("route53")
+
+# Update a DNS record (e.g. after new deployment)
+route53.change_resource_record_sets(
+    HostedZoneId="Z1234567890ABC",
+    ChangeBatch={"Changes": [{
+        "Action": "UPSERT",
+        "ResourceRecordSet": {
+            "Name": "api.example.com",
+            "Type": "A",
+            "AliasTarget": {
+                "HostedZoneId": "Z35SXDOTRQ7X7K",   # ALB hosted zone ID
+                "DNSName": "my-alb-1234567890.us-east-1.elb.amazonaws.com",
+                "EvaluateTargetHealth": True,
+            }
+        }
+    }]}
+)
+
+# ALB — register targets and check health
+elbv2 = boto3.client("elbv2")
+
+# Get unhealthy targets
+response = elbv2.describe_target_health(
+    TargetGroupArn="arn:aws:elasticloadbalancing:us-east-1:123456789:targetgroup/my-tg/abc"
+)
+unhealthy = [t for t in response["TargetHealthDescriptions"] if t["TargetHealth"]["State"] != "healthy"]
+print(f"Unhealthy targets: {unhealthy}")
+</code></pre>
+  </div>
+</section>
+
+<!-- ── CONTAINERS ── -->
+<section class="section" id="aws-containers">
+  <div class="section-tag" style="color:#fb923c;">AWS · Containers</div>
+  <h2>ECS, ECR, EKS</h2>
+  <p>Run Docker containers without managing cluster infrastructure. ECS (simpler) or EKS (Kubernetes-compatible).</p>
+
+  <div class="card-grid cols-3">
+    <div class="card">
+      <h3>📦 ECR — Container Registry</h3>
+      <p>Private Docker registry integrated with ECS/EKS. Supports image scanning, lifecycle policies, cross-region replication.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-bash"># Push image to ECR
+aws ecr get-login-password --region us-east-1 \
+  | docker login --username AWS \
+    --password-stdin 123456789.dkr.ecr.us-east-1.amazonaws.com
+
+docker build -t my-app .
+docker tag my-app:latest \
+  123456789.dkr.ecr.us-east-1.amazonaws.com/my-app:latest
+docker push \
+  123456789.dkr.ecr.us-east-1.amazonaws.com/my-app:latest
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🚀 ECS Fargate</h3>
+      <p>Serverless containers — no EC2 instances to manage. Define CPU/memory, ECS handles placement, scaling, updates.</p>
+      <div class="tag-cloud" style="margin-top:.75rem">
+        <span class="pill pill-indigo">No cluster management</span>
+        <span class="pill pill-indigo">Pay per task</span>
+        <span class="pill pill-indigo">IAM task roles</span>
+        <span class="pill pill-indigo">CloudWatch Logs</span>
+        <span class="pill pill-indigo">Service Connect</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>☸️ EKS — Kubernetes</h3>
+      <p>Managed Kubernetes control plane. Choose EKS when you need Helm, RBAC, custom controllers, or multi-cloud portability.</p>
+      <div class="tag-cloud" style="margin-top:.75rem">
+        <span class="pill pill-purple">Helm charts</span>
+        <span class="pill pill-purple">IRSA (pod IAM)</span>
+        <span class="pill pill-purple">Karpenter autoscaler</span>
+        <span class="pill pill-purple">Fargate profiles</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Deploy new ECS service version (rolling update)</div>
+<pre><code class="language-python">import boto3
+
+ecs = boto3.client("ecs", region_name="us-east-1")
+
+def deploy_new_version(cluster: str, service: str, new_image: str):
+    """Rolling deploy: update task definition image → force new deployment."""
+
+    # 1. Get current task definition
+    svc = ecs.describe_services(cluster=cluster, services=[service])["services"][0]
+    current_td_arn = svc["taskDefinition"]
+    td = ecs.describe_task_definition(taskDefinition=current_td_arn)["taskDefinition"]
+
+    # 2. Update the image in the container definition
+    containers = td["containerDefinitions"]
+    for c in containers:
+        if c["name"] == "app":
+            c["image"] = new_image    # e.g. "123456.dkr.ecr.../my-app:v2.0.1"
+
+    # 3. Register new task definition revision
+    new_td = ecs.register_task_definition(
+        family=td["family"],
+        containerDefinitions=containers,
+        taskRoleArn=td["taskRoleArn"],
+        executionRoleArn=td["executionRoleArn"],
+        networkMode=td["networkMode"],
+        requiresCompatibilities=td["requiresCompatibilities"],
+        cpu=td["cpu"], memory=td["memory"],
+    )
+    new_td_arn = new_td["taskDefinition"]["taskDefinitionArn"]
+
+    # 4. Update service with new task definition → rolling deploy begins
+    ecs.update_service(
+        cluster=cluster, service=service,
+        taskDefinition=new_td_arn,
+        forceNewDeployment=True,
+        deploymentConfiguration={
+            "maximumPercent": 200,        # allow double capacity during rollout
+            "minimumHealthyPercent": 100, # never go below 100% healthy
+        }
+    )
+    print(f"Deploying {new_td_arn} to {service}")
+
+deploy_new_version("production", "api-service", "123.dkr.ecr.us-east-1.amazonaws.com/api:v2.1")
+</code></pre>
+  </div>
+</section>
+
+<!-- ── IAM / SECURITY ── -->
+<section class="section" id="aws-security">
+  <div class="section-tag" style="color:#fb923c;">AWS · Security</div>
+  <h2>IAM, Secrets Manager, KMS, WAF</h2>
+  <p>Security is AWS's top priority — and your responsibility under the shared responsibility model. These are the non-negotiables.</p>
+
+  <div class="card-grid cols-2">
+    <div class="card" style="border-color:rgba(248,113,113,0.4)">
+      <h3>🔑 IAM — Least Privilege is the Law</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem">
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--text)">Never use root</strong> — create an admin IAM user, lock root with MFA</li>
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--text)">Use roles, not users</strong> — EC2/Lambda/ECS use IAM roles, not access keys</li>
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--text)">SCPs (Org level)</strong> — deny entire regions or dangerous actions across all accounts</li>
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--text)">Permission boundaries</strong> — cap max permissions a role can have</li>
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--text)">Access Analyzer</strong> — find over-permissioned policies and external access</li>
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--text)">Credential rotation</strong> — set Secrets Manager to auto-rotate every 30 days</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:rgba(251,191,36,0.4)">
+      <h3>🔐 Secrets Manager vs SSM Parameter Store</h3>
+      <div class="table-wrap" style="margin-top:.75rem">
+        <table>
+          <thead><tr><th>Feature</th><th>Secrets Manager</th><th>SSM Param Store</th></tr></thead>
+          <tbody>
+            <tr><td>Auto rotation</td><td class="check">✓ Built-in</td><td class="cross">✗ Manual</td></tr>
+            <tr><td>DB integration</td><td class="check">✓ RDS/Redshift</td><td class="cross">✗ No</td></tr>
+            <tr><td>Cost</td><td style="color:var(--yellow)">$0.40/secret/mo</td><td class="check">Free tier</td></tr>
+            <tr><td>Config values</td><td class="cross">✗ Overkill</td><td class="check">✓ Great fit</td></tr>
+            <tr><td>Encryption</td><td class="check">✓ KMS default</td><td class="check">✓ SecureString</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · IAM policy + Secrets Manager rotation</div>
+<pre><code class="language-python">import boto3, json
+
+iam = boto3.client("iam")
+sm  = boto3.client("secretsmanager")
+
+# ── Attach a least-privilege policy to a role ──
+policy_doc = json.dumps({
+    "Version": "2012-10-17",
+    "Statement": [{
+        "Effect": "Allow",
+        "Action": [
+            "s3:GetObject",
+            "s3:PutObject"
+        ],
+        "Resource": "arn:aws:s3:::my-bucket/uploads/*"   # narrow scope!
+    }, {
+        "Effect": "Allow",
+        "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage"],
+        "Resource": "arn:aws:sqs:us-east-1:123456789:my-queue"
+    }]
+})
+
+policy = iam.create_policy(
+    PolicyName="AppLeastPrivilege",
+    PolicyDocument=policy_doc
+)
+iam.attach_role_policy(
+    RoleName="my-app-role",
+    PolicyArn=policy["Policy"]["Arn"]
+)
+
+# ── Read a secret (the right way in app code) ──
+def get_secret(secret_name: str) -> dict:
+    response = sm.get_secret_value(SecretId=secret_name)
+    return json.loads(response["SecretString"])
+
+db_creds = get_secret("prod/postgres/main")
+# {"username": "app_user", "password": "...", "host": "...", "port": 5432}
+
+# ── Enable auto-rotation for a database secret ──
+sm.rotate_secret(
+    SecretId="prod/postgres/main",
+    RotationLambdaARN="arn:aws:lambda:us-east-1:123:function:SecretsManagerRotation",
+    RotationRules={"AutomaticallyAfterDays": 30}
+)
+</code></pre>
+  </div>
+</section>
+
+<!-- ── MESSAGING ── -->
+<section class="section" id="aws-messaging">
+  <div class="section-tag" style="color:#fb923c;">AWS · Messaging</div>
+  <h2>SQS, SNS, EventBridge</h2>
+  <p>Decouple services so they don't need to talk to each other directly. If one goes down, messages queue up — nothing is lost.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 800 180" width="800" height="180" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="marr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#a78bfa"/></marker></defs>
+
+      <!-- Producer -->
+      <rect x="10" y="70" width="100" height="40" rx="8" fill="#1f2235" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="60" y="95" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">Producer</text>
+
+      <!-- SQS -->
+      <rect x="160" y="55" width="140" height="70" rx="10" fill="rgba(167,139,250,0.1)" stroke="#a78bfa" stroke-width="2"/>
+      <text x="230" y="82" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="12" font-weight="700">SQS Queue</text>
+      <text x="230" y="100" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">📨📨📨 messages</text>
+      <text x="230" y="116" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">retention: up to 14 days</text>
+
+      <!-- Consumer -->
+      <rect x="350" y="50" width="90" height="35" rx="8" fill="#1f2235" stroke="#34d399" stroke-width="1.5"/>
+      <text x="395" y="72" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">Consumer 1</text>
+      <rect x="350" y="95" width="90" height="35" rx="8" fill="#1f2235" stroke="#34d399" stroke-width="1.5"/>
+      <text x="395" y="117" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">Consumer 2</text>
+
+      <!-- SNS for fanout -->
+      <rect x="480" y="55" width="100" height="70" rx="10" fill="rgba(251,146,60,0.1)" stroke="#fb923c" stroke-width="2"/>
+      <text x="530" y="82" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="700">SNS Topic</text>
+      <text x="530" y="100" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">pub/sub fanout</text>
+      <text x="530" y="115" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">all subs get msg</text>
+
+      <rect x="635" y="35" width="90" height="30" rx="6" fill="#1f2235" stroke="#22d3ee" stroke-width="1"/>
+      <text x="680" y="55" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">SQS Queue A</text>
+      <rect x="635" y="75" width="90" height="30" rx="6" fill="#1f2235" stroke="#22d3ee" stroke-width="1"/>
+      <text x="680" y="95" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">SQS Queue B</text>
+      <rect x="635" y="115" width="90" height="30" rx="6" fill="#1f2235" stroke="#22d3ee" stroke-width="1"/>
+      <text x="680" y="135" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">Lambda / Email</text>
+
+      <!-- Arrows -->
+      <line x1="110" y1="90" x2="158" y2="90" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#marr)"/>
+      <line x1="300" y1="75" x2="348" y2="65" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#marr)"/>
+      <line x1="300" y1="105" x2="348" y2="113" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#marr)"/>
+      <line x1="440" y1="90" x2="478" y2="90" stroke="#fb923c" stroke-width="1.5" marker-end="url(#marr)"/>
+      <line x1="580" y1="75" x2="633" y2="50" stroke="#fb923c" stroke-width="1" marker-end="url(#marr)"/>
+      <line x1="580" y1="90" x2="633" y2="90" stroke="#fb923c" stroke-width="1" marker-end="url(#marr)"/>
+      <line x1="580" y1="105" x2="633" y2="130" stroke="#fb923c" stroke-width="1" marker-end="url(#marr)"/>
+
+      <!-- DLQ label -->
+      <rect x="160" y="140" width="140" height="30" rx="6" fill="#131625" stroke="#f87171" stroke-width="1"/>
+      <text x="230" y="160" text-anchor="middle" fill="#f87171" font-family="Inter" font-size="9" font-weight="700">Dead Letter Queue (DLQ) — failed messages</text>
+    </svg>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · SQS producer + consumer with DLQ</div>
+<pre><code class="language-python">import boto3, json
+
+sqs = boto3.client("sqs", region_name="us-east-1")
+QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/123456789/my-queue"
+
+# ── Send a message ──
+sqs.send_message(
+    QueueUrl=QUEUE_URL,
+    MessageBody=json.dumps({"job_id": "abc123", "type": "process_image"}),
+    MessageAttributes={
+        "priority": {"StringValue": "high", "DataType": "String"}
+    }
+)
+
+# ── Send batch (up to 10 messages, 256KB total) ──
+sqs.send_message_batch(
+    QueueUrl=QUEUE_URL,
+    Entries=[{"Id": str(i), "MessageBody": json.dumps({"item": i})} for i in range(10)]
+)
+
+# ── Consumer (long polling — cheaper than short polling) ──
+def process_queue():
+    while True:
+        response = sqs.receive_message(
+            QueueUrl=QUEUE_URL,
+            MaxNumberOfMessages=10,   # batch up to 10
+            WaitTimeSeconds=20,       # long poll — up to 20s wait
+            VisibilityTimeout=300,    # 5 min to process before requeue
+        )
+        for msg in response.get("Messages", []):
+            try:
+                body = json.loads(msg["Body"])
+                process_job(body)
+                # Delete on success — removes from queue
+                sqs.delete_message(QueueUrl=QUEUE_URL, ReceiptHandle=msg["ReceiptHandle"])
+            except Exception as e:
+                print(f"Failed: {e}")
+                # Don't delete → message returns to queue after VisibilityTimeout
+                # After maxReceiveCount → moves to DLQ automatically
+
+# ── SNS fanout: one publish → many subscribers ──
+sns = boto3.client("sns")
+sns.publish(
+    TopicArn="arn:aws:sns:us-east-1:123456789:order-events",
+    Subject="OrderPlaced",
+    Message=json.dumps({"order_id": "ord_789", "amount": 59.99}),
+)
+# All subscribers (SQS queues, Lambda, email) receive this simultaneously
+</code></pre>
+  </div>
+</section>
+
+<!-- ── OBSERVABILITY ── -->
+<section class="section" id="aws-observability">
+  <div class="section-tag" style="color:#fb923c;">AWS · Observability</div>
+  <h2>CloudWatch, X-Ray, Cost Explorer</h2>
+  <p>You can't operate what you can't see. Instrument everything from day one.</p>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h3>📊 CloudWatch</h3>
+      <p>Collect metrics, stream logs, set alarms, build dashboards — all in one place.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">import boto3
+from datetime import datetime, timedelta
+
+cw = boto3.client("cloudwatch")
+
+# Publish custom metric
+cw.put_metric_data(
+    Namespace="MyApp",
+    MetricData=[{
+        "MetricName": "OrdersProcessed",
+        "Value": 42,
+        "Unit": "Count",
+        "Dimensions": [{"Name": "Environment", "Value": "production"}]
+    }]
+)
+
+# Create alarm: alert if error rate > 5%
+cw.put_metric_alarm(
+    AlarmName="HighErrorRate",
+    MetricName="5XXError",
+    Namespace="AWS/ApplicationELB",
+    Statistic="Sum",
+    Period=300,       # 5 minute windows
+    EvaluationPeriods=2,
+    Threshold=50,
+    ComparisonOperator="GreaterThanThreshold",
+    AlarmActions=["arn:aws:sns:us-east-1:123:ops-alerts"]
+)
+
+# Query logs with Insights
+logs = boto3.client("logs")
+logs.start_query(
+    logGroupName="/ecs/my-app",
+    startTime=int((datetime.now() - timedelta(hours=1)).timestamp()),
+    endTime=int(datetime.now().timestamp()),
+    queryString="fields @timestamp, @message | filter @message like /ERROR/ | limit 100"
+)
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>💸 Cost Management</h3>
+      <p>AWS bills are surprisingly complex. These tools keep costs under control.</p>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.6rem;margin-top:.75rem">
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--green)">AWS Budgets</strong> — alert at 80%/100% of monthly budget</li>
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--cyan)">Cost Explorer</strong> — visualise costs by service/tag/account</li>
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--yellow)">Trusted Advisor</strong> — finds idle resources, oversized instances</li>
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--orange)">Savings Plans</strong> — commit to $X/hr, save 66%. Auto-applied.</li>
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--pink)">Resource tagging</strong> — tag everything: `env`, `team`, `project` for cost allocation</li>
+        <li style="font-size:.83rem;color:var(--muted)">→ <strong style="color:var(--purple)">Spot for batch</strong> — ML training, CI/CD, data processing = 90% savings</li>
+      </ul>
+      <div class="callout warn" style="margin-top:1rem">
+        <div class="icon">⚠️</div>
+        <p><strong>NAT Gateway is the #1 surprise bill.</strong> Each AZ's NAT Gateway costs $0.045/hr + $0.045/GB. VPC Endpoints for S3/DynamoDB eliminate NAT costs for those services.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── AWS DECISION GUIDE ── -->
+<section class="section" id="aws-decision">
+  <div class="section-tag" style="color:#fb923c;">AWS · Quick Reference</div>
+  <h2>Which AWS Service Should I Use?</h2>
+
+  <div class="card-grid cols-3" style="margin-top:1.5rem">
+    <div class="card" style="border-color:rgba(249,115,22,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">🗄️</div>
+      <h3>Store a file / image / video</h3>
+      <p>Use <strong style="color:var(--orange)">S3</strong>. Add CloudFront CDN in front for global delivery. Use pre-signed URLs for private access.</p>
+    </div>
+    <div class="card" style="border-color:rgba(99,102,241,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">⚙️</div>
+      <h3>Run a web server / API</h3>
+      <p>Use <strong style="color:var(--indigo-light)">ECS Fargate</strong> (Docker) for always-on, or <strong style="color:var(--indigo-light)">Lambda + API Gateway</strong> for sporadic traffic.</p>
+    </div>
+    <div class="card" style="border-color:rgba(34,211,238,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">🐘</div>
+      <h3>Need a relational database</h3>
+      <p>Use <strong style="color:var(--cyan)">Aurora Serverless v2</strong> for most apps. It auto-scales and costs $0 when paused.</p>
+    </div>
+    <div class="card" style="border-color:rgba(251,191,36,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">⚡</div>
+      <h3>Need millisecond lookups at scale</h3>
+      <p>Use <strong style="color:var(--yellow)">DynamoDB</strong> with on-demand pricing. Design your key schema around access patterns first.</p>
+    </div>
+    <div class="card" style="border-color:rgba(167,139,250,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">📬</div>
+      <h3>Decouple two services</h3>
+      <p>Use <strong style="color:var(--purple)">SQS</strong> for point-to-point, <strong style="color:var(--purple)">SNS</strong> for fanout, <strong style="color:var(--purple)">EventBridge</strong> for event routing rules.</p>
+    </div>
+    <div class="card" style="border-color:rgba(244,114,182,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">🔑</div>
+      <h3>Store API keys / DB passwords</h3>
+      <p>Use <strong style="color:var(--pink)">Secrets Manager</strong> with auto-rotation. Never put credentials in code, environment variables, or S3.</p>
+    </div>
+    <div class="card" style="border-color:rgba(52,211,153,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">🌍</div>
+      <h3>Global low-latency delivery</h3>
+      <p>Use <strong style="color:var(--green)">CloudFront</strong> (CDN) + <strong style="color:var(--green)">Route 53</strong> (latency-based routing) + <strong style="color:var(--green)">DynamoDB Global Tables</strong>.</p>
+    </div>
+    <div class="card" style="border-color:rgba(251,146,60,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">🤖</div>
+      <h3>Run ML training / GPU workload</h3>
+      <p>Use <strong style="color:var(--orange)">EC2 Spot p4d/g5</strong> instances (90% savings) or <strong style="color:var(--orange)">SageMaker</strong> for managed training pipelines.</p>
+    </div>
+    <div class="card" style="border-color:rgba(248,113,113,0.4)">
+      <div style="font-size:1.5rem;margin-bottom:.5rem">🔍</div>
+      <h3>Debug production issues</h3>
+      <p>Use <strong style="color:var(--red)">CloudWatch Logs Insights</strong> for log queries + <strong style="color:var(--red)">X-Ray</strong> for distributed tracing across services.</p>
+    </div>
+  </div>
+
+  <div class="callout info" style="margin-top:2rem">
+    <div class="icon">🏗️</div>
+    <p><strong>Well-Architected Framework — 6 pillars:</strong> Operational Excellence · Security · Reliability · Performance Efficiency · Cost Optimization · Sustainability. Run the <strong>AWS Well-Architected Tool</strong> (free) on your architecture before going to production.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>RAG Mastery + AWS Knowledge Base · <strong>2025–2026 Edition</strong></p>
+  <p style="margin-top:.5rem;font-size:.8rem">Built for engineers building real systems. All code examples tested. Sources: original papers, LlamaIndex docs, LangChain docs, Anthropic API docs, AWS documentation.</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>
+// Animate metric bars on scroll
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.querySelectorAll('.metric-fill').forEach(bar => {
+        bar.style.width = bar.style.width; // trigger repaint
+      });
+    }
+  });
+}, { threshold: 0.2 });
+document.querySelectorAll('.card').forEach(c => observer.observe(c));
+
+// Active nav highlight
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('nav a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 80) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.style.color = a.getAttribute('href') === '#' + current ? '#818cf8' : '';
+  });
+});
+</script>
+</body>
+</html>
