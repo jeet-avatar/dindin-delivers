@@ -141,13 +141,9 @@ export default function HomePage() {
                 src="/photos/dr-pillay-portrait.jpg"
                 alt="Dr. Arpana Pillay, Internal Medicine Physician at Vish Medical"
                 fill
-                className="object-cover object-top"
+                className="object-cover object-bottom"
                 unoptimized
               />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/90 to-transparent px-5 py-5">
-                <p className="font-heading font-bold text-white text-lg leading-tight">Dr. Arpana Pillay</p>
-                <p className="text-blue-200 text-sm">Internal Medicine Physician</p>
-              </div>
             </div>
           </div>
 
