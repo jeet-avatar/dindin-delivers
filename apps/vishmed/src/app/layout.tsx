@@ -22,6 +22,9 @@ const notoSans = Noto_Sans({
 })
 
 export const metadata: Metadata = {
+  verification: {
+    google: 'Qv91v_oT97WNkWYBGfjCzLLrc67VGUE7QerUfgn66KU',
+  },
   title: {
     default: 'Vish Medical | Primary Care & Weight Loss | Dr. Arpana Pillay',
     template: '%s | Vish Medical',
