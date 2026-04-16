@@ -28,11 +28,12 @@ function formatDate(isoDate: string): string {
 }
 
 interface BlogIndexPageProps {
-  searchParams?: { category?: string }
+  searchParams?: Promise<{ category?: string }>
 }
 
-export default function BlogIndexPage({ searchParams }: BlogIndexPageProps) {
-  const category = searchParams?.category as BlogCategory | undefined
+export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps) {
+  const resolved = await searchParams
+  const category = resolved?.category as BlogCategory | undefined
   const filtered = category
     ? blogPosts.filter((p) => p.category === category)
     : blogPosts
