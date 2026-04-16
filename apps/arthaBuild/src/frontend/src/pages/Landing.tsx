@@ -308,6 +308,8 @@ export default function Landing() {
           <a href="#security">Security</a>
           <a href="#deploy">How We Deploy</a>
           <a href="#plans">Pricing</a>
+          <Link to="/solutions">Solutions</Link>
+          <Link to="/blog">Blog</Link>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:'16px' }}>
           <Link to="/log-in" style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px', fontWeight:500 }}>Log in</Link>
@@ -837,6 +839,8 @@ export default function Landing() {
                   <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
                     <Link to="/log-in"         style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px' }}>Sign In</Link>
                     <Link to="/create-account" style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px' }}>Create Account</Link>
+                    <Link to="/blog"           style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px' }}>Blog</Link>
+                    <Link to="/solutions"      style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px' }}>Solutions</Link>
                     <Link to="/privacy"        style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px' }}>Privacy Policy</Link>
                     <Link to="/terms"          style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px' }}>Terms of Service</Link>
                     <a href="https://calendar.app.google/hMxn4pJi3bKXBtjp6" target="_blank" rel="noopener noreferrer" style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px' }}>Contact Sales</a>

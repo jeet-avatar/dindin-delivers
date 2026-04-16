@@ -65,8 +65,13 @@ export default function PrivacyPolicy() {
             <li><strong style={{ color: '#e2e8f0' }}>Deploy records:</strong> script names and deployment targets (for license quota tracking)</li>
           </ul>
           <p style={{ lineHeight: 1.8, color: '#a1a1aa' }}>
-            We do <strong style={{ color: '#f87171' }}>not</strong> collect analytics, usage telemetry,
-            AI prompt histories, or any business data from your NetSuite account.
+            <strong style={{ color: '#e2e8f0' }}>Analytics:</strong> ArthaBuild uses a self-hosted analytics system. We collect anonymised page views,
+            scroll depth, and time-on-page data. No cookies are used. Session IDs are stored in sessionStorage only and
+            are not persisted across browser sessions. All analytics data is stored on ArthaBuild's own infrastructure
+            and is never shared with third parties.
+          </p>
+          <p style={{ lineHeight: 1.8, color: '#a1a1aa' }}>
+            We do <strong style={{ color: '#f87171' }}>not</strong> collect AI prompt histories or any business data from your NetSuite account.
           </p>
         </section>
 

@@ -27,6 +27,10 @@ import AcceptInvite from './pages/AcceptInvite';
 import VerifyEmail from './pages/VerifyEmail';
 import OAuthCallback from './pages/OAuthCallback';
 import MFASetup from './pages/MFASetup';
+import Blog from './pages/Blog';
+import BlogPost from './pages/BlogPost';
+import Solutions from './pages/Solutions';
+import IndustryPage from './pages/IndustryPage';
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -81,6 +85,10 @@ export default function RoutesApp() {
       {/* Legal routes — public, no auth required */}
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/blog" element={<Blog />} />
+      <Route path="/blog/:slug" element={<BlogPost />} />
+      <Route path="/solutions" element={<Solutions />} />
+      <Route path="/solutions/:industry" element={<IndustryPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
