@@ -2,27 +2,27 @@ const reviews = [
   {
     name: 'Sarah Mitchell',
     date: 'March 2025',
-    text: 'Dr. Pillay is absolutely wonderful. I had a telehealth visit for a sinus infection and she was thorough, attentive, and had my prescription sent to the pharmacy within minutes. So easy and convenient — I didn\'t have to leave home. Highly recommend!',
+    text: 'Dr. Arpana Pillay is absolutely wonderful. I had a telehealth visit for a sinus infection and she was thorough, attentive, and had my prescription sent to the pharmacy within minutes. So easy and convenient — I didn\'t have to leave home. Highly recommend!',
   },
   {
     name: 'James Okafor',
     date: 'January 2025',
-    text: 'I started the GLP-1 weight loss program with Dr. Pillay six months ago and have lost 22 pounds. She takes time to explain everything, adjusts the plan when needed, and is always available for questions. Best medical decision I\'ve made.',
+    text: 'I started the GLP-1 weight loss program with Dr. Arpana Pillay six months ago and have lost 22 pounds. She takes time to explain everything, adjusts the plan when needed, and is always available for questions. Best medical decision I\'ve made.',
   },
   {
     name: 'Maria Gonzalez',
     date: 'February 2025',
-    text: 'Finally found a primary care doctor who actually listens! Dr. Pillay spent almost 30 minutes with me on my first visit, went through my full history, and set up a real wellness plan. The office is clean and the staff is friendly too.',
+    text: 'Finally found a primary care doctor who actually listens! Dr. Arpana Pillay spent almost 30 minutes with me on my first visit, went through my full history, and set up a real wellness plan. The office is clean and the staff is friendly too.',
   },
   {
     name: 'David Chen',
     date: 'November 2024',
-    text: 'Used the telehealth option for a follow-up on my blood pressure medication. Dr. Pillay reviewed my numbers, explained the adjustments clearly, and was done in 15 minutes. Perfect for busy schedules. Will definitely keep using this service.',
+    text: 'Used the telehealth option for a follow-up on my blood pressure medication. Dr. Arpana Pillay reviewed my numbers, explained the adjustments clearly, and was done in 15 minutes. Perfect for busy schedules. Will definitely keep using this service.',
   },
   {
     name: 'Patricia Williams',
     date: 'December 2024',
-    text: 'Came in for urgent care after a bad fall — Dr. Pillay was calm, professional, and got me sorted out quickly. X-ray referral was handled same day. Very grateful for the same-day availability. This is the kind of care everyone deserves.',
+    text: 'Came in for urgent care after a bad fall — Dr. Arpana Pillay was calm, professional, and got me sorted out quickly. X-ray referral was handled same day. Very grateful for the same-day availability. This is the kind of care everyone deserves.',
   },
 ]
 
