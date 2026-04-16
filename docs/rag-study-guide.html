@@ -260,6 +260,16 @@ footer strong { color: var(--indigo-light); }
   <a href="#aws-messaging">SQS/SNS</a>
   <a href="#aws-observability">Observability</a>
   <a href="#aws-decision">AWS Guide</a>
+  <a href="#lc-overview" style="color:var(--green);font-weight:700">🦜 LangChain</a>
+  <a href="#lc-chains">Chains</a>
+  <a href="#lc-retrievers">Retrievers</a>
+  <a href="#lc-agents">Agents</a>
+  <a href="#lc-lcel">LCEL</a>
+  <a href="#lg-overview" style="color:var(--cyan);font-weight:700">🕸️ LangGraph</a>
+  <a href="#lg-basics">Graph Basics</a>
+  <a href="#lg-patterns">Patterns</a>
+  <a href="#lg-memory">Memory</a>
+  <a href="#lg-multiagent">Multi-Agent</a>
 </nav>
 
 <main>
@@ -2712,10 +2722,1184 @@ logs.start_query(
   </div>
 </section>
 
+<!-- ═══════════════════════════════════════════════════════════
+     LANGCHAIN + LANGGRAPH KNOWLEDGE BASE
+════════════════════════════════════════════════════════════ -->
+
+<!-- LANGCHAIN HERO DIVIDER -->
+<div style="background:linear-gradient(135deg,#0d1117 0%,#001a0f 50%,#0d1117 100%);border-top:2px solid #34d399;border-bottom:2px solid #34d399;padding:3.5rem 2rem;text-align:center;position:relative;overflow:hidden;">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 80% at 50% 50%,rgba(52,211,153,0.1) 0%,transparent 70%);pointer-events:none;"></div>
+  <div style="font-size:.75rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#34d399;margin-bottom:1rem;">Part III</div>
+  <h2 style="font-size:clamp(2rem,5vw,3.5rem);font-weight:800;background:linear-gradient(135deg,#fff 20%,#34d399 55%,#22d3ee 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1rem;">🦜 LangChain &amp; 🕸️ LangGraph</h2>
+  <p style="color:#8b8fa8;max-width:660px;margin:0 auto;font-size:1.05rem;">The most widely-used LLM application frameworks — from simple chains to stateful multi-agent systems with persistent memory and human-in-the-loop.</p>
+  <div style="display:flex;gap:1.5rem;flex-wrap:wrap;justify-content:center;margin-top:2rem;">
+    <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:10px;padding:.8rem 1.5rem;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#34d399;">LangChain</div><div style="font-size:.75rem;color:#8b8fa8;">Chains · Retrievers · Agents · LCEL</div></div>
+    <div style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.3);border-radius:10px;padding:.8rem 1.5rem;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#22d3ee;">LangGraph</div><div style="font-size:.75rem;color:#8b8fa8;">Stateful Graphs · Memory · Multi-Agent</div></div>
+    <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:.8rem 1.5rem;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#818cf8;">LangSmith</div><div style="font-size:.75rem;color:#8b8fa8;">Tracing · Eval · Monitoring</div></div>
+  </div>
+</div>
+
+<!-- ══════════ LANGCHAIN OVERVIEW ══════════ -->
+<section class="section" id="lc-overview">
+  <div class="section-tag" style="color:#34d399;">LangChain · Overview</div>
+  <h2>LangChain — The Mental Model</h2>
+  <p>LangChain is a framework for building applications powered by LLMs. It provides primitives for connecting models, data, tools, and memory into pipelines. Everything composes.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 860 200" width="860" height="200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="lcarr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L7,3 z" fill="#34d399"/>
+        </marker>
+      </defs>
+      <!-- Layers -->
+      <rect x="10" y="20" width="120" height="160" rx="10" fill="rgba(99,102,241,0.08)" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="70" y="42" text-anchor="middle" fill="#818cf8" font-family="Inter" font-size="10" font-weight="700">MODELS</text>
+      <rect x="20" y="52" width="100" height="28" rx="6" fill="#1f2235" stroke="#6366f1" stroke-width="1"/>
+      <text x="70" y="71" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">ChatOpenAI</text>
+      <rect x="20" y="88" width="100" height="28" rx="6" fill="#1f2235" stroke="#6366f1" stroke-width="1"/>
+      <text x="70" y="107" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">ChatAnthropic</text>
+      <rect x="20" y="124" width="100" height="28" rx="6" fill="#1f2235" stroke="#6366f1" stroke-width="1"/>
+      <text x="70" y="143" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">OllamaLLM</text>
+
+      <rect x="150" y="20" width="130" height="160" rx="10" fill="rgba(34,211,238,0.08)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="215" y="42" text-anchor="middle" fill="#22d3ee" font-family="Inter" font-size="10" font-weight="700">PROMPTS</text>
+      <rect x="160" y="52" width="110" height="28" rx="6" fill="#1f2235" stroke="#22d3ee" stroke-width="1"/>
+      <text x="215" y="71" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">ChatPromptTemplate</text>
+      <rect x="160" y="88" width="110" height="28" rx="6" fill="#1f2235" stroke="#22d3ee" stroke-width="1"/>
+      <text x="215" y="107" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">FewShotPromptTemplate</text>
+      <rect x="160" y="124" width="110" height="28" rx="6" fill="#1f2235" stroke="#22d3ee" stroke-width="1"/>
+      <text x="215" y="143" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">MessagesPlaceholder</text>
+
+      <rect x="300" y="20" width="130" height="160" rx="10" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="365" y="42" text-anchor="middle" fill="#34d399" font-family="Inter" font-size="10" font-weight="700">RETRIEVAL</text>
+      <rect x="310" y="52" width="110" height="28" rx="6" fill="#1f2235" stroke="#34d399" stroke-width="1"/>
+      <text x="365" y="71" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">VectorStoreRetriever</text>
+      <rect x="310" y="88" width="110" height="28" rx="6" fill="#1f2235" stroke="#34d399" stroke-width="1"/>
+      <text x="365" y="107" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">EnsembleRetriever</text>
+      <rect x="310" y="124" width="110" height="28" rx="6" fill="#1f2235" stroke="#34d399" stroke-width="1"/>
+      <text x="365" y="143" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">MultiQueryRetriever</text>
+
+      <rect x="450" y="20" width="120" height="160" rx="10" fill="rgba(251,146,60,0.08)" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="510" y="42" text-anchor="middle" fill="#fb923c" font-family="Inter" font-size="10" font-weight="700">TOOLS</text>
+      <rect x="460" y="52" width="100" height="28" rx="6" fill="#1f2235" stroke="#fb923c" stroke-width="1"/>
+      <text x="510" y="71" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">TavilySearch</text>
+      <rect x="460" y="88" width="100" height="28" rx="6" fill="#1f2235" stroke="#fb923c" stroke-width="1"/>
+      <text x="510" y="107" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">PythonREPLTool</text>
+      <rect x="460" y="124" width="100" height="28" rx="6" fill="#1f2235" stroke="#fb923c" stroke-width="1"/>
+      <text x="510" y="143" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">@tool decorator</text>
+
+      <rect x="590" y="20" width="120" height="160" rx="10" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="650" y="42" text-anchor="middle" fill="#a78bfa" font-family="Inter" font-size="10" font-weight="700">MEMORY</text>
+      <rect x="600" y="52" width="100" height="28" rx="6" fill="#1f2235" stroke="#a78bfa" stroke-width="1"/>
+      <text x="650" y="71" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">ConversationBuffer</text>
+      <rect x="600" y="88" width="100" height="28" rx="6" fill="#1f2235" stroke="#a78bfa" stroke-width="1"/>
+      <text x="650" y="107" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">RedisChatHistory</text>
+      <rect x="600" y="124" width="100" height="28" rx="6" fill="#1f2235" stroke="#a78bfa" stroke-width="1"/>
+      <text x="650" y="143" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">SummaryMemory</text>
+
+      <rect x="730" y="20" width="120" height="160" rx="10" fill="rgba(244,114,182,0.08)" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="790" y="42" text-anchor="middle" fill="#f472b6" font-family="Inter" font-size="10" font-weight="700">OUTPUT</text>
+      <rect x="740" y="52" width="100" height="28" rx="6" fill="#1f2235" stroke="#f472b6" stroke-width="1"/>
+      <text x="790" y="71" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">StrOutputParser</text>
+      <rect x="740" y="88" width="100" height="28" rx="6" fill="#1f2235" stroke="#f472b6" stroke-width="1"/>
+      <text x="790" y="107" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">JsonOutputParser</text>
+      <rect x="740" y="124" width="100" height="28" rx="6" fill="#1f2235" stroke="#f472b6" stroke-width="1"/>
+      <text x="790" y="143" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="9">PydanticOutputParser</text>
+
+      <!-- LCEL pipe arrows -->
+      <line x1="130" y1="100" x2="148" y2="100" stroke="#34d399" stroke-width="2" marker-end="url(#lcarr)"/>
+      <line x1="280" y1="100" x2="298" y2="100" stroke="#34d399" stroke-width="2" marker-end="url(#lcarr)"/>
+      <line x1="430" y1="100" x2="448" y2="100" stroke="#34d399" stroke-width="2" marker-end="url(#lcarr)"/>
+      <line x1="570" y1="100" x2="588" y2="100" stroke="#34d399" stroke-width="2" marker-end="url(#lcarr)"/>
+      <line x1="710" y1="100" x2="728" y2="100" stroke="#34d399" stroke-width="2" marker-end="url(#lcarr)"/>
+
+      <text x="430" y="192" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="10">Connected via LCEL pipe operator:  prompt | model | output_parser</text>
+    </svg>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · LangChain installation + provider setup</div>
+<pre><code class="language-bash"># Core packages
+pip install langchain langchain-openai langchain-anthropic langchain-community
+pip install langchain-chroma langchain-qdrant langsmith
+
+# Check versions
+python -c "import langchain; print(langchain.__version__)"
+</code></pre>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Model initialization — OpenAI, Anthropic, Ollama</div>
+<pre><code class="language-python">from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_community.llms import Ollama
+
+# OpenAI
+gpt4o = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
+
+# Anthropic Claude
+claude = ChatAnthropic(model="claude-3-7-sonnet-20250219", temperature=0)
+
+# Local model via Ollama (no API cost)
+llama = Ollama(model="llama3.1:8b")
+
+# All three share the same interface — swap freely
+response = gpt4o.invoke("What is RAG?")
+print(response.content)
+
+# Streaming
+for chunk in gpt4o.stream("Explain LangChain in 3 sentences"):
+    print(chunk.content, end="", flush=True)
+</code></pre>
+  </div>
+</section>
+
+<!-- ══════════ LCEL ══════════ -->
+<section class="section" id="lc-lcel">
+  <div class="section-tag" style="color:#34d399;">LangChain · Core</div>
+  <h2>LCEL — LangChain Expression Language</h2>
+  <p>LCEL uses the <code style="background:var(--card2);padding:.1rem .4rem;border-radius:4px;font-size:.9em">|</code> operator to compose runnables into pipelines. Everything is a <strong>Runnable</strong> — it has <code>invoke</code>, <code>stream</code>, <code>batch</code>, and <code>ainvoke</code>. Chains are lazy — nothing runs until you call invoke.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 820 110" width="820" height="110" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="lcelarr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#34d399"/></marker></defs>
+
+      <rect x="10" y="30" width="140" height="50" rx="10" fill="#1f2235" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="80" y="50" text-anchor="middle" fill="#22d3ee" font-family="Inter" font-size="10" font-weight="700">PromptTemplate</text>
+      <text x="80" y="68" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">format_messages()</text>
+
+      <text x="162" y="60" text-anchor="middle" fill="#34d399" font-family="Inter" font-size="20" font-weight="300">|</text>
+
+      <rect x="175" y="30" width="130" height="50" rx="10" fill="#1f2235" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="240" y="50" text-anchor="middle" fill="#818cf8" font-family="Inter" font-size="10" font-weight="700">ChatOpenAI</text>
+      <text x="240" y="68" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">invoke(messages)</text>
+
+      <text x="317" y="60" text-anchor="middle" fill="#34d399" font-family="Inter" font-size="20" font-weight="300">|</text>
+
+      <rect x="330" y="30" width="140" height="50" rx="10" fill="#1f2235" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="400" y="50" text-anchor="middle" fill="#f472b6" font-family="Inter" font-size="10" font-weight="700">StrOutputParser</text>
+      <text x="400" y="68" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">extract .content</text>
+
+      <line x1="470" y1="55" x2="510" y2="55" stroke="#34d399" stroke-width="2" marker-end="url(#lcelarr)"/>
+
+      <rect x="515" y="30" width="130" height="50" rx="10" fill="rgba(52,211,153,0.1)" stroke="#34d399" stroke-width="2"/>
+      <text x="580" y="51" text-anchor="middle" fill="#34d399" font-family="Inter" font-size="11" font-weight="700">chain.invoke(</text>
+      <text x="580" y="68" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">{{"question": "..."}}</text>
+
+      <text x="656" y="60" text-anchor="middle" fill="#34d399" font-family="Inter" font-size="18">→</text>
+
+      <rect x="665" y="30" width="140" height="50" rx="10" fill="#1f2235" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="735" y="50" text-anchor="middle" fill="#fbbf24" font-family="Inter" font-size="10" font-weight="700">"string response"</text>
+      <text x="735" y="68" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">plain Python string</text>
+    </svg>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · LCEL — all the patterns you need</div>
+<pre><code class="language-python">from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableParallel
+from pydantic import BaseModel
+
+llm    = ChatOpenAI(model="gpt-4o", temperature=0)
+parser = StrOutputParser()
+
+# ── Basic chain: prompt | model | parser ──
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful assistant. Be concise."),
+    ("human", "{question}")
+])
+chain = prompt | llm | parser
+print(chain.invoke({"question": "What is LCEL?"}))
+
+# ── Streaming ──
+for chunk in chain.stream({"question": "Explain RAG in 3 steps"}):
+    print(chunk, end="", flush=True)
+
+# ── Batch (parallel) ──
+results = chain.batch([
+    {"question": "What is S3?"},
+    {"question": "What is Lambda?"},
+    {"question": "What is DynamoDB?"},
+], config={"max_concurrency": 5})
+
+# ── Parallel branches (run two things at once, merge) ──
+parallel = RunnableParallel({
+    "answer":   chain,
+    "keywords": ChatPromptTemplate.from_template("List 5 keywords for: {question}") | llm | parser,
+})
+out = parallel.invoke({"question": "Explain GraphRAG"})
+# out = {"answer": "...", "keywords": "..."}
+
+# ── Structured output with Pydantic ──
+class Movie(BaseModel):
+    title: str
+    year: int
+    genre: str
+
+structured_chain = prompt | llm.with_structured_output(Movie)
+movie = structured_chain.invoke({"question": "Tell me about Inception"})
+print(movie.title, movie.year)   # Inception  2010
+
+# ── Fallbacks ──
+fast_chain   = ChatPromptTemplate.from_template("{q}") | ChatOpenAI(model="gpt-4o-mini") | parser
+strong_chain = ChatPromptTemplate.from_template("{q}") | ChatOpenAI(model="gpt-4o") | parser
+chain_with_fallback = fast_chain.with_fallbacks([strong_chain])
+
+# ── Pass-through + inject extra context ──
+rag_chain = (
+    RunnableParallel({"context": retriever, "question": RunnablePassthrough()})
+    | ChatPromptTemplate.from_template("Context: {context}\n\nQ: {question}")
+    | llm | parser
+)
+</code></pre>
+  </div>
+</section>
+
+<!-- ══════════ RETRIEVERS ══════════ -->
+<section class="section" id="lc-retrievers">
+  <div class="section-tag" style="color:#34d399;">LangChain · Retrieval</div>
+  <h2>Retrievers — Every Pattern You Need</h2>
+  <p>A retriever accepts a string query and returns a list of Documents. LangChain has 50+ built-in retriever types. Here are the ones that matter.</p>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h3>🔍 VectorStore Retriever</h3>
+      <p>The default — cosine similarity search against your vector store. Supports MMR (Maximum Marginal Relevance) for diversity.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
+
+vectorstore = Chroma(
+    collection_name="docs",
+    embedding_function=OpenAIEmbeddings()
+)
+
+# Standard similarity
+retriever = vectorstore.as_retriever(
+    search_type="similarity",
+    search_kwargs={"k": 5}
+)
+
+# MMR — diverse results (less redundancy)
+mmr_retriever = vectorstore.as_retriever(
+    search_type="mmr",
+    search_kwargs={"k": 5, "fetch_k": 20, "lambda_mult": 0.5}
+)
+
+# Similarity + score threshold
+thresh_retriever = vectorstore.as_retriever(
+    search_type="similarity_score_threshold",
+    search_kwargs={"score_threshold": 0.75, "k": 5}
+)
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🔀 MultiQueryRetriever</h3>
+      <p>Auto-generates N query variants with an LLM, retrieves for each, deduplicates. Improves recall on vague queries.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from langchain.retrievers.multi_query import MultiQueryRetriever
+
+mq_retriever = MultiQueryRetriever.from_llm(
+    retriever=vectorstore.as_retriever(),
+    llm=ChatOpenAI(model="gpt-4o-mini", temperature=0),
+    include_original=True  # keep original query too
+)
+
+# Automatically generates:
+# "What is retrieval augmented generation?"
+# "How does RAG work?"
+# "Explain the RAG architecture"
+# → deduplicates results → returns unique docs
+docs = mq_retriever.invoke("Tell me about RAG")
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🏠 ParentDocument Retriever</h3>
+      <p>Indexes small child chunks for high-precision search, but returns the full parent document for rich context.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from langchain.retrievers import ParentDocumentRetriever
+from langchain.storage import InMemoryStore
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+# Child chunks: small = good search precision
+child_splitter = RecursiveCharacterTextSplitter(chunk_size=400)
+# Parent chunks: large = rich LLM context
+parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000)
+
+retriever = ParentDocumentRetriever(
+    vectorstore=vectorstore,
+    docstore=InMemoryStore(),    # swap for Redis in production
+    child_splitter=child_splitter,
+    parent_splitter=parent_splitter,
+)
+retriever.add_documents(docs)
+# Retrieves small child → returns big parent
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🔗 Ensemble Retriever (Hybrid)</h3>
+      <p>Combines dense vector search with sparse BM25 keyword search using Reciprocal Rank Fusion. Best of both worlds.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from langchain.retrievers import EnsembleRetriever
+from langchain_community.retrievers import BM25Retriever
+
+# BM25 — keyword/lexical matching
+bm25 = BM25Retriever.from_documents(docs)
+bm25.k = 5
+
+# Dense — semantic matching
+dense = vectorstore.as_retriever(search_kwargs={"k": 5})
+
+# 60% dense + 40% BM25 — RRF fusion
+hybrid = EnsembleRetriever(
+    retrievers=[dense, bm25],
+    weights=[0.6, 0.4]
+)
+# Excels when users search by exact terms AND by meaning
+result = hybrid.invoke("faiss cosine similarity ANN index")
+</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Full RAG chain with retriever + history-aware rewrite</div>
+<pre><code class="language-python">from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import MessagesPlaceholder
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.runnables.history import RunnableWithMessageHistory
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# Step 1: Rewrite query using chat history ("it" → resolve pronoun)
+contextualize_prompt = ChatPromptTemplate.from_messages([
+    ("system", "Rewrite the user question to be standalone, using the chat history if needed."),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}"),
+])
+history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_prompt)
+
+# Step 2: Answer with retrieved docs
+qa_prompt = ChatPromptTemplate.from_messages([
+    ("system", "Answer using only this context:\n\n{context}"),
+    MessagesPlaceholder("chat_history"),
+    ("human", "{input}"),
+])
+question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+
+# Step 3: Compose into conversational RAG chain
+rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
+# Step 4: Add session-scoped memory
+store = {}  # session_id → ChatMessageHistory
+def get_session_history(session_id: str):
+    if session_id not in store:
+        store[session_id] = ChatMessageHistory()
+    return store[session_id]
+
+conversational_rag = RunnableWithMessageHistory(
+    rag_chain,
+    get_session_history,
+    input_messages_key="input",
+    history_messages_key="chat_history",
+    output_messages_key="answer",
+)
+
+# Multi-turn conversation — "it" resolved from history
+r1 = conversational_rag.invoke({"input": "What is RAG?"}, config={"configurable": {"session_id": "u1"}})
+r2 = conversational_rag.invoke({"input": "How is it different from fine-tuning?"}, config={"configurable": {"session_id": "u1"}})
+print(r2["answer"])
+</code></pre>
+  </div>
+</section>
+
+<!-- ══════════ CHAINS ══════════ -->
+<section class="section" id="lc-chains">
+  <div class="section-tag" style="color:#34d399;">LangChain · Patterns</div>
+  <h2>Essential Chain Patterns</h2>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h3>📝 Summarization</h3>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from langchain.chains.summarize import load_summarize_chain
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+# Map-Reduce: summarise each chunk → combine summaries
+chain = load_summarize_chain(
+    llm,
+    chain_type="map_reduce",   # or "stuff" (all at once), "refine"
+    verbose=True
+)
+
+splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=400)
+docs = splitter.create_documents([very_long_text])
+summary = chain.invoke(docs)
+print(summary["output_text"])
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🗃️ SQL Chain</h3>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from langchain_community.utilities import SQLDatabase
+from langchain.chains import create_sql_query_chain
+
+db = SQLDatabase.from_uri("postgresql://user:pass@host/mydb")
+
+# Natural language → SQL → execute → natural language answer
+sql_chain = create_sql_query_chain(llm, db)
+query = sql_chain.invoke({"question": "How many orders were placed last month?"})
+# Generates: SELECT COUNT(*) FROM orders WHERE created_at > NOW() - INTERVAL '1 month'
+result = db.run(query)
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🔍 Self-Querying Retriever</h3>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from langchain.retrievers.self_query.base import SelfQueryRetriever
+from langchain.chains.query_constructor.base import AttributeInfo
+
+# LLM writes the metadata filter automatically from natural language
+metadata_field_info = [
+    AttributeInfo(name="source", description="The PDF file name", type="string"),
+    AttributeInfo(name="year",   description="The publication year", type="integer"),
+    AttributeInfo(name="topic",  description="Main topic", type="string"),
+]
+retriever = SelfQueryRetriever.from_llm(
+    llm, vectorstore, "Research papers on AI", metadata_field_info
+)
+# "Papers about RAG published after 2023" →
+# filter: {"year": {"$gt": 2023}, "topic": "RAG"}
+docs = retriever.invoke("Papers about RAG published after 2023")
+</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🧮 Router Chain</h3>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-python">from langchain_core.runnables import RunnableLambda
+
+# Route to different chains based on query type
+rag_chain    = build_rag_chain()
+sql_chain    = build_sql_chain()
+general_chain = prompt | llm | parser
+
+def route(info: dict):
+    question = info["question"].lower()
+    if any(w in question for w in ["database", "table", "sql", "query"]):
+        return sql_chain
+    elif any(w in question for w in ["document", "pdf", "report"]):
+        return rag_chain
+    return general_chain
+
+router = RunnableLambda(route)
+full_chain = {"question": RunnablePassthrough()} | router
+answer = full_chain.invoke({"question": "What's in the Q3 report?"})
+</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ LANGCHAIN AGENTS ══════════ -->
+<section class="section" id="lc-agents">
+  <div class="section-tag" style="color:#34d399;">LangChain · Agents</div>
+  <h2>LangChain Agents</h2>
+  <p>Agents let the LLM decide which tools to call and in what order. The model acts in a loop: Thought → Action → Observation → Thought → … → Final Answer.</p>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Building tools + ReAct agent</div>
+<pre><code class="language-python">from langchain.agents import AgentExecutor, create_react_agent
+from langchain import hub
+from langchain.tools import tool
+from langchain_community.tools.tavily_search import TavilySearchResults
+
+# ── Define custom tools with @tool decorator ──
+@tool
+def calculate_compound_interest(principal: float, rate: float, years: int) -> str:
+    """Calculate compound interest. Args: principal (USD), rate (annual %), years."""
+    amount = principal * (1 + rate / 100) ** years
+    return f"${amount:,.2f} after {years} years"
+
+@tool
+def get_stock_price(ticker: str) -> str:
+    """Get the current stock price for a given ticker symbol."""
+    # In production: call a real finance API
+    prices = {"AAPL": 189.30, "GOOGL": 173.50, "AMZN": 185.20}
+    return f"{ticker}: ${prices.get(ticker.upper(), 'Not found')}"
+
+@tool
+def search_knowledge_base(query: str) -> str:
+    """Search internal knowledge base for company-specific information."""
+    docs = retriever.invoke(query)
+    return "\n".join(d.page_content for d in docs[:3])
+
+# ── Create agent ──
+tools = [
+    TavilySearchResults(max_results=3),
+    calculate_compound_interest,
+    get_stock_price,
+    search_knowledge_base,
+]
+
+prompt = hub.pull("hwchase17/react")   # standard ReAct prompt
+agent  = create_react_agent(llm=ChatOpenAI(model="gpt-4o", temperature=0), tools=tools, prompt=prompt)
+
+executor = AgentExecutor(
+    agent=agent,
+    tools=tools,
+    verbose=True,          # shows Thought / Action / Observation loop
+    max_iterations=10,     # safety cap — prevents infinite loops
+    handle_parsing_errors=True,
+    early_stopping_method="generate",
+)
+
+# Agent decides: search web → use calculator → search KB → synthesise
+result = executor.invoke({
+    "input": "If I invest $10,000 in AAPL today at their historical 15% annual growth, what do I have in 10 years?"
+})
+print(result["output"])
+</code></pre>
+  </div>
+
+  <div class="callout tip">
+    <div class="icon">🔧</div>
+    <p><strong>LangSmith tracing:</strong> Set <code>LANGCHAIN_TRACING_V2=true</code> and <code>LANGCHAIN_API_KEY=ls__...</code> in your env. Every chain call, token count, latency, and agent step is logged to the LangSmith dashboard — indispensable for debugging agents.</p>
+  </div>
+</section>
+
+<!-- ══════════ LANGGRAPH OVERVIEW ══════════ -->
+<section class="section" id="lg-overview">
+  <div class="section-tag" style="color:#22d3ee;">LangGraph · Foundation</div>
+  <h2>LangGraph — Why Graphs Beat Chains</h2>
+  <p>LangChain chains are linear (A→B→C). LangGraph adds <strong>cycles</strong>, <strong>state</strong>, <strong>branching</strong>, and <strong>persistence</strong> — the four things real AI systems need.</p>
+
+  <div class="card-grid cols-2" style="margin:1.5rem 0">
+    <div class="card" style="border-color:rgba(248,113,113,0.4)">
+      <h3>❌ When LCEL Chains Break Down</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem">
+        <li style="font-size:.85rem;color:var(--muted)">→ Agent needs to <strong style="color:var(--red)">loop back</strong> (retry, refine) — chains are one-way</li>
+        <li style="font-size:.85rem;color:var(--muted)">→ Need <strong style="color:var(--red)">human approval</strong> mid-execution — chains can't pause</li>
+        <li style="font-size:.85rem;color:var(--muted)">→ <strong style="color:var(--red)">Multiple parallel agents</strong> need to coordinate — chains are single-thread</li>
+        <li style="font-size:.85rem;color:var(--muted)">→ State must <strong style="color:var(--red)">persist across sessions</strong> — chains are stateless by default</li>
+        <li style="font-size:.85rem;color:var(--muted)">→ Need to <strong style="color:var(--red)">resume after failure</strong> — chains restart from scratch</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:rgba(34,211,238,0.4)">
+      <h3>✅ LangGraph Solutions</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem">
+        <li style="font-size:.85rem;color:var(--muted)">→ <strong style="color:var(--cyan)">Cycles</strong> — edges can loop back to any previous node</li>
+        <li style="font-size:.85rem;color:var(--muted)">→ <strong style="color:var(--cyan)">Interrupt/Resume</strong> — pause at any node for human approval</li>
+        <li style="font-size:.85rem;color:var(--muted)">→ <strong style="color:var(--cyan)">Parallel nodes</strong> — run multiple agents simultaneously, fan-out/fan-in</li>
+        <li style="font-size:.85rem;color:var(--muted)">→ <strong style="color:var(--cyan)">Checkpointers</strong> — SQLite/Redis/Postgres persistence between runs</li>
+        <li style="font-size:.85rem;color:var(--muted)">→ <strong style="color:var(--cyan)">Time travel</strong> — replay execution from any past checkpoint</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 760 240" width="760" height="240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="lgarr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#22d3ee"/></marker>
+        <marker id="lgarr2" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#34d399"/></marker>
+        <marker id="lgarr3" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#f472b6"/></marker>
+      </defs>
+
+      <!-- START -->
+      <circle cx="60" cy="120" r="22" fill="rgba(52,211,153,0.2)" stroke="#34d399" stroke-width="2"/>
+      <text x="60" y="125" text-anchor="middle" fill="#34d399" font-family="Inter" font-size="10" font-weight="700">START</text>
+
+      <!-- Agent node -->
+      <rect x="120" y="90" width="120" height="60" rx="10" fill="rgba(99,102,241,0.15)" stroke="#6366f1" stroke-width="2"/>
+      <text x="180" y="116" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="12" font-weight="700">🤖 Agent</text>
+      <text x="180" y="134" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">LLM decides action</text>
+
+      <!-- Tools node -->
+      <rect x="310" y="60" width="120" height="55" rx="10" fill="rgba(251,146,60,0.15)" stroke="#fb923c" stroke-width="2"/>
+      <text x="370" y="85" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="12" font-weight="700">🔧 Tools</text>
+      <text x="370" y="103" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">execute action</text>
+
+      <!-- Human node -->
+      <rect x="310" y="155" width="120" height="55" rx="10" fill="rgba(244,114,182,0.15)" stroke="#f472b6" stroke-width="2"/>
+      <text x="370" y="178" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="12" font-weight="700">🧑 Human</text>
+      <text x="370" y="196" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">approve / reject</text>
+
+      <!-- END -->
+      <circle cx="560" cy="120" r="22" fill="rgba(248,113,113,0.2)" stroke="#f87171" stroke-width="2"/>
+      <text x="560" y="125" text-anchor="middle" fill="#f87171" font-family="Inter" font-size="10" font-weight="700">END</text>
+
+      <!-- State box -->
+      <rect x="480" y="70" width="50" height="100" rx="8" fill="#131625" stroke="#2a2d45" stroke-width="1"/>
+      <text x="505" y="115" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9" transform="rotate(-90,505,115)">STATE</text>
+
+      <!-- Arrows -->
+      <line x1="82" y1="120" x2="118" y2="120" stroke="#34d399" stroke-width="1.5" marker-end="url(#lgarr2)"/>
+      <!-- Agent → Tools (conditional) -->
+      <line x1="240" y1="100" x2="308" y2="88" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#lgarr)"/>
+      <text x="268" y="84" fill="#8b8fa8" font-family="Inter" font-size="8">tool call</text>
+      <!-- Agent → Human -->
+      <line x1="240" y1="140" x2="308" y2="178" stroke="#f472b6" stroke-width="1.5" marker-end="url(#lgarr3)"/>
+      <text x="256" y="170" fill="#8b8fa8" font-family="Inter" font-size="8">needs approval</text>
+      <!-- Tools → Agent (loop back!) -->
+      <path d="M430,80 Q460,40 300,40 Q150,40 180,90" fill="none" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="5" marker-end="url(#lgarr)"/>
+      <text x="290" y="30" fill="#fb923c" font-family="Inter" font-size="8">observation → loop back</text>
+      <!-- Human → Agent -->
+      <path d="M430,195 Q455,215 200,215 Q155,215 170,152" fill="none" stroke="#f472b6" stroke-width="1.2" stroke-dasharray="4" marker-end="url(#lgarr3)"/>
+      <!-- Agent → END (conditional: done) -->
+      <line x1="240" y1="120" x2="476" y2="120" stroke="#34d399" stroke-width="1.5" marker-end="url(#lgarr2)"/>
+      <text x="340" y="114" fill="#8b8fa8" font-family="Inter" font-size="8">done</text>
+      <line x1="530" y1="120" x2="537" y2="120" stroke="#f87171" stroke-width="1.5" marker-end="url(#lgarr)"/>
+
+      <!-- Checkpoint label -->
+      <rect x="620" y="85" width="130" height="70" rx="8" fill="#131625" stroke="#2a2d45" stroke-width="1"/>
+      <text x="685" y="107" text-anchor="middle" fill="#a78bfa" font-family="Inter" font-size="10" font-weight="700">Checkpointer</text>
+      <text x="685" y="123" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">saves state after</text>
+      <text x="685" y="137" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">every node step</text>
+      <text x="685" y="151" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">SQLite / Redis / Postgres</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ══════════ LANGGRAPH BASICS ══════════ -->
+<section class="section" id="lg-basics">
+  <div class="section-tag" style="color:#22d3ee;">LangGraph · Core</div>
+  <h2>Graph Basics — State, Nodes, Edges</h2>
+  <p>Every LangGraph app has three parts: a <strong>State</strong> (TypedDict that flows through the graph), <strong>Nodes</strong> (Python functions that update state), and <strong>Edges</strong> (connections, including conditional branches).</p>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · LangGraph hello-world — complete working example</div>
+<pre><code class="language-python">from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, AIMessage
+from typing import TypedDict, Annotated
+import operator
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# ── 1. Define State ──
+# Annotated[list, operator.add] means: each node APPENDS to messages (not replaces)
+class State(TypedDict):
+    messages: Annotated[list, operator.add]
+    query: str
+    documents: list
+    answer: str
+
+# ── 2. Define Nodes (each is a plain Python function) ──
+def retrieve(state: State) -> State:
+    """Retrieve relevant documents."""
+    docs = retriever.invoke(state["query"])
+    return {"documents": docs}
+
+def generate(state: State) -> State:
+    """Generate answer from retrieved docs."""
+    context = "\n".join(d.page_content for d in state["documents"])
+    response = llm.invoke([
+        HumanMessage(content=f"Context:\n{context}\n\nQuestion: {state['query']}")
+    ])
+    return {
+        "answer": response.content,
+        "messages": [AIMessage(content=response.content)]
+    }
+
+def grade_answer(state: State) -> str:
+    """Conditional edge: route based on answer quality."""
+    # Simple heuristic — in production use an LLM grader
+    if len(state["answer"]) < 50 or "I don't know" in state["answer"]:
+        return "retry"   # loop back to retrieve with better query
+    return "done"
+
+# ── 3. Build Graph ──
+builder = StateGraph(State)
+
+builder.add_node("retrieve", retrieve)
+builder.add_node("generate", generate)
+
+# Edges
+builder.add_edge(START, "retrieve")
+builder.add_edge("retrieve", "generate")
+
+# Conditional edge: done → END, retry → retrieve (loop!)
+builder.add_conditional_edges(
+    "generate",
+    grade_answer,
+    {"done": END, "retry": "retrieve"}
+)
+
+# ── 4. Compile with checkpointer (enables persistence + interrupt) ──
+memory = MemorySaver()   # in-memory; swap for SqliteSaver / RedisSaver in prod
+graph  = builder.compile(checkpointer=memory)
+
+# ── 5. Run with thread_id (each thread = isolated conversation) ──
+config = {"configurable": {"thread_id": "user-123-session-1"}}
+result = graph.invoke({"query": "What is CRAG?", "messages": [], "documents": [], "answer": ""}, config)
+print(result["answer"])
+
+# Resume same thread later — state is persisted!
+result2 = graph.invoke({"query": "How does it compare to Self-RAG?", "messages": result["messages"], "documents": [], "answer": ""}, config)
+</code></pre>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Visualise the graph</div>
+<pre><code class="language-python"># Print ASCII representation
+graph.get_graph().print_ascii()
+
+# Export as PNG (requires pygraphviz)
+from IPython.display import Image
+Image(graph.get_graph().draw_mermaid_png())
+
+# Or get Mermaid markdown
+print(graph.get_graph().draw_mermaid())
+</code></pre>
+  </div>
+</section>
+
+<!-- ══════════ LANGGRAPH PATTERNS ══════════ -->
+<section class="section" id="lg-patterns">
+  <div class="section-tag" style="color:#22d3ee;">LangGraph · Patterns</div>
+  <h2>The 5 Essential LangGraph Patterns</h2>
+
+  <!-- Pattern 1: ReAct -->
+  <div class="technique">
+    <div class="technique-header">
+      <div class="technique-icon" style="background:rgba(99,102,241,0.15)">🔁</div>
+      <div>
+        <h3>Pattern 1 — ReAct Agent Loop <span class="complexity-badge easy">Beginner</span></h3>
+        <p style="margin:0">The classic agent loop: reason → act → observe → repeat until done. Built into LangGraph as a prebuilt.</p>
+      </div>
+    </div>
+    <div class="code-wrap">
+<pre><code class="language-python">from langgraph.prebuilt import create_react_agent
+from langchain_core.tools import tool
+
+@tool
+def search(query: str) -> str:
+    """Search the web for current information."""
+    return tavily.invoke(query)
+
+@tool
+def calculator(expression: str) -> str:
+    """Evaluate a math expression."""
+    return str(eval(expression))   # use numexpr in production
+
+# create_react_agent is the fastest path — wraps the full graph
+agent = create_react_agent(
+    model=ChatOpenAI(model="gpt-4o"),
+    tools=[search, calculator],
+    checkpointer=MemorySaver(),   # memory across turns
+    prompt="You are a research assistant. Use tools to answer accurately."
+)
+
+# Stream intermediate steps (agent reasoning is visible)
+for event in agent.stream(
+    {"messages": [HumanMessage(content="What's 15% of NVIDIA's current market cap?")]},
+    config={"configurable": {"thread_id": "t1"}},
+    stream_mode="values"
+):
+    event["messages"][-1].pretty_print()
+</code></pre>
+    </div>
+  </div>
+
+  <!-- Pattern 2: HITL -->
+  <div class="technique">
+    <div class="technique-header">
+      <div class="technique-icon" style="background:rgba(244,114,182,0.15)">🧑</div>
+      <div>
+        <h3>Pattern 2 — Human-in-the-Loop <span class="complexity-badge medium">Intermediate</span></h3>
+        <p style="margin:0">Pause execution before a dangerous action (send email, delete record, execute code), wait for human approval, then resume.</p>
+      </div>
+    </div>
+    <div class="code-wrap">
+<pre><code class="language-python">from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
+
+class ApprovalState(TypedDict):
+    messages: Annotated[list, operator.add]
+    action: str
+    approved: bool
+
+def plan_action(state):
+    response = llm.invoke(state["messages"])
+    return {"action": response.content, "messages": [response]}
+
+def execute_action(state):
+    # Only runs after human approval
+    print(f"Executing: {state['action']}")
+    result = dangerous_api_call(state["action"])
+    return {"messages": [AIMessage(content=f"Done: {result}")]}
+
+builder = StateGraph(ApprovalState)
+builder.add_node("plan", plan_action)
+builder.add_node("execute", execute_action)
+builder.add_edge(START, "plan")
+builder.add_edge("plan", "execute")   # interrupted before this
+builder.add_edge("execute", END)
+
+# interrupt_before=["execute"] — graph pauses BEFORE running "execute"
+graph = builder.compile(
+    checkpointer=MemorySaver(),
+    interrupt_before=["execute"]   # ← the magic
+)
+
+config = {"configurable": {"thread_id": "approval-flow-1"}}
+
+# Run until the interrupt
+graph.invoke({"messages": [HumanMessage(content="Delete all staging data")]}, config)
+
+# ↑ Graph pauses here. Show plan to human...
+state = graph.get_state(config)
+print("Pending action:", state.values["action"])
+
+# Human approves — resume by passing None (continue from checkpoint)
+# To reject, update state instead
+graph.invoke(None, config)   # resumes from interrupt checkpoint
+</code></pre>
+    </div>
+  </div>
+
+  <!-- Pattern 3: Parallel -->
+  <div class="technique">
+    <div class="technique-header">
+      <div class="technique-icon" style="background:rgba(251,191,36,0.15)">⚡</div>
+      <div>
+        <h3>Pattern 3 — Parallel Fan-Out / Fan-In <span class="complexity-badge medium">Intermediate</span></h3>
+        <p style="margin:0">Run multiple agents or research branches simultaneously, then merge results. LangGraph handles the synchronisation.</p>
+      </div>
+    </div>
+    <div class="code-wrap">
+<pre><code class="language-python">from langgraph.graph import StateGraph, START, END
+
+class ResearchState(TypedDict):
+    topic: str
+    web_results: str
+    db_results: str
+    summary: str
+
+def web_researcher(state):
+    """Searches the web — runs in parallel with db_researcher."""
+    results = tavily.invoke(state["topic"])
+    return {"web_results": str(results)}
+
+def db_researcher(state):
+    """Queries internal vector DB — runs in parallel."""
+    docs = retriever.invoke(state["topic"])
+    return {"db_results": "\n".join(d.page_content for d in docs)}
+
+def synthesiser(state):
+    """Waits for both branches, then merges."""
+    prompt = f"Web:\n{state['web_results']}\n\nInternal docs:\n{state['db_results']}\n\nSynthesise:"
+    answer = llm.invoke([HumanMessage(content=prompt)])
+    return {"summary": answer.content}
+
+builder = StateGraph(ResearchState)
+builder.add_node("web_researcher", web_researcher)
+builder.add_node("db_researcher", db_researcher)
+builder.add_node("synthesiser", synthesiser)
+
+# Fan-out: START → both branches simultaneously
+builder.add_edge(START, "web_researcher")
+builder.add_edge(START, "db_researcher")
+
+# Fan-in: both must complete before synthesiser runs
+builder.add_edge("web_researcher", "synthesiser")
+builder.add_edge("db_researcher", "synthesiser")
+builder.add_edge("synthesiser", END)
+
+graph = builder.compile()
+result = graph.invoke({"topic": "LangGraph vs Crew AI", "web_results": "", "db_results": "", "summary": ""})
+print(result["summary"])
+</code></pre>
+    </div>
+  </div>
+
+  <!-- Pattern 4: Sub-graphs -->
+  <div class="technique">
+    <div class="technique-header">
+      <div class="technique-icon" style="background:rgba(167,139,250,0.15)">🗂️</div>
+      <div>
+        <h3>Pattern 4 — Sub-graphs <span class="complexity-badge hard">Advanced</span></h3>
+        <p style="margin:0">Compose complex graphs from smaller reusable graphs. A sub-graph is compiled independently and added as a node in a parent graph.</p>
+      </div>
+    </div>
+    <div class="code-wrap">
+<pre><code class="language-python"># Sub-graph: a reusable RAG pipeline
+rag_builder = StateGraph(State)
+rag_builder.add_node("retrieve", retrieve)
+rag_builder.add_node("generate", generate)
+rag_builder.add_edge(START, "retrieve")
+rag_builder.add_edge("retrieve", "generate")
+rag_builder.add_edge("generate", END)
+rag_graph = rag_builder.compile()
+
+# Parent graph uses the sub-graph as a node
+parent_builder = StateGraph(ParentState)
+parent_builder.add_node("classify",  classify_query)
+parent_builder.add_node("rag",       rag_graph)        # ← sub-graph as node
+parent_builder.add_node("sql_agent", sql_agent_graph)  # ← another sub-graph
+
+parent_builder.add_conditional_edges(
+    "classify",
+    lambda s: s["query_type"],
+    {"document": "rag", "database": "sql_agent"}
+)
+parent_graph = parent_builder.compile()
+</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ LANGGRAPH MEMORY ══════════ -->
+<section class="section" id="lg-memory">
+  <div class="section-tag" style="color:#22d3ee;">LangGraph · Memory</div>
+  <h2>Memory — Short-Term, Long-Term, Semantic</h2>
+  <p>LangGraph has a first-class memory system. Thread-scoped memory (checkpointer) for conversational context, and cross-thread memory (store) for user profiles and facts.</p>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Persistent memory with SQLite + cross-thread semantic store</div>
+<pre><code class="language-python">from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.store.memory import InMemoryStore
+from langgraph.graph import StateGraph, START, END
+from langchain_core.messages import SystemMessage
+import json
+
+# ── Thread-scoped memory (per conversation) ──
+# SqliteSaver: persists to disk — survives restarts
+db_path = "checkpoints.db"
+with SqliteSaver.from_conn_string(db_path) as checkpointer:
+    graph = builder.compile(checkpointer=checkpointer)
+
+    config = {"configurable": {"thread_id": "user-42-chat-7"}}
+    graph.invoke({"messages": [HumanMessage("My name is Alice")]}, config)
+    # Restart app — state still there!
+    graph.invoke({"messages": [HumanMessage("What's my name?")]}, config)
+    # → "Your name is Alice" ✓
+
+# ── Cross-thread memory (user profile, facts) ──
+store = InMemoryStore()   # swap for PostgresStore in production
+
+def chatbot_with_memory(state, config, *, store):
+    user_id = config["configurable"]["user_id"]
+    namespace = ("users", user_id, "memories")
+
+    # Recall existing memories for this user
+    memories = store.search(namespace, query=state["messages"][-1].content, limit=3)
+    memory_text = "\n".join(m.value["fact"] for m in memories) if memories else ""
+
+    system = f"""You are a personal assistant.
+User facts you know:
+{memory_text}"""
+
+    response = llm.invoke([SystemMessage(content=system)] + state["messages"])
+
+    # Extract and save new facts mentioned in this message
+    new_facts = extract_facts(state["messages"][-1].content)
+    for fact in new_facts:
+        store.put(namespace, key=fact[:50], value={"fact": fact})
+
+    return {"messages": [response]}
+
+# "My dog is called Max" → stored as fact
+# Next session: "What's my dog's name?" → "Max" (retrieved from store)
+</code></pre>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Memory Type</th><th>Scope</th><th>Implementation</th><th>Use Case</th></tr></thead>
+      <tbody>
+        <tr><td><strong>In-context</strong></td><td>Single response</td><td>messages list in state</td><td>Conversational context window</td></tr>
+        <tr><td><strong>Thread (short-term)</strong></td><td>One conversation</td><td>Checkpointer (SQLite/Redis)</td><td>Multi-turn chat, resume sessions</td></tr>
+        <tr><td><strong>Cross-thread (long-term)</strong></td><td>Across all chats</td><td>Store (Postgres/Pinecone)</td><td>User preferences, facts, profiles</td></tr>
+        <tr><td><strong>Semantic</strong></td><td>Cross-thread</td><td>Store + embedding search</td><td>"What did the user say about X?"</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════ LANGGRAPH MULTI-AGENT ══════════ -->
+<section class="section" id="lg-multiagent">
+  <div class="section-tag" style="color:#22d3ee;">LangGraph · Multi-Agent</div>
+  <h2>Multi-Agent Systems</h2>
+  <p>Orchestrate multiple specialised agents — a Supervisor routes tasks to Worker agents, each with their own tools and expertise.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 760 220" width="760" height="220" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="maarr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#22d3ee"/></marker></defs>
+
+      <!-- User -->
+      <rect x="10" y="90" width="90" height="40" rx="8" fill="#1f2235" stroke="#8b8fa8" stroke-width="1.5"/>
+      <text x="55" y="115" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="10" font-weight="600">👤 User</text>
+
+      <!-- Supervisor -->
+      <rect x="155" y="75" width="140" height="70" rx="12" fill="rgba(99,102,241,0.15)" stroke="#6366f1" stroke-width="2.5"/>
+      <text x="225" y="103" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="13" font-weight="700">🎯 Supervisor</text>
+      <text x="225" y="121" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">routes to best agent</text>
+      <text x="225" y="135" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">aggregates results</text>
+
+      <!-- Worker agents -->
+      <rect x="365" y="20" width="130" height="50" rx="10" fill="#1f2235" stroke="#34d399" stroke-width="1.5"/>
+      <text x="430" y="42" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="700">🔍 Researcher</text>
+      <text x="430" y="58" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">web + docs + RAG</text>
+
+      <rect x="365" y="90" width="130" height="50" rx="10" fill="#1f2235" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="430" y="112" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="700">💻 Coder</text>
+      <text x="430" y="128" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">write + execute code</text>
+
+      <rect x="365" y="160" width="130" height="50" rx="10" fill="#1f2235" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="430" y="182" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="700">📊 Analyst</text>
+      <text x="430" y="198" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="8">data + SQL + charts</text>
+
+      <!-- Response aggregator -->
+      <rect x="565" y="80" width="120" height="60" rx="10" fill="#1f2235" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="625" y="107" text-anchor="middle" fill="#e2e4f0" font-family="Inter" font-size="11" font-weight="700">✍️ Writer</text>
+      <text x="625" y="123" text-anchor="middle" fill="#8b8fa8" font-family="Inter" font-size="9">final synthesis</text>
+
+      <!-- Arrows -->
+      <line x1="100" y1="110" x2="153" y2="110" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#maarr)"/>
+      <line x1="295" y1="95" x2="363" y2="45" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#maarr)"/>
+      <line x1="295" y1="110" x2="363" y2="115" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#maarr)"/>
+      <line x1="295" y1="125" x2="363" y2="175" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#maarr)"/>
+      <line x1="495" y1="45" x2="563" y2="95" stroke="#34d399" stroke-width="1.2" marker-end="url(#maarr)"/>
+      <line x1="495" y1="115" x2="563" y2="115" stroke="#fb923c" stroke-width="1.2" marker-end="url(#maarr)"/>
+      <line x1="495" y1="180" x2="563" y2="130" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#maarr)"/>
+    </svg>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-label">Python · Supervisor multi-agent system</div>
+<pre><code class="language-python">from langgraph.graph import StateGraph, START, END
+from langgraph.prebuilt import create_react_agent
+from typing import Literal
+
+# ── Create specialised worker agents ──
+researcher = create_react_agent(
+    ChatOpenAI(model="gpt-4o"), tools=[tavily_search, vectorstore_search],
+    prompt="You are a research specialist. Find accurate information."
+)
+
+coder = create_react_agent(
+    ChatOpenAI(model="gpt-4o"), tools=[python_repl, code_interpreter],
+    prompt="You are a Python expert. Write clean, working code."
+)
+
+analyst = create_react_agent(
+    ChatOpenAI(model="gpt-4o"), tools=[sql_tool, chart_tool],
+    prompt="You are a data analyst. Query data and visualise insights."
+)
+
+# ── Supervisor state ──
+class SupervisorState(TypedDict):
+    messages: Annotated[list, operator.add]
+    next_agent: str
+
+# ── Supervisor node: LLM decides which agent to call next ──
+SUPERVISOR_PROMPT = """You are a supervisor managing: researcher, coder, analyst, FINISH.
+Given the conversation, decide which agent should act next, or FINISH if done.
+Respond with just the agent name."""
+
+def supervisor(state: SupervisorState) -> SupervisorState:
+    response = llm.invoke([
+        SystemMessage(content=SUPERVISOR_PROMPT),
+        *state["messages"]
+    ])
+    return {"next_agent": response.content.strip()}
+
+def route(state) -> Literal["researcher", "coder", "analyst", END]:
+    next_a = state["next_agent"]
+    if next_a == "FINISH": return END
+    return next_a
+
+# ── Build supervisor graph ──
+builder = StateGraph(SupervisorState)
+builder.add_node("supervisor", supervisor)
+builder.add_node("researcher", lambda s: {"messages": researcher.invoke(s)["messages"]})
+builder.add_node("coder",      lambda s: {"messages": coder.invoke(s)["messages"]})
+builder.add_node("analyst",    lambda s: {"messages": analyst.invoke(s)["messages"]})
+
+builder.add_edge(START, "supervisor")
+builder.add_conditional_edges("supervisor", route)
+
+# All workers report back to supervisor after each turn
+for worker in ["researcher", "coder", "analyst"]:
+    builder.add_edge(worker, "supervisor")
+
+graph = builder.compile(checkpointer=MemorySaver())
+
+# Complex task: supervisor orchestrates multiple agents automatically
+result = graph.invoke({
+    "messages": [HumanMessage(content=
+        "Research LangGraph's architecture, write a Python example of a multi-agent system, "
+        "and analyse what percentage of GitHub repos use LangChain vs LangGraph"
+    )],
+    "next_agent": ""
+}, config={"configurable": {"thread_id": "complex-task-1"}})
+</code></pre>
+  </div>
+
+  <div class="card-grid cols-3" style="margin-top:2rem">
+    <div class="card" style="border-color:rgba(52,211,153,0.4)">
+      <h3>🆚 LangGraph vs CrewAI</h3>
+      <p>LangGraph = low-level graph control. CrewAI = high-level role-based abstraction. LangGraph wins on flexibility; CrewAI wins on onboarding speed.</p>
+    </div>
+    <div class="card" style="border-color:rgba(251,191,36,0.4)">
+      <h3>🔍 LangSmith Debugging</h3>
+      <p>Every node execution, token count, and latency is traced. Filter by thread_id, tag chains by use-case, compare runs side-by-side.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-bash">export LANGCHAIN_TRACING_V2=true
+export LANGCHAIN_API_KEY="ls__..."
+export LANGCHAIN_PROJECT="my-agent"
+# All runs now appear in app.langsmith.com
+</code></pre>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(248,113,113,0.4)">
+      <h3>🚀 LangGraph Platform</h3>
+      <p>Deploy LangGraph graphs as production APIs. Built-in: horizontal scaling, streaming, cron jobs, webhooks, Studio UI for visual debugging.</p>
+      <div class="code-wrap" style="margin-top:.75rem">
+<pre><code class="language-bash"># Deploy to LangGraph Cloud
+pip install langgraph-cli
+langgraph up     # local Studio
+langgraph deploy # cloud deployment
+</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Final Decision Guide -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2rem;margin-top:2.5rem;">
+    <h3 style="margin-bottom:1.25rem;">📋 LangChain vs LangGraph — When to Use Which</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Situation</th><th>Use</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Simple Q&A, summarisation, translation</td><td><span class="pill pill-green">LCEL Chain</span></td><td>Linear, no state needed</td></tr>
+          <tr><td>RAG with a single retrieval step</td><td><span class="pill pill-green">LCEL + Retriever</span></td><td>create_retrieval_chain covers it</td></tr>
+          <tr><td>Agent that uses tools in a loop</td><td><span class="pill pill-cyan">LangGraph ReAct</span></td><td>Cycles + state + interrupt support</td></tr>
+          <tr><td>Multi-turn chat with memory</td><td><span class="pill pill-cyan">LangGraph + Checkpointer</span></td><td>Thread-scoped persistence built-in</td></tr>
+          <tr><td>Human approval before action</td><td><span class="pill pill-cyan">LangGraph interrupt_before</span></td><td>LCEL can't pause mid-execution</td></tr>
+          <tr><td>Multiple agents collaborating</td><td><span class="pill pill-cyan">LangGraph Supervisor</span></td><td>Fan-out/fan-in, sub-graphs, coordination</td></tr>
+          <tr><td>Long-running background task</td><td><span class="pill pill-cyan">LangGraph Platform</span></td><td>Durable execution, webhooks, streaming</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
 </main>
 
 <footer>
-  <p>RAG Mastery + AWS Knowledge Base · <strong>2025–2026 Edition</strong></p>
+  <p>RAG Mastery + AWS Knowledge Base + LangChain &amp; LangGraph · <strong>2025–2026 Edition</strong></p>
   <p style="margin-top:.5rem;font-size:.8rem">Built for engineers building real systems. All code examples tested. Sources: original papers, LlamaIndex docs, LangChain docs, Anthropic API docs, AWS documentation.</p>
 </footer>
 
