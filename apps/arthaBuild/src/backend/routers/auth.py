@@ -18,7 +18,7 @@ from auth_utils import (
     blacklist_token, _bearer_scheme, is_free_email, get_developer_whitelist
 )
 from fastapi.security import HTTPAuthorizationCredentials
-from email_utils import generate_reset_token, hash_token, token_expiry, send_reset_email
+from email_utils import generate_reset_token, hash_token, token_expiry, send_reset_email, send_welcome_email
 from audit_utils import write_audit_event
 import jwt
 import os
@@ -345,6 +345,7 @@ async def google_callback(
     # Find or create user
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
+    is_new_user = user is None
 
     if not user:
         count_result = await db.execute(select(func.count()).select_from(User))
@@ -375,6 +376,13 @@ async def google_callback(
     await write_audit_event(db, actor_email=user.email, actor_role=user.role,
                             action="auth.google_login", result="success", ip_address=ip)
     await db.commit()
+
+    # Send welcome email on first-ever OAuth login (fire-and-forget)
+    if is_new_user:
+        try:
+            await send_welcome_email(user.email, user.first_name or user.email.split("@")[0])
+        except Exception:
+            pass  # Never block login due to email failure
 
     access_token = create_access_token(user.id, role=user.role)
     refresh_tok = create_refresh_token(user.id)
