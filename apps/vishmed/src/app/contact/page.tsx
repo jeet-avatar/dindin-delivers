@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { siteConfig } from '@/lib/config'
-import { CalendlyWidget } from '@/components/ui/CalendlyWidget'
+import { GoogleCalendarBooking } from '@/components/ui/GoogleCalendarBooking'
 import { ContactForm } from '@/components/ui/ContactForm'
 
 export const metadata: Metadata = {
@@ -26,25 +26,35 @@ export default function ContactPage() {
         </div>
       </section>
 
-      {/* Main content: Calendly + Contact Form */}
+      {/* Booking calendars — Telehealth + In-Person */}
+      <section className="py-16 lg:py-20 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="font-heading text-2xl font-bold text-slate-800 mb-8 text-center">Schedule Online</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div>
+              <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Telehealth — Mon–Fri Evenings</p>
+              <GoogleCalendarBooking type="telehealth" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">In-Person — Mon–Fri &amp; Saturday</p>
+              <GoogleCalendarBooking type="inperson" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Form + Practice Info */}
       <section className="py-16 lg:py-24 px-4 sm:px-6 lg:px-8 bg-slate-50">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
 
-          {/* Left: Calendly online booking */}
-          <div>
-            <h2 className="font-heading text-xl font-bold text-slate-800 mb-6">Schedule Online</h2>
-            <CalendlyWidget />
+          {/* Left: Contact form */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <h2 className="font-heading text-xl font-bold text-slate-800 mb-6">Send a Message</h2>
+            <ContactForm />
           </div>
 
-          {/* Right: Contact form + practice info */}
+          {/* Right: Practice info */}
           <div className="space-y-8">
-            {/* Send a message */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h2 className="font-heading text-xl font-bold text-slate-800 mb-6">Send a Message</h2>
-              <ContactForm />
-            </div>
-
-            {/* Practice info */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
               <h2 className="font-heading text-xl font-bold text-slate-800 mb-4">Contact Information</h2>
               <dl className="space-y-4 text-sm">
