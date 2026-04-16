@@ -22,6 +22,8 @@ import {
   ToggleRight,
   Key,
   Database,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 import {
   listTeamMembers,
@@ -40,7 +42,19 @@ import {
 import { getAccessToken } from "../services/api";
 import KnowledgeBaseTab from "../components/KnowledgeBaseTab";
 
-type Tab = "overview" | "members" | "chats" | "invite" | "audit" | "security" | "license" | "knowledge";
+type Tab = "overview" | "members" | "chats" | "invite" | "audit" | "security" | "license" | "knowledge" | "comments";
+
+interface BlogComment {
+  id: number;
+  post_slug: string;
+  parent_id: number | null;
+  name: string;
+  email: string | null;
+  body: string;
+  status: "pending" | "approved" | "rejected";
+  is_team_reply: number;
+  created_at: string;
+}
 
 function StatCard({
   icon: Icon,
@@ -119,6 +133,83 @@ export default function AdminPanel() {
   const [licenseValidating, setLicenseValidating] = useState(false);
   const [licenseValidResult, setLicenseValidResult] = useState<{ valid: boolean; plan?: string; expiry?: string; message?: string } | null>(null);
 
+  // Comments tab state (Phase 19 D-3)
+  const [comments, setComments] = useState<BlogComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<number | null>(null);
+  const [replyBody, setReplyBody] = useState("");
+  const [replySubmitting, setReplySubmitting] = useState(false);
+
+  async function fetchComments() {
+    setCommentsLoading(true);
+    setCommentsError(null);
+    try {
+      const res = await fetch("/api/admin/blog/comments", {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setComments(Array.isArray(data) ? data : []);
+      setCommentsLoaded(true);
+    } catch (e) {
+      setCommentsError(e instanceof Error ? e.message : "Failed to load comments");
+    } finally {
+      setCommentsLoading(false);
+    }
+  }
+
+  async function moderateComment(id: number, action: "approve" | "reject") {
+    try {
+      const res = await fetch(`/api/admin/blog/comments/${id}/${action}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await fetchComments();
+    } catch (e) {
+      setCommentsError(e instanceof Error ? e.message : `Failed to ${action}`);
+    }
+  }
+
+  async function deleteComment(id: number) {
+    if (!confirm("Delete this comment permanently?")) return;
+    try {
+      const res = await fetch(`/api/admin/blog/comments/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await fetchComments();
+    } catch (e) {
+      setCommentsError(e instanceof Error ? e.message : "Failed to delete");
+    }
+  }
+
+  async function submitReply(commentId: number) {
+    if (!replyBody.trim()) return;
+    setReplySubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/blog/comments/${commentId}/reply`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({ body: replyBody.trim() }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setReplyingTo(null);
+      setReplyBody("");
+      await fetchComments();
+    } catch (e) {
+      setCommentsError(e instanceof Error ? e.message : "Failed to reply");
+    } finally {
+      setReplySubmitting(false);
+    }
+  }
+
   // Load members on mount
   useEffect(() => {
     setMembersLoading(true);
@@ -174,6 +265,13 @@ export default function AdminPanel() {
         .catch(() => setLicenseInfoLoaded(true)); // non-fatal
     }
   }, [activeTab, licenseInfoLoaded]);
+
+  // Load blog comments when Comments tab first opened (Phase 19 D-3)
+  useEffect(() => {
+    if (activeTab === "comments" && !commentsLoaded) {
+      fetchComments();
+    }
+  }, [activeTab, commentsLoaded]);
 
   // Load SSO config when Security tab first opened
   useEffect(() => {
@@ -343,6 +441,7 @@ export default function AdminPanel() {
     { id: "security",   label: "Security",        icon: Lock },
     { id: "license",    label: "License",         icon: Key },
     { id: "knowledge",  label: "Knowledge Base",  icon: Database },
+    { id: "comments",   label: "Comments",        icon: MessageCircle },
   ];
 
   function getRoleInitials(name: string) {
@@ -1123,6 +1222,216 @@ export default function AdminPanel() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── Comments Tab (Phase 19 D-3) ── */}
+        {activeTab === "comments" && (
+          <div className="max-w-5xl space-y-6">
+            <div>
+              <h1 className="text-2xl font-bold text-white">Blog Comments</h1>
+              <p className="text-slate-400 mt-1 text-sm">Moderate reader comments on artha.build blog posts.</p>
+            </div>
+
+            {commentsError && (
+              <div className="bg-red-900/20 border border-red-500/40 rounded-lg px-4 py-3 text-sm text-red-300">
+                {commentsError}
+              </div>
+            )}
+
+            {commentsLoading ? (
+              <div className="text-slate-400 text-sm">Loading comments…</div>
+            ) : (
+              <>
+                {/* Pending queue */}
+                <div>
+                  <h2 className="text-sm font-semibold text-amber-300 uppercase tracking-wide mb-3">
+                    Pending ({comments.filter((c) => c.status === "pending").length})
+                  </h2>
+                  {comments.filter((c) => c.status === "pending").length === 0 ? (
+                    <div className="text-xs text-slate-500 italic">No comments awaiting review.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {comments
+                        .filter((c) => c.status === "pending")
+                        .map((c) => (
+                          <div
+                            key={c.id}
+                            className="bg-slate-800/60 border border-amber-500/20 rounded-lg p-4"
+                          >
+                            <div className="flex items-start justify-between gap-3 flex-wrap">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium text-white">
+                                  {c.name}
+                                  {c.email && (
+                                    <span className="ml-2 text-xs text-slate-500 font-normal">
+                                      &lt;{c.email}&gt;
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-500 mt-0.5">
+                                  on <span className="text-indigo-400">/{c.post_slug}</span> ·{" "}
+                                  {new Date(c.created_at).toLocaleString()}
+                                </div>
+                                <div className="text-sm text-slate-200 mt-2 whitespace-pre-wrap break-words">
+                                  {c.body}
+                                </div>
+                              </div>
+                              <div className="flex gap-2 flex-shrink-0">
+                                <button
+                                  onClick={() => moderateComment(c.id, "approve")}
+                                  className="px-3 py-1.5 text-xs bg-green-600/20 border border-green-500/30 text-green-300 rounded-md hover:bg-green-600/30 transition-colors flex items-center gap-1.5"
+                                >
+                                  <CheckCircle size={12} />
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => moderateComment(c.id, "reject")}
+                                  className="px-3 py-1.5 text-xs bg-red-600/20 border border-red-500/30 text-red-300 rounded-md hover:bg-red-600/30 transition-colors flex items-center gap-1.5"
+                                >
+                                  <XCircle size={12} />
+                                  Reject
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Approved list */}
+                <div>
+                  <h2 className="text-sm font-semibold text-green-300 uppercase tracking-wide mb-3">
+                    Approved ({comments.filter((c) => c.status === "approved").length})
+                  </h2>
+                  {comments.filter((c) => c.status === "approved").length === 0 ? (
+                    <div className="text-xs text-slate-500 italic">No approved comments yet.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {comments
+                        .filter((c) => c.status === "approved")
+                        .map((c) => (
+                          <div
+                            key={c.id}
+                            className={`bg-slate-800/60 border rounded-lg p-4 ${
+                              c.is_team_reply
+                                ? "border-indigo-500/30 ml-6"
+                                : "border-slate-700/50"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3 flex-wrap">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium text-white flex items-center gap-2">
+                                  {c.name}
+                                  {c.is_team_reply ? (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded">
+                                      TEAM
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="text-xs text-slate-500 mt-0.5">
+                                  on <span className="text-indigo-400">/{c.post_slug}</span> ·{" "}
+                                  {new Date(c.created_at).toLocaleString()}
+                                  {c.parent_id && (
+                                    <span className="ml-2">↳ reply to #{c.parent_id}</span>
+                                  )}
+                                </div>
+                                <div className="text-sm text-slate-200 mt-2 whitespace-pre-wrap break-words">
+                                  {c.body}
+                                </div>
+                              </div>
+                              <div className="flex gap-2 flex-shrink-0">
+                                {!c.is_team_reply && (
+                                  <button
+                                    onClick={() => {
+                                      setReplyingTo(c.id === replyingTo ? null : c.id);
+                                      setReplyBody("");
+                                    }}
+                                    className="px-3 py-1.5 text-xs bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 rounded-md hover:bg-indigo-600/30 transition-colors flex items-center gap-1.5"
+                                  >
+                                    <MessageCircle size={12} />
+                                    Reply
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => deleteComment(c.id)}
+                                  className="px-3 py-1.5 text-xs bg-slate-700/40 border border-slate-600/30 text-slate-300 rounded-md hover:bg-red-600/20 hover:border-red-500/30 hover:text-red-300 transition-colors flex items-center gap-1.5"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </div>
+
+                            {replyingTo === c.id && (
+                              <div className="mt-3 pt-3 border-t border-slate-700/50">
+                                <textarea
+                                  value={replyBody}
+                                  onChange={(e) => setReplyBody(e.target.value)}
+                                  placeholder="Write a reply as the ArthaBuild team…"
+                                  className="w-full bg-slate-900/60 border border-slate-700/50 rounded-md px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 resize-none"
+                                  rows={3}
+                                />
+                                <div className="flex justify-end gap-2 mt-2">
+                                  <button
+                                    onClick={() => {
+                                      setReplyingTo(null);
+                                      setReplyBody("");
+                                    }}
+                                    className="px-3 py-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => submitReply(c.id)}
+                                    disabled={!replyBody.trim() || replySubmitting}
+                                    className="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                                  >
+                                    <Send size={12} />
+                                    {replySubmitting ? "Sending…" : "Post reply"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Rejected list (collapsed summary) */}
+                {comments.filter((c) => c.status === "rejected").length > 0 && (
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                      Rejected ({comments.filter((c) => c.status === "rejected").length})
+                    </h2>
+                    <div className="space-y-2">
+                      {comments
+                        .filter((c) => c.status === "rejected")
+                        .map((c) => (
+                          <div
+                            key={c.id}
+                            className="bg-slate-800/30 border border-slate-700/30 rounded-lg px-4 py-2 flex items-center justify-between gap-3 opacity-60"
+                          >
+                            <div className="text-xs text-slate-400 truncate">
+                              <span className="text-slate-300">{c.name}</span> on /{c.post_slug}:{" "}
+                              {c.body.slice(0, 80)}
+                              {c.body.length > 80 ? "…" : ""}
+                            </div>
+                            <button
+                              onClick={() => deleteComment(c.id)}
+                              className="flex-shrink-0 text-slate-500 hover:text-red-400 transition-colors"
+                              aria-label="Delete rejected comment"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
