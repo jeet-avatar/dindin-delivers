@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { siteConfig } from '@/lib/config'
-import { CalendlyWidget } from '@/components/ui/CalendlyWidget'
+import { GoogleCalendarBooking } from '@/components/ui/GoogleCalendarBooking'
 
 export const metadata: Metadata = {
   title: 'Telehealth Appointments | Virtual Primary Care',
@@ -152,7 +152,7 @@ export default function TelehealthPage() {
       <section className="py-16 lg:py-24 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-3xl mx-auto">
           <h2 className="font-heading text-2xl font-bold text-center text-slate-800 mb-8">Book Your Telehealth Appointment</h2>
-          <CalendlyWidget />
+          <GoogleCalendarBooking />
         </div>
       </section>
 
