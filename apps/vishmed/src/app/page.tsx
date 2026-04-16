@@ -5,6 +5,7 @@ import { siteConfig } from '@/lib/config'
 import { SchemaMarkup } from '@/components/ui/SchemaMarkup'
 import { HeroBannerCarousel } from '@/components/ui/HeroBannerCarousel'
 import { GoogleReviews } from '@/components/ui/GoogleReviews'
+import { blogPosts, CATEGORY_LABELS } from '@/data/blogPosts'
 
 export const metadata: Metadata = {
   title: 'Primary Care & Weight Loss Doctor | Dr. Arpana Pillay',
@@ -270,6 +271,57 @@ export default function HomePage() {
 
       {/* ── GOOGLE REVIEWS ───────────────────────────────── */}
       <GoogleReviews />
+
+      {/* ── LATEST FROM THE BLOG ─────────────────────────── */}
+      <section className="py-16 lg:py-24 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="font-heading text-2xl lg:text-3xl font-bold text-slate-800">Latest from the Blog</h2>
+              <p className="text-slate-500 mt-1 text-sm">Evidence-based health insights from Dr. Pillay</p>
+            </div>
+            <Link
+              href="/blog"
+              className="hidden sm:inline-flex items-center text-primary font-semibold hover:underline focus-visible:outline-[3px] focus-visible:outline-primary rounded"
+            >
+              View All Posts →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {blogPosts.slice(0, 3).map((post) => (
+              <Link
+                key={post.slug}
+                href={`/blog/${post.slug}`}
+                className="group bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md motion-safe:transition-shadow motion-safe:duration-200 cursor-pointer focus-visible:outline-[3px] focus-visible:outline-primary"
+              >
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                      {CATEGORY_LABELS[post.category]}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {new Date(post.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                  <h3 className="font-heading font-semibold text-slate-800 mb-2 group-hover:text-primary motion-safe:transition-colors leading-snug">
+                    {post.title}
+                  </h3>
+                  <p className="text-slate-500 text-sm leading-relaxed line-clamp-3">{post.excerpt}</p>
+                  <p className="mt-4 text-primary text-sm font-semibold group-hover:underline">{post.readTime} min read →</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className="text-center mt-8 sm:hidden">
+            <Link
+              href="/blog"
+              className="min-h-[44px] inline-flex items-center border-2 border-primary text-primary hover:bg-primary hover:text-white px-6 py-3 rounded-lg font-semibold cursor-pointer motion-safe:transition-colors motion-safe:duration-200 focus-visible:outline-[3px] focus-visible:outline-primary"
+            >
+              View All Blog Posts
+            </Link>
+          </div>
+        </div>
+      </section>
 
       {/* ── FINAL CTA ────────────────────────────────────────── */}
       <section className="bg-primary py-16 lg:py-20 px-4 sm:px-6 lg:px-8">

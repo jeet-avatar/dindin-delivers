@@ -10,6 +10,7 @@ const navLinks = [
   { href: '/pricing', label: 'Pricing' },
   { href: '/telehealth', label: 'Telehealth' },
   { href: '/patient-info', label: 'Patient Info' },
+  { href: '/blog', label: 'Blog' },
   { href: '/contact', label: 'Contact' },
 ]
 
