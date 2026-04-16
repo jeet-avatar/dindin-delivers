@@ -502,6 +502,166 @@ Onboarding → First script → Paying customer
 
 ---
 
+## Section 7: Comments & Reactions System
+
+### Overview
+
+Every blog post gets an interactive engagement section below the content. Three components, all self-hosted in FastAPI/SQLite — no third-party embeds, no cookies.
+
+```
+[Blog post content]
+[End-of-post CTA: "See how ArthaBuild handles this →"]
+─────────────────────────────────────────────
+[Reactions bar]          💡 12  🔥 7  👏 4
+[Comments section]
+  ┌─ Comment (approved)
+  │    Mark T. · "This saved me 3 days of work."
+  │    └─ ArthaBuild [Team] · "Glad it helped! See also..."
+  ┌─ Comment (approved)
+  │    Sarah K. · "Does this work for OneWorld?"
+[Comment form]
+  Name · Comment textarea · Post button
+  "No account needed · Comments reviewed before publishing"
+```
+
+### Components
+
+**`ReactionsBar.tsx`** — Inline emoji reactions. Clicking a reaction toggles it (one per visitor per post, tracked by `localStorage` key `ab_rxn_{slug}`). Count updates optimistically. No login, no IP storage — client-side idempotency only. Reactions: 💡 Insightful · 🔥 Hot · 👏 Saved It.
+
+**`CommentThread.tsx`** — Renders a list of approved comments. Each comment shows: name, body, and (if team replied) an indented ArthaBuild reply with a purple `Team` badge. One level deep only — no nested user replies.
+
+**`CommentForm.tsx`** — Name (required) + optional email (for reply notification only, never shown publicly) + comment textarea + Post button. On submit: POST to `/api/blog/{slug}/comments`. Shows "Thanks — your comment is under review" confirmation. Email is stored but never displayed.
+
+### Backend — `src/backend/routers/blog_engagement.py`
+
+New FastAPI router mounted at `/api/blog`.
+
+**Reactions:**
+```
+POST /api/blog/{slug}/react      — body: { reaction: 'insightful'|'hot'|'saved' }
+                                   No auth. Rate limited 10/min per IP. Upserts.
+GET  /api/blog/{slug}/reactions  — returns { insightful: int, hot: int, saved: int }
+```
+
+**Comments:**
+```
+POST /api/blog/{slug}/comments   — body: { name, email?, body }
+                                   No auth. Rate limited 5/hour per IP.
+                                   Status defaults to 'pending'.
+GET  /api/blog/{slug}/comments   — returns approved comments + team replies only.
+```
+
+**Admin (all require `require_admin`):**
+```
+GET  /api/admin/blog/comments          — all pending comments (moderation queue)
+POST /api/admin/blog/comments/{id}/approve — approve comment → status='approved'
+POST /api/admin/blog/comments/{id}/reject  — reject comment → status='rejected'
+POST /api/admin/blog/comments/{id}/reply   — body: { body }
+                                            Creates team reply attached to comment.
+                                            is_team_reply=true, status='approved' (auto).
+DELETE /api/admin/blog/comments/{id}       — hard delete any comment
+```
+
+### Database — Alembic Migration
+
+**`blog_reactions` table:**
+```sql
+id            INTEGER PRIMARY KEY
+post_slug     TEXT NOT NULL
+reaction      TEXT NOT NULL    -- 'insightful' | 'hot' | 'saved'
+ip_hash       TEXT NOT NULL    -- SHA-256 of IP, not raw IP
+created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+UNIQUE(post_slug, reaction, ip_hash)
+```
+
+**`blog_comments` table:**
+```sql
+id              INTEGER PRIMARY KEY
+post_slug       TEXT NOT NULL
+parent_id       INTEGER REFERENCES blog_comments(id)  -- NULL for top-level
+name            TEXT NOT NULL
+email           TEXT         -- stored, never displayed
+body            TEXT NOT NULL
+status          TEXT DEFAULT 'pending'  -- pending | approved | rejected
+is_team_reply   INTEGER DEFAULT 0       -- 1 = ArthaBuild team reply
+created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+```
+
+### Admin Panel — Comments Tab
+
+New tab in `AdminPanel.tsx`: **Comments**. Shows:
+- Pending queue — list of comments awaiting review, with Approve / Reject buttons
+- Approved comments — with Reply button (opens inline textarea → submits team reply)
+- Team replies are auto-approved and show immediately on the blog post
+
+### UX Rules
+
+| Rule | Reason |
+|------|--------|
+| Reactions are instant — no moderation | Low-stakes, drives engagement signal |
+| Comments go to pending by default | Prevents spam without requiring accounts |
+| Email never shown publicly | Privacy — used only if team wants to notify |
+| Team reply shows "ArthaBuild" + purple `Team` badge | Brand authority, not individual names |
+| One-level threading only | Simpler to build, cleaner to read |
+| Reaction counts visible to all | Social proof on post cards |
+
+---
+
+## Section 8: Blog Validation System
+
+### Overview
+
+A build-time TypeScript script (`scripts/validate-blog.ts`) runs as a `prebuild` step. If any post fails validation, the build fails with a clear error. Prevents broken or low-quality posts from ever shipping.
+
+### Invocation
+
+`package.json`:
+```json
+"prebuild": "tsx scripts/validate-blog.ts",
+"postbuild": "tsx scripts/generate-sitemap.ts"
+```
+
+### Validation Rules — Per Post
+
+| Rule | Check | Severity |
+|------|-------|---------|
+| Required fields | slug, title, description, category, publishedAt, readTime, tags, content all present | FAIL |
+| Slug format | lowercase, hyphens only, no spaces, no special chars | FAIL |
+| Slug uniqueness | no two posts share a slug | FAIL |
+| Description length | 120–160 characters (meta description) | FAIL |
+| Content length | ≥800 words standard; ≥2000 words for `badge: 'must-read'` | FAIL |
+| Has `<h2>` | at least one `<h2>` tag in content | FAIL |
+| Has internal blog link | `/blog/` pattern in content | FAIL |
+| Has industry link | `/solutions/` pattern in content | FAIL |
+| Has end CTA | `/create-account` in content | FAIL |
+| Tags count | ≥3 tags | WARN |
+| No customer names | regex scan against a blocklist (company names) | WARN |
+| publishedAt format | valid ISO date string (YYYY-MM-DD) | FAIL |
+
+### Output Format
+
+```
+ArthaBuild Blog Validator — 84 posts
+─────────────────────────────────────
+✓ the-complete-guide-to-netsuite-suitescript-2-1
+✓ suitescript-scheduled-scripts
+✗ netsuite-bom-automation
+    → FAIL: missing /solutions/ internal link
+    → WARN: only 2 tags (minimum 3)
+✗ suitescript-debugging-fix-issues-fast
+    → FAIL: content only 420 words (minimum 800 for standard post)
+
+─────────────────────────────────────
+82 passed · 2 failed · Build aborted.
+Fix the above issues and re-run.
+```
+
+### Location
+
+`src/frontend/scripts/validate-blog.ts` — imports `blogPosts` from `../src/data/blogPosts`, runs all checks, exits with code 1 on any FAIL.
+
+---
+
 ## Implementation Scope Summary
 
 ### Frontend changes
@@ -511,9 +671,12 @@ Onboarding → First script → Paying customer
 - `public/og-image.png` — new file, 1200×630px, dark `#030308` background, ArthaBuild branded
 - `useAnalytics.ts` — new hook (port of TCP)
 - `Blog.tsx` — new page
-- `BlogPost.tsx` — new page
+- `BlogPost.tsx` — new page (includes ReactionsBar + CommentThread + CommentForm)
 - `Solutions.tsx` — new page
 - `IndustryPage.tsx` — new page (shared template)
+- `ReactionsBar.tsx` — new component
+- `CommentThread.tsx` — new component
+- `CommentForm.tsx` — new component
 - `blog.ts` — new data types + categories
 - `blogPosts.ts` — 84 posts (full HTML content)
 - `industrySolutions.ts` — 6 industries
@@ -523,15 +686,20 @@ Onboarding → First script → Paying customer
 - `PrivacyPolicy.tsx` — analytics disclosure paragraph
 - `public/robots.txt` — new file
 - `public/sitemap.xml` — generated at build
-- `scripts/generate-sitemap.ts` — Vite build script
+- `scripts/generate-sitemap.ts` — Vite postbuild script
+- `scripts/validate-blog.ts` — Vite prebuild validation script
 
 ### Backend changes
-- `routers/analytics.py` — new router with collect + admin summary endpoints
+- `routers/analytics.py` — new router (collect + admin summary)
+- `routers/blog_engagement.py` — new router (reactions + comments + admin moderation + team replies)
 - Alembic migration — `analytics_events` table
-- Register analytics router in `main.py`
+- Alembic migration — `blog_reactions` + `blog_comments` tables
+- Register both routers in `main.py`
+- Admin panel Comments tab — pending queue + approve/reject/reply workflow
 
 ### Dependencies
 - `react-helmet-async` (frontend)
+- `tsx` in devDependencies (runs prebuild/postbuild scripts)
 - `slowapi` already present for rate limiting
 
 ---
@@ -548,3 +716,10 @@ Onboarding → First script → Paying customer
 - [ ] All posts have category badge, editorial badge (where set), end CTA
 - [ ] Internal links: every post links to at least one other post and one industry page
 - [ ] Privacy policy updated to disclose self-hosted analytics
+- [ ] `validate-blog.ts` passes all 84 posts with zero FAIL errors at build time
+- [ ] Reactions (💡🔥👏) render on every blog post and counts persist in DB
+- [ ] Comment form submits to backend → appears as pending in admin panel
+- [ ] Admin can approve, reject, and reply to comments
+- [ ] Team replies show "ArthaBuild" name + purple Team badge on blog post
+- [ ] Approved comments and team replies visible to all readers
+- [ ] Pending/rejected comments never visible to public
