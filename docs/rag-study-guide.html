@@ -278,6 +278,17 @@ footer strong { color: var(--indigo-light); }
   <a href="#roadmap-inference">Inference</a>
   <a href="#roadmap-safety">Safety</a>
   <a href="#roadmap-emerging">Emerging</a>
+  <a href="#cv" style="color:#fbbf24;font-weight:700">👁️ Vision</a>
+  <a href="#diffusion">Diffusion</a>
+  <a href="#speech">Speech</a>
+  <a href="#rl">RL</a>
+  <a href="#mcp">MCP</a>
+  <a href="#robotics" style="color:#06b6d4;font-weight:700">🤖 Robotics</a>
+  <a href="#ros2">ROS2</a>
+  <a href="#robot-learning">Robot Learning</a>
+  <a href="#quantum" style="color:#a78bfa;font-weight:700">⚛️ Quantum</a>
+  <a href="#quantum-algos">Algorithms</a>
+  <a href="#quantum-ml">Quantum ML</a>
 </nav>
 
 <main>
@@ -4910,6 +4921,1130 @@ response = client.messages.create(
     <div class="callout tip" style="margin-top:1.25rem">
       <div class="icon">🎯</div>
       <p><strong>Best learning path:</strong> Build the nanoGPT (Karpathy) → fine-tune Llama 3 with LoRA → build a production RAG system → add LangGraph agents → deploy on AWS ECS with W&B monitoring → study one frontier paper per week from <strong>arxiv.org/list/cs.LG/recent</strong>. Repeat. Ship things.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART V : AI FRONTIERS — VISION · DIFFUSION · SPEECH · RL · MCP
+     ═══════════════════════════════════════════════════════════ -->
+<div style="text-align:center;padding:4rem 1rem 3rem;border-top:2px solid #fbbf24;margin-top:4rem;">
+  <div style="font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:#fbbf24;margin-bottom:.75rem;">Part V</div>
+  <h2 style="font-size:2rem;margin-bottom:.75rem;">AI Frontiers</h2>
+  <p style="max-width:640px;margin:0 auto;color:var(--muted);">Computer Vision · Diffusion Models · Speech AI · Reinforcement Learning · Model Context Protocol — the remaining pillars every senior AI engineer must command.</p>
+</div>
+
+<section class="section" id="cv">
+  <div class="section-tag" style="color:#fbbf24;">Vision · Computer Vision</div>
+  <h2>Computer Vision — CNNs to Foundation Models</h2>
+  <p>Three revolutions: hand-crafted features → CNNs → Vision Transformers (ViTs). Today's frontier: foundation models that unify detection, segmentation, and generation in one architecture.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 700 155" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="cvarr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#fbbf24"/></marker></defs>
+      <rect x="10" y="40" width="138" height="75" rx="10" fill="#1e1f2e" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="79" y="65" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="600">Classical CV</text>
+      <text x="79" y="82" text-anchor="middle" fill="#a0aec0" font-size="9">HOG · SIFT · SURF</text>
+      <text x="79" y="97" text-anchor="middle" fill="#a0aec0" font-size="9">SVM classifiers · &lt;2012</text>
+      <line x1="150" y1="77" x2="178" y2="77" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#cvarr)"/>
+      <rect x="180" y="40" width="138" height="75" rx="10" fill="#1e1f2e" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="249" y="65" text-anchor="middle" fill="#fb923c" font-size="11" font-weight="600">Deep CNNs</text>
+      <text x="249" y="82" text-anchor="middle" fill="#a0aec0" font-size="9">AlexNet · ResNet</text>
+      <text x="249" y="97" text-anchor="middle" fill="#a0aec0" font-size="9">EfficientNet · 2012–2020</text>
+      <line x1="320" y1="77" x2="348" y2="77" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#cvarr)"/>
+      <rect x="350" y="40" width="138" height="75" rx="10" fill="#1e1f2e" stroke="#34d399" stroke-width="1.5"/>
+      <text x="419" y="65" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">Vision Transformers</text>
+      <text x="419" y="82" text-anchor="middle" fill="#a0aec0" font-size="9">ViT · CLIP · DINO v2</text>
+      <text x="419" y="97" text-anchor="middle" fill="#a0aec0" font-size="9">SAM · BLIP-2 · 2020–2024</text>
+      <line x1="490" y1="77" x2="518" y2="77" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#cvarr)"/>
+      <rect x="520" y="40" width="165" height="75" rx="10" fill="#1e1f2e" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="602" y="65" text-anchor="middle" fill="#6366f1" font-size="11" font-weight="600">Foundation VLMs</text>
+      <text x="602" y="82" text-anchor="middle" fill="#a0aec0" font-size="9">GPT-4V · Gemini · Florence</text>
+      <text x="602" y="97" text-anchor="middle" fill="#a0aec0" font-size="9">InternVL · Claude · 2024+</text>
+    </svg>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h4 style="color:#fbbf24;">YOLOv8 — Real-Time Object Detection</h4>
+      <p>Single-pass detection under 50ms. Best for production systems needing speed.</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · YOLOv8 detect + fine-tune</div>
+        <pre><code class="language-python">from ultralytics import YOLO
+
+# Inference — models: yolov8n (fastest) → yolov8x (most accurate)
+model = YOLO("yolov8n.pt")
+results = model("image.jpg", conf=0.5, iou=0.45)
+
+for r in results:
+    boxes  = r.boxes.xyxy.cpu().numpy()  # [x1,y1,x2,y2]
+    clsids = r.boxes.cls.cpu().numpy()
+    confs  = r.boxes.conf.cpu().numpy()
+    for box, cls, conf in zip(boxes, clsids, confs):
+        print(f"{model.names[int(cls)]} {conf:.2f} @ {box}")
+
+# Fine-tune on custom dataset (custom.yaml defines class paths)
+model.train(data="custom.yaml", epochs=100, imgsz=640, batch=16)
+
+# Export for edge deployment
+model.export(format="onnx")    # or "tflite", "coreml"</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#34d399;">SAM 2 — Segment Anything</h4>
+      <p>Meta's foundation model for zero-shot segmentation. Prompt with points, boxes, or masks. Works on video too (track across frames).</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · SAM 2 point-prompted segmentation</div>
+        <pre><code class="language-python">from sam2.build_sam import build_sam2
+from sam2.sam2_image_predictor import SAM2ImagePredictor
+import numpy as np
+
+model = build_sam2("sam2_hiera_large.pt")
+predictor = SAM2ImagePredictor(model)
+
+predictor.set_image(image_np)   # HWC uint8 RGB
+
+# Prompt with a foreground point
+masks, scores, _ = predictor.predict(
+    point_coords=np.array([[500, 375]]),
+    point_labels=np.array([1]),  # 1=fg, 0=bg
+    multimask_output=True,
+)
+best_mask = masks[scores.argmax()]  # bool H×W array
+
+# Or prompt with a bounding box
+masks, _, _ = predictor.predict(
+    box=np.array([100, 200, 400, 600]),  # x1,y1,x2,y2
+    multimask_output=False,
+)</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#818cf8;">CLIP — Vision-Language Alignment</h4>
+      <p>Contrastive learning on 400M image-text pairs. Zero-shot classification, image search, visual RAG retrieval.</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · CLIP zero-shot classification</div>
+        <pre><code class="language-python">from transformers import CLIPModel, CLIPProcessor
+from PIL import Image
+
+model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
+proc  = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+
+image = Image.open("photo.jpg")
+labels = ["a dog running", "a cat sleeping", "a car driving"]
+
+inputs = proc(text=labels, images=image,
+               return_tensors="pt", padding=True)
+outputs = model(**inputs)
+
+probs = outputs.logits_per_image.softmax(dim=1)
+for label, p in zip(labels, probs[0]):
+    print(f"{p:.3f}  {label}")</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#f472b6;">Vision Model Comparison</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Model</th><th>Task</th><th>Best For</th></tr></thead>
+          <tbody>
+            <tr><td>YOLOv8n/x</td><td>Detection</td><td>Real-time edge to server</td></tr>
+            <tr><td>SAM 2</td><td>Segmentation</td><td>Any-object zero-shot masking</td></tr>
+            <tr><td>ViT-L/16</td><td>Classification</td><td>High-accuracy image cls</td></tr>
+            <tr><td>CLIP L/14</td><td>Vision-Language</td><td>Zero-shot, semantic search</td></tr>
+            <tr><td>DINO v2</td><td>Dense features</td><td>Self-supervised repr.</td></tr>
+            <tr><td>Florence-2</td><td>Universal</td><td>Caption + detect + ground</td></tr>
+            <tr><td>GPT-4V / Claude 3.5</td><td>VLM</td><td>Complex visual reasoning</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="diffusion">
+  <div class="section-tag" style="color:#fbbf24;">Vision · Generative AI</div>
+  <h2>Diffusion Models — How AI Generates Images &amp; Video</h2>
+  <p>Diffusion models learn to reverse a noise process. Three components: <strong>VAE</strong> compresses images to latent space, <strong>UNet/Transformer</strong> denoises iteratively, <strong>CLIP encoder</strong> conditions on text.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 700 120" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="difarr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#fbbf24"/></marker></defs>
+      <rect x="10" y="35" width="110" height="50" rx="8" fill="#1e1f2e" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="65" y="57" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="600">"Text Prompt"</text>
+      <text x="65" y="73" text-anchor="middle" fill="#a0aec0" font-size="9">CLIP Encoder</text>
+      <line x1="122" y1="60" x2="150" y2="60" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#difarr)"/>
+      <rect x="153" y="25" width="100" height="70" rx="8" fill="#1e1f2e" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="203" y="53" text-anchor="middle" fill="#6366f1" font-size="10" font-weight="600">Gaussian</text>
+      <text x="203" y="68" text-anchor="middle" fill="#6366f1" font-size="10">Noise z_T</text>
+      <line x1="255" y1="60" x2="283" y2="60" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#difarr)"/>
+      <rect x="286" y="15" width="200" height="90" rx="8" fill="#1e1f2e" stroke="#22d3ee" stroke-width="2"/>
+      <text x="386" y="43" text-anchor="middle" fill="#22d3ee" font-size="11" font-weight="600">UNet Denoising Loop</text>
+      <text x="386" y="60" text-anchor="middle" fill="#a0aec0" font-size="9">t: T → T-1 → … → 0</text>
+      <text x="386" y="75" text-anchor="middle" fill="#a0aec0" font-size="9">Cross-attention on text embeddings</text>
+      <text x="386" y="90" text-anchor="middle" fill="#a0aec0" font-size="9">20-50 DDIM / DDPM steps</text>
+      <line x1="488" y1="60" x2="516" y2="60" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#difarr)"/>
+      <rect x="519" y="35" width="90" height="50" rx="8" fill="#1e1f2e" stroke="#34d399" stroke-width="1.5"/>
+      <text x="564" y="57" text-anchor="middle" fill="#34d399" font-size="10" font-weight="600">VAE Decode</text>
+      <text x="564" y="72" text-anchor="middle" fill="#a0aec0" font-size="9">Latent → Pixel</text>
+      <line x1="611" y1="60" x2="639" y2="60" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#difarr)"/>
+      <rect x="642" y="25" width="48" height="70" rx="8" fill="#1e1f2e" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="666" y="55" text-anchor="middle" fill="#f472b6" font-size="18">🖼️</text>
+      <text x="666" y="78" text-anchor="middle" fill="#a0aec0" font-size="8">1024px</text>
+    </svg>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h4 style="color:#fbbf24;">SDXL + ControlNet with Diffusers</h4>
+      <div class="code-wrap">
+        <div class="code-label">Python · Text-to-image + structural control</div>
+        <pre><code class="language-python">from diffusers import (StableDiffusionXLPipeline,
+                        ControlNetModel,
+                        StableDiffusionXLControlNetPipeline)
+import torch
+
+# Basic SDXL text-to-image
+pipe = StableDiffusionXLPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-xl-base-1.0",
+    torch_dtype=torch.float16,
+).to("cuda")
+
+image = pipe(
+    prompt="futuristic city at dusk, cinematic lighting, 8k",
+    negative_prompt="blurry, low quality, cartoon",
+    num_inference_steps=30,
+    guidance_scale=7.5,   # CFG: adherence to prompt
+    width=1024, height=1024,
+).images[0]
+
+# ControlNet: control composition with Canny edges / depth / pose
+controlnet = ControlNetModel.from_pretrained(
+    "diffusers/controlnet-canny-sdxl-1.0",
+    torch_dtype=torch.float16
+)
+pipe_ctrl = StableDiffusionXLControlNetPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-xl-base-1.0",
+    controlnet=controlnet, torch_dtype=torch.float16,
+).to("cuda")
+
+# FLUX.1 — 2024 state of the art (open weights)
+from diffusers import FluxPipeline
+pipe = FluxPipeline.from_pretrained(
+    "black-forest-labs/FLUX.1-dev", torch_dtype=torch.bfloat16
+).to("cuda")</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#34d399;">Image LoRA Fine-Tuning + Video Gen</h4>
+      <div class="code-wrap">
+        <div class="code-label">Bash · DreamBooth LoRA in ~1 hr on 1×GPU</div>
+        <pre><code class="language-bash"># HuggingFace diffusers training script
+accelerate launch train_dreambooth_lora_sdxl.py \
+  --pretrained_model="stabilityai/stable-diffusion-xl-base-1.0" \
+  --instance_data_dir="my_images/" \
+  --instance_prompt="photo of sks dog" \
+  --output_dir="lora-weights/" \
+  --rank=16 --learning_rate=1e-4 \
+  --max_train_steps=1000 --mixed_precision="fp16"</code></pre>
+      </div>
+      <div class="code-wrap" style="margin-top:.75rem;">
+        <div class="code-label">Python · Load LoRA at inference</div>
+        <pre><code class="language-python">pipe.load_lora_weights("lora-weights/")
+pipe.fuse_lora(lora_scale=0.9)
+image = pipe("a sks dog on the moon").images[0]</code></pre>
+      </div>
+      <div class="callout tip" style="margin-top:.75rem;">
+        <div class="icon">🎬</div>
+        <p><strong>Video gen 2025:</strong> Sora (OpenAI), Wan2.1 (Alibaba, open), Kling, Runway Gen-3. All use Diffusion Transformers (DiT) with temporal attention — treating video as 3D latent volumes.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="speech">
+  <div class="section-tag" style="color:#fbbf24;">Audio · Speech AI</div>
+  <h2>Speech &amp; Audio AI — ASR, TTS, Audio Generation</h2>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h4 style="color:#fbbf24;">Whisper — Automatic Speech Recognition</h4>
+      <p>OpenAI's multilingual ASR. 99 languages, 680K hours training. Use <code>faster-whisper</code> (CTranslate2) for 4× speed on GPU.</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · faster-whisper with word timestamps</div>
+        <pre><code class="language-python">from faster_whisper import WhisperModel
+
+# tiny / base / small / medium / large-v3
+model = WhisperModel("large-v3", device="cuda",
+                      compute_type="float16")
+
+segments, info = model.transcribe(
+    "audio.mp3",
+    language="en",          # None = auto-detect
+    beam_size=5,
+    word_timestamps=True,   # word-level timing
+    vad_filter=True,        # voice activity detection
+)
+
+for seg in segments:
+    print(f"[{seg.start:.2f}s → {seg.end:.2f}s] {seg.text}")
+    for word in seg.words:
+        print(f"  {word.word!r}  @{word.start:.2f}s")</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#34d399;">TTS — Text to Speech Options</h4>
+      <div class="code-wrap">
+        <div class="code-label">Python · ElevenLabs (cloud) + Kokoro (local)</div>
+        <pre><code class="language-python"># ElevenLabs — best quality + voice cloning
+from elevenlabs import ElevenLabs
+client = ElevenLabs(api_key="xi-...")
+audio = client.generate(
+    text="Hello, synthesized voice",
+    voice="Rachel",
+    model="eleven_multilingual_v2",
+)
+
+# Kokoro — local, Apache 2.0, 82M params, ~0.5s RTF
+from kokoro import KPipeline
+pipeline = KPipeline(lang_code="a")   # 'a' = American English
+audio, sr = pipeline("Hello world!", voice="af_sarah")
+
+# OpenAI TTS — production, 6 voices
+from openai import OpenAI
+r = OpenAI().audio.speech.create(
+    model="tts-1-hd", voice="nova",
+    input="The quick brown fox"
+)
+r.stream_to_file("out.mp3")</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#818cf8;">MusicGen — Audio Generation</h4>
+      <div class="code-wrap">
+        <div class="code-label">Python · Meta AudioCraft MusicGen</div>
+        <pre><code class="language-python">from audiocraft.models import MusicGen
+from audiocraft.data.audio import audio_write
+
+model = MusicGen.get_pretrained("facebook/musicgen-stereo-large")
+model.set_generation_params(duration=8)   # seconds
+
+wav = model.generate([
+    "upbeat jazz piano with walking bass, 120 bpm",
+    "dark cinematic orchestral tension",
+])  # shape: [B, C, T]
+
+for i, wav_i in enumerate(wav):
+    audio_write(f"track_{i}", wav_i.cpu(),
+                model.sample_rate, strategy="loudness")</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#f472b6;">Real-Time Voice Agent Pipeline</h4>
+      <p>Microphone → VAD → ASR → LLM → TTS → speaker. Sub-500ms end-to-end latency.</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · LiveKit voice agent</div>
+        <pre><code class="language-python">from livekit.agents import AutoSubscribe, JobContext
+from livekit.agents.voice_assistant import VoiceAssistant
+from livekit.plugins import deepgram, openai, silero
+
+async def entrypoint(ctx: JobContext):
+    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+    assistant = VoiceAssistant(
+        vad=silero.VAD.load(),
+        stt=deepgram.STT(),
+        llm=openai.LLM(model="gpt-4o-mini"),
+        tts=openai.TTS(voice="nova"),
+    )
+    assistant.start(ctx.room)
+    await assistant.say("How can I help?")</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="rl">
+  <div class="section-tag" style="color:#fbbf24;">AI · Reinforcement Learning</div>
+  <h2>Reinforcement Learning — Q-Learning to GRPO</h2>
+  <p>An <strong>agent</strong> takes <strong>actions</strong> in an <strong>environment</strong>, receives <strong>rewards</strong>, and learns a <strong>policy</strong> maximizing cumulative reward. Powers game AI, robotics, and crucially — <strong>LLM alignment</strong> (RLHF, GRPO).</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 560 155" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="rlarr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#fbbf24"/></marker>
+        <marker id="rlarr2" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#6366f1"/></marker>
+      </defs>
+      <rect x="40" y="50" width="140" height="60" rx="10" fill="#1e1f2e" stroke="#6366f1" stroke-width="2"/>
+      <text x="110" y="77" text-anchor="middle" fill="#6366f1" font-size="13" font-weight="700">AGENT</text>
+      <text x="110" y="97" text-anchor="middle" fill="#a0aec0" font-size="10">Policy π(a|s)</text>
+      <path d="M 182 65 Q 265 15 348 65" fill="none" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#rlarr)"/>
+      <text x="265" y="18" text-anchor="middle" fill="#fbbf24" font-size="10">action aₜ</text>
+      <rect x="350" y="50" width="150" height="60" rx="10" fill="#1e1f2e" stroke="#34d399" stroke-width="2"/>
+      <text x="425" y="77" text-anchor="middle" fill="#34d399" font-size="13" font-weight="700">ENVIRONMENT</text>
+      <text x="425" y="95" text-anchor="middle" fill="#a0aec0" font-size="9">Game / Robot / LLM</text>
+      <path d="M 350 95 Q 265 145 182 95" fill="none" stroke="#6366f1" stroke-width="1.5" marker-end="url(#rlarr2)"/>
+      <text x="230" y="148" text-anchor="middle" fill="#6366f1" font-size="10">sₜ₊₁ + reward rₜ</text>
+      <rect x="205" y="58" width="130" height="44" rx="6" fill="rgba(99,102,241,.1)" stroke="rgba(99,102,241,.3)" stroke-width="1"/>
+      <text x="270" y="78" text-anchor="middle" fill="#818cf8" font-size="10" font-weight="600">Maximize Σ γᵗ rₜ</text>
+      <text x="270" y="95" text-anchor="middle" fill="#a0aec0" font-size="9">γ = discount factor</text>
+    </svg>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h4 style="color:#fbbf24;">PPO with stable-baselines3</h4>
+      <div class="code-wrap">
+        <div class="code-label">Python · PPO on CartPole</div>
+        <pre><code class="language-python">import gymnasium as gym
+from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import EvalCallback
+
+env = gym.make("CartPole-v1")
+model = PPO(
+    "MlpPolicy", env,
+    learning_rate=3e-4,
+    n_steps=2048,      # rollout length
+    batch_size=64,
+    n_epochs=10,       # gradient updates per rollout
+    gamma=0.99,        # discount
+    gae_lambda=0.95,   # advantage estimation
+    clip_range=0.2,    # PPO clip ε
+    verbose=1,
+)
+eval_cb = EvalCallback(env, best_model_save_path="./best/",
+                        eval_freq=5000)
+model.learn(total_timesteps=100_000, callback=eval_cb)
+
+obs, _ = env.reset()
+for _ in range(1000):
+    action, _ = model.predict(obs, deterministic=True)
+    obs, reward, done, _, _ = env.step(action)
+    if done: obs, _ = env.reset()</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#34d399;">GRPO — DeepSeek R1's Alignment Method</h4>
+      <p>Group Relative Policy Optimization. No critic/value model needed — compare outputs within a group, normalize scores. Cheaper and more stable than PPO for LLM reasoning.</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · GRPO with TRL</div>
+        <pre><code class="language-python">from trl import GRPOConfig, GRPOTrainer
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
+
+def reward_fn(completions, **kwargs) -> list[float]:
+    """Return a scalar reward per completion."""
+    return [1.0 if is_correct(c) else 0.0 for c in completions]
+
+trainer = GRPOTrainer(
+    model=model,
+    tokenizer=tokenizer,
+    config=GRPOConfig(
+        num_generations=8,   # group size G — compare these against each other
+        max_new_tokens=512,
+        learning_rate=1e-6,
+        kl_coef=0.01,        # KL penalty vs reference policy
+        output_dir="grpo-model",
+    ),
+    reward_funcs=[reward_fn],
+    train_dataset=dataset,
+)
+trainer.train()</code></pre>
+      </div>
+    </div>
+    <div class="card" style="grid-column:1/-1;">
+      <h4 style="color:#818cf8;">RL Algorithm Cheatsheet — When to Use What</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Algorithm</th><th>Type</th><th>Use Case</th><th>Pros</th></tr></thead>
+          <tbody>
+            <tr><td>Q-Learning / DQN</td><td>Value-based, off-policy</td><td>Discrete actions (Atari)</td><td>Sample efficient</td></tr>
+            <tr><td>SAC</td><td>Off-policy, entropy-reg</td><td>Continuous control (robotics)</td><td>Stable, sample efficient</td></tr>
+            <tr><td>PPO</td><td>On-policy, clipped</td><td>Game AI, RLHF</td><td>Reliable, widely supported</td></tr>
+            <tr><td>GRPO</td><td>Group comparison, no critic</td><td>LLM reasoning (DeepSeek R1)</td><td>No value model needed</td></tr>
+            <tr><td>DPO</td><td>Offline, direct preference</td><td>LLM fine-tuning alignment</td><td>No RL training loop at all</td></tr>
+            <tr><td>Constitutional AI</td><td>Self-critique + RL</td><td>LLM harmlessness (Anthropic)</td><td>Scalable without human labels</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="mcp">
+  <div class="section-tag" style="color:#fbbf24;">AI · Tool Calling &amp; MCP</div>
+  <h2>Model Context Protocol &amp; Tool Calling</h2>
+  <p><strong>Tool calling</strong> lets LLMs invoke external functions. <strong>MCP</strong> (Model Context Protocol, Anthropic 2024) is an open standard — like USB-C for AI tools. Any MCP server works with any MCP-compatible host (Claude Desktop, Cursor, VS Code).</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 660 145" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="mcparr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#fbbf24"/></marker></defs>
+      <rect x="10" y="48" width="120" height="50" rx="8" fill="#1e1f2e" stroke="#6366f1" stroke-width="2"/>
+      <text x="70" y="71" text-anchor="middle" fill="#6366f1" font-size="12" font-weight="700">LLM / Claude</text>
+      <text x="70" y="87" text-anchor="middle" fill="#a0aec0" font-size="9">Generates tool call JSON</text>
+      <line x1="132" y1="73" x2="158" y2="73" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#mcparr)"/>
+      <rect x="161" y="28" width="130" height="90" rx="8" fill="#1e1f2e" stroke="#fbbf24" stroke-width="2"/>
+      <text x="226" y="56" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="600">MCP Host</text>
+      <text x="226" y="72" text-anchor="middle" fill="#a0aec0" font-size="9">Claude Desktop</text>
+      <text x="226" y="87" text-anchor="middle" fill="#a0aec0" font-size="9">Cursor / VS Code</text>
+      <text x="226" y="102" text-anchor="middle" fill="#a0aec0" font-size="9">Your Application</text>
+      <line x1="293" y1="53" x2="319" y2="38" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#mcparr)"/>
+      <line x1="293" y1="73" x2="319" y2="73" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#mcparr)"/>
+      <line x1="293" y1="93" x2="319" y2="108" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#mcparr)"/>
+      <rect x="322" y="22" width="120" height="32" rx="6" fill="#1e1f2e" stroke="#34d399" stroke-width="1.5"/>
+      <text x="382" y="42" text-anchor="middle" fill="#34d399" font-size="10">🗄️ DB MCP Server</text>
+      <rect x="322" y="58" width="120" height="32" rx="6" fill="#1e1f2e" stroke="#34d399" stroke-width="1.5"/>
+      <text x="382" y="78" text-anchor="middle" fill="#34d399" font-size="10">📁 Files MCP Server</text>
+      <rect x="322" y="94" width="120" height="32" rx="6" fill="#1e1f2e" stroke="#34d399" stroke-width="1.5"/>
+      <text x="382" y="114" text-anchor="middle" fill="#34d399" font-size="10">🌐 Web MCP Server</text>
+      <line x1="444" y1="38" x2="468" y2="38" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#mcparr)"/>
+      <line x1="444" y1="74" x2="468" y2="74" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#mcparr)"/>
+      <line x1="444" y1="110" x2="468" y2="110" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#mcparr)"/>
+      <rect x="471" y="22" width="178" height="32" rx="6" fill="#1e1f2e" stroke="#818cf8" stroke-width="1.5"/>
+      <text x="560" y="42" text-anchor="middle" fill="#818cf8" font-size="10">PostgreSQL / MongoDB</text>
+      <rect x="471" y="58" width="178" height="32" rx="6" fill="#1e1f2e" stroke="#818cf8" stroke-width="1.5"/>
+      <text x="560" y="78" text-anchor="middle" fill="#818cf8" font-size="10">Local filesystem / S3</text>
+      <rect x="471" y="94" width="178" height="32" rx="6" fill="#1e1f2e" stroke="#818cf8" stroke-width="1.5"/>
+      <text x="560" y="114" text-anchor="middle" fill="#818cf8" font-size="10">Search APIs / Browser</text>
+    </svg>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h4 style="color:#fbbf24;">Claude Tool Use — Agentic Loop</h4>
+      <div class="code-wrap">
+        <div class="code-label">Python · Tool calling with Anthropic SDK</div>
+        <pre><code class="language-python">import anthropic, json
+
+client = anthropic.Anthropic()
+
+tools = [{
+    "name": "get_weather",
+    "description": "Get current weather for a location",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "location": {"type": "string"},
+            "unit": {"type": "string", "enum": ["celsius","fahrenheit"]},
+        },
+        "required": ["location"],
+    },
+}]
+
+def get_weather(location, unit="celsius"):
+    return {"temp": 22, "conditions": "partly cloudy"}
+
+messages = [{"role": "user", "content": "Weather in Tokyo?"}]
+
+while True:
+    resp = client.messages.create(
+        model="claude-opus-4-7", tools=tools,
+        messages=messages, max_tokens=1024,
+    )
+    if resp.stop_reason == "end_turn": break
+
+    tool_results = []
+    for block in resp.content:
+        if block.type == "tool_use":
+            result = get_weather(**block.input)
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": json.dumps(result),
+            })
+    messages += [{"role": "assistant", "content": resp.content},
+                 {"role": "user",      "content": tool_results}]
+
+print(next(b for b in resp.content if b.type == "text").text)</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#34d399;">Build an MCP Server (FastMCP)</h4>
+      <div class="code-wrap">
+        <div class="code-label">Python · Custom MCP server</div>
+        <pre><code class="language-python">from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("my-tools")
+
+@mcp.tool()
+def search_products(query: str, limit: int = 10) -> list[dict]:
+    """Search product catalog by keyword."""
+    return db.execute(
+        "SELECT * FROM products WHERE name ILIKE ?",
+        f"%{query}%", limit=limit
+    )
+
+@mcp.resource("orders://{order_id}")
+def get_order(order_id: str) -> str:
+    """Get order details by ID."""
+    return orders_db.get(order_id)
+
+@mcp.prompt()
+def analyze_order(order_id: str) -> str:
+    return f"Analyze order {order_id} for anomalies"
+
+if __name__ == "__main__":
+    mcp.run()   # stdio by default
+    # HTTP: mcp.run(transport="streamable-http", port=8000)</code></pre>
+      </div>
+      <div class="code-wrap" style="margin-top:.75rem;">
+        <div class="code-label">JSON · Add to Claude Desktop config</div>
+        <pre><code class="language-json">{
+  "mcpServers": {
+    "my-tools": {
+      "command": "python",
+      "args": ["/path/to/server.py"]
+    }
+  }
+}</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART VI : ROBOTICS
+     ═══════════════════════════════════════════════════════════ -->
+<div style="text-align:center;padding:4rem 1rem 3rem;border-top:2px solid #06b6d4;margin-top:4rem;">
+  <div style="font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:#06b6d4;margin-bottom:.75rem;">Part VI</div>
+  <h2 style="font-size:2rem;margin-bottom:.75rem;">Robotics &amp; Embodied AI</h2>
+  <p style="max-width:640px;margin:0 auto;color:var(--muted);">Foundation models leaving the cloud and entering the physical world — manipulation, locomotion, perception, and the sim-to-real gap.</p>
+</div>
+
+<section class="section" id="robotics">
+  <div class="section-tag" style="color:#06b6d4;">Robotics · Overview</div>
+  <h2>The Robotics AI Stack</h2>
+  <p>Modern robotics merges classical control with deep learning. The frontier: <strong>robot foundation models</strong> — large Vision-Language-Action (VLA) policies trained on diverse robot data that generalize across embodiments.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 660 195" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="robarr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#06b6d4"/></marker></defs>
+      <rect x="10" y="30" width="150" height="135" rx="10" fill="#1e1f2e" stroke="#06b6d4" stroke-width="1.5"/>
+      <text x="85" y="58" text-anchor="middle" fill="#06b6d4" font-size="12" font-weight="700">PERCEPTION</text>
+      <text x="85" y="78" text-anchor="middle" fill="#a0aec0" font-size="9">RGB + depth cameras</text>
+      <text x="85" y="94" text-anchor="middle" fill="#a0aec0" font-size="9">LiDAR / tactile</text>
+      <text x="85" y="110" text-anchor="middle" fill="#a0aec0" font-size="9">SLAM / point clouds</text>
+      <text x="85" y="126" text-anchor="middle" fill="#a0aec0" font-size="9">Object detection</text>
+      <text x="85" y="142" text-anchor="middle" fill="#a0aec0" font-size="9">6-DOF pose estimation</text>
+      <line x1="162" y1="97" x2="192" y2="97" stroke="#06b6d4" stroke-width="1.5" marker-end="url(#robarr)"/>
+      <rect x="195" y="15" width="272" height="165" rx="10" fill="#1e1f2e" stroke="#fbbf24" stroke-width="2"/>
+      <text x="331" y="48" text-anchor="middle" fill="#fbbf24" font-size="13" font-weight="700">ROBOT POLICY (Brain)</text>
+      <text x="331" y="68" text-anchor="middle" fill="#a0aec0" font-size="10">Vision-Language-Action Model</text>
+      <text x="331" y="88" text-anchor="middle" fill="#34d399" font-size="10">RT-2 / π0 / OpenVLA / Helix</text>
+      <text x="331" y="110" text-anchor="middle" fill="#a0aec0" font-size="9">Language + vision → tokenized joint actions</text>
+      <text x="331" y="128" text-anchor="middle" fill="#a0aec0" font-size="9">Diffusion Policy / ACT trajectory heads</text>
+      <text x="331" y="146" text-anchor="middle" fill="#a0aec0" font-size="9">Trained in Isaac Sim → deployed real robot</text>
+      <text x="331" y="164" text-anchor="middle" fill="#a0aec0" font-size="9">Domain randomization bridges sim-to-real gap</text>
+      <line x1="469" y1="97" x2="499" y2="97" stroke="#06b6d4" stroke-width="1.5" marker-end="url(#robarr)"/>
+      <rect x="502" y="30" width="148" height="135" rx="10" fill="#1e1f2e" stroke="#34d399" stroke-width="1.5"/>
+      <text x="576" y="58" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">CONTROL</text>
+      <text x="576" y="78" text-anchor="middle" fill="#a0aec0" font-size="9">Joint torques / positions</text>
+      <text x="576" y="94" text-anchor="middle" fill="#a0aec0" font-size="9">PID / MPC control</text>
+      <text x="576" y="110" text-anchor="middle" fill="#a0aec0" font-size="9">Force/impedance ctrl</text>
+      <text x="576" y="126" text-anchor="middle" fill="#a0aec0" font-size="9">ROS2 / MoveIt2</text>
+      <text x="576" y="142" text-anchor="middle" fill="#a0aec0" font-size="9">Safety constraints</text>
+    </svg>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h4 style="color:#06b6d4;">Robot Foundation Models</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Model</th><th>By</th><th>Key Innovation</th></tr></thead>
+          <tbody>
+            <tr><td>RT-2</td><td>Google DeepMind</td><td>PaLI-X VLM → action tokens. Web knowledge transfers to robots</td></tr>
+            <tr><td>π0 (pi-zero)</td><td>Physical Intelligence</td><td>VLA + diffusion action head. SOTA dexterous manipulation</td></tr>
+            <tr><td>OpenVLA</td><td>Stanford/Berkeley</td><td>7B open-source VLA, fine-tunable on your robot data</td></tr>
+            <tr><td>Helix</td><td>Figure AI</td><td>Real-time dual-arm VLA on Figure 02 humanoid</td></tr>
+            <tr><td>UniSim</td><td>Google</td><td>World model for robot simulation and planning</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#fbbf24;">Humanoid Robot Landscape (2025)</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Robot</th><th>Company</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Optimus Gen 2</td><td>Tesla</td><td>Production-line testing, Gigafactory</td></tr>
+            <tr><td>Figure 02</td><td>Figure AI</td><td>Commercial, BMW partnership</td></tr>
+            <tr><td>NEO Gamma</td><td>1X Technologies</td><td>Home assistant, open-data strategy</td></tr>
+            <tr><td>Atlas</td><td>Boston Dynamics</td><td>Electric, Hyundai integration</td></tr>
+            <tr><td>GR-2</td><td>Fourier Intelligence</td><td>Mass production, rehab + logistics</td></tr>
+            <tr><td>Unitree G1</td><td>Unitree</td><td>$16K — most affordable humanoid</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="ros2">
+  <div class="section-tag" style="color:#06b6d4;">Robotics · ROS2 &amp; Simulation</div>
+  <h2>ROS2 — Robot Operating System 2</h2>
+  <p>Industry-standard middleware. DDS-based pub/sub, real-time capable, cross-platform. Used in autonomous vehicles, surgical robots, warehouse automation.</p>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h4 style="color:#06b6d4;">ROS2 Core Concepts — Node, Topic, Service</h4>
+      <div class="code-wrap">
+        <div class="code-label">Python · rclpy publisher + subscriber</div>
+        <pre><code class="language-python">import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import Twist
+
+class CameraNode(Node):
+    def __init__(self):
+        super().__init__("camera_node")
+        # Publisher: send camera frames at 30fps
+        self.pub = self.create_publisher(Image, "/camera/rgb", 10)
+        self.timer = self.create_timer(0.033, self.publish_frame)
+        # Subscriber: receive navigation commands
+        self.sub = self.create_subscription(
+            Twist, "/cmd_vel", self.on_cmd_vel, 10)
+
+    def publish_frame(self):
+        msg = Image()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.encoding = "rgb8"
+        # msg.data = capture_camera_bytes()
+        self.pub.publish(msg)
+
+    def on_cmd_vel(self, msg: Twist):
+        self.get_logger().info(
+            f"Moving: linear={msg.linear.x:.2f} "
+            f"angular={msg.angular.z:.2f}"
+        )
+
+rclpy.init()
+node = CameraNode()
+rclpy.spin(node)   # event-driven loop</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#34d399;">MuJoCo Simulation + Domain Randomization</h4>
+      <div class="code-wrap">
+        <div class="code-label">Python · Custom robot env + sim-to-real</div>
+        <pre><code class="language-python">import gymnasium as gym
+import numpy as np
+
+# MuJoCo built-in robots
+env = gym.make("HalfCheetah-v4", render_mode="rgb_array")
+
+# Domain randomization — key for sim-to-real transfer
+def randomize_physics(env):
+    """Randomize friction/mass/actuator noise each episode.
+    The policy must learn to handle all variations → transfers to real."""
+    model = env.unwrapped.model
+    # Randomize friction (±50%)
+    model.geom_friction[:] = 0.8 * np.random.uniform(0.5, 2.0,
+                                size=model.geom_friction.shape)
+    # Randomize body mass (±20%)
+    model.body_mass[1:] *= np.random.uniform(0.8, 1.2,
+                             size=model.body_mass[1:].shape)
+
+# NVIDIA Isaac Lab: 4096 parallel envs on A100
+# isaac_env = gym.make("Isaac-Velocity-Flat-Anymal-C-v0")
+# Runs 100× faster than MuJoCo, photorealistic</code></pre>
+      </div>
+      <div class="callout tip" style="margin-top:.75rem;">
+        <div class="icon">🎮</div>
+        <p><strong>Sim stack in 2025:</strong> <strong>NVIDIA Isaac Lab</strong> for GPU-accelerated RL (4096 parallel envs). <strong>MuJoCo</strong> for manipulation research. <strong>PyBullet</strong> for quick prototypes. <strong>Genesis</strong> (2024) for generative world models.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="robot-learning">
+  <div class="section-tag" style="color:#06b6d4;">Robotics · Learning from Demo</div>
+  <h2>Robot Learning — Imitation to Diffusion Policy</h2>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h4 style="color:#06b6d4;">ACT — Action Chunking Transformer</h4>
+      <p>Stanford's ALOHA system. Predict <em>k</em> future actions as a chunk (not one-at-a-time). Eliminates compounding errors in dexterous manipulation.</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · ACT with LeRobot</div>
+        <pre><code class="language-python">"""
+ACT key ideas:
+- CVAE encoder: encode action sequence → style latent z
+- Transformer: obs + z → predict chunk of k=100 actions
+- Temporal ensembling: average overlapping chunks
+- Trained on teleoperation via ALOHA bimanual hardware
+- Input: 4 camera views + joint positions
+- Output: 100 joint position targets at 50 Hz = 2-second plan
+"""
+from lerobot.policies.act import ACTPolicy
+
+# Pre-trained on HuggingFace Hub
+policy = ACTPolicy.from_pretrained(
+    "lerobot/act_aloha_sim_transfer_cube_human"
+)
+
+# Inference
+obs = {
+    "observation.images.top": img_tensor,        # [C,H,W]
+    "observation.state": joint_positions_tensor, # [14]
+}
+action_chunk = policy.select_action(obs)   # [100, 14]</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#fbbf24;">Diffusion Policy</h4>
+      <p>Model robot actions as a denoising diffusion process. Handles multimodal action distributions naturally — a robot can pick up from left OR right without mode averaging.</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · Diffusion Policy with LeRobot</div>
+        <pre><code class="language-python">"""
+Diffusion Policy (Chi et al., 2023):
+- Treat action trajectory like an image — learn to denoise it
+- DDPM / DDIM scheduler (16 denoising steps at inference)
+- U-Net or Transformer denoises, conditioned on observation
+- Naturally multimodal: represents all valid grasp modes
+- No mode averaging (behavior cloning averages → bad actions)
+"""
+from lerobot.policies.diffusion import DiffusionPolicy
+
+policy = DiffusionPolicy.from_pretrained("lerobot/diffusion_pusht")
+
+obs = {
+    "observation.image":  img_tensor,
+    "observation.state":  state_tensor,
+}
+# Starts from Gaussian noise → denoises → action chunk
+action_chunk = policy.select_action(obs)   # [16, 2]</code></pre>
+      </div>
+      <div class="callout tip" style="margin-top:.75rem;">
+        <div class="icon">🤗</div>
+        <p><strong>Start here:</strong> <strong>LeRobot</strong> (HuggingFace) has 100+ teleoperation datasets, pre-trained ACT/DiffusionPolicy, and one-command training for SO-100 and ALOHA robots.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PART VII : QUANTUM COMPUTING
+     ═══════════════════════════════════════════════════════════ -->
+<div style="text-align:center;padding:4rem 1rem 3rem;border-top:2px solid #a78bfa;margin-top:4rem;">
+  <div style="font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:#a78bfa;margin-bottom:.75rem;">Part VII</div>
+  <h2 style="font-size:2rem;margin-bottom:.75rem;">Quantum Computing</h2>
+  <p style="max-width:640px;margin:0 auto;color:var(--muted);">Qubits, superposition, entanglement — and what quantum actually means for AI. From Qiskit circuits to QAOA optimization and the honest timeline for quantum advantage.</p>
+</div>
+
+<section class="section" id="quantum">
+  <div class="section-tag" style="color:#a78bfa;">Quantum · Fundamentals</div>
+  <h2>Quantum Fundamentals — Qubits, Gates, Circuits</h2>
+  <p>Classical bits are 0 or 1. A <strong>qubit</strong> exists in superposition: α|0⟩ + β|1⟩ where |α|² + |β|² = 1. <strong>Entanglement</strong> links qubits non-locally. <strong>Interference</strong> cancels wrong answer paths and amplifies correct ones — that's the quantum speedup.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 660 165" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="quantarr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#a78bfa"/></marker></defs>
+      <!-- q0 wire -->
+      <text x="15" y="65" fill="#a0aec0" font-size="11">q₀: |0⟩</text>
+      <line x1="68" y1="60" x2="100" y2="60" stroke="#a0aec0" stroke-width="1.5"/>
+      <rect x="102" y="46" width="34" height="28" rx="4" fill="#1e1f2e" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="119" y="65" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="700">H</text>
+      <line x1="138" y1="60" x2="176" y2="60" stroke="#a0aec0" stroke-width="1.5"/>
+      <circle cx="188" cy="60" r="7" fill="#a78bfa"/>
+      <line x1="196" y1="60" x2="234" y2="60" stroke="#a0aec0" stroke-width="1.5"/>
+      <rect x="236" y="46" width="46" height="28" rx="4" fill="#1e1f2e" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="259" y="65" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="600">Rz(θ)</text>
+      <line x1="284" y1="60" x2="318" y2="60" stroke="#a0aec0" stroke-width="1.5"/>
+      <rect x="320" y="46" width="34" height="28" rx="4" fill="#1e1f2e" stroke="#34d399" stroke-width="1.5"/>
+      <text x="337" y="65" text-anchor="middle" fill="#34d399" font-size="11">M</text>
+      <line x1="356" y1="60" x2="390" y2="60" stroke="#a0aec0" stroke-width="1.5" stroke-dasharray="4"/>
+      <text x="400" y="65" fill="#a0aec0" font-size="10">→ 0 or 1</text>
+      <!-- q1 wire -->
+      <text x="15" y="115" fill="#a0aec0" font-size="11">q₁: |0⟩</text>
+      <line x1="68" y1="110" x2="176" y2="110" stroke="#a0aec0" stroke-width="1.5"/>
+      <circle cx="188" cy="110" r="9" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
+      <line x1="188" y1="103" x2="188" y2="67" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="188" y="115" text-anchor="middle" fill="#a78bfa" font-size="14">⊕</text>
+      <line x1="197" y1="110" x2="318" y2="110" stroke="#a0aec0" stroke-width="1.5"/>
+      <rect x="320" y="96" width="34" height="28" rx="4" fill="#1e1f2e" stroke="#34d399" stroke-width="1.5"/>
+      <text x="337" y="115" text-anchor="middle" fill="#34d399" font-size="11">M</text>
+      <line x1="356" y1="110" x2="390" y2="110" stroke="#a0aec0" stroke-width="1.5" stroke-dasharray="4"/>
+      <text x="400" y="115" fill="#a0aec0" font-size="10">→ 0 or 1</text>
+      <!-- Gate labels -->
+      <text x="119" y="36" text-anchor="middle" fill="#a78bfa" font-size="9">Hadamard</text>
+      <text x="188" y="36" text-anchor="middle" fill="#a78bfa" font-size="9">CNOT</text>
+      <text x="259" y="36" text-anchor="middle" fill="#fbbf24" font-size="9">Rotation</text>
+      <text x="337" y="36" text-anchor="middle" fill="#34d399" font-size="9">Measure</text>
+      <!-- Bell state result -->
+      <rect x="470" y="50" width="178" height="75" rx="8" fill="#1e1f2e" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="559" y="76" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="600">Bell State Created</text>
+      <text x="559" y="96" text-anchor="middle" fill="#e2e8f0" font-size="12">(|00⟩ + |11⟩) / √2</text>
+      <text x="559" y="114" text-anchor="middle" fill="#a0aec0" font-size="9">Entangled: measure q₀=0 → q₁=0</text>
+      <text x="559" y="130" text-anchor="middle" fill="#a0aec0" font-size="9">Never see |01⟩ or |10⟩</text>
+    </svg>
+  </div>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h4 style="color:#a78bfa;">Essential Quantum Gates</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Gate</th><th>Effect</th></tr></thead>
+          <tbody>
+            <tr><td><strong>H</strong> (Hadamard)</td><td>|0⟩→(|0⟩+|1⟩)/√2 — creates superposition</td></tr>
+            <tr><td><strong>X</strong> (Pauli-X)</td><td>|0⟩↔|1⟩ — quantum NOT gate</td></tr>
+            <tr><td><strong>Z</strong> (Pauli-Z)</td><td>|1⟩→−|1⟩ — phase flip</td></tr>
+            <tr><td><strong>CNOT</strong></td><td>Flip target if control=|1⟩ — creates entanglement</td></tr>
+            <tr><td><strong>T gate</strong></td><td>π/8 phase rotation — needed for universal QC</td></tr>
+            <tr><td><strong>Rx/Ry/Rz(θ)</strong></td><td>Arbitrary Bloch sphere rotation — parameterized circuits</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#fbbf24;">Qiskit — Hello Quantum World</h4>
+      <div class="code-wrap">
+        <div class="code-label">Python · Bell State + IBM hardware</div>
+        <pre><code class="language-python">from qiskit import QuantumCircuit
+from qiskit.primitives import StatevectorSampler
+
+# Build Bell State: (|00⟩ + |11⟩) / √2
+qc = QuantumCircuit(2, 2)
+qc.h(0)           # superposition on q0
+qc.cx(0, 1)       # CNOT: entangle q0 → q1
+qc.measure([0, 1], [0, 1])
+
+# Simulate locally
+sampler = StatevectorSampler()
+counts = sampler.run([qc], shots=1024).result()[0]\
+                .data.c.get_counts()
+# {'00': ~512, '11': ~512} — never '01' or '10'
+
+print(qc.draw("text"))
+
+# Run on real IBM quantum hardware (free tier available)
+from qiskit_ibm_runtime import QiskitRuntimeService, SamplerV2
+service = QiskitRuntimeService(
+    channel="ibm_quantum", token="YOUR_IBM_TOKEN"
+)
+backend = service.least_busy(operational=True, simulator=False)
+job = SamplerV2(mode=backend).run([qc], shots=1024)
+print(job.result()[0].data.c.get_counts())</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="quantum-algos">
+  <div class="section-tag" style="color:#a78bfa;">Quantum · Algorithms</div>
+  <h2>Quantum Algorithms — Grover, Shor, VQE, QAOA</h2>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h4 style="color:#a78bfa;">Grover's Algorithm — Quadratic Search Speedup</h4>
+      <p>Classical unstructured search: O(N). Grover's: <strong>O(√N)</strong>. For 1M items: 1M → 1,000 steps. Works via amplitude amplification — repeatedly boosting the marked state's probability.</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · Grover's search with Qiskit</div>
+        <pre><code class="language-python">from qiskit.circuit.library import PhaseOracle
+from qiskit.algorithms import Grover, AmplificationProblem
+from qiskit.primitives import Sampler
+
+# Oracle marks the target state "11" (boolean: x0 AND x1)
+oracle = PhaseOracle("x0 & x1")
+
+problem = AmplificationProblem(
+    oracle,
+    is_good_state=["11"],  # what we're searching for
+)
+
+grover = Grover(sampler=Sampler())
+result = grover.amplify(problem)
+
+print(result.top_measurement)    # "11" with high probability
+print(result.max_probability)    # close to 1.0
+
+# Optimal iterations ≈ π/4 × √(N/M)
+# N = search space size, M = number of solutions
+# 2 qubits → N=4, M=1 → 1 iteration optimal</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#fbbf24;">Shor's Algorithm — RSA Threat</h4>
+      <p>Factors N-bit integers in <strong>polynomial time O((log N)³)</strong>. Breaks RSA, DSA, ECDSA. Requires millions of physical qubits (fault-tolerant). ~10-20 years away.</p>
+      <div class="code-wrap">
+        <div class="code-label">Concept · Shor's structure + post-quantum</div>
+        <pre><code class="language-python">"""
+Shor's algorithm outline:
+1. Choose random a < N
+2. Find period r of f(x) = aˣ mod N
+   — Uses Quantum Phase Estimation (QPE) + QFT
+   — This is the O(log³N) quantum speedup step
+3. If r even and aʳ/² ≢ -1 (mod N):
+   gcd(aʳ/²±1, N) gives a factor
+
+Why it breaks RSA:
+- RSA-2048 relies on factoring being classically hard
+- Classical best: O(exp(n^1/3 log^2/3 n)) — sub-exponential
+- Shor's: O(n³) — polynomial, exponential speedup
+- Also breaks ECDSA (elliptic curve) and DSA
+
+Post-quantum crypto (safe from Shor's) — NIST 2024:
+  CRYSTALS-Kyber  → key encapsulation ✅ standardized
+  CRYSTALS-Dilithium → digital signatures ✅ standardized
+  SPHINCS+        → hash-based signatures ✅ standardized
+
+AES-256 is quantum-safe (Grover halves key strength → 128 bits)
+"""</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#34d399;">VQE — Quantum Chemistry (Near-Term)</h4>
+      <p>Variational Quantum Eigensolver finds ground-state energy of molecules. Hybrid classical-quantum. First real-world quantum advantage domain: drug discovery, materials science.</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · VQE for H₂ molecule</div>
+        <pre><code class="language-python">from qiskit_nature.second_q.drivers import PySCFDriver
+from qiskit_nature.second_q.mappers import JordanWignerMapper
+from qiskit_algorithms import VQE
+from qiskit_algorithms.optimizers import SLSQP
+from qiskit.circuit.library import TwoLocal
+from qiskit.primitives import Estimator
+
+# Hydrogen molecule at equilibrium bond length
+driver = PySCFDriver(atom="H .0 .0 .0; H .0 .0 0.735",
+                     basis="sto3g")
+problem = driver.run()
+
+# Map fermionic Hamiltonian → qubit operators
+qubit_op = JordanWignerMapper().map(problem.second_q_ops()[0])
+
+# Parameterized ansatz: trial wave function
+ansatz = TwoLocal(rotation_blocks="ry",
+                  entanglement_blocks="cz", reps=2)
+
+# Hybrid loop: quantum circuit → classical optimizer → repeat
+result = VQE(Estimator(), ansatz, SLSQP())\
+             .compute_minimum_eigenvalue(qubit_op)
+print(f"H₂ ground state: {result.eigenvalue:.6f} Hartree")</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#f472b6;">QAOA — Combinatorial Optimization</h4>
+      <p>Quantum Approximate Optimization Algorithm. Targets NP-hard problems (MaxCut, TSP, scheduling). Works on today's NISQ hardware.</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · QAOA for MaxCut</div>
+        <pre><code class="language-python">from qiskit_optimization.problems import QuadraticProgram
+from qiskit_optimization.algorithms import MinimumEigenOptimizer
+from qiskit_algorithms import QAOA
+from qiskit.primitives import Sampler
+
+# MaxCut: partition graph to maximize edges crossing the cut
+qp = QuadraticProgram()
+qp.binary_var_list(4)   # 4 nodes
+# Objective: minimize -1*(sum of cut edges)
+qp.minimize(quadratic={(0,1):-1, (1,2):-1, (2,3):-1, (0,2):-1})
+
+# QAOA with p=2 layers (more layers → better approximation)
+qaoa = QAOA(sampler=Sampler(), reps=2)
+result = MinimumEigenOptimizer(qaoa).solve(qp)
+
+print(result.x)      # [0,1,0,1] — partition assignment
+print(result.fval)   # approximation ratio vs classical opt</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="quantum-ml">
+  <div class="section-tag" style="color:#a78bfa;">Quantum · Machine Learning</div>
+  <h2>Quantum Machine Learning — Honest Assessment</h2>
+
+  <div class="card-grid cols-2">
+    <div class="card">
+      <h4 style="color:#a78bfa;">Quantum Neural Networks with PennyLane</h4>
+      <p>Parameterized quantum circuits as differentiable layers. Backprop via parameter-shift rule. Integrates with PyTorch or JAX.</p>
+      <div class="code-wrap">
+        <div class="code-label">Python · QNN hybrid model in PyTorch</div>
+        <pre><code class="language-python">import pennylane as qml
+import torch
+
+n_qubits = 4
+dev = qml.device("default.qubit", wires=n_qubits)
+
+@qml.qnode(dev, interface="torch")
+def quantum_circuit(inputs, weights):
+    # Encode classical data into quantum state
+    qml.AngleEmbedding(inputs, wires=range(n_qubits))
+    # Parameterized entangling layers
+    qml.BasicEntanglerLayers(weights, wires=range(n_qubits))
+    # Measure: return expectation values
+    return [qml.expval(qml.PauliZ(i)) for i in range(n_qubits)]
+
+# Wrap as a PyTorch layer
+qlayer = qml.qnn.TorchLayer(
+    quantum_circuit,
+    weight_shapes={"weights": (3, n_qubits)}
+)
+
+# Hybrid classical → quantum → classical model
+model = torch.nn.Sequential(
+    torch.nn.Linear(8, n_qubits),  # classical encoder
+    qlayer,                         # quantum processing
+    torch.nn.Linear(n_qubits, 2),  # classical decoder
+)
+# Train with standard PyTorch optimizer + backprop
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)</code></pre>
+      </div>
+    </div>
+    <div class="card">
+      <h4 style="color:#fbbf24;">Quantum ML — Timeline &amp; Honest Take</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Technique</th><th>Status</th><th>When Matters</th></tr></thead>
+          <tbody>
+            <tr><td>VQE (chemistry)</td><td>Near-term real use</td><td>&lt;5 yr: drug discovery</td></tr>
+            <tr><td>QAOA (optimization)</td><td>NISQ-era, niche</td><td>&lt;5 yr: scheduling</td></tr>
+            <tr><td>Quantum kernels/SVM</td><td>Research scale</td><td>Advantage unproven on real data</td></tr>
+            <tr><td>QNN / PQC</td><td>Research</td><td>Barren plateau problem unsolved</td></tr>
+            <tr><td>Shor's (RSA break)</td><td>Requires fault-tolerant</td><td>10-20 years</td></tr>
+            <tr><td>Grover's (ML speedup)</td><td>Theoretical</td><td>Needs fault-tolerant QC</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap" style="margin-top:1rem;">
+        <table>
+          <thead><tr><th>Hardware</th><th>Qubits (2025)</th><th>SDK</th></tr></thead>
+          <tbody>
+            <tr><td>IBM Quantum</td><td>1000+ (Heron r2)</td><td>Qiskit</td></tr>
+            <tr><td>Google Quantum AI</td><td>105 (Willow)</td><td>Cirq</td></tr>
+            <tr><td>Quantinuum</td><td>56 (H2-1)</td><td>pytket</td></tr>
+            <tr><td>IonQ</td><td>36 (Forte)</td><td>ionq SDK</td></tr>
+            <tr><td>PsiQuantum</td><td>~1M by 2027?</td><td>Photonic</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warning" style="margin-top:1.5rem;">
+    <div class="icon">⚛️</div>
+    <p><strong>Honest quantum ML take for 2025:</strong> Classical ML still beats quantum ML on every real-world benchmark. The "quantum advantage" for ML is unproven. <strong>But</strong> — VQE for molecular simulation and QAOA for small combinatorial problems show real promise. Learn Qiskit now. When fault-tolerant quantum arrives (~2030-2035), the engineers who understand both ML and quantum algorithms will design the next generation of models. That intersection is tiny and extremely valuable.</p>
+  </div>
+
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2rem;margin-top:2.5rem;">
+    <h3 style="margin-bottom:1.25rem;">🏆 Complete Learning Map — All 7 Parts</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Domain</th><th>Foundation</th><th>Production</th><th>Frontier</th></tr></thead>
+        <tbody>
+          <tr><td><strong>RAG</strong></td><td>Basic pipeline, chunking, embeddings</td><td>HyDE, GraphRAG, RAGAS eval</td><td>Agentic RAG, multimodal, self-RAG</td></tr>
+          <tr><td><strong>LLMs</strong></td><td>Transformer internals, attention</td><td>LoRA fine-tuning, vLLM serving</td><td>DPO, GRPO, test-time compute</td></tr>
+          <tr><td><strong>Agents</strong></td><td>ReAct, tool calling, MCP</td><td>LangGraph multi-agent, HITL</td><td>Multi-agent, sub-graphs, CrewAI</td></tr>
+          <tr><td><strong>Computer Vision</strong></td><td>CNNs, ViT, CLIP</td><td>YOLOv8, SAM, diffusers</td><td>Video gen (DiT), multimodal VLMs</td></tr>
+          <tr><td><strong>Speech/Audio</strong></td><td>Whisper ASR, TTS basics</td><td>Real-time voice agent pipelines</td><td>GPT-4o audio, MusicGen</td></tr>
+          <tr><td><strong>RL</strong></td><td>MDP, Q-learning, PPO</td><td>RLHF pipeline, DPO</td><td>GRPO, Constitutional AI</td></tr>
+          <tr><td><strong>Cloud / MLOps</strong></td><td>AWS S3/EC2/Lambda</td><td>ECS, W&amp;B, MLflow</td><td>GPU clusters, feature stores</td></tr>
+          <tr><td><strong>Robotics</strong></td><td>ROS2 basics, MuJoCo sim</td><td>ACT, Diffusion Policy, LeRobot</td><td>VLA models (RT-2, π0), humanoids</td></tr>
+          <tr><td><strong>Quantum</strong></td><td>Qubits, gates, Qiskit</td><td>VQE, QAOA, Grover's</td><td>QNN (PennyLane), fault-tolerant</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>
