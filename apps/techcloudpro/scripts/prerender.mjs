@@ -18,6 +18,7 @@ const routes = [
   '/about',
   '/leadership',
   '/products',
+  '/launchos',
   '/partners',
   '/careers',
   '/contact',

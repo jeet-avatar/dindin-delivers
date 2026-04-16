@@ -21,6 +21,7 @@ const Blog = lazy(() => import('./pages/Blog'))
 const BlogPost = lazy(() => import('./pages/BlogPost'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const TermsOfService = lazy(() => import('./pages/TermsOfService'))
+const LaunchOS = lazy(() => import('./pages/LaunchOS'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function Loading() {
@@ -49,6 +50,7 @@ export default function App() {
                 <Route path="/about" element={<About />} />
                 <Route path="/leadership" element={<Leadership />} />
                 <Route path="/products" element={<Products />} />
+                <Route path="/launchos" element={<LaunchOS />} />
                 <Route path="/partners" element={<Partners />} />
                 <Route path="/careers" element={<Careers />} />
                 <Route path="/contact" element={<Contact />} />
