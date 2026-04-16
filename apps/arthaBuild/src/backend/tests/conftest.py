@@ -29,7 +29,7 @@ os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from database import Base, get_db
-from models import User, PasswordResetToken, Team, ChatSession, ChatMessage, TeamInvite, EmailVerificationToken  # noqa: F401 — imported to register with Base.metadata so test DB creates all tables
+from models import User, PasswordResetToken, Team, ChatSession, ChatMessage, TeamInvite, EmailVerificationToken, AnalyticsEvent  # noqa: F401 — imported to register with Base.metadata so test DB creates all tables
 from auth_utils import hash_password
 from sqlalchemy import event
 

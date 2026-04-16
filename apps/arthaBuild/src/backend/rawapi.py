@@ -281,6 +281,10 @@ app.include_router(apikeys_router)
 from routers.knowledge import router as knowledge_router
 app.include_router(knowledge_router)
 
+# Phase 19: Analytics (public collect endpoint + admin summary)
+from routers.analytics import router as analytics_router
+app.include_router(analytics_router)
+
 # Phase 16: /api/v1/ prefix alias for chats router — same handler functions, versioned prefix.
 # The chats router already has prefix="/api/chats". We create a second APIRouter with
 # prefix="/api/v1/chats" that re-registers the identical endpoint callables so both

@@ -180,3 +180,26 @@ class WebhookEndpoint(Base):
     secret = Column(String, nullable=False)     # HMAC-SHA256 signing secret
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AnalyticsEvent(Base):
+    """Phase 19: Privacy-respecting analytics event (pageview, update, or custom event).
+    No PII stored — session_id is a client-generated anonymous ID.
+    """
+    __tablename__ = "analytics_events"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    type = Column(String, nullable=False)           # "pageview" | "update" | "event"
+    session_id = Column(String, nullable=False)     # anonymous session identifier
+    page = Column(String, nullable=False)           # URL path
+    referrer = Column(String, nullable=True)
+    scroll_depth = Column(Integer, default=0)
+    time_on_page = Column(Integer, default=0)
+    utm_source = Column(String, nullable=True)
+    utm_medium = Column(String, nullable=True)
+    utm_campaign = Column(String, nullable=True)
+    utm_term = Column(String, nullable=True)
+    utm_content = Column(String, nullable=True)
+    event_type = Column(String, nullable=True)      # for type="event": click, form_submit, etc.
+    element = Column(String, nullable=True)         # CSS selector or element name
+    value = Column(String, nullable=True)           # arbitrary string value for the event
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

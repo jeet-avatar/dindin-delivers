@@ -40,6 +40,7 @@ _SKIP_PATHS = {
     "/api/user/verify-email",
     "/api/invite/accept",
     "/api/auth/refresh",
+    "/api/analytics/collect",
     "/docs",
     "/openapi.json",
 }
