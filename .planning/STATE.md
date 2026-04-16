@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 20 (CDJ-3000 Functional Controls) -- COMPLETE
 Plan: 5 of 5 complete in current phase
 Status: Phase 20 complete: All CDJ-3000 functional controls wired (hot cues, loops, beat jump, pitch, sync, grid nudge).
-Last activity: 2026-04-15 - Completed quick task 289: add Google Reviews section to VishMed website showing real reviews for Dr. Pillay from Google
+Last activity: 2026-04-16 - Completed quick task 290: add blog section to VishMed with 40 SEO-optimized posts across 6 categories with naturally spread historical dates
 
 Progress: [########################################] 100% (5/5 plans in phase 20)
 
@@ -431,6 +431,7 @@ None
 | 267 | add upgraded avatars and camera settings panel to Zietra Meet | 2026-04-04 | 5e60ba45 | [267-add-upgraded-avatars-and-camera-settings](./quick/267-add-upgraded-avatars-and-camera-settings/) |
 | 268 | trim Alex and Sarah system prompts in MongoDB — Alex 20K→1.2K, Sarah 40K→1.2K — trial chat 8-9s → 4-5s | 2026-04-05 | db-only | [268-trim-alex-and-sarah-system-prompts-in-mo](./quick/268-trim-alex-and-sarah-system-prompts-in-mo/) |
 | 289 | add Google Reviews section to VishMed website showing real reviews for Dr. Pillay from Google | 2026-04-15 | 13318e84 | [289-add-google-reviews-section-to-vishmed-we](./quick/289-add-google-reviews-section-to-vishmed-we/) |
+| 290 | add blog section to VishMed with 40 SEO-optimized posts across 6 categories with naturally spread historical dates | 2026-04-16 | 0d4aca9c | [290-add-blog-section-to-vishmed-with-40-seo-](./quick/290-add-blog-section-to-vishmed-with-40-seo-/) |
 ## Session Continuity
 
 Last session: 2026-04-15
