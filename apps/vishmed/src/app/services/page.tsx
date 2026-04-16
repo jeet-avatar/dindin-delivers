@@ -159,7 +159,7 @@ const banners = [
 
 function FullWidthBanner({ banner }: { banner: typeof banners[0] }) {
   return (
-    <section id={banner.id} className="relative h-80 lg:h-96 flex items-center overflow-hidden">
+    <section id={banner.id} className="relative h-[420px] lg:h-[500px] flex items-center overflow-hidden">
       {/* Background image */}
       <Image
         src={banner.image}
@@ -169,7 +169,7 @@ function FullWidthBanner({ banner }: { banner: typeof banners[0] }) {
         sizes="100vw"
       />
       {/* Dark overlay for text readability */}
-      <div className="absolute inset-0 bg-slate-900/65" aria-hidden="true" />
+      <div className="absolute inset-0 bg-slate-900/45" aria-hidden="true" />
 
       {/* Content */}
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
