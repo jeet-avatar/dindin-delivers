@@ -93,9 +93,91 @@ def extract_modules() -> set[str]:
     return out
 
 
-def extract_script_types() -> set[str]: ...
-def extract_search_types() -> set[str]: ...
-def extract_search_apis() -> set[str]: ...
+# Mapping from oracle-script-types.md human-readable script-type names
+# (captured from `[SuiteScript 2.x <NAME> Script Type]` link text) to the
+# canonical `@NScriptType` JSDoc annotation value used in SuiteScript source.
+# See parser findings doc § SCRIPT_TYPES — the oracle table only lists human
+# names; this map converts them to the deploy-time annotation value.
+_SCRIPT_TYPE_NAME_MAP: dict[str, str] = {
+    "Bundle Installation": "BundleInstallationScript",
+    "Client": "ClientScript",
+    "Custom Tool": "CustomToolScript",
+    "Map/Reduce": "MapReduceScript",
+    "Mass Update": "MassUpdateScript",
+    "Portlet": "Portlet",
+    "RESTlet": "RESTlet",
+    "SDF Installation": "SDFInstallationScript",
+    "Scheduled": "ScheduledScript",
+    "Suitelet": "Suitelet",
+    "User Event": "UserEventScript",
+    "Workflow Action": "WorkflowActionScript",
+}
+
+
+def extract_script_types() -> set[str]:
+    """Extract canonical `@NScriptType` values.
+
+    Primary source: `oracle-script-types.md` — the authoritative table of
+    script types documented as markdown links in the form
+    `[SuiteScript 2.x <Name> Script Type](...)`. Per parser findings doc
+    § SCRIPT_TYPES, the oracle file uses human-readable names, so we map
+    each to its canonical `@NScriptType` JSDoc value via _SCRIPT_TYPE_NAME_MAP.
+
+    Supplementary source: any `@NScriptType` annotations found across all
+    bootstrap `*.md` files (catches variants like `customglplugin` used in
+    pattern files). Trailing punctuation (e.g. a stray backtick) is stripped.
+    """
+    out: set[str] = set()
+    text = (BOOTSTRAP_DIR / "oracle-script-types.md").read_text()
+    # Link-text pattern per parser findings § SCRIPT_TYPES.
+    link_re = re.compile(r"\[SuiteScript\s+2\.[x1]+\s+([\w/ ]+?)\s+Script Type\]")
+    for name in link_re.findall(text):
+        canonical = _SCRIPT_TYPE_NAME_MAP.get(name)
+        if canonical:
+            out.add(canonical)
+    # Supplement: any explicit @NScriptType annotations anywhere in bootstrap.
+    nscript_re = re.compile(r"@NScriptType\s+([A-Za-z][A-Za-z]+)")
+    for md in BOOTSTRAP_DIR.glob("*.md"):
+        for m in nscript_re.finditer(md.read_text()):
+            val = m.group(1).rstrip("`")
+            if val:
+                out.add(val)
+    return out
+
+
+def extract_search_types() -> set[str]:
+    """Extract `search.Type.*` enum values.
+
+    Per parser findings § SEARCH_TYPES (Option C — recommended): `record.Type`
+    and `search.Type` share the same string values in NetSuite (e.g.
+    `SALES_ORDER` works for both), so we alias to `extract_record_types()`
+    to eliminate duplication and satisfy the 100-value floor.
+    """
+    return extract_record_types()
+
+
+def extract_search_apis() -> set[str]:
+    """Extract top-level `search.<method>(` API names.
+
+    Per parser findings § SEARCH_APIS, the canonical source is the
+    "N/search Module Members" table in `oracle-module-search.md`, which
+    lists methods as markdown links like `[search.create(options)](...)`.
+    We supplement with `module-search.md` (non-oracle) to pick up `run` and
+    `runPaged`, which appear as `Search.run()` in oracle docs but are
+    written as `search.run()` in real SuiteScript code examples.
+
+    `.promise` suffixes are intentionally captured as their base name only
+    (the regex stops at the opening paren of the base method).
+    """
+    out: set[str] = set()
+    pattern = re.compile(r"\bsearch\.([a-z][A-Za-z]*)\s*\(")
+    for fname in ("oracle-module-search.md", "module-search.md"):
+        path = BOOTSTRAP_DIR / fname
+        if not path.exists():
+            continue
+        for m in pattern.finditer(path.read_text()):
+            out.add(m.group(1))
+    return out
 
 def main(out_file: Path | None = None) -> int:
     target = out_file or DEFAULT_OUT
