@@ -1,0 +1,12 @@
+{
+  "run_id": "2026-04-17T18-10-58Z",
+  "git_commit_sha": "dfb596773498723671183ced53c1cb97f63230ef",
+  "backend_url": "https://artha.build",
+  "model_under_test": "qwen2.5:14b",
+  "judge_model": "claude-opus-4-7",
+  "case_count": 40,
+  "started_at": "2026-04-17T18:10:58.983467+00:00",
+  "finished_at": "2026-04-17T18:29:02.816079+00:00",
+  "aborted": false,
+  "cost_usd": 1.8732
+}
