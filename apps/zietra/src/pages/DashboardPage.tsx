@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { getSession, signOut, type Session } from '../lib/auth'
 
+const PROVISIONED_EMAILS = new Set<string>([
+  'demo@zietra.com',
+  'gteshnair@gmail.com',
+])
+
 export default function DashboardPage() {
   const navigate = useNavigate()
   const [session, setSession] = useState<Session | null>(null)
@@ -21,6 +26,8 @@ export default function DashboardPage() {
   }
 
   if (!session) return null
+
+  const isProvisioned = PROVISIONED_EMAILS.has(session.email)
 
   return (
     <main style={{
@@ -65,16 +72,23 @@ export default function DashboardPage() {
           </p>
 
           <div style={{
-            background: 'rgba(41,151,255,0.08)', border: '1px solid rgba(41,151,255,0.2)',
+            background: isProvisioned ? 'rgba(0,208,132,0.08)' : 'rgba(41,151,255,0.08)',
+            border: isProvisioned ? '1px solid rgba(0,208,132,0.25)' : '1px solid rgba(41,151,255,0.2)',
             borderRadius: 14, padding: '20px 24px', marginBottom: 32,
           }}>
-            <div style={{ fontWeight: 600, color: 'var(--zietra)', marginBottom: 6 }}>
-              Your Zietra workspace is being provisioned
+            <div style={{
+              fontWeight: 600,
+              color: isProvisioned ? 'var(--meet)' : 'var(--zietra)',
+              marginBottom: 6,
+            }}>
+              {isProvisioned
+                ? 'Your Zietra workspace is provisioned'
+                : 'Your Zietra workspace is being provisioned'}
             </div>
             <div style={{ color: 'var(--text-2)', fontSize: 14, lineHeight: 1.5 }}>
-              Zietra is delivered as a managed platform. Our team will reach out within
-              1 business day to set up your CRM, Social, and Meetings workspaces.
-              In the meantime, try Zietra Meet — no account needed.
+              {isProvisioned
+                ? 'All three workspaces — CRM, Social, and Meetings — are ready. Launch any product from the tiles below.'
+                : 'Zietra is delivered as a managed platform. Our team will reach out within 1 business day to set up your CRM, Social, and Meetings workspaces. In the meantime, try Zietra Meet — no account needed.'}
             </div>
           </div>
 
@@ -83,13 +97,15 @@ export default function DashboardPage() {
               color="var(--crm)"
               title="CRM"
               body="Contact management, campaigns, visitor tracking."
-              status="Pending provisioning"
+              status={isProvisioned ? 'Available' : 'Pending provisioning'}
+              href={isProvisioned ? 'https://brandmonkz.com' : undefined}
             />
             <DashboardTile
               color="var(--social)"
               title="Social"
               body="Multi-platform scheduling and AI-generated video."
-              status="Pending provisioning"
+              status={isProvisioned ? 'Available' : 'Pending provisioning'}
+              href={isProvisioned ? 'https://social.zietra.com' : undefined}
             />
             <DashboardTile
               color="var(--meet)"
