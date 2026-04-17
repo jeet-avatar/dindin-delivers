@@ -342,6 +342,11 @@ async def google_callback(
     if not email:
         return RedirectResponse(f"{frontend_base}/log-in?error=no_email")
 
+    # Block free email domains (same rule as traditional signup)
+    developer_whitelist = get_developer_whitelist()
+    if is_free_email(email) and email not in developer_whitelist:
+        return RedirectResponse(f"{frontend_base}/log-in?error=company_email_required")
+
     # Find or create user
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
