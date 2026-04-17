@@ -180,15 +180,17 @@ The parser reads each `oracle-*.md` file and looks for known section headings. A
 | INVOICE | invoice | Invoice record |
 ```
 
-Extraction rules (Wave 1 of implementation verifies these against the actual files and adjusts):
+Verified source files (all exist in `apps/arthaBuild/src/backend/knowledge/bootstrap/` as of commit `053d995d`):
 
-| Category | Source file(s) | Rule |
+| Category | Source file(s) | Extraction target |
 |---|---|---|
-| `RECORD_TYPES` | `oracle-record-types.md` | Table rows under `## Record Types` heading; column 1 value |
-| `MODULES` | `oracle-modules.md` | Lines matching `^###?\s+(N/[\w/]+)` |
-| `SCRIPT_TYPES` | `oracle-script-types.md` | Table rows under `## Script Types`; column 1 value |
-| `SEARCH_TYPES` | `oracle-search-types.md` | Table rows under `## Search Types`; column 1 value |
-| `SEARCH_APIS` | `oracle-search-module.md` | Lines matching `^###?\s+search\.([a-z][A-Za-z]*)\(` |
+| `RECORD_TYPES` | `oracle-records-guide.md` (and linked section files if needed) | `record.Type` enum values — uppercase strings like `SALES_ORDER`, `INVOICE`, `CUSTOMER` |
+| `MODULES` | All 28 `oracle-module-*.md` filenames in the bootstrap dir | One `N/*` entry per file, derived from the filename stem (e.g. `oracle-module-record.md` → `N/record`, `oracle-module-crypto-certificate.md` → `N/crypto/certificate`) |
+| `SCRIPT_TYPES` | `oracle-script-types.md` | Values referenced as valid `@NScriptType` annotations |
+| `SEARCH_TYPES` | `oracle-module-search.md` | `search.Type` enum values — uppercase strings like `TRANSACTION`, `CUSTOMER`, `ITEM` |
+| `SEARCH_APIS` | `oracle-module-search.md` | Table rows matching `\[search\.([a-z][A-Za-z]*)\(` in the "Module Members" table |
+
+Wave 1 of implementation inspects each file and pins the exact table / heading / regex rule. The floor checks below guarantee that if Wave 1's rule under-extracts, CI fails loudly rather than silently shipping an empty whitelist. The module-name slash conversion (`crypto-certificate` → `crypto/certificate`) is based on the naming convention observed in the N/* module reference; Wave 1 verifies this mapping by cross-checking one known case per sub-module.
 
 ### Floor checks (circuit breaker)
 
@@ -267,7 +269,7 @@ Latency budget:
 
 ### Timeout reconciliation
 
-Current nginx `proxy_read_timeout` on `artha.build` is 120 s (verified in `infrastructure/nginx/artha.build.conf`). The worst-case ~45 s pipeline fits with a 75 s safety margin.
+Current nginx `proxy_read_timeout` on `artha.build` is 120 s (verified in `apps/arthaBuild/nginx/nginx.prod.conf:48`). The worst-case ~45 s pipeline fits with a 75 s safety margin. (The dev config at `apps/arthaBuild/nginx/nginx.conf:56,104` uses 300 s; prod is the binding constraint.)
 
 Constants (codified, tunable in one place):
 
@@ -299,7 +301,7 @@ You can:
 
 The original (invalid) code is **not** shown — showing it would normalize the hallucination. Violation list is included so the user can adjust their prompt.
 
-`category_human` mapping: `record_type` → "record type", `module` → "module path", `script_type` → "script type annotation", `search_api` → "search API method", `non_ascii` → "ASCII identifier".
+`category_human` mapping: `record_type` → "record type", `module` → "module path", `script_type` → "script type annotation", `search_type` → "search type", `search_api` → "search API method", `non_ascii` → "ASCII identifier".
 
 ## Testing
 
@@ -322,9 +324,9 @@ Each test asserts `violations[0].category`, `.identifier`, and `.suggestions[0]`
 
 Re-run the 40-case eval suite with the validator wired in. Each case produces one of three outcomes:
 
-1. **Clean** — generator emits valid code on attempt 1
+1. **Clean** — generator emits valid code on the initial attempt
 2. **Recovered** — re-prompt 1 or 2 produces valid code
-3. **Hard-blocked** — all 3 attempts fail; user sees refusal
+3. **Hard-blocked** — initial attempt + both re-prompts fail (1 + 2 = 3 LLM calls total); user sees refusal
 
 Outcomes 1 and 3 both count as zero-hallucination wins. Only 2 improves user-visible score.
 
@@ -370,7 +372,7 @@ Each of the four categories gets 40 cases. Within a category, use four strategie
 |---|---|---|
 | **Near-miss** | "Write a Map/Reduce that processes `ReceivingVoucher` records" | Model reaches for `record.Type.RECEIVING_VOUCHER` (invalid) instead of `ITEM_RECEIPT` |
 | **Plausible-but-nonexistent** | "Use the `N/banking/wire` module to create a wire transfer" | Module sounds real, isn't |
-| **Deprecated in 2024.2** | "Use `record.Type.RETURNED_ITEM` to close the loop on the RMA" | Removed in a recent release |
+| **Typo of a real identifier** | "Use `record.Type.SALE_ORDER` (singular) to load the record" | Model may pass through the user-supplied typo verbatim |
 | **Cross-module confusion** | "Call `search.columns.internalId()` to fetch the ID column" | Confuses option-key (`internalid`) with a method |
 
 Each case is a JSONL row with:
