@@ -43,23 +43,33 @@ def get_embeddings():
 # Question framing overrides all other signals — "What is a User Event Script?"
 # is a conceptual question, not a generation request.
 
-# These prefixes indicate the user is asking FOR INFORMATION, not asking to generate
-_QUESTION_PREFIXES = (
-    "what is", "what are", "what does", "what's", "whats",
-    "how does", "how do", "how is", "how are", "how can",
-    "explain", "describe", "tell me about", "can you explain",
-    "why does", "why is", "why are", "when should", "when do",
-    "what's the difference", "what is the difference", "compare",
-    "difference between", "how would", "should i use",
-    "where is", "where do", "where can", "where in",
-    "which", "who is", "who are",
-)
+# First-word detection: if the message starts with one of these, it's a question,
+# regardless of what follows ("what entry points..." or "does NetSuite support...").
+_QUESTION_START_WORDS = frozenset({
+    "what", "whats", "what's", "who", "whose", "why", "when", "where",
+    "which", "how",
+    "does", "do", "did", "is", "are", "was", "were",
+    "will", "can", "could", "should", "would", "shall",
+    "has", "have", "had", "may", "might",
+    "explain", "describe", "compare", "list", "define", "summarize",
+    "tell",  # "tell me ..."
+})
 
-# These verbs signal the user wants something CREATED
+# Generation verbs — imperative sentence starts that signal "create this for me".
+# Checked as the FIRST TOKEN only, so "Can I implement this?" stays a question.
+_GENERATION_VERB_STARTS = frozenset({
+    "write", "create", "build", "generate", "make", "code",
+    "implement", "develop", "produce", "draft", "output",
+    "give",  # "give me a ..."
+    "scaffold", "bootstrap",
+})
+
+# Legacy list kept for the (has_gen_verb AND has_script_type) rule —
+# these can appear anywhere in the message.
 _GENERATION_VERBS = (
     "write", "create", "build", "generate", "give me a", "give me an",
     "make a", "make me", "code a", "implement", "develop",
-    "produce", "draft", "output",
+    "produce", "draft", "output", "scaffold", "bootstrap",
 )
 
 _GUIDE_KEYWORDS = (
@@ -90,59 +100,59 @@ _SDF_KEYWORDS = (
 
 def infer_intent(message: str) -> str:
     """
-    Classify user message into one of 4 intents.
-    Logic (in priority order):
-      1. Question framing detected → general_chat (even if script names appear)
-      2. Generation verb + script type → generate_suitescript
-      3. Fetch / SDF keywords → respective intents
-      4. LLM fallback for genuinely ambiguous messages
+    Classify user message into one of 5 intents.
+
+    Ordering matters — the first rule that matches wins.
+    Default is general_chat; we only move away from it on strong imperative
+    or domain-specific signals.
     """
     m = message.lower().strip()
+    tokens = m.split()
+    first = tokens[0].rstrip(",:;") if tokens else ""
 
-    # 0. Implementation guide — check before question framing
+    # 1. Implementation guide — check before anything else (most specific)
     if any(k in m for k in _GUIDE_KEYWORDS):
         return "generate_implementation_guide"
 
-    # 1. Question framing wins — "What is a user event script?" is NOT a code request
-    if any(m.startswith(p) or (f" {p} " in f" {m} ") for p in _QUESTION_PREFIXES):
+    # 2. Clear imperative generation — first token is a create-verb AND
+    #    something script-flavoured appears in the message.
+    if first in _GENERATION_VERB_STARTS:
+        if any(k in m for k in _SCRIPT_TYPE_KEYWORDS) or "suitescript" in m or "script" in m:
+            return "generate_suitescript"
+        # "Write a report", "Create a memo" — no script signal, treat as chat.
+
+    # 3. Question framing — interrogative start OR ends with '?'.
+    #    This catches "What entry points...", "Does NetSuite...", "Explain...",
+    #    "How governance works?" regardless of what comes next.
+    if first in _QUESTION_START_WORDS or m.endswith("?"):
+        # Guard: don't override an explicit imperative like
+        # "Can you write a user event script" — rare but possible.
+        if first in _QUESTION_START_WORDS and any(
+            v in m for v in ("write a", "create a", "generate a", "build a", "make a", "give me a", "give me an")
+        ) and any(k in m for k in _SCRIPT_TYPE_KEYWORDS):
+            return "generate_suitescript"
         return "general_chat"
 
-    # 2. Generation verb + script-type keyword → code generation
+    # 4. Legacy fallback for non-imperative phrasings that still want code
+    #    ("need a user-event script that ...").
     has_gen_verb = any(v in m for v in _GENERATION_VERBS)
     has_script_type = any(k in m for k in _SCRIPT_TYPE_KEYWORDS)
     if has_gen_verb and has_script_type:
         return "generate_suitescript"
 
-    # 3. Explicit fetch / SDF keywords (specific phrasing to avoid false positives)
+    # 5. Explicit fetch / SDF keywords.
     if any(k in m for k in _FETCH_KEYWORDS):
         return "fetch_netsuite_data"
     if any(k in m for k in _SDF_KEYWORDS):
         return "manage_sdf_project"
 
-    # 4. Generation verb alone with "suitescript" in message → likely code request
+    # 6. Generation verb + "suitescript" mention → probably a code request.
     if has_gen_verb and "suitescript" in m:
         return "generate_suitescript"
 
-    # 5. LLM fallback for genuinely ambiguous messages
-    try:
-        llm = get_llm()
-        prompt = (
-            "Classify this message into EXACTLY one label:\n"
-            "- general_chat\n"
-            "- generate_suitescript\n"
-            "- fetch_netsuite_data\n"
-            "- manage_sdf_project\n\n"
-            f'Message: "{message}"\n\n'
-            "Reply with ONLY the label."
-        )
-        result = llm.invoke(prompt)
-        label = result.content.strip().lower().replace("-", "_")
-        for intent in INTENTS:
-            if intent in label:
-                return intent
-    except Exception as e:
-        logger.warning(f"Intent LLM fallback failed: {e}")
-
+    # 7. Safe default — treat unclear messages as chat, not as data-fetch.
+    #    We removed the LLM fallback because it was over-routing knowledge
+    #    questions to fetch_netsuite_data.
     return "general_chat"
 
 
