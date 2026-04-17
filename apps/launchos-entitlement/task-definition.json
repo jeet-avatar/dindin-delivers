@@ -1,0 +1,50 @@
+{
+  "family": "launchos-entitlement",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::134607809447:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "launchos-entitlement",
+      "image": "134607809447.dkr.ecr.us-east-1.amazonaws.com/launchos-entitlement:latest",
+      "portMappings": [
+        {
+          "containerPort": 4000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "PORT", "value": "4000" },
+        {
+          "name": "REDIS_URL",
+          "value": "redis://dollor-redis.uwva3u.0001.use1.cache.amazonaws.com:6379"
+        },
+        {
+          "name": "FRONTEND_URL",
+          "value": "https://techcloudpro.com"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/launchos-entitlement",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:4000/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 10
+      },
+      "essential": true
+    }
+  ]
+}
