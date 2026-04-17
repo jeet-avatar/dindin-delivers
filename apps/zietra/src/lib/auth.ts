@@ -3,6 +3,7 @@ const USERS_KEY = 'zietra:users'
 
 const DEMO_USERS: Record<string, { password: string; name: string }> = {
   'demo@zietra.com': { password: 'Zietra2026!', name: 'Demo User' },
+  'gteshnair@gmail.com': { password: 'Zietra2026!', name: 'Gtesh Nair' },
 }
 
 export type Session = { email: string; name: string; token: string }
