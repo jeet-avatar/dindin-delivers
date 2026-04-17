@@ -15,3 +15,6 @@ src/frontend/node_modules/
 __pycache__/
 *.pyc
 .coverage
+
+# Eval harness artifacts
+tests/eval/runs/
