@@ -1,0 +1,12 @@
+[
+  {
+    "id": "A-1",
+    "dimension": "A",
+    "prompt": "Write a Map/Reduce script that emails the sales rep when an opportunity hasn't been touched in 30 days.",
+    "must_include": ["define(", "N/search", "N/email", "MapReduceScriptContext", "getInputData", "reduce"],
+    "must_not_include": ["TODO", "placeholder", "// implement"],
+    "expected_record_types": ["opportunity"],
+    "requires_code": true,
+    "rubric": "Should iterate opportunities via getInputData (search), reduce by sales rep, send one email per rep summarizing stale opps. Governance budget should be checked in reduce stage."
+  }
+]
