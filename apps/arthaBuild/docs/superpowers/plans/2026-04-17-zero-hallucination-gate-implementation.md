@@ -103,6 +103,68 @@ git add apps/arthaBuild/docs/superpowers/specs/2026-04-17-zero-hallucination-gat
 git commit -m "docs(arthaBuild): parser inspection notes for zero-hallucination whitelist"
 ```
 
+### Task 1.1b: Author curated `oracle-record-types.md`
+
+**Context:** Task 1.1 surfaced that `oracle-records-guide.md` is a 32-line index — no enum table. RECORD_TYPES (54 found) and SEARCH_TYPES (21 found) both fall below the 100 floor. Since `record.Type.*` and `search.Type.*` share the same string values in NetSuite's SuiteScript API, one curated list backs both extractors.
+
+**Files:**
+- Create: `apps/arthaBuild/src/backend/knowledge/bootstrap/oracle-record-types.md`
+
+- [ ] **Step 1: Author the curated file**
+
+The file is a plain markdown table with one column: the canonical NetSuite record type enum name (UPPER_SNAKE_CASE, the value of `record.Type.*` and the string form of `search.Type.*`).
+
+Source: NetSuite SuiteScript 2.x Records Browser (https://system.netsuite.com/help/helpcenter/en_US/srbrowser/Browser2024_2/script/record/). At minimum include every top-level record type documented there — **target ≥200 entries** to give both floors (100) comfortable headroom.
+
+Structure:
+
+```markdown
+# NetSuite Record Type Whitelist
+
+> Curated list of valid `record.Type.*` / `search.Type.*` enum names.
+> Source: SuiteScript 2.x Records Browser. Updated: 2026-04-17.
+> This file is the source of truth for the `RECORD_TYPES` and `SEARCH_TYPES`
+> categories in `validators/whitelist.py`. Do not remove entries without
+> confirming the enum has been deprecated upstream.
+
+| Enum |
+|------|
+| ACCOUNT |
+| ACCOUNTING_BOOK |
+| ACCOUNTING_CONTEXT |
+| ACCOUNTING_PERIOD |
+| ADV_INTER_COMPANY_JOURNAL_ENTRY |
+| ALLOCATION_SCHEDULE |
+| ...200+ rows...
+| WORK_ORDER |
+| WORK_ORDER_CLOSE |
+| WORK_ORDER_COMPLETION |
+| WORK_ORDER_ISSUE |
+```
+
+Required coverage (non-exhaustive — must include ALL of these AND any other standard types found in the Records Browser):
+- Transactions: `SALES_ORDER`, `PURCHASE_ORDER`, `INVOICE`, `CREDIT_MEMO`, `CASH_SALE`, `CASH_REFUND`, `ITEM_FULFILLMENT`, `ITEM_RECEIPT`, `VENDOR_BILL`, `VENDOR_CREDIT`, `VENDOR_PAYMENT`, `CUSTOMER_PAYMENT`, `CUSTOMER_REFUND`, `DEPOSIT`, `JOURNAL_ENTRY`, `TRANSFER_ORDER`, `RETURN_AUTHORIZATION`, `VENDOR_RETURN_AUTHORIZATION`, `ESTIMATE`, `OPPORTUNITY`, `WORK_ORDER`, `ASSEMBLY_BUILD`, `ASSEMBLY_UNBUILD`, `INVENTORY_ADJUSTMENT`, `INVENTORY_TRANSFER`, `PAYCHECK`, `STATEMENT_CHARGE`, `EXPENSE_REPORT`, `TIME_BILL`, `BIN_TRANSFER`, `BIN_PUTAWAY_WORKSHEET`
+- Entities: `CUSTOMER`, `VENDOR`, `EMPLOYEE`, `PARTNER`, `CONTACT`, `LEAD`, `PROSPECT`, `GROUP`, `SUBSIDIARY`, `DEPARTMENT`, `CLASSIFICATION`, `LOCATION`, `PROJECT`, `PROJECT_TASK`
+- Items: `INVENTORY_ITEM`, `NON_INVENTORY_ITEM`, `SERVICE_ITEM`, `SERVICE_SALE_ITEM`, `SERVICE_PURCHASE_ITEM`, `SERVICE_RESALE_ITEM`, `ASSEMBLY_ITEM`, `KIT_ITEM`, `DESCRIPTION_ITEM`, `DISCOUNT_ITEM`, `MARKUP_ITEM`, `PAYMENT_ITEM`, `SUBTOTAL_ITEM`, `GIFT_CERTIFICATE_ITEM`, `DOWNLOAD_ITEM`, `OTHER_CHARGE_ITEM`, `LOT_NUMBERED_INVENTORY_ITEM`, `SERIALIZED_INVENTORY_ITEM`, `LOT_NUMBERED_ASSEMBLY_ITEM`, `SERIALIZED_ASSEMBLY_ITEM`
+- Lists/Setup: `ACCOUNT`, `ACCOUNTING_PERIOD`, `ACCOUNTING_BOOK`, `CURRENCY`, `CURRENCY_RATE`, `TAX_ITEM`, `TAX_GROUP`, `TAX_TYPE`, `TAX_SCHEDULE`, `PRICING`, `PRICE_LEVEL`, `UNITS_TYPE`, `TERM`, `BILLING_SCHEDULE`, `PROMOTION_CODE`
+- Custom: `CUSTOM_RECORD`, `CUSTOM_TRANSACTION`, `CUSTOM_LIST`
+
+- [ ] **Step 2: Verify count**
+
+```bash
+cd apps/arthaBuild
+grep -c "^| [A-Z]" src/backend/knowledge/bootstrap/oracle-record-types.md
+```
+
+Expected: ≥200.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add apps/arthaBuild/src/backend/knowledge/bootstrap/oracle-record-types.md
+git commit -m "feat(arthaBuild): curated record type whitelist for zero-hallucination gate"
+```
+
 ### Task 1.2: Scaffold `build_whitelist.py`
 
 **Files:**
@@ -208,24 +270,23 @@ git add apps/arthaBuild/scripts/build_whitelist.py
 git commit -m "feat(arthaBuild): extract MODULES from oracle-module-*.md headers"
 ```
 
-### Task 1.4: Implement `extract_record_types()`
+### Task 1.4: Implement `extract_record_types()` (from curated `oracle-record-types.md`)
 
 **Files:**
 - Modify: `apps/arthaBuild/scripts/build_whitelist.py`
 
-- [ ] **Step 1: Write the extractor using the winning pattern from Task 1.1 Step 2**
+- [ ] **Step 1: Write the extractor — parse the curated table**
 
-Pattern likely resembles one of these (pick based on findings):
+The source is `oracle-record-types.md` authored in Task 1.1b (single-column markdown table of canonical enum names). Parse table rows.
 
 ```python
 def extract_record_types() -> set[str]:
     out: set[str] = set()
-    text = (BOOTSTRAP_DIR / "oracle-records-guide.md").read_text()
-    # Pattern A: inline code like `record.Type.SALES_ORDER`
-    out.update(re.findall(r"record\.Type\.([A-Z_]+)\b", text))
-    # Pattern B: table rows with bare uppercase enum
+    text = (BOOTSTRAP_DIR / "oracle-record-types.md").read_text()
     for line in text.splitlines():
-        m = re.match(r"^\|\s*([A-Z][A-Z_]{2,})\s*\|", line)
+        # Match table rows like "| SALES_ORDER |" — strict uppercase enum only,
+        # ignoring header row "| Enum |" (Enum has lowercase letters).
+        m = re.match(r"^\|\s*([A-Z][A-Z0-9_]{2,})\s*\|\s*$", line)
         if m:
             out.add(m.group(1))
     return out
@@ -234,16 +295,17 @@ def extract_record_types() -> set[str]:
 - [ ] **Step 2: Verify count meets floor**
 
 ```bash
+cd apps/arthaBuild
 python -c "from scripts.build_whitelist import extract_record_types; print(len(extract_record_types()))"
 ```
 
-Expected: ≥100. If not, widen the search across more `oracle-*.md` files or adjust the pattern.
+Expected: ≥200 (matches the curated file count). Floor is 100.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add apps/arthaBuild/scripts/build_whitelist.py
-git commit -m "feat(arthaBuild): extract RECORD_TYPES for whitelist"
+git commit -m "feat(arthaBuild): extract RECORD_TYPES from curated list"
 ```
 
 ### Task 1.5: Implement remaining three extractors
@@ -252,7 +314,7 @@ git commit -m "feat(arthaBuild): extract RECORD_TYPES for whitelist"
 - Modify: `apps/arthaBuild/scripts/build_whitelist.py`
 
 - [ ] **Step 1: `extract_script_types()`** — from `oracle-script-types.md`
-- [ ] **Step 2: `extract_search_types()`** — from `oracle-module-search.md`, pattern `search\.Type\.([A-Z_]+)\b`
+- [ ] **Step 2: `extract_search_types()`** — **reuse the curated `oracle-record-types.md`** authored in Task 1.1b. `record.Type.*` and `search.Type.*` share the same string values in NetSuite, so `extract_search_types()` returns `extract_record_types()` verbatim (one line: `return extract_record_types()`). This satisfies the 100 floor and eliminates duplication.
 - [ ] **Step 3: `extract_search_apis()`** — from `oracle-module-search.md`, table rows matching `\[search\.([a-z][A-Za-z]*)\(` in the Module Members table
 
 - [ ] **Step 4: Verify all five counts meet floors**
