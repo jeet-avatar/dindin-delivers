@@ -130,6 +130,36 @@ header p{font-size:.72rem;color:var(--muted)}
 
 /* ── TOOLTIP ── */
 .tooltip{position:fixed;background:#1e2035;border:1px solid var(--border);border-radius:8px;padding:.5rem .75rem;font-size:.72rem;color:var(--text);pointer-events:none;z-index:999;max-width:220px;line-height:1.4;box-shadow:0 8px 32px rgba(0,0,0,.5);display:none}
+
+/* ── REQUIREMENTS BOX ── */
+.req-section{margin-top:.85rem;padding-top:.75rem;border-top:1px solid var(--border)}
+.req-textarea{width:100%;height:90px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:.69rem;padding:.5rem .65rem;resize:none;outline:none;line-height:1.5}
+.req-textarea:focus{border-color:var(--indigo)}
+.req-btn{width:100%;margin-top:.4rem;padding:.38rem;border-radius:7px;border:1px solid var(--indigo);background:rgba(99,102,241,.12);color:var(--indigo);font-size:.7rem;cursor:pointer;transition:all .15s;font-weight:600}
+.req-btn:hover{background:rgba(99,102,241,.25)}
+.req-result{margin-top:.4rem;padding:.45rem .6rem;border-radius:7px;font-size:.7rem;display:none}
+.req-result.ok{background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);color:var(--green)}
+.req-result.err{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3);color:var(--red)}
+
+/* ── MODE BAR ── */
+.mode-bar{display:flex;gap:.3rem;padding:.38rem .85rem;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.mode-btn{flex:1;padding:.25rem .3rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.65rem;cursor:pointer;transition:all .15s;font-weight:600}
+.mode-btn.active{border-color:var(--cyan);background:rgba(34,211,238,.1);color:var(--cyan)}
+
+/* ── PALETTE NEXT / USED ── */
+.pitem.pi-used{border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.04)}
+.pitem.pi-next{border-color:var(--cyan)!important;background:rgba(34,211,238,.1)!important;box-shadow:0 0 12px rgba(34,211,238,.25)!important;animation:pglow .9s ease-in-out infinite alternate}
+@keyframes pglow{from{box-shadow:0 0 5px rgba(34,211,238,.15)}to{box-shadow:0 0 16px rgba(34,211,238,.5)}}
+
+/* ── WRONG PICK ALERT ── */
+.wrong-alert{padding:.5rem .8rem;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.35);font-size:.72rem;color:var(--red);border-radius:7px;margin:.35rem .85rem;display:none;animation:wafade .2s ease}
+@keyframes wafade{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── BEGINNER STEP CARD ── */
+.step-card{padding:.7rem .85rem;background:rgba(34,211,238,.05);border-left:3px solid var(--cyan);border-radius:0 8px 8px 0;font-size:.75rem;line-height:1.5}
+.step-num{font-size:.62rem;color:var(--cyan);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem}
+.step-comp{font-size:.88rem;font-weight:700;margin:.1rem 0 .25rem}
+.step-why{color:var(--muted);font-size:.72rem;line-height:1.5}
 </style>
 </head>
 <body>
@@ -138,6 +168,11 @@ header p{font-size:.72rem;color:var(--muted)}
   <div>
     <h1>⚡ AI Architecture Playground</h1>
     <p>Pick a use case → connect the dots → play with the architecture → get guided</p>
+  </div>
+  <div style="display:flex;gap:.3rem;margin:0 .5rem">
+    <button class="mode-btn active" data-mode="beginner" id="mode-beginner">🎓 Beginner</button>
+    <button class="mode-btn" data-mode="advanced" id="mode-advanced">🧑‍💻 Advanced</button>
+    <button class="mode-btn" data-mode="expert" id="mode-expert">🏆 Expert</button>
   </div>
   <div class="hdr-btns">
     <button class="hbtn primary" id="btn-hint">💡 Show Solution</button>
@@ -152,6 +187,14 @@ header p{font-size:.72rem;color:var(--muted)}
   <div class="panel-left">
     <div class="panel-title">Choose a Use Case</div>
     <div id="uc-list"></div>
+    <div class="req-section">
+      <div class="panel-title">📋 Requirements Doc</div>
+      <textarea class="req-textarea" id="req-input" placeholder="Describe your project in plain English…
+
+e.g. 'Build a customer support chatbot that answers from our PDF docs and searches the web for the latest info'"></textarea>
+      <button class="req-btn" id="btn-req">⚡ Analyze &amp; Match Use Case</button>
+      <div class="req-result" id="req-result"></div>
+    </div>
   </div>
 
   <!-- ── PANEL 2: canvas ── -->
@@ -163,6 +206,8 @@ header p{font-size:.72rem;color:var(--muted)}
       <button class="tbtn" id="btn-arrange">⚡ Arrange</button>
     </div>
 
+    <div class="mode-bar" id="mode-bar" style="display:none"></div>
+    <div class="wrong-alert" id="wrong-alert"></div>
     <div class="canvas-area" id="canvas">
       <svg id="svg-conns"></svg>
       <div class="c-empty" id="c-empty">
@@ -889,13 +934,17 @@ const NODE_W = 138, NODE_H = 78;
 // STATE
 // ════════════════════════════════════════════════════════════
 const S = {
-  uc: null,          // active use case id
-  nodes: [],         // {id, compId, name, emoji, cat, x, y}
-  conns: [],         // {id, from, to}
+  uc: null,
+  mode: 'beginner',  // 'beginner' | 'advanced' | 'expert'
+  nodes: [],
+  conns: [],
   connMode: false,
   connSrc: null,
   palCat: 'llm',
-  nc: 0,             // node id counter
+  nc: 0,
+  stepIdx: 0,        // beginner mode step counter
+  actionStack: [],   // for undo in beginner mode
+  wrongAlertTimer: null,
 };
 
 function getUC() { return UC.find(u => u.id === S.uc); }
@@ -910,6 +959,45 @@ function findComp(id) {
 }
 function nodeCenter(node) {
   return { x: node.x + NODE_W / 2, y: node.y + NODE_H / 2 };
+}
+function findCompCat(compId) {
+  for (const [cat, arr] of Object.entries(COMP)) {
+    if (arr.some(c => c.id === compId)) return cat;
+  }
+  return null;
+}
+
+// ════════════════════════════════════════════════════════════
+// REQUIREMENTS PARSER — keyword scoring → best UC match
+// ════════════════════════════════════════════════════════════
+const UC_KEYWORDS = {
+  'rag':['chatbot','faq','support','answer','question','knowledge base','knowledge','document','retriev'],
+  'voice-ai':['voice','speech','audio','listen','speak','transcrib','tts','stt','microphone','call'],
+  'vision-pipeline':['image','photo','camera','visual','detect','classif','recogni','vision','picture','video'],
+  'finetune':['fine-tun','fine tune','train','custom model','domain-specific','speciali','finetune','instruct'],
+  'multi-agent':['multi-agent','agent','orchestrat','autonomous','automat','workflow','multi-step','plan and execut'],
+  'coding-assistant':['code','coding','programm','github','developer','debug','software','pull request'],
+  'pdf-qa':['pdf','document','report','manual','contract','invoice','scan','extract from'],
+  'content-gen':['content','generat','write','blog','social media','marketing','copy','article','post'],
+  'sql-agent':['sql','database','data analyt','query','insight','business intel','kpi','dashboard','tabular'],
+  'product-search':['product','shop','ecommerc','catalog','image search','visual search','recomm','retail'],
+  'realtime-events':['real-time','realtime','stream','event','monitor','alert','fraud','live data','kafka'],
+  'personalization':['personal','recomm','user prefer','tailored','individual','engagement','retention'],
+  'llm-ops':['observ','monitor','trac','debug','production llm','mlops','latenc','cost optim','prompt version'],
+  'quantum-chem':['quantum','molecul','chemist','drug','protein','simulation'],
+};
+
+function parseRequirements(rawText) {
+  const t = rawText.toLowerCase();
+  const scores = {};
+  Object.entries(UC_KEYWORDS).forEach(([id, kws]) => {
+    scores[id] = kws.reduce((acc, kw) => acc + (t.includes(kw) ? 1 : 0), 0);
+  });
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  const [topId, topScore] = sorted[0];
+  if (topScore === 0) return null;
+  const uc = UC.find(u => u.id === topId);
+  return { uc, score: topScore, runner: sorted[1] };
 }
 
 // ════════════════════════════════════════════════════════════
@@ -934,15 +1022,25 @@ function renderUCList() {
 }
 
 function renderPalette() {
+  const uc = getUC();
+  const nextCompId = (S.mode === 'beginner' && uc && S.stepIdx < uc.flow.length) ? uc.flow[S.stepIdx] : null;
+  const nextCat = nextCompId ? findCompCat(nextCompId) : null;
+
+  // In beginner mode, auto-switch palette to the category containing the next component
+  if (S.mode === 'beginner' && nextCat) S.palCat = nextCat;
+
   document.getElementById('pal-cats').innerHTML = Object.entries(CAT_LABEL).map(([k, v]) =>
     `<button class="pcat${S.palCat === k ? ' active' : ''}" data-cat="${k}">${v}</button>`
   ).join('');
 
   const usedIds = S.nodes.map(n => n.compId);
   const items = COMP[S.palCat] || [];
-  document.getElementById('pal-items').innerHTML = items.map((c, i) =>
-    `<div class="pitem${usedIds.includes(c.id) ? ' pitem-used' : ''}" data-idx="${i}" title="${c.tip}">${c.emoji} ${c.name}</div>`
-  ).join('');
+  document.getElementById('pal-items').innerHTML = items.map((c, i) => {
+    let cls = 'pitem';
+    if (c.id === nextCompId) cls += ' pi-next';
+    else if (usedIds.includes(c.id)) cls += ' pi-used';
+    return `<div class="${cls}" data-idx="${i}" title="${c.tip}">${c.emoji} ${c.name}</div>`;
+  }).join('');
 }
 
 function renderCanvas() {
@@ -1068,6 +1166,52 @@ function applyNodeHighlights() {
 // ════════════════════════════════════════════════════════════
 // GUIDANCE / VALIDATION
 // ════════════════════════════════════════════════════════════
+function buildTips(uc) {
+  const errs = [], warns = [], oks = [];
+  let score = 0;
+  const maxScore = uc.required.length * 20 + uc.recommended.length * 8;
+
+  uc.required.forEach(rid => {
+    const c = findComp(rid) || { emoji: '🔧', name: rid };
+    if (hasComp(rid)) {
+      score += 20;
+      oks.push({ type:'ok', title:`✅ ${c.emoji} ${c.name}`, msg: uc.compTips?.[rid] || 'Required component in place.' });
+    } else {
+      errs.push({ type:'err', title:`❌ Missing: ${c.emoji} ${c.name}`, msg: uc.missingTips?.[rid] || `Required for ${uc.name}.` });
+    }
+  });
+
+  uc.recommended.forEach(rid => {
+    const c = findComp(rid) || { emoji: '💡', name: rid };
+    if (hasComp(rid)) {
+      score += 8;
+      oks.push({ type:'ok', title:`✅ ${c.emoji} ${c.name}`, msg: uc.compTips?.[rid] || 'Good addition!' });
+    } else {
+      const msg = uc.missingTips?.[rid] || `Consider adding ${c.name} to strengthen this architecture.`;
+      (msg.startsWith('🚨') ? errs : warns).push({ type: msg.startsWith('🚨') ? 'err' : 'warn', title:`💡 Consider: ${c.emoji} ${c.name}`, msg });
+    }
+  });
+
+  S.conns.forEach(conn => {
+    const src = getNode(conn.from), tgt = getNode(conn.to);
+    if (!src || !tgt) return;
+    const wrong = uc.wrongConns?.find(w => w.from === src.compId && w.to === tgt.compId);
+    const good  = uc.goodConns?.find(g => g.from === src.compId && g.to === tgt.compId);
+    if (wrong && wrong.msg.startsWith('🚫')) { score = Math.max(0, score - 15); errs.push({ type:'err', title:`🚫 ${src.name} → ${tgt.name}`, msg: wrong.msg }); }
+    else if (wrong) warns.push({ type:'warn', title:`⚠️ ${src.name} → ${tgt.name}`, msg: wrong.msg });
+    else if (good)  { score = Math.min(maxScore, score + 5); oks.push({ type:'ok', title:`🔗 ${src.name} → ${tgt.name}`, msg: good.msg }); }
+  });
+
+  S.nodes.forEach(node => {
+    if (!uc.required.includes(node.compId) && !uc.recommended.includes(node.compId)) {
+      const t = uc.compTips?.[node.compId];
+      if (t) oks.push({ type:'info', title:`💡 ${node.emoji} ${node.name}`, msg: t });
+    }
+  });
+
+  return { tips: [...errs, ...warns, ...oks], score, maxScore };
+}
+
 function renderGuidance() {
   const uc = getUC();
   const tipsTitle = document.getElementById('tips-title');
@@ -1079,104 +1223,83 @@ function renderGuidance() {
 
   if (!uc) {
     tipsTitle.textContent = 'Architecture Advisor';
-    tipsSub.textContent = 'Select a use case on the left';
+    const modeHint = {beginner:'🎓 Beginner — follow step-by-step', advanced:'🧑‍💻 Advanced — free-form + scoring', expert:'🏆 Expert — deep critique'};
+    tipsSub.textContent = modeHint[S.mode] || 'Select a use case on the left';
     ucDetail.style.display = 'none';
-    tipsBody.innerHTML = `<div class="tip t-info"><strong>👋 How this works</strong>1. Pick a scenario on the left<br>2. Read the expected flow here<br>3. Add components from the palette<br>4. Wire them with Connect<br>5. Watch this panel for tips</div>`;
+    tipsBody.innerHTML = `<div class="tip t-info"><strong>👋 How this works</strong>1. Pick a scenario on the left (or use Requirements Doc)<br>2. Read the expected flow here<br>3. Add components from the palette<br>4. Wire them with Connect<br>5. Watch this panel for guidance</div>`;
     scoreFill.style.width = '0%';
     scoreTxt.textContent = 'Add components to begin scoring';
     return;
   }
 
   tipsTitle.textContent = uc.emoji + ' ' + uc.name;
-  tipsSub.textContent = 'Difficulty: ' + uc.difficulty;
+  tipsSub.textContent = `${uc.difficulty} · ${S.mode === 'beginner' ? '🎓 Guided' : S.mode === 'advanced' ? '🧑‍💻 Scored' : '🏆 Expert'}`;
 
   ucDetail.style.display = 'block';
   ucDetail.innerHTML = `
     <h4>Expected Flow</h4>
     <p>${uc.description}</p>
     <div class="flow-row">
-      ${uc.flow.map((f, i) => `
-        <span class="flow-chip">${uc.flowLabels?.[i] || f}</span>
-        ${i < uc.flow.length - 1 ? '<span class="flow-arr">→</span>' : ''}
-      `).join('')}
+      ${uc.flow.map((f, i) => {
+        const done = S.nodes.some(n => n.compId === f);
+        const isNext = S.mode === 'beginner' && i === S.stepIdx;
+        const chip = `<span class="flow-chip" style="${done ? 'background:rgba(52,211,153,.15);border-color:rgba(52,211,153,.4);color:#34d399' : isNext ? 'border-color:var(--cyan);color:var(--cyan)' : ''}">${uc.flowLabels?.[i] || f}</span>`;
+        return chip + (i < uc.flow.length - 1 ? '<span class="flow-arr">→</span>' : '');
+      }).join('')}
     </div>
   `;
 
-  if (S.nodes.length === 0) {
-    tipsBody.innerHTML = `<div class="tip t-info"><strong>🏗️ Start building!</strong>Add components from the palette below. Start with the core pieces shown in the expected flow.</div>`;
+  // ── BEGINNER MODE ──────────────────────────────────────────
+  if (S.mode === 'beginner') {
     scoreFill.style.width = '0%';
-    scoreTxt.textContent = 'Score: 0% — add components';
+    scoreTxt.textContent = `Step ${Math.min(S.stepIdx + 1, uc.flow.length)} of ${uc.flow.length}`;
+    if (S.stepIdx >= uc.flow.length) {
+      tipsBody.innerHTML = `
+        <div class="tip t-ok"><strong>🎉 All ${uc.flow.length} components placed!</strong>Now wire them together with the Connect button. Then switch to Advanced mode to score your architecture.</div>
+        ${S.conns.length === 0 ? '' : buildTips(uc).tips.filter(t=>t.type==='err'||t.type==='warn').map(t=>`<div class="tip t-${t.type}"><strong>${t.title}</strong>${t.msg}</div>`).join('')}
+      `;
+    } else {
+      const nextId = uc.flow[S.stepIdx];
+      const nextComp = findComp(nextId) || { emoji: '🔧', name: nextId };
+      const why = uc.stepWhy?.[nextId] || `Add ${nextComp.name} — a core building block for this architecture.`;
+      tipsBody.innerHTML = `
+        <div class="step-card">
+          <div class="step-num">Step ${S.stepIdx + 1} of ${uc.flow.length}</div>
+          <div class="step-comp">${nextComp.emoji} ${nextComp.name}</div>
+          <div class="step-why">${why}</div>
+        </div>
+        ${S.stepIdx > 0 ? `<div class="tip t-ok"><strong>✅ ${S.stepIdx} component${S.stepIdx>1?'s':''} placed</strong>Keep going — palette is highlighting the next one in cyan.</div>` : ''}
+      `;
+    }
+    applyNodeHighlights();
     return;
   }
 
-  const tips = [];
-  let score = 0;
-  const maxScore = uc.required.length * 20 + uc.recommended.length * 8;
+  if (S.nodes.length === 0) {
+    tipsBody.innerHTML = `<div class="tip t-info"><strong>🏗️ Start building!</strong>Add components from the palette. Start with the core pieces shown in the expected flow above.</div>`;
+    scoreFill.style.width = '0%'; scoreTxt.textContent = 'Score: 0% — add components'; return;
+  }
 
-  // Required components
-  uc.required.forEach(rid => {
-    if (hasComp(rid)) {
-      score += 20;
-      const c = findComp(rid) || { emoji: '✓', name: rid };
-      tips.push({ type:'ok', title:`✅ ${c.emoji} ${c.name}`, msg: uc.compTips?.[rid] || 'Required component in place.' });
-    } else {
-      tips.push({ type:'err', title:`❌ Missing: ${rid}`, msg: uc.missingTips?.[rid] || `Required for ${uc.name}.` });
-    }
-  });
+  const { tips, score, maxScore } = buildTips(uc);
 
-  // Recommended
-  uc.recommended.forEach(rid => {
-    if (hasComp(rid)) {
-      score += 8;
-      const c = findComp(rid) || { emoji: '+', name: rid };
-      tips.push({ type:'ok', title:`✅ ${c.emoji} ${c.name}`, msg: uc.compTips?.[rid] || 'Good addition!' });
-    } else {
-      const msg = uc.missingTips?.[rid];
-      if (msg) {
-        tips.push({ type: msg.startsWith('🚨') ? 'err' : 'warn', title:`💡 Add: ${rid}`, msg });
-      }
-    }
-  });
+  // ── EXPERT MODE — add extra critique layer ─────────────────
+  if (S.mode === 'expert') {
+    const extraCritique = [];
+    if (!hasComp('guardrails') && !hasComp('evaluator')) extraCritique.push({ type:'warn', title:'⚠️ No Safety Layer', msg:'Production AI needs guardrails (content filtering) AND an evaluator (quality measurement). Without both, you are flying blind.' });
+    if (!hasComp('cache') && S.nodes.length > 3) extraCritique.push({ type:'warn', title:'⚠️ No Caching', msg:'Repeated queries hit the LLM every time. A semantic cache (Redis + embedding) can cut LLM cost 40–60% in production.' });
+    if (S.conns.length === 0 && S.nodes.length > 1) extraCritique.push({ type:'err', title:'❌ No Connections Drawn', msg:'Components are isolated — wire them with Connect to show data flow. Architecture diagrams without flow are just inventories.' });
+    tips.push(...extraCritique);
+  }
 
-  // Connection analysis
-  S.conns.forEach(conn => {
-    const src = getNode(conn.from), tgt = getNode(conn.to);
-    if (!src || !tgt) return;
-    const wrong = uc.wrongConns?.find(w => w.from === src.compId && w.to === tgt.compId);
-    const good  = uc.goodConns?.find(g => g.from === src.compId && g.to === tgt.compId);
-    if (wrong && wrong.msg.startsWith('🚫')) {
-      score = Math.max(0, score - 15);
-      tips.push({ type:'err', title:`🚫 ${src.name} → ${tgt.name}`, msg: wrong.msg });
-    } else if (wrong) {
-      tips.push({ type:'warn', title:`⚠️ ${src.name} → ${tgt.name}`, msg: wrong.msg });
-    } else if (good) {
-      score = Math.min(maxScore, score + 5);
-      tips.push({ type:'ok', title:`🔗 ${src.name} → ${tgt.name}`, msg: good.msg });
-    }
-  });
-
-  // Extra component tips (components not in required/recommended)
-  S.nodes.forEach(node => {
-    const inReq = uc.required.includes(node.compId);
-    const inRec = uc.recommended.includes(node.compId);
-    if (!inReq && !inRec) {
-      const t = uc.compTips?.[node.compId];
-      if (t) tips.push({ type:'info', title:`💡 ${node.emoji} ${node.name}`, msg: t });
-    }
-  });
-
-  // Score
-  const pct = Math.min(100, Math.round((score / maxScore) * 100));
+  const pct = Math.min(100, Math.round(maxScore ? (score / maxScore) * 100 : 0));
   scoreFill.style.width = pct + '%';
   scoreFill.style.background = pct < 40 ? 'var(--red)' : pct < 70 ? 'var(--yellow)' : 'var(--green)';
-  const label = pct < 40 ? 'needs work' : pct < 60 ? 'getting there' : pct < 80 ? 'solid!' : pct < 95 ? 'excellent!' : '🏆 perfect!';
-  scoreTxt.textContent = `Architecture score: ${pct}% — ${label}`;
+  scoreTxt.textContent = `Architecture score: ${pct}% — ${pct < 40 ? 'needs work' : pct < 60 ? 'getting there' : pct < 80 ? 'solid!' : pct < 95 ? 'excellent!' : '🏆 perfect!'}`;
 
   tipsBody.innerHTML = tips.length
     ? tips.map(t => `<div class="tip t-${t.type}"><strong>${t.title}</strong>${t.msg}</div>`).join('')
-    : `<div class="tip t-info">Connect your components with the Connect button for flow analysis.</div>`;
+    : `<div class="tip t-info">Connect components with the Connect button to analyze data flow.</div>`;
 
-  // Re-highlight nodes after validation
   applyNodeHighlights();
 }
 
@@ -1210,18 +1333,47 @@ function handleConnectClick(nodeId) {
 // ════════════════════════════════════════════════════════════
 // ADD NODE
 // ════════════════════════════════════════════════════════════
+function showWrongAlert(picked, expected, expectedCat) {
+  clearTimeout(S.wrongAlertTimer);
+  const el = document.getElementById('wrong-alert');
+  el.style.display = 'block';
+  el.innerHTML = `❌ <strong>${picked.emoji} ${picked.name}</strong> isn't next. Step ${S.stepIdx + 1} needs <strong>${expected.emoji} ${expected.name}</strong> — look in the <em>${CAT_LABEL[expectedCat] || expectedCat}</em> tab (highlighted in cyan).`;
+  S.wrongAlertTimer = setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
 function addNode(comp, cat) {
+  const uc = getUC();
+
+  // Beginner mode: enforce step order
+  if (S.mode === 'beginner' && uc && S.stepIdx < uc.flow.length) {
+    const expectedId = uc.flow[S.stepIdx];
+    if (comp.id !== expectedId) {
+      const expected = findComp(expectedId) || { emoji: '🔧', name: expectedId };
+      showWrongAlert(comp, expected, findCompCat(expectedId));
+      return; // don't add to canvas
+    }
+    clearTimeout(S.wrongAlertTimer);
+    document.getElementById('wrong-alert').style.display = 'none';
+  }
+
   const canvas = document.getElementById('canvas');
   const n = S.nodes.length;
   const cols = 4;
   const x = 30 + (n % cols) * 160;
   const y = 30 + Math.floor(n / cols) * 110;
-  S.nodes.push({
+  const node = {
     id: 'n' + (++S.nc),
     compId: comp.id, name: comp.name, emoji: comp.emoji, cat,
     x: Math.min(x, canvas.offsetWidth - NODE_W - 20),
     y: Math.min(y, canvas.offsetHeight - NODE_H - 20),
-  });
+  };
+  S.nodes.push(node);
+
+  if (S.mode === 'beginner' && uc && S.stepIdx < uc.flow.length && comp.id === uc.flow[S.stepIdx]) {
+    S.actionStack.push({ type: 'node', nodeId: node.id, step: S.stepIdx });
+    S.stepIdx++;
+  }
+
   renderCanvas();
   renderPalette();
   renderGuidance();
@@ -1309,12 +1461,48 @@ function mkSvg(tag)   { return document.createElementNS('http://www.w3.org/2000/
 // EVENT LISTENERS
 // ════════════════════════════════════════════════════════════
 
+// Mode selector
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    S.mode = btn.dataset.mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+    // Reset step counter when switching modes
+    S.stepIdx = 0; S.actionStack = [];
+    clearTimeout(S.wrongAlertTimer);
+    document.getElementById('wrong-alert').style.display = 'none';
+    renderAll();
+  });
+});
+
+// Requirements analyzer
+document.getElementById('btn-req').addEventListener('click', () => {
+  const text = document.getElementById('req-input').value.trim();
+  const resultEl = document.getElementById('req-result');
+  if (!text) { resultEl.className = 'req-result err'; resultEl.style.display = 'block'; resultEl.textContent = 'Please describe your project first.'; return; }
+  const match = parseRequirements(text);
+  if (!match) {
+    resultEl.className = 'req-result err';
+    resultEl.style.display = 'block';
+    resultEl.textContent = '🤔 No close match found. Try describing the type of AI system: chatbot, voice assistant, image detection, agent workflow, etc.';
+    return;
+  }
+  // Switch to matched use case
+  S.uc = match.uc.id;
+  S.nodes = []; S.conns = []; S.connMode = false; S.connSrc = null; S.stepIdx = 0; S.actionStack = [];
+  document.getElementById('btn-connect').classList.remove('conn-active');
+  document.getElementById('toolbar-label').textContent = `Building: ${match.uc.name}`;
+  resultEl.className = 'req-result ok';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = `✅ Matched: <strong>${match.uc.emoji} ${match.uc.name}</strong> — ${match.uc.difficulty} level. ${match.score} keyword signal${match.score > 1 ? 's' : ''}.`;
+  renderAll();
+});
+
 // Use case selection
 document.getElementById('uc-list').addEventListener('click', e => {
   const card = e.target.closest('.uc-card');
   if (!card) return;
   S.uc = card.dataset.id;
-  S.nodes = []; S.conns = []; S.connMode = false; S.connSrc = null;
+  S.nodes = []; S.conns = []; S.connMode = false; S.connSrc = null; S.stepIdx = 0; S.actionStack = [];
   document.getElementById('btn-connect').classList.remove('conn-active');
   document.getElementById('toolbar-label').textContent = `Building: ${getUC()?.name}`;
   renderAll();
