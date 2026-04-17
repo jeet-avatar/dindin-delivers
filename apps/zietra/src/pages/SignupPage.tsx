@@ -1,7 +1,30 @@
-import { Link } from 'react-router'
+import { useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router'
 import { NavBar } from '../components/NavBar'
+import { signup } from '../lib/auth'
 
 export default function SignupPage() {
+  const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      await signup(name, email, password)
+      navigate('/dashboard')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Signup failed.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <>
       <NavBar />
@@ -24,10 +47,14 @@ export default function SignupPage() {
             Full CRM, no credit card required.
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <input
               type="text"
+              required
               placeholder="Full name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
               style={{
                 background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
                 borderRadius: 12, padding: '14px 16px', color: 'var(--text)', fontSize: 15, outline: 'none',
@@ -35,7 +62,11 @@ export default function SignupPage() {
             />
             <input
               type="email"
+              required
               placeholder="Work email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               style={{
                 background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
                 borderRadius: 12, padding: '14px 16px', color: 'var(--text)', fontSize: 15, outline: 'none',
@@ -43,19 +74,39 @@ export default function SignupPage() {
             />
             <input
               type="password"
+              required
+              minLength={8}
               placeholder="Password (min. 8 characters)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
               style={{
                 background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
                 borderRadius: 12, padding: '14px 16px', color: 'var(--text)', fontSize: 15, outline: 'none',
               }}
             />
-            <button style={{
-              background: 'var(--zietra)', color: '#fff', border: 'none',
-              borderRadius: 12, padding: '15px', fontSize: 16, fontWeight: 600, cursor: 'pointer',
-            }}>
-              Create free account
+            {error && (
+              <div style={{
+                color: '#ff453a', background: 'rgba(255,69,58,0.08)',
+                border: '1px solid rgba(255,69,58,0.2)', borderRadius: 10,
+                padding: '10px 14px', fontSize: 14, textAlign: 'left',
+              }}>
+                {error}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                background: 'var(--zietra)', color: '#fff', border: 'none',
+                borderRadius: 12, padding: '15px', fontSize: 16, fontWeight: 600,
+                cursor: loading ? 'wait' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? 'Creating account…' : 'Create free account'}
             </button>
-          </div>
+          </form>
 
           <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 16 }}>
             By signing up you agree to our{' '}

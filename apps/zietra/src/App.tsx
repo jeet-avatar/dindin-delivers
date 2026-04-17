@@ -6,6 +6,7 @@ const HomePage = lazy(() => import('./pages/HomePage'))
 const PricingPage = lazy(() => import('./pages/PricingPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const SignupPage = lazy(() => import('./pages/SignupPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 
 function LoadingSpinner() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="*" element={<HomePage />} />
           </Routes>
         </Suspense>
