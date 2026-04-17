@@ -8,6 +8,7 @@ const distDir = resolve(__dirname, '../dist')
 
 const routes = [
   '/',
+  '/tools/ai-playground',
   '/services',
   '/services/ai',
   '/services/netsuite',
