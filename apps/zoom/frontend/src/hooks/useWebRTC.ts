@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 const SIGNALING_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
+// TODO(LOS-SEC): Move TURN server credentials to environment variables before LaunchOS launch
+// Current hardcoded creds at lines 9-21 are metered.ca free tier
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
