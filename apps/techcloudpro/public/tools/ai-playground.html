@@ -129,6 +129,37 @@ header p{font-size:.72rem;color:var(--muted)}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
 
+/* ── MOBILE ── */
+@media(max-width:768px){
+  body{height:auto;min-height:100dvh;overflow-y:auto;overflow-x:hidden}
+  header{padding:.45rem .65rem;flex-wrap:wrap;gap:.35rem}
+  header>div:first-child p{display:none}
+  header h1{font-size:.82rem}
+  header>div[style*="gap:.3rem"]{order:4;width:100%;justify-content:stretch}
+  header>div[style*="gap:.3rem"] .mode-btn{flex:1;padding:.3rem .2rem;font-size:.62rem}
+  .hdr-btns{gap:.2rem}
+  .hbtn{font-size:.6rem;padding:.22rem .4rem}
+  .app{flex-direction:column;overflow-y:auto;overflow-x:hidden;height:auto;flex:1}
+  .panel-left{width:100%;height:auto;max-height:none;border-right:none;border-bottom:1px solid var(--border);padding:.5rem;overflow-x:auto;overflow-y:hidden;flex-shrink:0}
+  .panel-title{display:none}
+  #uc-list{display:flex;flex-direction:row;gap:.3rem;flex-wrap:nowrap;padding-bottom:.2rem}
+  .uc-card{min-width:auto;white-space:nowrap;display:inline-flex;align-items:center;gap:.3rem;flex-direction:row;padding:.35rem .55rem;margin:0}
+  .uc-emoji{font-size:.9rem;margin-bottom:0;flex-shrink:0}
+  .uc-name{font-size:.68rem;white-space:nowrap}
+  .uc-desc,.badge{display:none}
+  .req-section{display:none}
+  .panel-canvas{flex-shrink:0;height:55vw;min-height:260px;max-height:360px}
+  .canvas-area{min-height:200px}
+  .panel-right{width:100%;height:0;overflow:hidden;border-left:none;border-top:1px solid var(--border);transition:height .25s ease;flex-shrink:0}
+  .panel-right.mob-open{height:50vw;min-height:260px;max-height:340px}
+  .palette{padding:.4rem .5rem}
+  .pal-cats{gap:.2rem;flex-wrap:nowrap;overflow-x:auto}
+  .pcat{font-size:.58rem;padding:.13rem .3rem;white-space:nowrap}
+  .pal-items{max-height:52px}
+  .pitem{font-size:.63rem;padding:.2rem .4rem}
+  .mob-tips-btn{display:flex!important}
+}
+
 /* ── TOOLTIP ── */
 .tooltip{position:fixed;background:#1e2035;border:1px solid var(--border);border-radius:8px;padding:.5rem .75rem;font-size:.72rem;color:var(--text);pointer-events:none;z-index:999;max-width:220px;line-height:1.4;box-shadow:0 8px 32px rgba(0,0,0,.5);display:none}
 
@@ -176,10 +207,11 @@ header p{font-size:.72rem;color:var(--muted)}
     <button class="mode-btn" data-mode="expert" id="mode-expert">🏆 Expert</button>
   </div>
   <div class="hdr-btns">
-    <button class="hbtn primary" id="btn-hint">💡 Show Solution</button>
-    <button class="hbtn danger" id="btn-clear">🗑 Clear</button>
-    <button class="hbtn primary" id="btn-download-png">📥 Download PNG</button>
-    <a class="hbtn" href="/tools/rag-study-guide.html">📖 Study Guide</a>
+    <button class="hbtn" id="btn-mob-tips" style="display:none" title="Toggle tips panel">💡 Tips</button>
+    <button class="hbtn primary" id="btn-hint">Show Solution</button>
+    <button class="hbtn danger" id="btn-clear">🗑</button>
+    <button class="hbtn primary" id="btn-download-png">📥 PNG</button>
+    <a class="hbtn" href="/tools/rag-study-guide.html">📖 Guide</a>
   </div>
 </header>
 
@@ -1064,7 +1096,7 @@ function renderCanvas() {
       <div class="n-cat">${CAT_LABEL[node.cat] || node.cat}</div>
     `;
 
-    // Drag
+    // Drag — mouse
     el.addEventListener('mousedown', e => {
       if (e.target.classList.contains('n-remove')) return;
       if (S.connMode) { handleConnectClick(node.id); return; }
@@ -1082,6 +1114,27 @@ function renderCanvas() {
       window.addEventListener('mousemove', mm);
       window.addEventListener('mouseup', mu);
     });
+
+    // Drag — touch
+    el.addEventListener('touchstart', e => {
+      if (e.target.classList.contains('n-remove')) return;
+      if (S.connMode) { handleConnectClick(node.id); return; }
+      e.preventDefault();
+      const t0 = e.touches[0];
+      const startX = t0.clientX - node.x, startY = t0.clientY - node.y;
+      el.style.zIndex = 99;
+      const tm = e2 => {
+        const t = e2.touches[0];
+        node.x = Math.max(0, t.clientX - startX);
+        node.y = Math.max(0, t.clientY - startY);
+        el.style.left = node.x + 'px';
+        el.style.top = node.y + 'px';
+        renderConnections();
+      };
+      const tu = () => { el.style.zIndex = 2; window.removeEventListener('touchmove', tm); window.removeEventListener('touchend', tu); };
+      window.addEventListener('touchmove', tm, { passive: false });
+      window.addEventListener('touchend', tu);
+    }, { passive: false });
 
     // Tooltip
     el.addEventListener('mouseenter', () => {
@@ -1573,6 +1626,19 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   renderPalette();
   renderGuidance();
 });
+
+// Mobile Tips toggle
+document.getElementById('btn-mob-tips').addEventListener('click', () => {
+  document.querySelector('.panel-right').classList.toggle('mob-open');
+});
+
+// Show mobile Tips button on small screens
+function handleMobileUI() {
+  const isMob = window.innerWidth <= 768;
+  document.getElementById('btn-mob-tips').style.display = isMob ? 'inline-flex' : 'none';
+}
+handleMobileUI();
+window.addEventListener('resize', handleMobileUI);
 
 // ════════════════════════════════════════════════════════════
 // INIT

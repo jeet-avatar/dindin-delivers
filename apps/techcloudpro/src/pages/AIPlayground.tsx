@@ -21,38 +21,38 @@ export default function AIPlayground() {
       />
 
       {/* Hero strip */}
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '1rem 1.5rem 0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: C.text, margin: 0 }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0.75rem 1rem 0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: 'clamp(1rem, 3vw, 1.25rem)', fontWeight: 700, color: C.text, margin: 0 }}>
             AI Architecture Playground
           </h1>
-          <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.2rem 0.65rem', borderRadius: '100px', background: 'rgba(255,107,53,0.12)', color: C.orange, border: '1px solid rgba(255,107,53,0.25)' }}>
-            Free Tool · No signup required
+          <span style={{ fontSize: '0.68rem', fontWeight: 600, padding: '0.18rem 0.55rem', borderRadius: '100px', background: 'rgba(255,107,53,0.12)', color: C.orange, border: '1px solid rgba(255,107,53,0.25)', whiteSpace: 'nowrap' }}>
+            Free · No signup
           </span>
         </div>
-        <p style={{ fontSize: '0.82rem', color: C.textMuted, marginTop: '0.25rem' }}>
-          Drag components, wire them together, score your architecture, and download a branded PNG of your design.
+        <p style={{ fontSize: '0.78rem', color: C.textMuted, marginTop: '0.2rem', lineHeight: 1.4 }}>
+          Pick a use case → add components → wire them → score your architecture → download PNG.
         </p>
       </div>
 
       {/* Iframe */}
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 1.5rem' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 0.75rem' }}>
         <iframe
           src="/tools/ai-playground.html"
           title="AI Architecture Playground"
           style={{
             width: '100%',
-            height: 'calc(100vh - 200px)',
-            minHeight: '600px',
+            height: 'calc(100dvh - 180px)',
+            minHeight: '520px',
             border: 'none',
-            borderRadius: '12px',
+            borderRadius: '10px',
             display: 'block',
           }}
         />
       </div>
 
       {/* Below iframe: Study Guide download + Consulting CTA */}
-      <div style={{ maxWidth: '1400px', margin: '1.5rem auto 3rem', padding: '0 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div style={{ maxWidth: '1400px', margin: '1rem auto 2.5rem', padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
         {/* Study guide download button */}
         <div style={{ textAlign: 'center' }}>
@@ -84,28 +84,28 @@ export default function AIPlayground() {
           background: C.bgCard,
           border: `1px solid ${C.border}`,
           borderRadius: '12px',
-          padding: '2rem',
+          padding: 'clamp(1.25rem, 4vw, 2rem)',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '1.5rem',
+          gap: '1.25rem',
         }}>
-          <div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: C.text, margin: '0 0 0.5rem' }}>
+          <div style={{ flex: '1 1 280px' }}>
+            <h2 style={{ fontSize: 'clamp(0.95rem, 2.5vw, 1.1rem)', fontWeight: 700, color: C.text, margin: '0 0 0.4rem' }}>
               Need help building this?
             </h2>
-            <p style={{ fontSize: '0.875rem', color: C.textDim, margin: 0, maxWidth: '520px', lineHeight: 1.6 }}>
-              Our AI architects can design and deploy your AI system — from architecture diagram to production in weeks. We've shipped RAG pipelines, agentic workflows, and private LLMs for enterprise clients across North America.
+            <p style={{ fontSize: 'clamp(0.78rem, 2vw, 0.875rem)', color: C.textDim, margin: 0, lineHeight: 1.6 }}>
+              Our AI architects design and deploy your AI system — from diagram to production in weeks. RAG pipelines, agentic workflows, private LLMs for enterprise clients across North America.
             </p>
           </div>
           <Link
             to="/contact"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-              padding: '0.75rem 1.75rem', borderRadius: '8px',
+              padding: '0.7rem 1.5rem', borderRadius: '8px',
               background: C.orange, color: '#fff',
-              fontSize: '0.9rem', fontWeight: 600, textDecoration: 'none',
+              fontSize: 'clamp(0.82rem, 2vw, 0.9rem)', fontWeight: 600, textDecoration: 'none',
               whiteSpace: 'nowrap', flexShrink: 0,
             }}
           >
