@@ -83,3 +83,104 @@ def score_deterministic(case: dict, response: str, elapsed_s: float) -> dict:
         "total": sum(components.values()),
         "max": max_pts,
     }
+
+
+import json as _json
+import os
+from pathlib import Path
+import anthropic
+
+_JUDGE_PROMPT_PATH = Path(__file__).parent / "judge_prompt.md"
+_RESPONSE_TRUNCATE = 8000
+
+# Lazy-loaded
+_anthropic_client = None
+_judge_system_text = None
+
+# Cumulative Anthropic cost (per process). Read by run_eval.py after the loop.
+_judge_cost_accumulator = {"usd": 0.0}
+
+
+def _get_anthropic_client() -> anthropic.Anthropic:
+    global _anthropic_client
+    if _anthropic_client is None:
+        _anthropic_client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY
+    return _anthropic_client
+
+
+def _get_judge_system() -> str:
+    global _judge_system_text
+    if _judge_system_text is None:
+        _judge_system_text = _JUDGE_PROMPT_PATH.read_text()
+    return _judge_system_text
+
+
+def score_with_judge(case: dict, response: str, model: str = "claude-opus-4-7") -> dict:
+    """Call Claude judge on the case+response. Returns scores + reasoning.
+
+    Uses prompt caching on the system block so the per-case incremental cost
+    is just the user message + judge output (~$0.03/case).
+    """
+    truncated = response[:_RESPONSE_TRUNCATE]
+    if len(response) > _RESPONSE_TRUNCATE:
+        truncated += "\n\n[...truncated]"
+
+    user_msg = (
+        f"## Case\n"
+        f"- ID: {case['id']}\n"
+        f"- Dimension: {case['dimension']}\n"
+        f"- Prompt sent to assistant: {case['prompt']}\n"
+        f"- Rubric (case-specific guidance): {case['rubric']}\n\n"
+        f"## Response to score\n{truncated}\n\n"
+        f"Return JSON only."
+    )
+
+    client = _get_anthropic_client()
+    msg = client.messages.create(
+        model=model,
+        max_tokens=600,
+        system=[
+            {
+                "type": "text",
+                "text": _get_judge_system(),
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+        messages=[{"role": "user", "content": user_msg}],
+    )
+
+    # Track Anthropic cost (Opus 4.7: $15/MTok input, $75/MTok output, cache read $1.50/MTok)
+    usage = msg.usage
+    input_tokens = getattr(usage, "input_tokens", 0) or 0
+    cache_read_tokens = getattr(usage, "cache_read_input_tokens", 0) or 0
+    cache_creation_tokens = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    output_tokens = getattr(usage, "output_tokens", 0) or 0
+    input_cost = input_tokens * 15.0 / 1_000_000
+    cache_read_cost = cache_read_tokens * 1.50 / 1_000_000
+    cache_creation_cost = cache_creation_tokens * 18.75 / 1_000_000  # 1.25x input for ephemeral
+    output_cost = output_tokens * 75.0 / 1_000_000
+    call_cost = input_cost + cache_read_cost + cache_creation_cost + output_cost
+    _judge_cost_accumulator["usd"] += call_cost
+
+    raw = msg.content[0].text.strip()
+    # Strip ```json fences if judge added them despite instructions
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
+    parsed = _json.loads(raw)
+
+    return {
+        "technical_correctness": int(parsed.get("technical_correctness", 0)),
+        "production_readiness": int(parsed.get("production_readiness", 0)),
+        "hallucination_risk": int(parsed.get("hallucination_risk", 0)),
+        "completeness": int(parsed.get("completeness", 0)),
+        "reasoning": parsed.get("reasoning", ""),
+        "total": (
+            int(parsed.get("technical_correctness", 0))
+            + int(parsed.get("production_readiness", 0))
+            + int(parsed.get("hallucination_risk", 0))
+            + int(parsed.get("completeness", 0))
+        ),
+        "max": 45,
+        "raw": raw,
+        "cost_usd": round(call_cost, 6),
+    }

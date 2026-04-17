@@ -19,6 +19,8 @@ from dotenv import load_dotenv
 EVAL_DIR = Path(__file__).parent
 CASES_DIR = EVAL_DIR / "cases"
 RUNS_DIR = EVAL_DIR / "runs"
+sys.path.insert(0, str(EVAL_DIR))
+from score import score_deterministic, score_with_judge, _judge_cost_accumulator
 
 
 def load_cases(case_filter: list[str] | None = None) -> list[dict]:
@@ -187,7 +189,6 @@ def main() -> int:
     started_at = datetime.now(timezone.utc).isoformat()
     aborted = False
     abort_reason = None
-    cost_usd = 0.0  # populated when judge wired in Wave 4 (Task 4.3)
 
     for i, case in enumerate(cases, 1):
         print(f"[{i}/{len(cases)}] {case['id']} ...", end=" ", flush=True)
@@ -198,12 +199,29 @@ def main() -> int:
             aborted = True
             abort_reason = str(e)
             break
+        if result["status"] == "ok":
+            det = score_deterministic(case, result["response"], result["elapsed_s"])
+            result["deterministic"] = det
+            if not args.no_judge:
+                try:
+                    judge = score_with_judge(case, result["response"])
+                    result["judge"] = judge
+                    result["score_total"] = det["total"] + judge["total"]
+                    result["score_max"] = det["max"] + judge["max"]
+                except Exception as e:
+                    result["judge_error"] = str(e)
+                    result["score_total"] = det["total"]
+                    result["score_max"] = det["max"]
+            else:
+                result["score_total"] = det["total"]
+                result["score_max"] = det["max"]
         out_path = run_dir / f"{case['id']}.json"
         out_path.write_text(json.dumps(result, indent=2))
         print(f"{result['status']} ({result['elapsed_s']}s)")
         if i < len(cases):
             time.sleep(6.5)  # rate limit: 10/min
 
+    cost_usd = round(_judge_cost_accumulator["usd"], 4)
     finished_at = datetime.now(timezone.utc).isoformat()
     meta = {
         "run_id": run_ts,
