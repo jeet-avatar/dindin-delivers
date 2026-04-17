@@ -25,7 +25,10 @@ def load_cases(case_filter: list[str] | None = None) -> list[dict]:
     """Load all case JSONs from cases/, optionally filtered by id."""
     cases = []
     for path in sorted(CASES_DIR.glob("*.json")):
-        cases.extend(json.loads(path.read_text()))
+        data = json.loads(path.read_text())
+        if not isinstance(data, list):
+            raise ValueError(f"{path}: expected JSON array, got {type(data).__name__}")
+        cases.extend(data)
     if case_filter:
         cases = [c for c in cases if c["id"] in case_filter]
     return cases
@@ -66,6 +69,7 @@ def post_chat_with_retries(backend_url: str, token: str, payload: dict) -> tuple
     Returns (status_code, body_or_text).
     Raises BatchAbort on 402/503 (license/AI gates — global, not per-case).
     """
+    resp: httpx.Response | None = None
     for attempt in range(2):  # one retry max for 5xx/429/401
         try:
             resp = httpx.post(
@@ -98,6 +102,7 @@ def post_chat_with_retries(backend_url: str, token: str, payload: dict) -> tuple
             return (200, resp.json())
         return (resp.status_code, resp.text[:500])
 
+    assert resp is not None
     return (resp.status_code, resp.text[:500])
 
 
