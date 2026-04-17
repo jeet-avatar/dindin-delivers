@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Architecture Playground</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f1a;--surface:#13152a;--card:#1a1d2e;--border:rgba(255,255,255,.08);
+  --text:#e2e8f0;--muted:#64748b;
+  --indigo:#6366f1;--cyan:#22d3ee;--green:#34d399;
+  --orange:#fb923c;--yellow:#fbbf24;--pink:#f472b6;
+  --purple:#a78bfa;--red:#f87171;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── HEADER ── */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:.65rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-shrink:0;z-index:10}
+header h1{font-size:1rem;font-weight:800;letter-spacing:-.02em}
+header p{font-size:.72rem;color:var(--muted)}
+.hdr-btns{margin-left:auto;display:flex;gap:.4rem}
+.hbtn{padding:.35rem .75rem;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:.72rem;cursor:pointer;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:.3rem}
+.hbtn:hover{background:rgba(255,255,255,.06)}
+.hbtn.danger{border-color:rgba(248,113,113,.3);color:var(--red)}
+.hbtn.primary{background:var(--indigo);border-color:var(--indigo);color:#fff}
+
+/* ── LAYOUT ── */
+.app{display:flex;flex:1;overflow:hidden}
+
+/* ── LEFT PANEL: use cases ── */
+.panel-left{width:250px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:.85rem}
+.panel-title{font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.65rem}
+.uc-card{padding:.7rem;border-radius:10px;border:1px solid var(--border);margin-bottom:.45rem;cursor:pointer;transition:all .2s}
+.uc-card:hover,.uc-card.active{border-color:var(--indigo);background:rgba(99,102,241,.08)}
+.uc-card.active{border-color:var(--indigo)}
+.uc-emoji{font-size:1.5rem;line-height:1;margin-bottom:.25rem}
+.uc-name{font-size:.82rem;font-weight:700;margin-bottom:.15rem}
+.uc-desc{font-size:.7rem;color:var(--muted);line-height:1.4;margin-bottom:.35rem}
+.badge{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.62rem;font-weight:600}
+.bg{background:rgba(52,211,153,.12);color:var(--green)}
+.bi{background:rgba(251,191,36,.12);color:var(--yellow)}
+.ba{background:rgba(248,113,113,.12);color:var(--red)}
+
+/* ── CANVAS PANEL ── */
+.panel-canvas{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* toolbar */
+.ctoolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.45rem .85rem;display:flex;align-items:center;gap:.4rem;flex-shrink:0;height:42px}
+.ctoolbar-label{font-size:.72rem;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbtn{padding:.28rem .6rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:.7rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+.tbtn:hover{background:rgba(255,255,255,.05)}
+.tbtn.conn-active{background:var(--cyan);border-color:var(--cyan);color:#0d0f1a;font-weight:600}
+
+/* canvas area */
+.canvas-area{flex:1;position:relative;overflow:hidden;
+  background:radial-gradient(circle at 15% 85%,rgba(99,102,241,.05) 0%,transparent 55%),
+              radial-gradient(circle at 85% 15%,rgba(34,211,238,.05) 0%,transparent 55%)}
+#svg-conns{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.c-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);pointer-events:none;gap:.5rem}
+.c-empty .big{font-size:3.5rem;opacity:.4}
+.c-empty p{font-size:.85rem;opacity:.6}
+.c-empty small{font-size:.72rem;opacity:.4}
+
+/* nodes */
+.c-node{position:absolute;padding:.55rem .8rem;border-radius:10px;border:1.5px solid var(--border);background:var(--card);cursor:grab;user-select:none;width:138px;transition:border-color .2s,box-shadow .2s;z-index:2}
+.c-node:hover{border-color:rgba(255,255,255,.18);box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.c-node.selected{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(34,211,238,.15)}
+.c-node.conn-src{border-color:var(--yellow);box-shadow:0 0 0 3px rgba(251,191,36,.2);animation:pulse 1.2s infinite}
+.c-node.n-ok{border-color:rgba(52,211,153,.5)}
+.c-node.n-warn{border-color:rgba(251,191,36,.5)}
+.c-node.n-err{border-color:rgba(248,113,113,.6)}
+.c-node .n-emoji{font-size:1.2rem;line-height:1}
+.c-node .n-name{font-size:.72rem;font-weight:600;margin:.2rem 0 .1rem;line-height:1.2}
+.c-node .n-cat{font-size:.62rem;color:var(--muted)}
+.c-node .n-remove{position:absolute;top:4px;right:6px;font-size:.65rem;color:var(--muted);cursor:pointer;line-height:1;padding:2px 3px;border-radius:3px;opacity:0;transition:opacity .15s}
+.c-node:hover .n-remove{opacity:1}
+.c-node .n-remove:hover{color:var(--red);background:rgba(248,113,113,.1)}
+
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(251,191,36,.2)}50%{box-shadow:0 0 0 6px rgba(251,191,36,.1)}}
+
+/* palette */
+.palette{background:var(--surface);border-top:1px solid var(--border);padding:.6rem .85rem;flex-shrink:0}
+.pal-cats{display:flex;gap:.3rem;margin-bottom:.5rem;flex-wrap:wrap}
+.pcat{padding:.18rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.67rem;cursor:pointer;transition:all .15s}
+.pcat.active,.pcat:hover{background:rgba(99,102,241,.15);border-color:var(--indigo);color:var(--indigo)}
+.pal-items{display:flex;gap:.35rem;flex-wrap:wrap;max-height:68px;overflow-y:auto}
+.pitem{padding:.3rem .6rem;border-radius:7px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:.7rem;display:flex;align-items:center;gap:.3rem;transition:all .15s;white-space:nowrap}
+.pitem:hover{background:rgba(99,102,241,.15);border-color:var(--indigo)}
+.pitem-used{border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.05)}
+
+/* ── RIGHT PANEL ── */
+.panel-right{width:295px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.tips-hdr{padding:.85rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.tips-hdr h3{font-size:.82rem;font-weight:700;margin-bottom:.1rem}
+.tips-hdr p{font-size:.7rem;color:var(--muted)}
+.score-wrap{margin-top:.65rem}
+.score-bar{height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-bottom:.3rem}
+.score-fill{height:100%;border-radius:3px;transition:width .5s ease,background .5s}
+.score-txt{font-size:.67rem;color:var(--muted)}
+
+.uc-detail{padding:.85rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.uc-detail h4{font-size:.78rem;font-weight:700;margin-bottom:.4rem}
+.uc-detail p{font-size:.7rem;color:var(--muted);line-height:1.5;margin-bottom:.5rem}
+.flow-row{display:flex;align-items:center;gap:.25rem;flex-wrap:wrap}
+.flow-chip{padding:.15rem .4rem;border-radius:4px;font-size:.62rem;background:rgba(99,102,241,.12);color:var(--indigo);border:1px solid rgba(99,102,241,.25)}
+.flow-arr{color:var(--muted);font-size:.65rem}
+
+.tips-body{flex:1;padding:.85rem 1rem;overflow-y:auto;display:flex;flex-direction:column;gap:.45rem}
+.tip{padding:.65rem .8rem;border-radius:8px;font-size:.75rem;line-height:1.5;border-left:3px solid}
+.tip.t-err{background:rgba(248,113,113,.07);border-color:var(--red)}
+.tip.t-warn{background:rgba(251,191,36,.07);border-color:var(--yellow)}
+.tip.t-ok{background:rgba(52,211,153,.07);border-color:var(--green)}
+.tip.t-info{background:rgba(99,102,241,.07);border-color:var(--indigo)}
+.tip strong{display:block;font-weight:600;margin-bottom:.2rem;font-size:.73rem}
+.tip code{font-family:'JetBrains Mono',monospace;font-size:.68rem;background:rgba(255,255,255,.08);padding:.1rem .3rem;border-radius:3px}
+
+/* ── CONNECTIONS ── */
+.conn-path{fill:none;stroke-width:2;opacity:.75}
+.conn-ok{stroke:var(--green)}
+.conn-warn{stroke:var(--yellow);stroke-dasharray:5 3}
+.conn-err{stroke:var(--red);stroke-dasharray:4 3}
+.conn-def{stroke:var(--indigo)}
+
+/* scrollbar */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+
+/* ── TOOLTIP ── */
+.tooltip{position:fixed;background:#1e2035;border:1px solid var(--border);border-radius:8px;padding:.5rem .75rem;font-size:.72rem;color:var(--text);pointer-events:none;z-index:999;max-width:220px;line-height:1.4;box-shadow:0 8px 32px rgba(0,0,0,.5);display:none}
+
+/* ── REQUIREMENTS BOX ── */
+.req-section{margin-top:.85rem;padding-top:.75rem;border-top:1px solid var(--border)}
+.req-textarea{width:100%;height:90px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:.69rem;padding:.5rem .65rem;resize:none;outline:none;line-height:1.5}
+.req-textarea:focus{border-color:var(--indigo)}
+.req-btn{width:100%;margin-top:.4rem;padding:.38rem;border-radius:7px;border:1px solid var(--indigo);background:rgba(99,102,241,.12);color:var(--indigo);font-size:.7rem;cursor:pointer;transition:all .15s;font-weight:600}
+.req-btn:hover{background:rgba(99,102,241,.25)}
+.req-result{margin-top:.4rem;padding:.45rem .6rem;border-radius:7px;font-size:.7rem;display:none}
+.req-result.ok{background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);color:var(--green)}
+.req-result.err{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3);color:var(--red)}
+
+/* ── MODE BAR ── */
+.mode-bar{display:flex;gap:.3rem;padding:.38rem .85rem;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.mode-btn{flex:1;padding:.25rem .3rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.65rem;cursor:pointer;transition:all .15s;font-weight:600}
+.mode-btn.active{border-color:var(--cyan);background:rgba(34,211,238,.1);color:var(--cyan)}
+
+/* ── PALETTE NEXT / USED ── */
+.pitem.pi-used{border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.04)}
+.pitem.pi-next{border-color:var(--cyan)!important;background:rgba(34,211,238,.1)!important;box-shadow:0 0 12px rgba(34,211,238,.25)!important;animation:pglow .9s ease-in-out infinite alternate}
+@keyframes pglow{from{box-shadow:0 0 5px rgba(34,211,238,.15)}to{box-shadow:0 0 16px rgba(34,211,238,.5)}}
+
+/* ── WRONG PICK ALERT ── */
+.wrong-alert{padding:.5rem .8rem;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.35);font-size:.72rem;color:var(--red);border-radius:7px;margin:.35rem .85rem;display:none;animation:wafade .2s ease}
+@keyframes wafade{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── BEGINNER STEP CARD ── */
+.step-card{padding:.7rem .85rem;background:rgba(34,211,238,.05);border-left:3px solid var(--cyan);border-radius:0 8px 8px 0;font-size:.75rem;line-height:1.5}
+.step-num{font-size:.62rem;color:var(--cyan);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem}
+.step-comp{font-size:.88rem;font-weight:700;margin:.1rem 0 .25rem}
+.step-why{color:var(--muted);font-size:.72rem;line-height:1.5}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚡ AI Architecture Playground</h1>
+    <p>Pick a use case → connect the dots → play with the architecture → get guided</p>
+  </div>
+  <div style="display:flex;gap:.3rem;margin:0 .5rem">
+    <button class="mode-btn active" data-mode="beginner" id="mode-beginner">🎓 Beginner</button>
+    <button class="mode-btn" data-mode="advanced" id="mode-advanced">🧑‍💻 Advanced</button>
+    <button class="mode-btn" data-mode="expert" id="mode-expert">🏆 Expert</button>
+  </div>
+  <div class="hdr-btns">
+    <button class="hbtn primary" id="btn-hint">💡 Show Solution</button>
+    <button class="hbtn danger" id="btn-clear">🗑 Clear</button>
+    <a class="hbtn" href="rag-study-guide.html">📖 Study Guide</a>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- ── PANEL 1: use cases ── -->
+  <div class="panel-left">
+    <div class="panel-title">Choose a Use Case</div>
+    <div id="uc-list"></div>
+    <div class="req-section">
+      <div class="panel-title">📋 Requirements Doc</div>
+      <textarea class="req-textarea" id="req-input" placeholder="Describe your project in plain English…
+
+e.g. 'Build a customer support chatbot that answers from our PDF docs and searches the web for the latest info'"></textarea>
+      <button class="req-btn" id="btn-req">⚡ Analyze &amp; Match Use Case</button>
+      <div class="req-result" id="req-result"></div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 2: canvas ── -->
+  <div class="panel-canvas">
+    <div class="ctoolbar">
+      <span class="ctoolbar-label" id="toolbar-label">← Select a use case to begin</span>
+      <button class="tbtn" id="btn-connect">🔗 Connect</button>
+      <button class="tbtn" id="btn-undo">↩ Undo</button>
+      <button class="tbtn" id="btn-arrange">⚡ Arrange</button>
+    </div>
+
+    <div class="mode-bar" id="mode-bar" style="display:none"></div>
+    <div class="wrong-alert" id="wrong-alert"></div>
+    <div class="canvas-area" id="canvas">
+      <svg id="svg-conns"></svg>
+      <div class="c-empty" id="c-empty">
+        <div class="big">🏗️</div>
+        <p>Select a use case, add components from below</p>
+        <small>Drag to reposition · Connect button to wire · ✕ to remove</small>
+      </div>
+    </div>
+
+    <div class="palette">
+      <div class="pal-cats" id="pal-cats"></div>
+      <div class="pal-items" id="pal-items"></div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 3: guidance ── -->
+  <div class="panel-right">
+    <div class="tips-hdr">
+      <h3 id="tips-title">Architecture Advisor</h3>
+      <p id="tips-sub">Select a use case on the left</p>
+      <div class="score-wrap">
+        <div class="score-bar"><div class="score-fill" id="score-fill" style="width:0%;background:var(--muted)"></div></div>
+        <div class="score-txt" id="score-txt">Add components to begin scoring</div>
+      </div>
+    </div>
+    <div id="uc-detail" class="uc-detail" style="display:none"></div>
+    <div class="tips-body" id="tips-body">
+      <div class="tip t-info">
+        <strong>👋 How this works</strong>
+        1. Pick a scenario (left panel)<br>
+        2. Read the expected flow (right panel)<br>
+        3. Add components from the palette<br>
+        4. Wire them with the Connect button<br>
+        5. Watch this panel for errors &amp; tips
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════════════════════════
+
+const UC = [
+  {
+    id:'support-bot', emoji:'🤖', name:'Customer Support Bot',
+    difficulty:'Beginner', color:'#6366f1',
+    description:'Answer 10K+ customer questions/day from your knowledge base (docs, FAQs, past tickets). Needs accuracy, speed, and safety.',
+    flow:['chunker','embedder','vectordb','retriever','reranker','llm','guardrails'],
+    flowLabels:['Chunk docs','Embed','Store','Retrieve','Rerank','Generate','Filter'],
+    required:['llm','embedder','vectordb'],
+    recommended:['chunker','reranker','cache','guardrails','evaluator'],
+    compTips:{
+      llm:'💡 Use <code>claude-haiku-4-5-20251001</code> for speed/cost, <code>claude-sonnet-4-6</code> for accuracy. Cap <code>max_tokens=512</code>.',
+      embedder:'💡 <code>text-embedding-3-small</code> — best price/performance. 1536 dimensions, great for English.',
+      vectordb:'💡 Start with <code>pgvector</code> if you have PostgreSQL. Move to <code>Qdrant</code> at scale.',
+      reranker:'💡 Cohere Rerank bumps retrieval precision from ~60% → ~85%. Worth the extra 80ms.',
+      guardrails:'💡 Block competitor mentions, PII leaks, and jailbreaks before users see them.',
+      cache:'💡 40–60% of support queries are repeats. Redis cache → instant response + huge cost savings.',
+      evaluator:'💡 Run RAGAS: <code>faithfulness</code> + <code>answer_relevancy</code> on a 100-question golden set.',
+      chunker:'💡 512 tokens, 50-token overlap. Use semantic chunker for technical docs — preserves context.',
+    },
+    missingTips:{
+      chunker:'⚠️ No chunker — arbitrary splits break semantic units. Retrieval quality drops 20–30%.',
+      reranker:'⚠️ Without reranking, top-k retrieval precision ≈ 60%. Add Cohere Rerank for 25% quality boost.',
+      guardrails:'🚨 Customer-facing LLM with NO guardrails is a liability. Block harmful output before launch.',
+      evaluator:'⚠️ No evaluation layer. How do you know if answers are correct? Add RAGAS before launch.',
+      cache:'💡 Missing Redis cache — you\'re paying full LLM cost for repeated questions.',
+    },
+    wrongConns:[
+      {from:'llm',to:'vectordb',msg:'🚫 LLM → VectorDB: reversed! Retriever queries the DB → sends context to LLM. Not the other way.'},
+      {from:'embedder',to:'llm',msg:'⚠️ Embedder → LLM: don\'t send raw vectors to the LLM. LLM needs decoded text context.'},
+      {from:'reranker',to:'vectordb',msg:'⚠️ Reranker → VectorDB: reranker works AFTER retrieval. Connect: VectorDB → Retriever → Reranker.'},
+    ],
+    goodConns:[
+      {from:'chunker',to:'embedder',msg:'✅ Chunker → Embedder: correct! Chunks get embedded individually.'},
+      {from:'retriever',to:'reranker',msg:'✅ Retriever → Reranker: great! Top-k results get re-scored for relevance.'},
+      {from:'reranker',to:'llm',msg:'✅ Reranker → LLM: perfect. Reranked context fed to LLM for grounded answer.'},
+    ],
+  },
+  {
+    id:'voice-agent', emoji:'🎙️', name:'Voice AI Assistant',
+    difficulty:'Intermediate', color:'#22d3ee',
+    description:'Real-time voice assistant: microphone → transcribe → reason → speak. Target latency: under 500ms end-to-end.',
+    flow:['vad','asr','llm','tts','streaming'],
+    flowLabels:['Detect voice','Transcribe','Reason','Synthesize','Stream'],
+    required:['asr','llm','tts'],
+    recommended:['vad','cache','streaming','session-memory'],
+    compTips:{
+      asr:'💡 Deepgram Nova-2 for streaming (real-time). Whisper large-v3 for accuracy if latency allows.',
+      llm:'💡 Use <code>claude-haiku-4-5-20251001</code> or GPT-4o-mini. Voice demands fast models — full Opus adds 1–2s.',
+      tts:'💡 ElevenLabs for voice quality + cloning. OpenAI TTS for reliability. Kokoro for self-hosted.',
+      vad:'💡 Silero VAD — detects speech vs silence. Prevents transcribing background noise.',
+      streaming:'💡 Stream LLM tokens to TTS in parallel. Don\'t wait for full response — cuts 200–400ms.',
+      cache:'💡 Cache common responses (greetings, clarifications) for instant audio playback.',
+      'session-memory':'💡 Store conversation turns in Redis — assistant needs context across multiple exchanges.',
+    },
+    missingTips:{
+      vad:'⚠️ No voice activity detection — you\'ll transcribe silence and background noise endlessly.',
+      streaming:'⚠️ Without streaming: latency = full ASR + full LLM + full TTS. Easily >2 seconds. Add streaming.',
+      'session-memory':'⚠️ No session memory — assistant forgets everything between turns. Users will be frustrated.',
+    },
+    wrongConns:[
+      {from:'tts',to:'asr',msg:'🚫 TTS → ASR: feedback loop! The assistant would hear and transcribe its own voice. Add acoustic echo cancellation.'},
+      {from:'llm',to:'asr',msg:'⚠️ LLM → ASR: pipeline is backwards. Flow is: VAD → ASR → LLM → TTS.'},
+    ],
+    goodConns:[
+      {from:'vad',to:'asr',msg:'✅ VAD → ASR: correct. Only transcribe when speech is detected.'},
+      {from:'asr',to:'llm',msg:'✅ ASR → LLM: correct flow. Transcribed text feeds the language model.'},
+    ],
+  },
+  {
+    id:'doc-intel', emoji:'📄', name:'Document Intelligence',
+    difficulty:'Intermediate', color:'#fb923c',
+    description:'Process 10K+ PDFs, invoices, contracts. Extract structured data, answer questions, surface insights from any document type.',
+    flow:['s3','ocr-vision','chunker','embedder','vectordb','llm'],
+    flowLabels:['Store docs','Parse PDFs','Chunk text','Embed','Index','Query'],
+    required:['llm','embedder','vectordb','s3'],
+    recommended:['ocr-vision','chunker','reranker','evaluator','lambda'],
+    compTips:{
+      'ocr-vision':'💡 Use <code>Claude claude-opus-4-7</code> or GPT-4V for PDFs with tables/charts. ColPali for page-level visual retrieval.',
+      llm:'💡 <code>claude-opus-4-7</code> (200K context) for full-doc analysis. <code>claude-haiku-4-5-20251001</code> for structured extraction.',
+      s3:'💡 Store raw PDFs in S3. Store processed text/embeddings in RDS or DynamoDB. Use S3 events to trigger processing.',
+      lambda:'💡 Lambda on S3 upload → runs OCR → chunks → embeds → inserts to vector DB. Fully serverless ingestion.',
+      chunker:'💡 Document-aware chunking: preserve section headings, table cells, numbered lists. Don\'t split mid-sentence.',
+      evaluator:'💡 Evaluate extraction accuracy on 50 known-answer documents before production.',
+    },
+    missingTips:{
+      'ocr-vision':'⚠️ No OCR/vision model — scanned PDFs and image-heavy docs will be empty after chunking.',
+      s3:'⚠️ No document storage defined. Where do files live? Add S3 for durability + trigger-based processing.',
+      lambda:'⚠️ No ingestion pipeline. How do new docs get processed? Add Lambda trigger on S3 upload.',
+    },
+    wrongConns:[
+      {from:'vectordb',to:'s3',msg:'⚠️ VectorDB → S3: reversed. S3 → Lambda → process → VectorDB is the correct ingestion direction.'},
+    ],
+    goodConns:[
+      {from:'s3',to:'lambda',msg:'✅ S3 → Lambda: event-driven ingestion triggered on upload.'},
+      {from:'ocr-vision',to:'chunker',msg:'✅ OCR/Vision → Chunker: parse visually, then chunk semantically.'},
+    ],
+  },
+  {
+    id:'research-agent', emoji:'🔬', name:'Autonomous Research Agent',
+    difficulty:'Advanced', color:'#34d399',
+    description:'Multi-step research: search web, read papers, synthesize findings, write structured reports. Needs loop control and human oversight.',
+    flow:['langgraph','llm','web-search','vectordb','memory','hitl'],
+    flowLabels:['Orchestrate','Plan+Reason','Gather data','Store knowledge','Remember','Human approve'],
+    required:['llm','langgraph','web-search'],
+    recommended:['vectordb','memory','hitl','evaluator','guardrails'],
+    compTips:{
+      langgraph:'💡 Define: Research → Search → Synthesize → Review nodes. Conditional edges for retry loops. Max iterations = 5.',
+      llm:'💡 <code>claude-opus-4-7</code> for deep reasoning. Cheaper model for sub-tasks (format, extract, summarize).',
+      'web-search':'💡 Tavily API — built for LLM agents. Returns clean extracts, not raw HTML. Add to LangGraph tool node.',
+      hitl:'💡 Add <code>interrupt_before=[\'publish\']</code> — human reviews synthesized report before it\'s sent.',
+      memory:'💡 <code>SqliteSaver</code> for local dev. <code>PostgresCheckpointer</code> for production multi-session research.',
+      vectordb:'💡 Store retrieved articles in vector DB — agent can re-query without re-fetching from web.',
+      guardrails:'💡 Research agents hallucinate citations. Add citation verifier + fact-check step before publication.',
+    },
+    missingTips:{
+      hitl:'🚨 Autonomous agent publishing research with NO human review WILL produce and spread hallucinated content.',
+      memory:'⚠️ No memory — agent can\'t resume long research tasks or avoid re-reading the same sources.',
+      langgraph:'🚨 No orchestration — without LangGraph state machine, you cannot control loops, retries, or conditional paths.',
+    },
+    wrongConns:[
+      {from:'llm',to:'web-search',msg:'⚠️ LLM → Web Search: LLM should call search as a TOOL, not be directly wired. Use LangGraph tool node.'},
+    ],
+    goodConns:[
+      {from:'web-search',to:'vectordb',msg:'✅ Web Search → VectorDB: excellent! Store retrieved pages to avoid re-fetching.'},
+      {from:'llm',to:'hitl',msg:'✅ LLM → HITL: great! Route agent output through human approval before publishing.'},
+    ],
+  },
+  {
+    id:'vision-pipeline', emoji:'👁️', name:'Computer Vision Pipeline',
+    difficulty:'Intermediate', color:'#fbbf24',
+    description:'Detect objects, segment regions, classify images at scale. Production pipeline for retail, quality control, or security systems.',
+    flow:['s3','sqs','ecs','yolo','sam','clip'],
+    flowLabels:['Store images','Queue jobs','Run GPU workers','Detect','Segment','Classify'],
+    required:['yolo','s3','ecs'],
+    recommended:['sam','clip','cache','evaluator','sqs'],
+    compTips:{
+      yolo:'💡 <code>YOLOv8n</code> for edge/real-time, <code>YOLOv8x</code> for server max-accuracy. Fine-tune on your domain data with 500+ labeled images.',
+      sam:'💡 Run SAM only when you need precise masks (not just bounding boxes). SAM is heavy — batch process, don\'t run per-frame.',
+      clip:'💡 CLIP embeddings enable text-based image search. Add to product catalog for "find images like this description".',
+      ecs:'💡 ECS with GPU instances (g5.xlarge). Auto-scale ECS service based on SQS queue depth — scale to zero when idle.',
+      sqs:'💡 Queue image processing jobs in SQS. Decouple upload from inference. Handle traffic spikes gracefully.',
+      cache:'💡 Cache CLIP embeddings per image hash. Re-inference is GPU-expensive and results don\'t change.',
+    },
+    missingTips:{
+      ecs:'⚠️ No compute layer. YOLOv8 needs GPU for real-time performance — where does inference run?',
+      sqs:'⚠️ No queue — synchronous pipeline can\'t handle burst traffic. Add SQS to decouple ingestion from processing.',
+      evaluator:'⚠️ No evaluation. How do you know mAP on production data? Set up eval pipeline before launch.',
+    },
+    wrongConns:[
+      {from:'clip',to:'yolo',msg:'⚠️ CLIP → YOLO: wrong order. YOLO detects regions first, CLIP classifies/embeds them after.'},
+    ],
+    goodConns:[
+      {from:'yolo',to:'sam',msg:'✅ YOLO → SAM: detect boxes first, then use boxes as SAM prompts for precise masks.'},
+      {from:'sam',to:'clip',msg:'✅ SAM → CLIP: segment regions, then classify each segment with CLIP embeddings.'},
+      {from:'sqs',to:'ecs',msg:'✅ SQS → ECS: queue-driven GPU workers — auto-scale based on queue depth.'},
+    ],
+  },
+  {
+    id:'finetune-serve', emoji:'🧠', name:'Fine-Tune & Serve LLM',
+    difficulty:'Advanced', color:'#a78bfa',
+    description:'Fine-tune a base model on domain data, evaluate quality, quantize for efficiency, then serve at scale. The full MLOps cycle.',
+    flow:['dataset','lora','evaluator','quantize','vllm','wandb'],
+    flowLabels:['Curate data','Train LoRA','Evaluate','Quantize','Serve','Track'],
+    required:['dataset','lora','evaluator','vllm'],
+    recommended:['wandb','quantize','guardrails','ecs'],
+    compTips:{
+      lora:'💡 Start: <code>rank=16, alpha=32</code>, target <code>q_proj</code> and <code>v_proj</code>. Train on A100 for 1–3 hours with SFTTrainer.',
+      dataset:'💡 Quality beats quantity. 1K curated pairs often outperforms 100K noisy ones. Use GPT-4 to filter.',
+      evaluator:'💡 Eval on held-out set BEFORE and AFTER training. Track accuracy, format adherence, and regression vs base model.',
+      vllm:'💡 <code>vllm serve your-model --tensor-parallel-size 2</code>. OpenAI-compatible API. 3–5× faster than 🤗 transformers.',
+      quantize:'💡 AWQ int4: 4× memory reduction, <1% quality loss. Serve on A10G instead of A100 — much cheaper.',
+      wandb:'💡 Log loss curves, eval metrics, sample generations. Compare hyperparameter sweeps in W&B dashboard.',
+    },
+    missingTips:{
+      evaluator:'🚨 Training without evaluation is flying blind. Eval MUST run before any deployment.',
+      wandb:'⚠️ No experiment tracking — how do you know which hyperparameters worked? W&B takes 10 min to add.',
+      dataset:'🚨 No dataset defined. You need curated training data BEFORE any fine-tuning step.',
+      vllm:'⚠️ No serving layer. A fine-tuned model as .safetensors files cannot serve production traffic.',
+    },
+    wrongConns:[
+      {from:'vllm',to:'lora',msg:'🚫 vLLM → LoRA: backwards! Train LoRA first, THEN load the adapter into vLLM for serving.'},
+      {from:'evaluator',to:'dataset',msg:'⚠️ Evaluator → Dataset: evaluate after training, not during data creation. Connect: Dataset → LoRA → Evaluator.'},
+    ],
+    goodConns:[
+      {from:'dataset',to:'lora',msg:'✅ Dataset → LoRA: correct. Curated data trains the adapter.'},
+      {from:'lora',to:'evaluator',msg:'✅ LoRA → Evaluator: always evaluate before serving.'},
+      {from:'quantize',to:'vllm',msg:'✅ Quantize → vLLM: quantized model loads into vLLM for efficient serving.'},
+    ],
+  },
+  {
+    id:'coding-agent', emoji:'💻', name:'Autonomous Coding Agent',
+    difficulty:'Advanced', color:'#f472b6',
+    description:'Agent that reads your codebase, writes code, runs tests, and fixes bugs — with mandatory human approval for every file write.',
+    flow:['mcp','llm','langgraph','sandbox','hitl','github'],
+    flowLabels:['Tool access','Plan changes','Orchestrate','Execute safely','Human review','Commit'],
+    required:['llm','mcp','sandbox','hitl'],
+    recommended:['langgraph','evaluator','guardrails'],
+    compTips:{
+      mcp:'💡 MCP server with tools: <code>read_file, write_file, run_tests, search_code, list_dir</code>. Claude accesses repo via MCP.',
+      llm:'💡 <code>claude-opus-4-7</code> for architecture, <code>claude-sonnet-4-6</code> for implementation, <code>claude-haiku-4-5-20251001</code> for linting checks.',
+      sandbox:'💡 Run generated code in Docker/E2B isolated container. NEVER execute agent-generated code on host.',
+      hitl:'💡 <code>interrupt_before=[\'write_file\', \'run_command\']</code>. Human sees diff and approves every write.',
+      langgraph:'💡 Plan → Generate → Test → Fix loop. Conditional edge: <code>tests_pass?</code> → commit OR retry (max 3).',
+      guardrails:'💡 Regex block: <code>rm -rf</code>, <code>curl | bash</code>, env var access, before any shell exec.',
+    },
+    missingTips:{
+      sandbox:'🚨 NO SANDBOX — running LLM-generated code without isolation is a critical security vulnerability.',
+      hitl:'🚨 Autonomous agent committing code with no human review WILL push bugs and break production.',
+      mcp:'⚠️ No file access tools — how does the agent read your codebase? Add MCP server with filesystem tools.',
+      guardrails:'🚨 Code-executing agent with no guardrails can run destructive commands (rm -rf, data exfil, etc).',
+    },
+    wrongConns:[
+      {from:'llm',to:'github',msg:'🚫 LLM → GitHub directly: no sandbox, no human review, no tests. This is unsafe — always sandbox + HITL first.'},
+    ],
+    goodConns:[
+      {from:'sandbox',to:'hitl',msg:'✅ Sandbox → HITL: test in sandbox, then human reviews before committing.'},
+      {from:'hitl',to:'github',msg:'✅ HITL → GitHub: human-approved changes get committed. Safe pattern.'},
+    ],
+  },
+  {
+    id:'quantum-chem', emoji:'⚛️', name:'Quantum Chemistry Solver',
+    difficulty:'Advanced', color:'#a78bfa',
+    description:'Find ground-state energies of drug candidate molecules using VQE. Hybrid classical-quantum pipeline running on IBM Quantum.',
+    flow:['molecule','hamiltonian','vqe','optimizer','qiskit','results'],
+    flowLabels:['Input molecule','Map to qubits','Quantum circuit','Optimize','Run QPU','Analyze'],
+    required:['vqe','qiskit','optimizer'],
+    recommended:['molecule','hamiltonian','wandb'],
+    compTips:{
+      vqe:'💡 VQE = variational loop. Quantum circuit (ansatz) + classical optimizer find minimum energy expectation value.',
+      qiskit:'💡 Use <code>StatevectorSimulator</code> for dev, <code>service.least_busy()</code> for real QPU. Always transpile to native gates first.',
+      optimizer:'💡 SLSQP for smooth landscapes. SPSA for noisy QPU hardware — it handles measurement noise better.',
+      molecule:'💡 Start with H₂ (2 qubits, 4 parameters). Scale to LiH (4 qubits) then BeH₂ (6 qubits).',
+      hamiltonian:'💡 Use Jordan-Wigner or Bravyi-Kitaev mapping. BK is more qubit-efficient for large molecules.',
+      wandb:'💡 Log energy convergence per iteration. Compare ansatz depths and optimizer settings in W&B.',
+    },
+    missingTips:{
+      optimizer:'🚨 VQE without a classical optimizer cannot converge. The variational loop REQUIRES it.',
+      hamiltonian:'⚠️ No Hamiltonian mapping — how does your molecule become quantum operators?',
+    },
+    wrongConns:[
+      {from:'optimizer',to:'molecule',msg:'⚠️ Optimizer → Molecule: optimizer works on circuit parameters, not on the molecule directly.'},
+    ],
+    goodConns:[
+      {from:'molecule',to:'hamiltonian',msg:'✅ Molecule → Hamiltonian: map molecular structure to qubit operators via Jordan-Wigner.'},
+      {from:'hamiltonian',to:'vqe',msg:'✅ Hamiltonian → VQE: qubit Hamiltonian defines what VQE minimizes.'},
+    ],
+  },
+
+  // ── NEW BEGINNER ────────────────────────────────────
+  {
+    id:'pdf-qa', emoji:'📄', name:'PDF Document Q&A', difficulty:'Beginner', color:'#34d399',
+    description:'Chat with contracts, manuals, and research papers. Parse PDFs, build a searchable knowledge base, and answer questions with page-level citations.',
+    flow:['pdf-parser','chunker','embedder','vectordb','retriever','llm'],
+    flowLabels:['Parse','Chunk','Embed','Store','Retrieve','Answer'],
+    required:['pdf-parser','embedder','vectordb','llm'],
+    recommended:['chunker','reranker','guardrails','cache'],
+    stepWhy:{
+      'pdf-parser':'PDFs are not plain text — they contain complex layouts, multi-column formats, tables, and sometimes scanned images. A PDF parser (PyMuPDF or pdfplumber) extracts clean text while preserving page structure. Without this step, downstream embedding receives garbled content and retrieval quality collapses.',
+      chunker:'A 100-page contract has 80,000+ tokens — far beyond any context window. Chunking splits it into 512-token pieces with 50-token overlaps so each piece is independently searchable. Overlap ensures critical content straddling chunk boundaries is never lost.',
+      embedder:'Each chunk is converted to a dense vector capturing semantic meaning. "Payment terms" and "invoice schedule" land close in vector space even if worded differently — enabling semantic search across your entire document corpus.',
+      vectordb:'Store chunk embeddings with metadata — page number, document title, section — so every retrieved answer can cite its exact source. Millisecond nearest-neighbor search across millions of chunks.',
+      retriever:'At query time, the question is embedded and the retriever finds the top-k most semantically similar chunks. These become the LLM\'s reading material — the "augmented" part of RAG.',
+      llm:'The LLM reads retrieved chunks and synthesizes a grounded answer with citations. Because every claim comes from your document content, the LLM cannot hallucinate facts that are not in your PDFs.',
+    },
+    compTips:{
+      'pdf-parser':'💡 PyMuPDF (fitz) for clean PDFs. pdfplumber for tables. Tesseract + pdf2image for scanned docs.',
+      chunker:'💡 512 tokens, 50-token overlap. Use semantic chunking for technical docs to preserve section context.',
+      embedder:'💡 text-embedding-3-small is best price/perf. Add page_number + document_name as metadata per chunk.',
+      vectordb:'💡 pgvector if you already use PostgreSQL. Store page_number as filterable payload field.',
+      retriever:'💡 Filter by document name first, then vector search. Return top-20, rerank to top-3.',
+      llm:'💡 Include source in prompt: "Based on page 4 of contract.pdf…" — forces citations, prevents hallucination.',
+      reranker:'💡 Cohere Rerank adds 25% precision. Critical when multiple documents have similar sections.',
+    },
+    missingTips:{
+      'pdf-parser':'🚨 No PDF parser. Raw PDF bytes fed to embedder produce garbage. Add PyMuPDF first.',
+      chunker:'⚠️ No chunker — entire documents indexed as single units. Retrieval finds docs, not the exact paragraph.',
+      reranker:'⚠️ Without reranking, top-k precision ≈60%. Add Cohere Rerank for citation-accurate answers.',
+      guardrails:'⚠️ Users will try to extract confidential info. Add guardrails to prevent PII leakage.',
+    },
+    wrongConns:[
+      {from:'llm',to:'vectordb',msg:'🚫 LLM → VectorDB: reversed. The retriever queries the DB, then passes results to the LLM.'},
+      {from:'embedder',to:'llm',msg:'⚠️ Embedder → LLM: raw vectors go to the vector DB, not the LLM. LLM receives text from the retriever.'},
+    ],
+    goodConns:[
+      {from:'pdf-parser',to:'chunker',msg:'✅ PDF Parser → Chunker: clean extracted text gets split into searchable chunks.'},
+      {from:'chunker',to:'embedder',msg:'✅ Chunker → Embedder: each chunk gets its own embedding vector.'},
+      {from:'retriever',to:'llm',msg:'✅ Retriever → LLM: retrieved chunks land in the LLM context for grounded, cited answers.'},
+    ],
+  },
+  {
+    id:'content-gen', emoji:'✍️', name:'Content Generation Pipeline', difficulty:'Beginner', color:'#f472b6',
+    description:'Generate personalized blog posts, marketing emails, and product descriptions at scale using structured prompt chains, quality guardrails, and caching.',
+    flow:['langchain','llm','guardrails','evaluator','cache'],
+    flowLabels:['Chain','Generate','Filter','Score','Cache'],
+    required:['llm','langchain','guardrails'],
+    recommended:['evaluator','cache','wandb','session-memory'],
+    stepWhy:{
+      langchain:'A content pipeline has multiple steps — fetch context, fill template, generate, filter, format. LangChain LCEL chains these together with built-in retry, streaming, and fallback logic. Without a chain, you write brittle procedural glue code that breaks under load.',
+      llm:'The LLM generates the actual content from your structured prompt. Claude Sonnet 4 writes naturally and follows formatting instructions reliably. Temperature 0.7 balances creativity with consistency for marketing content.',
+      guardrails:'Before content reaches your CMS or users, filter it. Block competitor mentions, PII, brand-unsafe claims. One inappropriate email sent to 50K customers is a brand crisis — guardrails are non-negotiable.',
+      evaluator:'Automatically score generated content on tone, readability, and keyword inclusion. Regenerate if score is below threshold. Use LLM-as-judge: GPT-4o scoring Claude output on a 1-10 rubric.',
+      cache:'40–60% of content requests are templated variations of the same piece. Cache completed generations keyed by template + inputs. Massive cost savings for batch generation jobs.',
+    },
+    compTips:{
+      langchain:'💡 LCEL pipe: <code>template | llm | guardrails | parser</code>. Add .with_retry(stop_after_attempt=3).',
+      llm:'💡 claude-sonnet-4-6 for quality. Temperature=0.7 for creative, 0.2 for factual product descriptions.',
+      guardrails:'💡 Check: competitor names, price claims, medical/legal claims, PII. Use regex + LLM hybrid filter.',
+      evaluator:'💡 LLM-as-judge prompt: "Rate this email 1-10 for tone, persuasion, brand safety. Return JSON."',
+      cache:'💡 Redis TTL=24h. Key = hash(template_id + input_vars). Saves ~$0.05/request at generation scale.',
+      wandb:'💡 Log prompt version, model, temperature, eval score. Compare prompt variants in W&B.',
+      'session-memory':'💡 Keep brand voice guidelines in session context for consistency across a content batch.',
+    },
+    missingTips:{
+      guardrails:'🚨 Content pipeline with no filters. One inappropriate AI-generated email to your list = PR disaster.',
+      evaluator:'⚠️ No quality scoring. You don\'t know if the LLM is drifting off-brand or hallucinating product claims.',
+      cache:'💡 No cache — paying full LLM cost for every templated content request in batch jobs.',
+      langchain:'⚠️ No chain orchestration. Without LCEL: no retry, no streaming, no structured output parsing.',
+    },
+    wrongConns:[
+      {from:'guardrails',to:'langchain',msg:'⚠️ Guardrails → LangChain: filter output AFTER generation. Flow: LangChain → LLM → Guardrails.'},
+      {from:'cache',to:'llm',msg:'⚠️ Cache → LLM: cache replaces the LLM call on a hit. Check cache first, call LLM on a miss only.'},
+    ],
+    goodConns:[
+      {from:'langchain',to:'llm',msg:'✅ LangChain → LLM: chain orchestrates the LLM call with your structured prompt template.'},
+      {from:'llm',to:'guardrails',msg:'✅ LLM → Guardrails: generated content filtered before delivery. Correct pipeline order.'},
+      {from:'guardrails',to:'evaluator',msg:'✅ Guardrails → Evaluator: safe content gets quality-scored before caching.'},
+    ],
+  },
+
+  // ── NEW ADVANCED ────────────────────────────────────
+  {
+    id:'sql-agent', emoji:'📊', name:'SQL Analytics Agent', difficulty:'Advanced', color:'#6366f1',
+    description:'Ask questions in plain English, get SQL-powered answers. Agent writes SQL, validates it, executes against your DB, and explains results — with human review for write operations.',
+    flow:['llm','langchain','sql-tool','cache','guardrails','hitl'],
+    flowLabels:['Reason','Chain','Execute','Cache','Filter','Review'],
+    required:['llm','sql-tool','langchain'],
+    recommended:['cache','guardrails','hitl','evaluator'],
+    stepWhy:{
+      llm:'The LLM translates natural language into syntactically correct SQL. This requires knowing your schema — provide table names, column types, and sample rows in the system prompt. Claude Sonnet 4 generates reliable SQL for most analytical queries.',
+      langchain:'The SQL agent needs multiple steps: get schema → write SQL → validate → execute → explain. LangChain\'s SQLDatabaseChain handles schema injection, SQL generation, and execution in one composable chain with retry logic.',
+      'sql-tool':'The SQL tool executes LLM-generated queries against your database and returns results. Always use a READ-ONLY connection — never give the agent write access to production data.',
+      cache:'SQL queries for the same question return identical results until data changes. Cache query results with TTL matching your data freshness SLA. 60–80% of analytics questions repeat across users.',
+      guardrails:'Block SELECT * without LIMIT, DROP, DELETE, UPDATE, and data exfiltration patterns. An unrestricted SQL agent with write access can wipe your database in seconds.',
+      hitl:'Any query that modifies data — INSERT, UPDATE, DELETE — requires explicit human approval before execution. Never allow the agent to write autonomously to production.',
+    },
+    compTips:{
+      llm:'💡 Inject schema: "Tables: users(id, email, created_at), orders(id, user_id, amount). Always LIMIT 1000."',
+      langchain:'💡 SQLDatabaseChain with <code>return_intermediate_steps=True</code> shows the generated SQL to users.',
+      'sql-tool':'💡 Read-only DB user with SELECT-only grants. Never the app write user. Set query timeout=30s.',
+      cache:'💡 Redis TTL=1h for analytics, 5m for operational data. Invalidate on relevant table writes.',
+      guardrails:'💡 Regex blocklist: DROP, DELETE, UPDATE, INSERT, TRUNCATE, GRANT. Enforce LIMIT in all queries.',
+      hitl:'💡 Show SQL before running: "I\'ll execute: SELECT … FROM … Approve?" Human confirms first.',
+      evaluator:'💡 SQLGlot validates SQL syntax before execution — catch errors without touching the DB.',
+    },
+    missingTips:{
+      'sql-tool':'🚨 No SQL executor. LLM generates SQL but has no way to run it. Add SQLDatabase tool.',
+      guardrails:'🚨 SQL agent without guardrails can write, delete, or exfiltrate data. Block all write operations.',
+      hitl:'🚨 Autonomous SQL writes with no human review will eventually corrupt production data.',
+      cache:'⚠️ No cache. Identical analytical queries run full DB scans repeatedly. Add Redis.',
+    },
+    wrongConns:[
+      {from:'sql-tool',to:'guardrails',msg:'⚠️ SQL Tool → Guardrails after execution: filter BEFORE execution, not after. Guardrails must gate the SQL query first.'},
+    ],
+    goodConns:[
+      {from:'llm',to:'sql-tool',msg:'✅ LLM → SQL Tool: LLM generates SQL, tool executes it. Core of the SQL agent.'},
+      {from:'langchain',to:'llm',msg:'✅ LangChain → LLM: chain injects schema context and structures the generation prompt.'},
+      {from:'hitl',to:'sql-tool',msg:'✅ HITL → SQL Tool: human approves the SQL, then the tool executes. Correct safe pattern.'},
+    ],
+  },
+  {
+    id:'product-search', emoji:'🛍️', name:'Multi-modal Product Search', difficulty:'Advanced', color:'#fbbf24',
+    description:'Search a product catalog by image or text. Upload a photo, find visually similar items. CLIP encodes both images and text into a shared embedding space for cross-modal search.',
+    flow:['s3','clip','vectordb','retriever','reranker','llm'],
+    flowLabels:['Store','Encode','Index','Find','Rank','Explain'],
+    required:['clip','vectordb','s3'],
+    recommended:['retriever','reranker','cache','llm','evaluator'],
+    stepWhy:{
+      s3:'Every product image and user-uploaded query image needs durable, fast storage. S3 stores the full catalog. S3 event notifications trigger CLIP encoding automatically when new products are added — the catalog stays current without manual re-indexing.',
+      clip:'CLIP (Contrastive Language-Image Pre-training) encodes both images and text into the SAME vector space. "red running shoes" and a photo of red sneakers land geometrically close. This makes cross-modal search possible without category labels.',
+      vectordb:'Store product CLIP embeddings indexed by product ID. At search time, embed the query (image or text) and find nearest neighbors in milliseconds across millions of products.',
+      retriever:'Two-stage retrieval: vector search returns top-100 candidates, business logic filters to top-10 (in-stock, correct region, correct category). Never show out-of-stock results.',
+      reranker:'Rerank by combining visual similarity score with business signals: inventory level, margin, average rating. Pure vector similarity ignores that some matches are great visually but out of stock.',
+      llm:'The LLM explains why retrieved products match: "These shoes share the same silhouette and color as your uploaded image." Natural language explanations increase click-through rate 20-40%.',
+    },
+    compTips:{
+      clip:'💡 openai/clip-vit-large-patch14 for quality. clip-vit-base-patch32 for speed. 768-dim embeddings.',
+      vectordb:'💡 Qdrant named vectors: <code>{"image": clip_img_vec, "text": clip_text_vec}</code>. Multi-vector hybrid search.',
+      s3:'💡 Resize images to 224×224 before CLIP encoding. Lambda triggers re-indexing on new product upload.',
+      retriever:'💡 Apply payload filters: in_stock=true, region match, category before vector search.',
+      cache:'💡 Cache CLIP embeddings per image hash. Re-encoding is expensive and results don\'t change.',
+      llm:'💡 "Given query and these 5 results, explain the best match in 2 sentences." Structured explanation.',
+      reranker:'💡 Score = 0.6 × visual_sim + 0.2 × text_sim + 0.1 × rating + 0.1 × in_stock.',
+    },
+    missingTips:{
+      clip:'🚨 No CLIP encoder. Without a shared image-text embedding space, cross-modal search is impossible.',
+      vectordb:'⚠️ No vector store. Where do 1M product embeddings live? You need Qdrant or Pinecone.',
+      cache:'⚠️ No embedding cache. CLIP inference per query adds 50-200ms latency. Cache for repeated queries.',
+      reranker:'⚠️ Pure vector similarity ignores business signals. Blend similarity + inventory + rating.',
+    },
+    wrongConns:[
+      {from:'clip',to:'llm',msg:'⚠️ CLIP → LLM: CLIP outputs vectors, not text. Vectors go to VectorDB first, then retrieved results go to LLM.'},
+      {from:'llm',to:'clip',msg:'🚫 LLM → CLIP: wrong direction. CLIP encodes inputs. LLM explains outputs AFTER retrieval.'},
+    ],
+    goodConns:[
+      {from:'s3',to:'clip',msg:'✅ S3 → CLIP: product images fetched from S3 and encoded for indexing.'},
+      {from:'clip',to:'vectordb',msg:'✅ CLIP → VectorDB: image embeddings stored for nearest-neighbor search.'},
+      {from:'retriever',to:'reranker',msg:'✅ Retriever → Reranker: top-k vector candidates re-scored with business signals.'},
+    ],
+  },
+  {
+    id:'realtime-events', emoji:'⚡', name:'Real-time Event Intelligence', difficulty:'Advanced', color:'#22d3ee',
+    description:'Classify, summarize, and act on high-volume event streams — logs, transactions, social posts — with AI in real-time. Detect anomalies and trigger alerts within seconds.',
+    flow:['kafka','streaming','llm','cache','guardrails','evaluator'],
+    flowLabels:['Ingest','Stream','Classify','Cache','Filter','Measure'],
+    required:['kafka','llm','streaming'],
+    recommended:['cache','guardrails','evaluator','session-memory'],
+    stepWhy:{
+      kafka:'Kafka is the nervous system of real-time AI pipelines. It decouples producers (apps generating events) from AI consumers with durable, replay-able streams. At 1M events/day, you need a queue that never drops data — not a direct API call that dies under load.',
+      streaming:'WebSocket or SSE consumers read Kafka events in micro-batches and push AI-enriched results downstream in real-time. This enables sub-second latency from event ingestion to classification to alert.',
+      llm:'The LLM classifies each event: error vs noise, normal vs suspicious transaction. Use claude-haiku-4-5-20251001 — 10× faster and 30× cheaper than larger models for high-throughput classification.',
+      cache:'Many real-time events are near-duplicates. Cache classification results by event signature hash. 50-70% cache hit rate on log streams cuts LLM cost dramatically and reduces latency.',
+      guardrails:'Filter false positives with a confidence threshold gate before alerting ops. An AI that pages on-call at 3am for a non-issue destroys trust fast.',
+      evaluator:'Track classification accuracy on labeled samples. Real-time AI drift is invisible without measurement — your model may degrade silently as event patterns shift.',
+    },
+    compTips:{
+      kafka:'💡 Confluent Cloud or Amazon MSK. Partition by event type for parallel consumers. Retention=7d for replay.',
+      streaming:'💡 Python kafka-python consumer in a thread pool. Batch events in 100ms windows before LLM call.',
+      llm:'💡 claude-haiku-4-5-20251001 for throughput. Structured output: <code>{"label":"error","confidence":0.95}</code>.',
+      cache:'💡 Redis TTL=5m. Key = SHA256(event fields). Saves 70% of LLM calls on repetitive log streams.',
+      guardrails:'💡 Only alert if confidence > 0.85. Pre-filter known-safe event patterns before calling LLM.',
+      evaluator:'💡 Sample 1% of events, human-label, track precision/recall weekly. Alert on >5% drift.',
+      'session-memory':'💡 Keep last 50 events in context — LLM detects patterns like "3 auth failures in 30s = brute force".',
+    },
+    missingTips:{
+      kafka:'🚨 No event queue. Direct API calls from producer to LLM fail under load. Kafka handles back-pressure.',
+      streaming:'⚠️ No streaming layer. Batch processing adds minutes of latency to real-time event classification.',
+      cache:'⚠️ At 10K events/min with no cache = 10K LLM calls/min. Unsustainable cost.',
+      evaluator:'⚠️ No accuracy tracking. How do you know if the classifier is still correct as event patterns shift?',
+    },
+    wrongConns:[
+      {from:'llm',to:'kafka',msg:'🚫 LLM → Kafka: wrong direction. Kafka feeds events INTO the LLM consumer, not the other way.'},
+      {from:'guardrails',to:'kafka',msg:'⚠️ Guardrails → Kafka: guardrails filter LLM output before alerting — not back to Kafka.'},
+    ],
+    goodConns:[
+      {from:'kafka',to:'streaming',msg:'✅ Kafka → Streaming: events flow from durable queue to real-time consumer. Correct ingestion pattern.'},
+      {from:'streaming',to:'llm',msg:'✅ Streaming → LLM: micro-batched events sent to LLM for classification.'},
+      {from:'cache',to:'llm',msg:'✅ Cache → LLM: cache hit skips LLM. Miss calls LLM. Keeps throughput sustainable.'},
+    ],
+  },
+  {
+    id:'personalization', emoji:'🎯', name:'AI Personalization Engine', difficulty:'Advanced', color:'#a78bfa',
+    description:'Serve personalized content, product rankings, and recommendations. Combine user behavior embeddings with real-time session context and LLM-generated explanations.',
+    flow:['embedder','vectordb','session-memory','retriever','llm','cache'],
+    flowLabels:['Profile','Index','Context','Match','Explain','Cache'],
+    required:['vectordb','embedder','llm'],
+    recommended:['retriever','session-memory','cache','evaluator','wandb'],
+    stepWhy:{
+      embedder:'User behavioral history — pages viewed, items clicked, dwell time — gets embedded into a user profile vector. Items and content also get embedded. Everything must live in the same embedding space to compute meaningful similarity.',
+      vectordb:'Two collections: user_profiles (updated hourly) and item_embeddings (updated on publish). At recommendation time, find items nearest to this user\'s taste vector in milliseconds.',
+      'session-memory':'Real-time context matters as much as historical behavior. What did the user click in the last 5 minutes? Session memory provides recency signals that batch user profile vectors cannot capture.',
+      retriever:'Two-stage: vector search returns 100 candidates, business logic filters to top-10 (available, not already purchased, in-region). Blend historical preference with real-time session signals.',
+      llm:'The LLM generates personalized explanations: "We picked this because you watched 3 sci-fi films last week." Explanations increase click-through rate by 20-40% over bare ranked lists.',
+      cache:'Recommendation lists are expensive to generate. Cache per user with TTL=30min. Invalidate on purchase or explicit feedback. Pre-warm cache for daily active users at off-peak hours.',
+    },
+    compTips:{
+      embedder:'💡 Cohere embed-v3 multilingual for global apps. Re-embed user profile every 1h from event stream.',
+      vectordb:'💡 Two Qdrant collections: user_profiles + item_embeddings. Query: nearest items to user vector.',
+      'session-memory':'💡 Redis sorted set: last 20 actions with timestamps. Expire after 2h of inactivity.',
+      retriever:'💡 Two-stage: vector search (top-100) → score rerank (top-5). Never show already-purchased items.',
+      llm:'💡 "User likes: action films, gadgets. From these 5 items, write a 1-sentence personalized reason."',
+      cache:'💡 Redis TTL=30m. Invalidate on purchase or rating. Pre-warm for daily active users.',
+      wandb:'💡 Track CTR, conversion rate, diversity per model version. A/B test embedding vs hybrid.',
+      evaluator:'💡 Online: CTR, dwell time. Offline: NDCG@10 on held-out interactions. Weekly eval before updates.',
+    },
+    missingTips:{
+      vectordb:'🚨 No vector store. Nearest-neighbor recommendation is impossible without embedding storage.',
+      embedder:'🚨 No embedder. Users and items must be in the same vector space to compute meaningful similarity.',
+      cache:'⚠️ No cache. Computing personalized recommendations per request is too slow and costly at scale.',
+      evaluator:'⚠️ No evaluation. How do you measure if recommendations actually improve engagement?',
+    },
+    wrongConns:[
+      {from:'llm',to:'vectordb',msg:'⚠️ LLM → VectorDB: LLM generates explanations AFTER retrieval. It does not write to the vector DB.'},
+      {from:'embedder',to:'llm',msg:'⚠️ Embedder → LLM: float vectors go to the vector DB, not the LLM. LLM receives text from the retriever.'},
+    ],
+    goodConns:[
+      {from:'vectordb',to:'retriever',msg:'✅ VectorDB → Retriever: user profile queries item embedding store. Core of recommendation.'},
+      {from:'session-memory',to:'retriever',msg:'✅ Session Memory → Retriever: real-time context merged into retrieval for recency boost.'},
+      {from:'retriever',to:'llm',msg:'✅ Retriever → LLM: top-k candidates passed to LLM for personalized explanation.'},
+    ],
+  },
+
+  // ── NEW EXPERT ──────────────────────────────────────
+  {
+    id:'multi-agent', emoji:'🤝', name:'Multi-Agent Orchestration', difficulty:'Expert', color:'#f87171',
+    description:'A supervisor LLM routes tasks to specialized sub-agents — researcher, coder, analyst. Agents share memory, check each other\'s work, and escalate to humans for critical decisions.',
+    flow:['langgraph','llm','web-search','vectordb','sandbox','hitl','evaluator'],
+    flowLabels:['Orchestrate','Supervise','Research','Memory','Execute','Approve','Measure'],
+    required:['langgraph','llm','hitl'],
+    recommended:['web-search','vectordb','sandbox','memory','guardrails','evaluator'],
+    stepWhy:{
+      langgraph:'Multi-agent systems require a state machine, not simple loops. LangGraph defines which agent runs next, how agents hand off work, when to loop vs terminate, and where humans must intervene. Without a proper graph, agents fall into infinite loops or lose state between steps.',
+      llm:'The supervisor LLM reads the task and decides which sub-agent to call. Use claude-opus-4-7 for the supervisor (complex routing decisions), claude-haiku-4-5-20251001 for sub-agents (speed and cost). Using the right model per task cuts cost 5-10×.',
+      'web-search':'The research sub-agent uses Tavily to gather live information. Without web search, agents are limited to training data — unable to verify current facts or prices before writing code or reports.',
+      vectordb:'Shared agent memory. Each agent stores findings as embeddings. Other agents retrieve relevant prior work without re-running expensive searches — preventing the researcher from fetching the same source twice.',
+      sandbox:'Code-writing agents MUST execute in isolation. E2B sandbox: 100ms spin-up, network disabled, filesystem isolated. An agent writing rm -rf cannot touch your host machine.',
+      hitl:'Before any agent takes an irreversible action — commit code, send email, publish content — a human reviews the proposed action. LangGraph interrupt_before node. No exceptions for production systems.',
+      evaluator:'Track task completion rate, loop count per run, inter-agent handoff success, cost per task. Detect runaway agents (loop count > 10) before they burn your token budget.',
+    },
+    compTips:{
+      langgraph:'💡 Supervisor pattern: supervisor → routes to [researcher|coder|analyst] → aggregator → HITL → output.',
+      llm:'💡 claude-opus-4-7 for supervisor. claude-haiku-4-5-20251001 for sub-tasks. claude-sonnet-4-6 for code generation.',
+      'web-search':'💡 Tavily returns structured results. Each sub-agent gets max 3 web searches per task to control cost.',
+      sandbox:'💡 E2B Python sandbox. Pass only code + test data. Return stdout, stderr, exit_code.',
+      hitl:'💡 interrupt_before=["commit_code","send_email","publish"]. Show full proposed action to human.',
+      vectordb:'💡 Namespace by task_id. Agents share memory within a task, isolated across tasks.',
+      evaluator:'💡 LangSmith traces every agent call. Track tokens per sub-agent, loop count, HITL approval rate.',
+      guardrails:'💡 Block agents calling other agents more than 3 levels deep — prevents recursive agent DoS.',
+    },
+    missingTips:{
+      hitl:'🚨 Multi-agent system with no human oversight. Agents collaborating without checks compound mistakes and take irreversible actions.',
+      sandbox:'🚨 Code-executing agents without sandboxing is a critical security vulnerability.',
+      langgraph:'🚨 Without a state graph: no retry, no checkpointing, no loop prevention. Not production-ready.',
+      evaluator:'⚠️ No observability. Multi-agent bugs are nearly impossible to debug post-hoc without trace logging.',
+    },
+    wrongConns:[
+      {from:'llm',to:'evaluator',msg:'⚠️ LLM → Evaluator inline: evaluators measure outcomes after task completion, not during execution.'},
+      {from:'sandbox',to:'langgraph',msg:'⚠️ Sandbox → LangGraph as orchestration input: sandbox is a tool called BY LangGraph, not an input to it.'},
+    ],
+    goodConns:[
+      {from:'langgraph',to:'llm',msg:'✅ LangGraph → LLM: supervisor LLM called by state machine. Correct orchestration pattern.'},
+      {from:'sandbox',to:'hitl',msg:'✅ Sandbox → HITL: test code safely in sandbox, human reviews before committing.'},
+      {from:'vectordb',to:'llm',msg:'✅ VectorDB → LLM: shared agent memory retrieved as context for supervisor routing.'},
+    ],
+  },
+  {
+    id:'llm-ops', emoji:'📡', name:'Production LLM Observability', difficulty:'Expert', color:'#fb923c',
+    description:'Monitor live LLM deployments end-to-end: trace every call, detect quality drift, catch regressions on deploy, track costs per team, enforce guardrails at scale.',
+    flow:['vllm','langsmith','evaluator','wandb','guardrails','cache'],
+    flowLabels:['Serve','Trace','Evaluate','Track','Filter','Optimize'],
+    required:['vllm','evaluator','wandb'],
+    recommended:['langsmith','guardrails','cache','mlflow'],
+    stepWhy:{
+      vllm:'vLLM is the serving layer — it runs your LLM with PagedAttention and continuous batching. Every request flowing through vLLM is what you are monitoring. Its OpenAI-compatible API means existing apps connect with zero code change.',
+      langsmith:'LangSmith traces every LLM call end-to-end: prompt in, output out, latency, cost, token usage. When a user reports a bad answer, you pull the exact trace and see what the model received. Without this, debugging production LLM issues is pure guesswork.',
+      evaluator:'Automated evaluation runs on a sample of live traffic. Score groundedness, toxicity, and relevancy. Alert when scores drop more than 10% from baseline — that is your quality regression signal.',
+      wandb:'Track aggregate metrics over time: P50/P95 latency, cost per user, error rates, evaluation scores. W&B shows whether a prompt change improved quality or degraded it across the entire user base.',
+      guardrails:'At production scale, guardrails run on every input and output. Block prompt injection, PII extraction, competitor mentions, and policy violations before they reach users. Log all blocked requests for security review.',
+      cache:'Semantic caching based on embedding similarity, not exact string match. A question 95% similar to a cached question gets the cached answer instantly. Reduces costs 40-60% on typical production traffic.',
+    },
+    compTips:{
+      vllm:'💡 vllm serve model-name --enable-prefix-caching --tensor-parallel-size 2. Enable access logging.',
+      langsmith:'💡 LANGCHAIN_TRACING_V2=true + LANGCHAIN_API_KEY. Every LangChain/LangGraph call auto-traced.',
+      evaluator:'💡 Sample 5% of live traffic. Run RAGAS groundedness + custom toxicity scorer. Alert if score drops >10%.',
+      wandb:'💡 wandb.log({"latency_p95": p95, "cost_per_req": cost, "eval_score": score}) hourly from a metrics collector.',
+      guardrails:'💡 NeMo Guardrails at input AND output. Log all violations to a security queue for weekly review.',
+      cache:'💡 GPTCache or Redis with cosine similarity > 0.95 = cache hit. TTL=1h for volatile domains.',
+      mlflow:'💡 Register each prompt version as an MLflow model. Promotion requires eval score > baseline.',
+    },
+    missingTips:{
+      evaluator:'🚨 No evaluation. Running LLMs in production with no quality measurement. You don\'t know when it gets worse.',
+      wandb:'⚠️ No metrics tracking. Cost, latency, and quality trends are completely invisible.',
+      langsmith:'⚠️ No tracing. When a user reports a bad answer you cannot reproduce what the model received.',
+      guardrails:'⚠️ No guardrails at scale. Prompt injection and PII leakage will occur without input/output filtering.',
+    },
+    wrongConns:[
+      {from:'wandb',to:'vllm',msg:'⚠️ W&B → vLLM: W&B reads metrics FROM vLLM, it does not configure vLLM. Instrument vLLM → push metrics to W&B.'},
+      {from:'evaluator',to:'vllm',msg:'⚠️ Evaluator → vLLM in a loop: evaluator runs async on traffic samples, it does not gate live requests.'},
+    ],
+    goodConns:[
+      {from:'vllm',to:'langsmith',msg:'✅ vLLM → LangSmith: every serving request traced end-to-end. Foundation of LLM observability.'},
+      {from:'evaluator',to:'wandb',msg:'✅ Evaluator → W&B: evaluation scores logged to W&B for drift detection and trend analysis.'},
+      {from:'guardrails',to:'vllm',msg:'✅ Guardrails → vLLM: guardrails gate requests BEFORE they reach the model. Correct traffic flow.'},
+    ],
+  },
+];
+
+const COMP = {
+  llm:[
+    {id:'claude-opus',name:'Claude Opus 4',emoji:'🟣',tip:'Best reasoning, 200K ctx. Use for complex tasks.'},
+    {id:'claude-sonnet',name:'Claude Sonnet 4',emoji:'🔵',tip:'Best speed+quality balance for production.'},
+    {id:'claude-haiku',name:'Claude Haiku 4.5',emoji:'⚡',tip:'Fastest+cheapest. Great for high-volume tasks.'},
+    {id:'gpt4o',name:'GPT-4o',emoji:'🟢',tip:'Strong multimodal. Good function calling.'},
+    {id:'llama3',name:'Llama 3.3 70B',emoji:'🦙',tip:'Open weights. Self-host on your infra.'},
+    {id:'llm',name:'LLM (generic)',emoji:'🧠',tip:'Any large language model.'},
+  ],
+  embedder:[
+    {id:'embedder',name:'Embedder (generic)',emoji:'🔢',tip:'Converts text to dense vectors.'},
+    {id:'oai-embed',name:'text-embed-3-small',emoji:'🔤',tip:'Best price/perf. 1536 dims.'},
+    {id:'cohere-embed',name:'Cohere embed-v3',emoji:'🌊',tip:'Excellent multilingual support.'},
+    {id:'nomic',name:'nomic-embed-text',emoji:'🗺️',tip:'Free, local, 8K context window.'},
+  ],
+  vectordb:[
+    {id:'vectordb',name:'Vector DB (generic)',emoji:'🗄️',tip:'Stores and retrieves embeddings.'},
+    {id:'qdrant',name:'Qdrant',emoji:'🎯',tip:'Fast, rich filtering, open source.'},
+    {id:'pgvector',name:'pgvector',emoji:'🐘',tip:'If you already have PostgreSQL.'},
+    {id:'pinecone',name:'Pinecone',emoji:'🌲',tip:'Fully managed, great at scale.'},
+    {id:'chroma',name:'Chroma',emoji:'🎨',tip:'Best for local dev & prototypes.'},
+  ],
+  retrieval:[
+    {id:'retriever',name:'Retriever',emoji:'🔍',tip:'Queries vector DB for relevant chunks.'},
+    {id:'reranker',name:'Cohere Rerank',emoji:'📊',tip:'Re-scores results. +25% precision.'},
+    {id:'chunker',name:'Chunker',emoji:'✂️',tip:'Splits docs into indexed units.'},
+    {id:'hybrid',name:'Hybrid Search',emoji:'🔀',tip:'Vector + BM25 keyword combined.'},
+    {id:'colpali',name:'ColPali',emoji:'📑',tip:'Visual PDF retrieval without OCR.'},
+    {id:'pdf-parser',name:'PDF Parser',emoji:'📄',tip:'Extract clean text from PDFs — PyMuPDF, pdfplumber, Tesseract.'},
+  ],
+  orchestration:[
+    {id:'langgraph',name:'LangGraph',emoji:'🕸️',tip:'State machines for agent flows.'},
+    {id:'langchain',name:'LangChain LCEL',emoji:'🦜',tip:'Composable chains and retrievers.'},
+    {id:'hitl',name:'Human-in-Loop',emoji:'👤',tip:'Human approval before critical actions.'},
+    {id:'mcp',name:'MCP Server',emoji:'🔌',tip:'Model Context Protocol tool access.'},
+    {id:'streaming',name:'WebSocket/SSE',emoji:'📡',tip:'Real-time streaming responses.'},
+  ],
+  memory:[
+    {id:'cache',name:'Redis Cache',emoji:'⚡',tip:'Sub-ms cached responses.'},
+    {id:'session-memory',name:'Session Memory',emoji:'💬',tip:'Conversation history per user.'},
+    {id:'memory',name:'MemorySaver',emoji:'🧠',tip:'LangGraph in-memory checkpointer.'},
+    {id:'pg-ckpt',name:'Postgres Checkpointer',emoji:'💾',tip:'Persistent state across sessions.'},
+  ],
+  tools:[
+    {id:'web-search',name:'Web Search (Tavily)',emoji:'🌐',tip:'LLM-optimized web retrieval.'},
+    {id:'sandbox',name:'Code Sandbox (E2B)',emoji:'📦',tip:'Isolated execution — never skip.'},
+    {id:'sql-tool',name:'SQL Tool',emoji:'📊',tip:'LLM queries your database.'},
+    {id:'evaluator',name:'RAGAS Evaluator',emoji:'📈',tip:'Faithfulness + relevancy metrics.'},
+    {id:'guardrails',name:'Guardrails AI',emoji:'🛡️',tip:'Block harmful/off-topic outputs.'},
+  ],
+  infra:[
+    {id:'s3',name:'AWS S3',emoji:'🪣',tip:'Document and artifact storage.'},
+    {id:'lambda',name:'AWS Lambda',emoji:'λ',tip:'Serverless event-driven processing.'},
+    {id:'ecs',name:'AWS ECS/GPU',emoji:'🖥️',tip:'Containers on GPU. Scale to zero.'},
+    {id:'sqs',name:'AWS SQS',emoji:'📬',tip:'Decouple heavy processing jobs.'},
+    {id:'github',name:'GitHub',emoji:'🐙',tip:'Source control + CI/CD trigger.'},
+    {id:'kafka',name:'Apache Kafka',emoji:'📨',tip:'High-throughput event streaming. Decouples producers from AI consumers.'},
+  ],
+  vision:[
+    {id:'yolo',name:'YOLOv8',emoji:'👁️',tip:'Real-time object detection.'},
+    {id:'sam',name:'SAM 2',emoji:'🎭',tip:'Zero-shot image+video segmentation.'},
+    {id:'clip',name:'CLIP',emoji:'🔗',tip:'Vision-language alignment.'},
+    {id:'ocr-vision',name:'Vision LLM / OCR',emoji:'📝',tip:'PDF and image understanding.'},
+  ],
+  audio:[
+    {id:'asr',name:'Whisper / Deepgram',emoji:'🎙️',tip:'Speech to text, 99 languages.'},
+    {id:'tts',name:'ElevenLabs / Kokoro',emoji:'🔊',tip:'Natural text-to-speech.'},
+    {id:'vad',name:'Silero VAD',emoji:'👂',tip:'Voice activity detection.'},
+    {id:'musicgen',name:'MusicGen',emoji:'🎵',tip:'Text to music generation.'},
+  ],
+  quantum:[
+    {id:'vqe',name:'VQE',emoji:'⚛️',tip:'Variational quantum eigensolver.'},
+    {id:'qiskit',name:'Qiskit',emoji:'🔬',tip:'IBM quantum computing SDK.'},
+    {id:'qaoa',name:'QAOA',emoji:'🔀',tip:'Quantum optimization algorithm.'},
+    {id:'optimizer',name:'Classical Optimizer',emoji:'📉',tip:'SLSQP/COBYLA for VQE loop.'},
+    {id:'hamiltonian',name:'Hamiltonian Mapper',emoji:'⚗️',tip:'Jordan-Wigner qubit mapping.'},
+    {id:'molecule',name:'Molecular Driver',emoji:'🧪',tip:'PySCF input for molecules.'},
+    {id:'results',name:'Energy Analysis',emoji:'📋',tip:'Plot convergence + compare methods.'},
+  ],
+  mlops:[
+    {id:'wandb',name:'W&B Tracking',emoji:'📊',tip:'Experiment tracking and sweeps.'},
+    {id:'mlflow',name:'MLflow Registry',emoji:'🏪',tip:'Model versioning + staging.'},
+    {id:'lora',name:'LoRA Adapter',emoji:'🔧',tip:'Efficient fine-tuning (rank 4–64).'},
+    {id:'dataset',name:'Training Dataset',emoji:'📚',tip:'Curated prompt-completion pairs.'},
+    {id:'quantize',name:'AWQ Quantize',emoji:'🗜️',tip:'4-bit. 4× memory reduction.'},
+    {id:'vllm',name:'vLLM Server',emoji:'🚀',tip:'3–5× faster via PagedAttention.'},
+    {id:'langsmith',name:'LangSmith',emoji:'🔭',tip:'Trace every LLM call. Debug production issues end-to-end.'},
+  ],
+};
+
+const CAT_LABEL = {
+  llm:'🧠 LLMs', embedder:'🔤 Embedders', vectordb:'🗄️ Vector DBs',
+  retrieval:'🔍 Retrieval', orchestration:'🕸️ Orchestration', memory:'💾 Memory',
+  tools:'🛠️ Tools', infra:'☁️ Infra', vision:'👁️ Vision',
+  audio:'🎙️ Audio', quantum:'⚛️ Quantum', mlops:'⚗️ MLOps',
+};
+
+const NODE_W = 138, NODE_H = 78;
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+const S = {
+  uc: null,
+  mode: 'beginner',  // 'beginner' | 'advanced' | 'expert'
+  nodes: [],
+  conns: [],
+  connMode: false,
+  connSrc: null,
+  palCat: 'llm',
+  nc: 0,
+  stepIdx: 0,        // beginner mode step counter
+  actionStack: [],   // for undo in beginner mode
+  wrongAlertTimer: null,
+};
+
+function getUC() { return UC.find(u => u.id === S.uc); }
+function getNode(id) { return S.nodes.find(n => n.id === id); }
+function hasComp(...ids) { return ids.some(id => S.nodes.some(n => n.compId === id || n.cat === id)); }
+function findComp(id) {
+  for (const [cat, arr] of Object.entries(COMP)) {
+    const c = arr.find(x => x.id === id);
+    if (c) return c;
+  }
+  return null;
+}
+function nodeCenter(node) {
+  return { x: node.x + NODE_W / 2, y: node.y + NODE_H / 2 };
+}
+function findCompCat(compId) {
+  for (const [cat, arr] of Object.entries(COMP)) {
+    if (arr.some(c => c.id === compId)) return cat;
+  }
+  return null;
+}
+
+// ════════════════════════════════════════════════════════════
+// REQUIREMENTS PARSER — keyword scoring → best UC match
+// ════════════════════════════════════════════════════════════
+const UC_KEYWORDS = {
+  'rag':['chatbot','faq','support','answer','question','knowledge base','knowledge','document','retriev'],
+  'voice-ai':['voice','speech','audio','listen','speak','transcrib','tts','stt','microphone','call'],
+  'vision-pipeline':['image','photo','camera','visual','detect','classif','recogni','vision','picture','video'],
+  'finetune':['fine-tun','fine tune','train','custom model','domain-specific','speciali','finetune','instruct'],
+  'multi-agent':['multi-agent','agent','orchestrat','autonomous','automat','workflow','multi-step','plan and execut'],
+  'coding-assistant':['code','coding','programm','github','developer','debug','software','pull request'],
+  'pdf-qa':['pdf','document','report','manual','contract','invoice','scan','extract from'],
+  'content-gen':['content','generat','write','blog','social media','marketing','copy','article','post'],
+  'sql-agent':['sql','database','data analyt','query','insight','business intel','kpi','dashboard','tabular'],
+  'product-search':['product','shop','ecommerc','catalog','image search','visual search','recomm','retail'],
+  'realtime-events':['real-time','realtime','stream','event','monitor','alert','fraud','live data','kafka'],
+  'personalization':['personal','recomm','user prefer','tailored','individual','engagement','retention'],
+  'llm-ops':['observ','monitor','trac','debug','production llm','mlops','latenc','cost optim','prompt version'],
+  'quantum-chem':['quantum','molecul','chemist','drug','protein','simulation'],
+};
+
+function parseRequirements(rawText) {
+  const t = rawText.toLowerCase();
+  const scores = {};
+  Object.entries(UC_KEYWORDS).forEach(([id, kws]) => {
+    scores[id] = kws.reduce((acc, kw) => acc + (t.includes(kw) ? 1 : 0), 0);
+  });
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  const [topId, topScore] = sorted[0];
+  if (topScore === 0) return null;
+  const uc = UC.find(u => u.id === topId);
+  return { uc, score: topScore, runner: sorted[1] };
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════
+function renderAll() {
+  renderUCList();
+  renderPalette();
+  renderCanvas();
+  renderGuidance();
+}
+
+function renderUCList() {
+  document.getElementById('uc-list').innerHTML = UC.map(u => `
+    <div class="uc-card${S.uc === u.id ? ' active' : ''}" data-id="${u.id}">
+      <div class="uc-emoji">${u.emoji}</div>
+      <div class="uc-name">${u.name}</div>
+      <div class="uc-desc">${u.description.slice(0, 72)}…</div>
+      <span class="badge ${u.difficulty === 'Beginner' ? 'bg' : u.difficulty === 'Advanced' ? 'ba' : 'bi'}">${u.difficulty}</span>
+    </div>
+  `).join('');
+}
+
+function renderPalette() {
+  const uc = getUC();
+  const nextCompId = (S.mode === 'beginner' && uc && S.stepIdx < uc.flow.length) ? uc.flow[S.stepIdx] : null;
+  const nextCat = nextCompId ? findCompCat(nextCompId) : null;
+
+  // In beginner mode, auto-switch palette to the category containing the next component
+  if (S.mode === 'beginner' && nextCat) S.palCat = nextCat;
+
+  document.getElementById('pal-cats').innerHTML = Object.entries(CAT_LABEL).map(([k, v]) =>
+    `<button class="pcat${S.palCat === k ? ' active' : ''}" data-cat="${k}">${v}</button>`
+  ).join('');
+
+  const usedIds = S.nodes.map(n => n.compId);
+  const items = COMP[S.palCat] || [];
+  document.getElementById('pal-items').innerHTML = items.map((c, i) => {
+    let cls = 'pitem';
+    if (c.id === nextCompId) cls += ' pi-next';
+    else if (usedIds.includes(c.id)) cls += ' pi-used';
+    return `<div class="${cls}" data-idx="${i}" title="${c.tip}">${c.emoji} ${c.name}</div>`;
+  }).join('');
+}
+
+function renderCanvas() {
+  const canvas = document.getElementById('canvas');
+  canvas.querySelectorAll('.c-node').forEach(e => e.remove());
+
+  document.getElementById('c-empty').style.display = S.nodes.length === 0 ? 'flex' : 'none';
+
+  S.nodes.forEach(node => {
+    const el = document.createElement('div');
+    el.className = 'c-node';
+    el.id = 'nd-' + node.id;
+    el.style.left = node.x + 'px';
+    el.style.top = node.y + 'px';
+    el.innerHTML = `
+      <span class="n-remove" data-nid="${node.id}">✕</span>
+      <div class="n-emoji">${node.emoji}</div>
+      <div class="n-name">${node.name}</div>
+      <div class="n-cat">${CAT_LABEL[node.cat] || node.cat}</div>
+    `;
+
+    // Drag
+    el.addEventListener('mousedown', e => {
+      if (e.target.classList.contains('n-remove')) return;
+      if (S.connMode) { handleConnectClick(node.id); return; }
+      e.preventDefault();
+      const startX = e.clientX - node.x, startY = e.clientY - node.y;
+      el.style.zIndex = 99;
+      const mm = e2 => {
+        node.x = Math.max(0, e2.clientX - startX);
+        node.y = Math.max(0, e2.clientY - startY);
+        el.style.left = node.x + 'px';
+        el.style.top = node.y + 'px';
+        renderConnections();
+      };
+      const mu = () => { el.style.zIndex = 2; window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', mu); };
+      window.addEventListener('mousemove', mm);
+      window.addEventListener('mouseup', mu);
+    });
+
+    // Tooltip
+    el.addEventListener('mouseenter', () => {
+      const comp = findComp(node.compId);
+      if (comp) showTooltip(comp.tip);
+    });
+    el.addEventListener('mouseleave', hideTooltip);
+
+    canvas.appendChild(el);
+  });
+
+  renderConnections();
+  applyNodeHighlights();
+}
+
+function renderConnections() {
+  const svg = document.getElementById('svg-conns');
+  svg.innerHTML = '';
+
+  // Arrow markers
+  const defs = mkEl('defs');
+  [['ok','#34d399'],['warn','#fbbf24'],['err','#f87171'],['def','#6366f1']].forEach(([t,c]) => {
+    const m = mkSvg('marker');
+    m.setAttribute('id','ma-'+t); m.setAttribute('markerWidth','8'); m.setAttribute('markerHeight','8');
+    m.setAttribute('refX','7'); m.setAttribute('refY','3'); m.setAttribute('orient','auto');
+    const p = mkSvg('path'); p.setAttribute('d','M0,0 L0,6 L8,3 z'); p.setAttribute('fill',c);
+    m.appendChild(p); defs.appendChild(m);
+  });
+  svg.appendChild(defs);
+
+  const uc = getUC();
+
+  S.conns.forEach(conn => {
+    const src = getNode(conn.from), tgt = getNode(conn.to);
+    if (!src || !tgt) return;
+    const sc = nodeCenter(src), tc = nodeCenter(tgt);
+
+    // Classify connection
+    let type = 'def', title = '';
+    if (uc) {
+      const wrong = uc.wrongConns?.find(w => w.from === src.compId && w.to === tgt.compId);
+      const good  = uc.goodConns?.find(g =>  g.from === src.compId && g.to === tgt.compId);
+      if (wrong) { type = wrong.msg.startsWith('🚫') ? 'err' : 'warn'; title = wrong.msg; }
+      else if (good) { type = 'ok'; title = good.msg; }
+    }
+
+    const path = mkSvg('path');
+    const cx = (sc.x + tc.x) / 2;
+    path.setAttribute('d', `M${sc.x},${sc.y} Q${cx},${sc.y} ${tc.x},${tc.y}`);
+    path.setAttribute('class', `conn-path conn-${type}`);
+    path.setAttribute('marker-end', `url(#ma-${type})`);
+    path.style.pointerEvents = 'all';
+    path.style.cursor = 'pointer';
+
+    if (title) {
+      path.addEventListener('mouseenter', e => showTooltip(title, e));
+      path.addEventListener('mouseleave', hideTooltip);
+    }
+
+    // Remove on double click
+    path.addEventListener('dblclick', () => {
+      S.conns = S.conns.filter(c => c.id !== conn.id);
+      renderConnections();
+      renderGuidance();
+    });
+
+    svg.appendChild(path);
+  });
+}
+
+function applyNodeHighlights() {
+  const uc = getUC();
+  if (!uc) return;
+  S.nodes.forEach(node => {
+    const el = document.getElementById('nd-' + node.id);
+    if (!el) return;
+    el.classList.remove('n-ok','n-warn','n-err');
+    if (uc.required.includes(node.compId) || uc.recommended.includes(node.compId)) {
+      el.classList.add('n-ok');
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// GUIDANCE / VALIDATION
+// ════════════════════════════════════════════════════════════
+function buildTips(uc) {
+  const errs = [], warns = [], oks = [];
+  let score = 0;
+  const maxScore = uc.required.length * 20 + uc.recommended.length * 8;
+
+  uc.required.forEach(rid => {
+    const c = findComp(rid) || { emoji: '🔧', name: rid };
+    if (hasComp(rid)) {
+      score += 20;
+      oks.push({ type:'ok', title:`✅ ${c.emoji} ${c.name}`, msg: uc.compTips?.[rid] || 'Required component in place.' });
+    } else {
+      errs.push({ type:'err', title:`❌ Missing: ${c.emoji} ${c.name}`, msg: uc.missingTips?.[rid] || `Required for ${uc.name}.` });
+    }
+  });
+
+  uc.recommended.forEach(rid => {
+    const c = findComp(rid) || { emoji: '💡', name: rid };
+    if (hasComp(rid)) {
+      score += 8;
+      oks.push({ type:'ok', title:`✅ ${c.emoji} ${c.name}`, msg: uc.compTips?.[rid] || 'Good addition!' });
+    } else {
+      const msg = uc.missingTips?.[rid] || `Consider adding ${c.name} to strengthen this architecture.`;
+      (msg.startsWith('🚨') ? errs : warns).push({ type: msg.startsWith('🚨') ? 'err' : 'warn', title:`💡 Consider: ${c.emoji} ${c.name}`, msg });
+    }
+  });
+
+  S.conns.forEach(conn => {
+    const src = getNode(conn.from), tgt = getNode(conn.to);
+    if (!src || !tgt) return;
+    const wrong = uc.wrongConns?.find(w => w.from === src.compId && w.to === tgt.compId);
+    const good  = uc.goodConns?.find(g => g.from === src.compId && g.to === tgt.compId);
+    if (wrong && wrong.msg.startsWith('🚫')) { score = Math.max(0, score - 15); errs.push({ type:'err', title:`🚫 ${src.name} → ${tgt.name}`, msg: wrong.msg }); }
+    else if (wrong) warns.push({ type:'warn', title:`⚠️ ${src.name} → ${tgt.name}`, msg: wrong.msg });
+    else if (good)  { score = Math.min(maxScore, score + 5); oks.push({ type:'ok', title:`🔗 ${src.name} → ${tgt.name}`, msg: good.msg }); }
+  });
+
+  S.nodes.forEach(node => {
+    if (!uc.required.includes(node.compId) && !uc.recommended.includes(node.compId)) {
+      const t = uc.compTips?.[node.compId];
+      if (t) oks.push({ type:'info', title:`💡 ${node.emoji} ${node.name}`, msg: t });
+    }
+  });
+
+  return { tips: [...errs, ...warns, ...oks], score, maxScore };
+}
+
+function renderGuidance() {
+  const uc = getUC();
+  const tipsTitle = document.getElementById('tips-title');
+  const tipsSub   = document.getElementById('tips-sub');
+  const ucDetail  = document.getElementById('uc-detail');
+  const tipsBody  = document.getElementById('tips-body');
+  const scoreFill = document.getElementById('score-fill');
+  const scoreTxt  = document.getElementById('score-txt');
+
+  if (!uc) {
+    tipsTitle.textContent = 'Architecture Advisor';
+    const modeHint = {beginner:'🎓 Beginner — follow step-by-step', advanced:'🧑‍💻 Advanced — free-form + scoring', expert:'🏆 Expert — deep critique'};
+    tipsSub.textContent = modeHint[S.mode] || 'Select a use case on the left';
+    ucDetail.style.display = 'none';
+    tipsBody.innerHTML = `<div class="tip t-info"><strong>👋 How this works</strong>1. Pick a scenario on the left (or use Requirements Doc)<br>2. Read the expected flow here<br>3. Add components from the palette<br>4. Wire them with Connect<br>5. Watch this panel for guidance</div>`;
+    scoreFill.style.width = '0%';
+    scoreTxt.textContent = 'Add components to begin scoring';
+    return;
+  }
+
+  tipsTitle.textContent = uc.emoji + ' ' + uc.name;
+  tipsSub.textContent = `${uc.difficulty} · ${S.mode === 'beginner' ? '🎓 Guided' : S.mode === 'advanced' ? '🧑‍💻 Scored' : '🏆 Expert'}`;
+
+  ucDetail.style.display = 'block';
+  ucDetail.innerHTML = `
+    <h4>Expected Flow</h4>
+    <p>${uc.description}</p>
+    <div class="flow-row">
+      ${uc.flow.map((f, i) => {
+        const done = S.nodes.some(n => n.compId === f);
+        const isNext = S.mode === 'beginner' && i === S.stepIdx;
+        const chip = `<span class="flow-chip" style="${done ? 'background:rgba(52,211,153,.15);border-color:rgba(52,211,153,.4);color:#34d399' : isNext ? 'border-color:var(--cyan);color:var(--cyan)' : ''}">${uc.flowLabels?.[i] || f}</span>`;
+        return chip + (i < uc.flow.length - 1 ? '<span class="flow-arr">→</span>' : '');
+      }).join('')}
+    </div>
+  `;
+
+  // ── BEGINNER MODE ──────────────────────────────────────────
+  if (S.mode === 'beginner') {
+    scoreFill.style.width = '0%';
+    scoreTxt.textContent = `Step ${Math.min(S.stepIdx + 1, uc.flow.length)} of ${uc.flow.length}`;
+    if (S.stepIdx >= uc.flow.length) {
+      tipsBody.innerHTML = `
+        <div class="tip t-ok"><strong>🎉 All ${uc.flow.length} components placed!</strong>Now wire them together with the Connect button. Then switch to Advanced mode to score your architecture.</div>
+        ${S.conns.length === 0 ? '' : buildTips(uc).tips.filter(t=>t.type==='err'||t.type==='warn').map(t=>`<div class="tip t-${t.type}"><strong>${t.title}</strong>${t.msg}</div>`).join('')}
+      `;
+    } else {
+      const nextId = uc.flow[S.stepIdx];
+      const nextComp = findComp(nextId) || { emoji: '🔧', name: nextId };
+      const why = uc.stepWhy?.[nextId] || `Add ${nextComp.name} — a core building block for this architecture.`;
+      tipsBody.innerHTML = `
+        <div class="step-card">
+          <div class="step-num">Step ${S.stepIdx + 1} of ${uc.flow.length}</div>
+          <div class="step-comp">${nextComp.emoji} ${nextComp.name}</div>
+          <div class="step-why">${why}</div>
+        </div>
+        ${S.stepIdx > 0 ? `<div class="tip t-ok"><strong>✅ ${S.stepIdx} component${S.stepIdx>1?'s':''} placed</strong>Keep going — palette is highlighting the next one in cyan.</div>` : ''}
+      `;
+    }
+    applyNodeHighlights();
+    return;
+  }
+
+  if (S.nodes.length === 0) {
+    tipsBody.innerHTML = `<div class="tip t-info"><strong>🏗️ Start building!</strong>Add components from the palette. Start with the core pieces shown in the expected flow above.</div>`;
+    scoreFill.style.width = '0%'; scoreTxt.textContent = 'Score: 0% — add components'; return;
+  }
+
+  const { tips, score, maxScore } = buildTips(uc);
+
+  // ── EXPERT MODE — add extra critique layer ─────────────────
+  if (S.mode === 'expert') {
+    const extraCritique = [];
+    if (!hasComp('guardrails') && !hasComp('evaluator')) extraCritique.push({ type:'warn', title:'⚠️ No Safety Layer', msg:'Production AI needs guardrails (content filtering) AND an evaluator (quality measurement). Without both, you are flying blind.' });
+    if (!hasComp('cache') && S.nodes.length > 3) extraCritique.push({ type:'warn', title:'⚠️ No Caching', msg:'Repeated queries hit the LLM every time. A semantic cache (Redis + embedding) can cut LLM cost 40–60% in production.' });
+    if (S.conns.length === 0 && S.nodes.length > 1) extraCritique.push({ type:'err', title:'❌ No Connections Drawn', msg:'Components are isolated — wire them with Connect to show data flow. Architecture diagrams without flow are just inventories.' });
+    tips.push(...extraCritique);
+  }
+
+  const pct = Math.min(100, Math.round(maxScore ? (score / maxScore) * 100 : 0));
+  scoreFill.style.width = pct + '%';
+  scoreFill.style.background = pct < 40 ? 'var(--red)' : pct < 70 ? 'var(--yellow)' : 'var(--green)';
+  scoreTxt.textContent = `Architecture score: ${pct}% — ${pct < 40 ? 'needs work' : pct < 60 ? 'getting there' : pct < 80 ? 'solid!' : pct < 95 ? 'excellent!' : '🏆 perfect!'}`;
+
+  tipsBody.innerHTML = tips.length
+    ? tips.map(t => `<div class="tip t-${t.type}"><strong>${t.title}</strong>${t.msg}</div>`).join('')
+    : `<div class="tip t-info">Connect components with the Connect button to analyze data flow.</div>`;
+
+  applyNodeHighlights();
+}
+
+// ════════════════════════════════════════════════════════════
+// CONNECT MODE
+// ════════════════════════════════════════════════════════════
+function handleConnectClick(nodeId) {
+  if (!S.connSrc) {
+    S.connSrc = nodeId;
+    document.getElementById('nd-' + nodeId)?.classList.add('conn-src');
+    document.getElementById('toolbar-label').textContent = '→ Now click the DESTINATION component';
+  } else if (S.connSrc === nodeId) {
+    document.getElementById('nd-' + nodeId)?.classList.remove('conn-src');
+    S.connSrc = null;
+    document.getElementById('toolbar-label').textContent = 'Connect mode: click SOURCE first';
+  } else {
+    const already = S.conns.some(c =>
+      (c.from === S.connSrc && c.to === nodeId) || (c.from === nodeId && c.to === S.connSrc)
+    );
+    if (!already) {
+      S.conns.push({ id:'c' + Date.now(), from: S.connSrc, to: nodeId });
+    }
+    document.getElementById('nd-' + S.connSrc)?.classList.remove('conn-src');
+    S.connSrc = null;
+    document.getElementById('toolbar-label').textContent = 'Connect mode: click SOURCE first';
+    renderConnections();
+    renderGuidance();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// ADD NODE
+// ════════════════════════════════════════════════════════════
+function showWrongAlert(picked, expected, expectedCat) {
+  clearTimeout(S.wrongAlertTimer);
+  const el = document.getElementById('wrong-alert');
+  el.style.display = 'block';
+  el.innerHTML = `❌ <strong>${picked.emoji} ${picked.name}</strong> isn't next. Step ${S.stepIdx + 1} needs <strong>${expected.emoji} ${expected.name}</strong> — look in the <em>${CAT_LABEL[expectedCat] || expectedCat}</em> tab (highlighted in cyan).`;
+  S.wrongAlertTimer = setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function addNode(comp, cat) {
+  const uc = getUC();
+
+  // Beginner mode: enforce step order
+  if (S.mode === 'beginner' && uc && S.stepIdx < uc.flow.length) {
+    const expectedId = uc.flow[S.stepIdx];
+    if (comp.id !== expectedId) {
+      const expected = findComp(expectedId) || { emoji: '🔧', name: expectedId };
+      showWrongAlert(comp, expected, findCompCat(expectedId));
+      return; // don't add to canvas
+    }
+    clearTimeout(S.wrongAlertTimer);
+    document.getElementById('wrong-alert').style.display = 'none';
+  }
+
+  const canvas = document.getElementById('canvas');
+  const n = S.nodes.length;
+  const cols = 4;
+  const x = 30 + (n % cols) * 160;
+  const y = 30 + Math.floor(n / cols) * 110;
+  const node = {
+    id: 'n' + (++S.nc),
+    compId: comp.id, name: comp.name, emoji: comp.emoji, cat,
+    x: Math.min(x, canvas.offsetWidth - NODE_W - 20),
+    y: Math.min(y, canvas.offsetHeight - NODE_H - 20),
+  };
+  S.nodes.push(node);
+
+  if (S.mode === 'beginner' && uc && S.stepIdx < uc.flow.length && comp.id === uc.flow[S.stepIdx]) {
+    S.actionStack.push({ type: 'node', nodeId: node.id, step: S.stepIdx });
+    S.stepIdx++;
+  }
+
+  renderCanvas();
+  renderPalette();
+  renderGuidance();
+}
+
+// ════════════════════════════════════════════════════════════
+// AUTO ARRANGE
+// ════════════════════════════════════════════════════════════
+function autoArrange() {
+  const canvas = document.getElementById('canvas');
+  const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+  const n = S.nodes.length;
+  if (n === 0) return;
+  const cols = Math.min(4, n);
+  const cellW = (cw - 80) / cols;
+  const cellH = Math.min((ch - 80) / Math.ceil(n / cols), 130);
+  S.nodes.forEach((node, i) => {
+    node.x = 40 + (i % cols) * cellW;
+    node.y = 40 + Math.floor(i / cols) * cellH;
+  });
+  renderCanvas();
+}
+
+// ════════════════════════════════════════════════════════════
+// SHOW SOLUTION
+// ════════════════════════════════════════════════════════════
+function showSolution() {
+  const uc = getUC();
+  if (!uc) return;
+  S.nodes = []; S.conns = []; S.nc = 0;
+
+  const canvas = document.getElementById('canvas');
+  const cw = canvas.offsetWidth;
+  const total = uc.flow.length;
+  const perRow = Math.min(4, total);
+  const cellW = Math.min((cw - 80) / perRow, 180);
+
+  uc.flow.forEach((compId, i) => {
+    const comp = findComp(compId) || { id: compId, name: compId, emoji: '🔧' };
+    const cat = Object.entries(COMP).find(([, arr]) => arr.some(c => c.id === compId))?.[0] || 'tools';
+    S.nodes.push({
+      id: 'n' + (++S.nc), compId, name: comp.name, emoji: comp.emoji, cat,
+      x: 40 + (i % perRow) * cellW,
+      y: 40 + Math.floor(i / perRow) * 120,
+    });
+  });
+
+  // Auto-wire in flow order
+  for (let i = 0; i < S.nodes.length - 1; i++) {
+    S.conns.push({ id: 'c' + i, from: S.nodes[i].id, to: S.nodes[i+1].id });
+  }
+
+  renderCanvas();
+  renderPalette();
+  renderGuidance();
+}
+
+// ════════════════════════════════════════════════════════════
+// TOOLTIP
+// ════════════════════════════════════════════════════════════
+function showTooltip(txt, e) {
+  const t = document.getElementById('tooltip');
+  t.innerHTML = txt;
+  t.style.display = 'block';
+  const handler = ev => {
+    t.style.left = (ev.clientX + 14) + 'px';
+    t.style.top  = (ev.clientY - 10) + 'px';
+  };
+  window.addEventListener('mousemove', handler);
+  t._handler = handler;
+}
+function hideTooltip() {
+  const t = document.getElementById('tooltip');
+  t.style.display = 'none';
+  if (t._handler) { window.removeEventListener('mousemove', t._handler); t._handler = null; }
+}
+
+// ════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════
+function mkEl(tag)    { return document.createElement(tag); }
+function mkSvg(tag)   { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+
+// ════════════════════════════════════════════════════════════
+// EVENT LISTENERS
+// ════════════════════════════════════════════════════════════
+
+// Mode selector
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    S.mode = btn.dataset.mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+    // Reset step counter when switching modes
+    S.stepIdx = 0; S.actionStack = [];
+    clearTimeout(S.wrongAlertTimer);
+    document.getElementById('wrong-alert').style.display = 'none';
+    renderAll();
+  });
+});
+
+// Requirements analyzer
+document.getElementById('btn-req').addEventListener('click', () => {
+  const text = document.getElementById('req-input').value.trim();
+  const resultEl = document.getElementById('req-result');
+  if (!text) { resultEl.className = 'req-result err'; resultEl.style.display = 'block'; resultEl.textContent = 'Please describe your project first.'; return; }
+  const match = parseRequirements(text);
+  if (!match) {
+    resultEl.className = 'req-result err';
+    resultEl.style.display = 'block';
+    resultEl.textContent = '🤔 No close match found. Try describing the type of AI system: chatbot, voice assistant, image detection, agent workflow, etc.';
+    return;
+  }
+  // Switch to matched use case
+  S.uc = match.uc.id;
+  S.nodes = []; S.conns = []; S.connMode = false; S.connSrc = null; S.stepIdx = 0; S.actionStack = [];
+  document.getElementById('btn-connect').classList.remove('conn-active');
+  document.getElementById('toolbar-label').textContent = `Building: ${match.uc.name}`;
+  resultEl.className = 'req-result ok';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = `✅ Matched: <strong>${match.uc.emoji} ${match.uc.name}</strong> — ${match.uc.difficulty} level. ${match.score} keyword signal${match.score > 1 ? 's' : ''}.`;
+  renderAll();
+});
+
+// Use case selection
+document.getElementById('uc-list').addEventListener('click', e => {
+  const card = e.target.closest('.uc-card');
+  if (!card) return;
+  S.uc = card.dataset.id;
+  S.nodes = []; S.conns = []; S.connMode = false; S.connSrc = null; S.stepIdx = 0; S.actionStack = [];
+  document.getElementById('btn-connect').classList.remove('conn-active');
+  document.getElementById('toolbar-label').textContent = `Building: ${getUC()?.name}`;
+  renderAll();
+});
+
+// Palette category
+document.getElementById('pal-cats').addEventListener('click', e => {
+  const btn = e.target.closest('.pcat');
+  if (!btn) return;
+  S.palCat = btn.dataset.cat;
+  renderPalette();
+});
+
+// Palette item add
+document.getElementById('pal-items').addEventListener('click', e => {
+  const item = e.target.closest('.pitem');
+  if (!item) return;
+  const idx = parseInt(item.dataset.idx);
+  const comp = COMP[S.palCat]?.[idx];
+  if (comp) addNode(comp, S.palCat);
+});
+
+// Node remove
+document.getElementById('canvas').addEventListener('click', e => {
+  const removeBtn = e.target.closest('.n-remove');
+  if (!removeBtn) return;
+  const nid = removeBtn.dataset.nid;
+  S.nodes = S.nodes.filter(n => n.id !== nid);
+  S.conns = S.conns.filter(c => c.from !== nid && c.to !== nid);
+  if (S.connSrc === nid) S.connSrc = null;
+  renderCanvas();
+  renderPalette();
+  renderGuidance();
+});
+
+// Connect button
+document.getElementById('btn-connect').addEventListener('click', () => {
+  S.connMode = !S.connMode;
+  S.connSrc = null;
+  document.querySelectorAll('.conn-src').forEach(e => e.classList.remove('conn-src'));
+  const btn = document.getElementById('btn-connect');
+  btn.classList.toggle('conn-active', S.connMode);
+  document.getElementById('toolbar-label').textContent = S.connMode
+    ? 'Connect mode: click SOURCE component'
+    : (S.uc ? `Building: ${getUC()?.name}` : '← Select a use case');
+});
+
+// Undo last connection
+document.getElementById('btn-undo').addEventListener('click', () => {
+  S.conns.pop();
+  renderConnections();
+  renderGuidance();
+});
+
+// Auto arrange
+document.getElementById('btn-arrange').addEventListener('click', autoArrange);
+
+// Show solution
+document.getElementById('btn-hint').addEventListener('click', showSolution);
+
+// Clear canvas
+document.getElementById('btn-clear').addEventListener('click', () => {
+  S.nodes = []; S.conns = []; S.connMode = false; S.connSrc = null;
+  document.getElementById('btn-connect').classList.remove('conn-active');
+  renderCanvas();
+  renderPalette();
+  renderGuidance();
+});
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+renderAll();
+</script>
+</body>
+</html>

@@ -12,6 +12,7 @@ export const mainNav: NavLink[] = [
   { label: 'About', href: '/about' },
   { label: 'Leadership', href: '/leadership' },
   { label: 'Blog', href: '/blog' },
+  { label: 'Tools', href: '/tools/ai-playground' },
   { label: 'Careers', href: '/careers' },
   { label: 'Contact', href: '/contact' },
 ]
@@ -45,6 +46,7 @@ export const footerSections = [
       { label: 'Case Studies', href: '/case-studies' },
       { label: 'Products', href: '/products' },
       { label: 'Partners', href: '/partners' },
+      { label: 'AI Playground', href: '/tools/ai-playground' },
     ],
   },
   {

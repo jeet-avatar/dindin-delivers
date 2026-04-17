@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customField xmlns="http://www.netsuite.com/namespace/metadata/v2">
+    <!-- Custom body field for Purchase Order: VendorRef -->
+    <scriptId>custbody_vendorref</scriptId>
+    <label>VendorRef</label>
+    <type>TEXT</type>
+    <description>Reference field for vendor on Purchase Order</description>
+    <storeValue>true</storeValue>
+    <appliesToTransaction>true</appliesToTransaction>
+    <appliesToPurchaseOrder>true</appliesToPurchaseOrder>
+    <displayType>NORMAL</displayType>
+    <isMandatory>false</isMandatory>
+    <isFormula>false</isFormula>
+    <isInactive>false</isInactive>
+    <showInList>false</showInList>
+    <globalSearch>false</globalSearch>
+    <isParent>false</isParent>
+    <maxLength>100</maxLength>
+    <help>Stores a vendor reference for demo purposes.</help>
+</customField>

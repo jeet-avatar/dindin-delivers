@@ -60,70 +60,18 @@ if ($message) $body .= "<div class='f'><div class='l'>Message</div><div class='v
 $body .= "<div class='ft'>Source: $source | IP: {$_SERVER['REMOTE_ADDR']} | " . date('Y-m-d H:i:s T') . "</div>";
 $body .= "</div></body></html>";
 
-// ---- SMTP Send via Office365 (proven working pattern) ----
-$smtpUser = 'peter@techcloudpro.com';
-$smtpPass = 'SMTP_PASSWORD_REDACTED';
-$recipients = ['contact@techcloudpro.com', 'rajesh@techcloudpro.com', 'jm@techcloudpro.com'];
+// ---- Email via Hostinger native mail() ----
+$fromAddr = 'noreply@techcloudpro.com';
+$recipients = 'contact@techcloudpro.com, rajesh@techcloudpro.com, jm@techcloudpro.com';
 
-function smtpRead($s) { $r=''; while($l=fgets($s,515)){ $r.=$l; if(substr($l,3,1)==' ')break; } return trim($r); }
-function smtpSend($s,$c) { fwrite($s, $c."\r\n"); return smtpRead($s); }
+$headers  = "MIME-Version: 1.0\r\n";
+$headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+$headers .= "From: TechCloudPro Contact <{$fromAddr}>\r\n";
+$headers .= "Reply-To: {$name} <{$email}>\r\n";
+$headers .= "X-Mailer: PHP/" . phpversion();
 
-$socket = @fsockopen('tcp://smtp.office365.com', 587, $errno, $errstr, 10);
-if (!$socket) {
-    error_log("TechCloudPro form: SMTP connect failed: $errstr");
-    http_response_code(500);
-    echo json_encode(['error' => 'Email service unavailable']);
-    exit;
-}
-
-$success = false;
-$smtpError = '';
-
-try {
-    smtpRead($socket); // greeting
-    smtpSend($socket, 'EHLO techcloudpro.com');
-    $tlsResp = smtpSend($socket, 'STARTTLS');
-    if (strpos($tlsResp, '220') === false) throw new Exception("STARTTLS: $tlsResp");
-
-    stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT);
-    smtpSend($socket, 'EHLO techcloudpro.com');
-
-    smtpSend($socket, 'AUTH LOGIN');
-    smtpSend($socket, base64_encode($smtpUser));
-    $authResp = smtpSend($socket, base64_encode($smtpPass));
-    if (strpos($authResp, '235') === false) throw new Exception("AUTH: $authResp");
-
-    smtpSend($socket, "MAIL FROM:<$smtpUser>");
-    foreach ($recipients as $rcpt) {
-        smtpSend($socket, "RCPT TO:<$rcpt>");
-    }
-    smtpSend($socket, 'DATA');
-
-    $msg = "From: TechCloudPro <$smtpUser>\r\n";
-    $msg .= "To: contact@techcloudpro.com\r\n";
-    $msg .= "Cc: rajesh@techcloudpro.com, jm@techcloudpro.com\r\n";
-    $msg .= "Reply-To: $name <$email>\r\n";
-    $msg .= "Subject: $subject\r\n";
-    $msg .= "MIME-Version: 1.0\r\n";
-    $msg .= "Content-Type: text/html; charset=UTF-8\r\n\r\n";
-    $msg .= $body;
-
-    fwrite($socket, $msg . "\r\n.\r\n");
-    $sendResp = smtpRead($socket);
-
-    if (strpos($sendResp, '250') !== false) {
-        $success = true;
-    } else {
-        throw new Exception("SEND: $sendResp");
-    }
-
-    smtpSend($socket, 'QUIT');
-} catch (Exception $e) {
-    $smtpError = $e->getMessage();
-    error_log("TechCloudPro form SMTP error: $smtpError");
-}
-
-fclose($socket);
+$success = @mail($recipients, $subject, $body, $headers);
+$smtpError = $success ? '' : 'mail() returned false';
 
 // Save lead to local JSON file (never lose a lead)
 $leadsDir = __DIR__ . '/../leads';
@@ -169,9 +117,8 @@ $crmResp = curl_exec($ch);
 $crmCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
-if ($success) {
-    echo json_encode(['success' => true, 'lead_saved' => true, 'crm_status' => $crmCode]);
-} else {
-    http_response_code(500);
-    echo json_encode(['error' => 'Failed to send. Please try again.', 'debug' => $smtpError]);
+// Lead is always captured (disk + CRM); email is best-effort notification
+if (!$success) {
+    error_log("TechCloudPro contact mail() failed: $smtpError | lead saved locally");
 }
+echo json_encode(['success' => true, 'lead_saved' => true, 'email_sent' => $success, 'crm_status' => $crmCode]);

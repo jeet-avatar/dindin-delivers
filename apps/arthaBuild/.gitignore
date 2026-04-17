@@ -1,0 +1,17 @@
+# Data regenerated at runtime
+src/backend/data/vectorstore_ollama/
+src/backend/data/vectorstore_ollama_*/
+src/backend/data/customer_index/
+src/backend/data/customer_knowledge/
+src/backend/data/*.db
+
+# Frontend
+src/frontend/dist/
+src/frontend/node_modules/
+
+# Env / IDE
+.env
+.DS_Store
+__pycache__/
+*.pyc
+.coverage

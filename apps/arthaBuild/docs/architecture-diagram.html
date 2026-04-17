@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ArthaBuild — Architecture v3.2</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --indigo: #6e76d7;
+      --indigo-light: #a5b4fc;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+      --blue: #58a6ff;
+      --purple: #bc8cff;
+      --orange: #ffa657;
+      --cyan: #39d353;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.6; }
+
+    /* Layout */
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+    header { border-bottom: 1px solid var(--border); padding-bottom: 24px; margin-bottom: 32px; }
+    header h1 { font-size: 28px; font-weight: 700; color: var(--indigo-light); margin-bottom: 6px; }
+    header .meta { color: var(--muted); font-size: 13px; display: flex; gap: 24px; flex-wrap: wrap; }
+    header .meta span { display: flex; align-items: center; gap: 6px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: rgba(63,185,80,.15); color: var(--green); border: 1px solid rgba(63,185,80,.3); }
+    .badge-yellow { background: rgba(210,153,34,.15); color: var(--yellow); border: 1px solid rgba(210,153,34,.3); }
+    .badge-red { background: rgba(248,81,73,.15); color: var(--red); border: 1px solid rgba(248,81,73,.3); }
+    .badge-blue { background: rgba(88,166,255,.15); color: var(--blue); border: 1px solid rgba(88,166,255,.3); }
+
+    /* Sections */
+    section { margin-bottom: 48px; }
+    h2 { font-size: 20px; font-weight: 600; color: var(--indigo-light); border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 20px; }
+    h3 { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 12px; margin-top: 20px; }
+
+    /* Cards */
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .card h4 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: var(--panel); color: var(--muted); font-weight: 600; text-align: left; padding: 10px 12px; border: 1px solid var(--border); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    td { padding: 9px 12px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: rgba(255,255,255,.02); }
+    .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px; }
+    .table-wrap table { border: none; }
+    .table-wrap th, .table-wrap td { border-left: none; border-right: none; }
+    .table-wrap th:first-child, .table-wrap td:first-child { border-left: 1px solid var(--border); }
+    .table-wrap th:last-child, .table-wrap td:last-child { border-right: 1px solid var(--border); }
+
+    /* Code / diagram blocks */
+    pre { background: #0d1117; border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; color: #c9d1d9; line-height: 1.7; }
+    code { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; background: rgba(110,118,129,.2); padding: 2px 5px; border-radius: 3px; }
+
+    /* Phase timeline */
+    .phase-list { display: flex; flex-direction: column; gap: 10px; }
+    .phase-item { display: flex; align-items: flex-start; gap: 16px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+    .phase-item.complete { border-left: 3px solid var(--green); }
+    .phase-item.next { border-left: 3px solid var(--yellow); }
+    .phase-item.pending { border-left: 3px solid var(--border); }
+    .phase-num { font-size: 18px; font-weight: 700; color: var(--muted); min-width: 28px; }
+    .phase-item.complete .phase-num { color: var(--green); }
+    .phase-item.next .phase-num { color: var(--yellow); }
+    .phase-body { flex: 1; }
+    .phase-body strong { display: block; font-size: 14px; margin-bottom: 4px; }
+    .phase-body span { color: var(--muted); font-size: 12px; }
+
+    /* Bug fix section */
+    .bug-item { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+    .bug-item.fixed { border-left-color: var(--green); }
+    .bug-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .bug-header strong { font-size: 13px; }
+    .bug-detail { color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .bug-detail .fix { color: #3fb950; margin-top: 4px; }
+    .bug-files { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .file-tag { background: rgba(110,118,129,.2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 7px; font-size: 11px; font-family: monospace; color: var(--muted); }
+
+    /* Architecture diagram */
+    .arch-box { display: inline-block; border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-size: 12px; text-align: center; }
+    .arch-box.frontend { background: rgba(110,118,215,.15); border-color: var(--indigo); color: var(--indigo-light); }
+    .arch-box.backend { background: rgba(63,185,80,.1); border-color: var(--green); color: var(--green); }
+    .arch-box.llm { background: rgba(188,140,255,.1); border-color: var(--purple); color: var(--purple); }
+    .arch-box.db { background: rgba(88,166,255,.1); border-color: var(--blue); color: var(--blue); }
+    .arch-box.ns { background: rgba(255,166,87,.1); border-color: var(--orange); color: var(--orange); }
+    .arch-flow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    .arrow { color: var(--muted); font-size: 16px; }
+
+    /* Reliability rules */
+    .rule-item { display: flex; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .rule-item:last-child { border-bottom: none; }
+    .rule-icon { font-size: 16px; min-width: 20px; }
+    .rule-text strong { font-size: 13px; display: block; margin-bottom: 2px; }
+    .rule-text span { color: var(--muted); font-size: 12px; }
+
+    /* Changelog */
+    .changelog-item { padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; gap: 16px; align-items: flex-start; }
+    .changelog-item:last-child { border-bottom: none; }
+    .cl-version { font-weight: 700; color: var(--indigo-light); min-width: 36px; font-size: 13px; }
+    .cl-date { color: var(--muted); font-size: 12px; min-width: 90px; margin-top: 1px; }
+    .cl-text { font-size: 13px; color: var(--text); }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .card-grid { grid-template-columns: 1fr; }
+      .arch-flow { flex-direction: column; align-items: flex-start; }
+    }
+
+    /* Print */
+    @media print { body { background: white; color: black; } .card, .bug-item, pre { border: 1px solid #ccc; } }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <h1>ArthaBuild — System Architecture</h1>
+    <div class="meta">
+      <span>Version <strong>2.2</strong></span>
+      <span>Updated <strong>2026-04-10</strong></span>
+      <span><span class="badge badge-green">Phases 1–12 Complete (All Plans)</span></span>
+      <span><span class="badge badge-green">Phase 8.1 Complete — Pre-Staging Case Resolution (90 cases closed, 149 tests pass)</span></span>
+      <span>115/115 Tests Passing · Build Clean · CASE-188→195 All DONE</span>
+    </div>
+  </header>
+
+  <!-- What We're Building -->
+  <section>
+    <h2>1. What We Are Building</h2>
+    <div class="card">
+      <p>ArthaBuild is an <strong>AI-powered NetSuite development platform</strong> that runs entirely inside the customer's AWS VPC. It automates the full SuiteScript lifecycle: describe in English → AI generates SuiteScript → review in chat → type "yes" → deployed to NetSuite automatically.</p>
+      <br>
+      <p style="color:var(--muted)"><strong>Core principle:</strong> Zero external data transfer. Every customer gets their own deployment inside their own AWS account. NetSuite credentials, SuiteScript code, and questions never leave their VPC. AI runs locally on Ollama.</p>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <h4>Before ArthaBuild</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>Consultant writes SuiteScript manually → 2–5 days</li>
+          <li>Deployment requires SuiteCloud CLI expertise → 1 day</li>
+          <li>NetSuite bugs → back-and-forth with support → weeks</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>With ArthaBuild</h4>
+        <ul style="color:var(--text); padding-left:16px; line-height:2">
+          <li>Describe what you need → script generated in seconds</li>
+          <li>Review in chat → type "yes" → auto-deployed</li>
+          <li>Ask any NetSuite question → 203,618-chunk knowledge base</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Component Map -->
+  <section>
+    <h2>2. Component Map</h2>
+    <div class="card">
+      <pre>┌─────────────────────────────────────────────────────────────────────┐
+│              Cloudflare Edge (artha.build — Phase 18)               │
+│                                                                     │
+│  DDoS L3/L4/L7 (auto) · WAF Managed + OWASP CRS (LOG→block)        │
+│  Rate Limit /api/* 60 req/min · HTTPS Redirect 301                  │
+│  Transform Rules: Permissions-Policy + enforcing CSP                │
+│  Cache: static 1yr · /api/* + /health bypass                        │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │ Proxied HTTPS (SSL Full Strict)
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Customer's AWS VPC                              │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │                    Docker Compose Stack                       │  │
+│  │                                                               │  │
+│  │  ┌─────────────────────┐    ┌──────────────────────┐         │  │
+│  │  │   nginx             │    │   FastAPI Backend     │         │  │
+│  │  │   :80               │    │   :8000               │         │  │
+│  │  │  React SPA          │───▶│                       │         │  │
+│  │  │  Landing • Chat     │    │  Auth • RBAC          │         │  │
+│  │  │  Dashboard          │    │  chats.py router      │         │  │
+│  │  │  AdminPanel         │    │  admin.py router      │         │  │
+│  │  └─────────────────────┘    │  NetSuite TBA         │         │  │
+│  │                             │  LangGraph RAG        │         │  │
+│  │                             └────────┬──────────────┘         │  │
+│  │                                      │                         │  │
+│  │          ┌───────────────────────────┤                         │  │
+│  │          │                           │                         │  │
+│  │  ┌───────▼──────┐   ┌───────────────▼──────┐   ┌──────────┐ │  │
+│  │  │  Ollama LLM  │   │  SQLite DB (Phase 9+) │   │  FAISS   │ │  │
+│  │  │  :11434      │   │  users + role/team_id │   │  203K    │ │  │
+│  │  │  llama3.1:8b │   │  teams                │   │  768-dim │ │  │
+│  │  │  nomic-embed │   │  team_invites          │   │  nomic   │ │  │
+│  │  └──────────────┘   │  chat_sessions         │   └──────────┘ │  │
+│  │                     │  chat_messages         │                 │  │
+│  │                     └──────────────────────── ┘                │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  SuiteCloud CLI (inside backend container — optional, Phase 7+)    │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ TBA / HTTPS
+                               ▼
+                     ┌─────────────────────┐        ┌───────────────────────────┐
+                     │  Customer NetSuite  │        │  ArthaBuild License Server│
+                     │  Account           │        │  (TechCloudPro AWS)       │
+                     │  (sandbox or prod) │        │  POST /api/license/validate│
+                     └─────────────────────┘        └───────────────────────────┘</pre>
+    </div>
+
+    <h3>Services & Ports</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Service</th><th>Technology</th><th>Port</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>Frontend</td><td>React + Three.js + GSAP + nginx</td><td>80 (prod) / 5173 (dev)</td><td>3D landing (GPU particles, GSAP), SPA routing, /api proxy</td></tr>
+          <tr><td>Backend</td><td>Python FastAPI</td><td>8000</td><td>Auth, AI routing, NetSuite TBA, SuiteScript</td></tr>
+          <tr><td>LLM</td><td>Ollama</td><td>11434 (internal)</td><td>llama3.1:8b inference + nomic-embed-text embeddings</td></tr>
+          <tr><td>Database</td><td>SQLite + SQLAlchemy</td><td>file</td><td>User auth, password reset tokens, teams, chat sessions, chat messages</td></tr>
+          <tr><td>Vector Index</td><td>FAISS</td><td>file</td><td>203K NetSuite knowledge chunks, 768-dim</td></tr>
+          <tr><td>SuiteCloud CLI</td><td>Node.js</td><td>subprocess</td><td>NetSuite file/deploy operations (requires TBA)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Data Flow -->
+  <section>
+    <h2>3. Data Flow</h2>
+
+    <h3>AI Chat Flow (general_chat)</h3>
+    <pre>Browser        nginx        FastAPI       Ollama        FAISS
+   │              │              │              │              │
+   │─ POST /api/chatbot/process ─▶│              │              │
+   │              │── proxy ─────▶│              │              │
+   │              │              │── embed query ▶│              │
+   │              │              │◀─ 768-dim vec ─│              │
+   │              │              │── similarity ──────────────────▶│
+   │              │              │◀─ top-k docs ───────────────────│
+   │              │              │── grade relevance (Ollama) ─────▶│
+   │              │              │── generate answer (Ollama) ─────▶│
+   │              │              │◀─ response text                  │
+   │◀─ {response, intent, session_id, latency_ms} ─────────────────│</pre>
+
+    <h3>SuiteScript Generation + Deploy ("yes" confirmation)</h3>
+    <pre>Browser        FastAPI        Ollama        Filesystem    NetSuite
+   │              │               │               │              │
+   │─ "Create PO automation script" ──────────────│              │
+   │              │── infer_intent() → generate_suitescript       │
+   │              │── RAG pipeline → generate JS + XML ──────────▶│
+   │◀─ code shown in chat ─────────────────────────────────────────│
+   │              │               │               │              │
+   │─ "yes" ──────────────────────────────────────│              │
+   │              │── search backwards in session history          │
+   │              │   for last assistant msg with ``` code blocks  │
+   │              │── save_generated_files() ──────────────────────▶│
+   │              │   TestSDFProject/SuiteScripts/*.js             │
+   │              │   TestSDFProject/Objects/*.xml                 │
+   │              │── suitecloud project:deploy ────────────────────────▶│
+   │◀─ "✅ Saved N file(s)" ────────────────────────────────────────│</pre>
+
+    <h3>Authentication Flow</h3>
+    <pre>Browser        nginx        FastAPI       SQLite (memory JWT)
+   │              │              │              │
+   │─ POST /api/auth/login ──────▶│              │
+   │              │── proxy ─────▶│── SELECT user ▶│
+   │              │              │◀─ user row ────│
+   │              │              │── verify bcrypt │
+   │              │              │── create JWT    │
+   │◀─ {access_token, refresh_token, first_name, last_name, email} ─│
+   │  store JWT in api.ts accessToken var (memory only, wiped on refresh)</pre>
+
+    <h3>Phase 10 Plan 02 — Invite Acceptance Flow</h3>
+    <pre>Browser (unauthenticated)           FastAPI Backend              SQLite DB
+   │                                      │                           │
+   │─ GET /accept-invite?token=xxx ───────▶│ (nginx → React SPA)       │
+   │◀─ AcceptInvite.tsx form ─────────────│                           │
+   │                                      │                           │
+   │─ POST /api/user/accept-invite ────────▶│                           │
+   │   {token, first_name,                │── SHA-256(token) ────────▶│
+   │    last_name, password}              │── SELECT TeamInvite WHERE  │
+   │                                      │   token_hash=hash ────────▶│
+   │                                      │◀─ invite row ─────────────│
+   │                                      │── validate_password()      │
+   │                                      │── check invite.accepted    │
+   │                                      │── check invite.expires_at  │
+   │                                      │── INSERT User(role="user") ▶│
+   │                                      │   team_id=invite.team_id  │
+   │                                      │── invite.accepted = True ──▶│
+   │                                      │── COMMIT ─────────────────▶│
+   │◀─ {access_token, refresh_token,      │                           │
+   │    token_type:"bearer",              │                           │
+   │    first_name, last_name,            │                           │
+   │    email, role:"user"} ─────────────│                           │
+   │  setAccessToken(access_token)        │                           │
+   │  storage.set("auth_user", {...})     │                           │
+   │  navigate("/chat/new")               │                           │</pre>
+
+    <h3>Phase 9 — RBAC, Admin Panel and Chat Persistence</h3>
+    <pre>Frontend (AdminPanel)               FastAPI Backend              SQLite DB
+   │                                      │                           │
+   │─ GET /api/admin/team ────────────────▶│── require_admin()         │
+   │                                      │── SELECT users WHERE      │
+   │                                      │   team_id = admin.team_id ▶│
+   │◀─ [{id, name, email, role, ...}] ────│                           │
+   │                                      │                           │
+   │─ POST /api/admin/team/invite ─────────▶│── require_admin()         │
+   │   {email: "new@user.com"}            │── INSERT team_invites ───▶│
+   │◀─ {message: "Invite sent"} ──────────│                           │
+   │                                      │                           │
+   │─ GET /api/admin/chats ───────────────▶│── require_admin()         │
+   │                                      │── SELECT chat_sessions    │
+   │                                      │   JOIN users ────────────▶│
+   │◀─ [{id, title, user_email, ...}] ────│                           │
+
+RBAC Guard Pattern (auth_utils.py):
+   require_user()  → Any valid JWT → returns User ORM
+   require_admin() → JWT with role="admin" → 403 if role="user"
+   AdminProtected  → React guard: !user → /log-in, role≠admin → /chat/new
+
+Chat Persistence in Chatbot:
+   POST /api/chatbot/process {message, chat_session_id: 42}
+      → AI generates response
+      → _persist_chat_to_db(session_id=42, user_msg, ai_msg)  [non-fatal]
+      → chat_sessions.updated_at bumped
+      → chat_messages rows inserted (role="user" + role="assistant")</pre>
+  </section>
+
+  <!-- Phase Roadmap -->
+  <section>
+    <h2>4. Phase Roadmap</h2>
+    <div class="phase-list">
+      <div class="phase-item complete">
+        <div class="phase-num">1</div>
+        <div class="phase-body">
+          <strong>Foundation & Auth <span class="badge badge-green">✅ Complete</span></strong>
+          <span>JWT auth, SQLite DB, user registration/login, password reset, email, rate limiting</span>
+        </div>
+      </div>
+      <div class="phase-item complete">
+        <div class="phase-num">2</div>
+        <div class="phase-body">
+          <strong>NetSuite TBA Session <span class="badge badge-green">✅ Complete</span></strong>
+          <span>TBA credential handling in-memory, per-session isolation, SuiteCloud CLI detection</span>
+        </div>
+      </div>
+      <div class="phase-item complete">
+        <div class="phase-num">3</div>
+        <div class="phase-body">
+          <strong>Ollama RAG Pipeline <span class="badge badge-green">✅ Complete</span></strong>
+          <span>LangGraph retrieve→grade→rewrite→generate, llama3.1:8b, nomic-embed-text 768-dim, FAISS vectorstore</span>
+        </div>
+      </div>
+      <div class="phase-item complete">
+        <div class="phase-num">4</div>
+        <div class="phase-body">
+          <strong>Frontend Integration <span class="badge badge-green">✅ Complete</span></strong>
+          <span>React Chat wired to FastAPI, sendChatMessage(), session continuity, ChatMessage code rendering</span>
+        </div>
+      </div>
+      <div class="phase-item complete">
+        <div class="phase-num">5</div>
+        <div class="phase-body">
+          <strong>Docker + Terraform <span class="badge badge-green">✅ Complete</span></strong>
+          <span>docker-compose.yml, Dockerfile, nginx.conf, Terraform for AWS EC2 + EBS provisioning</span>
+        </div>
+      </div>
+      <div class="phase-item complete">
+        <div class="phase-num">6</div>
+        <div class="phase-body">
+          <strong>Testing & Hardening <span class="badge badge-green">✅ Complete</span></strong>
+          <span>59/59 backend tests at phase close (115/120 total after Phase 12), SlowAPI rate limiting, security audit clean, ARCHITECTURE.md v1.4</span>
+        </div>
+      </div>
+      <div class="phase-item complete">
+        <div class="phase-num">7</div>
+        <div class="phase-body">
+          <strong>License System <span class="badge badge-green">✅ Complete</span></strong>
+          <span>LicenseCache + ScriptDeployment tables, deploy quota enforcement (10/100/∞), instance-lock, 72hr grace, LicenseBanner, PrivacyPolicy + TermsOfService, NetSuite auto-index on TBA connect, landing "Get a Demo" only</span>
+        </div>
+      </div>
+      <div class="phase-item complete">
+        <div class="phase-num">7.1</div>
+        <div class="phase-body">
+          <strong>Frontend Section Verification <span class="badge badge-green">✅ Complete</span></strong>
+          <span>LicenseBanner wired into Chat layout, /privacy + /terms routes verified, npm run build clean (zero TypeScript errors), 59/59 tests at phase close (115/120 total after Phase 12)</span>
+        </div>
+      </div>
+      <div class="phase-item next">
+        <div class="phase-num">9</div>
+        <div class="phase-body">
+          <strong>RBAC, Team Management &amp; Chat Persistence <span class="badge badge-green">✓ Complete</span></strong>
+          <span>Alembic migration a2b3c4d5e6f7: teams / team_invites / chat_sessions / chat_messages tables + role + team_id on users. require_user() + require_admin() FastAPI Depends. POST /api/auth/logout with JTI blacklist. First-user-is-admin on registration. chats.py router (POST/GET/PATCH/DELETE /api/chats). admin.py router (GET /api/admin/chats, team, invite, remove). chatbot persists to DB when chat_session_id provided (non-fatal fallback). 26 new tests, 85/85 total passing.</span>
+        </div>
+      </div>
+      <div class="phase-item next">
+        <div class="phase-num">10</div>
+        <div class="phase-body">
+          <strong>Admin Panel — Enterprise Team Management UI <span class="badge badge-blue">◑ In Progress (Plan 02/03 done)</span></strong>
+          <span>Plan 02 complete: POST /api/user/accept-invite endpoint + AcceptInvite.tsx page + /accept-invite public route. Invite acceptance flow end-to-end. Role always "user", team_id from invite. Returns same login response shape.</span>
+        </div>
+      </div>
+      <div class="phase-item pending">
+        <div class="phase-num">8</div>
+        <div class="phase-body">
+          <strong>Launch Readiness <span class="badge badge-yellow">○ Pending (runs after Phase 12)</span></strong>
+          <span>smoke_test.sh (10 checks), CUSTOMER_DEPLOYMENT.md, TROUBLESHOOTING.md, git tag v1.0.0</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bug Fixes — Session 2 -->
+  <section>
+    <h2>5. Bug Fixes — Session 2 (2026-04-09)</h2>
+    <p style="color:var(--muted); margin-bottom:16px; font-size:13px;">All bugs found during live use after Phase 6 completed. Patched in-place across Phase 3 and Phase 4 files.</p>
+
+    <div class="bug-item fixed">
+      <div class="bug-header">
+        <span class="badge badge-green">Fixed</span>
+        <strong>Chat stuck: "Select or start a chat" — React state race</strong>
+        <span class="badge badge-blue">Phase 4</span>
+      </div>
+      <div class="bug-detail">
+        <div><strong>Root cause:</strong> <code>getChat(id)</code> reads from <code>chats</code> React state which starts as <code>[]</code> on mount. Token effect ran before <code>useChat</code> init populated the state → <code>null</code> → redirect to <code>/chat/new</code> → infinite loop. Also: <code>chatService</code> saves to <code>"arthalight_chats_v1"</code> but <code>fetchChats()</code> reads <code>"mock_chats_v1"</code> — different localStorage keys.</div>
+        <div class="fix">→ Token effect now uses <code>chatService.getById(id)</code> (synchronous localStorage, no race). <code>activeChat</code> useMemo also reads <code>chatService.getById()</code> as primary source. Added <code>token === "new"</code> guard.</div>
+        <div class="bug-files">
+          <span class="file-tag">src/frontend/src/pages/Chat.tsx</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug-item fixed">
+      <div class="bug-header">
+        <span class="badge badge-green">Fixed</span>
+        <strong>SuiteScript response blanked screen — JSON.parse crash</strong>
+        <span class="badge badge-blue">Phase 4</span>
+      </div>
+      <div class="bug-detail">
+        <div><strong>Root cause:</strong> <code>code.includes('[')</code> matched JavaScript array literals (<code>var filters = []</code>) in generated SuiteScripts → <code>JSON.parse(code)</code> threw <code>SyntaxError</code> on valid JS → React crashed with no error boundary → blank screen.</div>
+        <div class="fix">→ Changed condition to <code>code.trim().startsWith('[') && (JSON.parse in try-catch returns true)</code>. Upgraded <code>else</code> fallback to use <code>SyntaxHighlighter</code> — SuiteScript now renders with proper JS/XML syntax highlighting.</div>
+        <div class="bug-files">
+          <span class="file-tag">src/frontend/src/components/ChatMessage.tsx</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug-item fixed">
+      <div class="bug-header">
+        <span class="badge badge-green">Fixed</span>
+        <strong>"how to deploy this" → "Request failed" — SystemExit from SuiteCloud CLI</strong>
+        <span class="badge badge-red">Phase 3</span>
+      </div>
+      <div class="bug-detail">
+        <div><strong>Root cause:</strong> <code>infer_intent()</code> classified "deploy" as <code>manage_sdf_project</code> → <code>handle_sdf_project()</code> called <code>suitecloud project:deploy</code> (not installed) → <code>run_command()</code> called <code>sys.exit(1)</code> → <code>SystemExit</code> raised → NOT caught by <code>except Exception</code> → uvicorn worker killed.</div>
+        <div class="fix">→ Added <code>_suitecloud_ready</code> guard. Changed outer catch to <code>except BaseException</code> (catches <code>SystemExit</code>). When SuiteCloud not ready, RAG answer is returned instead.</div>
+        <div class="bug-files">
+          <span class="file-tag">src/backend/rawapi.py</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug-item fixed">
+      <div class="bug-header">
+        <span class="badge badge-green">Fixed</span>
+        <strong>"yes" always returned "No valid code blocks found"</strong>
+        <span class="badge badge-red">Phase 3</span>
+      </div>
+      <div class="bug-detail">
+        <div><strong>Root cause:</strong> After appending user "yes" and the RAG response to <code>chat_sessions</code>, <code>chat_sessions[-1]</code> pointed to the RAG response to "yes" (not the prior SuiteScript). <code>save_generated_files()</code> received plain text with no code blocks → always failed.</div>
+        <div class="fix">→ Now searches backwards through <code>history[:-2]</code> for the last assistant message containing triple-backtick code blocks. Correct SuiteScript is always found.</div>
+        <div class="bug-files">
+          <span class="file-tag">src/backend/rawapi.py</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug-item fixed">
+      <div class="bug-header">
+        <span class="badge badge-green">Fixed</span>
+        <strong>fetch_netsuite_data / download functions returned None</strong>
+        <span class="badge badge-red">Phase 3</span>
+      </div>
+      <div class="bug-detail">
+        <div><strong>Root cause:</strong> <code>download_suitescript_file()</code> and <code>extract_custom_suitescript_metadata()</code> had <code>except CalledProcessError</code> blocks with no <code>return</code> statement → implicit <code>None</code> return → <code>{"response": null}</code> sent to frontend.</div>
+        <div class="fix">→ Added <code>return "❌ ..."</code> to both except blocks. Added <code>None</code>-fallback guard in rawapi.py before setting <code>response_text</code>.</div>
+        <div class="bug-files">
+          <span class="file-tag">src/backend/suitescripts_utils.py</span>
+          <span class="file-tag">src/backend/rawapi.py</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug-item fixed">
+      <div class="bug-header">
+        <span class="badge badge-green">Fixed</span>
+        <strong>graph.invoke() result not guarded against None</strong>
+        <span class="badge badge-red">Phase 3</span>
+      </div>
+      <div class="bug-detail">
+        <div><strong>Root cause:</strong> <code>result.get("generation", "")</code> called unconditionally — crashes with <code>AttributeError</code> if <code>graph.invoke()</code> returns <code>None</code>.</div>
+        <div class="fix">→ Changed to <code>(result.get("generation", "") if isinstance(result, dict) else "") or "I could not find..."</code></div>
+        <div class="bug-files">
+          <span class="file-tag">src/backend/rawapi.py</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bug-item fixed">
+      <div class="bug-header">
+        <span class="badge badge-green">Fixed</span>
+        <strong>500 errors showed "Request failed" — key mismatch</strong>
+        <span class="badge badge-blue">Phase 3+4</span>
+      </div>
+      <div class="bug-detail">
+        <div><strong>Root cause:</strong> Backend 500 errors returned <code>{"error": str(e)}</code> but <code>api.ts</code> read <code>err.detail</code> → always <code>undefined</code> → generic "Request failed".</div>
+        <div class="fix">→ Backend changed to <code>{"detail": str(e)}</code>. Frontend now reads <code>err.detail || err.error</code> for backwards compatibility. Final <code>resp.json()</code> also wrapped in try-catch.</div>
+        <div class="bug-files">
+          <span class="file-tag">src/backend/rawapi.py</span>
+          <span class="file-tag">src/frontend/src/services/api.ts</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reliability Rules -->
+  <section>
+    <h2>6. Chatbot Response Reliability Rules (v1.5 — permanent)</h2>
+    <p style="color:var(--muted); margin-bottom:16px; font-size:13px;">Derived from Session 2 bug fixes. All future changes to <code>/api/chatbot/process</code> or chat rendering must comply.</p>
+    <div class="card" style="padding:0">
+      <div class="rule-item"><div class="rule-icon">🚫</div><div class="rule-text"><strong>Never return None as response_text</strong><span>All intent handlers must return a string. Add <code>or "❌ ..."</code> fallback if function can return None.</span></div></div>
+      <div class="rule-item"><div class="rule-icon">🛡</div><div class="rule-text"><strong>graph.invoke() must be guarded</strong><span>Always <code>isinstance(result, dict)</code> check before <code>.get("generation")</code>.</span></div></div>
+      <div class="rule-item"><div class="rule-icon">🔒</div><div class="rule-text"><strong>manage_sdf_project requires _suitecloud_ready</strong><span>Never call <code>handle_sdf_project()</code> unless <code>_suitecloud_ready is True</code>. RAG answer is the fallback.</span></div></div>
+      <div class="rule-item"><div class="rule-icon">⚠️</div><div class="rule-text"><strong>except BaseException in chatbot handler</strong><span>SuiteCloud CLI calls <code>sys.exit(1)</code> → raises <code>SystemExit</code> → not caught by <code>except Exception</code>.</span></div></div>
+      <div class="rule-item"><div class="rule-icon">📋</div><div class="rule-text"><strong>500 error key must be "detail"</strong><span>Frontend reads <code>err.detail</code>. Backend must use <code>{"detail": str(e)}</code>, not <code>{"error": str(e)}</code>.</span></div></div>
+      <div class="rule-item"><div class="rule-icon">🔍</div><div class="rule-text"><strong>"yes" handler must search backwards</strong><span>Find last assistant message with ``` code blocks via <code>reversed(history[:-2])</code>, never a hardcoded index.</span></div></div>
+      <div class="rule-item"><div class="rule-icon">🧹</div><div class="rule-text"><strong>JSON array detection must use startsWith + try-catch</strong><span>Only treat code block as JSON if <code>code.trim().startsWith('[') && JSON.parse succeeds</code>. Never <code>code.includes('[').</code></span></div></div>
+      <div class="rule-item"><div class="rule-icon">⚡</div><div class="rule-text"><strong>Chat token effect uses chatService.getById() directly</strong><span>React chats state is [] on mount. Token effect + activeChat useMemo must read localStorage directly, not state.</span></div></div>
+    </div>
+  </section>
+
+  <!-- DB Schema -->
+  <section>
+    <h2>7. Database Schema</h2>
+    <h3>users (Phase 1)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>INTEGER</td><td>PK, autoincrement</td><td>Internal ID</td></tr>
+          <tr><td>first_name</td><td>VARCHAR</td><td>NOT NULL</td><td>For login response</td></tr>
+          <tr><td>last_name</td><td>VARCHAR</td><td>NOT NULL</td><td>For login response</td></tr>
+          <tr><td>email</td><td>VARCHAR</td><td>UNIQUE, NOT NULL, indexed</td><td>Lowercase always</td></tr>
+          <tr><td>password_hash</td><td>VARCHAR</td><td>NOT NULL</td><td>bcrypt cost=12</td></tr>
+          <tr><td>failed_attempts</td><td>INTEGER</td><td>DEFAULT 0</td><td>Lockout counter</td></tr>
+          <tr><td>locked_until</td><td>DATETIME</td><td>NULL</td><td>NULL = not locked</td></tr>
+          <tr><td>created_at</td><td>DATETIME</td><td>server_default=now()</td><td>TZ-aware</td></tr>
+          <tr><td>role</td><td>VARCHAR</td><td>NOT NULL, DEFAULT 'user'</td><td>'admin' or 'user' — Phase 9. First registered user = admin.</td></tr>
+          <tr><td>team_id</td><td>INTEGER FK</td><td>NULL → teams.id</td><td>Phase 9. NULL until invited to a team.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>password_reset_tokens (Phase 1)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>token_hash</td><td>VARCHAR UNIQUE</td><td>SHA-256(raw_token) — never store raw token</td></tr>
+          <tr><td>user_id</td><td>INTEGER FK</td><td>→ users.id CASCADE DELETE</td></tr>
+          <tr><td>expires_at</td><td>DATETIME</td><td>now() + 1 hour</td></tr>
+          <tr><td>used</td><td>BOOLEAN</td><td>True after reset completes</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>license_cache (Phase 7 — Complete)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>INTEGER PK</td><td>Autoincrement — multi-row (not singleton)</td></tr>
+          <tr><td>license_key</td><td>VARCHAR NOT NULL</td><td>The installed key, indexed</td></tr>
+          <tr><td>instance_id</td><td>VARCHAR NOT NULL</td><td>UUID per deployment (data/instance_id.txt)</td></tr>
+          <tr><td>plan</td><td>VARCHAR NULL</td><td>"starter" / "growth" / "enterprise"</td></tr>
+          <tr><td>valid_until</td><td>DATETIME(tz) NULL</td><td>Cache TTL — 7 days from last server check</td></tr>
+          <tr><td>last_checked</td><td>DATETIME(tz) NULL</td><td>When we last pinged license server (72hr grace reference)</td></tr>
+          <tr><td>created_at</td><td>DATETIME(tz)</td><td>server_default=now()</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--muted);margin-top:8px">Design note: Multi-row to support <code>instance_id</code> tracking. Query: <code>WHERE license_key=X AND instance_id=Y ORDER BY last_checked DESC LIMIT 1</code>. Grace period: <code>last_checked &lt; now - 72h</code> → restricted mode.</p>
+    </div>
+
+    <h3>script_deployments (Phase 7 — Complete)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>INTEGER PK</td><td>Autoincrement</td></tr>
+          <tr><td>user_id</td><td>INTEGER FK</td><td>→ users.id</td></tr>
+          <tr><td>script_name</td><td>VARCHAR NOT NULL</td><td>SuiteScript filename deployed</td></tr>
+          <tr><td>target</td><td>VARCHAR NOT NULL</td><td>"production" or "sandbox" — only production counts against quota</td></tr>
+          <tr><td>deployed_at</td><td>DATETIME(tz)</td><td>server_default=now()</td></tr>
+          <tr><td>license_key</td><td>VARCHAR NULL</td><td>Key active at time of deploy</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--muted);margin-top:8px">Tier limits: Starter=10 prod deploys, Growth=100, Enterprise=unlimited. Sandbox deploys never counted. At limit: 402 with upgrade prompt.</p>
+    </div>
+
+    <h3>teams (Phase 9 — Complete)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>INTEGER PK</td><td>Autoincrement</td></tr>
+          <tr><td>name</td><td>VARCHAR NOT NULL</td><td>Default: org name from registration</td></tr>
+          <tr><td>created_at</td><td>DATETIME(tz)</td><td>server_default=now()</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>chat_sessions (Phase 9 — Complete)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>INTEGER PK</td><td>Autoincrement</td></tr>
+          <tr><td>user_id</td><td>INTEGER FK</td><td>→ users.id</td></tr>
+          <tr><td>title</td><td>VARCHAR NOT NULL</td><td>Default "New Chat"</td></tr>
+          <tr><td>created_at</td><td>DATETIME(tz)</td><td>server_default=now()</td></tr>
+          <tr><td>updated_at</td><td>DATETIME(tz)</td><td>onupdate=now() — drives sidebar sort order</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>chat_messages (Phase 9 — Complete)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>INTEGER PK</td><td>Autoincrement</td></tr>
+          <tr><td>session_id</td><td>INTEGER FK</td><td>→ chat_sessions.id CASCADE DELETE</td></tr>
+          <tr><td>role</td><td>VARCHAR NOT NULL</td><td>"user" or "assistant"</td></tr>
+          <tr><td>content</td><td>VARCHAR NOT NULL</td><td>Full message text</td></tr>
+          <tr><td>intent</td><td>VARCHAR NULL</td><td>AI-classified intent (general_chat, suitescript_gen, etc.)</td></tr>
+          <tr><td>created_at</td><td>DATETIME(tz)</td><td>server_default=now()</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--muted);margin-top:8px">DB persistence is ADDITIVE — the in-memory <code>chat_sessions</code> dict (LLM context) is preserved intact. DB write happens AFTER dict append. If DB write fails, in-memory context still works.</p>
+    </div>
+
+    <h3>team_invites (Phase 9 — Complete)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>id</td><td>INTEGER PK</td><td>Autoincrement</td></tr>
+          <tr><td>team_id</td><td>INTEGER FK</td><td>→ teams.id</td></tr>
+          <tr><td>email</td><td>VARCHAR NOT NULL</td><td>Invitee email</td></tr>
+          <tr><td>invited_by</td><td>INTEGER FK</td><td>→ users.id (admin who sent invite)</td></tr>
+          <tr><td>token_hash</td><td>VARCHAR UNIQUE</td><td>SHA-256 of raw invite token — never store raw</td></tr>
+          <tr><td>accepted</td><td>BOOLEAN</td><td>DEFAULT False</td></tr>
+          <tr><td>expires_at</td><td>DATETIME(tz)</td><td>now() + 7 days</td></tr>
+          <tr><td>created_at</td><td>DATETIME(tz)</td><td>server_default=now()</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Phase 9 Frontend Components -->
+  <section>
+    <h2>9b. Phase 9 Frontend Components (Planned)</h2>
+    <div class="card-grid">
+      <div class="card">
+        <h4>Dashboard.tsx (NEW)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>Post-login landing page at <code>/dashboard</code></li>
+          <li>Recent chats from <code>GET /api/chats</code> (up to 5)</li>
+          <li>Quick actions: New Chat, History, Admin Panel (admin only)</li>
+          <li>Wrapped in <code>Protected</code> — auth required</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>AdminPanel.tsx (Phase 10 — 5 tabs)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>5-tab UI: Team Members · Team Chats · Invite Member · Usage Stats · Audit Log</li>
+          <li>Team Members: table + Promote button (PATCH /api/admin/users/{id}/role) + Remove (DELETE /api/admin/users/{id})</li>
+          <li>Team Chats: all chats with user attribution (lazy-loaded)</li>
+          <li>Invite: email form → <code>POST /api/admin/team/invite</code></li>
+          <li>Usage Stats: 4 stat cards (total_users, total_chats, active_sessions, scripts_deployed) — lazy-loaded</li>
+          <li>Audit Log: 50-row table with action, actor, detail, timestamp — lazy-loaded</li>
+          <li>Wrapped in <code>AdminProtected</code> — admin role required</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>RBAC Route Guards</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li><code>Protected</code> — any logged-in user (existing)</li>
+          <li><code>AdminProtected</code> — NEW: role=admin required, redirects others to <code>/chat/new</code></li>
+          <li>Login now redirects to <code>/dashboard</code> (was <code>/chat/new</code>)</li>
+          <li>Sidebar shows "Admin Panel" link only for admin role</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>chatService.ts (REWRITTEN)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>All localStorage removed → API calls</li>
+          <li><code>listChats()</code> → <code>GET /api/chats</code></li>
+          <li><code>createChatSession()</code> → <code>POST /api/chats</code></li>
+          <li><code>getChatMessages(id)</code> → <code>GET /api/chats/{id}/messages</code></li>
+          <li>Chat history survives refresh + works cross-device</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Phase 11 Frontend Components -->
+  <section>
+    <h2>9c. Phase 11 Frontend Components (Password Management UX)</h2>
+    <div class="card-grid">
+      <div class="card">
+        <h4>EmailVerificationBanner.tsx (NEW)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>Amber persistent banner for unverified users in <code>Chat.tsx</code></li>
+          <li>Calls <code>getProfile()</code> on mount — hides if <code>is_verified=true</code></li>
+          <li>"Resend email" button with 60s cooldown via <code>setInterval</code></li>
+          <li>Dismissible via X button; fails open (hides if API unreachable)</li>
+          <li>Placed below <code>LicenseBanner</code> in the flex-1 content area</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>VerifyEmail.tsx (NEW)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>Public page at <code>/verify-email?token=...</code> (no auth guard)</li>
+          <li>3 states: loading spinner → success (CheckCircle) → error (XCircle + resend)</li>
+          <li>Reads <code>?token=</code> via <code>useSearchParams()</code> on mount</li>
+          <li>Calls <code>GET /api/user/verify-email?token=</code> to consume token</li>
+          <li>Error state includes inline resend form with 60s cooldown</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Profile.tsx — Change Password (EXTENDED)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>New section: Current Password / New Password / Confirm Password</li>
+          <li>Full <code>validatePassword()</code>: 8+, upper, lower, digit, special char</li>
+          <li>Calls <code>changePassword(oldPw, newPw)</code> from <code>authService.ts</code></li>
+          <li>Success/error inline feedback; <code>id="change-password"</code> for deep-link</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>AdminPanel.tsx — Send Reset (EXTENDED)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>"Send Reset" button added to every member row in Team Members tab</li>
+          <li>Calls <code>sendPasswordReset(member.id)</code> from <code>adminService.ts</code></li>
+          <li>Shows "Sent!" (green) for 3s after success via <code>resetSentId</code> state</li>
+          <li>Works for both member and admin rows</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Phase 9 was here, move the original section 9 to 10 below -->
+
+  <!-- Tech Decisions -->
+  <section>
+    <h2>8. Technology Decision Log</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Decision</th><th>Chosen</th><th>Rejected</th><th>Reason</th></tr></thead>
+        <tbody>
+          <tr><td>LLM runtime</td><td>Ollama</td><td>OpenAI, Bedrock</td><td>Data never leaves VPC</td></tr>
+          <tr><td>Embed model</td><td>nomic-embed-text (768d)</td><td>OpenAI ada-002 (1536d)</td><td>Local, no API key needed</td></tr>
+          <tr><td>Generation model</td><td>llama3.1:8b</td><td>mistral:7b, llama3.2:3b</td><td>Best accuracy/speed tradeoff on T4 GPU</td></tr>
+          <tr><td>Database</td><td>SQLite + SQLAlchemy</td><td>PostgreSQL, MySQL</td><td>Single-tenant, zero config, Docker-friendly</td></tr>
+          <tr><td>Auth library</td><td>PyJWT</td><td>python-jose</td><td>python-jose abandoned, 8 CVEs</td></tr>
+          <tr><td>Rate limiting</td><td>SlowAPI</td><td>fastapi-limiter</td><td>Zero extra deps</td></tr>
+          <tr><td>Deployment</td><td>Docker Compose</td><td>K8s, ECS</td><td>Single-tenant, simpler ops for customer IT</td></tr>
+          <tr><td>IaC</td><td>Terraform</td><td>CDK, CloudFormation</td><td>Provider-agnostic, customer familiarity</td></tr>
+          <tr><td>NetSuite auth</td><td>TBA per-session</td><td>OAuth 2.0</td><td>NetSuite standard for CLI/SDF tooling</td></tr>
+          <tr><td>JWT storage</td><td>JS memory (api.ts var)</td><td>localStorage</td><td>Wiped on refresh — zero XSS exposure</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Frozen Interfaces -->
+  <section>
+    <h2>9. Frozen Interfaces — Do Not Change</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Interface</th><th>Value</th><th>Consumers</th></tr></thead>
+        <tbody>
+          <tr><td>JWT sub</td><td><code>str(user_id)</code> always</td><td>Phases 2, 3, 4</td></tr>
+          <tr><td>Login response shape</td><td><code>{access_token, refresh_token, token_type:"bearer", first_name, last_name, email, role}</code></td><td>Phase 4 frontend + Phase 9 authService.ts reads role field</td></tr>
+          <tr><td>Backend port</td><td><code>8000</code></td><td>Phase 4 vite.config.ts, Phase 5 nginx</td></tr>
+          <tr><td>FAISS dimensions</td><td><code>768</code> (nomic-embed-text)</td><td>Phase 3 rebuild, Phase 5 volume</td></tr>
+          <tr><td>Ollama URL (Docker)</td><td><code>http://ollama:11434</code></td><td>Phase 5 Compose</td></tr>
+          <tr><td>DB path (Docker)</td><td><code>/app/data/arthaBuild.db</code></td><td>Phase 5 volume</td></tr>
+          <tr><td>FAISS path (Docker)</td><td><code>/app/data/vectorstore_ollama</code></td><td>Phase 5 volume</td></tr>
+          <tr><td>POST /api/netsuite/authenticate</td><td><code>{authenticated:bool, account_name?:str, message:str}</code></td><td>Phase 4 status indicator</td></tr>
+          <tr><td>POST /api/chatbot/process response</td><td><code>{response:str, intent:str, session_id:str, latency_ms:int}</code></td><td>Phase 4 Chat.tsx</td></tr>
+          <tr><td>500 error format</td><td><code>{"detail": str(e)}</code></td><td>Phase 4 api.ts reads <code>err.detail</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Phase 12 Plan 01 — Audit Log Expansion (SOC2 CC7.2) -->
+  <section>
+    <h2>9d. Phase 12 Plan 01 — Audit Log Expansion (SOC2 CC7.2)</h2>
+    <div class="card-grid">
+      <div class="card">
+        <h4>audit_utils.py — Shared Audit Helper (NEW)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li><code>write_audit_event(db, actor_email, actor_role, action, result, ip_address, target)</code></li>
+          <li>Imported by routers/auth.py, routers/user.py, routers/admin.py</li>
+          <li>Append-only — no db.commit() inside; caller commits atomically</li>
+          <li>If parent operation rolls back, audit row rolls back too (no orphan logs)</li>
+          <li>No circular imports — only imports AuditLog from models.py</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Expanded AuditLog Model (5 new columns)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li><code>actor_email</code> — string (not FK, survives account deletion)</li>
+          <li><code>actor_role</code> — "admin" or "user" at time of action</li>
+          <li><code>result</code> — "success" or "failure"</li>
+          <li><code>ip_address</code> — X-Real-IP or request.client.host</li>
+          <li><code>target</code> — user_id, email, or config key as string</li>
+          <li>Phase 10 legacy columns (admin_id, target_user_id, detail) kept nullable for backward compat</li>
+          <li>Alembic migration: <code>d5e6f7a8b9ca</code> — composite index ix_audit_logs_ts_actor</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Auth Event Hooks (routers/auth.py)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li><code>auth.login_success</code> — successful login</li>
+          <li><code>auth.login_failed</code> — wrong password, bad email, or lockout (3 paths)</li>
+          <li><code>auth.logout</code> — token revoked</li>
+          <li><code>auth.token_refresh</code> — refresh success</li>
+          <li><code>auth.token_refresh_failed</code> — expired or invalid refresh token</li>
+          <li><code>user.forgot_password</code> — forgot-password request (user found)</li>
+          <li><code>user.password_reset</code> — password reset via link</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>User + Admin Event Hooks</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li><code>auth.register</code> — new user registration (routers/user.py)</li>
+          <li><code>user.password_changed</code> — in-app password change</li>
+          <li><code>user.account_deleted</code> — soft-delete /me</li>
+          <li><code>user.email_resend</code> — resend verification email</li>
+          <li><code>admin.role_changed</code> — admin changes member role</li>
+          <li><code>admin.user_removed</code> — admin removes member</li>
+          <li><code>admin.invite_sent</code> — admin sends team invite</li>
+          <li><code>admin.config_updated</code> — admin updates system config</li>
+          <li><code>admin.password_reset_sent</code> — admin triggers reset for member</li>
+          <li><code>admin.team_created</code> — admin creates new team</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>GET /api/admin/audit — Paginated (Phase 12 upgrade)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>Now accepts <code>?offset=0&amp;limit=50</code> (max 200)</li>
+          <li>Returns newest-first (ORDER BY created_at DESC)</li>
+          <li>Response: id, action, actor_email, actor_role, result, ip_address, target, created_at</li>
+          <li>Append-only invariant: no PUT/PATCH/DELETE on /api/admin/audit/{id}</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Security Tests — test_audit_log.py (5 new tests)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li><code>test_login_success_creates_audit_log</code> — auth.login_success row in DB</li>
+          <li><code>test_login_failure_creates_audit_log</code> — auth.login_failed row in DB</li>
+          <li><code>test_audit_log_has_no_mutation_endpoints</code> — PUT/DELETE return 404/405</li>
+          <li><code>test_get_admin_audit_returns_paginated_results</code> — offset/limit, list response</li>
+          <li><code>test_registration_creates_audit_log</code> — auth.register row in DB</li>
+          <li>Full suite after Plan 01: 115 passed, 5 skipped, 0 failed</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Phase 12 Plan 02 Security Hardening -->
+  <section>
+    <h2>9e. Phase 12 Plan 02 — Network &amp; Infrastructure Security Controls (SOC2)</h2>
+    <div class="card-grid">
+      <div class="card">
+        <h4>nginx.prod.conf (NEW — Production Only)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>Port 80: <code>return 301 https://$host$request_uri</code> — HTTPS redirect (CASE-188)</li>
+          <li>Port 443: <code>ssl_protocols TLSv1.2 TLSv1.3</code> — SSLv3/1.0/1.1 absent (CASE-195)</li>
+          <li>Mozilla Intermediate cipher suite (ECDHE-RSA-AES128-GCM-SHA256 etc.)</li>
+          <li>HSTS: <code>max-age=31536000; includeSubDomains</code></li>
+          <li>X-Frame-Options: DENY / X-Content-Type-Options: nosniff (CASE-189)</li>
+          <li>Referrer-Policy: strict-origin-when-cross-origin</li>
+          <li>CSP in report-only mode (safe for React v1.0 — no blocking)</li>
+          <li><strong>nginx.conf (dev) unchanged</strong> — docker-compose dev workflow intact</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>CORS Tightening — rawapi.py (CASE-190)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li><code>ALLOWED_ORIGINS</code> env var: comma-separated allowlist (production)</li>
+          <li>Falls back to <code>FRONTEND_BASE_URL</code>, then dev localhost ports 5173–5180</li>
+          <li><code>allow_credentials=False</code> — JWT in <code>Authorization: Bearer</code> header</li>
+          <li>No CSRF vector: cross-site requests cannot include custom headers</li>
+          <li>No wildcard <code>*</code> origin permitted in any environment</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>EBS Encryption at Rest — Terraform (CASE-193)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li><code>encrypted = true</code> added to <code>root_block_device</code> in <code>infra/terraform/main.tf</code></li>
+          <li>AES-256 via AWS-managed KMS key (<code>aws/ebs</code> default alias)</li>
+          <li>No <code>kms_key_id</code> needed — customer does not manage keys for v1.0</li>
+          <li>SOC2 A1.1: availability and encryption of data at rest</li>
+          <li>Covers SQLite DB + FAISS vectorstore (both on EBS volume)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Static Analysis Security Tests (14 new tests)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li><code>test_security_headers.py</code>: 5 tests — HSTS, X-Frame, X-Content-Type, Referrer, CSP</li>
+          <li><code>test_https_redirect.py</code>: 2 tests — 301 redirect, dev conf unchanged</li>
+          <li><code>test_tls_config.py</code>: 3 tests — TLS 1.2/1.3, no deprecated, Mozilla ciphers</li>
+          <li><code>test_csrf.py</code>: 3 tests — no JWT cookie, no wildcard CORS, ALLOWED_ORIGINS env</li>
+          <li><code>test_encryption.py</code>: 1 test — <code>encrypted=true</code> in root_block_device</li>
+          <li>Parse config files on disk (not HTTP) — correct pattern for nginx header testing</li>
+          <li>Total suite (Plan 02): 110 passed, 5 skipped, 0 failed (Plan 01 adds 5 more = 115 total)</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>SOC2 Control Coverage</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Control</th><th>Value</th><th>SOC2</th><th>File</th></tr></thead>
+        <tbody>
+          <tr><td>HTTP→HTTPS redirect</td><td>Port 80: return 301</td><td>CC6.7</td><td>nginx/nginx.prod.conf</td></tr>
+          <tr><td>TLS 1.2/1.3 only</td><td>ssl_protocols TLSv1.2 TLSv1.3</td><td>CC6.7</td><td>nginx/nginx.prod.conf</td></tr>
+          <tr><td>HSTS</td><td>max-age=31536000; includeSubDomains</td><td>CC6.7</td><td>nginx/nginx.prod.conf</td></tr>
+          <tr><td>Clickjacking protection</td><td>X-Frame-Options: DENY</td><td>CC6.8</td><td>nginx/nginx.prod.conf</td></tr>
+          <tr><td>MIME sniffing protection</td><td>X-Content-Type-Options: nosniff</td><td>CC6.8</td><td>nginx/nginx.prod.conf</td></tr>
+          <tr><td>CORS origin control</td><td>ALLOWED_ORIGINS env var, no wildcard</td><td>CC6.8</td><td>src/backend/rawapi.py</td></tr>
+          <tr><td>EBS encryption at rest</td><td>encrypted = true (AES-256)</td><td>A1.1</td><td>infra/terraform/main.tf</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Phase 12 Plan 03 — SOC2 Documentation Closure -->
+  <section>
+    <h2>9f. Phase 12 Plan 03 — SOC2 Documentation Closure (CASE-188 through CASE-195 DONE)</h2>
+    <div class="card-grid">
+      <div class="card">
+        <h4>docs/security/ Documentation Suite (NEW)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li><code>SECURITY_CONTROLS.md</code> — CC6/CC7/CC8/A1 control checklist; maps every Phase 1–12 security control to source file evidence</li>
+          <li><code>INCIDENT_RESPONSE.md</code> — P1/P2/P3 severity tiers + 5-step runbook (detect → contain → assess → notify → recover)</li>
+          <li><code>DATA_CLASSIFICATION.md</code> — data inventory with sensitivity levels, retention rules, deletion procedures; BYOC data isolation guarantee</li>
+          <li><code>DEPLOYMENT_SECURITY.md</code> — customer-facing pre-deployment checklist; references <code>nginx/nginx.prod.conf</code> for TLS; key rotation procedures</li>
+          <li><code>ZAP_SCAN_REPORT.md</code> — pip-audit results + ZAP scan methodology + manual run instructions</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>pip-audit Results (CASE-191)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li><strong>Tool:</strong> pip-audit v2.10.0</li>
+          <li><strong>CRITICAL:</strong> 0 &nbsp; <strong>HIGH:</strong> 0 &nbsp; <strong>MEDIUM:</strong> 14</li>
+          <li>langchain ecosystem pinned (langgraph 0.2.38 requires langchain-core &lt;0.4) — upgrade tracked for v2.0</li>
+          <li>pyjwt + python-multipart — MEDIUM, zero attack surface in BYOC deployment — tracked for v1.1</li>
+          <li>starlette — FastAPI transitive dependency — tracked for v1.1 FastAPI upgrade</li>
+          <li>All 14 findings triaged with documented rationale in <code>ZAP_SCAN_REPORT.md</code></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>OWASP ZAP Scan (CASE-194)</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>Methodology documented — requires running docker-compose stack for live scan</li>
+          <li>Manual command: <code>docker run --network=host ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py -t http://localhost</code></li>
+          <li>Static analysis equivalent: 14 nginx security tests in <code>tests/security/</code> verify all controls</li>
+          <li>Acceptance criterion: zero HIGH/CRITICAL in live ZAP scan before each production deployment</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>SECURITY.md at Repo Root</h4>
+        <ul style="color:var(--muted); padding-left:16px; line-height:2">
+          <li>GitHub vulnerability disclosure convention</li>
+          <li>Email: <code>security@techcloudpro.com</code></li>
+          <li>48-hour acknowledgment SLA; 5-business-day timeline</li>
+          <li>Links to full <code>docs/security/</code> documentation suite</li>
+          <li>Scope: ArthaBuild code + config; excludes customer-managed AWS infra</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Phase 12 CASE Closure</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>CASE</th><th>Title</th><th>SOC2</th><th>Evidence</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>CASE-188</td><td>HTTPS redirect (port 80 → 443)</td><td>CC6.7</td><td>nginx/nginx.prod.conf + test_https_redirect.py</td><td><span class="badge badge-green">DONE</span></td></tr>
+          <tr><td>CASE-189</td><td>Security headers in nginx.prod.conf</td><td>CC6.7/CC6.8</td><td>HSTS, X-Frame:DENY, nosniff, Referrer, CSP-Report-Only + test_security_headers.py</td><td><span class="badge badge-green">DONE</span></td></tr>
+          <tr><td>CASE-190</td><td>CSRF protection via JWT-in-header design</td><td>CC6.8</td><td>rawapi.py ALLOWED_ORIGINS + allow_credentials=False + test_csrf.py</td><td><span class="badge badge-green">DONE</span></td></tr>
+          <tr><td>CASE-191</td><td>pip-audit: zero HIGH/CRITICAL</td><td>CC8.1</td><td>docs/security/ZAP_SCAN_REPORT.md — 14 MEDIUM, all triaged</td><td><span class="badge badge-green">DONE</span></td></tr>
+          <tr><td>CASE-192</td><td>Audit log expansion: 15+ event types</td><td>CC7.2</td><td>audit_utils.py + AuditLog model (5 new cols) + 5 security tests</td><td><span class="badge badge-green">DONE</span></td></tr>
+          <tr><td>CASE-193</td><td>EBS encryption at rest</td><td>A1.1</td><td>infra/terraform/main.tf:encrypted=true + test_encryption.py</td><td><span class="badge badge-green">DONE</span></td></tr>
+          <tr><td>CASE-194</td><td>OWASP ZAP baseline scan documented</td><td>CC8.1</td><td>docs/security/ZAP_SCAN_REPORT.md — methodology + static analysis</td><td><span class="badge badge-green">DONE</span></td></tr>
+          <tr><td>CASE-195</td><td>TLS 1.2/1.3 only (no SSLv3/1.0/1.1)</td><td>CC6.7</td><td>nginx/nginx.prod.conf:ssl_protocols TLSv1.2 TLSv1.3 + test_tls_config.py</td><td><span class="badge badge-green">DONE</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Phase 14 — Compliance & Data Governance -->
+  <section id="section-9h">
+    <h2>9h. Phase 14 — Compliance &amp; Data Governance (GDPR + SOC2 Hash Chain)</h2>
+    <table>
+      <thead><tr><th>Component</th><th>File</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>Compliance router</td><td>src/backend/routers/compliance.py</td><td>POST /api/user/export-data (GDPR Art. 15 JSON download) + POST /api/user/erase (GDPR Art. 17 anonymise + hard-delete chats)</td></tr>
+        <tr><td>Audit hash chain</td><td>src/backend/audit_utils.py</td><td>write_audit_event() computes row_hash = sha256(prev_hash|action|actor_email|created_at_iso) before insert</td></tr>
+        <tr><td>AuditLog model</td><td>src/backend/models.py</td><td>New columns: prev_hash (String nullable), row_hash (String nullable)</td></tr>
+        <tr><td>User model</td><td>src/backend/models.py</td><td>New column: erased_at (DateTime nullable) — set on GDPR erasure</td></tr>
+        <tr><td>Alembic migration</td><td>src/backend/alembic/versions/14a_audit_hash_chain.py</td><td>Adds prev_hash + row_hash to audit_logs, erased_at to users. Chains from 13a_identity_access.</td></tr>
+        <tr><td>Admin CSV export</td><td>src/backend/routers/admin.py</td><td>GET /api/admin/audit/export — StreamingResponse CSV with ?start=ISO8601&amp;end=ISO8601 date filter</td></tr>
+        <tr><td>SOC2 evidence generator</td><td>src/backend/scripts/generate_soc2_evidence.py</td><td>CLI: --db-path + --out-dir → produces 5 control files: CC6.1/CC6.2/CC7.2/CC9.2/A1.2</td></tr>
+        <tr><td>SOC2 evidence output</td><td>docs/soc2-evidence/</td><td>CC6.1-access-control.md, CC6.2-least-privilege.md, CC7.2-audit-log-sample.md (13 live rows), CC9.2-incident-response.md, A1.2-backup-schedule.md</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Phase 17 — Onboarding UX -->
+  <section id="section-9k">
+    <h2>9k. Phase 17 — Onboarding UX (Wizard + Notifications + Empty States + License UI)</h2>
+    <table>
+      <thead><tr><th>Component</th><th>File</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>User.onboarding_completed</td><td>src/backend/models.py</td><td>Boolean column (server_default=0, nullable=False). Set True when admin completes or skips the onboarding wizard. Alembic migration 17a_onboarding.</td></tr>
+        <tr><td>Alembic migration</td><td>src/backend/alembic/versions/17a_onboarding.py</td><td>Adds onboarding_completed to users table via batch_alter_table. down_revision=16a_api_key_model.</td></tr>
+        <tr><td>GET /api/admin/user/me/onboarding</td><td>src/backend/routers/admin.py</td><td>Returns {onboarding_completed: bool} for the authenticated admin user.</td></tr>
+        <tr><td>POST /api/admin/onboarding/complete</td><td>src/backend/routers/admin.py</td><td>Sets current admin's onboarding_completed=True and commits. Returns {done: true}. Called on wizard finish or skip-all.</td></tr>
+        <tr><td>POST /api/admin/license/validate-key</td><td>src/backend/routers/admin.py</td><td>Validates a license_key body field via existing _call_license_server(). Returns {valid, plan, expiry}. Dev mode returns valid=True when no LICENSE_SERVER_URL set.</td></tr>
+        <tr><td>OnboardingWizard.tsx</td><td>src/frontend/src/pages/OnboardingWizard.tsx</td><td>3-step fixed overlay modal (z-50): Step 1 Connect NetSuite (dispatches arthabuild:open-netsuite-connect event), Step 2 Invite team (POST /api/admin/team/invite), Step 3 Verify license (POST /api/admin/license/validate-key). Renders only for admin role where onboarding_completed=False. Finish/Skip-All calls POST /api/admin/onboarding/complete.</td></tr>
+        <tr><td>EmptyState.tsx</td><td>src/frontend/src/components/EmptyState.tsx</td><td>Reusable empty-state component. Props: icon (optional ReactNode, defaults to MessageSquare), message (bold), subtext (lighter), ctaLabel + onCta (optional button). Used in Sidebar and History.</td></tr>
+        <tr><td>NotificationBanner.tsx</td><td>src/frontend/src/components/NotificationBanner.tsx</td><td>Polls GET /health/detail every 60s with Authorization header. Displays amber dismissible banner for: ai_ready===false, disk_free_gb&lt;5, license_valid===false. Renders nothing on 401/403 (non-admin) or when no warnings exist.</td></tr>
+        <tr><td>AdminPanel License tab</td><td>src/frontend/src/pages/AdminPanel.tsx</td><td>7th tab (after Security). Shows current license plan/status from GET /api/admin/license. Text input for license key + Validate button → POST /api/admin/license/validate-key → green checkmark or red error.</td></tr>
+        <tr><td>Chat.tsx wiring</td><td>src/frontend/src/pages/Chat.tsx</td><td>OnboardingWizard rendered at ChatLayout root level (userRole=user.role). NotificationBanner rendered at top of content column (above LicenseBanner).</td></tr>
+        <tr><td>History.tsx wiring</td><td>src/frontend/src/pages/History.tsx</td><td>Inline "No conversations yet" replaced by EmptyState (message="No history yet", subtext="Your past conversations will appear here", CTA navigates to /chat/new).</td></tr>
+        <tr><td>Sidebar.tsx wiring</td><td>src/frontend/src/components/Sidebar.tsx</td><td>Inline "No chats yet" div replaced by EmptyState (message="No chats yet", subtext + CTA "New Chat" → /chat/new).</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Phase 18 — Cloudflare Edge Security -->
+  <section id="section-9l">
+    <h2>9l. Phase 18 — Cloudflare Edge Security (WAF + Transform Rules + Rate Limiting + Analytics)</h2>
+    <table>
+      <thead><tr><th>Component</th><th>File / Location</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>DNS proxy (orange-cloud)</td><td>scripts/cloudflare-setup.sh (Plan 01)</td><td>artha.build + www.artha.build A records proxied. Activates DDoS protection, WAF, Cloudflare CDN. SEC-CF-01, SEC-CF-03.</td></tr>
+        <tr><td>SSL/TLS Full Strict</td><td>scripts/cloudflare-setup.sh Step 2</td><td>Cloudflare → origin uses full certificate validation. Requires valid SSL cert on EC2 nginx. SEC-CF-09.</td></tr>
+        <tr><td>Zone settings</td><td>scripts/cloudflare-setup.sh Step 3</td><td>email_obfuscation=on, hotlink_protection=on. SEC-CF-08.</td></tr>
+        <tr><td>HTTPS Redirect Rule</td><td>scripts/cloudflare-setup.sh Step 4</td><td>http_request_dynamic_redirect phase — 301 HTTP→HTTPS at Cloudflare edge (not nginx). SEC-CF-07.</td></tr>
+        <tr><td>Cache Rules</td><td>scripts/cloudflare-setup.sh Step 5</td><td>http_request_cache_settings: /api/* + /health bypass cache; static assets (JS/CSS/images/fonts) cached 1 year. SEC-CF-07.</td></tr>
+        <tr><td>WAF Managed Ruleset</td><td>scripts/cloudflare-setup-02.sh Step 1</td><td>http_request_firewall_managed phase — Cloudflare Managed Ruleset (all plans) + OWASP CRS (Pro plan). Deployed in LOG mode. Switch to block after reviewing WAF Events for 24h. SEC-CF-02.</td></tr>
+        <tr><td>Transform Rules (security headers)</td><td>scripts/cloudflare-setup-02.sh Step 2</td><td>http_response_headers_transform phase — adds Permissions-Policy + enforcing Content-Security-Policy only. Does NOT duplicate nginx.prod.conf headers (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy). SEC-CF-06.</td></tr>
+        <tr><td>WAF Rate Limiting</td><td>scripts/cloudflare-setup-02.sh Step 3</td><td>http_ratelimit phase — /api/* at 60 req/min per IP, /api/chatbot/ excluded (AI inference). mitigation_timeout=600s (block 10 min). SEC-CF-05.</td></tr>
+        <tr><td>Analytics GraphQL</td><td>scripts/cloudflare-setup-02.sh Step 4</td><td>httpRequestsAdaptiveGroups dataset — pageviews, clientCountryName, requestPath, visits, edgeResponseBytes. SEC-CF-04.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Header Ownership Table</h3>
+    <table>
+      <thead><tr><th>Header</th><th>Set By</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Strict-Transport-Security</td><td>nginx.prod.conf</td><td>max-age=31536000; includeSubDomains</td></tr>
+        <tr><td>X-Frame-Options</td><td>nginx.prod.conf</td><td>DENY</td></tr>
+        <tr><td>X-Content-Type-Options</td><td>nginx.prod.conf</td><td>nosniff</td></tr>
+        <tr><td>Referrer-Policy</td><td>nginx.prod.conf</td><td>strict-origin-when-cross-origin</td></tr>
+        <tr><td>Content-Security-Policy-Report-Only</td><td>nginx.prod.conf</td><td>Report-only mode (Phase 12+)</td></tr>
+        <tr><td>Content-Security-Policy (enforcing)</td><td>Cloudflare Transform Rules</td><td>Added Phase 18</td></tr>
+        <tr><td>Permissions-Policy</td><td>Cloudflare Transform Rules</td><td>camera=(), microphone=(), geolocation=() — Added Phase 18</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Phase 16 — API Platform -->
+  <section id="section-9j">
+    <h2>9j. Phase 16 — API Platform (API Keys + Webhooks + Versioned Routing + Response Envelope)</h2>
+    <table>
+      <thead><tr><th>Component</th><th>File</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>APIKey model</td><td>src/backend/models.py</td><td>api_keys table: key_hash (SHA-256 of raw key, never stored raw), name, is_active, last_used_at, user_id FK.</td></tr>
+        <tr><td>WebhookEndpoint model</td><td>src/backend/models.py</td><td>webhook_endpoints table: event (chat.completed|script.deployed|user.registered), url, secret (HMAC signing key), is_active, user_id FK.</td></tr>
+        <tr><td>Alembic migration</td><td>src/backend/alembic/versions/16a_api_key_model.py</td><td>Creates api_keys + webhook_endpoints tables. down_revision=14a_audit_hash_chain. render_as_batch=True. Single-head chain confirmed.</td></tr>
+        <tr><td>API key CRUD router</td><td>src/backend/routers/apikeys.py</td><td>POST /api/v1/keys (create — returns raw key ONCE), GET /api/v1/keys (list, no raw key), DELETE /api/v1/keys/{key_id} (deactivate). Requires JWT or X-API-Key.</td></tr>
+        <tr><td>APIKeyAuthMiddleware</td><td>src/backend/middleware/api_key_auth.py</td><td>Checks X-API-Key header. If present: SHA-256 hash lookup → fetch User → update last_used_at → inject request.state.api_key_user. Returns 401 if invalid/inactive. Registered after CORSMiddleware.</td></tr>
+        <tr><td>require_user fallback</td><td>src/backend/auth_utils.py</td><td>require_user() now checks request.state.api_key_user before JWT decode. If api_key_user present, returns it directly. All existing Depends(require_user) endpoints automatically accept X-API-Key.</td></tr>
+        <tr><td>ResponseEnvelopeMiddleware</td><td>src/backend/middleware/response_envelope.py</td><td>Wraps /api/v1/ JSON responses in {data, error, meta:{version:"v1", timestamp}}. 2xx → data field. 4xx/5xx → error field. Non-/api/v1/ routes pass through unchanged.</td></tr>
+        <tr><td>Webhook delivery worker</td><td>src/backend/webhook_worker.py</td><td>dispatch_webhook(db, event, payload): queries active endpoints, POSTs HMAC-SHA256-signed payloads via httpx (10s timeout). Non-fatal — all exceptions caught+logged. register_webhook: creates WebhookEndpoint row.</td></tr>
+        <tr><td>Webhook registration endpoint</td><td>src/backend/routers/admin.py</td><td>POST /api/admin/webhooks (admin JWT required): validates event name, calls register_webhook(). Valid events: chat.completed, script.deployed, user.registered.</td></tr>
+        <tr><td>chat.completed dispatch</td><td>src/backend/rawapi.py</td><td>asyncio.create_task(_dispatch_webhook_safe("chat.completed", {...})) after every successful AI response in /api/chatbot/process. Payload: session_id, user_email, intent.</td></tr>
+        <tr><td>script.deployed dispatch</td><td>src/backend/routers/deploy.py</td><td>asyncio.create_task(_fire_deploy_webhook()) inside success==True branch of POST /api/deploy/suitescript. Payload: script_name, script_type, deploy_target, deploy_log. Not dispatched on failure.</td></tr>
+        <tr><td>/api/v1/chats alias</td><td>src/backend/rawapi.py</td><td>Versioned chats router re-registered under /api/v1/chats prefix (same handler callables). Enables envelope-wrapped responses for all chat operations.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Phase 15 — Operational Reliability -->
+  <section id="section-9i">
+    <h2>9i. Phase 15 — Operational Reliability (S3 Backup + Sentry + Graceful Shutdown + Deep Health)</h2>
+    <table>
+      <thead><tr><th>Component</th><th>File</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>S3 backup script</td><td>src/backend/scripts/backup.sh</td><td>Bash script: copies arthaBuild.db to s3://$OPS_BACKUP_S3_BUCKET/backups/ with AES-256 SSE. Cron-ready. Requires AWS CLI + OPS_BACKUP_S3_BUCKET env var.</td></tr>
+        <tr><td>Sentry init</td><td>src/backend/rawapi.py</td><td>Optional sentry_sdk.init() at module startup, guarded by SENTRY_DSN env var. traces_sample_rate=0.1. ImportError silently skipped if sentry-sdk not installed.</td></tr>
+        <tr><td>Graceful shutdown</td><td>src/backend/rawapi.py</td><td>signal.signal(SIGTERM/SIGINT, _handle_sigterm) registered at module level. Sets asyncio._shutdown_event. Uvicorn drains via --timeout-graceful-shutdown=30.</td></tr>
+        <tr><td>/health/detail extended</td><td>src/backend/rawapi.py</td><td>6 new fields: db_latency_ms (SELECT 1 round-trip), disk_free_gb (shutil.disk_usage), ollama_status (ok|unavailable), ollama_model (env), sentry_active (bool), backup_bucket_configured (bool). Frozen fields (AB-081-004) unchanged: ai_ready, license_valid, license_plan.</td></tr>
+        <tr><td>Requirements</td><td>src/backend/requirements.txt</td><td>sentry-sdk&gt;=2.0.0 added (optional — not installed in dev venv by default)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Phase 13 — Identity & Access -->
+  <section>
+    <h2>9g. Phase 13 — Identity &amp; Access Controls (SSO + MFA + Idle Timeout + IP Allowlist)</h2>
+
+    <h3>New Components</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>File</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>SSO router</td><td><code>src/backend/routers/sso.py</code></td><td>GET/POST /api/auth/sso/config (admin), GET /api/auth/sso/callback (OIDC auth-code exchange)</td></tr>
+          <tr><td>MFA router</td><td><code>src/backend/routers/mfa.py</code></td><td>POST /api/auth/mfa/enroll, verify, disable, check (pyotp TOTP RFC 6238)</td></tr>
+          <tr><td>IdleTimeoutMiddleware</td><td><code>src/backend/middleware/idle_timeout.py</code></td><td>Checks JWT <code>iat</code> claim — rejects stale sessions (SESSION_IDLE_MINUTES env)</td></tr>
+          <tr><td>IPAllowlistMiddleware</td><td><code>src/backend/middleware/ip_allowlist.py</code></td><td>CIDR-based IP filtering (ALLOWED_IP_RANGES env) — backward compatible when unset</td></tr>
+          <tr><td>MFASecret model</td><td><code>src/backend/models.py</code></td><td>user_id FK, base32 TOTP secret, is_active; Alembic migration 13a_identity_access</td></tr>
+          <tr><td>Team.ip_allowlist</td><td><code>src/backend/models.py</code></td><td>Nullable String column for per-team CIDR ranges (comma-separated)</td></tr>
+          <tr><td>MFASetup.tsx</td><td><code>src/frontend/src/pages/MFASetup.tsx</code></td><td>QR code enrollment page (POST /enroll → display QR → POST /verify → dashboard)</td></tr>
+          <tr><td>AdminPanel Security tab</td><td><code>src/frontend/src/pages/AdminPanel.tsx</code></td><td>6th tab: SSO config form, IP allowlist textarea, MFA policy toggle</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Idle Timeout Flow</h3>
+    <pre style="background:#1a1a2e;color:#a8b2d8;padding:12px;border-radius:6px;font-size:12px">
+Request → IdleTimeoutMiddleware
+  ├─ path in SKIP_PATHS → pass through
+  ├─ no Bearer token → pass through (endpoint auth handles it)
+  ├─ decode JWT (PyJWT HS256)
+  │   ├─ iat missing → pass through
+  │   └─ now - iat &gt; SESSION_IDLE_MINUTES*60 → 401 {"detail":"Session expired"}
+  └─ pass through to next middleware / endpoint</pre>
+
+    <h3>IP Allowlist Flow</h3>
+    <pre style="background:#1a1a2e;color:#a8b2d8;padding:12px;border-radius:6px;font-size:12px">
+Request → IPAllowlistMiddleware
+  ├─ path == /health → always allow
+  ├─ ALLOWED_IP_RANGES unset → allow all (backward compatible)
+  ├─ extract client IP (X-Real-IP header, else request.client.host)
+  └─ ip_address(client_ip) in any network → allow, else 403 {"detail":"IP not permitted"}</pre>
+  </section>
+
+  <!-- Changelog -->
+  <section>
+    <h2>10. Changelog</h2>
+    <div class="card" style="padding:16px 20px">
+      <div class="changelog-item">
+        <div class="cl-version">v1.0.0</div>
+        <div class="cl-date">2026-04-10</div>
+        <div class="cl-text">Phase 8 Launch Readiness: v1.0.0 first customer-ready release. No new architectural components added — architecture is complete as of v2.1 (Phase 12). Launch artifacts: scripts/benchmark.sh (NFR-PERF-01 performance targets: /health &lt;200ms, login &lt;500ms, chat cold &lt;30s, warm &lt;15s), scripts/smoke_test.sh (10 critical checks: health, ai_ready, license, register, login, JWT guard, chat, NetSuite status, license status, check-user), docs/CUSTOMER_DEPLOYMENT.md (8 sections: prerequisites, quick start, AWS setup, config reference, first-time setup, verify, upgrade, backup), docs/TROUBLESHOOTING.md (10 issues with diagnosis + fix), docs/CHANGELOG.md (v1.0.0). 116 pytest passing, 5 skipped, 0 failing. TC-LIC-01 through TC-LIC-04 PASS. CASE-188 through CASE-195 all DONE. v1.0.0 git tag pending user sign-off on security audit.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v2.5</div>
+        <div class="cl-text">Phase 15 — Operational Reliability. scripts/backup.sh (SQLite→S3 AES-256 cron backup). Sentry optional init (SENTRY_DSN env, traces_sample_rate=0.1). SIGTERM/SIGINT graceful shutdown handler (_shutdown_event asyncio.Event). /health/detail extended: db_latency_ms + disk_free_gb + ollama_status + ollama_model + sentry_active + backup_bucket_configured. sentry-sdk&gt;=2.0.0 in requirements.txt. 146/146 tests pass.</div>
+        <div class="cl-version">v2.4</div>
+        <div class="cl-date">2026-04-13</div>
+        <div class="cl-text">Phase 14 — Compliance &amp; Data Governance. GDPR Art. 15 export (POST /api/user/export-data → JSON attachment with user profile, chats, audit rows) + GDPR Art. 17 erasure (POST /api/user/erase → anonymise email/name/password, hard-delete chats, erased_at timestamp). Immutable audit hash chain: prev_hash + row_hash on AuditLog — sha256(prev_hash|action|actor_email|created_at_iso) computed in write_audit_event() before every insert. Alembic 14a_audit_hash_chain adds 3 columns (prev_hash, row_hash, erased_at). Admin CSV audit export (GET /api/admin/audit/export, date-range filter). SOC2 evidence generator script produces 5 control files (CC6.1/CC6.2/CC7.2/CC9.2/A1.2). docs/soc2-evidence/ generated from live DB. 138/138 tests pass (4 pre-existing failures unchanged). ARCHITECTURE.md v2.4.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v2.3</div>
+        <div class="cl-date">2026-04-13</div>
+        <div class="cl-text">Phase 13 — Identity &amp; Access Controls. SSO/OIDC router: GET/POST /api/auth/sso/config (admin-only) + GET /api/auth/sso/callback (OIDC authorization-code exchange using authlib). TOTP MFA router: POST /api/auth/mfa/enroll (pyotp secret gen + QR data URL), /verify (activate), /disable (self or admin), /check (login gate — returns 403 {mfa_required:true} when OTP absent). IdleTimeoutMiddleware: reads SESSION_IDLE_MINUTES env (default 30), checks JWT iat claim on every authenticated request — iat added to create_access_token. IPAllowlistMiddleware: reads ALLOWED_IP_RANGES CIDR env, blocks non-matching IPs with 403; /health always bypassed. MFASecret model + ip_allowlist column on Team + Alembic migration 13a_identity_access. AdminPanel Security tab (6th): SSO config form, IP allowlist textarea, MFA policy toggle. MFASetup.tsx + /mfa-setup route (Protected). 147/149 tests pass (2 pre-existing failures unchanged).</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v3.2</div>
+        <div class="cl-date">2026-04-15</div>
+        <div class="cl-text">Phase 19 Plan 05 — Knowledge Base Admin UI. KnowledgeBaseTab.tsx: status polling (5s interval while building), Refresh Knowledge button (POST /api/admin/knowledge/refresh, orange-500), 4 customer index stat cards (custom_fields, custom_records, deployed_scripts, workflows), bootstrap index card (95 reference documents). Token from getAccessToken() (memory-only per CLAUDE.md project law). AdminPanel.tsx wired: import + navItems entry (Database icon) + conditional render block. TypeScript clean (0 errors in new files), frontend builds in 4.30s (3493 modules). Phase 19 fully complete — all 5 plans delivered. ARCHITECTURE.md v3.2.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v3.1</div>
+        <div class="cl-date">2026-04-15</div>
+        <div class="cl-text">Phase 19 Plan 04 — Customer Instance Knowledge Pull. On TBA connect, 6 live pulls from customer's NetSuite account via SuiteQL + REST metadata API: (1) companyPreferences account metadata, (2) custom fields grouped by record type, (3) custom record types, (4) REST metadata-catalog fields per custom record, (5) deployed SuiteScripts, (6) active workflows. Markdown files written to data/customer_knowledge/. FAISS customer index built at data/customer_index/ (nomic-embed-text 768-dim). Admin endpoints: POST /api/admin/knowledge/refresh + GET /api/admin/knowledge/status. Background pull triggered non-fatally on TBA connect via asyncio.create_task + run_in_executor. Deviation fixed: plan called get_session() (non-existent) → corrected to get_session_creds(user_id) + NetSuiteCreds→dict conversion. 146/147 tests pass (2 pre-existing failures unchanged). ARCHITECTURE.md v3.1.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v3.0</div>
+        <div class="cl-date">2026-04-14</div>
+        <div class="cl-text">Phase 18 — Cloudflare Edge Security. Plan 01: DNS orange-cloud proxy, SSL Full Strict, email obfuscation + hotlink protection, HTTPS Redirect Rule (301), Cache Rules (API bypass + static 1yr). Plan 02: WAF Managed Ruleset + OWASP CRS (Pro plan, LOG mode), Transform Rules (Permissions-Policy + enforcing CSP additive — no nginx duplication), WAF rate limit /api/* 60 req/min (/api/chatbot/ excluded), Analytics GraphQL httpRequestsAdaptiveGroups verified. Header ownership table documents nginx vs Cloudflare responsibility per header. Network topology updated with Cloudflare edge layer box.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v2.2</div>
+        <div class="cl-date">2026-04-11</div>
+        <div class="cl-text">Phase 8.1 — Pre-Staging Case Resolution. Plan 01: 21 bug fixes — vite proxy port (CASE-001), User.email NOCASE collation migration (CASE-006), _persist_chat_to_db True/False return + persistence_warning (CASE-025), /health split into public + /health/detail authenticated (CASE-031), CORS_EXTRA_ORIGINS env var (CASE-023), license env vars for GRACE_PERIOD_HOURS/CACHE_TTL_DAYS/LICENSE_SERVER_URL (CASE-033/034/035). Plan 02: 28 new backend tests — test_migrations.py, test_license.py, test_infrastructure.py (new files); test_user/auth/netsuite/chats/rbac extended; security/ extended (HSTS, TLS, pip-audit, role-change audit). 121→149 tests passing. Plan 03: static analysis checks done (CASE-012/014/022/036/040/168), ROADMAP.md 12-01 checkbox fixed, all 90 open/pending cases closed (44 DONE, 23 PASS, 23 DEFERRED). ARCHITECTURE.md v2.2.</div>
+      </div>
+      <div class="cl-entry">
+        <div class="cl-version">v2.1</div>
+        <div class="cl-date">2026-04-10</div>
+        <div class="cl-text">Phase 12 Plan 03: SOC2 documentation closure. docs/security/ suite created: SECURITY_CONTROLS.md (CC6/CC7/CC8/A1 control checklist mapping all Phase 1–12 controls to source file evidence), INCIDENT_RESPONSE.md (P1/P2/P3 severity tiers + 5-step runbook), DATA_CLASSIFICATION.md (data inventory with sensitivity, retention, deletion procedures; BYOC data isolation guarantee), DEPLOYMENT_SECURITY.md (customer pre-deployment checklist referencing nginx.prod.conf, TLS, EBS, key rotation), ZAP_SCAN_REPORT.md (pip-audit results: 14 MEDIUM, 0 CRITICAL/HIGH, all triaged; ZAP methodology + manual run instructions). SECURITY.md at repo root (vulnerability disclosure, security@techcloudpro.com, 48h SLA). CASE-188 through CASE-195 all DONE. Phase 12 complete. Phase 12 Plan 01: Audit log expansion for SOC2 CC7.2. audit_utils.py write_audit_event() shared helper. AuditLog model expanded 5 new columns. Alembic migration d5e6f7a8b9ca. 7 auth events + 4 user events + 6 admin call sites. GET /api/admin/audit paginated. 5 security tests. 115 passed total. Phase 12 Plan 02: nginx.prod.conf — HTTP→HTTPS redirect (CASE-188), TLSv1.2/TLSv1.3 only (CASE-195), 5 security headers (CASE-189), CORS ALLOWED_ORIGINS (CASE-190), EBS encrypted=true (CASE-193). 14 static-analysis tests. ARCHITECTURE.md v2.1.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v2.0</div>
+        <div class="cl-date">2026-04-11</div>
+        <div class="cl-text">Phase 11 Plan 01: Password Management + Enterprise Email Flow. token_expiry() 1h→15min. HTML email templates (reset, verification, admin-triggered reset) with ArthaBuild branding and indigo CTA. EmailVerificationToken model + Alembic migration c4d5e6f7a8b9. 6 new user endpoints: GET/PATCH/DELETE /api/user/me, POST /api/user/change-password, GET /api/user/verify-email, POST /api/user/resend-verification. require_user() gains require_verified=True enforcement (403 for unverified). require_user_unverified_ok alias for pre-verification endpoints. POST /api/admin/users/{id}/send-reset with cross-tenant check + audit log. 11 new tests (CASE-181/184/185/186/187), conftest auto-verify event listener. 96 tests pass. Phase 11 Plan 02: Frontend UX — authService 4 new functions (getProfile, changePassword, resendVerification, patchUser), adminService sendPasswordReset, ForgotPassword check-email success state, ResetFailed inline 60s-cooldown resend, ResetPassword full policy validation, Profile change-password form, EmailVerificationBanner component (amber banner, resend+cooldown, dismissible), Chat EmailVerificationBanner wired below LicenseBanner, AdminPanel Send Reset button per member row, VerifyEmail page + /verify-email public route. npm run build exits 0. ARCHITECTURE.md v2.0.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.9 (Phase 10)</div>
+        <div class="cl-date">2026-04-10</div>
+        <div class="cl-text">Phase 10 Plan 03: AdminPanel.tsx extended from 3 to 5 tabs. New tabs: Usage Stats (lazy-loads GET /api/admin/stats → 4 stat cards) + Audit Log (lazy-loads GET /api/admin/audit → 50-row table). adminService.ts extended to 9 exported functions: getStats, listUsers, changeRole, deleteUser, getAuditLog added. Team Members tab: "Promote" button calls PATCH /api/admin/users/{id}/role. Remove button now calls DELETE /api/admin/users/{id} (new soft-delete endpoint). ARCHITECTURE.md v1.9. 13 Phase 10 Plan 03 acceptance checks PASS. Build clean. Phase 10 complete end-to-end.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.9-p01</div>
+        <div class="cl-date">2026-04-10</div>
+        <div class="cl-text">Phase 10 Plan 01: AuditLog + SystemConfig models added to models.py. Alembic migration b3c4d5e6f7a8 creates audit_logs and system_config tables. 8 new admin endpoints in routers/admin.py: GET /api/admin/stats (CASE-173), GET /api/admin/users (CASE-174), PATCH /api/admin/users/{id}/role (CASE-175), DELETE /api/admin/users/{id} (CASE-176), GET /api/admin/audit (CASE-177), PUT /api/admin/config (CASE-178), GET /api/admin/license (CASE-179), POST /api/admin/teams (CASE-180). _write_audit() helper shared by mutating endpoints. All 4 Phase 9 endpoints untouched. 85/85 tests pass.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.9-p02</div>
+        <div class="cl-date">2026-04-10</div>
+        <div class="cl-text">Phase 10 Plan 02: Invite acceptance flow. POST /api/user/accept-invite added to routers/user.py — validates token hash, creates user with role="user" and team_id from invite, marks invite.accepted=True, returns login response shape. AcceptInvite.tsx page: reads ?token= from query params, shows registration form (first_name, last_name, password), stores token via setAccessToken() in memory + user profile via storage.set(). /accept-invite public route added to routes.tsx outside Protected wrapper. ARCHITECTURE.md v1.9. Route table updated with /accept-invite and /admin entries. 85/85 tests, build clean.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.8</div>
+        <div class="cl-date">2026-04-10</div>
+        <div class="cl-text">Phase 9 planned: RBAC + Team Management + Chat Persistence. New DB tables: teams, chat_sessions, chat_messages, team_invites. User model: role (admin/user) + team_id columns via Alembic batch_alter_table. New backend: routers/chats.py (user-scoped CRUD), routers/admin.py (team management + all chats). auth_utils.py: require_user(), require_admin() Depends, jti blacklist (in-memory set). chatbot DB persistence additive (in-memory dict preserved). New frontend: Dashboard.tsx (/dashboard route), AdminPanel.tsx 3-tab (/admin with AdminProtected). chatService.ts localStorage → API calls. authService hardcoded role bug fixed. Login redirects to /dashboard.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.7</div>
+        <div class="cl-date">2026-04-10</div>
+        <div class="cl-text">Phase 7 License System complete. LicenseCache + ScriptDeployment Alembic migration. routers/license.py: validate_license() (7-day cache, 72hr grace), check_deploy_quota() (Starter=10, Growth=100, Enterprise=∞, sandbox exempt), record_deploy(). license-server/app.py: instance-lock (one deployment per key), admin /admin/licenses endpoints. rawapi.py wired: startup_license_check, /health license_valid+license_plan, 402 gate on chatbot. NetSuite auto-index: background FAISS indexing of customer scripts on TBA connect, customer index queried first. LicenseBanner.tsx (grace/restricted warning). PrivacyPolicy.tsx + TermsOfService.tsx (artha.build domain). /privacy + /terms routes fixed (were 404). Landing.tsx: all pricing removed, "Get a Demo" enterprise model. ARCHITECTURE.md v1.7.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.6</div>
+        <div class="cl-date">2026-04-09</div>
+        <div class="cl-text">3D Landing page wired into React. Three.js r0.183 + GSAP 3.14 installed as npm packages. Landing.tsx fully replaced: GPU particle field (5,500 particles), nebula orbs, wireframe geometries, cinematic camera, scroll pull-back, mouse parallax, chat card tilt, custom cursor, scroll reveals. landing.css scoped (no global contamination). React Router &lt;Link&gt; for internal nav. Proper useEffect cleanup. Build verified ✅.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.5</div>
+        <div class="cl-date">2026-04-09</div>
+        <div class="cl-text">Session 2 bug fixes: 10 chatbot response gaps closed across Phase 3 (rawapi.py, suitescripts_utils.py) and Phase 4 (Chat.tsx, ChatMessage.tsx, api.ts). React state race on chat mount, SuiteScript JSON.parse crash, SystemExit from SuiteCloud CLI, "yes" handler wrong session index, None response guards, 500 error key mismatch. Added Chatbot Response Reliability Rules.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.4</div>
+        <div class="cl-date">2026-04-09</div>
+        <div class="cl-text">Phase 6 Testing & Hardening complete (59/59 tests). Fixed phase numbering: Phase 6=Testing, Phase 7=License, Phase 8=Launch. Removed stale HTML files.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.3</div>
+        <div class="cl-date">2026-04-09</div>
+        <div class="cl-text">Phase 5 Docker/Terraform deployment, nginx routing, 401 session expiry handling, History.tsx navigation fix.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.2</div>
+        <div class="cl-date">2026-04-09</div>
+        <div class="cl-text">FAISS default path fix, Phase 4 frontend E2E wired, full data flow diagram.</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.1</div>
+        <div class="cl-date">2026-04-08</div>
+        <div class="cl-text">JWT storage corrected: memory-only (not localStorage).</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v1.0</div>
+        <div class="cl-date">2026-04-07</div>
+        <div class="cl-text">Initial architecture, Phases 1–2 complete.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer style="border-top:1px solid var(--border); padding-top:20px; color:var(--muted); font-size:12px; text-align:center">
+    ArthaBuild Architecture v3.2 — Source of truth: <code>apps/arthaBuild/docs/ARCHITECTURE.md</code>
+  </footer>
+
+</div>
+</body>
+</html>

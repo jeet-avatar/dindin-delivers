@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 20 (CDJ-3000 Functional Controls) -- COMPLETE
 Plan: 5 of 5 complete in current phase
 Status: Phase 20 complete: All CDJ-3000 functional controls wired (hot cues, loops, beat jump, pitch, sync, grid nudge).
-Last activity: 2026-04-03 - Completed quick task 267: Zietra Meet gradient initials avatars + DevicePickerModal camera settings panel with live preview
+Last activity: 2026-04-17 - Completed quick task 291: Build AI Architecture Playground as free lead-gen tool on TechCloudPro
 
 Progress: [########################################] 100% (5/5 plans in phase 20)
 
@@ -122,6 +122,7 @@ Progress: [########################################] 100% (5/5 plans in phase 20
 - [Phase 20]: SYNC uses pitch% formula ((targetBpm/originalBpm)-1)*100; MASTER state in App.tsx for exclusivity; QUANTIZE/SLIP visual-only toggles deferred to future
 - [Phase 20-05]: Offset applied inside drawBeatGrid via parameter rather than mutating beat_grid data
 - [Phase quick-259]: Campaign sends use ONLY per-user verified EmailServerConfig — no env SMTP/SES fallback
+- [Phase 22]: Strategy Bot Generate Video buttons navigate to /campaigns with prefill params (no new backend endpoint) — keeps existing 402/tier-gating as single source of truth
 
 ### Blockers
 
@@ -294,6 +295,7 @@ None
 | Phase 20 P02 | 4min | 1 tasks | 2 files |
 | Phase 20 P03 | 3min | 2 tasks | 1 files |
 | Phase 20 P04 | 148s | 1 tasks | 2 files |
+| Phase 22 P12 | 4m | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -430,8 +432,11 @@ None
 | 266 | fix hardcoded values on BrandMonkz campaigns page — totalCompanies fake formula + createdBy static string | 2026-04-03 | 671e7216 | [266-fix-hardcoded-values-on-brandmonkz-campa](./quick/266-fix-hardcoded-values-on-brandmonkz-campa/) |
 | 267 | add upgraded avatars and camera settings panel to Zietra Meet | 2026-04-04 | 5e60ba45 | [267-add-upgraded-avatars-and-camera-settings](./quick/267-add-upgraded-avatars-and-camera-settings/) |
 | 268 | trim Alex and Sarah system prompts in MongoDB — Alex 20K→1.2K, Sarah 40K→1.2K — trial chat 8-9s → 4-5s | 2026-04-05 | db-only | [268-trim-alex-and-sarah-system-prompts-in-mo](./quick/268-trim-alex-and-sarah-system-prompts-in-mo/) |
+| 289 | add Google Reviews section to VishMed website showing real reviews for Dr. Pillay from Google | 2026-04-15 | 13318e84 | [289-add-google-reviews-section-to-vishmed-we](./quick/289-add-google-reviews-section-to-vishmed-we/) |
+| 290 | add blog section to VishMed with 40 SEO-optimized posts across 6 categories with naturally spread historical dates | 2026-04-16 | 0d4aca9c | [290-add-blog-section-to-vishmed-with-40-seo-](./quick/290-add-blog-section-to-vishmed-with-40-seo-/) |
+| 291 | Build AI Architecture Playground as free lead-gen tool on TechCloudPro | 2026-04-17 | bc42fb59 | [291-build-ai-architecture-playground-as-free](./quick/291-build-ai-architecture-playground-as-free/) |
 ## Session Continuity
 
-Last session: 2026-03-29
+Last session: 2026-04-15
 Stopped at: E2E testing complete — 40+ rides, 10+ food orders on production. Compliance emails working. Prop 22 calculates but driver GPS stale (needs app-based location update). All 6 apps distributed. Next: more extensive testing with fixed GPS + nursery feature for Rajesh.
 Resume file: ~/.claude/handoffs/2026-03-29-e2e-compliance-testing-builds.md
