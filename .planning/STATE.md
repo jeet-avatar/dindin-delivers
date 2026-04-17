@@ -122,6 +122,7 @@ Progress: [########################################] 100% (5/5 plans in phase 20
 - [Phase 20]: SYNC uses pitch% formula ((targetBpm/originalBpm)-1)*100; MASTER state in App.tsx for exclusivity; QUANTIZE/SLIP visual-only toggles deferred to future
 - [Phase 20-05]: Offset applied inside drawBeatGrid via parameter rather than mutating beat_grid data
 - [Phase quick-259]: Campaign sends use ONLY per-user verified EmailServerConfig — no env SMTP/SES fallback
+- [Phase 22]: Strategy Bot Generate Video buttons navigate to /campaigns with prefill params (no new backend endpoint) — keeps existing 402/tier-gating as single source of truth
 
 ### Blockers
 
@@ -294,6 +295,7 @@ None
 | Phase 20 P02 | 4min | 1 tasks | 2 files |
 | Phase 20 P03 | 3min | 2 tasks | 1 files |
 | Phase 20 P04 | 148s | 1 tasks | 2 files |
+| Phase 22 P12 | 4m | 3 tasks | 2 files |
 
 ## Accumulated Context
 
