@@ -199,6 +199,12 @@ def main() -> int:
             aborted = True
             abort_reason = str(e)
             break
+        except Exception as e:
+            result = {
+                "case_id": case["id"], "dimension": case["dimension"],
+                "status": "network_error", "elapsed_s": 0.0,
+                "error": f"{type(e).__name__}: {str(e)[:300]}",
+            }
         if result["status"] == "ok":
             det = score_deterministic(case, result["response"], result["elapsed_s"])
             result["deterministic"] = det
