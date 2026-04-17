@@ -22,7 +22,16 @@ FLOORS = {
     "SEARCH_APIS": 10,
 }
 
-def extract_record_types() -> set[str]: ...
+def extract_record_types() -> set[str]:
+    out: set[str] = set()
+    text = (BOOTSTRAP_DIR / "oracle-record-types.md").read_text()
+    for line in text.splitlines():
+        # Match table rows like "| SALES_ORDER |" — strict uppercase enum only,
+        # ignoring header row "| Enum |" (Enum has lowercase letters) and separator "|------|".
+        m = re.match(r"^\|\s*([A-Z][A-Z0-9_]{2,})\s*\|\s*$", line)
+        if m:
+            out.add(m.group(1))
+    return out
 
 
 # Mapping from oracle hyphen-form module names to their canonical slashed
