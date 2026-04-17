@@ -103,7 +103,49 @@ Regex-first. Esprima-python is deferred until we have false-positive data to jus
 | `N/*` module | `define\(\[['\"]([^'\"]+)['\"]` and `require\(\[['\"]([^'\"]+)['\"]` |
 | `@NScriptType` | `@NScriptType\s+(\w+)` |
 | `search.Type.*` | `search\.Type\.([A-Z_]+)` |
-| `search.*` method | `search\.([a-z][A-Za-z]*)\s*\(` |
+| `search.*` method | `(?:^|[\s=;,(])search\.([a-z][A-Za-z]*)\s*\(` |
+
+The `search.*` regex anchors at start-of-line or after whitespace/`=`/`;`/`,`/`(` to avoid false positives on member expressions like `result.search.getValue(...)`. A unit test asserts that pattern does not produce a violation.
+
+### Suggestion algorithm (`nearest`)
+
+```python
+import difflib
+
+def nearest(ident: str, whitelist: set[str], k: int = 3) -> list[str]:
+    return difflib.get_close_matches(ident, whitelist, n=k, cutoff=0.6)
+```
+
+Stdlib only — no new dependency. Case-sensitive (capture groups already normalize). Returns empty list if nothing meets the 0.6 ratio cutoff; callers must tolerate empty suggestions.
+
+### Non-ASCII pre-pass (homoglyph defense)
+
+Before any checker runs, the linter scans for non-ASCII code points in the code block:
+
+```python
+if re.search(r"[^\x00-\x7f]", code):
+    return LintResult(valid=False, violations=[Violation(
+        category="non_ascii",
+        identifier="<non-ASCII code point>",
+        line=first_non_ascii_line,
+        suggestions=[],
+        message="Code contains non-ASCII characters; NetSuite identifiers must be ASCII",
+    )], elapsed_ms=...)
+```
+
+This prevents silent bypass via Cyrillic/Greek look-alikes (e.g. `record.Type.SАLES_ORDER` with a Cyrillic `А`).
+
+### Code-block extraction policy
+
+`extract_first_code_block(response_text)` returns `(code: str | None, language: str | None)`.
+
+| Case | Behavior |
+|---|---|
+| No fence found | Return `(None, None)`. Linter is skipped. Response passes through unchanged — prose-only responses are not our target. |
+| Single fence, language `js` / `javascript` / unlabeled | Validate this block. |
+| Single fence, language is `python`/`bash`/other | Return `(None, "wrong_language")`. Skip validation; log a warning. One-shot re-prompt with message "Please return JavaScript in a fenced code block." |
+| Multiple fences | Validate the first `js` / `javascript` / unlabeled block. Warn in logs. |
+| Empty code block | Treated as no code — same as "no fence found". |
 
 ## Whitelist Generation
 
@@ -125,9 +167,44 @@ SEARCH_APIS: set[str] = {"create", "load", "lookupFields", ...}  # ~20
 
 Typical output size is under 20 KB. The file is committed so reviewers can eyeball the surface area.
 
+### Parser contract
+
+The parser reads each `oracle-*.md` file and looks for known section headings. A representative snippet from `oracle-record-types.md`:
+
+```markdown
+## Record Types
+
+| Enum | String ID | Description |
+|---|---|---|
+| SALES_ORDER | salesorder | Sales Order record |
+| INVOICE | invoice | Invoice record |
+```
+
+Extraction rules (Wave 1 of implementation verifies these against the actual files and adjusts):
+
+| Category | Source file(s) | Rule |
+|---|---|---|
+| `RECORD_TYPES` | `oracle-record-types.md` | Table rows under `## Record Types` heading; column 1 value |
+| `MODULES` | `oracle-modules.md` | Lines matching `^###?\s+(N/[\w/]+)` |
+| `SCRIPT_TYPES` | `oracle-script-types.md` | Table rows under `## Script Types`; column 1 value |
+| `SEARCH_TYPES` | `oracle-search-types.md` | Table rows under `## Search Types`; column 1 value |
+| `SEARCH_APIS` | `oracle-search-module.md` | Lines matching `^###?\s+search\.([a-z][A-Za-z]*)\(` |
+
+### Floor checks (circuit breaker)
+
+If any category set falls below a floor, `build_whitelist.py` exits non-zero with a loud error. This prevents a parser regression from silently producing an empty whitelist (which would 100%-hard-block every user request).
+
+| Category | Floor |
+|---|---|
+| `RECORD_TYPES` | 100 |
+| `MODULES` | 30 |
+| `SCRIPT_TYPES` | 10 |
+| `SEARCH_TYPES` | 100 |
+| `SEARCH_APIS` | 10 |
+
 ### Drift detection
 
-A CI test regenerates the whitelist in a temp file and diffs it against the committed `validators/whitelist.py`. If they differ, the test fails with a message telling the developer to re-run `scripts/build_whitelist.py` and commit the result.
+A CI test regenerates the whitelist in a temp file and diffs it against the committed `validators/whitelist.py`. If they differ, the test fails with a message telling the developer to re-run `scripts/build_whitelist.py` and commit the result. The same test also asserts the floor checks above on the committed file.
 
 ## Integration
 
@@ -137,16 +214,24 @@ The validator runs post-generation, pre-response, inside the `generate_suitescri
 if intent == "generate_suitescript":
     # existing quota + prompt-build steps unchanged
     response_text = run_llm_pipeline(user_input)
-    code = extract_first_code_block(response_text)
+    code, lang = extract_first_code_block(response_text)
+
+    if code is None:
+        # prose-only response — linter does not apply
+        return response_text
 
     result = SuiteScriptLinter().lint(code)
     attempts = 0
-    while not result.valid and attempts < 2:
+    while not result.valid and attempts < REPROMPT_MAX_ATTEMPTS:
+        if elapsed_seconds() > PIPELINE_BUDGET_SECONDS:
+            break  # budget exhausted — fall through to refusal
         attempts += 1
         response_text = await reprompt_with_violations(
             user_input, response_text, result
         )
-        code = extract_first_code_block(response_text)
+        code, _ = extract_first_code_block(response_text)
+        if code is None:
+            break
         result = SuiteScriptLinter().lint(code)
 
     if not result.valid:
@@ -155,7 +240,7 @@ if intent == "generate_suitescript":
     # existing persist + return unchanged
 ```
 
-Total change in `rawapi.py`: ~15 lines.
+Total change in `rawapi.py`: ~20 lines.
 
 ## Re-Prompt Loop
 
@@ -179,6 +264,42 @@ Latency budget:
 - Clean case: 20-50 ms (regex pass + set lookups)
 - One re-prompt: +15 s (model round-trip)
 - Worst case (2 re-prompts + hard block): ~45 s
+
+### Timeout reconciliation
+
+Current nginx `proxy_read_timeout` on `artha.build` is 120 s (verified in `infrastructure/nginx/artha.build.conf`). The worst-case ~45 s pipeline fits with a 75 s safety margin.
+
+Constants (codified, tunable in one place):
+
+```python
+REPROMPT_MAX_ATTEMPTS = 2
+PIPELINE_BUDGET_SECONDS = 90  # nginx_timeout - 30s safety margin
+SINGLE_LLM_CALL_TIMEOUT_SECONDS = 25
+```
+
+If `elapsed_seconds()` since request start exceeds `PIPELINE_BUDGET_SECONDS`, the loop breaks early and returns the refusal message rather than risking an nginx 504. Nginx 504s produce generic error pages and defeat the "refuse rather than lie" promise.
+
+### Refusal message format
+
+When the validator cannot produce a clean script, the user sees:
+
+```
+I couldn't verify every NetSuite identifier in the script I was about to return,
+so I'm holding it back rather than risk sending you something that won't run.
+
+What I flagged:
+  • Line {v.line}: {v.identifier} — not a valid {v.category_human}
+    Closest known values: {v.suggestions[:3] or "no close match"}
+
+You can:
+  • Rephrase the request with more specific record names, or
+  • Check the NetSuite 2024.2 Records Browser for the exact identifier,
+    then try again.
+```
+
+The original (invalid) code is **not** shown — showing it would normalize the hallucination. Violation list is included so the user can adjust their prompt.
+
+`category_human` mapping: `record_type` → "record type", `module` → "module path", `script_type` → "script type annotation", `search_api` → "search API method", `non_ascii` → "ASCII identifier".
 
 ## Testing
 
@@ -237,9 +358,34 @@ Aggregate signals:
 
 Stress suite composition:
 - 40 original eval cases (regression check)
-- 160 new edge cases crafted to provoke hallucination — ~40 per category, prompts engineered to push the model toward fabricated identifiers (e.g. "use the `ReceivingVoucher` record type", "load `N/banking/wire`", "search for `tranId` column")
+- 160 new adversarial cases, hand-authored, stored at `apps/arthaBuild/tests/eval/stress/stress_cases.jsonl`
 
 Pass = zero invalid identifiers across all 200. Hard-blocks count as pass.
+
+### Adversarial case authoring method
+
+Each of the four categories gets 40 cases. Within a category, use four strategies (10 cases each):
+
+| Strategy | Example prompt | Target |
+|---|---|---|
+| **Near-miss** | "Write a Map/Reduce that processes `ReceivingVoucher` records" | Model reaches for `record.Type.RECEIVING_VOUCHER` (invalid) instead of `ITEM_RECEIPT` |
+| **Plausible-but-nonexistent** | "Use the `N/banking/wire` module to create a wire transfer" | Module sounds real, isn't |
+| **Deprecated in 2024.2** | "Use `record.Type.RETURNED_ITEM` to close the loop on the RMA" | Removed in a recent release |
+| **Cross-module confusion** | "Call `search.columns.internalId()` to fetch the ID column" | Confuses option-key (`internalid`) with a method |
+
+Each case is a JSONL row with:
+
+```json
+{
+  "id": "STRESS-RT-001",
+  "prompt": "...",
+  "adversarial_target": "RECEIVING_VOUCHER",
+  "target_category": "record_type",
+  "strategy": "near_miss"
+}
+```
+
+Authoring is human-driven. LLM-generated candidates may be used as a starting point but must be human-reviewed to confirm the adversarial target actually doesn't exist (Claude-generated cases that accidentally name real identifiers would pollute the suite).
 
 ### Secondary ceilings
 
