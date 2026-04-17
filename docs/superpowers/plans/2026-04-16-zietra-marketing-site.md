@@ -4,7 +4,7 @@
 
 **Goal:** Build and deploy the Zietra marketing site (zietra.com) — an Apple-style dark-mode single-page app showcasing the Zietra SMB platform (CRM + Social + Meetings).
 
-**Architecture:** Standalone Vite 6 + React 19 + Tailwind CSS 4 app in `/apps/zietra/`. Pure frontend, no backend. All pages rendered client-side with React Router 7. Deploy via SCP to Hostinger (same host as techcloudpro.com at `147.93.101.51`, port 65002). Design spec lives at `docs/superpowers/specs/2026-04-16-zietra-marketing-site-design.md`.
+**Architecture:** Standalone Vite 6 + React 19 + Tailwind CSS 4 app in `/apps/zietra/`. Pure frontend, no backend. All pages rendered client-side with React Router 7. Deploy to AWS — S3 bucket (`zietra-marketing`) + CloudFront distribution + ACM cert + Route53 hosted zone in account `134607809447`, region `us-east-1`. Fully separate hosting from techcloudpro.com (which stays on Hostinger). Design spec lives at `docs/superpowers/specs/2026-04-16-zietra-marketing-site-design.md`.
 
 **Tech Stack:** React 19, Vite 6, Tailwind CSS 4 (via `@tailwindcss/vite`), Framer Motion 12, Lucide React, React Router 7, React Helmet Async, `@splinetool/react-spline` (lazy-loaded for Phase 2)
 
@@ -2375,22 +2375,70 @@ git commit -m "chore(zietra): add .gitignore excluding dist/"
 
 ---
 
-### Task 16: Deploy to zietra.com
+### Task 16: Deploy to zietra.com (AWS S3 + CloudFront)
 
-Pre-flight checklist before deploying:
-- Hostinger SSH key works: `ssh -p 65002 u350621741@147.93.101.51 "echo ok"` → `ok`
-- DNS A record exists: `dig zietra.com A` → `147.93.101.51` (or confirm in GoDaddy DNS panel)
-- Target directory on Hostinger: `/home/u350621741/domains/zietra.com/public_html/`
+> **Hosting decision:** Zietra is AWS-hosted, not Hostinger. All other Zietra services (Meet, entitlement, video server) already live on AWS us-east-1. The marketing site follows the same pattern: S3 static bucket + CloudFront distribution + ACM cert + Route53 hosted zone.
 
-- [ ] **Step 1: Verify SSH access**
+Pre-flight checklist:
+- `zietra.com` registered (registrar: Route53 or GoDaddy — confirm nameservers point to AWS Route53 once hosted zone is created)
+- AWS CLI logged in to account `134607809447` (same as dollor-production)
+- Region: `us-east-1` for S3/CloudFront/Route53. ACM cert MUST be in `us-east-1` (CloudFront requirement)
+
+- [ ] **Step 1: Create S3 bucket for static site**
 
 ```bash
-ssh -p 65002 u350621741@147.93.101.51 "echo SSH OK && ls /home/u350621741/domains/zietra.com/ 2>/dev/null || echo 'zietra.com dir missing — create in Hostinger panel first'"
+aws s3api create-bucket \
+  --bucket zietra-marketing \
+  --region us-east-1
+
+aws s3api put-public-access-block \
+  --bucket zietra-marketing \
+  --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=false,RestrictPublicBuckets=false"
 ```
 
-If `zietra.com dir missing`: go to Hostinger control panel → Websites → Add Website → add zietra.com. This creates the document root at `/home/u350621741/domains/zietra.com/public_html/`.
+Bucket stays private — CloudFront Origin Access Control (OAC) reads objects. No direct public S3 access.
 
-- [ ] **Step 2: Build fresh**
+- [ ] **Step 2: Create Route53 hosted zone for zietra.com**
+
+```bash
+aws route53 create-hosted-zone \
+  --name zietra.com \
+  --caller-reference "zietra-$(date +%s)" \
+  --query 'HostedZone.Id'
+```
+
+Capture the zone ID (e.g. `/hostedzone/ZXXXXXXXXXX`). Grab nameservers:
+
+```bash
+aws route53 get-hosted-zone --id <ZONE_ID> \
+  --query 'DelegationSet.NameServers'
+```
+
+**Manual step:** Update the registrar (GoDaddy/Route53 registrar) nameservers to point at those 4 NS records. Propagation: 5 min – 48 h.
+
+- [ ] **Step 3: Request ACM cert (us-east-1 mandatory for CloudFront)**
+
+```bash
+aws acm request-certificate \
+  --domain-name zietra.com \
+  --subject-alternative-names www.zietra.com \
+  --validation-method DNS \
+  --region us-east-1 \
+  --query 'CertificateArn'
+```
+
+Capture the ARN. Then fetch the DNS validation CNAME records:
+
+```bash
+aws acm describe-certificate \
+  --certificate-arn <CERT_ARN> \
+  --region us-east-1 \
+  --query 'Certificate.DomainValidationOptions[].ResourceRecord'
+```
+
+Add those CNAME records into the Route53 hosted zone. ACM auto-issues within 5–30 min once DNS is validated.
+
+- [ ] **Step 4: Build site locally**
 
 ```bash
 cd apps/zietra
@@ -2398,87 +2446,213 @@ npm run build
 ls dist/
 ```
 
-- [ ] **Step 3: Create deploy script**
+No `.htaccess` needed on S3 — CloudFront handles SPA fallback via Function/custom error response (step 6).
+
+- [ ] **Step 5: Upload to S3**
+
+```bash
+cd apps/zietra
+aws s3 sync dist/ s3://zietra-marketing/ \
+  --delete \
+  --cache-control "public, max-age=31536000, immutable" \
+  --exclude "index.html" \
+  --exclude "*.html"
+
+aws s3 cp dist/index.html s3://zietra-marketing/index.html \
+  --cache-control "public, max-age=0, must-revalidate"
+```
+
+Hashed asset files get long cache; `index.html` stays uncached so deploys take effect immediately.
+
+- [ ] **Step 6: Create CloudFront distribution with SPA routing**
+
+```bash
+cat > /tmp/zietra-cf-config.json <<EOF
+{
+  "CallerReference": "zietra-$(date +%s)",
+  "Aliases": { "Quantity": 2, "Items": ["zietra.com", "www.zietra.com"] },
+  "DefaultRootObject": "index.html",
+  "Origins": {
+    "Quantity": 1,
+    "Items": [{
+      "Id": "S3-zietra-marketing",
+      "DomainName": "zietra-marketing.s3.us-east-1.amazonaws.com",
+      "S3OriginConfig": { "OriginAccessIdentity": "" },
+      "OriginAccessControlId": "<OAC_ID>"
+    }]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "S3-zietra-marketing",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": { "Quantity": 2, "Items": ["GET", "HEAD"] },
+    "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+    "Compress": true
+  },
+  "CustomErrorResponses": {
+    "Quantity": 2,
+    "Items": [
+      { "ErrorCode": 403, "ResponseCode": "200", "ResponsePagePath": "/index.html", "ErrorCachingMinTTL": 10 },
+      { "ErrorCode": 404, "ResponseCode": "200", "ResponsePagePath": "/index.html", "ErrorCachingMinTTL": 10 }
+    ]
+  },
+  "ViewerCertificate": {
+    "ACMCertificateArn": "<CERT_ARN>",
+    "SSLSupportMethod": "sni-only",
+    "MinimumProtocolVersion": "TLSv1.2_2021"
+  },
+  "Enabled": true,
+  "Comment": "Zietra marketing site",
+  "PriceClass": "PriceClass_100"
+}
+EOF
+```
+
+First create the Origin Access Control:
+
+```bash
+aws cloudfront create-origin-access-control \
+  --origin-access-control-config '{
+    "Name": "zietra-marketing-oac",
+    "OriginAccessControlOriginType": "s3",
+    "SigningBehavior": "always",
+    "SigningProtocol": "sigv4"
+  }' \
+  --query 'OriginAccessControl.Id'
+```
+
+Substitute `<OAC_ID>` and `<CERT_ARN>` into `/tmp/zietra-cf-config.json`, then:
+
+```bash
+aws cloudfront create-distribution --distribution-config file:///tmp/zietra-cf-config.json \
+  --query '{id:Distribution.Id,domain:Distribution.DomainName}'
+```
+
+Capture the CloudFront distribution domain (e.g. `dXXXXX.cloudfront.net`).
+
+- [ ] **Step 7: Attach S3 bucket policy allowing CloudFront OAC**
+
+```bash
+DIST_ARN="arn:aws:cloudfront::134607809447:distribution/<DIST_ID>"
+cat > /tmp/zietra-s3-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "AllowCloudFrontOAC",
+    "Effect": "Allow",
+    "Principal": { "Service": "cloudfront.amazonaws.com" },
+    "Action": "s3:GetObject",
+    "Resource": "arn:aws:s3:::zietra-marketing/*",
+    "Condition": { "StringEquals": { "AWS:SourceArn": "${DIST_ARN}" } }
+  }]
+}
+EOF
+
+aws s3api put-bucket-policy \
+  --bucket zietra-marketing \
+  --policy file:///tmp/zietra-s3-policy.json
+```
+
+- [ ] **Step 8: Point Route53 at CloudFront**
+
+```bash
+cat > /tmp/zietra-dns.json <<EOF
+{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "zietra.com",
+        "Type": "A",
+        "AliasTarget": {
+          "HostedZoneId": "Z2FDTNDATAQYW2",
+          "DNSName": "<CLOUDFRONT_DOMAIN>",
+          "EvaluateTargetHealth": false
+        }
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "www.zietra.com",
+        "Type": "A",
+        "AliasTarget": {
+          "HostedZoneId": "Z2FDTNDATAQYW2",
+          "DNSName": "<CLOUDFRONT_DOMAIN>",
+          "EvaluateTargetHealth": false
+        }
+      }
+    }
+  ]
+}
+EOF
+
+aws route53 change-resource-record-sets \
+  --hosted-zone-id <ZONE_ID> \
+  --change-batch file:///tmp/zietra-dns.json
+```
+
+`Z2FDTNDATAQYW2` is the fixed CloudFront alias-target zone ID (AWS constant — do NOT change).
+
+- [ ] **Step 9: Create deploy script**
 
 Create `apps/zietra/deploy.sh`:
 ```bash
 #!/bin/bash
 set -e
 
+DIST_ID="<CLOUDFRONT_DIST_ID>"   # from step 6
+
 echo "Building Zietra..."
 npm run build
 
-echo "Deploying to Hostinger..."
-scp -P 65002 -r dist/* u350621741@147.93.101.51:/home/u350621741/domains/zietra.com/public_html/
+echo "Syncing to S3..."
+aws s3 sync dist/ s3://zietra-marketing/ \
+  --delete \
+  --cache-control "public, max-age=31536000, immutable" \
+  --exclude "index.html" \
+  --exclude "*.html"
+
+aws s3 cp dist/index.html s3://zietra-marketing/index.html \
+  --cache-control "public, max-age=0, must-revalidate"
+
+echo "Invalidating CloudFront..."
+aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/index.html" "/"
 
 echo "Deployed! → https://zietra.com"
 ```
 
-Make executable:
 ```bash
 chmod +x apps/zietra/deploy.sh
 ```
 
-- [ ] **Step 4: Create Hostinger .htaccess for SPA routing**
+- [ ] **Step 10: Verify live site**
 
-React Router needs server-side fallback so direct URL access to `/pricing`, `/login`, `/signup` doesn't 404. Create `apps/zietra/public/.htaccess`:
-
-```apache
-Options -MultiViews
-RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteRule ^ index.html [QSA,L]
-```
-
-This file will be copied to `dist/.htaccess` by Vite (public/ contents are copied verbatim).
-
-Rebuild after adding .htaccess:
-```bash
-cd apps/zietra
-npm run build
-ls dist/.htaccess   # should exist
-```
-
-- [ ] **Step 5: Deploy**
+Wait 5–10 min after first CloudFront distribution creation (status must be `Deployed`, not `InProgress`):
 
 ```bash
-cd apps/zietra
-./deploy.sh
+aws cloudfront get-distribution --id <DIST_ID> --query 'Distribution.Status'
 ```
 
-Expected:
-```
-Building Zietra...
-...
-Deploying to Hostinger...
-index.html                        100%  ...
-assets/index-[hash].css           100%  ...
-assets/HomePage-[hash].js         100%  ...
-...
-Deployed! → https://zietra.com
-```
-
-- [ ] **Step 6: Verify live site**
-
+Then:
 ```bash
-curl -s -o /dev/null -w "%{http_code}" https://zietra.com
+curl -sI https://zietra.com | head -3        # expect HTTP/2 200
+curl -sI https://zietra.com/pricing | head -3 # expect 200 (SPA fallback)
 ```
 
-Expected: `200`
+Manually verify in browser:
+- Homepage renders (hero, scroll reveals, pricing, footer)
+- Nav blur on scroll > 20px
+- DashboardMockup3D floats, flattens on hover
+- Reactions persist after refresh (localStorage)
+- Direct URL to `/pricing`, `/login`, `/signup` works (no 404 — CloudFront custom error → index.html)
+- HTTPS padlock active
 
-Also manually open `https://zietra.com` in browser and verify:
-- Homepage renders (not blank, not Hostinger placeholder)
-- Nav blur works on scroll
-- Pricing route: `https://zietra.com/pricing` → loads (not 404)
-- Login route: `https://zietra.com/login` → loads
-- HTTPS padlock active (Hostinger Let's Encrypt auto-provisioned)
-
-- [ ] **Step 7: Commit deploy script + .htaccess**
+- [ ] **Step 11: Commit deploy script**
 
 ```bash
 cd /Users/jeet/doordash-p2p
-git add apps/zietra/deploy.sh apps/zietra/public/.htaccess
-git commit -m "feat(zietra): add SPA .htaccess and deploy script for Hostinger"
+git add apps/zietra/deploy.sh
+git commit -m "feat(zietra): add S3+CloudFront deploy script"
 ```
 
 ---
