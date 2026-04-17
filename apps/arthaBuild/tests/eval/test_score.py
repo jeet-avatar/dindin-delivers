@@ -111,7 +111,11 @@ def test_full_deterministic_requires_code_true():
         "expected_record_types": ["salesorder"],
         "requires_code": True,
     }
-    response = "foo bar\n```js\nconst x = 1;\n```\nuse salesorder"
+    response = (
+        "foo bar\n```js\nconst x = 1;\n```\nuse salesorder. "
+        "This response is padded to exceed the sanity threshold "
+        "of 100 characters required by score_sanity for full credit."
+    )
     result = score_deterministic(case, response, elapsed_s=5)
     # 15 + 10 + 15 + 10 + 5 = 55
     assert result["total"] == 55.0
@@ -126,7 +130,11 @@ def test_full_deterministic_requires_code_false_reweights():
         "expected_record_types": ["salesorder"],
         "requires_code": False,
     }
-    response = "foo here, salesorder mentioned"
+    response = (
+        "foo here, salesorder mentioned in a realistic narrative "
+        "response padded to exceed the 100-char sanity threshold used "
+        "by score_sanity to reward non-trivial answers."
+    )
     result = score_deterministic(case, response, elapsed_s=5)
     # 15 + 10 + 10 + 5 = 40
     assert result["total"] == 40.0

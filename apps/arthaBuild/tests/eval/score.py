@@ -49,7 +49,7 @@ def score_record_types(response: str, types: list[str]) -> float:
 
 
 def score_sanity(response: str, elapsed_s: float) -> float:
-    if response and len(response) > 10 and elapsed_s <= 120:
+    if response and len(response) > 100 and elapsed_s <= 120:
         return 5.0
     return 0.0
 
