@@ -190,7 +190,9 @@ Verified source files (all exist in `apps/arthaBuild/src/backend/knowledge/boots
 | `SEARCH_TYPES` | `oracle-module-search.md` | `search.Type` enum values — uppercase strings like `TRANSACTION`, `CUSTOMER`, `ITEM` |
 | `SEARCH_APIS` | `oracle-module-search.md` | Table rows matching `\[search\.([a-z][A-Za-z]*)\(` in the "Module Members" table |
 
-Wave 1 of implementation inspects each file and pins the exact table / heading / regex rule. The floor checks below guarantee that if Wave 1's rule under-extracts, CI fails loudly rather than silently shipping an empty whitelist. The module-name slash conversion (`crypto-certificate` → `crypto/certificate`) is based on the naming convention observed in the N/* module reference; Wave 1 verifies this mapping by cross-checking one known case per sub-module.
+Wave 1 of implementation inspects each file and pins the exact table / heading / regex rule. The floor checks below guarantee that if Wave 1's rule under-extracts, CI fails loudly rather than silently shipping an empty whitelist.
+
+The module-name slash conversion (`oracle-module-crypto-certificate.md` → `N/crypto/certificate`) is based on the naming convention observed in the N/* module reference, but multi-hyphen filenames need per-case verification (is `oracle-module-format-i18n.md` → `N/format/i18n` or `N/format-i18n`? Is `oracle-module-task-accounting.md` → `N/task/accounting` or a single `N/task-accounting` module?). Wave 1 resolves ambiguous names by opening each file and reading the declared module name from its header line (`# N/... — SuiteScript 2.x Module`), not by mechanically splitting hyphens. Floor check alone won't catch a wrong-but-consistent mapping, so this cross-check is mandatory.
 
 ### Floor checks (circuit breaker)
 
@@ -337,13 +339,15 @@ Logged per `generate_suitescript` call:
 ```python
 {
   "validator_elapsed_ms": int,
-  "violations_attempt_1": int,
-  "violations_attempt_2": int,
-  "violations_attempt_3": int,
+  "violations_initial": int,
+  "violations_reprompt_1": int,
+  "violations_reprompt_2": int,
   "outcome": "clean" | "recovered" | "hard_blocked",
   "categories_hit": ["record_type", "module", ...],
 }
 ```
+
+`violations_initial` is the violation count on the first generation. `violations_reprompt_1` and `violations_reprompt_2` are null if the loop exited earlier.
 
 Aggregate signals:
 
@@ -424,7 +428,7 @@ Overall eval score may regress slightly by design: hard-blocks score 0 from the 
 | `apps/arthaBuild/src/backend/validators/checkers/script_type.py` | CREATE |
 | `apps/arthaBuild/src/backend/validators/checkers/search_api.py` | CREATE |
 | `apps/arthaBuild/scripts/build_whitelist.py` | CREATE |
-| `apps/arthaBuild/src/backend/rawapi.py` | MODIFY (+~15 lines at 542-578) |
+| `apps/arthaBuild/src/backend/rawapi.py` | MODIFY (+~20 lines at 542-578) |
 | `apps/arthaBuild/tests/validators/test_record_type.py` | CREATE |
 | `apps/arthaBuild/tests/validators/test_module.py` | CREATE |
 | `apps/arthaBuild/tests/validators/test_script_type.py` | CREATE |
