@@ -4,6 +4,7 @@ import { HelmetProvider } from 'react-helmet-async'
 import { ThemeProvider } from './context/ThemeProvider'
 import { PageLayout } from './components/layout/PageLayout'
 import { ScrollToTop } from './components/layout/ScrollToTop'
+import { ChatWidget } from './components/ui/ChatWidget'
 
 const Home = lazy(() => import('./pages/Home'))
 const Services = lazy(() => import('./pages/Services'))
@@ -22,6 +23,7 @@ const BlogPost = lazy(() => import('./pages/BlogPost'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const TermsOfService = lazy(() => import('./pages/TermsOfService'))
 const LaunchOS = lazy(() => import('./pages/LaunchOS'))
+const AIPlayground = lazy(() => import('./pages/AIPlayground'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function Loading() {
@@ -58,10 +60,12 @@ export default function App() {
                 <Route path="/blog/:slug" element={<BlogPost />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/tools/ai-playground" element={<AIPlayground />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </PageLayout>
+          <ChatWidget />
         </BrowserRouter>
       </ThemeProvider>
     </HelmetProvider>
