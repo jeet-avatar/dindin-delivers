@@ -1,0 +1,90 @@
+[
+  {
+    "id": "C-1",
+    "dimension": "C",
+    "prompt": "Generate a complete deployable SDF project (ACCOUNTCUSTOMIZATION) for a User Event script that sends an email notification to a manager when a Journal Entry is posted. Include manifest.xml, deploy.xml, the Objects XML, and the JavaScript file.",
+    "must_include": ["define(", "N/record", "N/email", "afterSubmit", "manifest.xml", "deploy.xml", "customscript_", "FileCabinet/SuiteScripts"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["journalentry"],
+    "expected_files": ["manifest.xml", "deploy.xml", "Objects/customscript_je_notify_ue.xml", "FileCabinet/SuiteScripts/je_notify_ue.js"],
+    "requires_code": true,
+    "rubric": "Must output all four files. manifest.xml must have projecttype ACCOUNTCUSTOMIZATION. The Objects XML must define scripttype userevent and reference the JS file path. The JS must export afterSubmit and use N/email. deploy.xml must reference ~/AccountCustomization."
+  },
+  {
+    "id": "C-2",
+    "dimension": "C",
+    "prompt": "Generate a complete SDF project (ACCOUNTCUSTOMIZATION) for a Map/Reduce script that batch-updates a custom field custbody_processed on Sales Orders. Include all project files: manifest.xml, deploy.xml, Objects XML, and the JS file.",
+    "must_include": ["define(", "N/search", "N/record", "getInputData", "reduce", "manifest.xml", "deploy.xml", "customscript_", "custbody_processed"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["salesorder"],
+    "expected_files": ["manifest.xml", "deploy.xml", "Objects/customscript_so_batch_mr.xml", "FileCabinet/SuiteScripts/so_batch_mr.js"],
+    "requires_code": true,
+    "rubric": "Must output all four files. The Objects XML must define scripttype mapreduce. The JS must export getInputData, map (optional), and reduce entry points. Must reference custbody_processed via setValue or submitFields. deploy.xml must be present."
+  },
+  {
+    "id": "C-3",
+    "dimension": "C",
+    "prompt": "Generate a complete SDF project (SUITEAPP type) for a RESTlet that exposes a GET endpoint returning open Purchase Orders for a given vendor ID. Include manifest.xml, deploy.xml, Objects XML, and the JS file.",
+    "must_include": ["define(", "N/search", "N/record", "function get(", "params", "manifest.xml", "deploy.xml", "customscript_", "purchaseorder"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["purchaseorder", "vendor"],
+    "expected_files": ["manifest.xml", "deploy.xml", "Objects/customscript_vendor_po_rl.xml", "FileCabinet/SuiteScripts/vendor_po_rl.js"],
+    "requires_code": true,
+    "rubric": "Must output all four files. manifest.xml must specify SUITEAPP project type. Objects XML must define scripttype restlet. JS must export get() function that accepts params.vendorId and returns search results as JSON."
+  },
+  {
+    "id": "C-4",
+    "dimension": "C",
+    "prompt": "Generate a complete SDF project (ACCOUNTCUSTOMIZATION) for a Scheduled Script that sends a daily digest email of new Vendor Bills created in the last 24 hours. Include manifest.xml, deploy.xml, Objects XML, and the JS file.",
+    "must_include": ["define(", "N/search", "N/email", "execute", "ScheduledScriptContext", "manifest.xml", "deploy.xml", "customscript_"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["vendorbill"],
+    "expected_files": ["manifest.xml", "deploy.xml", "Objects/customscript_vb_digest_ss.xml", "FileCabinet/SuiteScripts/vb_digest_ss.js"],
+    "requires_code": true,
+    "rubric": "Must output all four files. Objects XML must define scripttype scheduled. JS must export execute(). Must search vendorbill records filtered to last 24 hours. Must send email digest using N/email. Must handle empty result set gracefully."
+  },
+  {
+    "id": "C-5",
+    "dimension": "C",
+    "prompt": "Generate a complete SDF project (ACCOUNTCUSTOMIZATION) for a Suitelet that displays a dashboard of the top 10 customers by open balance. Include manifest.xml, deploy.xml, Objects XML, and the JS file.",
+    "must_include": ["define(", "N/ui/serverWidget", "N/search", "onRequest", "createForm", "manifest.xml", "deploy.xml", "customscript_"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["customer"],
+    "expected_files": ["manifest.xml", "deploy.xml", "Objects/customscript_cust_balance_sl.xml", "FileCabinet/SuiteScripts/cust_balance_sl.js"],
+    "requires_code": true,
+    "rubric": "Must output all four files. Objects XML must define scripttype suitelet. JS must export onRequest(). Must use N/ui/serverWidget createForm() to render output. Must search customer records sorted by balance descending, limited to 10."
+  },
+  {
+    "id": "C-6",
+    "dimension": "C",
+    "prompt": "Generate a complete SDF project (ACCOUNTCUSTOMIZATION) for a Client Script deployed on the Customer record that validates the email field format on fieldChanged and shows an inline warning using N/ui/message.",
+    "must_include": ["define(", "N/ui/message", "N/currentRecord", "fieldChanged", "ClientScriptContext", "manifest.xml", "deploy.xml", "customscript_"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["customer"],
+    "expected_files": ["manifest.xml", "deploy.xml", "Objects/customscript_cust_email_cs.xml", "FileCabinet/SuiteScripts/cust_email_cs.js"],
+    "requires_code": true,
+    "rubric": "Must output all four files. Objects XML must define scripttype clientscript. JS must export fieldChanged(). Must check fieldId === 'email'. Must use N/ui/message to show an inline warning message. Must validate email format with a regex."
+  },
+  {
+    "id": "C-7",
+    "dimension": "C",
+    "prompt": "Generate a complete SDF project (ACCOUNTCUSTOMIZATION) that bundles a SuiteFlow Workflow Action script and a Custom Record type definition. The workflow action should create a new customrecord_approval_log entry when a Sales Order approval is triggered. Include all project files.",
+    "must_include": ["define(", "N/record", "onAction", "WorkflowActionContext", "customrecord_approval_log", "manifest.xml", "deploy.xml"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["salesorder"],
+    "expected_files": ["manifest.xml", "deploy.xml", "Objects/customscript_so_approval_wa.xml", "Objects/customrecord_approval_log.xml", "FileCabinet/SuiteScripts/so_approval_wa.js"],
+    "requires_code": true,
+    "rubric": "Must output all five files. Objects/ must contain both the workflow action script XML and the custom record type XML. JS must export onAction() and create a customrecord_approval_log entry using record.create(). Custom record XML must define scriptid='customrecord_approval_log'."
+  },
+  {
+    "id": "C-8",
+    "dimension": "C",
+    "prompt": "Generate a complete SDF project (SUITEAPP) that deploys a Custom Record type customrecord_price_tier and a Saved Search that filters active price tier records. Include manifest.xml, deploy.xml, the custom record XML, and a RESTlet JS file to query it.",
+    "must_include": ["define(", "N/search", "customrecord_price_tier", "custrecord_", "manifest.xml", "deploy.xml", "function get("],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": [],
+    "expected_files": ["manifest.xml", "deploy.xml", "Objects/customrecord_price_tier.xml", "Objects/customscript_price_tier_rl.xml", "FileCabinet/SuiteScripts/price_tier_rl.js"],
+    "requires_code": true,
+    "rubric": "Must output all five files. manifest.xml must specify SUITEAPP. Custom record XML must define the scriptid as customrecord_price_tier. RESTlet JS must use N/search with type 'customrecord_price_tier' and export get(). Fields on the custom record must use custrecord_ prefix."
+  }
+]

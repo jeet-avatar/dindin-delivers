@@ -8,5 +8,75 @@
     "expected_record_types": ["opportunity"],
     "requires_code": true,
     "rubric": "Should iterate opportunities via getInputData (search), reduce by sales rep, send one email per rep summarizing stale opps. Governance budget should be checked in reduce stage."
+  },
+  {
+    "id": "A-2",
+    "dimension": "A",
+    "prompt": "Write a User Event script (beforeSubmit) on the Sales Order that prevents save when the customer has past-due invoices greater than $10,000.",
+    "must_include": ["define(", "N/search", "N/record", "UserEventContext", "beforeSubmit", "throw"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["salesorder", "customer", "invoice"],
+    "requires_code": true,
+    "rubric": "Must use beforeSubmit context. Must search for past-due invoices on the customer. Must throw an error using error.create() or a plain throw to block save with a clear message."
+  },
+  {
+    "id": "A-3",
+    "dimension": "A",
+    "prompt": "Write a Workflow Action script that auto-approves a Purchase Order when the total is below $500 and sets a custom body field custbody_auto_approved to true.",
+    "must_include": ["define(", "N/record", "WorkflowActionContext", "onAction", "custbody_auto_approved", "setValue"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["purchaseorder"],
+    "requires_code": true,
+    "rubric": "Must export onAction entry point. Must read the total field from context.newRecord. Must set custbody_auto_approved via setValue. Must call record.submitFields or save the record to persist the change."
+  },
+  {
+    "id": "A-4",
+    "dimension": "A",
+    "prompt": "Write a RESTlet that accepts a GET request with a salesOrderId parameter and returns the order's status, customer name, and total amount as JSON.",
+    "must_include": ["define(", "N/record", "function get(", "params", "getValue", "JSON.stringify"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["salesorder"],
+    "requires_code": true,
+    "rubric": "Must export a get() function. Must load the sales order by params.salesOrderId. Must return a plain object with status, customer name, and total. Must handle missing ID with an appropriate error response."
+  },
+  {
+    "id": "A-5",
+    "dimension": "A",
+    "prompt": "Write a Scheduled Script that runs nightly and closes all open opportunities that have had no activity for 90 days by setting their status to Closed Lost.",
+    "must_include": ["define(", "N/search", "N/record", "ScheduledScriptContext", "execute", "getRemainingUsage"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["opportunity"],
+    "requires_code": true,
+    "rubric": "Must export execute() entry point. Must use N/search to find stale opportunities. Must check getRemainingUsage() before each submitFields call. Must use the status field to set Closed Lost."
+  },
+  {
+    "id": "A-6",
+    "dimension": "A",
+    "prompt": "Write a Client Script that runs fieldChanged on the Sales Order and recalculates a custom field custbody_discount_amount whenever the discount percentage field changes.",
+    "must_include": ["define(", "N/currentRecord", "ClientScriptContext", "fieldChanged", "getValue", "setValue"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["salesorder"],
+    "requires_code": true,
+    "rubric": "Must export fieldChanged entry point. Must check that fieldId matches the discount percentage field before recalculating. Must use currentRecord.getValue() to read total and compute custbody_discount_amount. Must not cause infinite loop (check fieldId guard)."
+  },
+  {
+    "id": "A-7",
+    "dimension": "A",
+    "prompt": "Write a Suitelet that renders an HTML form where users can enter a customer ID and submit it to see a summary of that customer's open invoices, rendered as an HTML table.",
+    "must_include": ["define(", "N/ui/serverWidget", "N/search", "SuiteletContext", "onRequest", "createForm", "addField"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["customer", "invoice"],
+    "requires_code": true,
+    "rubric": "Must export onRequest entry point. Must branch on context.request.method (GET shows form, POST processes results). Must use serverWidget.createForm() and addField(). Must search for open invoices when customer ID is submitted."
+  },
+  {
+    "id": "A-8",
+    "dimension": "A",
+    "prompt": "Write a Portlet script that displays the top 5 overdue invoices for the current user's subsidiary on the NetSuite dashboard.",
+    "must_include": ["define(", "N/search", "N/runtime", "PortletContext", "render", "subsidiary"],
+    "must_not_include": ["TODO", "placeholder"],
+    "expected_record_types": ["invoice"],
+    "requires_code": true,
+    "rubric": "Must export render() entry point. Must use runtime.getCurrentUser().subsidiary to filter by subsidiary. Must use N/search on invoice type with overdue filter. Must limit to 5 results. Must use portlet methods to display results on the dashboard."
   }
 ]

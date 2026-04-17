@@ -1,0 +1,82 @@
+[
+  {
+    "id": "D-1",
+    "dimension": "D",
+    "prompt": "Write a Map/Reduce script that updates a custom field custbody_tier_flag on 100,000 Customer records. The script must respect governance limits and process records in safe batches without hitting SSS_TIME_LIMIT_EXCEEDED.",
+    "must_include": ["define(", "N/search", "N/record", "getInputData", "reduce", "getRemainingUsage", "submitFields"],
+    "must_not_include": ["TODO", "placeholder", "record.load(", "SSS_GOVERNANCE_EXCEEDED"],
+    "expected_record_types": ["customer"],
+    "requires_code": true,
+    "rubric": "Must use Map/Reduce (not Scheduled) for 100K records. Must use record.submitFields() in reduce stage (cheaper than load+save). Must check getRemainingUsage() in reduce before processing. Must NOT use record.load() in a tight loop. Map/Reduce governance: 5000 units/stage — must stay within that."
+  },
+  {
+    "id": "D-2",
+    "dimension": "D",
+    "prompt": "Write a SuiteScript function that saves a record and handles the RCRD_HAS_BEEN_CHANGED optimistic-lock error with retry logic (up to 3 attempts with exponential backoff).",
+    "must_include": ["define(", "N/record", "RCRD_HAS_BEEN_CHANGED", "catch", "retry", "record.load"],
+    "must_not_include": ["TODO", "placeholder", "RECORD_CHANGED", "OPTIMISTIC_LOCK_ERROR", "CONCURRENT_EDIT"],
+    "expected_record_types": ["salesorder"],
+    "requires_code": true,
+    "rubric": "Must catch errors and check e.name === 'RCRD_HAS_BEEN_CHANGED'. Must implement retry loop (3 attempts max). Must reload the record before each retry — not re-use the stale reference. Must use exponential or fixed backoff between retries. RCRD_HAS_BEEN_CHANGED is the real NetSuite error code — not RECORD_CHANGED or OPTIMISTIC_LOCK_ERROR."
+  },
+  {
+    "id": "D-3",
+    "dimension": "D",
+    "prompt": "Write an idempotent RESTlet that receives a webhook payload for an external payment event and creates a Customer Payment record. The RESTlet must be safe to call multiple times with the same payload without creating duplicate payments.",
+    "must_include": ["define(", "N/record", "N/search", "function post(", "idempotent", "getValue", "custbody_external_payment_id"],
+    "must_not_include": ["TODO", "placeholder", "N/erp/payments"],
+    "expected_record_types": ["customerpayment", "salesorder"],
+    "requires_code": true,
+    "rubric": "Must export post() function. Must implement idempotency by searching for an existing payment with the same external ID (custbody_external_payment_id or similar) before creating a new one. Must return the existing record ID if duplicate detected. Must NOT create a duplicate payment on repeated calls."
+  },
+  {
+    "id": "D-4",
+    "dimension": "D",
+    "prompt": "Write a Scheduled Script that uses search.runPaged() to process all Invoice records (potentially more than 1000), sending a reminder email for each overdue invoice without hitting governance limits.",
+    "must_include": ["define(", "N/search", "N/email", "runPaged", "pageRanges", "fetch", "getRemainingUsage", "execute"],
+    "must_not_include": ["TODO", "placeholder", "getRange(", "search.run().each("],
+    "expected_record_types": ["invoice"],
+    "requires_code": true,
+    "rubric": "Must use search.runPaged({ pageSize: 1000 }) — not search.run().each() which is limited to 4000 rows. Must iterate pageRanges and call pagedSearch.fetch({ index: pageRange.index }). Must check getRemainingUsage() before each email send. Must explain why runPaged is correct for >1000 results."
+  },
+  {
+    "id": "D-5",
+    "dimension": "D",
+    "prompt": "Explain and demonstrate when to use SuiteQL (N/query module) versus N/search for a reporting query, and show a concrete SuiteQL query that returns Sales Order totals grouped by subsidiary for the current fiscal year.",
+    "must_include": ["define(", "N/query", "runSuiteQL", "SELECT", "subsidiary", "SUM", "GROUP BY"],
+    "must_not_include": ["TODO", "placeholder", "N/erp/query", "query.runSearch("],
+    "expected_record_types": ["salesorder"],
+    "requires_code": true,
+    "rubric": "Must correctly identify when SuiteQL is better (complex aggregations, GROUP BY, multi-join reports) vs N/search (record-level filtering, saved searches). Must show a valid SuiteQL query using query.runSuiteQL(). Query must use FROM transaction WHERE type = 'SalesOrd', GROUP BY subsidiary."
+  },
+  {
+    "id": "D-6",
+    "dimension": "D",
+    "prompt": "Write a User Event afterSubmit script that kicks off a heavy data processing job asynchronously using N/task rather than processing inline, to avoid hitting the User Event 1000-unit governance limit.",
+    "must_include": ["define(", "N/task", "task.TaskType.MAP_REDUCE", "task.create", "submit()", "afterSubmit", "getRemainingUsage"],
+    "must_not_include": ["TODO", "placeholder", "task.TaskType.PROCESS", "task.schedule("],
+    "expected_record_types": ["salesorder"],
+    "requires_code": true,
+    "rubric": "Must use N/task module. Must create a MAP_REDUCE or SCHEDULED_SCRIPT task via task.create(). Must call submit() to kick off the async job. Must NOT process inline in the User Event. Must explain User Event governance budget (1000 units) and why async is necessary for heavy work."
+  },
+  {
+    "id": "D-7",
+    "dimension": "D",
+    "prompt": "Write a Scheduled Script that demonstrates correct log level discipline: using log.debug only for development diagnostics, log.audit for key business events, and log.error for caught exceptions. The script processes Vendor Bills and must be production-safe.",
+    "must_include": ["define(", "N/search", "N/log", "log.debug", "log.audit", "log.error", "execute", "catch"],
+    "must_not_include": ["TODO", "placeholder", "console.log(", "log.info("],
+    "expected_record_types": ["vendorbill"],
+    "requires_code": true,
+    "rubric": "Must show all three log levels used correctly: log.debug for loop-level variable dumps, log.audit for script start/end and record processing milestones, log.error with e.message + e.stack in catch blocks. Must NOT use console.log() (not available in server scripts) or log.info() (does not exist in N/log)."
+  },
+  {
+    "id": "D-8",
+    "dimension": "D",
+    "prompt": "A Scheduled Script needs to process records indefinitely (new records arrive daily). Implement a self-rescheduling pattern using N/task so that the script re-queues itself when governance is low, picking up where it left off via a script parameter.",
+    "must_include": ["define(", "N/task", "N/runtime", "task.TaskType.SCHEDULED_SCRIPT", "getRemainingUsage", "getParameter", "custscript_last_id", "submit()"],
+    "must_not_include": ["TODO", "placeholder", "while(true)", "setInterval("],
+    "expected_record_types": [],
+    "requires_code": true,
+    "rubric": "Must use task.create({ taskType: task.TaskType.SCHEDULED_SCRIPT }) to resubmit itself. Must pass last processed ID as a script parameter (custscript_last_id or similar). Must check getRemainingUsage() < threshold and submit the next task before returning. Must NOT use while(true) or any infinite loop construct."
+  }
+]
