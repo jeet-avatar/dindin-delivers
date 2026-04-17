@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Architecture Playground</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f1a;--surface:#13152a;--card:#1a1d2e;--border:rgba(255,255,255,.08);
+  --text:#e2e8f0;--muted:#64748b;
+  --indigo:#6366f1;--cyan:#22d3ee;--green:#34d399;
+  --orange:#fb923c;--yellow:#fbbf24;--pink:#f472b6;
+  --purple:#a78bfa;--red:#f87171;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── HEADER ── */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:.65rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-shrink:0;z-index:10}
+header h1{font-size:1rem;font-weight:800;letter-spacing:-.02em}
+header p{font-size:.72rem;color:var(--muted)}
+.hdr-btns{margin-left:auto;display:flex;gap:.4rem}
+.hbtn{padding:.35rem .75rem;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:.72rem;cursor:pointer;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:.3rem}
+.hbtn:hover{background:rgba(255,255,255,.06)}
+.hbtn.danger{border-color:rgba(248,113,113,.3);color:var(--red)}
+.hbtn.primary{background:var(--indigo);border-color:var(--indigo);color:#fff}
+
+/* ── LAYOUT ── */
+.app{display:flex;flex:1;overflow:hidden}
+
+/* ── LEFT PANEL: use cases ── */
+.panel-left{width:250px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:.85rem}
+.panel-title{font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.65rem}
+.uc-card{padding:.7rem;border-radius:10px;border:1px solid var(--border);margin-bottom:.45rem;cursor:pointer;transition:all .2s}
+.uc-card:hover,.uc-card.active{border-color:var(--indigo);background:rgba(99,102,241,.08)}
+.uc-card.active{border-color:var(--indigo)}
+.uc-emoji{font-size:1.5rem;line-height:1;margin-bottom:.25rem}
+.uc-name{font-size:.82rem;font-weight:700;margin-bottom:.15rem}
+.uc-desc{font-size:.7rem;color:var(--muted);line-height:1.4;margin-bottom:.35rem}
+.badge{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.62rem;font-weight:600}
+.bg{background:rgba(52,211,153,.12);color:var(--green)}
+.bi{background:rgba(251,191,36,.12);color:var(--yellow)}
+.ba{background:rgba(248,113,113,.12);color:var(--red)}
+
+/* ── CANVAS PANEL ── */
+.panel-canvas{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* toolbar */
+.ctoolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.45rem .85rem;display:flex;align-items:center;gap:.4rem;flex-shrink:0;height:42px}
+.ctoolbar-label{font-size:.72rem;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbtn{padding:.28rem .6rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:.7rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+.tbtn:hover{background:rgba(255,255,255,.05)}
+.tbtn.conn-active{background:var(--cyan);border-color:var(--cyan);color:#0d0f1a;font-weight:600}
+
+/* canvas area */
+.canvas-area{flex:1;position:relative;overflow:hidden;
+  background:radial-gradient(circle at 15% 85%,rgba(99,102,241,.05) 0%,transparent 55%),
+              radial-gradient(circle at 85% 15%,rgba(34,211,238,.05) 0%,transparent 55%)}
+#svg-conns{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.c-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);pointer-events:none;gap:.5rem}
+.c-empty .big{font-size:3.5rem;opacity:.4}
+.c-empty p{font-size:.85rem;opacity:.6}
+.c-empty small{font-size:.72rem;opacity:.4}
+
+/* nodes */
+.c-node{position:absolute;padding:.55rem .8rem;border-radius:10px;border:1.5px solid var(--border);background:var(--card);cursor:grab;user-select:none;width:138px;transition:border-color .2s,box-shadow .2s;z-index:2}
+.c-node:hover{border-color:rgba(255,255,255,.18);box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.c-node.selected{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(34,211,238,.15)}
+.c-node.conn-src{border-color:var(--yellow);box-shadow:0 0 0 3px rgba(251,191,36,.2);animation:pulse 1.2s infinite}
+.c-node.n-ok{border-color:rgba(52,211,153,.5)}
+.c-node.n-warn{border-color:rgba(251,191,36,.5)}
+.c-node.n-err{border-color:rgba(248,113,113,.6)}
+.c-node .n-emoji{font-size:1.2rem;line-height:1}
+.c-node .n-name{font-size:.72rem;font-weight:600;margin:.2rem 0 .1rem;line-height:1.2}
+.c-node .n-cat{font-size:.62rem;color:var(--muted)}
+.c-node .n-remove{position:absolute;top:4px;right:6px;font-size:.65rem;color:var(--muted);cursor:pointer;line-height:1;padding:2px 3px;border-radius:3px;opacity:0;transition:opacity .15s}
+.c-node:hover .n-remove{opacity:1}
+.c-node .n-remove:hover{color:var(--red);background:rgba(248,113,113,.1)}
+
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(251,191,36,.2)}50%{box-shadow:0 0 0 6px rgba(251,191,36,.1)}}
+
+/* palette */
+.palette{background:var(--surface);border-top:1px solid var(--border);padding:.6rem .85rem;flex-shrink:0}
+.pal-cats{display:flex;gap:.3rem;margin-bottom:.5rem;flex-wrap:wrap}
+.pcat{padding:.18rem .5rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.67rem;cursor:pointer;transition:all .15s}
+.pcat.active,.pcat:hover{background:rgba(99,102,241,.15);border-color:var(--indigo);color:var(--indigo)}
+.pal-items{display:flex;gap:.35rem;flex-wrap:wrap;max-height:68px;overflow-y:auto}
+.pitem{padding:.3rem .6rem;border-radius:7px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:.7rem;display:flex;align-items:center;gap:.3rem;transition:all .15s;white-space:nowrap}
+.pitem:hover{background:rgba(99,102,241,.15);border-color:var(--indigo)}
+.pitem-used{border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.05)}
+
+/* ── RIGHT PANEL ── */
+.panel-right{width:295px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.tips-hdr{padding:.85rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.tips-hdr h3{font-size:.82rem;font-weight:700;margin-bottom:.1rem}
+.tips-hdr p{font-size:.7rem;color:var(--muted)}
+.score-wrap{margin-top:.65rem}
+.score-bar{height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-bottom:.3rem}
+.score-fill{height:100%;border-radius:3px;transition:width .5s ease,background .5s}
+.score-txt{font-size:.67rem;color:var(--muted)}
+
+.uc-detail{padding:.85rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.uc-detail h4{font-size:.78rem;font-weight:700;margin-bottom:.4rem}
+.uc-detail p{font-size:.7rem;color:var(--muted);line-height:1.5;margin-bottom:.5rem}
+.flow-row{display:flex;align-items:center;gap:.25rem;flex-wrap:wrap}
+.flow-chip{padding:.15rem .4rem;border-radius:4px;font-size:.62rem;background:rgba(99,102,241,.12);color:var(--indigo);border:1px solid rgba(99,102,241,.25)}
+.flow-arr{color:var(--muted);font-size:.65rem}
+
+.tips-body{flex:1;padding:.85rem 1rem;overflow-y:auto;display:flex;flex-direction:column;gap:.45rem}
+.tip{padding:.65rem .8rem;border-radius:8px;font-size:.75rem;line-height:1.5;border-left:3px solid}
+.tip.t-err{background:rgba(248,113,113,.07);border-color:var(--red)}
+.tip.t-warn{background:rgba(251,191,36,.07);border-color:var(--yellow)}
+.tip.t-ok{background:rgba(52,211,153,.07);border-color:var(--green)}
+.tip.t-info{background:rgba(99,102,241,.07);border-color:var(--indigo)}
+.tip strong{display:block;font-weight:600;margin-bottom:.2rem;font-size:.73rem}
+.tip code{font-family:'JetBrains Mono',monospace;font-size:.68rem;background:rgba(255,255,255,.08);padding:.1rem .3rem;border-radius:3px}
+
+/* ── CONNECTIONS ── */
+.conn-path{fill:none;stroke-width:2;opacity:.75}
+.conn-ok{stroke:var(--green)}
+.conn-warn{stroke:var(--yellow);stroke-dasharray:5 3}
+.conn-err{stroke:var(--red);stroke-dasharray:4 3}
+.conn-def{stroke:var(--indigo)}
+
+/* scrollbar */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+
+/* ── TOOLTIP ── */
+.tooltip{position:fixed;background:#1e2035;border:1px solid var(--border);border-radius:8px;padding:.5rem .75rem;font-size:.72rem;color:var(--text);pointer-events:none;z-index:999;max-width:220px;line-height:1.4;box-shadow:0 8px 32px rgba(0,0,0,.5);display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚡ AI Architecture Playground</h1>
+    <p>Pick a use case → connect the dots → play with the architecture → get guided</p>
+  </div>
+  <div class="hdr-btns">
+    <button class="hbtn primary" id="btn-hint">💡 Show Solution</button>
+    <button class="hbtn danger" id="btn-clear">🗑 Clear</button>
+    <a class="hbtn" href="rag-study-guide.html">📖 Study Guide</a>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- ── PANEL 1: use cases ── -->
+  <div class="panel-left">
+    <div class="panel-title">Choose a Use Case</div>
+    <div id="uc-list"></div>
+  </div>
+
+  <!-- ── PANEL 2: canvas ── -->
+  <div class="panel-canvas">
+    <div class="ctoolbar">
+      <span class="ctoolbar-label" id="toolbar-label">← Select a use case to begin</span>
+      <button class="tbtn" id="btn-connect">🔗 Connect</button>
+      <button class="tbtn" id="btn-undo">↩ Undo</button>
+      <button class="tbtn" id="btn-arrange">⚡ Arrange</button>
+    </div>
+
+    <div class="canvas-area" id="canvas">
+      <svg id="svg-conns"></svg>
+      <div class="c-empty" id="c-empty">
+        <div class="big">🏗️</div>
+        <p>Select a use case, add components from below</p>
+        <small>Drag to reposition · Connect button to wire · ✕ to remove</small>
+      </div>
+    </div>
+
+    <div class="palette">
+      <div class="pal-cats" id="pal-cats"></div>
+      <div class="pal-items" id="pal-items"></div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 3: guidance ── -->
+  <div class="panel-right">
+    <div class="tips-hdr">
+      <h3 id="tips-title">Architecture Advisor</h3>
+      <p id="tips-sub">Select a use case on the left</p>
+      <div class="score-wrap">
+        <div class="score-bar"><div class="score-fill" id="score-fill" style="width:0%;background:var(--muted)"></div></div>
+        <div class="score-txt" id="score-txt">Add components to begin scoring</div>
+      </div>
+    </div>
+    <div id="uc-detail" class="uc-detail" style="display:none"></div>
+    <div class="tips-body" id="tips-body">
+      <div class="tip t-info">
+        <strong>👋 How this works</strong>
+        1. Pick a scenario (left panel)<br>
+        2. Read the expected flow (right panel)<br>
+        3. Add components from the palette<br>
+        4. Wire them with the Connect button<br>
+        5. Watch this panel for errors &amp; tips
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════════════════════════
+
+const UC = [
+  {
+    id:'support-bot', emoji:'🤖', name:'Customer Support Bot',
+    difficulty:'Beginner', color:'#6366f1',
+    description:'Answer 10K+ customer questions/day from your knowledge base (docs, FAQs, past tickets). Needs accuracy, speed, and safety.',
+    flow:['chunker','embedder','vectordb','retriever','reranker','llm','guardrails'],
+    flowLabels:['Chunk docs','Embed','Store','Retrieve','Rerank','Generate','Filter'],
+    required:['llm','embedder','vectordb'],
+    recommended:['chunker','reranker','cache','guardrails','evaluator'],
+    compTips:{
+      llm:'💡 Use <code>claude-haiku-4-5-20251001</code> for speed/cost, <code>claude-sonnet-4-6</code> for accuracy. Cap <code>max_tokens=512</code>.',
+      embedder:'💡 <code>text-embedding-3-small</code> — best price/performance. 1536 dimensions, great for English.',
+      vectordb:'💡 Start with <code>pgvector</code> if you have PostgreSQL. Move to <code>Qdrant</code> at scale.',
+      reranker:'💡 Cohere Rerank bumps retrieval precision from ~60% → ~85%. Worth the extra 80ms.',
+      guardrails:'💡 Block competitor mentions, PII leaks, and jailbreaks before users see them.',
+      cache:'💡 40–60% of support queries are repeats. Redis cache → instant response + huge cost savings.',
+      evaluator:'💡 Run RAGAS: <code>faithfulness</code> + <code>answer_relevancy</code> on a 100-question golden set.',
+      chunker:'💡 512 tokens, 50-token overlap. Use semantic chunker for technical docs — preserves context.',
+    },
+    missingTips:{
+      chunker:'⚠️ No chunker — arbitrary splits break semantic units. Retrieval quality drops 20–30%.',
+      reranker:'⚠️ Without reranking, top-k retrieval precision ≈ 60%. Add Cohere Rerank for 25% quality boost.',
+      guardrails:'🚨 Customer-facing LLM with NO guardrails is a liability. Block harmful output before launch.',
+      evaluator:'⚠️ No evaluation layer. How do you know if answers are correct? Add RAGAS before launch.',
+      cache:'💡 Missing Redis cache — you\'re paying full LLM cost for repeated questions.',
+    },
+    wrongConns:[
+      {from:'llm',to:'vectordb',msg:'🚫 LLM → VectorDB: reversed! Retriever queries the DB → sends context to LLM. Not the other way.'},
+      {from:'embedder',to:'llm',msg:'⚠️ Embedder → LLM: don\'t send raw vectors to the LLM. LLM needs decoded text context.'},
+      {from:'reranker',to:'vectordb',msg:'⚠️ Reranker → VectorDB: reranker works AFTER retrieval. Connect: VectorDB → Retriever → Reranker.'},
+    ],
+    goodConns:[
+      {from:'chunker',to:'embedder',msg:'✅ Chunker → Embedder: correct! Chunks get embedded individually.'},
+      {from:'retriever',to:'reranker',msg:'✅ Retriever → Reranker: great! Top-k results get re-scored for relevance.'},
+      {from:'reranker',to:'llm',msg:'✅ Reranker → LLM: perfect. Reranked context fed to LLM for grounded answer.'},
+    ],
+  },
+  {
+    id:'voice-agent', emoji:'🎙️', name:'Voice AI Assistant',
+    difficulty:'Intermediate', color:'#22d3ee',
+    description:'Real-time voice assistant: microphone → transcribe → reason → speak. Target latency: under 500ms end-to-end.',
+    flow:['vad','asr','llm','tts','streaming'],
+    flowLabels:['Detect voice','Transcribe','Reason','Synthesize','Stream'],
+    required:['asr','llm','tts'],
+    recommended:['vad','cache','streaming','session-memory'],
+    compTips:{
+      asr:'💡 Deepgram Nova-2 for streaming (real-time). Whisper large-v3 for accuracy if latency allows.',
+      llm:'💡 Use <code>claude-haiku-4-5-20251001</code> or GPT-4o-mini. Voice demands fast models — full Opus adds 1–2s.',
+      tts:'💡 ElevenLabs for voice quality + cloning. OpenAI TTS for reliability. Kokoro for self-hosted.',
+      vad:'💡 Silero VAD — detects speech vs silence. Prevents transcribing background noise.',
+      streaming:'💡 Stream LLM tokens to TTS in parallel. Don\'t wait for full response — cuts 200–400ms.',
+      cache:'💡 Cache common responses (greetings, clarifications) for instant audio playback.',
+      'session-memory':'💡 Store conversation turns in Redis — assistant needs context across multiple exchanges.',
+    },
+    missingTips:{
+      vad:'⚠️ No voice activity detection — you\'ll transcribe silence and background noise endlessly.',
+      streaming:'⚠️ Without streaming: latency = full ASR + full LLM + full TTS. Easily >2 seconds. Add streaming.',
+      'session-memory':'⚠️ No session memory — assistant forgets everything between turns. Users will be frustrated.',
+    },
+    wrongConns:[
+      {from:'tts',to:'asr',msg:'🚫 TTS → ASR: feedback loop! The assistant would hear and transcribe its own voice. Add acoustic echo cancellation.'},
+      {from:'llm',to:'asr',msg:'⚠️ LLM → ASR: pipeline is backwards. Flow is: VAD → ASR → LLM → TTS.'},
+    ],
+    goodConns:[
+      {from:'vad',to:'asr',msg:'✅ VAD → ASR: correct. Only transcribe when speech is detected.'},
+      {from:'asr',to:'llm',msg:'✅ ASR → LLM: correct flow. Transcribed text feeds the language model.'},
+    ],
+  },
+  {
+    id:'doc-intel', emoji:'📄', name:'Document Intelligence',
+    difficulty:'Intermediate', color:'#fb923c',
+    description:'Process 10K+ PDFs, invoices, contracts. Extract structured data, answer questions, surface insights from any document type.',
+    flow:['s3','ocr-vision','chunker','embedder','vectordb','llm'],
+    flowLabels:['Store docs','Parse PDFs','Chunk text','Embed','Index','Query'],
+    required:['llm','embedder','vectordb','s3'],
+    recommended:['ocr-vision','chunker','reranker','evaluator','lambda'],
+    compTips:{
+      'ocr-vision':'💡 Use <code>Claude claude-opus-4-7</code> or GPT-4V for PDFs with tables/charts. ColPali for page-level visual retrieval.',
+      llm:'💡 <code>claude-opus-4-7</code> (200K context) for full-doc analysis. <code>claude-haiku-4-5-20251001</code> for structured extraction.',
+      s3:'💡 Store raw PDFs in S3. Store processed text/embeddings in RDS or DynamoDB. Use S3 events to trigger processing.',
+      lambda:'💡 Lambda on S3 upload → runs OCR → chunks → embeds → inserts to vector DB. Fully serverless ingestion.',
+      chunker:'💡 Document-aware chunking: preserve section headings, table cells, numbered lists. Don\'t split mid-sentence.',
+      evaluator:'💡 Evaluate extraction accuracy on 50 known-answer documents before production.',
+    },
+    missingTips:{
+      'ocr-vision':'⚠️ No OCR/vision model — scanned PDFs and image-heavy docs will be empty after chunking.',
+      s3:'⚠️ No document storage defined. Where do files live? Add S3 for durability + trigger-based processing.',
+      lambda:'⚠️ No ingestion pipeline. How do new docs get processed? Add Lambda trigger on S3 upload.',
+    },
+    wrongConns:[
+      {from:'vectordb',to:'s3',msg:'⚠️ VectorDB → S3: reversed. S3 → Lambda → process → VectorDB is the correct ingestion direction.'},
+    ],
+    goodConns:[
+      {from:'s3',to:'lambda',msg:'✅ S3 → Lambda: event-driven ingestion triggered on upload.'},
+      {from:'ocr-vision',to:'chunker',msg:'✅ OCR/Vision → Chunker: parse visually, then chunk semantically.'},
+    ],
+  },
+  {
+    id:'research-agent', emoji:'🔬', name:'Autonomous Research Agent',
+    difficulty:'Advanced', color:'#34d399',
+    description:'Multi-step research: search web, read papers, synthesize findings, write structured reports. Needs loop control and human oversight.',
+    flow:['langgraph','llm','web-search','vectordb','memory','hitl'],
+    flowLabels:['Orchestrate','Plan+Reason','Gather data','Store knowledge','Remember','Human approve'],
+    required:['llm','langgraph','web-search'],
+    recommended:['vectordb','memory','hitl','evaluator','guardrails'],
+    compTips:{
+      langgraph:'💡 Define: Research → Search → Synthesize → Review nodes. Conditional edges for retry loops. Max iterations = 5.',
+      llm:'💡 <code>claude-opus-4-7</code> for deep reasoning. Cheaper model for sub-tasks (format, extract, summarize).',
+      'web-search':'💡 Tavily API — built for LLM agents. Returns clean extracts, not raw HTML. Add to LangGraph tool node.',
+      hitl:'💡 Add <code>interrupt_before=[\'publish\']</code> — human reviews synthesized report before it\'s sent.',
+      memory:'💡 <code>SqliteSaver</code> for local dev. <code>PostgresCheckpointer</code> for production multi-session research.',
+      vectordb:'💡 Store retrieved articles in vector DB — agent can re-query without re-fetching from web.',
+      guardrails:'💡 Research agents hallucinate citations. Add citation verifier + fact-check step before publication.',
+    },
+    missingTips:{
+      hitl:'🚨 Autonomous agent publishing research with NO human review WILL produce and spread hallucinated content.',
+      memory:'⚠️ No memory — agent can\'t resume long research tasks or avoid re-reading the same sources.',
+      langgraph:'🚨 No orchestration — without LangGraph state machine, you cannot control loops, retries, or conditional paths.',
+    },
+    wrongConns:[
+      {from:'llm',to:'web-search',msg:'⚠️ LLM → Web Search: LLM should call search as a TOOL, not be directly wired. Use LangGraph tool node.'},
+    ],
+    goodConns:[
+      {from:'web-search',to:'vectordb',msg:'✅ Web Search → VectorDB: excellent! Store retrieved pages to avoid re-fetching.'},
+      {from:'llm',to:'hitl',msg:'✅ LLM → HITL: great! Route agent output through human approval before publishing.'},
+    ],
+  },
+  {
+    id:'vision-pipeline', emoji:'👁️', name:'Computer Vision Pipeline',
+    difficulty:'Intermediate', color:'#fbbf24',
+    description:'Detect objects, segment regions, classify images at scale. Production pipeline for retail, quality control, or security systems.',
+    flow:['s3','sqs','ecs','yolo','sam','clip'],
+    flowLabels:['Store images','Queue jobs','Run GPU workers','Detect','Segment','Classify'],
+    required:['yolo','s3','ecs'],
+    recommended:['sam','clip','cache','evaluator','sqs'],
+    compTips:{
+      yolo:'💡 <code>YOLOv8n</code> for edge/real-time, <code>YOLOv8x</code> for server max-accuracy. Fine-tune on your domain data with 500+ labeled images.',
+      sam:'💡 Run SAM only when you need precise masks (not just bounding boxes). SAM is heavy — batch process, don\'t run per-frame.',
+      clip:'💡 CLIP embeddings enable text-based image search. Add to product catalog for "find images like this description".',
+      ecs:'💡 ECS with GPU instances (g5.xlarge). Auto-scale ECS service based on SQS queue depth — scale to zero when idle.',
+      sqs:'💡 Queue image processing jobs in SQS. Decouple upload from inference. Handle traffic spikes gracefully.',
+      cache:'💡 Cache CLIP embeddings per image hash. Re-inference is GPU-expensive and results don\'t change.',
+    },
+    missingTips:{
+      ecs:'⚠️ No compute layer. YOLOv8 needs GPU for real-time performance — where does inference run?',
+      sqs:'⚠️ No queue — synchronous pipeline can\'t handle burst traffic. Add SQS to decouple ingestion from processing.',
+      evaluator:'⚠️ No evaluation. How do you know mAP on production data? Set up eval pipeline before launch.',
+    },
+    wrongConns:[
+      {from:'clip',to:'yolo',msg:'⚠️ CLIP → YOLO: wrong order. YOLO detects regions first, CLIP classifies/embeds them after.'},
+    ],
+    goodConns:[
+      {from:'yolo',to:'sam',msg:'✅ YOLO → SAM: detect boxes first, then use boxes as SAM prompts for precise masks.'},
+      {from:'sam',to:'clip',msg:'✅ SAM → CLIP: segment regions, then classify each segment with CLIP embeddings.'},
+      {from:'sqs',to:'ecs',msg:'✅ SQS → ECS: queue-driven GPU workers — auto-scale based on queue depth.'},
+    ],
+  },
+  {
+    id:'finetune-serve', emoji:'🧠', name:'Fine-Tune & Serve LLM',
+    difficulty:'Advanced', color:'#a78bfa',
+    description:'Fine-tune a base model on domain data, evaluate quality, quantize for efficiency, then serve at scale. The full MLOps cycle.',
+    flow:['dataset','lora','evaluator','quantize','vllm','wandb'],
+    flowLabels:['Curate data','Train LoRA','Evaluate','Quantize','Serve','Track'],
+    required:['dataset','lora','evaluator','vllm'],
+    recommended:['wandb','quantize','guardrails','ecs'],
+    compTips:{
+      lora:'💡 Start: <code>rank=16, alpha=32</code>, target <code>q_proj</code> and <code>v_proj</code>. Train on A100 for 1–3 hours with SFTTrainer.',
+      dataset:'💡 Quality beats quantity. 1K curated pairs often outperforms 100K noisy ones. Use GPT-4 to filter.',
+      evaluator:'💡 Eval on held-out set BEFORE and AFTER training. Track accuracy, format adherence, and regression vs base model.',
+      vllm:'💡 <code>vllm serve your-model --tensor-parallel-size 2</code>. OpenAI-compatible API. 3–5× faster than 🤗 transformers.',
+      quantize:'💡 AWQ int4: 4× memory reduction, <1% quality loss. Serve on A10G instead of A100 — much cheaper.',
+      wandb:'💡 Log loss curves, eval metrics, sample generations. Compare hyperparameter sweeps in W&B dashboard.',
+    },
+    missingTips:{
+      evaluator:'🚨 Training without evaluation is flying blind. Eval MUST run before any deployment.',
+      wandb:'⚠️ No experiment tracking — how do you know which hyperparameters worked? W&B takes 10 min to add.',
+      dataset:'🚨 No dataset defined. You need curated training data BEFORE any fine-tuning step.',
+      vllm:'⚠️ No serving layer. A fine-tuned model as .safetensors files cannot serve production traffic.',
+    },
+    wrongConns:[
+      {from:'vllm',to:'lora',msg:'🚫 vLLM → LoRA: backwards! Train LoRA first, THEN load the adapter into vLLM for serving.'},
+      {from:'evaluator',to:'dataset',msg:'⚠️ Evaluator → Dataset: evaluate after training, not during data creation. Connect: Dataset → LoRA → Evaluator.'},
+    ],
+    goodConns:[
+      {from:'dataset',to:'lora',msg:'✅ Dataset → LoRA: correct. Curated data trains the adapter.'},
+      {from:'lora',to:'evaluator',msg:'✅ LoRA → Evaluator: always evaluate before serving.'},
+      {from:'quantize',to:'vllm',msg:'✅ Quantize → vLLM: quantized model loads into vLLM for efficient serving.'},
+    ],
+  },
+  {
+    id:'coding-agent', emoji:'💻', name:'Autonomous Coding Agent',
+    difficulty:'Advanced', color:'#f472b6',
+    description:'Agent that reads your codebase, writes code, runs tests, and fixes bugs — with mandatory human approval for every file write.',
+    flow:['mcp','llm','langgraph','sandbox','hitl','github'],
+    flowLabels:['Tool access','Plan changes','Orchestrate','Execute safely','Human review','Commit'],
+    required:['llm','mcp','sandbox','hitl'],
+    recommended:['langgraph','evaluator','guardrails'],
+    compTips:{
+      mcp:'💡 MCP server with tools: <code>read_file, write_file, run_tests, search_code, list_dir</code>. Claude accesses repo via MCP.',
+      llm:'💡 <code>claude-opus-4-7</code> for architecture, <code>claude-sonnet-4-6</code> for implementation, <code>claude-haiku-4-5-20251001</code> for linting checks.',
+      sandbox:'💡 Run generated code in Docker/E2B isolated container. NEVER execute agent-generated code on host.',
+      hitl:'💡 <code>interrupt_before=[\'write_file\', \'run_command\']</code>. Human sees diff and approves every write.',
+      langgraph:'💡 Plan → Generate → Test → Fix loop. Conditional edge: <code>tests_pass?</code> → commit OR retry (max 3).',
+      guardrails:'💡 Regex block: <code>rm -rf</code>, <code>curl | bash</code>, env var access, before any shell exec.',
+    },
+    missingTips:{
+      sandbox:'🚨 NO SANDBOX — running LLM-generated code without isolation is a critical security vulnerability.',
+      hitl:'🚨 Autonomous agent committing code with no human review WILL push bugs and break production.',
+      mcp:'⚠️ No file access tools — how does the agent read your codebase? Add MCP server with filesystem tools.',
+      guardrails:'🚨 Code-executing agent with no guardrails can run destructive commands (rm -rf, data exfil, etc).',
+    },
+    wrongConns:[
+      {from:'llm',to:'github',msg:'🚫 LLM → GitHub directly: no sandbox, no human review, no tests. This is unsafe — always sandbox + HITL first.'},
+    ],
+    goodConns:[
+      {from:'sandbox',to:'hitl',msg:'✅ Sandbox → HITL: test in sandbox, then human reviews before committing.'},
+      {from:'hitl',to:'github',msg:'✅ HITL → GitHub: human-approved changes get committed. Safe pattern.'},
+    ],
+  },
+  {
+    id:'quantum-chem', emoji:'⚛️', name:'Quantum Chemistry Solver',
+    difficulty:'Advanced', color:'#a78bfa',
+    description:'Find ground-state energies of drug candidate molecules using VQE. Hybrid classical-quantum pipeline running on IBM Quantum.',
+    flow:['molecule','hamiltonian','vqe','optimizer','qiskit','results'],
+    flowLabels:['Input molecule','Map to qubits','Quantum circuit','Optimize','Run QPU','Analyze'],
+    required:['vqe','qiskit','optimizer'],
+    recommended:['molecule','hamiltonian','wandb'],
+    compTips:{
+      vqe:'💡 VQE = variational loop. Quantum circuit (ansatz) + classical optimizer find minimum energy expectation value.',
+      qiskit:'💡 Use <code>StatevectorSimulator</code> for dev, <code>service.least_busy()</code> for real QPU. Always transpile to native gates first.',
+      optimizer:'💡 SLSQP for smooth landscapes. SPSA for noisy QPU hardware — it handles measurement noise better.',
+      molecule:'💡 Start with H₂ (2 qubits, 4 parameters). Scale to LiH (4 qubits) then BeH₂ (6 qubits).',
+      hamiltonian:'💡 Use Jordan-Wigner or Bravyi-Kitaev mapping. BK is more qubit-efficient for large molecules.',
+      wandb:'💡 Log energy convergence per iteration. Compare ansatz depths and optimizer settings in W&B.',
+    },
+    missingTips:{
+      optimizer:'🚨 VQE without a classical optimizer cannot converge. The variational loop REQUIRES it.',
+      hamiltonian:'⚠️ No Hamiltonian mapping — how does your molecule become quantum operators?',
+    },
+    wrongConns:[
+      {from:'optimizer',to:'molecule',msg:'⚠️ Optimizer → Molecule: optimizer works on circuit parameters, not on the molecule directly.'},
+    ],
+    goodConns:[
+      {from:'molecule',to:'hamiltonian',msg:'✅ Molecule → Hamiltonian: map molecular structure to qubit operators via Jordan-Wigner.'},
+      {from:'hamiltonian',to:'vqe',msg:'✅ Hamiltonian → VQE: qubit Hamiltonian defines what VQE minimizes.'},
+    ],
+  },
+];
+
+const COMP = {
+  llm:[
+    {id:'claude-opus',name:'Claude Opus 4',emoji:'🟣',tip:'Best reasoning, 200K ctx. Use for complex tasks.'},
+    {id:'claude-sonnet',name:'Claude Sonnet 4',emoji:'🔵',tip:'Best speed+quality balance for production.'},
+    {id:'claude-haiku',name:'Claude Haiku 4.5',emoji:'⚡',tip:'Fastest+cheapest. Great for high-volume tasks.'},
+    {id:'gpt4o',name:'GPT-4o',emoji:'🟢',tip:'Strong multimodal. Good function calling.'},
+    {id:'llama3',name:'Llama 3.3 70B',emoji:'🦙',tip:'Open weights. Self-host on your infra.'},
+    {id:'llm',name:'LLM (generic)',emoji:'🧠',tip:'Any large language model.'},
+  ],
+  embedder:[
+    {id:'embedder',name:'Embedder (generic)',emoji:'🔢',tip:'Converts text to dense vectors.'},
+    {id:'oai-embed',name:'text-embed-3-small',emoji:'🔤',tip:'Best price/perf. 1536 dims.'},
+    {id:'cohere-embed',name:'Cohere embed-v3',emoji:'🌊',tip:'Excellent multilingual support.'},
+    {id:'nomic',name:'nomic-embed-text',emoji:'🗺️',tip:'Free, local, 8K context window.'},
+  ],
+  vectordb:[
+    {id:'vectordb',name:'Vector DB (generic)',emoji:'🗄️',tip:'Stores and retrieves embeddings.'},
+    {id:'qdrant',name:'Qdrant',emoji:'🎯',tip:'Fast, rich filtering, open source.'},
+    {id:'pgvector',name:'pgvector',emoji:'🐘',tip:'If you already have PostgreSQL.'},
+    {id:'pinecone',name:'Pinecone',emoji:'🌲',tip:'Fully managed, great at scale.'},
+    {id:'chroma',name:'Chroma',emoji:'🎨',tip:'Best for local dev & prototypes.'},
+  ],
+  retrieval:[
+    {id:'retriever',name:'Retriever',emoji:'🔍',tip:'Queries vector DB for relevant chunks.'},
+    {id:'reranker',name:'Cohere Rerank',emoji:'📊',tip:'Re-scores results. +25% precision.'},
+    {id:'chunker',name:'Chunker',emoji:'✂️',tip:'Splits docs into indexed units.'},
+    {id:'hybrid',name:'Hybrid Search',emoji:'🔀',tip:'Vector + BM25 keyword combined.'},
+    {id:'colpali',name:'ColPali',emoji:'📑',tip:'Visual PDF retrieval without OCR.'},
+  ],
+  orchestration:[
+    {id:'langgraph',name:'LangGraph',emoji:'🕸️',tip:'State machines for agent flows.'},
+    {id:'langchain',name:'LangChain LCEL',emoji:'🦜',tip:'Composable chains and retrievers.'},
+    {id:'hitl',name:'Human-in-Loop',emoji:'👤',tip:'Human approval before critical actions.'},
+    {id:'mcp',name:'MCP Server',emoji:'🔌',tip:'Model Context Protocol tool access.'},
+    {id:'streaming',name:'WebSocket/SSE',emoji:'📡',tip:'Real-time streaming responses.'},
+  ],
+  memory:[
+    {id:'cache',name:'Redis Cache',emoji:'⚡',tip:'Sub-ms cached responses.'},
+    {id:'session-memory',name:'Session Memory',emoji:'💬',tip:'Conversation history per user.'},
+    {id:'memory',name:'MemorySaver',emoji:'🧠',tip:'LangGraph in-memory checkpointer.'},
+    {id:'pg-ckpt',name:'Postgres Checkpointer',emoji:'💾',tip:'Persistent state across sessions.'},
+  ],
+  tools:[
+    {id:'web-search',name:'Web Search (Tavily)',emoji:'🌐',tip:'LLM-optimized web retrieval.'},
+    {id:'sandbox',name:'Code Sandbox (E2B)',emoji:'📦',tip:'Isolated execution — never skip.'},
+    {id:'sql-tool',name:'SQL Tool',emoji:'📊',tip:'LLM queries your database.'},
+    {id:'evaluator',name:'RAGAS Evaluator',emoji:'📈',tip:'Faithfulness + relevancy metrics.'},
+    {id:'guardrails',name:'Guardrails AI',emoji:'🛡️',tip:'Block harmful/off-topic outputs.'},
+  ],
+  infra:[
+    {id:'s3',name:'AWS S3',emoji:'🪣',tip:'Document and artifact storage.'},
+    {id:'lambda',name:'AWS Lambda',emoji:'λ',tip:'Serverless event-driven processing.'},
+    {id:'ecs',name:'AWS ECS/GPU',emoji:'🖥️',tip:'Containers on GPU. Scale to zero.'},
+    {id:'sqs',name:'AWS SQS',emoji:'📬',tip:'Decouple heavy processing jobs.'},
+    {id:'github',name:'GitHub',emoji:'🐙',tip:'Source control + CI/CD trigger.'},
+  ],
+  vision:[
+    {id:'yolo',name:'YOLOv8',emoji:'👁️',tip:'Real-time object detection.'},
+    {id:'sam',name:'SAM 2',emoji:'🎭',tip:'Zero-shot image+video segmentation.'},
+    {id:'clip',name:'CLIP',emoji:'🔗',tip:'Vision-language alignment.'},
+    {id:'ocr-vision',name:'Vision LLM / OCR',emoji:'📝',tip:'PDF and image understanding.'},
+  ],
+  audio:[
+    {id:'asr',name:'Whisper / Deepgram',emoji:'🎙️',tip:'Speech to text, 99 languages.'},
+    {id:'tts',name:'ElevenLabs / Kokoro',emoji:'🔊',tip:'Natural text-to-speech.'},
+    {id:'vad',name:'Silero VAD',emoji:'👂',tip:'Voice activity detection.'},
+    {id:'musicgen',name:'MusicGen',emoji:'🎵',tip:'Text to music generation.'},
+  ],
+  quantum:[
+    {id:'vqe',name:'VQE',emoji:'⚛️',tip:'Variational quantum eigensolver.'},
+    {id:'qiskit',name:'Qiskit',emoji:'🔬',tip:'IBM quantum computing SDK.'},
+    {id:'qaoa',name:'QAOA',emoji:'🔀',tip:'Quantum optimization algorithm.'},
+    {id:'optimizer',name:'Classical Optimizer',emoji:'📉',tip:'SLSQP/COBYLA for VQE loop.'},
+    {id:'hamiltonian',name:'Hamiltonian Mapper',emoji:'⚗️',tip:'Jordan-Wigner qubit mapping.'},
+    {id:'molecule',name:'Molecular Driver',emoji:'🧪',tip:'PySCF input for molecules.'},
+    {id:'results',name:'Energy Analysis',emoji:'📋',tip:'Plot convergence + compare methods.'},
+  ],
+  mlops:[
+    {id:'wandb',name:'W&B Tracking',emoji:'📊',tip:'Experiment tracking and sweeps.'},
+    {id:'mlflow',name:'MLflow Registry',emoji:'🏪',tip:'Model versioning + staging.'},
+    {id:'lora',name:'LoRA Adapter',emoji:'🔧',tip:'Efficient fine-tuning (rank 4–64).'},
+    {id:'dataset',name:'Training Dataset',emoji:'📚',tip:'Curated prompt-completion pairs.'},
+    {id:'quantize',name:'AWQ Quantize',emoji:'🗜️',tip:'4-bit. 4× memory reduction.'},
+    {id:'vllm',name:'vLLM Server',emoji:'🚀',tip:'3–5× faster via PagedAttention.'},
+  ],
+};
+
+const CAT_LABEL = {
+  llm:'🧠 LLMs', embedder:'🔤 Embedders', vectordb:'🗄️ Vector DBs',
+  retrieval:'🔍 Retrieval', orchestration:'🕸️ Orchestration', memory:'💾 Memory',
+  tools:'🛠️ Tools', infra:'☁️ Infra', vision:'👁️ Vision',
+  audio:'🎙️ Audio', quantum:'⚛️ Quantum', mlops:'⚗️ MLOps',
+};
+
+const NODE_W = 138, NODE_H = 78;
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+const S = {
+  uc: null,          // active use case id
+  nodes: [],         // {id, compId, name, emoji, cat, x, y}
+  conns: [],         // {id, from, to}
+  connMode: false,
+  connSrc: null,
+  palCat: 'llm',
+  nc: 0,             // node id counter
+};
+
+function getUC() { return UC.find(u => u.id === S.uc); }
+function getNode(id) { return S.nodes.find(n => n.id === id); }
+function hasComp(...ids) { return ids.some(id => S.nodes.some(n => n.compId === id || n.cat === id)); }
+function findComp(id) {
+  for (const [cat, arr] of Object.entries(COMP)) {
+    const c = arr.find(x => x.id === id);
+    if (c) return c;
+  }
+  return null;
+}
+function nodeCenter(node) {
+  return { x: node.x + NODE_W / 2, y: node.y + NODE_H / 2 };
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════
+function renderAll() {
+  renderUCList();
+  renderPalette();
+  renderCanvas();
+  renderGuidance();
+}
+
+function renderUCList() {
+  document.getElementById('uc-list').innerHTML = UC.map(u => `
+    <div class="uc-card${S.uc === u.id ? ' active' : ''}" data-id="${u.id}">
+      <div class="uc-emoji">${u.emoji}</div>
+      <div class="uc-name">${u.name}</div>
+      <div class="uc-desc">${u.description.slice(0, 72)}…</div>
+      <span class="badge ${u.difficulty === 'Beginner' ? 'bg' : u.difficulty === 'Advanced' ? 'ba' : 'bi'}">${u.difficulty}</span>
+    </div>
+  `).join('');
+}
+
+function renderPalette() {
+  document.getElementById('pal-cats').innerHTML = Object.entries(CAT_LABEL).map(([k, v]) =>
+    `<button class="pcat${S.palCat === k ? ' active' : ''}" data-cat="${k}">${v}</button>`
+  ).join('');
+
+  const usedIds = S.nodes.map(n => n.compId);
+  const items = COMP[S.palCat] || [];
+  document.getElementById('pal-items').innerHTML = items.map((c, i) =>
+    `<div class="pitem${usedIds.includes(c.id) ? ' pitem-used' : ''}" data-idx="${i}" title="${c.tip}">${c.emoji} ${c.name}</div>`
+  ).join('');
+}
+
+function renderCanvas() {
+  const canvas = document.getElementById('canvas');
+  canvas.querySelectorAll('.c-node').forEach(e => e.remove());
+
+  document.getElementById('c-empty').style.display = S.nodes.length === 0 ? 'flex' : 'none';
+
+  S.nodes.forEach(node => {
+    const el = document.createElement('div');
+    el.className = 'c-node';
+    el.id = 'nd-' + node.id;
+    el.style.left = node.x + 'px';
+    el.style.top = node.y + 'px';
+    el.innerHTML = `
+      <span class="n-remove" data-nid="${node.id}">✕</span>
+      <div class="n-emoji">${node.emoji}</div>
+      <div class="n-name">${node.name}</div>
+      <div class="n-cat">${CAT_LABEL[node.cat] || node.cat}</div>
+    `;
+
+    // Drag
+    el.addEventListener('mousedown', e => {
+      if (e.target.classList.contains('n-remove')) return;
+      if (S.connMode) { handleConnectClick(node.id); return; }
+      e.preventDefault();
+      const startX = e.clientX - node.x, startY = e.clientY - node.y;
+      el.style.zIndex = 99;
+      const mm = e2 => {
+        node.x = Math.max(0, e2.clientX - startX);
+        node.y = Math.max(0, e2.clientY - startY);
+        el.style.left = node.x + 'px';
+        el.style.top = node.y + 'px';
+        renderConnections();
+      };
+      const mu = () => { el.style.zIndex = 2; window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', mu); };
+      window.addEventListener('mousemove', mm);
+      window.addEventListener('mouseup', mu);
+    });
+
+    // Tooltip
+    el.addEventListener('mouseenter', () => {
+      const comp = findComp(node.compId);
+      if (comp) showTooltip(comp.tip);
+    });
+    el.addEventListener('mouseleave', hideTooltip);
+
+    canvas.appendChild(el);
+  });
+
+  renderConnections();
+  applyNodeHighlights();
+}
+
+function renderConnections() {
+  const svg = document.getElementById('svg-conns');
+  svg.innerHTML = '';
+
+  // Arrow markers
+  const defs = mkEl('defs');
+  [['ok','#34d399'],['warn','#fbbf24'],['err','#f87171'],['def','#6366f1']].forEach(([t,c]) => {
+    const m = mkSvg('marker');
+    m.setAttribute('id','ma-'+t); m.setAttribute('markerWidth','8'); m.setAttribute('markerHeight','8');
+    m.setAttribute('refX','7'); m.setAttribute('refY','3'); m.setAttribute('orient','auto');
+    const p = mkSvg('path'); p.setAttribute('d','M0,0 L0,6 L8,3 z'); p.setAttribute('fill',c);
+    m.appendChild(p); defs.appendChild(m);
+  });
+  svg.appendChild(defs);
+
+  const uc = getUC();
+
+  S.conns.forEach(conn => {
+    const src = getNode(conn.from), tgt = getNode(conn.to);
+    if (!src || !tgt) return;
+    const sc = nodeCenter(src), tc = nodeCenter(tgt);
+
+    // Classify connection
+    let type = 'def', title = '';
+    if (uc) {
+      const wrong = uc.wrongConns?.find(w => w.from === src.compId && w.to === tgt.compId);
+      const good  = uc.goodConns?.find(g =>  g.from === src.compId && g.to === tgt.compId);
+      if (wrong) { type = wrong.msg.startsWith('🚫') ? 'err' : 'warn'; title = wrong.msg; }
+      else if (good) { type = 'ok'; title = good.msg; }
+    }
+
+    const path = mkSvg('path');
+    const cx = (sc.x + tc.x) / 2;
+    path.setAttribute('d', `M${sc.x},${sc.y} Q${cx},${sc.y} ${tc.x},${tc.y}`);
+    path.setAttribute('class', `conn-path conn-${type}`);
+    path.setAttribute('marker-end', `url(#ma-${type})`);
+    path.style.pointerEvents = 'all';
+    path.style.cursor = 'pointer';
+
+    if (title) {
+      path.addEventListener('mouseenter', e => showTooltip(title, e));
+      path.addEventListener('mouseleave', hideTooltip);
+    }
+
+    // Remove on double click
+    path.addEventListener('dblclick', () => {
+      S.conns = S.conns.filter(c => c.id !== conn.id);
+      renderConnections();
+      renderGuidance();
+    });
+
+    svg.appendChild(path);
+  });
+}
+
+function applyNodeHighlights() {
+  const uc = getUC();
+  if (!uc) return;
+  S.nodes.forEach(node => {
+    const el = document.getElementById('nd-' + node.id);
+    if (!el) return;
+    el.classList.remove('n-ok','n-warn','n-err');
+    if (uc.required.includes(node.compId) || uc.recommended.includes(node.compId)) {
+      el.classList.add('n-ok');
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// GUIDANCE / VALIDATION
+// ════════════════════════════════════════════════════════════
+function renderGuidance() {
+  const uc = getUC();
+  const tipsTitle = document.getElementById('tips-title');
+  const tipsSub   = document.getElementById('tips-sub');
+  const ucDetail  = document.getElementById('uc-detail');
+  const tipsBody  = document.getElementById('tips-body');
+  const scoreFill = document.getElementById('score-fill');
+  const scoreTxt  = document.getElementById('score-txt');
+
+  if (!uc) {
+    tipsTitle.textContent = 'Architecture Advisor';
+    tipsSub.textContent = 'Select a use case on the left';
+    ucDetail.style.display = 'none';
+    tipsBody.innerHTML = `<div class="tip t-info"><strong>👋 How this works</strong>1. Pick a scenario on the left<br>2. Read the expected flow here<br>3. Add components from the palette<br>4. Wire them with Connect<br>5. Watch this panel for tips</div>`;
+    scoreFill.style.width = '0%';
+    scoreTxt.textContent = 'Add components to begin scoring';
+    return;
+  }
+
+  tipsTitle.textContent = uc.emoji + ' ' + uc.name;
+  tipsSub.textContent = 'Difficulty: ' + uc.difficulty;
+
+  ucDetail.style.display = 'block';
+  ucDetail.innerHTML = `
+    <h4>Expected Flow</h4>
+    <p>${uc.description}</p>
+    <div class="flow-row">
+      ${uc.flow.map((f, i) => `
+        <span class="flow-chip">${uc.flowLabels?.[i] || f}</span>
+        ${i < uc.flow.length - 1 ? '<span class="flow-arr">→</span>' : ''}
+      `).join('')}
+    </div>
+  `;
+
+  if (S.nodes.length === 0) {
+    tipsBody.innerHTML = `<div class="tip t-info"><strong>🏗️ Start building!</strong>Add components from the palette below. Start with the core pieces shown in the expected flow.</div>`;
+    scoreFill.style.width = '0%';
+    scoreTxt.textContent = 'Score: 0% — add components';
+    return;
+  }
+
+  const tips = [];
+  let score = 0;
+  const maxScore = uc.required.length * 20 + uc.recommended.length * 8;
+
+  // Required components
+  uc.required.forEach(rid => {
+    if (hasComp(rid)) {
+      score += 20;
+      const c = findComp(rid) || { emoji: '✓', name: rid };
+      tips.push({ type:'ok', title:`✅ ${c.emoji} ${c.name}`, msg: uc.compTips?.[rid] || 'Required component in place.' });
+    } else {
+      tips.push({ type:'err', title:`❌ Missing: ${rid}`, msg: uc.missingTips?.[rid] || `Required for ${uc.name}.` });
+    }
+  });
+
+  // Recommended
+  uc.recommended.forEach(rid => {
+    if (hasComp(rid)) {
+      score += 8;
+      const c = findComp(rid) || { emoji: '+', name: rid };
+      tips.push({ type:'ok', title:`✅ ${c.emoji} ${c.name}`, msg: uc.compTips?.[rid] || 'Good addition!' });
+    } else {
+      const msg = uc.missingTips?.[rid];
+      if (msg) {
+        tips.push({ type: msg.startsWith('🚨') ? 'err' : 'warn', title:`💡 Add: ${rid}`, msg });
+      }
+    }
+  });
+
+  // Connection analysis
+  S.conns.forEach(conn => {
+    const src = getNode(conn.from), tgt = getNode(conn.to);
+    if (!src || !tgt) return;
+    const wrong = uc.wrongConns?.find(w => w.from === src.compId && w.to === tgt.compId);
+    const good  = uc.goodConns?.find(g => g.from === src.compId && g.to === tgt.compId);
+    if (wrong && wrong.msg.startsWith('🚫')) {
+      score = Math.max(0, score - 15);
+      tips.push({ type:'err', title:`🚫 ${src.name} → ${tgt.name}`, msg: wrong.msg });
+    } else if (wrong) {
+      tips.push({ type:'warn', title:`⚠️ ${src.name} → ${tgt.name}`, msg: wrong.msg });
+    } else if (good) {
+      score = Math.min(maxScore, score + 5);
+      tips.push({ type:'ok', title:`🔗 ${src.name} → ${tgt.name}`, msg: good.msg });
+    }
+  });
+
+  // Extra component tips (components not in required/recommended)
+  S.nodes.forEach(node => {
+    const inReq = uc.required.includes(node.compId);
+    const inRec = uc.recommended.includes(node.compId);
+    if (!inReq && !inRec) {
+      const t = uc.compTips?.[node.compId];
+      if (t) tips.push({ type:'info', title:`💡 ${node.emoji} ${node.name}`, msg: t });
+    }
+  });
+
+  // Score
+  const pct = Math.min(100, Math.round((score / maxScore) * 100));
+  scoreFill.style.width = pct + '%';
+  scoreFill.style.background = pct < 40 ? 'var(--red)' : pct < 70 ? 'var(--yellow)' : 'var(--green)';
+  const label = pct < 40 ? 'needs work' : pct < 60 ? 'getting there' : pct < 80 ? 'solid!' : pct < 95 ? 'excellent!' : '🏆 perfect!';
+  scoreTxt.textContent = `Architecture score: ${pct}% — ${label}`;
+
+  tipsBody.innerHTML = tips.length
+    ? tips.map(t => `<div class="tip t-${t.type}"><strong>${t.title}</strong>${t.msg}</div>`).join('')
+    : `<div class="tip t-info">Connect your components with the Connect button for flow analysis.</div>`;
+
+  // Re-highlight nodes after validation
+  applyNodeHighlights();
+}
+
+// ════════════════════════════════════════════════════════════
+// CONNECT MODE
+// ════════════════════════════════════════════════════════════
+function handleConnectClick(nodeId) {
+  if (!S.connSrc) {
+    S.connSrc = nodeId;
+    document.getElementById('nd-' + nodeId)?.classList.add('conn-src');
+    document.getElementById('toolbar-label').textContent = '→ Now click the DESTINATION component';
+  } else if (S.connSrc === nodeId) {
+    document.getElementById('nd-' + nodeId)?.classList.remove('conn-src');
+    S.connSrc = null;
+    document.getElementById('toolbar-label').textContent = 'Connect mode: click SOURCE first';
+  } else {
+    const already = S.conns.some(c =>
+      (c.from === S.connSrc && c.to === nodeId) || (c.from === nodeId && c.to === S.connSrc)
+    );
+    if (!already) {
+      S.conns.push({ id:'c' + Date.now(), from: S.connSrc, to: nodeId });
+    }
+    document.getElementById('nd-' + S.connSrc)?.classList.remove('conn-src');
+    S.connSrc = null;
+    document.getElementById('toolbar-label').textContent = 'Connect mode: click SOURCE first';
+    renderConnections();
+    renderGuidance();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// ADD NODE
+// ════════════════════════════════════════════════════════════
+function addNode(comp, cat) {
+  const canvas = document.getElementById('canvas');
+  const n = S.nodes.length;
+  const cols = 4;
+  const x = 30 + (n % cols) * 160;
+  const y = 30 + Math.floor(n / cols) * 110;
+  S.nodes.push({
+    id: 'n' + (++S.nc),
+    compId: comp.id, name: comp.name, emoji: comp.emoji, cat,
+    x: Math.min(x, canvas.offsetWidth - NODE_W - 20),
+    y: Math.min(y, canvas.offsetHeight - NODE_H - 20),
+  });
+  renderCanvas();
+  renderPalette();
+  renderGuidance();
+}
+
+// ════════════════════════════════════════════════════════════
+// AUTO ARRANGE
+// ════════════════════════════════════════════════════════════
+function autoArrange() {
+  const canvas = document.getElementById('canvas');
+  const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+  const n = S.nodes.length;
+  if (n === 0) return;
+  const cols = Math.min(4, n);
+  const cellW = (cw - 80) / cols;
+  const cellH = Math.min((ch - 80) / Math.ceil(n / cols), 130);
+  S.nodes.forEach((node, i) => {
+    node.x = 40 + (i % cols) * cellW;
+    node.y = 40 + Math.floor(i / cols) * cellH;
+  });
+  renderCanvas();
+}
+
+// ════════════════════════════════════════════════════════════
+// SHOW SOLUTION
+// ════════════════════════════════════════════════════════════
+function showSolution() {
+  const uc = getUC();
+  if (!uc) return;
+  S.nodes = []; S.conns = []; S.nc = 0;
+
+  const canvas = document.getElementById('canvas');
+  const cw = canvas.offsetWidth;
+  const total = uc.flow.length;
+  const perRow = Math.min(4, total);
+  const cellW = Math.min((cw - 80) / perRow, 180);
+
+  uc.flow.forEach((compId, i) => {
+    const comp = findComp(compId) || { id: compId, name: compId, emoji: '🔧' };
+    const cat = Object.entries(COMP).find(([, arr]) => arr.some(c => c.id === compId))?.[0] || 'tools';
+    S.nodes.push({
+      id: 'n' + (++S.nc), compId, name: comp.name, emoji: comp.emoji, cat,
+      x: 40 + (i % perRow) * cellW,
+      y: 40 + Math.floor(i / perRow) * 120,
+    });
+  });
+
+  // Auto-wire in flow order
+  for (let i = 0; i < S.nodes.length - 1; i++) {
+    S.conns.push({ id: 'c' + i, from: S.nodes[i].id, to: S.nodes[i+1].id });
+  }
+
+  renderCanvas();
+  renderPalette();
+  renderGuidance();
+}
+
+// ════════════════════════════════════════════════════════════
+// TOOLTIP
+// ════════════════════════════════════════════════════════════
+function showTooltip(txt, e) {
+  const t = document.getElementById('tooltip');
+  t.innerHTML = txt;
+  t.style.display = 'block';
+  const handler = ev => {
+    t.style.left = (ev.clientX + 14) + 'px';
+    t.style.top  = (ev.clientY - 10) + 'px';
+  };
+  window.addEventListener('mousemove', handler);
+  t._handler = handler;
+}
+function hideTooltip() {
+  const t = document.getElementById('tooltip');
+  t.style.display = 'none';
+  if (t._handler) { window.removeEventListener('mousemove', t._handler); t._handler = null; }
+}
+
+// ════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════
+function mkEl(tag)    { return document.createElement(tag); }
+function mkSvg(tag)   { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+
+// ════════════════════════════════════════════════════════════
+// EVENT LISTENERS
+// ════════════════════════════════════════════════════════════
+
+// Use case selection
+document.getElementById('uc-list').addEventListener('click', e => {
+  const card = e.target.closest('.uc-card');
+  if (!card) return;
+  S.uc = card.dataset.id;
+  S.nodes = []; S.conns = []; S.connMode = false; S.connSrc = null;
+  document.getElementById('btn-connect').classList.remove('conn-active');
+  document.getElementById('toolbar-label').textContent = `Building: ${getUC()?.name}`;
+  renderAll();
+});
+
+// Palette category
+document.getElementById('pal-cats').addEventListener('click', e => {
+  const btn = e.target.closest('.pcat');
+  if (!btn) return;
+  S.palCat = btn.dataset.cat;
+  renderPalette();
+});
+
+// Palette item add
+document.getElementById('pal-items').addEventListener('click', e => {
+  const item = e.target.closest('.pitem');
+  if (!item) return;
+  const idx = parseInt(item.dataset.idx);
+  const comp = COMP[S.palCat]?.[idx];
+  if (comp) addNode(comp, S.palCat);
+});
+
+// Node remove
+document.getElementById('canvas').addEventListener('click', e => {
+  const removeBtn = e.target.closest('.n-remove');
+  if (!removeBtn) return;
+  const nid = removeBtn.dataset.nid;
+  S.nodes = S.nodes.filter(n => n.id !== nid);
+  S.conns = S.conns.filter(c => c.from !== nid && c.to !== nid);
+  if (S.connSrc === nid) S.connSrc = null;
+  renderCanvas();
+  renderPalette();
+  renderGuidance();
+});
+
+// Connect button
+document.getElementById('btn-connect').addEventListener('click', () => {
+  S.connMode = !S.connMode;
+  S.connSrc = null;
+  document.querySelectorAll('.conn-src').forEach(e => e.classList.remove('conn-src'));
+  const btn = document.getElementById('btn-connect');
+  btn.classList.toggle('conn-active', S.connMode);
+  document.getElementById('toolbar-label').textContent = S.connMode
+    ? 'Connect mode: click SOURCE component'
+    : (S.uc ? `Building: ${getUC()?.name}` : '← Select a use case');
+});
+
+// Undo last connection
+document.getElementById('btn-undo').addEventListener('click', () => {
+  S.conns.pop();
+  renderConnections();
+  renderGuidance();
+});
+
+// Auto arrange
+document.getElementById('btn-arrange').addEventListener('click', autoArrange);
+
+// Show solution
+document.getElementById('btn-hint').addEventListener('click', showSolution);
+
+// Clear canvas
+document.getElementById('btn-clear').addEventListener('click', () => {
+  S.nodes = []; S.conns = []; S.connMode = false; S.connSrc = null;
+  document.getElementById('btn-connect').classList.remove('conn-active');
+  renderCanvas();
+  renderPalette();
+  renderGuidance();
+});
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+renderAll();
+</script>
+</body>
+</html>
