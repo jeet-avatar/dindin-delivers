@@ -317,6 +317,7 @@ from database import engine as _db_engine
 
 # Phase 16: Webhook dispatch worker
 from webhook_worker import dispatch_webhook as _dispatch_webhook
+from src.backend.validators.reprompt import run_validation_loop
 
 
 async def _dispatch_webhook_safe(event: str, payload: dict) -> None:
@@ -472,6 +473,7 @@ async def ask(request: Request, current_user: User = Depends(require_user)):
             "history": history_snapshot,
         }
 
+        pipeline_t0 = time.monotonic()
         result = await asyncio.to_thread(graph.invoke, input_data)
         response_text = (result.get("generation", "") if isinstance(result, dict) else "") or "I could not find a relevant answer. Please try rephrasing."
 
@@ -575,6 +577,26 @@ async def ask(request: Request, current_user: User = Depends(require_user)):
             except Exception as _qw_err:
                 import logging as _log_qw
                 _log_qw.getLogger(__name__).debug(f"quota warning email failed (non-fatal): {_qw_err}")
+
+            async def _suitescript_pipeline(_prompt: str) -> str:
+                _state = {
+                    "question": _prompt,
+                    "documents": [],
+                    "generation": "",
+                    "rewrite_count": 0,
+                    "intent": intent,
+                    "history": history_snapshot,
+                }
+                _r = await asyncio.to_thread(graph.invoke, _state)
+                return (_r.get("generation", "") if isinstance(_r, dict) else "") or ""
+
+            response_text, _validator_metrics = await run_validation_loop(
+                user_input=user_input,
+                initial_response=response_text,
+                pipeline=_suitescript_pipeline,
+                pipeline_t0=pipeline_t0,
+            )
+            logger.info("generate_suitescript validator metrics: %s", _validator_metrics)
 
             if re.search(r"```(javascript|js|xml)", response_text, re.IGNORECASE):
                 response_text += (
