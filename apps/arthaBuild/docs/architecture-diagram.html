@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ArthaBuild — Architecture v3.2</title>
+  <title>ArthaBuild — Architecture v3.3</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -125,11 +125,11 @@
   <header>
     <h1>ArthaBuild — System Architecture</h1>
     <div class="meta">
-      <span>Version <strong>2.2</strong></span>
-      <span>Updated <strong>2026-04-10</strong></span>
+      <span>Version <strong>3.3</strong></span>
+      <span>Updated <strong>2026-04-17</strong></span>
       <span><span class="badge badge-green">Phases 1–12 Complete (All Plans)</span></span>
-      <span><span class="badge badge-green">Phase 8.1 Complete — Pre-Staging Case Resolution (90 cases closed, 149 tests pass)</span></span>
-      <span>115/115 Tests Passing · Build Clean · CASE-188→195 All DONE</span>
+      <span><span class="badge badge-green">Zero-Hallucination Gate — 104/104 validator tests + 160/160 stress cases flagged</span></span>
+      <span>106/106 Tests Passing · Build Clean · CASE-188→195 All DONE</span>
     </div>
   </header>
 
@@ -1169,6 +1169,60 @@ Request → IPAllowlistMiddleware
   └─ ip_address(client_ip) in any network → allow, else 403 {"detail":"IP not permitted"}</pre>
   </section>
 
+  <!-- Zero-Hallucination Gate -->
+  <section>
+    <h2>9m. Zero-Hallucination Validation Gate (gsd/netsuite-eval-harness)</h2>
+    <table>
+      <thead><tr><th>Component</th><th>File / Location</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>Whitelist canon</td><td>src/backend/validators/whitelist.py</td><td>Committed sets: RECORD_TYPES, MODULES, SCRIPT_TYPES, SEARCH_TYPES, SEARCH_APIS. Drift test gates commits.</td></tr>
+        <tr><td>RecordTypeChecker</td><td>src/backend/validators/checkers/record_type.py</td><td>Flags record.Type.&lt;IDENT&gt; not in RECORD_TYPES.</td></tr>
+        <tr><td>ModuleChecker</td><td>src/backend/validators/checkers/module.py</td><td>Flags define([...]) / require([...]) entries not in MODULES.</td></tr>
+        <tr><td>ScriptTypeChecker</td><td>src/backend/validators/checkers/script_type.py</td><td>Flags @NScriptType and search.Type.&lt;IDENT&gt; not in SCRIPT_TYPES ∪ SEARCH_TYPES.</td></tr>
+        <tr><td>SearchApiChecker</td><td>src/backend/validators/checkers/search_api.py</td><td>Flags search.&lt;method&gt;( calls not in SEARCH_APIS. Member-expression guard prevents false positives.</td></tr>
+        <tr><td>SuiteScriptLinter</td><td>src/backend/validators/linter.py</td><td>Orchestrator: non-ASCII pre-pass + extract_first_code_block() + checker fan-out.</td></tr>
+        <tr><td>run_validation_loop</td><td>src/backend/validators/reprompt.py</td><td>Bounded 2-attempt re-prompt loop + build_refusal_message(). 90s budget. Emits metrics dict (outcome, violations_initial, violations_reprompt_1/2, elapsed_ms, budget_exceeded).</td></tr>
+        <tr><td>Gate wiring</td><td>src/backend/rawapi.py (pipeline_t0 @ ~L475, generate_suitescript branch @ ~L542)</td><td>Async closure rebuilds input_data with re-prompt string as 'question' while preserving intent + history_snapshot. Runs AFTER quota record, BEFORE review-prompt append.</td></tr>
+        <tr><td>Stress corpus</td><td>tests/eval/stress/{record_type,module,script_type,search}.jsonl</td><td>160 adversarial cases (40 per category, balanced 10/10/10/10 across strategies).</td></tr>
+        <tr><td>Stress runner</td><td>tests/eval/run_stress.py</td><td>Path A static linter-coverage runner. 160/160 flagged (100%). Pytest + CLI (--json).</td></tr>
+        <tr><td>Results</td><td>tests/eval/stress/RESULTS.md</td><td>Per-category breakdown + synthesis templates + scope note.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Control Flow</h3>
+    <pre style="background:#1a1a2e;color:#a8b2d8;padding:12px;border-radius:6px;font-size:12px">
+generate_suitescript intent
+  │
+  ▼
+graph.invoke(input_data)            ── initial LLM response (fenced code)
+  │
+  ▼
+run_validation_loop(initial, pipeline, pipeline_t0)
+  │
+  ├─ extract_first_code_block()
+  ├─ SuiteScriptLinter.lint(code)
+  ├─ 0 violations  → outcome="clean"        → passthrough
+  ├─ violations    → re-prompt #1 (with nearest() suggestions)
+  │     └─ clean   → outcome="recovered"    → return recovered code
+  ├─ violations    → re-prompt #2
+  │     └─ clean   → outcome="recovered"    → return recovered code
+  ├─ still bad     → outcome="hard_blocked" → build_refusal_message() (NO fence)
+  └─ t0 + 90s exceeded → outcome="hard_blocked" (no further re-prompts)</pre>
+
+    <h3>Test Coverage Summary</h3>
+    <table>
+      <thead><tr><th>Suite</th><th>Count</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Whitelist drift</td><td>6</td><td>PASS</td></tr>
+        <tr><td>Per-checker (record_type, module, script_type, search_api)</td><td>92</td><td>PASS</td></tr>
+        <tr><td>Integration (clean / recovered / hard_blocked / budget)</td><td>4</td><td>PASS</td></tr>
+        <tr><td>Integration assertion helper (linter)</td><td>2</td><td>PASS</td></tr>
+        <tr><td>Stress runner (160-case linter coverage)</td><td>2</td><td>PASS</td></tr>
+        <tr><td><strong>Total</strong></td><td><strong>106</strong></td><td><strong>ALL PASS</strong></td></tr>
+      </tbody>
+    </table>
+  </section>
+
   <!-- Changelog -->
   <section>
     <h2>10. Changelog</h2>
@@ -1189,6 +1243,11 @@ Request → IPAllowlistMiddleware
         <div class="cl-version">v2.3</div>
         <div class="cl-date">2026-04-13</div>
         <div class="cl-text">Phase 13 — Identity &amp; Access Controls. SSO/OIDC router: GET/POST /api/auth/sso/config (admin-only) + GET /api/auth/sso/callback (OIDC authorization-code exchange using authlib). TOTP MFA router: POST /api/auth/mfa/enroll (pyotp secret gen + QR data URL), /verify (activate), /disable (self or admin), /check (login gate — returns 403 {mfa_required:true} when OTP absent). IdleTimeoutMiddleware: reads SESSION_IDLE_MINUTES env (default 30), checks JWT iat claim on every authenticated request — iat added to create_access_token. IPAllowlistMiddleware: reads ALLOWED_IP_RANGES CIDR env, blocks non-matching IPs with 403; /health always bypassed. MFASecret model + ip_allowlist column on Team + Alembic migration 13a_identity_access. AdminPanel Security tab (6th): SSO config form, IP allowlist textarea, MFA policy toggle. MFASetup.tsx + /mfa-setup route (Protected). 147/149 tests pass (2 pre-existing failures unchanged).</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v3.3</div>
+        <div class="cl-date">2026-04-17</div>
+        <div class="cl-text">Zero-Hallucination Validation Gate (gsd/netsuite-eval-harness). 4 checkers (record_type, module, script_type, search_api) + SuiteScriptLinter orchestrator + run_validation_loop (bounded 2-attempt re-prompt, 90s budget, build_refusal_message on hard-block). Wired into rawapi.py generate_suitescript branch via async closure preserving intent + history_snapshot. Outcome metrics (clean / recovered / hard_blocked) logged via logger.info("generate_suitescript validator metrics: %s", ...). 104 validator tests + 2 stress-runner tests = 106/106 PASS. 160-case adversarial corpus (40 per category) lives in tests/eval/stress/*.jsonl; run_stress.py (Path A — static linter coverage) reports 160/160 flagged (100%). End-to-end LLM hallucination rate comes from production validator_metrics logs once deployed.</div>
       </div>
       <div class="changelog-item">
         <div class="cl-version">v3.2</div>

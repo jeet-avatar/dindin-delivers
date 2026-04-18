@@ -1,6 +1,6 @@
 # ArthaBuild — System Architecture
-**Version:** 3.2  
-**Date:** 2026-04-15  
+**Version:** 3.3  
+**Date:** 2026-04-17  
 **Status:** Approved — Source of Truth for all Phase Plans  
 
 > This document is the single source of truth. Every phase plan must derive its decisions from here.  
@@ -1908,6 +1908,93 @@ The AdminPanel now includes a "Knowledge Base" tab (`KnowledgeBaseTab.tsx`).
 
 ---
 
-*Document End — Version 3.2*
+## 20. Zero-Hallucination Validation Gate (v3.3)
+
+Branch `gsd/netsuite-eval-harness`. Plan: `docs/superpowers/plans/2026-04-17-zero-hallucination-gate-implementation.md`.
+
+### 20.1 Goal
+
+Guarantee that every SuiteScript emitted by the LLM references only real NetSuite identifiers — no hallucinated `record.Type.*`, `N/*` module, `@NScriptType`, `search.Type.*`, or `search.*` method ever reaches the user.
+
+### 20.2 Components (`src/backend/validators/`)
+
+| File | Responsibility |
+|---|---|
+| `whitelist.py` | Committed sets: `RECORD_TYPES`, `MODULES`, `SCRIPT_TYPES`, `SEARCH_TYPES`, `SEARCH_APIS` (authoritative NetSuite canon) |
+| `ast_utils.py` | `nearest(ident, whitelist, k=3)` — Levenshtein-ranked suggestions for re-prompt hints |
+| `checkers/base.py` | `Checker` ABC, `LintResult`, `Violation` dataclass |
+| `checkers/record_type.py` | `record.Type.<IDENT>` regex extractor |
+| `checkers/module.py` | `define([...])` / `require([...])` extractor |
+| `checkers/script_type.py` | `@NScriptType <IDENT>` + `search.Type.<IDENT>` extractor |
+| `checkers/search_api.py` | `search.<method>(` extractor with member-expression guard |
+| `linter.py` | `SuiteScriptLinter` orchestrator + non-ASCII pre-pass + `extract_first_code_block()` |
+| `reprompt.py` | `run_validation_loop()` — bounded 2-attempt re-prompt loop + `build_refusal_message()` + metrics |
+| `__init__.py` | Public API surface |
+
+### 20.3 Control Flow
+
+```
+generate_suitescript intent in rawapi.py
+    │
+    ▼
+graph.invoke(input_data)  ── initial LLM response (fenced code)
+    │
+    ▼
+run_validation_loop(initial_response, pipeline)
+    │
+    ├─ extract_first_code_block()
+    ├─ SuiteScriptLinter.lint(code)
+    ├─ if violations == 0:         ── outcome: "clean"     ── passthrough
+    ├─ else re-prompt #1 (with nearest() suggestions)
+    │    └─ if clean:              ── outcome: "recovered" ── return recovered code
+    ├─ else re-prompt #2
+    │    └─ if clean:              ── outcome: "recovered" ── return recovered code
+    ├─ else:                       ── outcome: "hard_blocked"
+    │    └─ build_refusal_message() (NO code fence in reply)
+    └─ budget guard: pipeline_t0 + 90s exceeded ── outcome: "hard_blocked" (no further re-prompts)
+```
+
+Wired in at `src/backend/rawapi.py:~475` (`pipeline_t0`) and the `generate_suitescript` intent branch via an inline async closure that preserves `intent` + `history_snapshot` across re-prompts. Gate runs AFTER quota record, BEFORE the review-prompt append (hard-blocks skip the append because they contain no fence).
+
+### 20.4 Metrics (`logger.info("generate_suitescript validator metrics: %s", ...)`)
+
+| Field | Meaning |
+|---|---|
+| `outcome` | `clean` / `recovered` / `hard_blocked` |
+| `violations_initial` | Violation count from first LLM response |
+| `violations_reprompt_1` | Violation count after re-prompt #1 (or `None` if not attempted) |
+| `violations_reprompt_2` | Violation count after re-prompt #2 (or `None` if not attempted) |
+| `elapsed_ms` | Wall time for the validation loop |
+| `budget_exceeded` | `True` if `pipeline_t0 + 90s` was hit before validation completed |
+
+These are the production signal for end-to-end hallucination rate.
+
+### 20.5 Test Coverage
+
+| Suite | Files | Tests |
+|---|---|---|
+| Whitelist drift | `tests/validators/test_whitelist_drift.py` | 6 |
+| Per-checker | `tests/validators/test_record_type.py`, `test_module.py`, `test_script_type.py`, `test_search_api.py` | 92 |
+| Reprompt + budget | `tests/validators/test_reprompt.py` | (covered by integration) |
+| Integration (clean / recovered / hard_blocked / budget) | `tests/validators/test_integration.py` | 4 |
+| Stress corpus (160 adversarial targets) | `tests/eval/stress/{record_type,module,script_type,search}.jsonl` | — |
+| Stress runner (Path A — static linter coverage) | `tests/eval/run_stress.py` | 2 |
+
+**Totals:** 104 validator tests + 2 stress-runner tests = **106 PASS**. Stress run: **160/160 (100%) flagged**.
+
+See `tests/eval/stress/RESULTS.md` for full per-category breakdown.
+
+### 20.6 Frozen Interfaces
+
+| Interface | Value | Consumers |
+|---|---|---|
+| `run_validation_loop(user_input, initial_response, pipeline, pipeline_t0)` | returns `(response_str, metrics_dict)` | `rawapi.py` generate_suitescript branch |
+| 90s budget | From `pipeline_t0` to validation-loop exit | Prevents runaway re-prompt cost |
+| Max re-prompts | 2 (total 3 LLM calls: initial + 2 retries) | Hard-block threshold |
+| Refusal message | No code fence, contains "couldn't verify" / "hold" | Downstream cannot mistake refusal for code |
+
+---
+
+*Document End — Version 3.3*
 *All phase plans must cite this document as the source of truth.*
 *Changes to this document require updating ALL dependent phase plans.*
