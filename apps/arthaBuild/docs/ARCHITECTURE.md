@@ -1,5 +1,5 @@
 # ArthaBuild — System Architecture
-**Version:** 3.3  
+**Version:** 3.4  
 **Date:** 2026-04-17  
 **Status:** Approved — Source of Truth for all Phase Plans  
 
@@ -1059,6 +1059,8 @@ Run: `cd src/frontend && npm run test`
 | 2.2 | 2026-04-11 | Phase 8.1 — Pre-Staging Case Resolution. Plan 01: 21 bug fixes — CASE-001 (Vite proxy port), CASE-006 (User.email NOCASE collation + migration e1f2g3h4i5j6), CASE-025 (_persist_chat_to_db returns True/False + persistence_warning), CASE-031 (/health split public/private with /health/detail requiring auth), CASE-023 (CORS_EXTRA_ORIGINS env var), CASE-033/034/035 (license env vars). Plan 02: 28 new backend tests — test_migrations.py, test_license.py, test_infrastructure.py (new); test_user/auth/netsuite/chats/rbac/security/* (extended). 121→149 tests passing. Plan 03: Static analysis (CASE-012/014/022/036/040/168 DONE), ROADMAP.md 12-01 checkbox fixed, 90 cases closed (44 DONE, 23 PASS, 23 DEFERRED). |
 | 2.1 | 2026-04-11 | Phase 12 complete. Plan 01: Audit log expansion (SOC2 CC7.2) — audit_utils.py write_audit_event() shared helper, AuditLog model expanded with actor_email/actor_role/result/ip_address/target, Alembic migration d5e6f7a8b9ca, hooks in auth.py (7 events) + user.py (4 events) + admin.py (5 call site migrations), GET /api/admin/audit paginated with offset/limit, 5 security tests, 115 tests total. Plan 02: nginx.prod.conf TLS hardening (CASE-188/189/195), CORS tightening (CASE-190), EBS encryption (CASE-193), 14 static analysis tests. Plan 03: docs/security/ documentation suite (SECURITY_CONTROLS, INCIDENT_RESPONSE, DATA_CLASSIFICATION, DEPLOYMENT_SECURITY, ZAP_SCAN_REPORT), SECURITY.md at repo root, pip-audit run (14 MEDIUM, 0 CRITICAL/HIGH), CASE-188 through CASE-195 all DONE. |
 | 1.6 | 2026-04-09 | 3D Landing page wired into React. Three.js r0.183 + GSAP 3.14 installed as npm packages (not CDN). Landing.tsx fully replaced: GPU particle field (5,500 particles), nebula orbs, wireframe geometries, cinematic camera, scroll pull-back, mouse parallax, chat card tilt, custom cursor, IntersectionObserver reveals, counter animations. landing.css scoped to `.landing-root` (no global contamination). React Router `<Link>` for all internal nav. Proper useEffect cleanup (cancelAnimationFrame, renderer.dispose, ScrollTrigger.kill). Build: 2,246 kB (three.js is large — lazy-load candidate Phase 8). |
+| 3.3 | 2026-04-17 | Section 20 — Zero-Hallucination Validation Gate (Path A). 5 checkers (record_type/module/script_type/search_api), `run_validation_loop` 2-attempt re-prompt, 90s budget, hard-block refusal. 104 validator tests + 2 stress-runner tests, 160-case stress corpus 100% flagged. |
+| 3.4 | 2026-04-17 | Worldwide-publish hardening for Section 20: 3 new checkers (file_type, http_method, record_script_id), widened SearchApi underscore regex, explicit `synth_mode` field for script_type stress dispatch, `run_validation_loop` exported at package level, `assert "```" not in out` invariant in `build_refusal_message`. 181 validator tests + 2 stress-runner tests = 183 PASS. Stress corpus: 280 cases, 100% flagged. Custom record prefixes (`customrecord_*` / `customlist_*` / `customtransaction_*`) explicitly allowed. |
 
 ### Chatbot Response Reliability Rules (v1.5)
 
@@ -1908,28 +1910,31 @@ The AdminPanel now includes a "Knowledge Base" tab (`KnowledgeBaseTab.tsx`).
 
 ---
 
-## 20. Zero-Hallucination Validation Gate (v3.3)
+## 20. Zero-Hallucination Validation Gate (v3.4)
 
 Branch `gsd/netsuite-eval-harness`. Plan: `docs/superpowers/plans/2026-04-17-zero-hallucination-gate-implementation.md`.
 
 ### 20.1 Goal
 
-Guarantee that every SuiteScript emitted by the LLM references only real NetSuite identifiers — no hallucinated `record.Type.*`, `N/*` module, `@NScriptType`, `search.Type.*`, or `search.*` method ever reaches the user.
+Guarantee that every SuiteScript emitted by the LLM references only real NetSuite identifiers — no hallucinated `record.Type.*`, `N/*` module, `@NScriptType`, `search.Type.*`, `search.*` method, `file.Type.*`, `http.Method.*`, or string-literal record scriptId (`record.load({type:'…'})`) ever reaches the user.
 
 ### 20.2 Components (`src/backend/validators/`)
 
 | File | Responsibility |
 |---|---|
-| `whitelist.py` | Committed sets: `RECORD_TYPES`, `MODULES`, `SCRIPT_TYPES`, `SEARCH_TYPES`, `SEARCH_APIS` (authoritative NetSuite canon) |
+| `whitelist.py` | Committed sets: `RECORD_TYPES`, `MODULES`, `SCRIPT_TYPES`, `SEARCH_TYPES`, `SEARCH_APIS`, `FILE_TYPES`, `HTTP_METHODS`, `RECORD_SCRIPT_IDS` (authoritative NetSuite canon) |
 | `ast_utils.py` | `nearest(ident, whitelist, k=3)` — Levenshtein-ranked suggestions for re-prompt hints |
 | `checkers/base.py` | `Checker` ABC, `LintResult`, `Violation` dataclass |
 | `checkers/record_type.py` | `record.Type.<IDENT>` regex extractor |
 | `checkers/module.py` | `define([...])` / `require([...])` extractor |
 | `checkers/script_type.py` | `@NScriptType <IDENT>` + `search.Type.<IDENT>` extractor |
-| `checkers/search_api.py` | `search.<method>(` extractor with member-expression guard |
+| `checkers/search_api.py` | `search.<method>(` extractor with member-expression guard (regex now accepts underscored names) |
+| `checkers/file_type.py` | `file.Type.<IDENT>` extractor (N/file Type enum) |
+| `checkers/http_method.py` | `http.Method.<IDENT>` extractor (N/http Method enum) |
+| `checkers/record_script_id.py` | `record.{load\|create\|copy\|delete\|transform}({type:'<ID>'})` string-literal extractor; allows `customrecord_*` / `customlist_*` / `customtransaction_*` prefixes |
 | `linter.py` | `SuiteScriptLinter` orchestrator + non-ASCII pre-pass + `extract_first_code_block()` |
-| `reprompt.py` | `run_validation_loop()` — bounded 2-attempt re-prompt loop + `build_refusal_message()` + metrics |
-| `__init__.py` | Public API surface |
+| `reprompt.py` | `run_validation_loop()` — bounded 2-attempt re-prompt loop + `build_refusal_message()` (with `assert "```" not in out` invariant) + metrics |
+| `__init__.py` | Public API surface — exports `run_validation_loop` |
 
 ### 20.3 Control Flow
 
@@ -1973,19 +1978,22 @@ On budget exhaustion (`pipeline_t0 + PIPELINE_BUDGET_SECONDS` exceeded), the loo
 
 | Suite | File | Tests |
 |---|---|---|
-| Whitelist drift + floor | `tests/validators/test_whitelist_drift.py` | 6 |
+| Whitelist drift + floor | `tests/validators/test_whitelist_drift.py` | 9 |
 | RecordTypeChecker | `tests/validators/test_record_type.py` | 16 |
 | ModuleChecker | `tests/validators/test_module.py` | 17 |
 | ScriptTypeChecker | `tests/validators/test_script_type.py` | 24 |
-| SearchApiChecker | `tests/validators/test_search_api.py` | 17 |
+| SearchApiChecker (incl. underscore regex) | `tests/validators/test_search_api.py` | 20 |
+| FileTypeChecker | `tests/validators/test_file_type.py` | 24 |
+| HttpMethodChecker | `tests/validators/test_http_method.py` | 20 |
+| RecordScriptIdChecker | `tests/validators/test_record_script_id.py` | 25 |
 | Checker base + ast_utils | `tests/validators/test_base.py`, `test_ast_utils.py` | 6 |
 | SuiteScriptLinter orchestrator | `tests/validators/test_linter.py` | 10 |
-| reprompt helpers (template + refusal) | `tests/validators/test_reprompt.py` | 4 |
+| reprompt helpers (template + refusal + invariant + export) | `tests/validators/test_reprompt.py` | 6 |
 | Integration (clean / recovered / hard_blocked / budget) | `tests/validators/test_integration.py` | 4 |
-| Stress corpus (160 adversarial targets) | `tests/eval/stress/{record_type,module,script_type,search}.jsonl` | — |
+| Stress corpus (280 adversarial targets) | `tests/eval/stress/{record_type,module,script_type,search,file_type,http_method,record_script_id}.jsonl` | — |
 | Stress runner (Path A — static linter coverage) | `tests/eval/run_stress.py` | 2 |
 
-**Totals:** 104 validator tests + 2 stress-runner tests = **106 PASS**. Stress run: **160/160 (100%) flagged**.
+**Totals:** 181 validator tests + 2 stress-runner tests = **183 PASS**. Stress run: **280/280 (100%) flagged**.
 
 See `tests/eval/stress/RESULTS.md` for full per-category breakdown.
 
@@ -1993,13 +2001,30 @@ See `tests/eval/stress/RESULTS.md` for full per-category breakdown.
 
 | Interface | Value | Consumers |
 |---|---|---|
-| `run_validation_loop(user_input, initial_response, pipeline, pipeline_t0)` | returns `(response_str, metrics_dict)` | `rawapi.py` generate_suitescript branch |
+| `run_validation_loop(user_input, initial_response, pipeline, pipeline_t0)` | returns `(response_str, metrics_dict)` — exported from `src.backend.validators` package | `rawapi.py` generate_suitescript branch |
 | 90s budget | From `pipeline_t0` to validation-loop exit | Prevents runaway re-prompt cost |
 | Max re-prompts | 2 (total 3 LLM calls: initial + 2 retries) | Hard-block threshold |
-| Refusal message | No code fence, contains "couldn't verify" / "hold" | Downstream cannot mistake refusal for code |
+| Refusal message | No code fence (enforced by `assert "```" not in out` in `build_refusal_message`) | Downstream cannot mistake refusal for code |
+| Custom record prefix allowance | `^(customrecord\|customlist\|customtransaction)_` always passes `RecordScriptIdChecker` | Lets user-defined NetSuite records flow without false-positives |
+
+### 20.7 v3.3 → v3.4 Changes (Worldwide-Publish Hardening)
+
+Reviewer feedback on v3.3 surfaced HIGH/MEDIUM gaps that are release-blocking on a publicly-live product. All addressed in-phase rather than deferred:
+
+| Severity | Gap | Fix |
+|---|---|---|
+| HIGH | `file.Type.*` enum had no checker — hallucinated `file.Type.JPEG` would ship | New `FileTypeChecker` + `FILE_TYPES` whitelist (42 canonical values) + 24 unit tests + 40-case stress |
+| HIGH | `http.Method.*` enum had no checker — hallucinated `http.Method.PATCH` would ship | New `HttpMethodChecker` + `HTTP_METHODS` whitelist (5 canonical values) + 20 unit tests + 40-case stress |
+| HIGH | `record.load({type: 'fakerecord'})` string-literal form bypassed `RecordTypeChecker` | New `RecordScriptIdChecker` + derived `RECORD_SCRIPT_IDS` (lowercase no-underscore of `RECORD_TYPES`) + `customrecord_*` / `customlist_*` / `customtransaction_*` prefix allowance + 25 unit tests + 40-case stress |
+| MEDIUM | `SearchApiChecker` regex `[a-z][A-Za-z]*` missed underscored hallucinations (`search.run_paged`) | Widened to `[a-z][A-Za-z_]*` + 3 underscore unit tests |
+| MEDIUM | `script_type.jsonl` used ALL_UPPER heuristic to dispatch synth between `@NScriptType` and `search.Type.*` — ALL_CAPS @NScriptType cases were silently misrouted | Added explicit `synth_mode` field (`nscripttype` / `searchtype`) on every script_type row; runner dispatches on it |
+| LOW | `run_validation_loop` not exported from `validators/__init__.py` | Added to `__all__` + import line; new test verifies package-level callable export |
+| LOW | `build_refusal_message` had no enforcement that the output contains no fenced code | Added `assert "```" not in out` invariant + test that an attacker-payload identifier raises `AssertionError` rather than echoing |
+
+Net effect: **104 → 181 validator tests**, **160 → 280 stress cases**, 100% pass rate retained, 7 worldwide-publish gaps closed.
 
 ---
 
-*Document End — Version 3.3*
+*Document End — Version 3.4*
 *All phase plans must cite this document as the source of truth.*
 *Changes to this document require updating ALL dependent phase plans.*

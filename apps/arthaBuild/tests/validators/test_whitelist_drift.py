@@ -17,6 +17,9 @@ FLOORS = {
     "SCRIPT_TYPES": 10,
     "SEARCH_TYPES": 100,
     "SEARCH_APIS": 10,
+    "FILE_TYPES": 30,
+    "HTTP_METHODS": 5,
+    "RECORD_SCRIPT_IDS": 100,
 }
 
 

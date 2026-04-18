@@ -39,11 +39,17 @@ class SuiteScriptLinter:
             from src.backend.validators.checkers.module import ModuleChecker
             from src.backend.validators.checkers.script_type import ScriptTypeChecker
             from src.backend.validators.checkers.search_api import SearchApiChecker
+            from src.backend.validators.checkers.file_type import FileTypeChecker
+            from src.backend.validators.checkers.http_method import HttpMethodChecker
+            from src.backend.validators.checkers.record_script_id import RecordScriptIdChecker
             checkers = [
                 RecordTypeChecker(),
                 ModuleChecker(),
                 ScriptTypeChecker(),
                 SearchApiChecker(),
+                FileTypeChecker(),
+                HttpMethodChecker(),
+                RecordScriptIdChecker(),
             ]
         self.checkers = checkers
 

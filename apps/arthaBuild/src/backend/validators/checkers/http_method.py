@@ -1,16 +1,16 @@
-"""search.* method checker (anchored to avoid member-expression false positives)."""
+"""http.Method.* enum checker (N/http Module Method enum)."""
 from __future__ import annotations
 
 import re
 
 from src.backend.validators.checkers.base import Checker
-from src.backend.validators.whitelist import SEARCH_APIS
+from src.backend.validators.whitelist import HTTP_METHODS
 
-_PATTERN = re.compile(r"(?:^|[\s=;,(])search\.([a-z][A-Za-z_]*)\s*\(")
+_PATTERN = re.compile(r"\bhttp\.Method\.([A-Za-z_][A-Za-z0-9_]*)")
 
 
-class SearchApiChecker(Checker):
-    category = "search_api"
+class HttpMethodChecker(Checker):
+    category = "http_method"
 
     def extract(self, code: str) -> list[tuple[str, int]]:
         out: list[tuple[str, int]] = []
@@ -20,4 +20,4 @@ class SearchApiChecker(Checker):
         return out
 
     def whitelist(self) -> set[str]:
-        return SEARCH_APIS
+        return HTTP_METHODS

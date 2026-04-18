@@ -49,13 +49,13 @@
 <body>
 
 <h1>ArthaBuild Test Report</h1>
-<p class="subtitle">Phase 1–19 + Zero-Hallucination Gate &nbsp;·&nbsp; Generated 2026-04-17 &nbsp;·&nbsp; 106 validator tests (104 unit + 2 stress-runner) ALL PASS · 160/160 adversarial stress cases flagged (100%) · ARCHITECTURE v3.3</p>
+<p class="subtitle">Phase 1–19 + Zero-Hallucination Gate (worldwide-publish hardened) &nbsp;·&nbsp; Generated 2026-04-17 &nbsp;·&nbsp; 183 validator tests (181 unit + 2 stress-runner) ALL PASS · 280/280 adversarial stress cases flagged (100%) · ARCHITECTURE v3.4</p>
 
 <div class="summary-grid">
-  <div class="stat"><span class="stat-val pass">253</span><span class="stat-label">Passing</span></div>
+  <div class="stat"><span class="stat-val pass">330</span><span class="stat-label">Passing</span></div>
   <div class="stat"><span class="stat-val" style="color:var(--warn)">1</span><span class="stat-label">Skipped</span></div>
   <div class="stat"><span class="stat-val" style="color:var(--fail)">2</span><span class="stat-label">Pre-existing Failures</span></div>
-  <div class="stat"><span class="stat-val accent">283</span><span class="stat-label">Total Tests Tracked</span></div>
+  <div class="stat"><span class="stat-val accent">360</span><span class="stat-label">Total Tests Tracked</span></div>
 </div>
 
 <!-- Phase 1 Auth -->
@@ -1067,23 +1067,26 @@
 <!-- Zero-Hallucination Gate -->
 <div class="phase-section">
   <div class="phase-header">
-    Zero-Hallucination Validation Gate (gsd/netsuite-eval-harness)
-    <span class="phase-badge">106 tests</span>
+    Zero-Hallucination Validation Gate (gsd/netsuite-eval-harness) — v3.4 worldwide-publish hardened
+    <span class="phase-badge">183 tests</span>
   </div>
   <table>
     <thead><tr><th>Test File</th><th>Suite</th><th>Count</th><th>Status</th></tr></thead>
     <tbody>
-      <tr><td class="test-name">tests/validators/test_whitelist_drift.py</td><td>Whitelist canon + minimum-size floors</td><td>6</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_whitelist_drift.py</td><td>Whitelist canon + 8 minimum-size floors</td><td>9</td><td><span class="badge badge-pass">PASS</span></td></tr>
       <tr><td class="test-name">tests/validators/test_record_type.py</td><td>RecordTypeChecker (valid + invalid + fixtures)</td><td>16</td><td><span class="badge badge-pass">PASS</span></td></tr>
       <tr><td class="test-name">tests/validators/test_module.py</td><td>ModuleChecker (define/require + 17 fixtures)</td><td>17</td><td><span class="badge badge-pass">PASS</span></td></tr>
       <tr><td class="test-name">tests/validators/test_script_type.py</td><td>ScriptTypeChecker (@NScriptType + search.Type.*)</td><td>24</td><td><span class="badge badge-pass">PASS</span></td></tr>
-      <tr><td class="test-name">tests/validators/test_search_api.py</td><td>SearchApiChecker (method calls + member-expression guard)</td><td>17</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_search_api.py</td><td>SearchApiChecker (incl. underscore regex coverage + member-expression guard)</td><td>20</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_file_type.py</td><td>FileTypeChecker (file.Type.* enum, 42 canonical values + case variants)</td><td>24</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_http_method.py</td><td>HttpMethodChecker (http.Method.* enum, GET/POST/PUT/DELETE/HEAD)</td><td>20</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_record_script_id.py</td><td>RecordScriptIdChecker (string-literal record loads + customrecord_*/customlist_*/customtransaction_* prefix allowance)</td><td>25</td><td><span class="badge badge-pass">PASS</span></td></tr>
       <tr><td class="test-name">tests/validators/test_base.py + test_ast_utils.py</td><td>Checker ABC + nearest() helper</td><td>6</td><td><span class="badge badge-pass">PASS</span></td></tr>
       <tr><td class="test-name">tests/validators/test_linter.py</td><td>SuiteScriptLinter orchestrator + fence extraction + non-ASCII pre-pass</td><td>10</td><td><span class="badge badge-pass">PASS</span></td></tr>
-      <tr><td class="test-name">tests/validators/test_reprompt.py</td><td>Reprompt template + refusal message + metrics helpers</td><td>4</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_reprompt.py</td><td>Reprompt template + refusal message + fence-leak invariant + package export</td><td>6</td><td><span class="badge badge-pass">PASS</span></td></tr>
       <tr><td class="test-name">tests/validators/test_integration.py</td><td>run_validation_loop (clean / recovered / hard_blocked / budget)</td><td>4</td><td><span class="badge badge-pass">PASS</span></td></tr>
-      <tr><td class="test-name">tests/eval/run_stress.py::test_all_stress_cases_flagged</td><td>Static linter coverage — 160 adversarial cases must all produce &ge;1 violation</td><td>1</td><td><span class="badge badge-pass">PASS</span></td></tr>
-      <tr><td class="test-name">tests/eval/run_stress.py::test_per_category_counts</td><td>Stress corpus balance — 40/40/40/40 per category</td><td>1</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/eval/run_stress.py::test_all_stress_cases_flagged</td><td>Static linter coverage — 280 adversarial cases must all produce &ge;1 violation</td><td>1</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/eval/run_stress.py::test_per_category_counts</td><td>Stress corpus balance — 40 per category × 7 categories</td><td>1</td><td><span class="badge badge-pass">PASS</span></td></tr>
     </tbody>
   </table>
 
@@ -1095,21 +1098,24 @@
       <tr><td>module</td><td class="test-name">tests/eval/stress/module.jsonl</td><td>40</td><td>40</td><td>0</td><td class="pass">PASS</td></tr>
       <tr><td>script_type</td><td class="test-name">tests/eval/stress/script_type.jsonl</td><td>40</td><td>40</td><td>0</td><td class="pass">PASS</td></tr>
       <tr><td>search_api</td><td class="test-name">tests/eval/stress/search.jsonl</td><td>40</td><td>40</td><td>0</td><td class="pass">PASS</td></tr>
-      <tr><td><strong>Total</strong></td><td>&mdash;</td><td><strong>160</strong></td><td><strong>160</strong></td><td><strong>0</strong></td><td class="pass"><strong>100%</strong></td></tr>
+      <tr><td>file_type</td><td class="test-name">tests/eval/stress/file_type.jsonl</td><td>40</td><td>40</td><td>0</td><td class="pass">PASS</td></tr>
+      <tr><td>http_method</td><td class="test-name">tests/eval/stress/http_method.jsonl</td><td>40</td><td>40</td><td>0</td><td class="pass">PASS</td></tr>
+      <tr><td>record_script_id</td><td class="test-name">tests/eval/stress/record_script_id.jsonl</td><td>40</td><td>40</td><td>0</td><td class="pass">PASS</td></tr>
+      <tr><td><strong>Total</strong></td><td>&mdash;</td><td><strong>280</strong></td><td><strong>280</strong></td><td><strong>0</strong></td><td class="pass"><strong>100%</strong></td></tr>
     </tbody>
   </table>
 
   <div style="margin-top: 24px; padding: 20px; background: rgba(74,222,128,.06); border: 1px solid rgba(74,222,128,.25); border-radius: 12px; display: flex; align-items: center; gap: 16px;">
     <span style="font-size: 28px; color: var(--pass);">&#10003;</span>
     <div>
-      <div style="font-weight: 700; color: var(--pass); margin-bottom: 4px;">Zero-Hallucination Gate — COMPLETE · 106/106 tests PASS · 160/160 adversarial cases flagged · ARCHITECTURE v3.3</div>
-      <div style="color: #71717a; font-size: 13px;">Wave 1–3: checkers + whitelist + drift guard. Wave 4: run_validation_loop + rawapi.py wiring + integration. Wave 5: 160-case stress corpus + static runner (Path A). End-to-end LLM hallucination rate captured via production validator_metrics logs once gate is deployed. See tests/eval/stress/RESULTS.md.</div>
+      <div style="font-weight: 700; color: var(--pass); margin-bottom: 4px;">Zero-Hallucination Gate v3.4 — COMPLETE · 183/183 tests PASS · 280/280 adversarial cases flagged · 7 worldwide-publish gaps closed</div>
+      <div style="color: #71717a; font-size: 13px;">Wave 1–5 (v3.3): 4 base checkers + run_validation_loop + 160-case stress (PATH A). v3.4 hardening (this revision): 3 new checkers (file_type, http_method, record_script_id), widened SearchApi underscore regex, explicit synth_mode dispatch in script_type stress, package-level run_validation_loop export, fence-leak invariant on build_refusal_message. End-to-end LLM hallucination rate captured via production validator_metrics logs once gate is deployed. See tests/eval/stress/RESULTS.md.</div>
     </div>
   </div>
 </div>
 
 <footer>
-  <span>ArthaBuild Test Report — Phases 1–19 + Zero-Hallucination Gate (v3.3)</span>
+  <span>ArthaBuild Test Report — Phases 1–19 + Zero-Hallucination Gate (v3.4)</span>
   <span>Generated 2026-04-17 &nbsp;·&nbsp; pytest 9.0.3 &nbsp;·&nbsp; Python 3.12.7</span>
 </footer>
 

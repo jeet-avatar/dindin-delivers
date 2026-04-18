@@ -28,6 +28,25 @@ def test_refusal_message_omits_invalid_code():
     assert "```" not in msg
 
 
+def test_refusal_message_invariant_rejects_code_fence_leak():
+    """If a violation identifier contains a code-fence marker (attacker payload
+    or accidental fence leak), the build_refusal_message assertion must fire
+    rather than silently echoing it to the user."""
+    import pytest
+    r = LintResult(valid=False, violations=[
+        Violation(category="record_type", identifier="```js\nevil\n```", line=1,
+                  suggestions=[], message=""),
+    ])
+    with pytest.raises(AssertionError):
+        build_refusal_message(r)
+
+
+def test_run_validation_loop_exported_at_package_level():
+    """LOW-7: run_validation_loop must be importable from `validators` package."""
+    from src.backend.validators import run_validation_loop as exported
+    assert callable(exported)
+
+
 def test_reprompt_payload_includes_relevant_slice_only():
     r = LintResult(valid=False, violations=[
         Violation(category="record_type", identifier="RECEIVING", line=1,

@@ -27,8 +27,16 @@ if str(_PROJECT_ROOT) not in sys.path:
 from src.backend.validators.linter import SuiteScriptLinter  # noqa: E402
 
 STRESS_DIR = Path(__file__).resolve().parent / "stress"
-STRESS_FILES = ("record_type.jsonl", "module.jsonl", "script_type.jsonl", "search.jsonl")
-EXPECTED_TOTAL = 160
+STRESS_FILES = (
+    "record_type.jsonl",
+    "module.jsonl",
+    "script_type.jsonl",
+    "search.jsonl",
+    "file_type.jsonl",
+    "http_method.jsonl",
+    "record_script_id.jsonl",
+)
+EXPECTED_TOTAL = 280
 ALL_UPPER_RE = re.compile(r"^[A-Z_]+$")
 
 
@@ -46,19 +54,31 @@ class CaseResult:
         return self.violation_count > 0
 
 
-def synth_code(target_category: str, target: str) -> str:
-    """Synthesize minimal JS exercising `target` in its canonical form."""
+def synth_code(target_category: str, target: str, synth_mode: str | None = None) -> str:
+    """Synthesize minimal JS exercising `target` in its canonical form.
+
+    `synth_mode` disambiguates `script_type` cases (explicit > ALL_UPPER
+    heuristic fallback). For other categories it is ignored.
+    """
     if target_category == "record_type":
         return f"var x = record.Type.{target};"
     if target_category == "module":
         return f"define(['{target}'], function(m) {{ return {{}}; }});"
     if target_category == "script_type":
-        # All-caps + underscores => search.Type.*; else @NScriptType
-        if ALL_UPPER_RE.match(target):
+        mode = synth_mode or ("searchtype" if ALL_UPPER_RE.match(target) else "nscripttype")
+        if mode == "searchtype":
             return f"var t = search.Type.{target};"
-        return f"/**\n * @NScriptType {target}\n */"
+        if mode == "nscripttype":
+            return f"/**\n * @NScriptType {target}\n */"
+        raise ValueError(f"unknown synth_mode for script_type: {mode!r}")
     if target_category == "search_api":
         return f"search.{target}();"
+    if target_category == "file_type":
+        return f"var t = file.Type.{target};"
+    if target_category == "http_method":
+        return f"var m = http.Method.{target};"
+    if target_category == "record_script_id":
+        return f"var r = record.load({{type: '{target}', id: 1}});"
     raise ValueError(f"unknown target_category: {target_category!r}")
 
 
@@ -84,7 +104,11 @@ def run() -> tuple[list[CaseResult], list[CaseResult]]:
     passed: list[CaseResult] = []
     failed: list[CaseResult] = []
     for case in cases:
-        code = synth_code(case["target_category"], case["adversarial_target"])
+        code = synth_code(
+            case["target_category"],
+            case["adversarial_target"],
+            case.get("synth_mode"),
+        )
         result = linter.lint(code)
         cr = CaseResult(
             case_id=case["id"],
@@ -166,6 +190,9 @@ def test_per_category_counts():
         "module": 40,
         "script_type": 40,
         "search_api": 40,
+        "file_type": 40,
+        "http_method": 40,
+        "record_script_id": 40,
     }
 
 

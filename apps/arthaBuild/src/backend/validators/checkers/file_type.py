@@ -1,16 +1,16 @@
-"""search.* method checker (anchored to avoid member-expression false positives)."""
+"""file.Type.* enum checker (N/file Module Type enum)."""
 from __future__ import annotations
 
 import re
 
 from src.backend.validators.checkers.base import Checker
-from src.backend.validators.whitelist import SEARCH_APIS
+from src.backend.validators.whitelist import FILE_TYPES
 
-_PATTERN = re.compile(r"(?:^|[\s=;,(])search\.([a-z][A-Za-z_]*)\s*\(")
+_PATTERN = re.compile(r"\bfile\.Type\.([A-Za-z_][A-Za-z0-9_]*)")
 
 
-class SearchApiChecker(Checker):
-    category = "search_api"
+class FileTypeChecker(Checker):
+    category = "file_type"
 
     def extract(self, code: str) -> list[tuple[str, int]]:
         out: list[tuple[str, int]] = []
@@ -20,4 +20,4 @@ class SearchApiChecker(Checker):
         return out
 
     def whitelist(self) -> set[str]:
-        return SEARCH_APIS
+        return FILE_TYPES

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ArthaBuild — Architecture v3.3</title>
+  <title>ArthaBuild — Architecture v3.4</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -125,11 +125,11 @@
   <header>
     <h1>ArthaBuild — System Architecture</h1>
     <div class="meta">
-      <span>Version <strong>3.3</strong></span>
+      <span>Version <strong>3.4</strong></span>
       <span>Updated <strong>2026-04-17</strong></span>
       <span><span class="badge badge-green">Phases 1–12 Complete (All Plans)</span></span>
-      <span><span class="badge badge-green">Zero-Hallucination Gate — 104/104 validator tests + 160/160 stress cases flagged</span></span>
-      <span>106/106 Tests Passing · Build Clean · CASE-188→195 All DONE</span>
+      <span><span class="badge badge-green">Zero-Hallucination Gate — 7 checkers, 181/181 validator tests + 280/280 stress cases flagged</span></span>
+      <span>183/183 Tests Passing · Build Clean · Worldwide-Publish Hardened</span>
     </div>
   </header>
 
@@ -1175,16 +1175,19 @@ Request → IPAllowlistMiddleware
     <table>
       <thead><tr><th>Component</th><th>File / Location</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td>Whitelist canon</td><td>src/backend/validators/whitelist.py</td><td>Committed sets: RECORD_TYPES, MODULES, SCRIPT_TYPES, SEARCH_TYPES, SEARCH_APIS. Drift test gates commits.</td></tr>
+        <tr><td>Whitelist canon</td><td>src/backend/validators/whitelist.py</td><td>Committed sets: RECORD_TYPES, MODULES, SCRIPT_TYPES, SEARCH_TYPES, SEARCH_APIS, FILE_TYPES, HTTP_METHODS, RECORD_SCRIPT_IDS. Drift test gates commits.</td></tr>
         <tr><td>RecordTypeChecker</td><td>src/backend/validators/checkers/record_type.py</td><td>Flags record.Type.&lt;IDENT&gt; not in RECORD_TYPES.</td></tr>
         <tr><td>ModuleChecker</td><td>src/backend/validators/checkers/module.py</td><td>Flags define([...]) / require([...]) entries not in MODULES.</td></tr>
         <tr><td>ScriptTypeChecker</td><td>src/backend/validators/checkers/script_type.py</td><td>Flags @NScriptType and search.Type.&lt;IDENT&gt; not in SCRIPT_TYPES ∪ SEARCH_TYPES.</td></tr>
-        <tr><td>SearchApiChecker</td><td>src/backend/validators/checkers/search_api.py</td><td>Flags search.&lt;method&gt;( calls not in SEARCH_APIS. Member-expression guard prevents false positives.</td></tr>
-        <tr><td>SuiteScriptLinter</td><td>src/backend/validators/linter.py</td><td>Orchestrator: non-ASCII pre-pass + extract_first_code_block() + checker fan-out.</td></tr>
-        <tr><td>run_validation_loop</td><td>src/backend/validators/reprompt.py</td><td>Bounded 2-attempt re-prompt loop + build_refusal_message(). 90s budget. Emits metrics dict (outcome, violations_initial, violations_reprompt_1/2, elapsed_ms, budget_exceeded).</td></tr>
+        <tr><td>SearchApiChecker</td><td>src/backend/validators/checkers/search_api.py</td><td>Flags search.&lt;method&gt;( calls not in SEARCH_APIS. Regex now accepts underscored names so snake_case hallucinations are caught. Member-expression guard prevents false positives.</td></tr>
+        <tr><td>FileTypeChecker</td><td>src/backend/validators/checkers/file_type.py</td><td>Flags file.Type.&lt;IDENT&gt; not in FILE_TYPES (N/file Type enum, 42 canonical values). Case-variant catches hallucinated lowercase.</td></tr>
+        <tr><td>HttpMethodChecker</td><td>src/backend/validators/checkers/http_method.py</td><td>Flags http.Method.&lt;IDENT&gt; not in HTTP_METHODS (N/http Method enum, 5 canonical values: DELETE/GET/HEAD/POST/PUT).</td></tr>
+        <tr><td>RecordScriptIdChecker</td><td>src/backend/validators/checkers/record_script_id.py</td><td>Flags record.{load|create|copy|delete|transform}({type:'literal'}) where literal is not in derived RECORD_SCRIPT_IDS (lowercase no-underscore of RECORD_TYPES). Allows customrecord_*/customlist_*/customtransaction_* prefixes for user-defined records.</td></tr>
+        <tr><td>SuiteScriptLinter</td><td>src/backend/validators/linter.py</td><td>Orchestrator: non-ASCII pre-pass + extract_first_code_block() + 7-checker fan-out.</td></tr>
+        <tr><td>run_validation_loop</td><td>src/backend/validators/reprompt.py</td><td>Bounded 2-attempt re-prompt loop + build_refusal_message() (with assert "```" not in out invariant). 90s budget. Emits metrics dict (outcome, violations_initial, violations_reprompt_1/2, elapsed_ms). Exported at package level.</td></tr>
         <tr><td>Gate wiring</td><td>src/backend/rawapi.py (pipeline_t0 @ ~L475, generate_suitescript branch @ ~L542)</td><td>Async closure rebuilds input_data with re-prompt string as 'question' while preserving intent + history_snapshot. Runs AFTER quota record, BEFORE review-prompt append.</td></tr>
-        <tr><td>Stress corpus</td><td>tests/eval/stress/{record_type,module,script_type,search}.jsonl</td><td>160 adversarial cases (40 per category, balanced 10/10/10/10 across strategies).</td></tr>
-        <tr><td>Stress runner</td><td>tests/eval/run_stress.py</td><td>Path A static linter-coverage runner. 160/160 flagged (100%). Pytest + CLI (--json).</td></tr>
+        <tr><td>Stress corpus</td><td>tests/eval/stress/{record_type,module,script_type,search,file_type,http_method,record_script_id}.jsonl</td><td>280 adversarial cases (40 per category × 7 categories). script_type rows include explicit synth_mode field (nscripttype/searchtype).</td></tr>
+        <tr><td>Stress runner</td><td>tests/eval/run_stress.py</td><td>Path A static linter-coverage runner. 280/280 flagged (100%). Pytest + CLI (--json).</td></tr>
         <tr><td>Results</td><td>tests/eval/stress/RESULTS.md</td><td>Per-category breakdown + synthesis templates + scope note.</td></tr>
       </tbody>
     </table>
@@ -1213,12 +1216,20 @@ run_validation_loop(initial, pipeline, pipeline_t0)
     <table>
       <thead><tr><th>Suite</th><th>Count</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td>Whitelist drift</td><td>6</td><td>PASS</td></tr>
-        <tr><td>Per-checker (record_type, module, script_type, search_api)</td><td>92</td><td>PASS</td></tr>
+        <tr><td>Whitelist drift + 8-floor parametrize</td><td>9</td><td>PASS</td></tr>
+        <tr><td>RecordTypeChecker</td><td>16</td><td>PASS</td></tr>
+        <tr><td>ModuleChecker</td><td>17</td><td>PASS</td></tr>
+        <tr><td>ScriptTypeChecker</td><td>24</td><td>PASS</td></tr>
+        <tr><td>SearchApiChecker (incl. underscore regex)</td><td>20</td><td>PASS</td></tr>
+        <tr><td>FileTypeChecker</td><td>24</td><td>PASS</td></tr>
+        <tr><td>HttpMethodChecker</td><td>20</td><td>PASS</td></tr>
+        <tr><td>RecordScriptIdChecker</td><td>25</td><td>PASS</td></tr>
+        <tr><td>Checker base + ast_utils</td><td>6</td><td>PASS</td></tr>
+        <tr><td>Linter orchestrator</td><td>10</td><td>PASS</td></tr>
+        <tr><td>reprompt (template + refusal + invariant + export)</td><td>6</td><td>PASS</td></tr>
         <tr><td>Integration (clean / recovered / hard_blocked / budget)</td><td>4</td><td>PASS</td></tr>
-        <tr><td>Integration assertion helper (linter)</td><td>2</td><td>PASS</td></tr>
-        <tr><td>Stress runner (160-case linter coverage)</td><td>2</td><td>PASS</td></tr>
-        <tr><td><strong>Total</strong></td><td><strong>106</strong></td><td><strong>ALL PASS</strong></td></tr>
+        <tr><td>Stress runner (280-case linter coverage)</td><td>2</td><td>PASS</td></tr>
+        <tr><td><strong>Total</strong></td><td><strong>183</strong></td><td><strong>ALL PASS</strong></td></tr>
       </tbody>
     </table>
   </section>
@@ -1243,6 +1254,11 @@ run_validation_loop(initial, pipeline, pipeline_t0)
         <div class="cl-version">v2.3</div>
         <div class="cl-date">2026-04-13</div>
         <div class="cl-text">Phase 13 — Identity &amp; Access Controls. SSO/OIDC router: GET/POST /api/auth/sso/config (admin-only) + GET /api/auth/sso/callback (OIDC authorization-code exchange using authlib). TOTP MFA router: POST /api/auth/mfa/enroll (pyotp secret gen + QR data URL), /verify (activate), /disable (self or admin), /check (login gate — returns 403 {mfa_required:true} when OTP absent). IdleTimeoutMiddleware: reads SESSION_IDLE_MINUTES env (default 30), checks JWT iat claim on every authenticated request — iat added to create_access_token. IPAllowlistMiddleware: reads ALLOWED_IP_RANGES CIDR env, blocks non-matching IPs with 403; /health always bypassed. MFASecret model + ip_allowlist column on Team + Alembic migration 13a_identity_access. AdminPanel Security tab (6th): SSO config form, IP allowlist textarea, MFA policy toggle. MFASetup.tsx + /mfa-setup route (Protected). 147/149 tests pass (2 pre-existing failures unchanged).</div>
+      </div>
+      <div class="changelog-item">
+        <div class="cl-version">v3.4</div>
+        <div class="cl-date">2026-04-17</div>
+        <div class="cl-text">Worldwide-publish hardening of the Zero-Hallucination Gate (response to reviewer feedback that HIGH/MEDIUM gaps cannot be deferred on a publicly-live product). Added 3 new checkers: FileTypeChecker (file.Type.* enum, 42 canonical values), HttpMethodChecker (http.Method.* enum, 5 values), RecordScriptIdChecker (record.load/create/copy/delete/transform({type:'literal'}) — derived RECORD_SCRIPT_IDS from RECORD_TYPES, allows customrecord_*/customlist_*/customtransaction_* prefixes). Widened SearchApiChecker regex from [a-z][A-Za-z]* to [a-z][A-Za-z_]* so snake_case hallucinations like search.run_paged() are flagged. script_type.jsonl gained explicit synth_mode field (nscripttype/searchtype) — runner dispatches on it instead of ALL_UPPER heuristic so hallucinated ALL_CAPS @NScriptType cases can be authored. run_validation_loop now exported from src.backend.validators package. build_refusal_message has assert "```" not in out invariant preventing fenced-code leak. 181 validator tests + 2 stress-runner tests = 183/183 PASS. Stress corpus expanded 160→280 cases (40 per category × 7 categories), 280/280 flagged (100%).</div>
       </div>
       <div class="changelog-item">
         <div class="cl-version">v3.3</div>
@@ -1343,7 +1359,7 @@ run_validation_loop(initial, pipeline, pipeline_t0)
   </section>
 
   <footer style="border-top:1px solid var(--border); padding-top:20px; color:var(--muted); font-size:12px; text-align:center">
-    ArthaBuild Architecture v3.2 — Source of truth: <code>apps/arthaBuild/docs/ARCHITECTURE.md</code>
+    ArthaBuild Architecture v3.4 — Source of truth: <code>apps/arthaBuild/docs/ARCHITECTURE.md</code>
   </footer>
 
 </div>

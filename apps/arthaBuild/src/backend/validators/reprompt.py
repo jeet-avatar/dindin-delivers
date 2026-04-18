@@ -55,7 +55,12 @@ def build_refusal_message(result: LintResult) -> str:
         "  • Check the NetSuite 2024.2 Records Browser for the exact identifier,",
         "    then try again.",
     ])
-    return "\n".join(lines)
+    out = "\n".join(lines)
+    # Invariant: a refusal must never leak the unverified code back to the user.
+    # If this fires, a violation identifier contains a fenced-code marker and
+    # must be sanitized before the message is built.
+    assert "```" not in out, "refusal message must not contain a fenced code block"
+    return out
 
 
 def build_reprompt_payload(user_input: str, result: LintResult) -> str:

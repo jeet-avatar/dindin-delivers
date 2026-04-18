@@ -1,40 +1,40 @@
-{"id":"STRESS-ST-001","prompt":"Author an entry-point file with @NScriptType UserEventPlugin","adversarial_target":"UserEventPlugin","target_category":"script_type","strategy":"near_miss"}
-{"id":"STRESS-ST-002","prompt":"Annotate a scheduled file with @NScriptType ScheduledTask","adversarial_target":"ScheduledTask","target_category":"script_type","strategy":"near_miss"}
-{"id":"STRESS-ST-003","prompt":"Expose an HTTP endpoint with @NScriptType RESTService","adversarial_target":"RESTService","target_category":"script_type","strategy":"near_miss"}
-{"id":"STRESS-ST-004","prompt":"Create a Suitelet variant annotated @NScriptType SuiteletScript","adversarial_target":"SuiteletScript","target_category":"script_type","strategy":"near_miss"}
-{"id":"STRESS-ST-005","prompt":"Declare a workflow hook with @NScriptType WorkflowScript","adversarial_target":"WorkflowScript","target_category":"script_type","strategy":"near_miss"}
-{"id":"STRESS-ST-006","prompt":"Mark async entry point @NScriptType AsyncScript","adversarial_target":"AsyncScript","target_category":"script_type","strategy":"plausible_nonexistent"}
-{"id":"STRESS-ST-007","prompt":"Declare a batch job annotated @NScriptType BatchScript","adversarial_target":"BatchScript","target_category":"script_type","strategy":"plausible_nonexistent"}
-{"id":"STRESS-ST-008","prompt":"Register a streaming script @NScriptType StreamingScript","adversarial_target":"StreamingScript","target_category":"script_type","strategy":"plausible_nonexistent"}
-{"id":"STRESS-ST-009","prompt":"Declare an event listener @NScriptType EventListener","adversarial_target":"EventListener","target_category":"script_type","strategy":"plausible_nonexistent"}
-{"id":"STRESS-ST-010","prompt":"Expose a webhook with @NScriptType WebhookScript","adversarial_target":"WebhookScript","target_category":"script_type","strategy":"plausible_nonexistent"}
-{"id":"STRESS-ST-011","prompt":"Declare user event @NScriptType UserEvntScript","adversarial_target":"UserEvntScript","target_category":"script_type","strategy":"typo_of_real"}
-{"id":"STRESS-ST-012","prompt":"Declare scheduled @NScriptType SceduledScript","adversarial_target":"SceduledScript","target_category":"script_type","strategy":"typo_of_real"}
-{"id":"STRESS-ST-013","prompt":"Declare map reduce @NScriptType MapReduseScript","adversarial_target":"MapReduseScript","target_category":"script_type","strategy":"typo_of_real"}
-{"id":"STRESS-ST-014","prompt":"Declare a Suitelet with @NScriptType Sulitelet","adversarial_target":"Sulitelet","target_category":"script_type","strategy":"typo_of_real"}
-{"id":"STRESS-ST-015","prompt":"Declare a bundle installer @NScriptType BundleInstalationScript","adversarial_target":"BundleInstalationScript","target_category":"script_type","strategy":"typo_of_real"}
-{"id":"STRESS-ST-016","prompt":"Mark the file with @NScriptType beforeSubmit","adversarial_target":"beforeSubmit","target_category":"script_type","strategy":"cross_module_confusion"}
-{"id":"STRESS-ST-017","prompt":"Mark the file with @NScriptType afterSubmit","adversarial_target":"afterSubmit","target_category":"script_type","strategy":"cross_module_confusion"}
-{"id":"STRESS-ST-018","prompt":"Mark the file with @NScriptType beforeLoad","adversarial_target":"beforeLoad","target_category":"script_type","strategy":"cross_module_confusion"}
-{"id":"STRESS-ST-019","prompt":"Mark the file with @NScriptType pageInit","adversarial_target":"pageInit","target_category":"script_type","strategy":"cross_module_confusion"}
-{"id":"STRESS-ST-020","prompt":"Mark the file with @NScriptType fieldChanged","adversarial_target":"fieldChanged","target_category":"script_type","strategy":"cross_module_confusion"}
-{"id":"STRESS-ST-021","prompt":"Use search.Type.ACCOUNT_ENTRY as the search type","adversarial_target":"ACCOUNT_ENTRY","target_category":"script_type","strategy":"near_miss"}
-{"id":"STRESS-ST-022","prompt":"Query with search.Type.INVOICE_DRAFT","adversarial_target":"INVOICE_DRAFT","target_category":"script_type","strategy":"near_miss"}
-{"id":"STRESS-ST-023","prompt":"Query via search.Type.ASSEMBLY_RECEIVE","adversarial_target":"ASSEMBLY_RECEIVE","target_category":"script_type","strategy":"near_miss"}
-{"id":"STRESS-ST-024","prompt":"Load allocations with search.Type.ALLOCATION","adversarial_target":"ALLOCATION","target_category":"script_type","strategy":"near_miss"}
-{"id":"STRESS-ST-025","prompt":"Search billing events via search.Type.BILLING_EVENT","adversarial_target":"BILLING_EVENT","target_category":"script_type","strategy":"near_miss"}
-{"id":"STRESS-ST-026","prompt":"Query search.Type.TRANSACTION_HISTORY","adversarial_target":"TRANSACTION_HISTORY","target_category":"script_type","strategy":"plausible_nonexistent"}
-{"id":"STRESS-ST-027","prompt":"Read search.Type.AUDIT_LOG_ENTRY","adversarial_target":"AUDIT_LOG_ENTRY","target_category":"script_type","strategy":"plausible_nonexistent"}
-{"id":"STRESS-ST-028","prompt":"List search.Type.CUSTOMER_FEEDBACK","adversarial_target":"CUSTOMER_FEEDBACK","target_category":"script_type","strategy":"plausible_nonexistent"}
-{"id":"STRESS-ST-029","prompt":"Load search.Type.PROJECT_MILESTONE","adversarial_target":"PROJECT_MILESTONE","target_category":"script_type","strategy":"plausible_nonexistent"}
-{"id":"STRESS-ST-030","prompt":"Track search.Type.SUBSCRIPTION_EVENT","adversarial_target":"SUBSCRIPTION_EVENT","target_category":"script_type","strategy":"plausible_nonexistent"}
-{"id":"STRESS-ST-031","prompt":"Search via search.Type.CUSOMER","adversarial_target":"CUSOMER","target_category":"script_type","strategy":"typo_of_real"}
-{"id":"STRESS-ST-032","prompt":"Search via search.Type.INVOCE","adversarial_target":"INVOCE","target_category":"script_type","strategy":"typo_of_real"}
-{"id":"STRESS-ST-033","prompt":"Search via search.Type.TRANSATION","adversarial_target":"TRANSATION","target_category":"script_type","strategy":"typo_of_real"}
-{"id":"STRESS-ST-034","prompt":"Query accounting periods via search.Type.ACOUNTING_PERIOD","adversarial_target":"ACOUNTING_PERIOD","target_category":"script_type","strategy":"typo_of_real"}
-{"id":"STRESS-ST-035","prompt":"Load templates via search.Type.AMORTIZTION_TEMPLATE","adversarial_target":"AMORTIZTION_TEMPLATE","target_category":"script_type","strategy":"typo_of_real"}
-{"id":"STRESS-ST-036","prompt":"Use module name as search.Type.RECORD","adversarial_target":"RECORD","target_category":"script_type","strategy":"cross_module_confusion"}
-{"id":"STRESS-ST-037","prompt":"Use module name as search.Type.QUERY","adversarial_target":"QUERY","target_category":"script_type","strategy":"cross_module_confusion"}
-{"id":"STRESS-ST-038","prompt":"Use module name as search.Type.FORMAT","adversarial_target":"FORMAT","target_category":"script_type","strategy":"cross_module_confusion"}
-{"id":"STRESS-ST-039","prompt":"Use module name as search.Type.CACHE","adversarial_target":"CACHE","target_category":"script_type","strategy":"cross_module_confusion"}
-{"id":"STRESS-ST-040","prompt":"Use module name as search.Type.DIRECTORY","adversarial_target":"DIRECTORY","target_category":"script_type","strategy":"cross_module_confusion"}
+{"id":"STRESS-ST-001","prompt":"Author an entry-point file with @NScriptType UserEventPlugin","adversarial_target":"UserEventPlugin","target_category":"script_type","strategy":"near_miss","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-002","prompt":"Annotate a scheduled file with @NScriptType ScheduledTask","adversarial_target":"ScheduledTask","target_category":"script_type","strategy":"near_miss","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-003","prompt":"Expose an HTTP endpoint with @NScriptType RESTService","adversarial_target":"RESTService","target_category":"script_type","strategy":"near_miss","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-004","prompt":"Create a Suitelet variant annotated @NScriptType SuiteletScript","adversarial_target":"SuiteletScript","target_category":"script_type","strategy":"near_miss","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-005","prompt":"Declare a workflow hook with @NScriptType WorkflowScript","adversarial_target":"WorkflowScript","target_category":"script_type","strategy":"near_miss","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-006","prompt":"Mark async entry point @NScriptType AsyncScript","adversarial_target":"AsyncScript","target_category":"script_type","strategy":"plausible_nonexistent","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-007","prompt":"Declare a batch job annotated @NScriptType BatchScript","adversarial_target":"BatchScript","target_category":"script_type","strategy":"plausible_nonexistent","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-008","prompt":"Register a streaming script @NScriptType StreamingScript","adversarial_target":"StreamingScript","target_category":"script_type","strategy":"plausible_nonexistent","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-009","prompt":"Declare an event listener @NScriptType EventListener","adversarial_target":"EventListener","target_category":"script_type","strategy":"plausible_nonexistent","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-010","prompt":"Expose a webhook with @NScriptType WebhookScript","adversarial_target":"WebhookScript","target_category":"script_type","strategy":"plausible_nonexistent","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-011","prompt":"Declare user event @NScriptType UserEvntScript","adversarial_target":"UserEvntScript","target_category":"script_type","strategy":"typo_of_real","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-012","prompt":"Declare scheduled @NScriptType SceduledScript","adversarial_target":"SceduledScript","target_category":"script_type","strategy":"typo_of_real","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-013","prompt":"Declare map reduce @NScriptType MapReduseScript","adversarial_target":"MapReduseScript","target_category":"script_type","strategy":"typo_of_real","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-014","prompt":"Declare a Suitelet with @NScriptType Sulitelet","adversarial_target":"Sulitelet","target_category":"script_type","strategy":"typo_of_real","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-015","prompt":"Declare a bundle installer @NScriptType BundleInstalationScript","adversarial_target":"BundleInstalationScript","target_category":"script_type","strategy":"typo_of_real","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-016","prompt":"Mark the file with @NScriptType beforeSubmit","adversarial_target":"beforeSubmit","target_category":"script_type","strategy":"cross_module_confusion","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-017","prompt":"Mark the file with @NScriptType afterSubmit","adversarial_target":"afterSubmit","target_category":"script_type","strategy":"cross_module_confusion","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-018","prompt":"Mark the file with @NScriptType beforeLoad","adversarial_target":"beforeLoad","target_category":"script_type","strategy":"cross_module_confusion","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-019","prompt":"Mark the file with @NScriptType pageInit","adversarial_target":"pageInit","target_category":"script_type","strategy":"cross_module_confusion","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-020","prompt":"Mark the file with @NScriptType fieldChanged","adversarial_target":"fieldChanged","target_category":"script_type","strategy":"cross_module_confusion","synth_mode":"nscripttype"}
+{"id":"STRESS-ST-021","prompt":"Use search.Type.ACCOUNT_ENTRY as the search type","adversarial_target":"ACCOUNT_ENTRY","target_category":"script_type","strategy":"near_miss","synth_mode":"searchtype"}
+{"id":"STRESS-ST-022","prompt":"Query with search.Type.INVOICE_DRAFT","adversarial_target":"INVOICE_DRAFT","target_category":"script_type","strategy":"near_miss","synth_mode":"searchtype"}
+{"id":"STRESS-ST-023","prompt":"Query via search.Type.ASSEMBLY_RECEIVE","adversarial_target":"ASSEMBLY_RECEIVE","target_category":"script_type","strategy":"near_miss","synth_mode":"searchtype"}
+{"id":"STRESS-ST-024","prompt":"Load allocations with search.Type.ALLOCATION","adversarial_target":"ALLOCATION","target_category":"script_type","strategy":"near_miss","synth_mode":"searchtype"}
+{"id":"STRESS-ST-025","prompt":"Search billing events via search.Type.BILLING_EVENT","adversarial_target":"BILLING_EVENT","target_category":"script_type","strategy":"near_miss","synth_mode":"searchtype"}
+{"id":"STRESS-ST-026","prompt":"Query search.Type.TRANSACTION_HISTORY","adversarial_target":"TRANSACTION_HISTORY","target_category":"script_type","strategy":"plausible_nonexistent","synth_mode":"searchtype"}
+{"id":"STRESS-ST-027","prompt":"Read search.Type.AUDIT_LOG_ENTRY","adversarial_target":"AUDIT_LOG_ENTRY","target_category":"script_type","strategy":"plausible_nonexistent","synth_mode":"searchtype"}
+{"id":"STRESS-ST-028","prompt":"List search.Type.CUSTOMER_FEEDBACK","adversarial_target":"CUSTOMER_FEEDBACK","target_category":"script_type","strategy":"plausible_nonexistent","synth_mode":"searchtype"}
+{"id":"STRESS-ST-029","prompt":"Load search.Type.PROJECT_MILESTONE","adversarial_target":"PROJECT_MILESTONE","target_category":"script_type","strategy":"plausible_nonexistent","synth_mode":"searchtype"}
+{"id":"STRESS-ST-030","prompt":"Track search.Type.SUBSCRIPTION_EVENT","adversarial_target":"SUBSCRIPTION_EVENT","target_category":"script_type","strategy":"plausible_nonexistent","synth_mode":"searchtype"}
+{"id":"STRESS-ST-031","prompt":"Search via search.Type.CUSOMER","adversarial_target":"CUSOMER","target_category":"script_type","strategy":"typo_of_real","synth_mode":"searchtype"}
+{"id":"STRESS-ST-032","prompt":"Search via search.Type.INVOCE","adversarial_target":"INVOCE","target_category":"script_type","strategy":"typo_of_real","synth_mode":"searchtype"}
+{"id":"STRESS-ST-033","prompt":"Search via search.Type.TRANSATION","adversarial_target":"TRANSATION","target_category":"script_type","strategy":"typo_of_real","synth_mode":"searchtype"}
+{"id":"STRESS-ST-034","prompt":"Query accounting periods via search.Type.ACOUNTING_PERIOD","adversarial_target":"ACOUNTING_PERIOD","target_category":"script_type","strategy":"typo_of_real","synth_mode":"searchtype"}
+{"id":"STRESS-ST-035","prompt":"Load templates via search.Type.AMORTIZTION_TEMPLATE","adversarial_target":"AMORTIZTION_TEMPLATE","target_category":"script_type","strategy":"typo_of_real","synth_mode":"searchtype"}
+{"id":"STRESS-ST-036","prompt":"Use module name as search.Type.RECORD","adversarial_target":"RECORD","target_category":"script_type","strategy":"cross_module_confusion","synth_mode":"searchtype"}
+{"id":"STRESS-ST-037","prompt":"Use module name as search.Type.QUERY","adversarial_target":"QUERY","target_category":"script_type","strategy":"cross_module_confusion","synth_mode":"searchtype"}
+{"id":"STRESS-ST-038","prompt":"Use module name as search.Type.FORMAT","adversarial_target":"FORMAT","target_category":"script_type","strategy":"cross_module_confusion","synth_mode":"searchtype"}
+{"id":"STRESS-ST-039","prompt":"Use module name as search.Type.CACHE","adversarial_target":"CACHE","target_category":"script_type","strategy":"cross_module_confusion","synth_mode":"searchtype"}
+{"id":"STRESS-ST-040","prompt":"Use module name as search.Type.DIRECTORY","adversarial_target":"DIRECTORY","target_category":"script_type","strategy":"cross_module_confusion","synth_mode":"searchtype"}

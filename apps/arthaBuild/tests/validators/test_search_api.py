@@ -41,3 +41,18 @@ def test_member_expression_not_flagged():
     code = "var v = result.search.getValue({name: 'foo'});"
     violations = CHECKER.check(code)
     assert violations == []
+
+
+@pytest.mark.parametrize("bad", [
+    "create_search",     # snake_case invention with underscore
+    "run_paged",         # near-miss of runPaged
+    "lookup_fields",     # near-miss of lookupFields
+])
+def test_underscore_hallucinations_flagged(bad):
+    """Regex must capture underscore-containing method names so hallucinated
+    snake_case methods like `search.run_paged()` are flagged rather than
+    silently skipped."""
+    code = f"var x = search.{bad}({{type: 'customer'}});"
+    violations = CHECKER.check(code)
+    assert len(violations) == 1
+    assert violations[0].identifier == bad

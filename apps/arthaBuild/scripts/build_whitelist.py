@@ -20,7 +20,41 @@ FLOORS = {
     "SCRIPT_TYPES": 10,
     "SEARCH_TYPES": 100,
     "SEARCH_APIS": 10,
+    "FILE_TYPES": 30,
+    "HTTP_METHODS": 5,
+    "RECORD_SCRIPT_IDS": 100,
 }
+
+# Canonical N/file Type enum (NetSuite SuiteScript 2.x N/file Module — Type enum).
+# Hardcoded because oracle-module-file.md does not enumerate the full set.
+# Source: NetSuite Help Center, file.Type values.
+_FILE_TYPES_CANON: set[str] = {
+    "AUTOCAD", "BMPIMAGE", "CERTIFICATE", "CONFIG", "CSV", "EXCEL",
+    "FLASH", "FREEMARKER", "GIF", "GIFIMAGE", "GZIP", "HTMLDOC",
+    "ICON", "JAVASCRIPT", "JPGIMAGE", "JSON", "MESSAGE_RFC", "MP3",
+    "MPEGMOVIE", "MSPROJECT", "PDF", "PJPGIMAGE", "PLAINTEXT",
+    "PNGIMAGE", "POSTSCRIPT", "POWERPOINT", "PROJECT", "QUICKTIME",
+    "RTF", "SMS", "STYLESHEET", "SVG", "TAR", "TIFFIMAGE", "VISIO",
+    "WEBAPPPAGE", "WEBAPPSCRIPT", "WINDOWSMEDIA", "WORD", "XMLDOC",
+    "XSD", "ZIP",
+}
+
+# Canonical N/http Method enum (NetSuite SuiteScript 2.x N/http Module — Method enum).
+# Source: NetSuite Help Center, http.Method values.
+_HTTP_METHODS_CANON: set[str] = {
+    "DELETE", "GET", "HEAD", "POST", "PUT",
+}
+
+
+def derive_record_script_ids(record_types: set[str]) -> set[str]:
+    """Derive the lowercase scriptId form for every standard record.Type value.
+
+    NetSuite's SuiteScript API allows passing a record as a string literal:
+        record.load({type: 'salesorder', id: 123})
+    The lowercase scriptId is the underscore-stripped lowercase of the
+    `record.Type.*` enum value (SALES_ORDER → salesorder).
+    """
+    return {rt.lower().replace("_", "") for rt in record_types}
 
 def extract_record_types() -> set[str]:
     out: set[str] = set()
@@ -208,12 +242,16 @@ def render(sets: dict[str, set[str]], out_file: Path) -> None:
 
 def main(out_file: Path | None = None) -> int:
     target = out_file or DEFAULT_OUT
+    record_types = extract_record_types()
     sets = {
-        "RECORD_TYPES": extract_record_types(),
+        "RECORD_TYPES": record_types,
         "MODULES": extract_modules(),
         "SCRIPT_TYPES": extract_script_types(),
         "SEARCH_TYPES": extract_search_types(),
         "SEARCH_APIS": extract_search_apis(),
+        "FILE_TYPES": set(_FILE_TYPES_CANON),
+        "HTTP_METHODS": set(_HTTP_METHODS_CANON),
+        "RECORD_SCRIPT_IDS": derive_record_script_ids(record_types),
     }
     for name, s in sets.items():
         if len(s) < FLOORS[name]:
