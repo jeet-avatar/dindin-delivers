@@ -1074,10 +1074,13 @@
     <thead><tr><th>Test File</th><th>Suite</th><th>Count</th><th>Status</th></tr></thead>
     <tbody>
       <tr><td class="test-name">tests/validators/test_whitelist_drift.py</td><td>Whitelist canon + minimum-size floors</td><td>6</td><td><span class="badge badge-pass">PASS</span></td></tr>
-      <tr><td class="test-name">tests/validators/test_record_type.py</td><td>RecordTypeChecker (valid + invalid + fixtures)</td><td>~23</td><td><span class="badge badge-pass">PASS</span></td></tr>
-      <tr><td class="test-name">tests/validators/test_module.py</td><td>ModuleChecker (define/require + 17 fixtures)</td><td>~23</td><td><span class="badge badge-pass">PASS</span></td></tr>
-      <tr><td class="test-name">tests/validators/test_script_type.py</td><td>ScriptTypeChecker (@NScriptType + search.Type.*)</td><td>~23</td><td><span class="badge badge-pass">PASS</span></td></tr>
-      <tr><td class="test-name">tests/validators/test_search_api.py</td><td>SearchApiChecker (method calls + member-expression guard)</td><td>~23</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_record_type.py</td><td>RecordTypeChecker (valid + invalid + fixtures)</td><td>16</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_module.py</td><td>ModuleChecker (define/require + 17 fixtures)</td><td>17</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_script_type.py</td><td>ScriptTypeChecker (@NScriptType + search.Type.*)</td><td>24</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_search_api.py</td><td>SearchApiChecker (method calls + member-expression guard)</td><td>17</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_base.py + test_ast_utils.py</td><td>Checker ABC + nearest() helper</td><td>6</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_linter.py</td><td>SuiteScriptLinter orchestrator + fence extraction + non-ASCII pre-pass</td><td>10</td><td><span class="badge badge-pass">PASS</span></td></tr>
+      <tr><td class="test-name">tests/validators/test_reprompt.py</td><td>Reprompt template + refusal message + metrics helpers</td><td>4</td><td><span class="badge badge-pass">PASS</span></td></tr>
       <tr><td class="test-name">tests/validators/test_integration.py</td><td>run_validation_loop (clean / recovered / hard_blocked / budget)</td><td>4</td><td><span class="badge badge-pass">PASS</span></td></tr>
       <tr><td class="test-name">tests/eval/run_stress.py::test_all_stress_cases_flagged</td><td>Static linter coverage — 160 adversarial cases must all produce &ge;1 violation</td><td>1</td><td><span class="badge badge-pass">PASS</span></td></tr>
       <tr><td class="test-name">tests/eval/run_stress.py::test_per_category_counts</td><td>Stress corpus balance — 40/40/40/40 per category</td><td>1</td><td><span class="badge badge-pass">PASS</span></td></tr>

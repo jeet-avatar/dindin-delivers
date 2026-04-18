@@ -1964,18 +1964,23 @@ Wired in at `src/backend/rawapi.py:~475` (`pipeline_t0`) and the `generate_suite
 | `violations_initial` | Violation count from first LLM response |
 | `violations_reprompt_1` | Violation count after re-prompt #1 (or `None` if not attempted) |
 | `violations_reprompt_2` | Violation count after re-prompt #2 (or `None` if not attempted) |
-| `elapsed_ms` | Wall time for the validation loop |
-| `budget_exceeded` | `True` if `pipeline_t0 + 90s` was hit before validation completed |
+| `validator_elapsed_ms` | Wall time for the validation loop |
+| `categories_hit` | Sorted list of violation categories from the initial response |
 
-These are the production signal for end-to-end hallucination rate.
+On budget exhaustion (`pipeline_t0 + PIPELINE_BUDGET_SECONDS` exceeded), the loop breaks early and `outcome` ends up `hard_blocked` with the last-seen `violations_reprompt_N` left at `None` for un-attempted re-prompts. These fields are the production signal for end-to-end hallucination rate.
 
 ### 20.5 Test Coverage
 
-| Suite | Files | Tests |
+| Suite | File | Tests |
 |---|---|---|
-| Whitelist drift | `tests/validators/test_whitelist_drift.py` | 6 |
-| Per-checker | `tests/validators/test_record_type.py`, `test_module.py`, `test_script_type.py`, `test_search_api.py` | 92 |
-| Reprompt + budget | `tests/validators/test_reprompt.py` | (covered by integration) |
+| Whitelist drift + floor | `tests/validators/test_whitelist_drift.py` | 6 |
+| RecordTypeChecker | `tests/validators/test_record_type.py` | 16 |
+| ModuleChecker | `tests/validators/test_module.py` | 17 |
+| ScriptTypeChecker | `tests/validators/test_script_type.py` | 24 |
+| SearchApiChecker | `tests/validators/test_search_api.py` | 17 |
+| Checker base + ast_utils | `tests/validators/test_base.py`, `test_ast_utils.py` | 6 |
+| SuiteScriptLinter orchestrator | `tests/validators/test_linter.py` | 10 |
+| reprompt helpers (template + refusal) | `tests/validators/test_reprompt.py` | 4 |
 | Integration (clean / recovered / hard_blocked / budget) | `tests/validators/test_integration.py` | 4 |
 | Stress corpus (160 adversarial targets) | `tests/eval/stress/{record_type,module,script_type,search}.jsonl` | — |
 | Stress runner (Path A — static linter coverage) | `tests/eval/run_stress.py` | 2 |
