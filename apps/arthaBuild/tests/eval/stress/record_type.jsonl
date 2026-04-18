@@ -1,0 +1,40 @@
+{"id":"STRESS-RT-001","prompt":"Load a Receiving Voucher using record.Type.RECEIVING_VOUCHER","adversarial_target":"RECEIVING_VOUCHER","target_category":"record_type","strategy":"near_miss"}
+{"id":"STRESS-RT-002","prompt":"Create a Vendor Invoice with record.Type.VENDOR_INVOICE","adversarial_target":"VENDOR_INVOICE","target_category":"record_type","strategy":"near_miss"}
+{"id":"STRESS-RT-003","prompt":"Book a currency revaluation via record.Type.CURRENCY_REVALUATION","adversarial_target":"CURRENCY_REVALUATION","target_category":"record_type","strategy":"near_miss"}
+{"id":"STRESS-RT-004","prompt":"Generate a Sales Invoice using record.Type.SALES_INVOICE","adversarial_target":"SALES_INVOICE","target_category":"record_type","strategy":"near_miss"}
+{"id":"STRESS-RT-005","prompt":"Create a Bill Receipt with record.Type.BILL_RECEIPT","adversarial_target":"BILL_RECEIPT","target_category":"record_type","strategy":"near_miss"}
+{"id":"STRESS-RT-006","prompt":"Record a payment receipt via record.Type.PAYMENT_RECEIPT","adversarial_target":"PAYMENT_RECEIPT","target_category":"record_type","strategy":"near_miss"}
+{"id":"STRESS-RT-007","prompt":"Apply a customer deposit using record.Type.CUSTOMER_DEPOSIT_APPLICATION","adversarial_target":"CUSTOMER_DEPOSIT_APPLICATION","target_category":"record_type","strategy":"near_miss"}
+{"id":"STRESS-RT-008","prompt":"Move inventory using record.Type.ITEM_TRANSFER","adversarial_target":"ITEM_TRANSFER","target_category":"record_type","strategy":"near_miss"}
+{"id":"STRESS-RT-009","prompt":"Adjust inventory counts with record.Type.ITEM_ADJUSTMENT","adversarial_target":"ITEM_ADJUSTMENT","target_category":"record_type","strategy":"near_miss"}
+{"id":"STRESS-RT-010","prompt":"Create a generic Receiving record via record.Type.RECEIVING","adversarial_target":"RECEIVING","target_category":"record_type","strategy":"near_miss"}
+{"id":"STRESS-RT-011","prompt":"Write to the automated audit log via record.Type.AUTOMATED_AUDIT_LOG","adversarial_target":"AUTOMATED_AUDIT_LOG","target_category":"record_type","strategy":"plausible_nonexistent"}
+{"id":"STRESS-RT-012","prompt":"Store a compliance certificate with record.Type.COMPLIANCE_CERT","adversarial_target":"COMPLIANCE_CERT","target_category":"record_type","strategy":"plausible_nonexistent"}
+{"id":"STRESS-RT-013","prompt":"Create a project retainer via record.Type.PROJECT_RETAINER","adversarial_target":"PROJECT_RETAINER","target_category":"record_type","strategy":"plausible_nonexistent"}
+{"id":"STRESS-RT-014","prompt":"Log customer advocacy using record.Type.CUSTOMER_ADVOCACY","adversarial_target":"CUSTOMER_ADVOCACY","target_category":"record_type","strategy":"plausible_nonexistent"}
+{"id":"STRESS-RT-015","prompt":"Upgrade a subscription using record.Type.SUBSCRIPTION_UPGRADE","adversarial_target":"SUBSCRIPTION_UPGRADE","target_category":"record_type","strategy":"plausible_nonexistent"}
+{"id":"STRESS-RT-016","prompt":"Persist an inventory snapshot via record.Type.INVENTORY_SNAPSHOT","adversarial_target":"INVENTORY_SNAPSHOT","target_category":"record_type","strategy":"plausible_nonexistent"}
+{"id":"STRESS-RT-017","prompt":"Track tax exemption via record.Type.TAX_EXEMPTION_CERT","adversarial_target":"TAX_EXEMPTION_CERT","target_category":"record_type","strategy":"plausible_nonexistent"}
+{"id":"STRESS-RT-018","prompt":"File a regulatory return via record.Type.REGULATORY_FILING","adversarial_target":"REGULATORY_FILING","target_category":"record_type","strategy":"plausible_nonexistent"}
+{"id":"STRESS-RT-019","prompt":"Define a cost pool with record.Type.COST_POOL","adversarial_target":"COST_POOL","target_category":"record_type","strategy":"plausible_nonexistent"}
+{"id":"STRESS-RT-020","prompt":"Manage an approval chain via record.Type.APPROVAL_CHAIN","adversarial_target":"APPROVAL_CHAIN","target_category":"record_type","strategy":"plausible_nonexistent"}
+{"id":"STRESS-RT-021","prompt":"Create a sales order using record.Type.SALE_ORDER","adversarial_target":"SALE_ORDER","target_category":"record_type","strategy":"typo_of_real"}
+{"id":"STRESS-RT-022","prompt":"Load a customer with record.Type.CUTOMER","adversarial_target":"CUTOMER","target_category":"record_type","strategy":"typo_of_real"}
+{"id":"STRESS-RT-023","prompt":"Book an invoice using record.Type.INVOCE","adversarial_target":"INVOCE","target_category":"record_type","strategy":"typo_of_real"}
+{"id":"STRESS-RT-024","prompt":"Create a sales order using record.Type.SALLESORDER","adversarial_target":"SALLESORDER","target_category":"record_type","strategy":"typo_of_real"}
+{"id":"STRESS-RT-025","prompt":"Load a sales order using record.Type.SALESORDR","adversarial_target":"SALESORDR","target_category":"record_type","strategy":"typo_of_real"}
+{"id":"STRESS-RT-026","prompt":"Load a customer using record.Type.CUSOMER","adversarial_target":"CUSOMER","target_category":"record_type","strategy":"typo_of_real"}
+{"id":"STRESS-RT-027","prompt":"Receive items via record.Type.ITEMRECEPT","adversarial_target":"ITEMRECEPT","target_category":"record_type","strategy":"typo_of_real"}
+{"id":"STRESS-RT-028","prompt":"Enter a vendor bill via record.Type.VENDOBRIL","adversarial_target":"VENDOBRIL","target_category":"record_type","strategy":"typo_of_real"}
+{"id":"STRESS-RT-029","prompt":"Create a transfer order using record.Type.TRANSFRORDER","adversarial_target":"TRANSFRORDER","target_category":"record_type","strategy":"typo_of_real"}
+{"id":"STRESS-RT-030","prompt":"Create a PO with record.Type.PUCHASEORDER","adversarial_target":"PUCHASEORDER","target_category":"record_type","strategy":"typo_of_real"}
+{"id":"STRESS-RT-031","prompt":"Load a transaction record using record.Type.TRANSACTION","adversarial_target":"TRANSACTION","target_category":"record_type","strategy":"cross_module_confusion"}
+{"id":"STRESS-RT-032","prompt":"Create a search column via record.Type.SEARCH_COLUMN","adversarial_target":"SEARCH_COLUMN","target_category":"record_type","strategy":"cross_module_confusion"}
+{"id":"STRESS-RT-033","prompt":"Configure accounting period via record.Type.ACCOUNTING_PERIOD_CONFIG","adversarial_target":"ACCOUNTING_PERIOD_CONFIG","target_category":"record_type","strategy":"cross_module_confusion"}
+{"id":"STRESS-RT-034","prompt":"Create a workflow instance record with record.Type.WORKFLOW_INSTANCE","adversarial_target":"WORKFLOW_INSTANCE","target_category":"record_type","strategy":"cross_module_confusion"}
+{"id":"STRESS-RT-035","prompt":"Save a saved search via record.Type.SAVED_SEARCH","adversarial_target":"SAVED_SEARCH","target_category":"record_type","strategy":"cross_module_confusion"}
+{"id":"STRESS-RT-036","prompt":"Load an employee profile using record.Type.EMPLOYEE_PROFILE","adversarial_target":"EMPLOYEE_PROFILE","target_category":"record_type","strategy":"cross_module_confusion"}
+{"id":"STRESS-RT-037","prompt":"Define item options via record.Type.ITEM_OPTION","adversarial_target":"ITEM_OPTION","target_category":"record_type","strategy":"cross_module_confusion"}
+{"id":"STRESS-RT-038","prompt":"Link a contact assignment via record.Type.CONTACT_ASSIGNMENT","adversarial_target":"CONTACT_ASSIGNMENT","target_category":"record_type","strategy":"cross_module_confusion"}
+{"id":"STRESS-RT-039","prompt":"Define a sublist via record.Type.SUBLIST_DEFINITION","adversarial_target":"SUBLIST_DEFINITION","target_category":"record_type","strategy":"cross_module_confusion"}
+{"id":"STRESS-RT-040","prompt":"Create a bundle definition via record.Type.BUNDLE_DEFINITION","adversarial_target":"BUNDLE_DEFINITION","target_category":"record_type","strategy":"cross_module_confusion"}
