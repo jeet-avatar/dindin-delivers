@@ -53,3 +53,35 @@ def test_extract_first_code_block_multiple_fences_picks_first_js():
     code, lang = extract_first_code_block(text)
     assert code == "var y = 2;"
     assert lang == "js"
+
+
+def test_linter_default_constructor_end_to_end():
+    linter = SuiteScriptLinter()  # no args → default 4 checkers
+    bad = """
+    /** @NApiVersion 2.1 * @NScriptType Scheduled */
+    define(['N/record'], function(record) {
+        var r = record.load({type: record.Type.RECEIVING, id: 1});
+        return { execute: function() {} };
+    });
+    """
+    r = linter.lint(bad)
+    assert r.valid is False
+    # Two violations expected: Scheduled (bad @NScriptType, canon is
+    # ScheduledScript) + RECEIVING (bad record.Type).
+    idents = {v.identifier for v in r.violations}
+    assert "RECEIVING" in idents
+    assert "Scheduled" in idents
+    assert {v.category for v in r.violations} == {"record_type", "script_type"}
+
+
+def test_linter_clean_code_passes():
+    linter = SuiteScriptLinter()
+    good = """
+    /** @NApiVersion 2.1 * @NScriptType ScheduledScript */
+    define(['N/record'], function(record) {
+        var r = record.load({type: record.Type.SALES_ORDER, id: 1});
+        return { execute: function() {} };
+    });
+    """
+    r = linter.lint(good)
+    assert r.valid is True
