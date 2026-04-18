@@ -149,11 +149,24 @@ def extract_search_types() -> set[str]:
     """Extract `search.Type.*` enum values.
 
     Per parser findings § SEARCH_TYPES (Option C — recommended): `record.Type`
-    and `search.Type` share the same string values in NetSuite (e.g.
-    `SALES_ORDER` works for both), so we alias to `extract_record_types()`
-    to eliminate duplication and satisfy the 100-value floor.
+    and `search.Type` share most string values in NetSuite (e.g. `SALES_ORDER`
+    works for both), so we start from `extract_record_types()`. However, the
+    N/search module documents a handful of *parent/generic* search types that
+    have no `record.Type` equivalent (you can search across the category but
+    can't `record.load` one). These are added explicitly so real SuiteScript
+    calls like `search.create({type: search.Type.TRANSACTION})` aren't
+    false-flagged.
     """
-    return extract_record_types()
+    # Generic/parent search types with no record.Type equivalent.
+    # Source: N/search Module Type enum, NetSuite SuiteScript 2.x docs.
+    SEARCH_ONLY_GENERICS = {
+        "TRANSACTION",    # search across all transaction subtypes
+        "ITEM",           # search across all item subtypes
+        "ENTITY",         # search across customer/vendor/partner/employee
+        "ACTIVITY",       # search across event/task/phone call
+        "COMMUNICATION",  # search across note/message
+    }
+    return extract_record_types() | SEARCH_ONLY_GENERICS
 
 
 def extract_search_apis() -> set[str]:
