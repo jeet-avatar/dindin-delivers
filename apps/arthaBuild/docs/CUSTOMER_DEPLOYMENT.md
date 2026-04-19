@@ -69,19 +69,25 @@ Your license key looks like: `AB-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX`
 
 This section covers the complete deployment in 5 steps.
 
-### Step 1: Clone the repository
+### Step 1: Obtain the ArthaBuild release package
+
+The ArthaBuild source distribution is delivered as a signed release tarball
+by Vibing World inc. after your license purchase. Contact
+**sales@artha.build** with your license key to receive your download link.
 
 ```bash
-git clone https://github.com/techcloudpro/arthaBuild.git
+# Replace <version> with the release you were issued (e.g. v3.4)
+tar -xzf arthaBuild-<version>.tar.gz
 cd arthaBuild
 ```
 
 Expected output:
 
 ```
-Cloning into 'arthaBuild'...
-remote: Counting objects: 1200, done.
-Resolving deltas: 100% (800/800), done.
+arthaBuild/
+arthaBuild/docker-compose.yml
+arthaBuild/.env.example
+...
 ```
 
 ### Step 2: Create your `.env` file
