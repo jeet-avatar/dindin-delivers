@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import logging
 import os
+import struct
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -572,3 +573,178 @@ def parse_track_anlz(
         "memory_cues":     cues["memory_cues"],
         "bpm":             avg_bpm,
     }
+
+
+# ---------------------------------------------------------------------------
+# 2 — Round-trip adapters between reader and writer (Phase 21 Task 21-03 Task 4)
+#
+# These helpers let the test suite parse a real Rekordbox-exported ANLZ file
+# back into the shape that ``anlz_writer.write_dat`` consumes, so we can round-
+# trip reference → writer → output and diff output vs reference byte-for-byte.
+# ---------------------------------------------------------------------------
+
+
+def _parse_anlz_tags(data: bytes) -> dict[bytes, bytes]:
+    """Split an ANLZ file into ``{tag_magic: tag_body_bytes}`` for the FIRST
+    occurrence of each magic.
+
+    The "body" is the portion of each tag past the 12-byte envelope
+    (``magic + len_header + tag_len``). This matches the slicing convention
+    used by our ``construct``-based structs in ``anlz_structs.py``.
+
+    If the same magic appears multiple times (e.g. .DAT has two PCOB tags —
+    hot and memory), only the first is returned. Use :func:`_parse_anlz_tags_all`
+    when all occurrences are needed.
+
+    Returns
+    -------
+    Mapping ``magic -> body_bytes`` for every valid tag walked up to EOF.
+    """
+    tags: dict[bytes, bytes] = {}
+    if len(data) < 28:
+        return tags
+    off = struct.unpack(">I", data[4:8])[0]  # file-header len (usually 0x1C)
+    while off < len(data) - 8:
+        magic = data[off : off + 4]
+        if len(magic) < 4 or not magic.isascii():
+            break
+        try:
+            tag_len = struct.unpack(">I", data[off + 8 : off + 12])[0]
+        except struct.error:
+            break
+        if tag_len < 12 or off + tag_len > len(data):
+            break
+        body = data[off + 12 : off + tag_len]
+        # Only record FIRST occurrence — callers that need duplicates use _all.
+        tags.setdefault(magic, body)
+        off += tag_len
+    return tags
+
+
+def _parse_anlz_tags_all(data: bytes) -> list[tuple[bytes, bytes]]:
+    """Like :func:`_parse_anlz_tags` but returns every occurrence in order.
+
+    This is needed for .DAT files that carry two PCOB tags (hot then memory).
+    """
+    out: list[tuple[bytes, bytes]] = []
+    if len(data) < 28:
+        return out
+    off = struct.unpack(">I", data[4:8])[0]
+    while off < len(data) - 8:
+        magic = data[off : off + 4]
+        if len(magic) < 4 or not magic.isascii():
+            break
+        try:
+            tag_len = struct.unpack(">I", data[off + 8 : off + 12])[0]
+        except struct.error:
+            break
+        if tag_len < 12 or off + tag_len > len(data):
+            break
+        out.append((magic, data[off + 12 : off + tag_len]))
+        off += tag_len
+    return out
+
+
+def anlz_to_writer_input(data: bytes) -> dict:
+    """Inverse of ``anlz_writer.write_dat`` input shape.
+
+    Parses a raw ANLZ .DAT byte-string through our construct-based structs
+    and returns a kwargs dict compatible with ``write_dat(**result)``.
+
+    Parameters
+    ----------
+    data:
+        Raw .DAT file bytes (starts with ``PMAI`` magic).
+
+    Returns
+    -------
+    Dict with keys ``beats``, ``memory_cues``, ``hot_cues``, ``waveform_preview``,
+    and optionally ``file_path``. Ready for ``write_dat(out_path, **result)``.
+
+    Raises
+    ------
+    ValueError
+        If required tags (PQTZ or PWAV) are missing.
+
+    Notes
+    -----
+    PCOB tags appear twice in .DAT (hot then memory) — distinguished by
+    ``cue_type`` field (``1`` = hot, ``0`` = memory). We walk all occurrences
+    and route by cue_type so ordering doesn't matter.
+    """
+    # Defer struct imports so callers that only need _parse_anlz_tags pay no cost.
+    from anlz_structs import PQTZBody, PWAVBody, PCOBBody, PPTHBody  # type: ignore
+    from anlz_writer import BeatEntry, CueEntry  # type: ignore
+
+    all_tags = _parse_anlz_tags_all(data)
+    by_magic: dict[bytes, list[bytes]] = {}
+    for magic, body in all_tags:
+        by_magic.setdefault(magic, []).append(body)
+
+    # --- PQTZ: beat grid (required) ---
+    pqtz_bodies = by_magic.get(b"PQTZ")
+    if not pqtz_bodies:
+        raise ValueError("ANLZ missing required PQTZ (beat grid) tag")
+    pqtz = PQTZBody.parse(pqtz_bodies[0])
+    beats = [
+        BeatEntry(
+            time_ms=int(e.time_ms),
+            beat_number=int(e.beat),
+            bpm=float(e.tempo) / 100.0,
+        )
+        for e in pqtz.entries
+    ]
+
+    # --- PWAV: mono preview waveform (required) ---
+    pwav_bodies = by_magic.get(b"PWAV")
+    if not pwav_bodies:
+        raise ValueError("ANLZ missing required PWAV (waveform preview) tag")
+    pwav = PWAVBody.parse(pwav_bodies[0])
+    waveform_preview = bytes(pwav.data)
+
+    # --- PCOB: hot + memory cues (optional — may be empty stubs) ---
+    hot_cues: list[CueEntry] = []
+    memory_cues: list[CueEntry] = []
+    for body in by_magic.get(b"PCOB", []):
+        pcob = PCOBBody.parse(body)
+        target = hot_cues if pcob.cue_type == 1 else memory_cues
+        for i, entry in enumerate(pcob.entries):
+            slot: Optional[str]
+            if pcob.cue_type == 1:
+                # hot_cue is 1-indexed (A=1, B=2, ..., H=8)
+                hc = int(entry.hot_cue)
+                slot = chr(ord("A") + hc - 1) if 1 <= hc <= 8 else None
+            else:
+                slot = None
+            target.append(
+                CueEntry(
+                    time_ms=int(entry.time_ms),
+                    slot=slot,
+                    label="",            # PCOB has no label (labels live in PCO2)
+                    color_id=0,          # PCOB has no color_id either
+                )
+            )
+
+    # --- PPTH: file path (optional) ---
+    file_path = None
+    ppth_bodies = by_magic.get(b"PPTH")
+    if ppth_bodies:
+        try:
+            ppth = PPTHBody.parse(ppth_bodies[0])
+            # PPTH.path is UTF-16 BE with trailing NUL — strip and decode
+            raw = bytes(ppth.path)
+            if raw.endswith(b"\x00\x00"):
+                raw = raw[:-2]
+            file_path = raw.decode("utf-16-be", errors="replace") or None
+        except Exception as exc:
+            logger.debug("PPTH parse failed, skipping file_path: %s", exc)
+
+    result = {
+        "beats": beats,
+        "memory_cues": memory_cues,
+        "hot_cues": hot_cues,
+        "waveform_preview": waveform_preview,
+    }
+    if file_path:
+        result["file_path"] = file_path
+    return result
