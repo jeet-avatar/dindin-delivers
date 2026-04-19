@@ -355,6 +355,31 @@ Plans:
 - [ ] 18-03-PLAN.md -- Admin ops API endpoints (all 6 read-only endpoints, require_admin auth)
 - [ ] 18-04-PLAN.md -- Admin portal /admin/ops React page: real-time ops board
 
+### Phase 21: mixmind-native-pioneer-usb-export
+
+**Goal:** Make MixMind a full native Rekordbox replacement for CDJ-3000 USB prep. MixMind must ingest a folder of audio files, analyze each track (BPM, beatgrid, key/Camelot, hot + memory cues, 3-band waveform, sections), persist results to its own library DB, and export a Pioneer-format USB (`PIONEER/export.pdb` + `PIONEER/USBANLZ/P***/ANLZ****.DAT` + `ANLZ****.EXT` + audio files at the Pioneer-expected paths) that plugs into a CDJ-3000 and plays — with correct BPM, beatgrid lock, waveform, and recalled hot cues — without Rekordbox touching the machine or the drive at any step.
+
+**Depends on:** Phase 20
+
+**Success criteria (goal-backward, verifiable):**
+1. `/api/library/import` accepts a folder path, recursively adds `.mp3/.aiff/.wav/.flac/.m4a`, and returns per-track analysis status
+2. Each imported track has: BPM (±0.1 of Rekordbox reference), first-beat offset (ms), beatgrid of downbeats, Camelot key, ≥8 auto-detected memory cues, 3-band waveform, section labels
+3. `/api/usb/export` writes `PIONEER/export.pdb` + `USBANLZ/` that a CDJ-3000 mounts and lists the tracks from
+4. Plugging the exported USB into a CDJ-3000: track loads, BPM display matches MixMind's value, beatgrid is locked, waveform renders with 3-band color, hot cues recall at the same positions MixMind assigned
+5. `tests/test_cdj_export_roundtrip.py` exports a USB image, re-parses it with the existing `anlz_parser.py` + `pyrekordbox`, and asserts round-trip equality for all fields
+6. No Rekordbox install required on the exporting Mac; no Rekordbox touches the USB before CDJ insert
+
+**Requirements:** MM-EXP-01, MM-EXP-02, MM-EXP-03, MM-EXP-04, MM-EXP-05, MM-EXP-06
+
+**Plans:** 5 plans (Wave 1: 21-01 → Wave 2: 21-02 + 21-03 parallel → Wave 3: 21-04 → Wave 4: 21-05)
+
+Plans:
+- [ ] 21-01-PLAN.md -- Folder importer (mutagen + imported_tracks table + POST /api/library/import + from_rekordbox flag)
+- [ ] 21-02-PLAN.md -- Analysis pipeline (POST /api/library/analyze hooked into existing AnalysisBatchRunner with source="import")
+- [ ] 21-03-PLAN.md -- ANLZ writer (hand-rolled per Option C: construct + Deep Symmetry Kaitai spec; PQTZ/PCO2/PCOB/PWAV/PWV3/PSSI; round-trip via anlz_parser + pyrekordbox)
+- [ ] 21-04-PLAN.md -- PDB writer + USB orchestrator (hand-rolled PDB; usb_layout for ID minting + Pxxx/yyyyyyyy; two-phase staging; POST /api/usb/export; 1500-track fuzz)
+- [ ] 21-05-PLAN.md -- Electron UI (folder picker IPC, ImportFolderButton, AnalyzeProgress, UsbExportWizard) + real CDJ-3000 acceptance + DMG build via build-mac.sh
+
 ---
 
 ### Phase 19: CDJ-3000 Waveform Replica
