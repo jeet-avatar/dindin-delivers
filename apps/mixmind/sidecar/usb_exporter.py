@@ -24,8 +24,10 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from anlz_writer import BeatEntry, CueEntry, SectionEntry, Waveform3Band, write_dat, write_ext
+from pdb_ext_writer import write_export_ext
 from pdb_reader import read_pdb
 from pdb_writer import PlaylistRecord, TrackRecord, write_pdb
+from pioneer_aux_writer import write_all as write_aux_all
 from usb_layout import (
     analyze_path,
     audio_path_on_usb,
@@ -33,6 +35,8 @@ from usb_layout import (
     reset_id_counter,
     usbanlz_dir,
 )
+
+from export_library_db import write as write_export_library_db
 
 
 # Filesystem support per CDJ-3000 spec (RESEARCH.md Pitfall 4)
@@ -170,6 +174,18 @@ def export_to_usb(
             pdb_path, pdb_tracks,
             playlists=_to_playlist_records(playlists),
         )
+
+        # 5b. Write exportExt.pdb (CDJ-3000X extension; empty but structural)
+        write_export_ext(staging / "PIONEER" / "rekordbox" / "exportExt.pdb")
+
+        # 5c. exportLibrary.db is deferred (SQLCipher key unknown — see
+        # export_library_db.py). CDJ-3000X falls back to export.pdb.
+        write_export_library_db(
+            staging / "PIONEER" / "rekordbox" / "exportLibrary.db",
+        )
+
+        # 5d. Aux files — RBFLTR, DEVSETTING, MYSETTING*, DJMMYSETTING
+        write_aux_all(staging)
 
         # 6. Validate via parse-back
         if progress_cb:
