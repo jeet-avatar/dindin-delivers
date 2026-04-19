@@ -9,8 +9,8 @@ export const posts: BlogPost[] = [
     title: 'How to Deploy a Private LLM on Your Own Infrastructure: Enterprise Guide',
     description: 'Learn how to deploy private large language models on your own infrastructure. Covers data sovereignty, GPU requirements, model selection, and SOC 2 compliance.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 2, 2026',
     readTime: '10 min read',
     tags: ['Private LLM', 'Enterprise AI', 'Data Sovereignty', 'On-Premise AI', 'SOC 2'],
@@ -347,8 +347,8 @@ export const posts: BlogPost[] = [
     title: 'AI Engineer Staffing Rates in 2026: What Companies Are Actually Paying',
     description: 'Current AI and ML engineer staffing rates for 2026 by role, engagement type, and geography. Real market data for contract, FTE, and offshore hiring.',
     category: 'staffing',
-    author: 'Rajesh Manoharan',
-    authorTitle: 'Managing Director',
+    author: 'Peter Samuel',
+    authorTitle: 'Head of IT Staffing',
     publishedAt: 'April 2, 2026',
     readTime: '8 min read',
     tags: ['AI Staffing', 'ML Engineer Salary', 'IT Staffing Rates', 'Tech Hiring', '2026'],
@@ -721,8 +721,8 @@ export const posts: BlogPost[] = [
     title: 'Why 87% of Enterprise AI Projects Fail — And How to Be in the 13%',
     description: 'Discover the top 5 reasons enterprise AI projects fail and a proven 90-day PoC framework to ensure your AI initiative succeeds. Data-driven analysis.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 2, 2026',
     readTime: '9 min read',
     tags: ['AI Strategy', 'AI Failure', 'Enterprise AI', 'AI ROI', 'Proof of Concept'],
@@ -871,8 +871,8 @@ export const posts: BlogPost[] = [
     title: 'CyberArk vs Delinea vs BeyondTrust: Privileged Access Management Compared (2026)',
     description: 'Feature-by-feature comparison of CyberArk, Delinea, and BeyondTrust PAM platforms in 2026. Covers vaulting, session management, pricing, and best fit.',
     category: 'cybersecurity',
-    author: 'Tom Robinson',
-    authorTitle: 'Head of Cybersecurity',
+    author: 'Ethan Vereal',
+    authorTitle: 'Chief Technology Officer',
     publishedAt: 'April 2, 2026',
     readTime: '10 min read',
     tags: ['CyberArk', 'Delinea', 'BeyondTrust', 'PAM', 'Privileged Access', 'Identity Security'],
@@ -1161,8 +1161,8 @@ export const posts: BlogPost[] = [
     title: 'Zero Trust Architecture Implementation Roadmap for Mid-Size Enterprises',
     description: 'A practical 5-phase Zero Trust roadmap for mid-size enterprises. Covers identity foundation, network segmentation, budget planning, and quick wins.',
     category: 'cybersecurity',
-    author: 'Tom Robinson',
-    authorTitle: 'Head of Cybersecurity',
+    author: 'Ethan Vereal',
+    authorTitle: 'Chief Technology Officer',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['Zero Trust', 'Cybersecurity', 'Identity Security', 'Mid-Size Enterprise'],
@@ -1320,8 +1320,8 @@ export const posts: BlogPost[] = [
     title: 'Building an AI Center of Excellence: The Organizational Playbook',
     description: 'How to build an AI Center of Excellence that actually works. Covers org structure, hiring, governance, vendor evaluation, and a 6-month launch timeline.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 2, 2026',
     readTime: '10 min read',
     tags: ['AI Strategy', 'AI Center of Excellence', 'Enterprise AI', 'AI Governance'],
@@ -1461,8 +1461,8 @@ export const posts: BlogPost[] = [
     title: 'Contract-to-Hire vs Direct Placement for Tech Roles: Which Model Saves Money?',
     description: 'Real cost comparison of contract-to-hire vs direct placement for tech hiring. Covers markup rates, conversion fees, hidden costs, and when each model wins.',
     category: 'staffing',
-    author: 'Rajesh Manoharan',
-    authorTitle: 'Managing Director',
+    author: 'Peter Samuel',
+    authorTitle: 'Head of IT Staffing',
     publishedAt: 'April 2, 2026',
     readTime: '9 min read',
     tags: ['IT Staffing', 'Contract to Hire', 'Direct Placement', 'Tech Hiring'],
@@ -1616,8 +1616,8 @@ export const posts: BlogPost[] = [
     title: 'Privileged Access Management for AWS and Azure: Cloud PAM Setup Guide',
     description: 'How to set up privileged access management for AWS and Azure cloud environments. Covers CyberArk integration, Azure PIM, secrets management, and monitoring.',
     category: 'cybersecurity',
-    author: 'Tom Robinson',
-    authorTitle: 'Head of Cybersecurity',
+    author: 'Ethan Vereal',
+    authorTitle: 'Chief Technology Officer',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['Cloud PAM', 'AWS Security', 'Azure Security', 'CyberArk', 'Privileged Access'],
@@ -1909,8 +1909,8 @@ export const posts: BlogPost[] = [
     title: 'Identity Security Trends 2026: What CISOs Need to Know',
     description: 'Seven identity security trends every CISO must prepare for in 2026. Covers passkeys, machine identity, AI agent identity, post-quantum readiness, and ITDR.',
     category: 'cybersecurity',
-    author: 'Tom Robinson',
-    authorTitle: 'Head of Cybersecurity',
+    author: 'Ethan Vereal',
+    authorTitle: 'Chief Technology Officer',
     publishedAt: 'April 2, 2026',
     readTime: '10 min read',
     tags: ['Identity Security', 'CISO', 'Security Trends 2026', 'Machine Identity'],
@@ -1998,8 +1998,8 @@ export const posts: BlogPost[] = [
     title: 'Staff Augmentation vs Managed Services for IT Projects: Decision Framework',
     description: 'A practical decision framework for choosing between staff augmentation and managed services. Includes cost comparison, decision matrix, and real scenarios.',
     category: 'staffing',
-    author: 'Rajesh Manoharan',
-    authorTitle: 'Managing Director',
+    author: 'Peter Samuel',
+    authorTitle: 'Head of IT Staffing',
     publishedAt: 'April 2, 2026',
     readTime: '9 min read',
     tags: ['Staff Augmentation', 'Managed Services', 'IT Outsourcing', 'Tech Staffing'],
@@ -2204,8 +2204,8 @@ export const posts: BlogPost[] = [
     title: 'RAG vs Fine-Tuning for Enterprise AI: When to Use Which',
     description: 'When to use RAG vs fine-tuning for enterprise AI applications. Covers cost, latency, accuracy, maintenance, and a practical decision tree for architects.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 2, 2026',
     readTime: '10 min read',
     tags: ['RAG', 'Fine-Tuning', 'Enterprise AI', 'LLM Architecture', 'AI Implementation'],
@@ -2378,8 +2378,8 @@ export const posts: BlogPost[] = [
     title: 'Agentic AI in the Enterprise: 7 Use Cases, Architecture Patterns, and Implementation Roadmap',
     description: 'Explore how agentic AI differs from traditional AI, with 7 enterprise use cases, architecture patterns for single and multi-agent systems, and a practical implementation roadmap.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 2, 2026',
     readTime: '12 min read',
     tags: ['Agentic AI', 'AI Agents', 'Enterprise AI', 'MCP', 'LangChain'],
@@ -2507,8 +2507,8 @@ export const posts: BlogPost[] = [
     title: 'AI Governance Framework: Meeting EU AI Act and NIST AI RMF Requirements in 2026',
     description: 'A practical guide to AI governance covering EU AI Act enforcement timelines, NIST AI RMF alignment, risk classification, bias testing, model documentation, and audit trail requirements.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['AI Governance', 'EU AI Act', 'NIST AI RMF', 'Responsible AI', 'Compliance'],
@@ -2799,8 +2799,8 @@ export const posts: BlogPost[] = [
     title: 'SOC 2 Compliance Checklist: Step-by-Step Guide for Mid-Size Tech Companies',
     description: 'A practical SOC 2 compliance guide covering Type I vs Type II, the 5 trust services criteria, preparation timeline, evidence collection, common failures, and cost estimates.',
     category: 'cybersecurity',
-    author: 'Tom Robinson',
-    authorTitle: 'Head of Cybersecurity',
+    author: 'Ethan Vereal',
+    authorTitle: 'Chief Technology Officer',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['SOC 2', 'Compliance', 'Security Audit', 'Trust Services Criteria'],
@@ -2933,8 +2933,8 @@ export const posts: BlogPost[] = [
     title: 'How to Cut Enterprise LLM Costs by 50%: Caching, Routing, and Infrastructure Strategies',
     description: 'Practical strategies to reduce enterprise LLM costs including semantic caching, model routing, quantization, batch processing, and infrastructure optimization with cost comparison tables.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['LLM Costs', 'AI Infrastructure', 'Cost Optimization', 'Model Routing'],
@@ -3174,8 +3174,8 @@ export const posts: BlogPost[] = [
     title: 'Machine Identity and Secrets Management: The Security Gap Most Companies Ignore',
     description: 'A deep dive into machine identity management covering service accounts, API keys, certificates, secrets sprawl, vault architecture, rotation automation, and CyberArk Conjur.',
     category: 'cybersecurity',
-    author: 'Tom Robinson',
-    authorTitle: 'Head of Cybersecurity',
+    author: 'Ethan Vereal',
+    authorTitle: 'Chief Technology Officer',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['Machine Identity', 'Secrets Management', 'CyberArk', 'Service Accounts'],
@@ -3313,8 +3313,8 @@ export const posts: BlogPost[] = [
     title: 'Nearshore vs Offshore Development in 2026: Cost, Quality, and Collaboration Compared',
     description: 'A comprehensive comparison of nearshore and offshore development models covering rate tables, timezone analysis, communication quality, IP protection, and when each model wins.',
     category: 'staffing',
-    author: 'Rajesh Manoharan',
-    authorTitle: 'Managing Director',
+    author: 'Peter Samuel',
+    authorTitle: 'Head of IT Staffing',
     publishedAt: 'April 2, 2026',
     readTime: '10 min read',
     tags: ['Nearshore', 'Offshore', 'Software Development', 'IT Outsourcing'],
@@ -3449,8 +3449,8 @@ export const posts: BlogPost[] = [
     title: '2026 Cybersecurity Salary Guide: What Cloud Security, PAM, and SOC Talent Really Costs',
     description: 'Comprehensive 2026 cybersecurity salary data by role including CISO, security architect, PAM engineer, SOC analyst, and penetration tester with contract vs FTE rates and retention strategies.',
     category: 'staffing',
-    author: 'Rajesh Manoharan',
-    authorTitle: 'Managing Director',
+    author: 'Peter Samuel',
+    authorTitle: 'Head of IT Staffing',
     publishedAt: 'April 2, 2026',
     readTime: '10 min read',
     tags: ['Cybersecurity Salary', 'Security Staffing', 'CISO Salary', 'SOC Analyst'],
@@ -3639,8 +3639,8 @@ export const posts: BlogPost[] = [
     title: 'Incident Response Plan Template: A Practical Guide for Mid-Size Companies',
     description: 'A practical incident response guide based on NIST 800-61 covering the 6 phases, roles and responsibilities, communication templates, escalation matrices, and tabletop exercises.',
     category: 'cybersecurity',
-    author: 'Tom Robinson',
-    authorTitle: 'Head of Cybersecurity',
+    author: 'Ethan Vereal',
+    authorTitle: 'Chief Technology Officer',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['Incident Response', 'NIST 800-61', 'Security Operations', 'Breach Response'],
@@ -3934,8 +3934,8 @@ export const posts: BlogPost[] = [
     title: 'How to Build a High-Performing Remote Engineering Team',
     description: 'A complete playbook for building remote engineering teams covering hiring, async interviews, onboarding, communication tools, timezone management, culture building, and performance measurement.',
     category: 'staffing',
-    author: 'Rajesh Manoharan',
-    authorTitle: 'Managing Director',
+    author: 'Peter Samuel',
+    authorTitle: 'Head of IT Staffing',
     publishedAt: 'April 2, 2026',
     readTime: '10 min read',
     tags: ['Remote Teams', 'Engineering Management', 'Tech Hiring', 'Team Building'],
@@ -4118,8 +4118,8 @@ export const posts: BlogPost[] = [
     title: 'PAM Implementation Best Practices: A 90-Day Roadmap to Zero Standing Privilege',
     description: 'A phased 90-day PAM implementation guide covering discovery, vault deployment, session management, JIT access, monitoring, stakeholder management, and migration from legacy PAM.',
     category: 'cybersecurity',
-    author: 'Tom Robinson',
-    authorTitle: 'Head of Cybersecurity',
+    author: 'Ethan Vereal',
+    authorTitle: 'Chief Technology Officer',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['PAM', 'Zero Standing Privilege', 'CyberArk', 'Implementation'],
@@ -5486,8 +5486,8 @@ export const posts: BlogPost[] = [
     title: 'Building AI Agents in NetSuite: A SuiteScript Developer\'s Guide',
     description: 'A developer guide to building AI agents in NetSuite using the N/ai module in SuiteScript 2.1. Covers Claude and GPT API integration, autonomous PO creation, anomaly detection, guardrails, and code patterns.',
     category: 'erp',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['SuiteScript', 'NetSuite AI', 'AI Agents', 'N/ai Module', 'NetSuite Development'],
@@ -5786,8 +5786,8 @@ export const posts: BlogPost[] = [
     title: 'AI in Financial Services: From Fraud Detection to Autonomous Credit Analysis',
     description: 'Six proven AI use cases for financial services including fraud detection, credit scoring, AML compliance, robo-advisory, document processing, and customer service with regulatory considerations and ROI benchmarks.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['AI Finance', 'Fraud Detection', 'Financial Services', 'Banking AI', 'Credit Analysis'],
@@ -5911,8 +5911,8 @@ export const posts: BlogPost[] = [
     title: 'Enterprise Conversational AI: Building AI Assistants That Actually Reduce Support Tickets',
     description: 'How to build enterprise conversational AI that reduces support tickets using RAG, dialog management, tool use, deflection rate measurement, CRM integration, and human handoff design.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['Conversational AI', 'Chatbot', 'AI Assistant', 'Customer Support', 'NLP'],
@@ -6076,8 +6076,8 @@ export const posts: BlogPost[] = [
     title: 'Is Your Company Ready for AI? The 5-Pillar Readiness Assessment',
     description: 'A practical 5-pillar AI readiness assessment covering data maturity, infrastructure, talent, governance, and culture with a self-assessment scorecard and actionable quick wins.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 2, 2026',
     readTime: '10 min read',
     tags: ['AI Readiness', 'AI Assessment', 'AI Maturity', 'Digital Transformation'],
@@ -6244,8 +6244,8 @@ export const posts: BlogPost[] = [
     title: 'How to Choose an AI Consulting Partner: The Vendor-Neutral Evaluation Guide',
     description: 'Eight evaluation criteria for choosing an AI consulting partner including industry experience, model agnosticism, security posture, IP ownership, pricing transparency, and an RFP template with questions to ask.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 2, 2026',
     readTime: '10 min read',
     tags: ['AI Consulting', 'Vendor Selection', 'AI Partner', 'RFP', 'Due Diligence'],
@@ -6429,8 +6429,8 @@ export const posts: BlogPost[] = [
     title: '12 Practical Generative AI Use Cases for Mid-Market Finance, HR, and Operations',
     description: 'Twelve practical generative AI use cases across finance, HR, and operations for mid-market companies with implementation complexity ratings and expected outcomes.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['Generative AI', 'Mid-Market AI', 'Finance AI', 'HR AI', 'Operations AI'],
@@ -6577,8 +6577,8 @@ export const posts: BlogPost[] = [
     title: 'AI Data Governance: Why 70% of AI Projects Fail Before the Model Is Built',
     description: 'Why data quality is the number one AI blocker and how to build the data governance foundation for AI including cataloging, lineage, quality scoring, access control, and PII handling.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 2, 2026',
     readTime: '10 min read',
     tags: ['AI Data Governance', 'Data Quality', 'Data Management', 'AI Foundation'],
@@ -6737,8 +6737,8 @@ export const posts: BlogPost[] = [
     title: 'Multimodal AI for Enterprise: Processing Text, Images, Audio, and Video in One Pipeline',
     description: 'How enterprises use multimodal AI to process text, images, audio, and video in unified pipelines. Covers GPT-4V, Gemini, Claude vision, architecture patterns, cost comparison, and practical use cases.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['Multimodal AI', 'Computer Vision', 'AI Video', 'Enterprise AI', 'Document AI'],
@@ -6907,8 +6907,8 @@ export const posts: BlogPost[] = [
     title: 'AI in Healthcare: Clinical Decision Support, Revenue Cycle, and Compliance Automation',
     description: 'How healthcare organizations deploy HIPAA-compliant AI for clinical decision support, revenue cycle optimization, patient engagement, medical document processing, and FDA regulatory considerations.',
     category: 'ai',
-    author: 'Ethan Vereal',
-    authorTitle: 'Chief Technology Officer',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['Healthcare AI', 'HIPAA', 'Clinical AI', 'Revenue Cycle', 'Medical AI'],
@@ -7084,8 +7084,8 @@ export const posts: BlogPost[] = [
     title: 'NetSuite Implementation Cost in 2026: Complete Pricing Breakdown',
     description: 'Honest breakdown of NetSuite implementation costs in 2026: licensing, professional services, customization, training, and ongoing support. Includes real ranges by company size.',
     category: 'erp',
-    author: 'Marcus Hale',
-    authorTitle: 'NetSuite Practice Lead',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 2, 2026',
     readTime: '12 min read',
     tags: ['NetSuite', 'ERP Cost', 'NetSuite Pricing', 'Implementation', 'ROI'],
@@ -7215,8 +7215,8 @@ export const posts: BlogPost[] = [
     title: 'NetSuite vs QuickBooks Enterprise 2026: Which ERP Is Right for You?',
     description: 'Detailed comparison of NetSuite vs QuickBooks Enterprise for growing mid-market companies. Covers scalability, cost, multi-entity support, integrations, and when to upgrade.',
     category: 'erp',
-    author: 'Marcus Hale',
-    authorTitle: 'NetSuite Practice Lead',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 2, 2026',
     readTime: '11 min read',
     tags: ['NetSuite', 'QuickBooks Enterprise', 'ERP Comparison', 'Mid-Market ERP', 'Accounting Software'],
@@ -7341,8 +7341,8 @@ export const posts: BlogPost[] = [
     title: 'NetSuite CPQ: Complete Guide to Configure, Price, Quote in 2026',
     description: 'Complete guide to NetSuite CPQ (Configure Price Quote). How it works, key capabilities, implementation approach, and when it beats standalone CPQ tools like Salesforce CPQ.',
     category: 'erp',
-    author: 'Marcus Hale',
-    authorTitle: 'NetSuite Practice Lead',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 3, 2026',
     readTime: '10 min read',
     tags: ['NetSuite CPQ', 'Configure Price Quote', 'Sales Automation', 'NetSuite', 'Quote-to-Cash'],
@@ -7428,8 +7428,8 @@ export const posts: BlogPost[] = [
     title: 'NetSuite for Nonprofits: Complete Guide to Fund Accounting & Grant Management',
     description: 'How nonprofits use NetSuite for fund accounting, grant management, donor reporting, and Form 990 compliance. Covers the Social Impact license discount and key configuration considerations.',
     category: 'erp',
-    author: 'Marcus Hale',
-    authorTitle: 'NetSuite Practice Lead',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 3, 2026',
     readTime: '11 min read',
     tags: ['NetSuite Nonprofits', 'Fund Accounting', 'Grant Management', 'Nonprofit ERP', 'Form 990'],
@@ -7534,8 +7534,8 @@ export const posts: BlogPost[] = [
     title: 'NetSuite OpenAir: Complete Guide to Professional Services Automation in 2026',
     description: 'Comprehensive guide to NetSuite OpenAir PSA for professional services firms. Covers project management, resource planning, time tracking, billing, and integration with NetSuite ERP.',
     category: 'erp',
-    author: 'Marcus Hale',
-    authorTitle: 'NetSuite Practice Lead',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 3, 2026',
     readTime: '10 min read',
     tags: ['NetSuite OpenAir', 'PSA', 'Professional Services Automation', 'Resource Management', 'Project Billing'],
@@ -7647,8 +7647,8 @@ export const posts: BlogPost[] = [
     title: 'AI for Supply Chain Optimization: Real-World Applications and Implementation Guide',
     description: 'How enterprise AI is transforming supply chain management: demand forecasting, inventory optimization, supplier risk, and logistics routing. Real examples and implementation roadmap.',
     category: 'ai',
-    author: 'Priya Subramaniam',
-    authorTitle: 'AI Practice Director',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 3, 2026',
     readTime: '11 min read',
     tags: ['AI Supply Chain', 'Supply Chain Optimization', 'Demand Forecasting', 'Inventory AI', 'Logistics AI'],
@@ -7757,8 +7757,8 @@ export const posts: BlogPost[] = [
     title: 'CMMC 2.0 Compliance Guide for Defense Contractors: What You Need to Know in 2026',
     description: 'Complete CMMC 2.0 compliance guide for defense contractors. Covers Level 1, 2, and 3 requirements, assessment process, timelines, and what to prioritize for DoD contract eligibility.',
     category: 'cybersecurity',
-    author: 'Jordan Blackwell',
-    authorTitle: 'Cybersecurity Practice Lead',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 3, 2026',
     readTime: '12 min read',
     tags: ['CMMC 2.0', 'Defense Contractors', 'DoD Cybersecurity', 'NIST 800-171', 'CUI'],
@@ -7891,8 +7891,8 @@ export const posts: BlogPost[] = [
     title: 'Enterprise AI Model Selection Guide 2026: GPT-4o vs Claude vs Gemini vs Llama',
     description: 'How to choose the right AI model for enterprise use cases in 2026. Detailed comparison of GPT-4o, Claude 3.5, Gemini 1.5, and Llama 3 across key enterprise criteria.',
     category: 'ai',
-    author: 'Priya Subramaniam',
-    authorTitle: 'AI Practice Director',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 3, 2026',
     readTime: '12 min read',
     tags: ['AI Model Selection', 'GPT-4o', 'Claude', 'Gemini', 'Enterprise AI', 'LLM Comparison'],
@@ -8008,8 +8008,8 @@ export const posts: BlogPost[] = [
     title: 'IT Consulting Rates in 2026: Complete Rate Guide by Role, Technology & Engagement Type',
     description: 'Comprehensive guide to IT consulting rates in 2026. Rate benchmarks by technology, role, and engagement model. Covers staff augmentation, project-based, and managed services pricing.',
     category: 'staffing',
-    author: 'Diana Park',
-    authorTitle: 'VP of Talent Solutions',
+    author: 'Peter Samuel',
+    authorTitle: 'Head of IT Staffing',
     publishedAt: 'April 3, 2026',
     readTime: '10 min read',
     tags: ['IT Consulting Rates', 'Tech Staffing', 'Consultant Rates 2026', 'Staff Augmentation', 'IT Staffing'],
@@ -8132,8 +8132,8 @@ export const posts: BlogPost[] = [
     title: 'Cloud Security Posture Management (CSPM): Complete Enterprise Guide 2026',
     description: 'What is CSPM, why it matters for enterprise cloud security, and how to implement it. Covers key capabilities, leading tools (Wiz, Prisma Cloud, Defender for Cloud), and deployment best practices.',
     category: 'cybersecurity',
-    author: 'Jordan Blackwell',
-    authorTitle: 'Cybersecurity Practice Lead',
+    author: 'Ethan Vereal',
+    authorTitle: 'Chief Technology Officer',
     publishedAt: 'April 3, 2026',
     readTime: '11 min read',
     tags: ['CSPM', 'Cloud Security', 'Cloud Security Posture Management', 'Wiz', 'Prisma Cloud', 'AWS Security'],
@@ -8242,8 +8242,8 @@ export const posts: BlogPost[] = [
     title: 'Prompt Engineering for Enterprise AI: Techniques That Actually Work in Production',
     description: 'Practical prompt engineering guide for enterprise AI teams. Covers chain-of-thought, RAG prompting, structured output, system prompts, and prompt management in production systems.',
     category: 'ai',
-    author: 'Priya Subramaniam',
-    authorTitle: 'AI Practice Director',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 3, 2026',
     readTime: '11 min read',
     tags: ['Prompt Engineering', 'Enterprise AI', 'LLM Production', 'Chain of Thought', 'RAG'],
@@ -8358,8 +8358,8 @@ export const posts: BlogPost[] = [
     title: 'When Should You Move From QuickBooks to NetSuite? The 7 Tipping Points',
     description: 'Definitive guide to knowing when your company has outgrown QuickBooks and is ready for NetSuite. Covers the 7 operational tipping points, cost-benefit analysis, and how to make the case to your CFO.',
     category: 'erp',
-    author: 'Marcus Hale',
-    authorTitle: 'NetSuite Practice Lead',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 4, 2026',
     readTime: '11 min read',
     tags: ['QuickBooks to NetSuite', 'ERP Upgrade', 'QuickBooks Limitations', 'NetSuite Migration', 'CFO Guide'],
@@ -8467,8 +8467,8 @@ export const posts: BlogPost[] = [
     title: 'NetSuite Implementation Timeline: How Long Does It Really Take?',
     description: 'Realistic NetSuite implementation timelines by company size and complexity. What happens in each phase, what causes delays, and how to keep your project on schedule.',
     category: 'erp',
-    author: 'Marcus Hale',
-    authorTitle: 'NetSuite Practice Lead',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 4, 2026',
     readTime: '10 min read',
     tags: ['NetSuite Implementation', 'ERP Timeline', 'NetSuite Go-Live', 'Implementation Schedule', 'Project Management'],
@@ -8567,8 +8567,8 @@ export const posts: BlogPost[] = [
     title: 'PAM vs IAM vs IGA: What Is the Difference and Which Do You Need?',
     description: 'Clear breakdown of Privileged Access Management (PAM), Identity and Access Management (IAM), and Identity Governance and Administration (IGA). When to implement each and how they work together.',
     category: 'cybersecurity',
-    author: 'Jordan Blackwell',
-    authorTitle: 'Cybersecurity Practice Lead',
+    author: 'Ethan Vereal',
+    authorTitle: 'Chief Technology Officer',
     publishedAt: 'April 4, 2026',
     readTime: '10 min read',
     tags: ['PAM', 'IAM', 'IGA', 'Identity Security', 'CyberArk', 'Privileged Access'],
@@ -8681,8 +8681,8 @@ export const posts: BlogPost[] = [
     title: 'How to Measure ROI from Enterprise AI: A CFO-Ready Framework',
     description: 'Practical framework for measuring and communicating ROI from enterprise AI investments. Covers productivity metrics, cost savings, revenue impact, and how to build a board-ready AI business case.',
     category: 'ai',
-    author: 'Priya Subramaniam',
-    authorTitle: 'AI Practice Director',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 4, 2026',
     readTime: '11 min read',
     tags: ['AI ROI', 'Enterprise AI', 'AI Business Case', 'AI Metrics', 'CFO AI'],
@@ -8812,8 +8812,8 @@ export const posts: BlogPost[] = [
     title: 'SIEM vs XDR: Which Does Your Enterprise Security Stack Actually Need?',
     description: 'Clear comparison of SIEM and XDR for enterprise security. What each does, where they overlap, when to use one vs. the other, and the leading platforms in 2026.',
     category: 'cybersecurity',
-    author: 'Jordan Blackwell',
-    authorTitle: 'Cybersecurity Practice Lead',
+    author: 'Ethan Vereal',
+    authorTitle: 'Chief Technology Officer',
     publishedAt: 'April 4, 2026',
     readTime: '10 min read',
     tags: ['SIEM', 'XDR', 'Enterprise Security', 'SOC', 'Threat Detection', 'Security Operations'],
@@ -8912,8 +8912,8 @@ export const posts: BlogPost[] = [
     title: 'AI Agents vs Chatbots: What Is the Difference and Which Should Your Enterprise Deploy?',
     description: 'Clear explanation of the difference between AI chatbots and AI agents for enterprise use. Includes real use cases, deployment considerations, costs, and how to decide which is right for your organization.',
     category: 'ai',
-    author: 'Priya Subramaniam',
-    authorTitle: 'AI Practice Director',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 4, 2026',
     readTime: '11 min read',
     tags: ['AI Agents', 'Chatbots', 'Enterprise AI', 'Agentic AI', 'LLM', 'AI Automation'],
@@ -9030,8 +9030,8 @@ export const posts: BlogPost[] = [
     title: 'DORA and NIS2: What US Companies Need to Know and Do Before the Deadlines',
     description: 'Complete guide to EU cybersecurity regulations DORA (Digital Operational Resilience Act) and NIS2 for US-based companies with EU operations. Covers scope, requirements, deadlines, and compliance roadmap.',
     category: 'cybersecurity',
-    author: 'Jordan Blackwell',
-    authorTitle: 'Cybersecurity Practice Lead',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 4, 2026',
     readTime: '12 min read',
     tags: ['DORA', 'NIS2', 'EU Cybersecurity', 'Compliance', 'Financial Services', 'Digital Resilience'],
@@ -9209,8 +9209,8 @@ export const posts: BlogPost[] = [
     title: 'NetSuite vs Microsoft Dynamics 365: Which ERP Is Right for Your Business in 2026?',
     description: 'Detailed comparison of NetSuite vs Microsoft Dynamics 365 for mid-market companies. Covers cost, implementation complexity, cloud architecture, integrations, and which industries prefer each.',
     category: 'erp',
-    author: 'Marcus Hale',
-    authorTitle: 'NetSuite Practice Lead',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 4, 2026',
     readTime: '11 min read',
     tags: ['NetSuite vs Dynamics 365', 'ERP Comparison', 'Microsoft Dynamics', 'NetSuite', 'Mid-Market ERP'],
@@ -9339,8 +9339,8 @@ export const posts: BlogPost[] = [
     title: 'How to Prevent AI Hallucinations in Enterprise Production Systems',
     description: 'Practical guide to preventing AI hallucinations in enterprise AI deployments. Covers RAG, guardrails, human-in-the-loop design, output validation, and testing strategies that work in production.',
     category: 'ai',
-    author: 'Priya Subramaniam',
-    authorTitle: 'AI Practice Director',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 4, 2026',
     readTime: '11 min read',
     tags: ['AI Hallucinations', 'Enterprise AI', 'RAG', 'AI Guardrails', 'LLM Production', 'AI Safety'],
@@ -9452,8 +9452,8 @@ export const posts: BlogPost[] = [
     title: 'Staff Augmentation vs Full-Time Hiring: When to Use Each in 2026',
     description: 'Practical framework for deciding when to use IT staff augmentation vs. full-time hiring. Covers cost comparison, decision criteria, hidden costs, and when each model delivers better outcomes.',
     category: 'staffing',
-    author: 'Diana Park',
-    authorTitle: 'VP of Talent Solutions',
+    author: 'Peter Samuel',
+    authorTitle: 'Head of IT Staffing',
     publishedAt: 'April 4, 2026',
     readTime: '10 min read',
     tags: ['Staff Augmentation', 'Full-Time Hiring', 'IT Staffing', 'Workforce Strategy', 'Talent Acquisition'],
@@ -9555,8 +9555,8 @@ export const posts: BlogPost[] = [
     title: '10 NetSuite Implementation Mistakes That Derail Projects (And How to Avoid Them)',
     description: 'The most common NetSuite implementation mistakes that cause budget overruns, delayed go-lives, and poor adoption — and exactly how to avoid them. Based on real implementation experience.',
     category: 'erp',
-    author: 'Marcus Hale',
-    authorTitle: 'NetSuite Practice Lead',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 4, 2026',
     readTime: '11 min read',
     tags: ['NetSuite Implementation', 'ERP Mistakes', 'Implementation Risk', 'Go-Live', 'NetSuite Best Practices'],
@@ -9649,8 +9649,8 @@ export const posts: BlogPost[] = [
     title: 'How to Conduct an Enterprise Cybersecurity Risk Assessment: Complete Guide 2026',
     description: 'Step-by-step guide to conducting an enterprise cybersecurity risk assessment. Covers methodology, asset inventory, threat modeling, risk scoring, and building an actionable remediation roadmap.',
     category: 'cybersecurity',
-    author: 'Jordan Blackwell',
-    authorTitle: 'Cybersecurity Practice Lead',
+    author: 'Rajesh Manoharan',
+    authorTitle: 'Managing Director',
     publishedAt: 'April 4, 2026',
     readTime: '11 min read',
     tags: ['Cybersecurity Risk Assessment', 'Risk Management', 'NIST', 'Threat Modeling', 'Enterprise Security'],
@@ -9773,8 +9773,8 @@ export const posts: BlogPost[] = [
     title: 'How Much Does an Enterprise AI Agent Cost to Build and Deploy in 2026?',
     description: 'Real cost breakdown for building and deploying enterprise AI agents in 2026. Covers build vs. buy analysis, platform costs, development hours, ongoing operations, and ROI benchmarks.',
     category: 'ai',
-    author: 'Priya Subramaniam',
-    authorTitle: 'AI Practice Director',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 4, 2026',
     readTime: '10 min read',
     tags: ['AI Agent Cost', 'Enterprise AI', 'AI Implementation', 'AI ROI', 'Agentic AI Budget'],
@@ -9874,8 +9874,8 @@ export const posts: BlogPost[] = [
     title: 'The 10 Hardest IT Roles to Hire in 2026 — and How to Find Them',
     description: 'The IT roles with the widest talent gaps in 2026, average time-to-fill, salary benchmarks, and strategies for finding and retaining specialists in the tightest tech labor markets.',
     category: 'staffing',
-    author: 'Diana Park',
-    authorTitle: 'VP of Talent Solutions',
+    author: 'Peter Samuel',
+    authorTitle: 'Head of IT Staffing',
     publishedAt: 'April 4, 2026',
     readTime: '10 min read',
     tags: ['IT Hiring', 'Tech Talent Gap', 'IT Staffing', 'Hard to Hire', 'Tech Workforce 2026'],
@@ -9975,8 +9975,8 @@ export const posts: BlogPost[] = [
     title: 'How to Choose the Right NetSuite Implementation Partner: 8 Criteria That Matter',
     description: 'How to evaluate and select a NetSuite implementation partner. The 8 criteria that separate great partners from average ones, questions to ask, red flags to watch for, and how the partner model works.',
     category: 'erp',
-    author: 'Marcus Hale',
-    authorTitle: 'NetSuite Practice Lead',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
     publishedAt: 'April 4, 2026',
     readTime: '10 min read',
     tags: ['NetSuite Partner', 'NetSuite Implementation', 'ERP Selection', 'NetSuite Consulting', 'Partner Evaluation'],
@@ -10079,6 +10079,233 @@ export const posts: BlogPost[] = [
 </ul>
 
 <p>TechCloudPro is a certified NetSuite Alliance Partner with deep specialization in financial services, SaaS, professional services, manufacturing, and nonprofit implementations. We provide fixed-fee implementations with a defined discovery methodology, dedicated project managers, and post-go-live managed services. Our client references are available for any prospect who asks — with no pre-screening of questions. <a href="/contact/">Schedule a partner evaluation call</a> to learn about our implementation approach, see our reference clients in your industry, and get an honest assessment of whether we are the right fit for your project.</p>
+`
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // Post 75: Enterprise AI Architecture Design Guide + Playground
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    slug: 'enterprise-ai-architecture-design-guide',
+    title: 'How to Design Your Enterprise AI Architecture (+ Free Interactive Playground)',
+    description: 'A practical guide to designing enterprise AI architecture — RAG pipelines, agentic systems, fine-tuned models, and hybrid patterns. Includes a free interactive playground to map and score your design.',
+    category: 'ai',
+    author: 'Jithesh Manoharan',
+    authorTitle: 'Chief Executive Officer',
+    publishedAt: 'April 17, 2026',
+    readTime: '11 min read',
+    tags: ['AI Architecture', 'Enterprise AI', 'RAG', 'Agentic AI', 'AI System Design', 'LLM'],
+    heroColor: '#8B5CF6',
+    content: `
+<p>Most enterprise AI projects do not fail because the model was wrong. They fail because the architecture around the model was never designed at all. Teams pick a frontier model, wire it to a database, and call it an AI system. Six months later they are debugging hallucinations, latency spikes, and a $40,000/month API bill that nobody planned for.</p>
+
+<p>Designing AI architecture deliberately — before you write a single line of code — is the difference between a system that scales and one that becomes a technical debt crater. This guide walks through the core architectural patterns, how to choose between them, and where most enterprise teams make critical mistakes.</p>
+
+<p>We also built a <a href="/tools/ai-playground">free interactive AI Architecture Playground</a> where you can drag, wire, and score your own design before committing to it. No signup required.</p>
+
+<h2>The Four Foundational Patterns</h2>
+
+<p>Every enterprise AI system is some combination of four architectural primitives. Understanding each one — and its tradeoffs — is the foundation of good AI design.</p>
+
+<h3>1. Retrieval-Augmented Generation (RAG)</h3>
+
+<p>RAG is the workhorse of enterprise AI. Rather than relying on a model's parametric memory (what it learned during training), RAG dynamically retrieves relevant documents from your knowledge base at inference time and injects them into the context window.</p>
+
+<p>The core pipeline: user query → embedding model → vector similarity search → retrieved chunks → LLM with context → response.</p>
+
+<p><strong>Best for:</strong> Q&A over internal documents, customer support bots, knowledge management, compliance research, contract analysis.</p>
+
+<p><strong>Critical design decisions in RAG:</strong></p>
+<ul>
+  <li><strong>Chunking strategy:</strong> How you split documents matters more than the model you choose. Fixed-size chunking loses context at boundaries. Semantic chunking (splitting at paragraph or concept boundaries) dramatically improves retrieval precision. For dense technical documents, overlapping chunks with 20% overlap reduce the "edge cliff" problem.</li>
+  <li><strong>Embedding model:</strong> OpenAI text-embedding-3-large scores well on benchmarks but costs money per token and requires external API calls. For air-gapped or cost-sensitive environments, open models like nomic-embed-text or bge-large run locally with competitive accuracy.</li>
+  <li><strong>Retrieval method:</strong> Pure vector search misses exact keyword matches (product codes, identifiers, proper nouns). Hybrid search — combining dense vector retrieval with sparse BM25 — typically outperforms either alone by 15–25% on enterprise datasets.</li>
+  <li><strong>Re-ranking:</strong> Top-k retrieval gives you candidates, not answers. A cross-encoder re-ranker (Cohere Rerank, BGE Reranker) re-scores retrieved chunks against the query and significantly reduces the noise passed to the LLM.</li>
+</ul>
+
+<blockquote>
+  <strong>Key Takeaway:</strong> RAG quality is determined 70% by your retrieval pipeline and 30% by your generation model. Most teams get this backwards and obsess over which LLM to use while ignoring chunking and retrieval design.
+</blockquote>
+
+<h3>2. Agentic Systems</h3>
+
+<p>Agents give an LLM the ability to take actions — call APIs, run code, search the web, write to databases — in an autonomous loop. The model decides what tool to call, calls it, observes the result, and decides what to do next until it reaches a stopping condition.</p>
+
+<p><strong>Best for:</strong> Multi-step workflows, automated research, code generation pipelines, business process automation, anything requiring conditional logic across multiple systems.</p>
+
+<p><strong>The agentic loop anatomy:</strong></p>
+<ol>
+  <li><strong>Planner:</strong> Decomposes the goal into sub-tasks</li>
+  <li><strong>Tool executor:</strong> Calls external tools (APIs, databases, browsers)</li>
+  <li><strong>Observation handler:</strong> Processes tool outputs and feeds them back to the model</li>
+  <li><strong>State manager:</strong> Maintains context across the loop without exceeding the context window</li>
+  <li><strong>Stopping condition:</strong> Determines when the goal is achieved or the agent should escalate</li>
+</ol>
+
+<p><strong>Enterprise-specific concerns with agents:</strong></p>
+<ul>
+  <li><strong>Guardrails:</strong> Agents with write access to production systems are dangerous without explicit permission scopes and human-in-the-loop checkpoints for destructive operations.</li>
+  <li><strong>Loop detection:</strong> Without max-iteration limits and state deduplication, agents can spin indefinitely. Always define a hard ceiling on tool calls per session.</li>
+  <li><strong>Observability:</strong> Every tool call, every model response, and every branching decision must be logged. Debugging a failed 47-step agent run without traces is effectively impossible.</li>
+  <li><strong>Latency:</strong> Each tool call adds round-trip latency. A 10-step agent loop with 800ms average tool latency takes 8+ seconds. Design your UX for async execution with status streaming, not synchronous response.</li>
+</ul>
+
+<h3>3. Fine-Tuned Models</h3>
+
+<p>Fine-tuning adjusts a base model's weights on your domain-specific data, teaching it your terminology, output format, tone, and reasoning patterns. The result is a smaller, faster, cheaper model that outperforms a larger general model on your specific task.</p>
+
+<p><strong>Best for:</strong> High-volume, narrow tasks where format consistency matters — document classification, entity extraction, code generation in a specific framework, customer communication in a specific brand voice.</p>
+
+<p><strong>When fine-tuning makes economic sense:</strong></p>
+<ul>
+  <li>You are making more than 1 million API calls per month on the same task type</li>
+  <li>Your task requires consistent output format that prompt engineering alone cannot reliably produce</li>
+  <li>Latency is critical and you need a smaller model that fits within tighter SLAs</li>
+  <li>Your domain has specialized vocabulary that general models consistently mishandle</li>
+</ul>
+
+<p><strong>What fine-tuning cannot fix:</strong> Fine-tuning improves style and format; it does not inject new factual knowledge reliably. For knowledge-intensive tasks, RAG beats fine-tuning. The most powerful pattern is fine-tuned model + RAG — fine-tuning for format and behavior, RAG for knowledge grounding.</p>
+
+<h3>4. Prompt Engineering + In-Context Learning</h3>
+
+<p>Before investing in RAG infrastructure or fine-tuning pipelines, sophisticated prompt engineering with few-shot examples solves a surprising number of enterprise AI problems at zero infrastructure cost. Chain-of-thought prompting, structured output constraints, role assignment, and example selection can push a frontier model's accuracy on a specific task well above naive prompting.</p>
+
+<p><strong>Best for:</strong> Low-volume tasks, rapid prototyping, tasks where training data is scarce, and as the baseline to beat before committing to more complex architectures.</p>
+
+<h2>Hybrid Architecture Patterns</h2>
+
+<p>Production enterprise systems rarely use a single pattern. The most common hybrid architectures we see in practice:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Pattern</th>
+      <th>Components</th>
+      <th>Common Use Case</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>RAG + Agent</td>
+      <td>Vector store + LLM + tool executor</td>
+      <td>Research assistant that retrieves docs and takes actions</td>
+    </tr>
+    <tr>
+      <td>Fine-tune + RAG</td>
+      <td>Domain model + vector store</td>
+      <td>Legal or medical Q&A with precise format</td>
+    </tr>
+    <tr>
+      <td>Router + Specialists</td>
+      <td>Classifier + multiple specialist models</td>
+      <td>Multi-intent enterprise assistant</td>
+    </tr>
+    <tr>
+      <td>Agentic + Human-in-Loop</td>
+      <td>Agent + approval workflow</td>
+      <td>Automated procurement with manager sign-off</td>
+    </tr>
+    <tr>
+      <td>Streaming RAG + Cache</td>
+      <td>Vector store + semantic cache + LLM</td>
+      <td>High-traffic customer support bot</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>The Infrastructure Layer: What Nobody Talks About</h2>
+
+<p>Most AI architecture guides stop at the model layer. Enterprise deployments require a complete infrastructure design around that model layer.</p>
+
+<h3>Vector Database Selection</h3>
+<p>If you are running RAG at any scale, your vector database choice has significant operational implications. Pinecone is managed and simple but becomes expensive above 10 million vectors. Weaviate and Qdrant offer self-hosted options with richer filtering capabilities. pgvector (PostgreSQL extension) is the right choice for teams that want to avoid a new operational dependency and already run Postgres — it handles up to ~5 million vectors acceptably on modern hardware.</p>
+
+<h3>Semantic Caching</h3>
+<p>For customer-facing applications, semantic caching dramatically cuts API costs and improves response latency. Instead of sending every query to the LLM, a semantic cache checks whether a semantically similar query was answered recently and returns the cached response. GPTCache and Redis with vector similarity are common implementations. At 30% cache hit rate, you effectively cut your inference costs by a third.</p>
+
+<h3>Observability Stack</h3>
+<p>LLM observability is fundamentally different from traditional application observability. You need to capture: prompt inputs, model outputs, token counts, latency, retrieval precision (for RAG), tool call sequences (for agents), and user feedback signals. LangSmith, Langfuse, and Helicone are purpose-built for this. Without structured tracing, debugging production AI failures becomes guesswork.</p>
+
+<h3>Guardrails and Safety</h3>
+<p>Enterprise AI systems need input/output validation layers — not just for safety, but for format consistency and compliance. NeMo Guardrails (NVIDIA), Guardrails AI, and custom regex/classifier layers sit between your application and the LLM, blocking prompt injection attacks, enforcing output schema, and flagging policy violations before they reach end users or downstream systems.</p>
+
+<h2>The 5 Architecture Mistakes That Kill Enterprise AI Projects</h2>
+
+<p>After designing and deploying AI systems for enterprise clients across multiple industries, these are the patterns we see derail projects most often:</p>
+
+<p><strong>1. Choosing the model before designing the system.</strong> The model is one component. Teams that start with "we want to use GPT-4o" and work backwards often end up with an architecture that fights the model's strengths rather than leveraging them. Start with the use case, then select the model.</p>
+
+<p><strong>2. No context window budget.</strong> Every component injecting text into the prompt — system instructions, retrieved chunks, conversation history, tool outputs — competes for the same finite context window. Teams that do not explicitly budget context allocation hit limits in production at exactly the worst moments (complex queries with long histories).</p>
+
+<p><strong>3. Synchronous architecture for async workloads.</strong> Agents, long RAG pipelines, and multi-step workflows do not belong in synchronous request-response paths. Queue-based architectures (Celery, BullMQ, AWS SQS) with polling or streaming status updates decouple the user experience from processing time and enable retry logic without user-facing failures.</p>
+
+<p><strong>4. Single-model single-point-of-failure.</strong> Production systems need model fallback logic. If your primary model provider has an outage (and they all have outages), your system should automatically route to a fallback. LiteLLM provides a unified interface across 100+ LLM providers with automatic failover.</p>
+
+<p><strong>5. Skipping evaluation infrastructure.</strong> How do you know if your RAG pipeline actually improved after you changed the chunking strategy? Without a structured evaluation dataset and automated scoring pipeline (RAGAS for RAG, custom rubrics for agents), architectural changes are guesses. Build eval infrastructure before you optimize anything.</p>
+
+<h2>Try It: Free AI Architecture Playground</h2>
+
+<p>To make these concepts tangible, we built a <a href="/tools/ai-playground">free interactive AI Architecture Playground</a>. You can:</p>
+
+<ul>
+  <li>Pick a use case (customer support, document analysis, process automation, and more)</li>
+  <li>Drag and drop components — LLMs, vector stores, agents, APIs, guardrails</li>
+  <li>Wire them together into a complete architecture</li>
+  <li>Score your design across five dimensions: reliability, cost, latency, security, and scalability</li>
+  <li>Download your architecture as a PNG to share with your team</li>
+</ul>
+
+<p>No signup, no credit card, no install. It runs entirely in the browser.</p>
+
+<p>The playground is useful for three things: pressure-testing an architecture you already have in mind, communicating a design to non-technical stakeholders, and identifying gaps before you start building.</p>
+
+<h2>How Long Does It Take to Build?</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Architecture Type</th>
+      <th>MVP Timeline</th>
+      <th>Production-Ready</th>
+      <th>Team Size</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Basic RAG</td>
+      <td>1–2 weeks</td>
+      <td>4–6 weeks</td>
+      <td>1–2 engineers</td>
+    </tr>
+    <tr>
+      <td>RAG + Agent</td>
+      <td>3–4 weeks</td>
+      <td>8–12 weeks</td>
+      <td>2–3 engineers</td>
+    </tr>
+    <tr>
+      <td>Fine-tuned model</td>
+      <td>4–6 weeks</td>
+      <td>10–16 weeks</td>
+      <td>2–4 engineers + ML</td>
+    </tr>
+    <tr>
+      <td>Full agentic platform</td>
+      <td>6–10 weeks</td>
+      <td>16–24 weeks</td>
+      <td>4–6 engineers</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These timelines assume a team that has built AI systems before. First-time enterprise AI teams should add 50% for ramp-up, toolchain decisions, and the inevitable architecture pivots after the first real-world test.</p>
+
+<h2>Getting Started</h2>
+
+<p>The practical starting point for most enterprise teams: define a single, narrow use case with measurable success criteria, sketch the architecture using the patterns above (or the playground), stand up an evaluation dataset of 50–100 representative examples, build the MVP, measure it against the eval set, and iterate.</p>
+
+<p>The biggest mistake is designing for a perfect, comprehensive AI platform on the first pass. The teams that ship successful enterprise AI do so by starting small, proving value quickly, and expanding the architecture incrementally based on real usage patterns.</p>
+
+<p>TechCloudPro designs and deploys enterprise AI systems — from architecture design through production deployment. We have shipped RAG pipelines, agentic workflows, and private LLM deployments for clients across financial services, healthcare, and professional services. If you have a use case in mind and want an honest technical assessment of what it would take to build, <a href="/contact/">schedule a free architecture review</a> with our team.</p>
 `
   },
 ]

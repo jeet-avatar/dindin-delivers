@@ -25,6 +25,7 @@ export const team: TeamMember[] = [
     name: 'Ethan Vereal',
     title: 'Chief Technology Officer',
     bio: 'With deep expertise in cloud architecture, AI/ML systems, and enterprise security, Ethan leads TechCloudPro\'s technology vision. He architects our private LLM deployment frameworks and oversees the technical delivery of complex ERP implementations. His background spans distributed systems, DevOps, and cybersecurity — ensuring every solution we deliver meets the highest standards of performance and security.',
+    linkedin: 'https://www.linkedin.com/in/ethan-vreal-9a265b394/',
   },
   {
     name: 'Tom Robinson',
@@ -40,5 +41,12 @@ export const team: TeamMember[] = [
     name: 'Tony Sullivan',
     title: 'Strategic Advisor',
     bio: 'Tony advises TechCloudPro on market strategy, partnerships, and growth initiatives. With an extensive network across the enterprise technology ecosystem and deep experience in scaling professional services firms, he provides strategic guidance on market positioning, partner development, and emerging technology opportunities.',
+  },
+  {
+    name: 'Peter Samuel',
+    title: 'Head of IT Staffing',
+    bio: 'Peter leads TechCloudPro\u2019s IT staffing practice, helping enterprise and mid-market clients source pre-vetted technology talent across AI/ML, Cloud, Cybersecurity, NetSuite, and DevOps. He specializes in building flexible staffing models \u2014 staff augmentation, contract-to-hire, and full-time placement \u2014 that match client timelines and budget constraints. [BIO PLACEHOLDER \u2014 please replace with Peter\u2019s own wording]',
+    linkedin: 'https://www.linkedin.com/in/peter-samuel-a767192a5/',
+    email: 'peter@techcloudpro.com',
   },
 ]

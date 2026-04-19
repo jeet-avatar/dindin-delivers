@@ -1,8 +1,9 @@
 import { useParams, Navigate, Link } from 'react-router'
-import { ArrowLeft, Clock, User, Calendar, Tag } from 'lucide-react'
+import { ArrowLeft, Clock, User, Calendar, Tag, ExternalLink } from 'lucide-react'
 import { SEO } from '../components/ui'
 import { SchemaMarkup } from '../components/ui/SchemaMarkup'
 import { blogPosts } from '../data/blog'
+import { team } from '../data/team'
 import { Helmet } from 'react-helmet-async'
 
 export default function BlogPost() {
@@ -10,6 +11,9 @@ export default function BlogPost() {
   const post = blogPosts.find(p => p.slug === slug)
 
   if (!post) return <Navigate to="/blog" replace />
+
+  const authorProfile = team.find(m => m.name === post.author)
+  const authorLinkedIn = authorProfile?.linkedin
 
   const articleSchema = {
     '@context': 'https://schema.org',
@@ -20,6 +24,8 @@ export default function BlogPost() {
       '@type': 'Person',
       name: post.author,
       jobTitle: post.authorTitle,
+      worksFor: { '@type': 'Organization', name: 'TechCloudPro', url: 'https://techcloudpro.com/' },
+      ...(authorLinkedIn && { url: authorLinkedIn, sameAs: [authorLinkedIn] }),
     },
     publisher: {
       '@type': 'Organization',
@@ -75,7 +81,20 @@ export default function BlogPost() {
             </p>
 
             <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--text-muted)] pb-6 border-b border-[var(--glass-border)]">
-              <span className="flex items-center gap-1.5"><User size={14} /> {post.author}, {post.authorTitle}</span>
+              <span className="flex items-center gap-1.5">
+                <User size={14} /> {post.author}, {post.authorTitle}
+                {authorLinkedIn && (
+                  <a
+                    href={authorLinkedIn}
+                    target="_blank"
+                    rel="noopener noreferrer author"
+                    className="text-[var(--text-muted)] hover:text-blue-400 transition-colors"
+                    aria-label={`${post.author} on LinkedIn`}
+                  >
+                    <ExternalLink size={13} />
+                  </a>
+                )}
+              </span>
               <span className="flex items-center gap-1.5"><Calendar size={14} /> {post.publishedAt}</span>
               <span className="flex items-center gap-1.5"><Clock size={14} /> {post.readTime}</span>
             </div>
@@ -119,9 +138,19 @@ export default function BlogPost() {
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
               {post.author.charAt(0)}
             </div>
-            <div>
+            <div className="flex-1">
               <div className="font-bold text-sm">{post.author}</div>
               <div className="text-xs text-[var(--text-muted)]">{post.authorTitle} at TechCloudPro</div>
+              {authorLinkedIn && (
+                <a
+                  href={authorLinkedIn}
+                  target="_blank"
+                  rel="noopener noreferrer author"
+                  className="inline-flex items-center gap-1.5 mt-1.5 text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  <ExternalLink size={12} /> View LinkedIn profile
+                </a>
+              )}
             </div>
           </div>
         </div>
