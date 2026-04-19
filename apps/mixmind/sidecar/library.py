@@ -51,6 +51,37 @@ class TrackOut(BaseModel):
     play_count: int = 0
 
 
+def _build_track_from_imported(imp) -> dict:
+    """Render an imported_tracks row as a TrackOut-shaped dict.
+
+    BPM/camelot/cues are zero/empty — those are populated by Plan 21-02 when
+    the analyzer runs over the imported tracks. The 'source' field is set
+    to 'import' so the frontend can distinguish these from Rekordbox rows.
+    """
+    return TrackOut(
+        content_id=imp.content_id,
+        source="import",
+        title=imp.title,
+        artist=imp.artist,
+        bpm=0,
+        key_musical="",
+        camelot="",
+        rating=0,
+        duration_sec=int(imp.duration_sec or 0),
+        cue_count=0,
+        cue_colors=[],
+        file_path=imp.file_path,
+        analysis_data_path="",
+        mm_analyzed=False,
+        genre=imp.genre or "",
+        comment="",
+        color_hex="",
+        date_added="",
+        label="",
+        play_count=0,
+    ).model_dump()
+
+
 @router.get("/library")
 async def get_library(db: Annotated[StateDB, Depends(get_state_db)]):
     # Try DB first (stub returns None during Phase 1)
@@ -60,6 +91,14 @@ async def get_library(db: Annotated[StateDB, Depends(get_state_db)]):
     if tracks is None:
         # XML fallback
         if not XML_PATH.exists():
+            # No Rekordbox — still surface any folder-imported tracks
+            imported_rows = db.get_imported_tracks()
+            if imported_rows:
+                return {
+                    "tracks": [_build_track_from_imported(i) for i in imported_rows],
+                    "source": "import",
+                    "total": len(imported_rows),
+                }
             return {"tracks": [], "source": "none", "error": "no_library_found"}
         tracks = load_library_xml(XML_PATH)
         source = "xml"
@@ -111,10 +150,15 @@ async def get_library(db: Annotated[StateDB, Depends(get_state_db)]):
             play_count=t.play_count,
         ).model_dump()
 
+    # Phase 21-01 — merge imported_tracks (source='import') after Rekordbox rows
+    out = [_build_track(t) for t in visible]
+    for imp in db.get_imported_tracks():
+        out.append(_build_track_from_imported(imp))
+
     return {
-        "tracks": [_build_track(t) for t in visible],
+        "tracks": out,
         "source": source,
-        "total": len(visible),
+        "total": len(out),
     }
 
 

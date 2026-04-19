@@ -68,7 +68,11 @@ class ImportedTrack:
 
 
 class StateDB:
-    def __init__(self, db_path: Path = _DEFAULT_PATH):
+    def __init__(self, db_path: Path | None = None):
+        # Re-read module-level default at call time so monkeypatches in tests
+        # (e.g. `monkeypatch.setattr(state, "_DEFAULT_PATH", ...)`) take effect.
+        if db_path is None:
+            db_path = _DEFAULT_PATH
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._engine = create_engine(f"sqlite:///{db_path}")
         self._create_tables()
