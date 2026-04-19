@@ -127,8 +127,17 @@ def write_pdb(
     out_path: Path,
     tracks: list[TrackRecord],
     playlists: Optional[list[PlaylistRecord]] = None,
+    artwork_assignments: Optional[dict[int, int]] = None,
 ) -> dict:
     """Write a Rekordbox-compatible ``export.pdb`` file.
+
+    ``artwork_assignments`` is ``{track_id: artwork_id}`` — the global slot
+    number ``artwork_writer.artwork_id_for_pdb()`` returns. Track rows whose
+    ``t.id`` is not in the dict keep ``artwork_id = 0`` (no art). Per the
+    reference USB observation (``/Volumes/Untitled/PIONEER/rekordbox/export.pdb``
+    has 0 rows in the Artwork table, page_type 9), the Artwork table itself
+    stays empty — the CDJ reconstructs the JPEG path from ``artwork_id`` via
+    ``artwork_writer.decode_artwork_id()`` (bucket = slot // 20 + 1).
 
     Returns a dict with:
       * tables_written — list of page_type ints emitted
@@ -137,6 +146,7 @@ def write_pdb(
     """
     if playlists is None:
         playlists = [_default_all_tracks_playlist(tracks)]
+    artwork_assignments = artwork_assignments or {}
 
     # ------------------------------------------------------------------
     # Resolve cross-table foreign keys — artists / albums / genres / keys / colors
@@ -153,7 +163,9 @@ def write_pdb(
     # ------------------------------------------------------------------
     # Serialize each table's rows as "blob + per-row metadata"
     # ------------------------------------------------------------------
-    track_rows = _serialize_track_rows(tracks, artists, albums, genres, keys)
+    track_rows = _serialize_track_rows(
+        tracks, artists, albums, genres, keys, artwork_assignments,
+    )
     artist_rows = _serialize_artist_rows(artists)
     album_rows = _serialize_album_rows(albums, artists, tracks)
     genre_rows = _serialize_simple_id_name_rows(genres)
@@ -410,6 +422,7 @@ def _serialize_track_rows(
     albums: dict[str, int],
     genres: dict[str, int],
     keys: dict[str, int],
+    artwork_assignments: Optional[dict[int, int]] = None,
 ) -> list[bytes]:
     """Build TrackRow byte blobs.
 
@@ -418,6 +431,7 @@ def _serialize_track_rows(
         [21 × Int16ul string offsets]  (42 bytes)
         [concatenated DeviceSQL strings]
     """
+    artwork_assignments = artwork_assignments or {}
     blobs: list[bytes] = []
     for i, t in enumerate(tracks):
         # String order matches Kaitai spec's `track_row` field list:
@@ -464,7 +478,7 @@ def _serialize_track_rows(
             "unknown2": 0,
             "unknown3": 0,
             "unknown4": 0,
-            "artwork_id": 0,
+            "artwork_id": int(artwork_assignments.get(t.id, 0)),
             "key_id": keys.get(t.key_name, 0),
             "original_artist_id": 0,
             "label_id": 0,

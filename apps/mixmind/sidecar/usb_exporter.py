@@ -24,6 +24,12 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from anlz_writer import BeatEntry, CueEntry, SectionEntry, Waveform3Band, write_dat, write_ext
+from artwork_extractor import extract_from_audio
+from artwork_writer import (
+    artwork_id_for_pdb,
+    assign_bucket_slot,
+    write_track as write_artwork_track,
+)
 from pdb_ext_writer import write_export_ext
 from pdb_reader import read_pdb
 from pdb_writer import PlaylistRecord, TrackRecord, write_pdb
@@ -166,6 +172,15 @@ def export_to_usb(
                 comment=rec.get("comment") or "",
             ))
 
+        # 4b. Extract + write embedded album art for each artworked track.
+        # Produces ``PIONEER/Artwork/<bucket>/a<slot>{,_m}.jpg`` and returns
+        # ``{track_id: artwork_id}`` so pdb_writer can populate Track rows.
+        if progress_cb:
+            progress_cb("write_artwork", total, total)
+        artwork_assignments = _extract_and_write_artwork(
+            pdb_tracks, track_records, staging,
+        )
+
         # 5. Write export.pdb
         if progress_cb:
             progress_cb("write_pdb", total, total)
@@ -173,6 +188,7 @@ def export_to_usb(
         write_pdb(
             pdb_path, pdb_tracks,
             playlists=_to_playlist_records(playlists),
+            artwork_assignments=artwork_assignments,
         )
 
         # 5b. Write exportExt.pdb (CDJ-3000X extension; empty but structural)
@@ -448,6 +464,72 @@ def _to_playlist_records(
         )
         for p in playlists
     ]
+
+
+# ---------------------------------------------------------------------------
+# Artwork pipeline — extract embedded art, write to PIONEER/Artwork/<bucket>/
+# ---------------------------------------------------------------------------
+
+
+def _extract_and_write_artwork(
+    pdb_tracks: list[TrackRecord],
+    track_records: list[dict],
+    staging: Path,
+) -> dict[int, int]:
+    """Extract embedded album art and write Pioneer-format JPEGs to staging.
+
+    For each ``TrackRecord`` whose source audio has embedded artwork (APIC /
+    PICTURE / covr), we:
+
+      1. Extract 80×80 small + 240×240 medium JPEGs via ``artwork_extractor``.
+      2. Allocate a ``(bucket, slot)`` via ``assign_bucket_slot(art_index)``
+         where ``art_index`` increments ONLY for artworked tracks (reference
+         USB convention — unartworked tracks keep ``artwork_id=0`` and do not
+         consume a slot).
+      3. Write ``PIONEER/Artwork/<bucket>/a<slot>{,_m}.jpg``; if the source
+         also carries a secondary picture (picture_type 4) we additionally
+         write ``b<slot>{,_m}.jpg``.
+      4. Record ``{pdb_track.id: artwork_id_for_pdb(bucket, slot)}`` so the
+         PDB writer can populate the Track row's ``artwork_id`` field.
+
+    Returns the assignment dict — tracks without art are simply absent, and
+    ``pdb_writer.write_pdb()`` falls back to ``artwork_id=0`` for them.
+
+    Failures (corrupt tag, unreadable file, Pillow decode error) are absorbed
+    at the extractor boundary — this function never raises; at worst the
+    track gets ``artwork_id=0``.
+    """
+    assignments: dict[int, int] = {}
+    art_index = 0           # only increments for tracks that have embedded art
+    if len(pdb_tracks) != len(track_records):
+        # Shouldn't happen given the zip above, but defensive — do not crash
+        # the export; skip artwork rather than risk a misalignment.
+        return assignments
+
+    for pdb_row, rec in zip(pdb_tracks, track_records):
+        src_audio = Path(rec["file_path"]).expanduser()
+        art = extract_from_audio(src_audio)
+        if not art.has_primary():
+            continue
+
+        bucket, slot = assign_bucket_slot(art_index)
+        write_artwork_track(
+            staging, bucket=bucket, slot=slot,
+            small_bytes=art.primary_small,
+            medium_bytes=art.primary_medium,
+            group="a",
+        )
+        if art.has_alt():
+            write_artwork_track(
+                staging, bucket=bucket, slot=slot,
+                small_bytes=art.alt_small,
+                medium_bytes=art.alt_medium,
+                group="b",
+            )
+        assignments[pdb_row.id] = artwork_id_for_pdb(bucket, slot)
+        art_index += 1
+
+    return assignments
 
 
 def _sha256(p: Path) -> str:
