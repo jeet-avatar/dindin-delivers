@@ -1,6 +1,8 @@
 """Analysis API routes — single track, batch, cancel, status."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Query
 
 from analyzer import analyze_track, AnalysisBatchRunner
@@ -87,6 +89,72 @@ async def start_batch():
     _batch_runner = AnalysisBatchRunner(db)
     _batch_runner.start(pending)
     return {"status": "started", "total": len(pending)}
+
+
+@router.post("/library/analyze")
+async def analyze_library(force: bool = Query(False)):
+    """Run analysis on all imported tracks (source='import').
+
+    Pulls tracks from state.imported_tracks, filters out ones already
+    analyzed (status='complete' in analysis_cache with source='import'),
+    queues the rest into the shared AnalysisBatchRunner.
+
+    Returns {status, total, queued} — progress available via the existing
+    GET /api/analyze/status endpoint.
+
+    Phase 21-02: complements /api/analyze/batch (Rekordbox path) without
+    modifying it. Both batches share `_batch_runner`; only one may run
+    at a time.
+    """
+    global _batch_runner
+    db = _get_db()
+    try:
+        if _batch_runner and _batch_runner.running:
+            return {
+                "status": "already_running",
+                "progress": _batch_runner.status.to_dict(),
+            }
+
+        imported = db.get_imported_tracks()
+        if not imported:
+            return {"status": "no_imported_tracks", "total": 0}
+
+        pending: list[dict] = []
+        already_done = 0
+        for t in imported:
+            if not t.file_path:
+                continue
+            if not force:
+                existing = db.get_analysis(t.content_id, "import")
+                if existing and existing["status"] == "complete":
+                    already_done += 1
+                    continue
+            pending.append({
+                "content_id": t.content_id,
+                "source": "import",
+                "file_path": t.file_path,
+                "title": t.title or Path(t.file_path).stem,
+                "artist": t.artist or "",
+            })
+
+        if not pending:
+            return {
+                "status": "all_analyzed",
+                "total": len(imported),
+                "already_done": already_done,
+            }
+
+        _batch_runner = AnalysisBatchRunner(db)
+        _batch_runner.start(pending)
+        return {
+            "status": "started",
+            "total": len(pending),
+            "already_done": already_done,
+        }
+    finally:
+        # AnalysisBatchRunner owns its own db reference for the background
+        # thread; don't close here or we'd pull the rug out from under it.
+        pass
 
 
 @router.delete("/analyze/batch")
