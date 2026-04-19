@@ -391,7 +391,7 @@ The success criteria above gate functional correctness. This table gates *qualit
 
 These are *exit bars*, not aspirations — Phase 21 is not done until every row meets its Target column on the reference corpus. Stretch column tracks post-launch investment.
 
-**Plans:** 1/6 plans executed
+**Plans:** 2/6 plans executed
 
 Plans:
 - [ ] 21-01-PLAN.md -- Folder importer (mutagen + imported_tracks table + POST /api/library/import + from_rekordbox flag)

@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 21 (MixMind Native Pioneer USB Export) -- IN PROGRESS
-Plan: 1 of 6 complete in current phase
-Status: Plan 21-01 complete: folder importer + imported_tracks DB + POST /api/library/import; Rekordbox read path preserved.
-Last activity: 2026-04-19 - Completed Plan 21-01: Folder Importer (1458-file live E2E green, 39/39 tests green)
+Plan: 2 of 6 complete in current phase
+Status: Plan 21-02 complete: POST /api/library/analyze wires existing Demucs + Essentia + madmom pipeline to imported tracks; bpm/camelot/waveform/beat_grid/sections/cues all persist to state.db.
+Last activity: 2026-04-19 - Completed Plan 21-02: Imported-Track Analyzer (integration tests green, 0 new deps, allin1 deliberately excluded)
 
-Progress: [######..................................] 17% (1/6 plans in phase 21)
+Progress: [#############...........................] 33% (2/6 plans in phase 21)
 
 ## Completed Milestones
 
@@ -127,6 +127,9 @@ Progress: [######..................................] 17% (1/6 plans in phase 21)
 - [Phase 20-05]: Offset applied inside drawBeatGrid via parameter rather than mutating beat_grid data
 - [Phase quick-259]: Campaign sends use ONLY per-user verified EmailServerConfig — no env SMTP/SES fallback
 - [Phase 22]: Strategy Bot Generate Video buttons navigate to /campaigns with prefill params (no new backend endpoint) — keeps existing 402/tier-gating as single source of truth
+- [Phase 21-02]: POST /api/library/analyze re-uses existing AnalysisBatchRunner with source='import' — no analyzer.py changes needed; Rekordbox /api/analyze/batch path untouched.
+- [Phase 21-02]: Zero new deps; allin1 deliberately NOT added per user decision (PyTorch bloat). Heuristic section_detector.py retained. If quality insufficient, follow-up phase.
+- [Phase 21-02]: Integration tests marked pytest.mark.slow (~22s each); CI default filter with -m 'not slow' keeps fast suite runnable. Synthetic 10s WAV audio generated inline via numpy/soundfile, no binary fixtures committed.
 
 ### Blockers
 
@@ -300,6 +303,7 @@ None
 | Phase 20 P03 | 3min | 2 tasks | 1 files |
 | Phase 20 P04 | 148s | 1 tasks | 2 files |
 | Phase 22 P12 | 4m | 3 tasks | 2 files |
+| Phase 21 P02 | 16min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
