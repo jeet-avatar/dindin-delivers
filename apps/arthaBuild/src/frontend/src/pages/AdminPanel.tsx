@@ -40,6 +40,7 @@ import {
   type AuditEntry,
 } from "../services/adminService";
 import { getAccessToken } from "../services/api";
+import { SALES_EMAIL } from "../lib/landingLinks";
 import KnowledgeBaseTab from "../components/KnowledgeBaseTab";
 
 type Tab = "overview" | "members" | "chats" | "invite" | "audit" | "security" | "license" | "knowledge" | "comments";
@@ -1069,7 +1070,7 @@ export default function AdminPanel() {
 
               <p className="text-xs text-slate-500">
                 To activate a new key on this instance, update <code className="bg-slate-700/60 px-1 py-0.5 rounded text-slate-300">LICENSE_KEY</code> in your environment and restart ArthaBuild.
-                Contact <a href="mailto:sales@artha.build" className="text-indigo-400 hover:underline">sales@artha.build</a> to purchase or upgrade.
+                Contact <a href={`mailto:${SALES_EMAIL}`} className="text-indigo-400 hover:underline">{SALES_EMAIL}</a> to purchase or upgrade.
               </p>
             </div>
           </div>

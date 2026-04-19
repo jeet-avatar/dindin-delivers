@@ -7,6 +7,7 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle, X, ChevronRight, Key, Users, Link2 } from "lucide-react";
 import { getAccessToken } from "../services/api";
+import { SALES_EMAIL } from "../lib/landingLinks";
 
 interface OnboardingWizardProps {
   /** Current user role — wizard only shows for admin */
@@ -299,7 +300,7 @@ export default function OnboardingWizard({ userRole }: OnboardingWizardProps) {
                 )}
                 {licenseStatus === "invalid" && licenseResult && (
                   <div className="text-xs text-red-400">
-                    {licenseResult.message ?? "Invalid license key. Contact sales@artha.build"}
+                    {licenseResult.message ?? `Invalid license key. Contact ${SALES_EMAIL}`}
                   </div>
                 )}
               </div>

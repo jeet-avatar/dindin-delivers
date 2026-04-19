@@ -1,3 +1,11 @@
+import {
+  COMPANY_LEGAL,
+  COMPANY_SHORT,
+  COPYRIGHT_YEAR,
+  PRIVACY_EMAIL,
+  SUPPORT_EMAIL,
+} from '../lib/landingLinks';
+
 export default function PrivacyPolicy() {
   return (
     <div style={{ background: '#0a0a0f', minHeight: '100vh', color: '#e2e8f0', fontFamily: 'DM Sans, sans-serif' }}>
@@ -13,7 +21,7 @@ export default function PrivacyPolicy() {
           Privacy Policy
         </h1>
         <p style={{ color: '#71717a', fontSize: '14px', marginBottom: '56px' }}>
-          Last updated: April 2026 &nbsp;·&nbsp; ArthaBuild by Vibing World
+          Last updated: April 2026 &nbsp;·&nbsp; ArthaBuild by {COMPANY_SHORT}
         </p>
 
         <section style={{ marginBottom: '48px' }}>
@@ -21,9 +29,9 @@ export default function PrivacyPolicy() {
             1. Who We Are
           </h2>
           <p style={{ lineHeight: 1.8, color: '#a1a1aa' }}>
-            ArthaBuild is a product of <strong style={{ color: '#e2e8f0' }}>Vibing World inc.</strong> Our platform domain is{' '}
+            ArthaBuild is a product of <strong style={{ color: '#e2e8f0' }}>{COMPANY_LEGAL}</strong> Our platform domain is{' '}
             <span style={{ color: '#6366f1' }}>artha.build</span>. For privacy inquiries, contact:{' '}
-            <a href="mailto:privacy@artha.build" style={{ color: '#6366f1' }}>privacy@artha.build</a>
+            <a href={`mailto:${PRIVACY_EMAIL}`} style={{ color: '#6366f1' }}>{PRIVACY_EMAIL}</a>
           </p>
         </section>
 
@@ -112,7 +120,7 @@ export default function PrivacyPolicy() {
           <p style={{ lineHeight: 1.8, color: '#a1a1aa' }}>
             Because ArthaBuild runs on your own infrastructure, you are in full control of data retention.
             You can delete your deployment at any time, which deletes all stored data.
-            Vibing World inc. does not retain copies of your data.
+            {' '}{COMPANY_LEGAL} does not retain copies of your data.
           </p>
         </section>
 
@@ -121,15 +129,15 @@ export default function PrivacyPolicy() {
             7. Contact
           </h2>
           <p style={{ lineHeight: 1.8, color: '#a1a1aa' }}>
-            For privacy-related questions: <a href="mailto:privacy@artha.build" style={{ color: '#6366f1' }}>privacy@artha.build</a><br />
-            For general support: <a href="mailto:support@artha.build" style={{ color: '#6366f1' }}>support@artha.build</a><br />
-            Vibing World inc. — artha.build
+            For privacy-related questions: <a href={`mailto:${PRIVACY_EMAIL}`} style={{ color: '#6366f1' }}>{PRIVACY_EMAIL}</a><br />
+            For general support: <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: '#6366f1' }}>{SUPPORT_EMAIL}</a><br />
+            {COMPANY_LEGAL} — artha.build
           </p>
         </section>
 
         <div style={{ borderTop: '1px solid rgba(99,102,241,0.1)', paddingTop: '32px', marginTop: '48px' }}>
           <p style={{ color: '#52525b', fontSize: '13px' }}>
-            © 2026 Vibing World inc. All rights reserved. ArthaBuild is not affiliated with Oracle NetSuite.
+            © {COPYRIGHT_YEAR} {COMPANY_LEGAL} All rights reserved. ArthaBuild is not affiliated with Oracle NetSuite.
           </p>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getAccessToken } from '../services/api';
+import { SALES_EMAIL } from '../lib/landingLinks';
 
 interface LicenseStatus {
   valid: boolean;
@@ -26,7 +27,7 @@ export const LicenseBanner = () => {
 
   if (!status) return null;
 
-  const salesEmail = status.sales_email || 'sales@artha.build';
+  const salesEmail = status.sales_email || SALES_EMAIL;
 
   // Invalid/expired license banner (existing behaviour — show when invalid)
   if (!status.valid) {
