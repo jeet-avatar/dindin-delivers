@@ -28,26 +28,33 @@ from artwork_writer import (
 
 
 def test_assign_bucket_slot_first_slot_of_first_bucket() -> None:
+    # track_index=0 → global slot 1, bucket 1 (file a1.jpg)
     assert assign_bucket_slot(0) == (1, 1)
 
 
 def test_assign_bucket_slot_last_slot_of_first_bucket() -> None:
-    assert assign_bucket_slot(37) == (1, 38)
+    # reference USB: bucket 00001 holds slots 1..19
+    assert assign_bucket_slot(18) == (1, 19)
 
 
 def test_assign_bucket_slot_rollover_to_second_bucket() -> None:
-    assert assign_bucket_slot(38) == (2, 1)
-    assert assign_bucket_slot(75) == (2, 38)
-    assert assign_bucket_slot(76) == (3, 1)
+    # reference USB: bucket 00002 holds slots 20..39
+    assert assign_bucket_slot(19) == (2, 20)
+    assert assign_bucket_slot(38) == (2, 39)
+    assert assign_bucket_slot(39) == (3, 40)
+
+
+def test_assign_bucket_slot_matches_reference_last_bucket() -> None:
+    # reference USB: bucket 00046 holds slots 900..908 (current tail)
+    assert assign_bucket_slot(899) == (46, 900)
+    assert assign_bucket_slot(907) == (46, 908)
 
 
 def test_assign_bucket_slot_handles_high_track_counts() -> None:
     # 5000-track library (MixMind-Inbox) must not overflow.
     b, s = assign_bucket_slot(5000)
-    assert b == (5000 // SLOTS_PER_BUCKET) + 1
-    assert s == (5000 % SLOTS_PER_BUCKET) + 1
-    assert 1 <= s <= SLOTS_PER_BUCKET
-    assert b == 132        # 5000 // 38 + 1
+    assert s == 5001                              # global 1-indexed slot
+    assert b == (5001 // SLOTS_PER_BUCKET) + 1    # 250 + 1 = 251
 
 
 def test_assign_bucket_slot_rejects_negative() -> None:
@@ -155,16 +162,32 @@ def test_write_track_creates_intermediate_dirs(tmp_path: Path) -> None:
 
 
 def test_artwork_id_encoding_round_trips() -> None:
-    for bucket, slot in [(1, 1), (1, 38), (2, 1), (46, 38), (255, 255)]:
+    """(bucket, slot) derived from assign_bucket_slot must round-trip.
+
+    We must pair bucket and slot consistently — bucket = slot // 20 + 1.
+    """
+    for idx in [0, 18, 19, 38, 907, 5000]:
+        bucket, slot = assign_bucket_slot(idx)
         aid = artwork_id_for_pdb(bucket, slot)
         got_bucket, got_slot = decode_artwork_id(aid)
-        assert (got_bucket, got_slot) == (bucket, slot)
+        assert (got_bucket, got_slot) == (bucket, slot), (
+            f"round-trip failed for idx={idx}: "
+            f"({bucket}, {slot}) → {aid} → ({got_bucket}, {got_slot})"
+        )
+
+
+def test_artwork_id_equals_slot() -> None:
+    """artwork_id = global_slot (single-field key)."""
+    for idx in [0, 100, 5000]:
+        bucket, slot = assign_bucket_slot(idx)
+        assert artwork_id_for_pdb(bucket, slot) == slot
 
 
 def test_artwork_id_never_collides_with_zero_sentinel() -> None:
-    # bucket & slot are both 1-indexed, so the smallest id is 0x101.
-    assert artwork_id_for_pdb(1, 1) == 0x0101
-    assert artwork_id_for_pdb(1, 1) != 0
+    # slot is 1-indexed global — smallest id is 1.
+    b, s = assign_bucket_slot(0)
+    assert artwork_id_for_pdb(b, s) == 1
+    assert artwork_id_for_pdb(b, s) != 0
     # decode(0) must return sentinel pair.
     assert decode_artwork_id(0) == (0, 0)
 
@@ -175,7 +198,8 @@ def test_artwork_id_rejects_invalid_inputs() -> None:
     with pytest.raises(ValueError):
         artwork_id_for_pdb(5, 0)
     with pytest.raises(ValueError):
-        artwork_id_for_pdb(1, 256)       # slot overflows low byte
+        # bucket inconsistent with slot (slot 20 → bucket 2, not 1)
+        artwork_id_for_pdb(1, 20)
 
 
 # ---------------------------------------------------------------------------
@@ -199,5 +223,11 @@ def test_no_rbox_imported() -> None:
 
 
 def test_slots_per_bucket_constant() -> None:
-    """Reference USB pinned max observed at 38 — regression guard."""
-    assert SLOTS_PER_BUCKET == 38
+    """Reference USB observation (Apr 2026): 20 slots per bucket with GLOBAL
+    slot numbering (bucket 00001→slots 1..19, 00002→20..39, …, 00046→900..908).
+
+    Regression guard — plan's original 38-per-bucket assumption was wrong;
+    this constant drives assign_bucket_slot()/decode_artwork_id() consistency
+    and must track the reference USB forever (or require a data migration).
+    """
+    assert SLOTS_PER_BUCKET == 20

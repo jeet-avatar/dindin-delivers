@@ -3,14 +3,33 @@
 File layout (observed on reference USB ``/Volumes/Untitled/PIONEER/Artwork/``)::
 
     PIONEER/Artwork/<5-digit-bucket>/
-    ├── a1.jpg        # slot 1, primary cover, 80x80 small
-    ├── a1_m.jpg      # slot 1, primary cover, 240x240 medium
+    ├── a1.jpg        # slot 1 (global), primary cover, 80x80 small
+    ├── a1_m.jpg      # slot 1 (global), primary cover, 240x240 medium
     ├── a2.jpg, a2_m.jpg, ...
     ├── b1.jpg, b1_m.jpg, ...    # slot 1, alt (picture_type 4) art
     └── ...
-    (reference: 46 buckets, max 38 slots per bucket = 38 a-pairs + 38 b-pairs)
 
-CRITICAL — naming convention (21-REFERENCE-DATASET.md authoritative):
+CRITICAL — slot numbering is GLOBAL, not bucket-relative (verified Apr 2026
+against ``/Volumes/Untitled/PIONEER/Artwork/`` by enumerating 46 buckets):
+
+    Bucket 00001  →  slots  1..19   (19 slots — first bucket is irregular)
+    Bucket 00002  →  slots 20..39   (20 slots, formula holds thereafter)
+    Bucket 00003  →  slots 40..59
+    ...
+    Bucket 00046  →  slots 900..908 (9 slots — current tail, partial)
+
+So the bucket/slot formula is::
+
+    global_slot = track_index_with_art + 1     # 1-indexed global slot
+    bucket      = global_slot // SLOTS_PER_BUCKET + 1
+    (where SLOTS_PER_BUCKET = 20 per reference observation)
+
+The plan's original assumption (38 slots per bucket, per-bucket slot reset)
+was a misreading of the handoff — reference data shows 20 slots per bucket
+with GLOBAL slot numbering. This module uses the verified-from-reference
+convention so the PDB Track.artwork_id round-trips correctly.
+
+Naming convention (21-REFERENCE-DATASET.md authoritative):
 - bare ``a<n>.jpg``  = 80x80 small
 - ``a<n>_m.jpg``     = 240x240 medium   (NOT a thumbnail — ``_m`` = medium)
 - ``b<n>``           = alt/secondary art bucket (picture_type 4)
@@ -28,8 +47,17 @@ from typing import Literal, Optional
 # ===========================================================================
 
 
-SLOTS_PER_BUCKET = 38
-"""Observed max on reference USB. Determines the bucket/slot wrap-over point."""
+SLOTS_PER_BUCKET = 20
+"""Reference USB observation (Apr 2026):
+
+Bucket 00002..00045 each hold exactly 20 unique ``a<slot>`` pairs.
+Bucket 00001 holds 19 slots (slot 0 reserved/unused on Pioneer).
+Bucket 00046 holds 9 slots (current tail of a live 908-slot library).
+
+This constant drives :func:`assign_bucket_slot` which uses a GLOBAL slot
+numbering scheme — the plan's original "38 per bucket with per-bucket
+reset" assumption was wrong (Rule 1 deviation).
+"""
 
 ArtGroup = Literal["a", "b"]
 
@@ -40,29 +68,35 @@ ArtGroup = Literal["a", "b"]
 
 
 def assign_bucket_slot(track_index_with_art: int) -> tuple[int, int]:
-    """Map a 0-based artwork-bearing track index to ``(bucket, slot)``.
+    """Map a 0-based artwork-bearing track index to ``(bucket, global_slot)``.
 
-    Both bucket and slot are 1-indexed. Only tracks that actually have
-    embedded artwork should be counted — ``track_index_with_art=0`` maps to
-    ``(1, 1)``; unartworked tracks skip the counter and get ``artwork_id=0``
-    in their PDB row.
+    Slot numbering is GLOBAL (1..N across the whole library), not reset per
+    bucket. Bucket number is derived from the slot::
 
-    Examples
-    --------
-    >>> assign_bucket_slot(0)
-    (1, 1)
-    >>> assign_bucket_slot(37)
-    (1, 38)
-    >>> assign_bucket_slot(38)
-    (2, 1)
+        global_slot = track_index_with_art + 1
+        bucket      = global_slot // SLOTS_PER_BUCKET + 1   # SLOTS_PER_BUCKET = 20
+
+    This matches the Pioneer reference USB layout:
+
+        track_index_with_art = 0   → (bucket=1, slot=1)    # file a1.jpg
+        track_index_with_art = 18  → (bucket=1, slot=19)   # file a19.jpg
+        track_index_with_art = 19  → (bucket=2, slot=20)   # file a20.jpg
+        track_index_with_art = 38  → (bucket=2, slot=39)
+        track_index_with_art = 39  → (bucket=3, slot=40)
+        ...
+        track_index_with_art = 907 → (bucket=46, slot=908)
+
+    Only tracks that actually have embedded artwork should increment the
+    counter — unartworked tracks keep ``artwork_id=0`` in their PDB row and
+    the next artworked track takes the next global slot.
     """
     if track_index_with_art < 0:
         raise ValueError(
             f"track_index_with_art must be >= 0, got {track_index_with_art}"
         )
-    bucket = (track_index_with_art // SLOTS_PER_BUCKET) + 1
-    slot = (track_index_with_art % SLOTS_PER_BUCKET) + 1
-    return bucket, slot
+    global_slot = track_index_with_art + 1
+    bucket = (global_slot // SLOTS_PER_BUCKET) + 1
+    return bucket, global_slot
 
 
 # ===========================================================================
@@ -142,41 +176,47 @@ def write_track(
 def artwork_id_for_pdb(bucket: int, slot: int) -> int:
     """Compute the Track-row ``artwork_id`` for the PDB Tracks table.
 
-    Encoding rationale:
+    Because reference USB uses GLOBAL slot numbering and bucket = slot // 20,
+    the slot alone uniquely identifies the physical artwork file:
+    ``PIONEER/Artwork/<slot//20 + 1 : 05d>/a<slot>.jpg``.
+
+    Encoding::
+
+        artwork_id = global_slot      # 1-indexed, 1..~65000 fits Int32ul
+
     The PDB Tracks table stores ``artwork_id`` as an ``Int32ul`` (see
-    ``pdb_structs.TrackRow.artwork_id``). The Artwork table on the reference
-    USB stores an ``id`` that, when non-zero, maps 1:1 to a file on disk
-    under ``PIONEER/Artwork/<bucket>/a<slot>{,_m}.jpg``.
+    ``pdb_structs.TrackRow.artwork_id``). Using the global slot directly:
 
-    There is no public documentation for the exact bucket/slot ↔ id bit
-    layout. We pack ``(bucket, slot)`` into the low 24 bits as::
+    - Fits easily in Int32ul (up to 4.29G slots; we're nowhere near that)
+    - One-field key — no bit-packing ambiguity
+    - Decode is trivial: ``bucket = slot // 20 + 1``
+    - ``artwork_id = 0`` stays the "no artwork" sentinel (slot 0 never
+      assigned because ``assign_bucket_slot(0)`` returns ``slot=1``)
 
-        artwork_id = (bucket << 8) | slot
-
-    - Low byte = slot (1..38, well under 0xFF)
-    - Next two bytes = bucket (up to 65535, observed 46 on reference)
-    - High byte = 0
-
-    This keeps the value unique per physical file AND lets the PDB reader
-    (and Phase 21-05 QA) recover bucket/slot trivially:
-    ``bucket = id >> 8``, ``slot = id & 0xFF``.
-    ``artwork_id = 0`` stays the "no artwork" sentinel (bucket 0 / slot 0 is
-    never assigned because ``assign_bucket_slot(0) == (1, 1)``).
+    Matches what a PDB reader (21-05 acceptance) needs to locate the
+    artwork file from just the Track row.
     """
     if bucket < 1 or slot < 1:
         raise ValueError(
             f"bucket and slot are 1-indexed; got bucket={bucket} slot={slot}"
         )
-    if slot > 0xFF:
-        raise ValueError(f"slot {slot} overflows low byte (max 0xFF)")
-    return (bucket << 8) | (slot & 0xFF)
+    expected_bucket = (slot // SLOTS_PER_BUCKET) + 1
+    if bucket != expected_bucket:
+        raise ValueError(
+            f"bucket {bucket} inconsistent with slot {slot} "
+            f"(expected bucket {expected_bucket})"
+        )
+    return slot
 
 
 def decode_artwork_id(artwork_id: int) -> tuple[int, int]:
     """Inverse of :func:`artwork_id_for_pdb` — useful for the PDB reader
-    and Phase 21-05 acceptance tests."""
+    and Phase 21-05 acceptance tests.
+
+    Returns ``(0, 0)`` for the no-artwork sentinel.
+    """
     if artwork_id <= 0:
         return 0, 0
-    bucket = artwork_id >> 8
-    slot = artwork_id & 0xFF
+    slot = artwork_id
+    bucket = (slot // SLOTS_PER_BUCKET) + 1
     return bucket, slot
