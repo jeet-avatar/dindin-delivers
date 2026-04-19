@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import re
 
-from src.backend.validators.checkers.base import Checker
-from src.backend.validators.whitelist import HTTP_METHODS
+from validators.checkers.base import Checker
+from validators.whitelist import HTTP_METHODS
 
 _PATTERN = re.compile(r"\bhttp\.Method\.([A-Za-z_][A-Za-z0-9_]*)")
 

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import re
 
-from src.backend.validators.checkers.base import Checker
-from src.backend.validators.whitelist import RECORD_SCRIPT_IDS
+from validators.checkers.base import Checker
+from validators.whitelist import RECORD_SCRIPT_IDS
 
 # record.{load|create|copy|delete|transform}({ ... type: 'foo' ... })
 # DOTALL so the options-object body can span lines. The type field may appear
@@ -47,8 +47,8 @@ class RecordScriptIdChecker(Checker):
 
     def check(self, code: str):
         # Override base.check to allow custom* prefixes without false-flagging.
-        from src.backend.validators.ast_utils import nearest
-        from src.backend.validators.checkers.base import Violation
+        from validators.ast_utils import nearest
+        from validators.checkers.base import Violation
 
         wl = self.whitelist()
         out: list[Violation] = []

@@ -5,7 +5,7 @@ import re
 import time
 from typing import Optional
 
-from src.backend.validators.checkers.base import LintResult, Violation
+from validators.checkers.base import LintResult, Violation
 
 FENCE_RE = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
 VALID_LANGUAGES = {"js", "javascript", ""}
@@ -35,13 +35,13 @@ def extract_first_code_block(text: str) -> tuple[Optional[str], Optional[str]]:
 class SuiteScriptLinter:
     def __init__(self, checkers: list | None = None):
         if checkers is None:
-            from src.backend.validators.checkers.record_type import RecordTypeChecker
-            from src.backend.validators.checkers.module import ModuleChecker
-            from src.backend.validators.checkers.script_type import ScriptTypeChecker
-            from src.backend.validators.checkers.search_api import SearchApiChecker
-            from src.backend.validators.checkers.file_type import FileTypeChecker
-            from src.backend.validators.checkers.http_method import HttpMethodChecker
-            from src.backend.validators.checkers.record_script_id import RecordScriptIdChecker
+            from validators.checkers.record_type import RecordTypeChecker
+            from validators.checkers.module import ModuleChecker
+            from validators.checkers.script_type import ScriptTypeChecker
+            from validators.checkers.search_api import SearchApiChecker
+            from validators.checkers.file_type import FileTypeChecker
+            from validators.checkers.http_method import HttpMethodChecker
+            from validators.checkers.record_script_id import RecordScriptIdChecker
             checkers = [
                 RecordTypeChecker(),
                 ModuleChecker(),

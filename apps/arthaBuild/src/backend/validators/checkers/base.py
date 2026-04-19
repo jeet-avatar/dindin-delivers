@@ -33,7 +33,7 @@ class Checker(ABC):
         """Valid identifiers for this category."""
 
     def check(self, code: str) -> list[Violation]:
-        from src.backend.validators.ast_utils import nearest
+        from validators.ast_utils import nearest
         wl = self.whitelist()
         out: list[Violation] = []
         for ident, line in self.extract(code):

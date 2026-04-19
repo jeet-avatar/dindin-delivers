@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import re
 
-from src.backend.validators.checkers.base import Checker
-from src.backend.validators.whitelist import FILE_TYPES
+from validators.checkers.base import Checker
+from validators.whitelist import FILE_TYPES
 
 _PATTERN = re.compile(r"\bfile\.Type\.([A-Za-z_][A-Za-z0-9_]*)")
 

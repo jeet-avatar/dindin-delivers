@@ -317,7 +317,7 @@ from database import engine as _db_engine
 
 # Phase 16: Webhook dispatch worker
 from webhook_worker import dispatch_webhook as _dispatch_webhook
-from src.backend.validators.reprompt import run_validation_loop
+from validators.reprompt import run_validation_loop
 
 
 async def _dispatch_webhook_safe(event: str, payload: dict) -> None:

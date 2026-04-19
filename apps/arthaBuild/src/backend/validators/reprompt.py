@@ -9,9 +9,9 @@ import inspect
 import time
 from typing import Any, Awaitable, Callable, Union
 
-from src.backend.validators.checkers.base import LintResult
-from src.backend.validators.linter import SuiteScriptLinter, extract_first_code_block
-from src.backend.validators.whitelist import (
+from validators.checkers.base import LintResult
+from validators.linter import SuiteScriptLinter, extract_first_code_block
+from validators.whitelist import (
     RECORD_TYPES, MODULES, SCRIPT_TYPES, SEARCH_TYPES, SEARCH_APIS,
 )
 

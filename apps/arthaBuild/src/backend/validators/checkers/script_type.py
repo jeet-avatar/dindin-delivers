@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import re
 
-from src.backend.validators.checkers.base import Checker, Violation
-from src.backend.validators.whitelist import SCRIPT_TYPES, SEARCH_TYPES
+from validators.checkers.base import Checker, Violation
+from validators.whitelist import SCRIPT_TYPES, SEARCH_TYPES
 
 _SCRIPT_TYPE_RE = re.compile(r"@NScriptType\s+(\w+)")
 _SEARCH_TYPE_RE = re.compile(r"search\.Type\.([A-Z_]+)")
@@ -20,7 +20,7 @@ class ScriptTypeChecker(Checker):
         return SCRIPT_TYPES | SEARCH_TYPES
 
     def check(self, code: str) -> list[Violation]:
-        from src.backend.validators.ast_utils import nearest
+        from validators.ast_utils import nearest
         out: list[Violation] = []
         for line_no, line in enumerate(code.splitlines(), 1):
             for m in _SCRIPT_TYPE_RE.finditer(line):

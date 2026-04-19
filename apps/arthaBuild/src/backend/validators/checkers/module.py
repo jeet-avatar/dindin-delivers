@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import re
 
-from src.backend.validators.checkers.base import Checker
-from src.backend.validators.whitelist import MODULES
+from validators.checkers.base import Checker
+from validators.whitelist import MODULES
 
 _PATTERNS = [
     re.compile(r"""define\(\s*\[\s*['"]([^'"]+)['"]"""),

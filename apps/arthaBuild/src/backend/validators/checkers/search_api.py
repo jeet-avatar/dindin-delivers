@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import re
 
-from src.backend.validators.checkers.base import Checker
-from src.backend.validators.whitelist import SEARCH_APIS
+from validators.checkers.base import Checker
+from validators.whitelist import SEARCH_APIS
 
 _PATTERN = re.compile(r"(?:^|[\s=;,(])search\.([a-z][A-Za-z_]*)\s*\(")
 

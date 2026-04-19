@@ -64,6 +64,7 @@ COPY --from=builder /app/session_store.py /app/session_store.py
 COPY --from=builder /app/suitescripts_utils.py /app/suitescripts_utils.py
 COPY --from=builder /app/sdf_utils.py /app/sdf_utils.py
 COPY --from=builder /app/middleware/ /app/middleware/
+COPY --from=builder /app/validators/ /app/validators/
 COPY --from=builder /app/webhook_worker.py /app/webhook_worker.py
 COPY --from=builder /app/alembic.ini /app/alembic.ini
 COPY --from=builder /app/alembic/ /app/alembic/
