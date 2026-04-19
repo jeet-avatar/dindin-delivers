@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 21 (MixMind Native Pioneer USB Export) -- IN PROGRESS
-Plan: 2 of 6 complete in current phase
-Status: Plan 21-02 complete: POST /api/library/analyze wires existing Demucs + Essentia + madmom pipeline to imported tracks; bpm/camelot/waveform/beat_grid/sections/cues all persist to state.db.
-Last activity: 2026-04-19 - Completed Plan 21-02: Imported-Track Analyzer (integration tests green, 0 new deps, allin1 deliberately excluded)
+Plan: 3 of 6 complete in current phase
+Status: Plan 21-03 complete: hand-rolled construct-based ANLZ writer (write_dat/write_ext/write_2ex) with GPL-free struct definitions, round-trip tests (pyrekordbox cross-check), and 3-level byte-oracle vs 91-track reference USB. 31 new tests pass.
+Last activity: 2026-04-19 - Completed Plan 21-03: ANLZ Writer — zero rbox imports; empty-tag bodies byte-match reference; Level 2 field-equivalence green on 3 hand-picked tracks (00000019/00000413/00001139); Level 3 byte-% is 0/20 as expected (PVBR/PWV2 deferred).
 
-Progress: [#############...........................] 33% (2/6 plans in phase 21)
+Progress: [#################.......................] 50% (3/6 plans in phase 21)
 
 ## Completed Milestones
 
@@ -35,6 +35,11 @@ Progress: [#############...........................] 33% (2/6 plans in phase 21)
 - Total plans: 10 (across 5 phases)
 - Completed: 5
 
+**Phase 21 (MixMind Native Pioneer USB Export):**
+- 21-01 Imported-Track Ingestion (completed 2026-04-18)
+- 21-02 Imported-Track Analyzer (completed 2026-04-19)
+- 21-03 ANLZ Writer (completed 2026-04-19) — 4 tasks, ~110 min, 5 files created, 3 modified, 31 new tests, 0 rbox imports
+
 
 ## Accumulated Context
 
@@ -49,6 +54,10 @@ Progress: [#############...........................] 33% (2/6 plans in phase 21)
 - [Phase 21-01]: content_id prefixing scheme for imported_tracks — 'import_<sha1(abs_path)[:16]>' for folder scans, 'rbximport_<rb_content_id>' for Rekordbox-bridge. Two origins coexist without schema extension. Idempotence via UNIQUE(file_path) + INSERT OR IGNORE.
 - [Phase 21-01]: WAVE_FORMAT_EXTENSIBLE detection — flag, don't drop. Warning surfaced in POST response warnings[] per-file; CDJ-3000 may refuse these but we let the user decide whether to re-encode.
 - [Phase 21-01]: StateDB _DEFAULT_PATH changed to late-bound (read in __init__ at call time, not captured as function default) so tests can monkeypatch the state DB location without touching the user's real state.db. Existing tests unaffected.
+- [Phase 21-03]: ANLZ writer built with construct>=2.10 (MIT) only. Zero rbox imports. `test_no_rbox_imported` regression guard installed. Plan's struct constants were verified wrong (PWAV 400 not 800, PWV3 1 byte/column not 6, PPTH len is byte count not char count) — fixed by direct inspection of `/Volumes/Untitled/PIONEER/USBANLZ/P001/00000019/ANLZ0000.DAT`.
+- [Phase 21-03]: .2EX writer ships as PMAI+PPTH stub only. PWV6/PWV7/PWVC/XWVv bodies are undocumented and deferred to a later polish task within Phase 21. CDJ-3000 falls back to .EXT waveform when .2EX is minimal.
+- [Phase 21-03]: Level 1 oracle is scoped to the core tags our writer emits (PPTH/PQTZ/PWAV/PCOB). PVBR (MP3 VBR index) and PWV2 (second detail waveform) are present in every reference .DAT but are documented deferred scope — their absence is NOT a Level 1 failure. Level 3 byte-equivalence is 0/20 today as expected; Phase 21 exit gate is ≥50%.
+- [Phase 21-03]: Round-trip adapter (`anlz_to_writer_input`) routes duplicate PCOB tags by `cue_type` field, not positional order, so writer output is tolerant of reorderings. `_parse_anlz_tags_all` added to support duplicate-magic walking (plan originally specified only dict-valued `_parse_anlz_tags` which would silently drop one PCOB).
 - [Phase 08-02]: Staging and production share dolloradmin on same RDS — rotation of either secret changes password for both. Must sync other environment's secret after any rotation. Recommended future fix: separate RDS users per environment.
 - [Phase 08-02]: pg8000 (pure Python) for Lambda instead of psycopg2 — no Lambda layer needed. Manual ECS force-redeploy is the proven recovery path over EventBridge auto-trigger.
 - [Phase 13-03]: Prop22 reconciliation jobs as module-level functions (not nested) so they are importable for tests; CronTrigger for time-of-day precision; per-driver db.commit() isolation; rideshare takes precedence for dual-service drivers
@@ -304,6 +313,7 @@ None
 | Phase 20 P04 | 148s | 1 tasks | 2 files |
 | Phase 22 P12 | 4m | 3 tasks | 2 files |
 | Phase 21 P02 | 16min | 2 tasks | 5 files |
+| Phase 21 P03 | 110min | 4 tasks | 8 files |
 
 ## Accumulated Context
 
