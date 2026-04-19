@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 
 ## Current Position
 
-Phase: 20 (CDJ-3000 Functional Controls) -- COMPLETE
-Plan: 5 of 5 complete in current phase
-Status: Phase 20 complete: All CDJ-3000 functional controls wired (hot cues, loops, beat jump, pitch, sync, grid nudge).
-Last activity: 2026-04-17 - Completed quick task 291: Build AI Architecture Playground as free lead-gen tool on TechCloudPro
+Phase: 21 (MixMind Native Pioneer USB Export) -- IN PROGRESS
+Plan: 1 of 6 complete in current phase
+Status: Plan 21-01 complete: folder importer + imported_tracks DB + POST /api/library/import; Rekordbox read path preserved.
+Last activity: 2026-04-19 - Completed Plan 21-01: Folder Importer (1458-file live E2E green, 39/39 tests green)
 
-Progress: [########################################] 100% (5/5 plans in phase 20)
+Progress: [######..................................] 17% (1/6 plans in phase 21)
 
 ## Completed Milestones
 
@@ -45,6 +45,10 @@ Progress: [########################################] 100% (5/5 plans in phase 20
 
 ### Decisions
 
+- [Phase 21]: License posture = Option C (hand-rolled ANLZ writer using construct + Deep Symmetry Kaitai spec, no rbox/GPL-3.0 dependency). PDB writer also hand-rolled. Keep existing pyrekordbox-based read path (`rekordbox.py`, `library.py`) as optional import source for users with existing Rekordbox libraries. Native export path must work end-to-end with zero Rekordbox install on the host machine.
+- [Phase 21-01]: content_id prefixing scheme for imported_tracks — 'import_<sha1(abs_path)[:16]>' for folder scans, 'rbximport_<rb_content_id>' for Rekordbox-bridge. Two origins coexist without schema extension. Idempotence via UNIQUE(file_path) + INSERT OR IGNORE.
+- [Phase 21-01]: WAVE_FORMAT_EXTENSIBLE detection — flag, don't drop. Warning surfaced in POST response warnings[] per-file; CDJ-3000 may refuse these but we let the user decide whether to re-encode.
+- [Phase 21-01]: StateDB _DEFAULT_PATH changed to late-bound (read in __init__ at call time, not captured as function default) so tests can monkeypatch the state DB location without touching the user's real state.db. Existing tests unaffected.
 - [Phase 08-02]: Staging and production share dolloradmin on same RDS — rotation of either secret changes password for both. Must sync other environment's secret after any rotation. Recommended future fix: separate RDS users per environment.
 - [Phase 08-02]: pg8000 (pure Python) for Lambda instead of psycopg2 — no Lambda layer needed. Manual ECS force-redeploy is the proven recovery path over EventBridge auto-trigger.
 - [Phase 13-03]: Prop22 reconciliation jobs as module-level functions (not nested) so they are importable for tests; CronTrigger for time-of-day precision; per-driver db.commit() isolation; rideshare takes precedence for dual-service drivers
@@ -301,6 +305,7 @@ None
 
 ### Roadmap Evolution
 
+- Phase 21 added: mixmind-native-pioneer-usb-export — Make MixMind ingest a folder of audio, analyze BPM/beatgrid/key/cues, and export a Pioneer-compatible USB (PIONEER/export.pdb + USBANLZ/*.DAT/.EXT) that plays on CDJ-3000 without Rekordbox
 - Phase 12 added: Fix Admin Portal UI — Fix broken admin portal screens (restaurants not loading, design issues, mock dashboards), make admin portal production-ready
 - Phase 8.1 inserted after Phase 8 (URGENT): Fix rideshare failure paths — no-show fee enforcement, bid race condition, payment failure recovery, no-drivers expiry flow, driver cancel handling
 
@@ -437,6 +442,6 @@ None
 | 291 | Build AI Architecture Playground as free lead-gen tool on TechCloudPro | 2026-04-17 | bc42fb59 | [291-build-ai-architecture-playground-as-free](./quick/291-build-ai-architecture-playground-as-free/) |
 ## Session Continuity
 
-Last session: 2026-04-15
-Stopped at: E2E testing complete — 40+ rides, 10+ food orders on production. Compliance emails working. Prop 22 calculates but driver GPS stale (needs app-based location update). All 6 apps distributed. Next: more extensive testing with fixed GPS + nursery feature for Rajesh.
-Resume file: ~/.claude/handoffs/2026-03-29-e2e-compliance-testing-builds.md
+Last session: 2026-04-19
+Stopped at: Completed Plan 21-01 (MixMind folder importer): POST /api/library/import + imported_tracks table + mutagen metadata extraction + WAV_EXTENSIBLE detection + GET /api/library merge. 39/39 tests green. Live E2E: 1458-file ~/Music/MixMind-Inbox fully imports and re-imports idempotently. Next: Plan 21-02 (analyzer).
+Resume file: .planning/phases/21-mixmind-native-pioneer-usb-export/21-01-SUMMARY.md

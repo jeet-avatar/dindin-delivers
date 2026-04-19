@@ -371,14 +371,35 @@ Plans:
 
 **Requirements:** MM-EXP-01, MM-EXP-02, MM-EXP-03, MM-EXP-04, MM-EXP-05, MM-EXP-06
 
-**Plans:** 5 plans (Wave 1: 21-01 → Wave 2: 21-02 + 21-03 parallel → Wave 3: 21-04 → Wave 4: 21-05)
+**Best-in-industry quantitative bar (competitive targets):**
+
+The success criteria above gate functional correctness. This table gates *quality parity or better* versus Rekordbox 7 on the same reference corpus (`~/Music/MixMind-Inbox/`, 1458 tracks) and the pinned reference USB (`/Volumes/Untitled/`, 91 analyzed tracks — see `21-REFERENCE-DATASET.md`). All metrics computed on real hardware (M-series Mac, CDJ-3000).
+
+| Dimension | Target | Measurement | Stretch goal |
+|-----------|--------|-------------|--------------|
+| **BPM accuracy** | ±0.05 BPM median vs Rekordbox on 91-track oracle; ±0.1 BPM p99 | `abs(mm_bpm - rb_bpm)` aggregated from `master.db` | ±0.02 median |
+| **Beatgrid first-beat offset** | ±10 ms median; ±25 ms p99 | Downbeat alignment vs Rekordbox anchor | ±5 ms median |
+| **Key detection F1** | ≥0.92 vs Rekordbox (macro F1 across 24 Camelot classes) | Confusion matrix on oracle corpus | ≥0.95, matching Mixed In Key |
+| **Auto-cue precision** | ≥8 memory cues per track on 95% of corpus; ≥1 cue within 50 ms of each Rekordbox reference cue on 80% of tracks | Cue-position diff; nearest-neighbor match | 10+ cues, 90% within 50 ms |
+| **3-band waveform fidelity** | Per-band RMS within 3% of Rekordbox `.2EX` values across whole track | Sample-level diff of `PWV5` payload | Within 1% |
+| **Reference byte-equivalence (ANLZ)** | Level 1+2 parity 100% (tag inventory + field values); Level 3 byte-equal ≥50% of 91-track oracle on first pass | `sha256(out) == sha256(ref)` pass rate | ≥80% |
+| **Reference byte-equivalence (PDB)** | `sqldiff` empty for `exportLibrary.db` across oracle; `export.pdb` Level 1+2 parity 100%, Level 3 ≥30% | `sqldiff` + sha256 | export.pdb Level 3 ≥60% |
+| **Export speed** | < 0.5× real-time on M-series Mac (1 hour of audio → < 30 min end-to-end analyze+export) | Wall-clock on 1458-track Inbox corpus | < 0.2× real-time |
+| **CDJ-3000 plug-and-play rate** | 100% of exported USBs mount, list, load, and play without on-deck errors across the 1458-track Inbox | Physical CDJ-3000 acceptance test; zero USB ERROR, zero "Cannot read" | Same on CDJ-3000X (OneLibrary path) |
+| **Round-trip survival** | 100% of exported tracks re-imported via our own parser preserve BPM/key/cues/grid to bit-level | `tests/test_cdj_export_roundtrip.py` | Also survive re-import into Rekordbox 7 (one-way compat) |
+| **Analyzer accuracy regression** | Swapping analyzers (e.g. madmom → allin1) must not regress any metric above by > 1% | Gated in CI via oracle diff | Net improvement on every swap |
+
+These are *exit bars*, not aspirations — Phase 21 is not done until every row meets its Target column on the reference corpus. Stretch column tracks post-launch investment.
+
+**Plans:** 1/6 plans executed
 
 Plans:
 - [ ] 21-01-PLAN.md -- Folder importer (mutagen + imported_tracks table + POST /api/library/import + from_rekordbox flag)
 - [ ] 21-02-PLAN.md -- Analysis pipeline (POST /api/library/analyze hooked into existing AnalysisBatchRunner with source="import")
-- [ ] 21-03-PLAN.md -- ANLZ writer (hand-rolled per Option C: construct + Deep Symmetry Kaitai spec; PQTZ/PCO2/PCOB/PWAV/PWV3/PSSI; round-trip via anlz_parser + pyrekordbox)
-- [ ] 21-04-PLAN.md -- PDB writer + USB orchestrator (hand-rolled PDB; usb_layout for ID minting + Pxxx/yyyyyyyy; two-phase staging; POST /api/usb/export; 1500-track fuzz)
+- [ ] 21-03-PLAN.md -- ANLZ writer (hand-rolled per Option C: construct + Deep Symmetry Kaitai spec; PQTZ/PCO2/PCOB/PWAV/PWV3/PSSI; .DAT/.EXT/.2EX; byte-equivalence oracle vs reference USB)
+- [ ] 21-04-PLAN.md -- PDB writer + USB orchestrator (hand-rolled export.pdb + exportExt.pdb + exportLibrary.db co-write + aux files RBFLTR/DEVSETTING/MYSETTING*; audio path `Contents/<Artist>/<Album>/<filename>`; sqldiff + sha256 oracle)
 - [ ] 21-05-PLAN.md -- Electron UI (folder picker IPC, ImportFolderButton, AnalyzeProgress, UsbExportWizard) + real CDJ-3000 acceptance + DMG build via build-mac.sh
+- [ ] 21-06-PLAN.md -- Artwork pipeline (extract embedded APIC/COVR via mutagen, resize 80×80 + 240×240 JPEG via Pillow, `Artwork/<bucket>/{a,b}<slot>{,_m}.jpg` with SLOTS_PER_BUCKET=38, wire into pdb_writer Artwork table)
 
 ---
 
@@ -402,7 +423,7 @@ Plans:
 - [ ] 19-05-PLAN.md -- Analyze to UI update: post-analysis refresh, toast notification, no page reload
 
 *Roadmap created: 2026-02-21*
-*Last updated: 2026-03-29 -- Phase 20 added (CDJ-3000 Functional Controls)*
+*Last updated: 2026-04-19 -- Phase 21 expanded with reference dataset, 21-06 artwork plan, quantitative best-in-industry bar*
 
 ### Phase 20: CDJ-3000 Functional Controls
 **Goal**: Make every button in the CDJ-3000 DJDeck component fully functional -- no stubbed buttons, no dead state, every control does exactly what it does on real CDJ-3000 hardware
