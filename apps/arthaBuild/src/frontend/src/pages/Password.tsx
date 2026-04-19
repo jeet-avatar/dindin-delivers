@@ -1,10 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Eye, EyeOff, Apple, Phone } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import SocialButton from "../components/SocialButton";
-import GoogleLogo from "../assets/google.svg";
-import MicrosoftLogo from "../assets/microsoft.svg";
 
 export default function PasswordPage() {
   const nav = useNavigate();
@@ -96,16 +93,6 @@ export default function PasswordPage() {
         >
           {loading ? "Signing in…" : "Continue"}
         </button>
-
-        <div className="flex items-center gap-2 my-2">
-          <div className="flex-1 border-t border-slate-700" />
-          <span className="text-xs text-gray-500">OR</span>
-          <div className="flex-1 border-t border-slate-700" />
-        </div>
-
-        <SocialButton icon={<img src={GoogleLogo} alt="Google" className="h-5 w-5" />} label="Continue with Google"/>
-        <SocialButton icon={<img src={MicrosoftLogo} alt="Microsoft" className="h-5 w-5" />} label="Continue with Microsoft"/>
-        <SocialButton icon={<Apple className="h-5 w-5" />} label="Continue with Apple" />
 
         <div className="flex justify-center items-center text-sm text-gray-400 mt-4 gap-1">
           <span>Don't have an account?</span>

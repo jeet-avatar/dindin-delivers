@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { checkEmail, loginWithGoogle } from "../services/authService";
+import { checkEmail } from "../services/authService";
 import Logo from "../components/Logo";
 import MotionButton from "../components/MotionButton";
 import { motion } from "framer-motion";
-import GoogleLogo from "../assets/google.svg";
 
 const OAUTH_ERRORS: Record<string, string> = {
   google_denied: "Google sign-in was cancelled.",
@@ -107,21 +106,7 @@ export default function Auth() {
           </button> */}
           <MotionButton loading={loading} className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-md hover:shadow-indigo-500/40 transition-shadow duration-300">Continue</MotionButton>
 
-          <div className="flex items-center gap-2 my-2">
-            <div className="flex-1 border-t border-slate-700" />
-            <span className="text-xs text-gray-500">OR</span>
-            <div className="flex-1 border-t border-slate-700" />
-          </div>
-
-          {/* Google OAuth */}
-          <MotionButton onClick={loginWithGoogle} icon={<img src={GoogleLogo} alt="Google" className="h-5 w-5" />} className="border border-slate-700 hover:bg-slate-800 flex items-center justify-center gap-2 text-white">
-            Continue with Google
-          </MotionButton>
-          <p className="text-center text-xs text-gray-500 -mt-2">
-            Sign in with your work or personal email.
-          </p>
-
-          <div className="flex justify-center items-center text-sm text-gray-400 mt-2 gap-1">
+          <div className="flex justify-center items-center text-sm text-gray-400 mt-4 gap-1">
             <span>Don't have an account?</span>
             <Link to="/create-account" className="text-blue-400 hover:underline font-medium">
               Create account
