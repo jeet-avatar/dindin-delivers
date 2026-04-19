@@ -4,8 +4,9 @@ Stored at ~/Library/Application Support/MixMind/state.db
 """
 from __future__ import annotations
 
+import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Set
 
@@ -42,6 +43,28 @@ class HiddenTrack:
     content_id: str
     source: str
     reason: str
+
+
+@dataclass
+class ImportedTrack:
+    """A track imported from a folder scan (or the Rekordbox import bridge).
+
+    content_id format: 'import_<sha1(abs_path)[:16]>' for folder-scanned files,
+    'rbximport_<rb_content_id>' for tracks pulled from the Rekordbox library.
+    """
+    content_id: str
+    file_path: str
+    title: str
+    artist: str
+    album: str = ""
+    genre: str = ""
+    duration_sec: int = 0
+    bitrate_kbps: int = 0
+    sample_rate_hz: int = 0
+    file_size_bytes: int = 0
+    import_batch_id: str = ""
+    imported_at: str = ""
+    wav_extensible: bool = False
 
 
 class StateDB:
@@ -118,6 +141,29 @@ class StateDB:
                     conn.execute(text(f"ALTER TABLE analysis_cache ADD COLUMN {col} {col_type}"))
                 except Exception:
                     pass  # column already exists
+
+            # Phase 21-01 — imported_tracks: folder-scan or Rekordbox import bridge
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS imported_tracks (
+                    content_id       TEXT PRIMARY KEY,
+                    file_path        TEXT NOT NULL UNIQUE,
+                    title            TEXT,
+                    artist           TEXT,
+                    album            TEXT,
+                    genre            TEXT,
+                    duration_sec     INTEGER,
+                    bitrate_kbps     INTEGER,
+                    sample_rate_hz   INTEGER,
+                    file_size_bytes  INTEGER,
+                    import_batch_id  TEXT NOT NULL,
+                    imported_at      TEXT DEFAULT (datetime('now')),
+                    wav_extensible   INTEGER DEFAULT 0
+                )
+            """))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_imported_batch "
+                "ON imported_tracks(import_batch_id)"
+            ))
 
             conn.commit()
 
@@ -274,6 +320,73 @@ class StateDB:
             counts = {r[0]: r[1] for r in rows}
             counts["total"] = sum(counts.values())
             return counts
+
+    # ------------------------------------------------------------------
+    # Phase 21-01 — imported_tracks (folder / Rekordbox import bridge)
+    # ------------------------------------------------------------------
+    def add_imported_track(self, track: ImportedTrack) -> bool:
+        """Insert an imported track. Idempotent: duplicate file_path returns False.
+
+        Returns True if a new row was written, False if the file_path already
+        existed (UNIQUE constraint collided → INSERT OR IGNORE skipped).
+        """
+        with self._engine.connect() as conn:
+            result = conn.execute(text("""
+                INSERT OR IGNORE INTO imported_tracks
+                (content_id, file_path, title, artist, album, genre,
+                 duration_sec, bitrate_kbps, sample_rate_hz, file_size_bytes,
+                 import_batch_id, wav_extensible)
+                VALUES (:cid, :fp, :title, :artist, :album, :genre,
+                        :dur, :br, :sr, :sz, :batch, :wav_ext)
+            """), {
+                "cid": track.content_id, "fp": track.file_path,
+                "title": track.title, "artist": track.artist,
+                "album": track.album, "genre": track.genre,
+                "dur": track.duration_sec, "br": track.bitrate_kbps,
+                "sr": track.sample_rate_hz, "sz": track.file_size_bytes,
+                "batch": track.import_batch_id,
+                "wav_ext": 1 if track.wav_extensible else 0,
+            })
+            conn.commit()
+            return result.rowcount > 0
+
+    def get_imported_track(self, content_id: str) -> Optional[ImportedTrack]:
+        with self._engine.connect() as conn:
+            row = conn.execute(text(
+                "SELECT content_id, file_path, title, artist, album, genre, "
+                "duration_sec, bitrate_kbps, sample_rate_hz, file_size_bytes, "
+                "import_batch_id, imported_at, wav_extensible "
+                "FROM imported_tracks WHERE content_id=:cid"
+            ), {"cid": content_id}).fetchone()
+            if not row:
+                return None
+            return ImportedTrack(
+                content_id=row[0], file_path=row[1],
+                title=row[2] or "", artist=row[3] or "",
+                album=row[4] or "", genre=row[5] or "",
+                duration_sec=int(row[6] or 0), bitrate_kbps=int(row[7] or 0),
+                sample_rate_hz=int(row[8] or 0), file_size_bytes=int(row[9] or 0),
+                import_batch_id=row[10] or "", imported_at=row[11] or "",
+                wav_extensible=bool(row[12]),
+            )
+
+    def get_imported_tracks(self) -> list[ImportedTrack]:
+        with self._engine.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT content_id, file_path, title, artist, album, genre, "
+                "duration_sec, bitrate_kbps, sample_rate_hz, file_size_bytes, "
+                "import_batch_id, imported_at, wav_extensible "
+                "FROM imported_tracks ORDER BY imported_at DESC, content_id"
+            )).fetchall()
+            return [ImportedTrack(
+                content_id=r[0], file_path=r[1],
+                title=r[2] or "", artist=r[3] or "",
+                album=r[4] or "", genre=r[5] or "",
+                duration_sec=int(r[6] or 0), bitrate_kbps=int(r[7] or 0),
+                sample_rate_hz=int(r[8] or 0), file_size_bytes=int(r[9] or 0),
+                import_batch_id=r[10] or "", imported_at=r[11] or "",
+                wav_extensible=bool(r[12]),
+            ) for r in rows]
 
     def close(self) -> None:
         self._engine.dispose()
