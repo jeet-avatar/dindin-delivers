@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 21 (MixMind Native Pioneer USB Export) -- IN PROGRESS
-Plan: 3 of 6 complete in current phase
-Status: Plan 21-03 complete: hand-rolled construct-based ANLZ writer (write_dat/write_ext/write_2ex) with GPL-free struct definitions, round-trip tests (pyrekordbox cross-check), and 3-level byte-oracle vs 91-track reference USB. 31 new tests pass.
-Last activity: 2026-04-19 - Completed Plan 21-03: ANLZ Writer — zero rbox imports; empty-tag bodies byte-match reference; Level 2 field-equivalence green on 3 hand-picked tracks (00000019/00000413/00001139); Level 3 byte-% is 0/20 as expected (PVBR/PWV2 deferred).
+Plan: 4 of 6 complete in current phase
+Status: Plan 21-04 complete: hand-rolled construct-based PDB writer + companion pdb_reader (pyrekordbox can't parse PDB) + two-phase USB export orchestrator (stage→validate→atomic move) + POST /api/usb/export endpoint. exportExt.pdb structural writer, exportLibrary.db DEFERRED (SQLCipher-encrypted, key unknown), all 5 aux files (RBFLTR/DEVSETTING/MYSETTING/MYSETTING2/DJMMYSETTING) byte-match reference. 112 Phase 21 tests pass.
+Last activity: 2026-04-19 - Completed Plan 21-04: PDB Writer + USB Export Orchestrator — zero rbox imports; 1438-track real-world roundtrip through our reader; 5-track E2E validates PDB + ANLZ + unicode artist paths; SHA256-match on all 5 aux files vs /Volumes/Untitled/ reference; exportLibrary.db deferred (SQLCipher).
 
-Progress: [#################.......................] 50% (3/6 plans in phase 21)
+Progress: [###########################.............] 67% (4/6 plans in phase 21)
 
 ## Completed Milestones
 
@@ -39,6 +39,7 @@ Progress: [#################.......................] 50% (3/6 plans in phase 21)
 - 21-01 Imported-Track Ingestion (completed 2026-04-18)
 - 21-02 Imported-Track Analyzer (completed 2026-04-19)
 - 21-03 ANLZ Writer (completed 2026-04-19) — 4 tasks, ~110 min, 5 files created, 3 modified, 31 new tests, 0 rbox imports
+- 21-04 PDB Writer + USB Export Orchestrator (completed 2026-04-19) — 5 tasks, ~180 min, 16 files created, 1 modified, 81 new tests (112 Phase 21 total), 0 rbox imports, exportLibrary.db deferred (SQLCipher)
 
 
 ## Accumulated Context
@@ -58,6 +59,13 @@ Progress: [#################.......................] 50% (3/6 plans in phase 21)
 - [Phase 21-03]: .2EX writer ships as PMAI+PPTH stub only. PWV6/PWV7/PWVC/XWVv bodies are undocumented and deferred to a later polish task within Phase 21. CDJ-3000 falls back to .EXT waveform when .2EX is minimal.
 - [Phase 21-03]: Level 1 oracle is scoped to the core tags our writer emits (PPTH/PQTZ/PWAV/PCOB). PVBR (MP3 VBR index) and PWV2 (second detail waveform) are present in every reference .DAT but are documented deferred scope — their absence is NOT a Level 1 failure. Level 3 byte-equivalence is 0/20 today as expected; Phase 21 exit gate is ≥50%.
 - [Phase 21-03]: Round-trip adapter (`anlz_to_writer_input`) routes duplicate PCOB tags by `cue_type` field, not positional order, so writer output is tolerant of reorderings. `_parse_anlz_tags_all` added to support duplicate-magic walking (plan originally specified only dict-valued `_parse_anlz_tags` which would silently drop one PCOB).
+- [Phase 21-04]: pyrekordbox cannot parse PDB — its `db6` module reads master.db (SQLCipher), not export.pdb. Plan's tests called `Rekordbox6Database(export.pdb)` which would raise. Rule 1 bug fix: built `pdb_reader.py` as a companion parser from the same construct Structs as pdb_writer. Writer+reader form a symmetric matched set validated by round-trip through the real 1438-track reference export.
+- [Phase 21-04]: exportLibrary.db is SQLCipher-encrypted (header `0d5ad2b9304f8768...`), NOT plain SQLite as the plan assumed. pyrekordbox master.db key + `pioneer`/`onelibrary`/zeros all fail with "file is not a database". Rule 4 architectural deviation: module deferred, returns `{status:"deferred"}` and writes no file. CDJ-3000X falls back to export.pdb when OneLibrary is missing; CDJ-3000 (primary Phase 21 target) ignores it entirely.
+- [Phase 21-04]: exportExt.pdb written as 9 empty structural tables with strange_marker=0x03EC and page_flags=0x64 matching the reference layout. Empty rows make CDJ-3000X fall back to export.pdb for content — which is what MixMind v1 wants without dual-maintaining two data sources. Populated-row emission is a Phase 21 polish follow-up.
+- [Phase 21-04]: djprofile.nxs deliberately NOT written — reference file contains the original owner's name (PII). Anonymised profile requires a product decision (default/per-user/consent flow) and is explicitly deferred.
+- [Phase 21-04]: Aux file (RBFLTR/DEVSETTING/MYSETTING/MYSETTING2/DJMMYSETTING) bytes embedded as SINGLE-LINE base64 constants. A multi-line concatenated literal dropped a 0x20 space byte inside RBFLTR.DAT during dev (manifested as 231B vs expected 232B). All 5 files now SHA256-match reference.
+- [Phase 21-04]: TrackRow struct size is 98 bytes (construct.sizeof()), not 92 as initially assumed. Fixed with verified-at-runtime comment; caught when row_offsets started pointing inside the previous row.
+- [Phase 21-04]: test_no_rbox_imported rewritten to walk `ast.parse(source)` for `ast.Import`/`ast.ImportFrom` nodes instead of substring search — docstring prose mentioning "import rbox" as a prohibition no longer false-positives.
 - [Phase 08-02]: Staging and production share dolloradmin on same RDS — rotation of either secret changes password for both. Must sync other environment's secret after any rotation. Recommended future fix: separate RDS users per environment.
 - [Phase 08-02]: pg8000 (pure Python) for Lambda instead of psycopg2 — no Lambda layer needed. Manual ECS force-redeploy is the proven recovery path over EventBridge auto-trigger.
 - [Phase 13-03]: Prop22 reconciliation jobs as module-level functions (not nested) so they are importable for tests; CronTrigger for time-of-day precision; per-driver db.commit() isolation; rideshare takes precedence for dual-service drivers

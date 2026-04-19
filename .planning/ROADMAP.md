@@ -391,13 +391,13 @@ The success criteria above gate functional correctness. This table gates *qualit
 
 These are *exit bars*, not aspirations — Phase 21 is not done until every row meets its Target column on the reference corpus. Stretch column tracks post-launch investment.
 
-**Plans:** 3/6 plans executed
+**Plans:** 4/6 plans executed
 
 Plans:
-- [ ] 21-01-PLAN.md -- Folder importer (mutagen + imported_tracks table + POST /api/library/import + from_rekordbox flag)
-- [ ] 21-02-PLAN.md -- Analysis pipeline (POST /api/library/analyze hooked into existing AnalysisBatchRunner with source="import")
-- [ ] 21-03-PLAN.md -- ANLZ writer (hand-rolled per Option C: construct + Deep Symmetry Kaitai spec; PQTZ/PCO2/PCOB/PWAV/PWV3/PSSI; .DAT/.EXT/.2EX; byte-equivalence oracle vs reference USB)
-- [ ] 21-04-PLAN.md -- PDB writer + USB orchestrator (hand-rolled export.pdb + exportExt.pdb + exportLibrary.db co-write + aux files RBFLTR/DEVSETTING/MYSETTING*; audio path `Contents/<Artist>/<Album>/<filename>`; sqldiff + sha256 oracle)
+- [x] 21-01-PLAN.md -- Folder importer (mutagen + imported_tracks table + POST /api/library/import + from_rekordbox flag)
+- [x] 21-02-PLAN.md -- Analysis pipeline (POST /api/library/analyze hooked into existing AnalysisBatchRunner with source="import")
+- [x] 21-03-PLAN.md -- ANLZ writer (hand-rolled per Option C: construct + Deep Symmetry Kaitai spec; PQTZ/PCO2/PCOB/PWAV/PWV3/PSSI; .DAT/.EXT/.2EX; byte-equivalence oracle vs reference USB)
+- [x] 21-04-PLAN.md -- PDB writer + USB orchestrator (hand-rolled export.pdb + exportExt.pdb + exportLibrary.db DEFERRED/SQLCipher + aux files RBFLTR/DEVSETTING/MYSETTING*; audio path `Contents/<Artist>/<Album>/<filename>`; pdb_reader + reference oracle; 112 Phase 21 tests)
 - [ ] 21-05-PLAN.md -- Electron UI (folder picker IPC, ImportFolderButton, AnalyzeProgress, UsbExportWizard) + real CDJ-3000 acceptance + DMG build via build-mac.sh
 - [ ] 21-06-PLAN.md -- Artwork pipeline (extract embedded APIC/COVR via mutagen, resize 80×80 + 240×240 JPEG via Pillow, `Artwork/<bucket>/{a,b}<slot>{,_m}.jpg` with SLOTS_PER_BUCKET=38, wire into pdb_writer Artwork table)
 
@@ -423,7 +423,7 @@ Plans:
 - [ ] 19-05-PLAN.md -- Analyze to UI update: post-analysis refresh, toast notification, no page reload
 
 *Roadmap created: 2026-02-21*
-*Last updated: 2026-04-19 -- Phase 21 expanded with reference dataset, 21-06 artwork plan, quantitative best-in-industry bar*
+*Last updated: 2026-04-19 -- Plan 21-04 complete: PDB writer + USB orchestrator (hand-rolled, zero rbox). exportLibrary.db deferred (SQLCipher-encrypted reference file, key unknown). Phase 21 progress 4/6.*
 
 ### Phase 20: CDJ-3000 Functional Controls
 **Goal**: Make every button in the CDJ-3000 DJDeck component fully functional -- no stubbed buttons, no dead state, every control does exactly what it does on real CDJ-3000 hardware
