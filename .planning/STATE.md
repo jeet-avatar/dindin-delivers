@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 21 (MixMind Native Pioneer USB Export) -- IN PROGRESS
-Plan: 4 of 6 complete in current phase
-Status: Plan 21-04 complete: hand-rolled construct-based PDB writer + companion pdb_reader (pyrekordbox can't parse PDB) + two-phase USB export orchestrator (stage→validate→atomic move) + POST /api/usb/export endpoint. exportExt.pdb structural writer, exportLibrary.db DEFERRED (SQLCipher-encrypted, key unknown), all 5 aux files (RBFLTR/DEVSETTING/MYSETTING/MYSETTING2/DJMMYSETTING) byte-match reference. 112 Phase 21 tests pass.
-Last activity: 2026-04-19 - Completed Plan 21-04: PDB Writer + USB Export Orchestrator — zero rbox imports; 1438-track real-world roundtrip through our reader; 5-track E2E validates PDB + ANLZ + unicode artist paths; SHA256-match on all 5 aux files vs /Volumes/Untitled/ reference; exportLibrary.db deferred (SQLCipher).
+Plan: 5 of 6 complete in current phase
+Status: Plan 21-06 complete: CDJ-3000 artwork pipeline — artwork_extractor (MP3/AIFF/FLAC/MP4/WAV via mutagen + Pillow quality=85 re-encoder to 80×80 + 240×240 JPEG pairs); artwork_writer (deterministic bucket/slot with 20 slots/bucket + global slot numbering per reference USB enumeration; plan's 38-per-bucket-reset was a Rule 1 bug); reference USB oracle (77 parametrized tests, MAE<10, size within 2×); wired into usb_exporter._extract_and_write_artwork() + pdb_writer.write_pdb(artwork_assignments=...). Artwork PDB table stays empty per reference observation. 116 Phase 21-06 tests pass.
+Last activity: 2026-04-19 - Completed Plan 21-06: Artwork Pipeline — zero rbox imports; Pillow (HPND, permissive) added; 5 task commits (d64b0eb2, 73678451, ec009488, 01ec9d36, 5b8555ab); Rule 1 deviations for SLOTS_PER_BUCKET (38→20) and empty-Artwork-table decision both documented in 21-06-SUMMARY.md and deferred-items.md.
 
-Progress: [###########################.............] 67% (4/6 plans in phase 21)
+Progress: [#################################.......] 83% (5/6 plans in phase 21)
 
 ## Completed Milestones
 
@@ -40,6 +40,7 @@ Progress: [###########################.............] 67% (4/6 plans in phase 21)
 - 21-02 Imported-Track Analyzer (completed 2026-04-19)
 - 21-03 ANLZ Writer (completed 2026-04-19) — 4 tasks, ~110 min, 5 files created, 3 modified, 31 new tests, 0 rbox imports
 - 21-04 PDB Writer + USB Export Orchestrator (completed 2026-04-19) — 5 tasks, ~180 min, 16 files created, 1 modified, 81 new tests (112 Phase 21 total), 0 rbox imports, exportLibrary.db deferred (SQLCipher)
+- 21-06 Artwork Pipeline (completed 2026-04-19) — 4 tasks, ~120 min, 5 files created, 5 modified, 116 tests (31 unit + 77 oracle + 8 E2E), 0 rbox imports, Pillow (HPND) added, SLOTS_PER_BUCKET corrected 38→20 (Rule 1), Artwork PDB table stays empty matching reference USB (Rule 1)
 
 
 ## Accumulated Context
@@ -66,6 +67,12 @@ Progress: [###########################.............] 67% (4/6 plans in phase 21)
 - [Phase 21-04]: Aux file (RBFLTR/DEVSETTING/MYSETTING/MYSETTING2/DJMMYSETTING) bytes embedded as SINGLE-LINE base64 constants. A multi-line concatenated literal dropped a 0x20 space byte inside RBFLTR.DAT during dev (manifested as 231B vs expected 232B). All 5 files now SHA256-match reference.
 - [Phase 21-04]: TrackRow struct size is 98 bytes (construct.sizeof()), not 92 as initially assumed. Fixed with verified-at-runtime comment; caught when row_offsets started pointing inside the previous row.
 - [Phase 21-04]: test_no_rbox_imported rewritten to walk `ast.parse(source)` for `ast.Import`/`ast.ImportFrom` nodes instead of substring search — docstring prose mentioning "import rbox" as a prohibition no longer false-positives.
+- [Phase 21-06]: SLOTS_PER_BUCKET = 20 with GLOBAL 1-indexed slot numbering (plan said 38 per-bucket-reset). Reference USB enumeration: bucket 00001 holds slots 1..19, 00002..00045 hold 20 each, 00046 is partial tail (900..908). Rule 1 deviation — the plan's 38 was a misreading of the handoff.
+- [Phase 21-06]: artwork_id = global_slot directly (single-field Int32ul key). No bit-packing. bucket = slot // 20 + 1 is deterministic from slot alone.
+- [Phase 21-06]: PDB Artwork table (page_type 9) stays empty — reference `/Volumes/Untitled/PIONEER/rekordbox/export.pdb` has `row_count(9) == 0`. CDJ firmware reconstructs JPEG path from Track row artwork_id directly. Avoids reverse-engineering a currently-undocumented row format.
+- [Phase 21-06]: Pillow quality=85 + optimize=True + progressive=False — empirically within [0.5x, 2x] file-size band of Pioneer reference JPEGs, MAE < 10 on round-trip. Oracle test with 15 sampled slots passes all tolerance bars.
+- [Phase 21-06]: Mutagen (GPL-2.0) already in requirements from 21-01; 21-06 only extends its usage to APIC/PICTURE/covr extraction. Commercial-distribution license audit deferred to dedicated pre-launch phase.
+- [Phase 21-06]: Some reference USB artwork files have non-0xFFD8FF headers (observed bucket 00003/49-51, 00005/93 — likely Pioneer-internal obfuscation). Oracle `_is_real_jpeg()` guard filters them; our writer only emits standard JPEG SOI files.
 - [Phase 08-02]: Staging and production share dolloradmin on same RDS — rotation of either secret changes password for both. Must sync other environment's secret after any rotation. Recommended future fix: separate RDS users per environment.
 - [Phase 08-02]: pg8000 (pure Python) for Lambda instead of psycopg2 — no Lambda layer needed. Manual ECS force-redeploy is the proven recovery path over EventBridge auto-trigger.
 - [Phase 13-03]: Prop22 reconciliation jobs as module-level functions (not nested) so they are importable for tests; CronTrigger for time-of-day precision; per-driver db.commit() isolation; rideshare takes precedence for dual-service drivers
