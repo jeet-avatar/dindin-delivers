@@ -12,6 +12,12 @@ const C = {
 }
 
 export default function AIPlayground() {
+  // Pass through ?s=<id> from parent URL so the iframe can load a shared architecture
+  const sharedId = typeof window !== 'undefined'
+    ? (new URLSearchParams(window.location.search).get('s') || '')
+    : ''
+  const iframeSrc = `/tools/ai-playground.html?v=20260417i${/^[A-Za-z0-9]{10}$/.test(sharedId) ? `&s=${sharedId}` : ''}`
+
   return (
     <div style={{ background: C.bg, minHeight: '100vh', paddingTop: '80px' }}>
       <SEO
@@ -38,7 +44,7 @@ export default function AIPlayground() {
       {/* Iframe */}
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 0.75rem' }}>
         <iframe
-          src="/tools/ai-playground.html"
+          src={iframeSrc}
           title="AI Architecture Playground"
           style={{
             width: '100%',
