@@ -11,7 +11,7 @@
 
 If you discover a security vulnerability in ArthaBuild, please report it responsibly:
 
-**Email:** security@techcloudpro.com
+**Email:** security@artha.build
 **Response time:** We will acknowledge within 48 hours and provide a timeline within 5 business days.
 
 Please do NOT open a public GitHub issue for security vulnerabilities. Public disclosure before a patch is available puts customers at risk.
@@ -45,7 +45,7 @@ This policy applies to the ArthaBuild application code and infrastructure config
 **Out of scope:**
 - Third-party libraries and their upstream vulnerabilities (tracked via pip-audit)
 - Customer-managed infrastructure (AWS VPC, EC2, TLS certificates, NetSuite accounts)
-- The ArthaBuild license server (separate TechCloudPro service)
+- The ArthaBuild license server (separate Vibing World inc. service)
 
 ## Key Security Properties
 

@@ -81,7 +81,7 @@ ArthaBuild today:
 
                     ┌───────────────────────────┐
                     │  ArthaBuild License Server │
-                    │  (TechCloudPro AWS)        │
+                    │  (Vibing World inc. AWS)        │
                     │  POST /api/license/validate│
                     │  receives: key + version   │
                     │  returns: valid + expiry   │
@@ -205,7 +205,7 @@ Browser                    FastAPI                    Memory
 ### 3.5 License Validation Flow
 
 ```
-FastAPI (startup)              License Server (TechCloudPro AWS)
+FastAPI (startup)              License Server (Vibing World inc. AWS)
   │                                        │
   │── POST /api/license/validate ─────────▶│
   │   {license_key, version, instance_id}  │
@@ -293,7 +293,7 @@ Phase 9:    teams                (multi-user team records)
 **Created:** Phase 7  
 **Owner:** License check system
 
-**Design note (v1.6):** Multi-row (not singleton) to support instance_id tracking. TechCloudPro needs to distinguish between different customer deployments using the same license key. Queries always filter by `license_key + instance_id` and take `ORDER BY last_checked DESC LIMIT 1`.
+**Design note (v1.6):** Multi-row (not singleton) to support instance_id tracking. The license server needs to distinguish between different customer deployments using the same license key. Queries always filter by `license_key + instance_id` and take `ORDER BY last_checked DESC LIMIT 1`.
 
 | Column | Type | Constraints | Notes |
 |--------|------|-------------|-------|
@@ -628,7 +628,7 @@ Response from license server:
 | `OLLAMA_MODEL` | 3 | No | `llama3.1:8b` | Generation model |
 | `OLLAMA_EMBED_MODEL` | 3 | No | `nomic-embed-text` | Embedding model (768-dim) |
 | `FAISS_PATH` | 3 | No | `./data/vectorstore_ollama` | Directory containing index.faiss + index.pkl |
-| `LICENSE_KEY` | 7 | No | `""` | ArthaBuild license key from TechCloudPro |
+| `LICENSE_KEY` | 7 | No | `""` | ArthaBuild license key from Vibing World inc. |
 | `LICENSE_SERVER_URL` | 7 | No | `https://license.arthaBuild.com` | License validation endpoint |
 
 ### 6.2 Frontend Environment Variables (`src/frontend/.env`)
@@ -1086,15 +1086,18 @@ ArthaBuild uses a privacy-preserving license system for BYOC deployments.
 ### Architecture
 - **License cache**: SQLite `license_cache` table — validity cached 7 days, 72-hour grace period
 - **Script deploy tracking**: SQLite `script_deployments` table — counts production deploys per license
-- **License server**: Separate TechCloudPro-hosted service at `https://license.arthaBuild.com`
+- **License server**: Separate Vibing World inc.-hosted service at `https://license.arthaBuild.com`
 - **Instance lock**: One deployment per license key — `instance_id` (UUID) registered on first validation
 
-### Tier Limits (enforced server-side)
-| Plan | Production script deploys | Users | Sandbox |
-|------|--------------------------|-------|---------|
+### Tier Limits (enforced server-side — `routers/license.py:39-44`)
+| Plan | Script generations / month | Users | Sandbox |
+|------|---------------------------|-------|---------|
+| Free (dev) | 3 | 1 | Unlimited |
 | Starter | 10 | 1 | Unlimited |
 | Growth | 100 | 3 | Unlimited |
 | Enterprise | Unlimited | Unlimited | Unlimited |
+
+Public-facing pricing is intentionally not published — users are routed to `sales@artha.build` / the Contact Sales calendar for paid-tier quotes.
 
 ### Privacy Guarantee
 Only `{license_key, instance_id, version}` is sent to the license server.
@@ -1114,7 +1117,7 @@ Customer NetSuite credentials, SuiteScripts, prompts, and business data NEVER le
 |------|---------|
 | `src/backend/routers/license.py` | validate_license(), check_deploy_quota(), record_deploy(), GET /api/license/status |
 | `src/backend/models.py` | LicenseCache + ScriptDeployment models |
-| `license-server/app.py` | TechCloudPro-hosted validation server (deployed separately) |
+| `license-server/app.py` | Vibing World inc.-hosted validation server (deployed separately) |
 | `data/instance_id.txt` | Stable UUID per deployment (auto-generated on first run) |
 
 ---
@@ -1701,7 +1704,7 @@ docker run --network=host ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py \
 | `ZAP_SCAN_REPORT.md` | CC8.1 | pip-audit results + ZAP methodology + static analysis evidence |
 
 **SECURITY.md** at repo root — GitHub vulnerability disclosure convention.
-**Email:** security@techcloudpro.com | 48-hour acknowledgment SLA.
+**Email:** security@artha.build | 48-hour acknowledgment SLA.
 
 ### 15.4 Phase 12 CASE Closure
 

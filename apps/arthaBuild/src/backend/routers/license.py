@@ -25,7 +25,7 @@ LICENSE_KEY = os.getenv("LICENSE_KEY", "")
 LICENSE_SERVER_URL = os.getenv("LICENSE_SERVER_URL")  # No hardcoded fallback — set in deployment env
 if not LICENSE_SERVER_URL:
     logger.warning("LICENSE_SERVER_URL not set — license validation will fail if LICENSE_KEY is configured")
-SALES_EMAIL = os.getenv("SALES_EMAIL", "sales@techcloudpro.com")
+SALES_EMAIL = os.getenv("SALES_EMAIL", "sales@artha.build")
 VERSION = "1.0.0"
 CACHE_TTL_DAYS = int(os.getenv("CACHE_TTL_DAYS", "7"))
 GRACE_PERIOD_HOURS = int(os.getenv("GRACE_PERIOD_HOURS", "72"))
@@ -37,7 +37,7 @@ MODE_GRACE = "grace"
 MODE_RESTRICTED = "restricted"
 
 TIER_LIMITS = {
-    "dev": 5,          # free plan — 5 script generations per calendar month
+    "dev": 3,          # free plan — 3 script generations per calendar month
     "starter": 10,
     "growth": 100,
     "enterprise": None,  # unlimited
@@ -57,7 +57,7 @@ def get_or_create_instance_id() -> str:
 
 
 async def _call_license_server(license_key: str, instance_id: str) -> dict:
-    """Call the TechCloudPro license server. Only sends: license_key, instance_id, version."""
+    """Call the ArthaBuild license server. Only sends: license_key, instance_id, version."""
     async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.post(
             f"{LICENSE_SERVER_URL}/api/validate",

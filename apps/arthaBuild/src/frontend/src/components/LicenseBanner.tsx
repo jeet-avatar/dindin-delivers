@@ -26,7 +26,7 @@ export const LicenseBanner = () => {
 
   if (!status) return null;
 
-  const salesEmail = status.sales_email || 'sales@techcloudpro.com';
+  const salesEmail = status.sales_email || 'sales@artha.build';
 
   // Invalid/expired license banner (existing behaviour — show when invalid)
   if (!status.valid) {

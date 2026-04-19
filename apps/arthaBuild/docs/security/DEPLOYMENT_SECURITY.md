@@ -19,7 +19,7 @@ Set in `.env` before `docker-compose up`:
   - Leave empty to suppress email sending (non-fatal, but users cannot reset passwords or verify email)
 - [ ] `ALLOWED_ORIGINS` — your domain(s), comma-separated (e.g. `https://arthaBuild.yourcompany.com`)
   - Required for CORS in production. Falls back to `FRONTEND_BASE_URL` if not set.
-- [ ] `LICENSE_KEY` — ArthaBuild license key from TechCloudPro
+- [ ] `LICENSE_KEY` — ArthaBuild license key from Vibing World inc.
   - See: `GET /api/admin/license` to verify license status after deployment
 
 ### Network Configuration

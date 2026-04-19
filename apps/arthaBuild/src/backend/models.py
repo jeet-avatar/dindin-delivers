@@ -33,7 +33,7 @@ class ScriptDeployment(Base):
 
 
 class ScriptGeneration(Base):
-    """Phase 22: Tracks SuiteScript generation events for free-tier quota (5/month on dev plan)."""
+    """Phase 22: Tracks SuiteScript generation events for free-tier quota (3/month on dev plan)."""
     __tablename__ = "script_generations"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)

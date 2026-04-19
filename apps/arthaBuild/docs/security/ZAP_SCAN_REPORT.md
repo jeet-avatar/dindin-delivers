@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Scan Date:** 2026-04-10
-**Prepared by:** TechCloudPro Engineering
+**Prepared by:** Vibing World inc. Engineering
 **Covers:** Dependency vulnerability scan (pip-audit) + OWASP ZAP methodology documentation
 
 ---

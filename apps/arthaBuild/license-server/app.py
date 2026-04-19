@@ -1,5 +1,5 @@
 """
-TechCloudPro License Server — deployed in TechCloudPro AWS, NOT in customer VPCs.
+ArthaBuild License Server — deployed in Vibing World inc. AWS, NOT in customer VPCs.
 Receives only: {license_key, instance_id, version} — no customer data.
 """
 import os
@@ -97,7 +97,7 @@ def validate_license(req: ValidateRequest, db=Depends(get_db)):
         )
     elif row["registered_instance_id"] != req.instance_id:
         db.commit()
-        return {"valid": False, "message": "License already registered to a different instance. Contact sales@techcloudpro.com"}
+        return {"valid": False, "message": "License already registered to a different instance. Contact sales@artha.build"}
 
     expires_at = datetime.fromisoformat(row["expires_at"])
     now = datetime.now(timezone.utc)

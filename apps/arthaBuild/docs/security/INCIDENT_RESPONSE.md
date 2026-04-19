@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Date:** 2026-04-10
-**Contact:** support@techcloudpro.com
+**Contact:** support@artha.build
 
 This is a lightweight runbook for a startup-stage product with a small team.
 For formal SOC2 Type II, a full escalation matrix will replace this document.
@@ -83,7 +83,7 @@ Required content:
 - Nature of data involved (ArthaBuild accounts? NetSuite credential exposure?)
 - Actions taken to contain (key rotation, affected sessions invalidated)
 - Recommended steps for customer (rotate NetSuite TBA credentials immediately)
-- Contact for questions: support@techcloudpro.com
+- Contact for questions: support@artha.build
 
 Channel: Email to customer admin contact on file.
 
@@ -137,6 +137,6 @@ Before any remediation, preserve:
 
 | Role | Contact |
 |------|---------|
-| Engineering | support@techcloudpro.com |
-| Security disclosure | security@techcloudpro.com |
+| Engineering | support@artha.build |
+| Security disclosure | security@artha.build |
 | Customer admin | Customer's designated ArthaBuild admin account |

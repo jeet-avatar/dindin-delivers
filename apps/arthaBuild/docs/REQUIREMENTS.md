@@ -1,7 +1,7 @@
 # ArthaBuild — Product Requirements Document
 **Version:** 1.0  
 **Date:** 2026-04-07  
-**Author:** TechCloudPro / Jeet  
+**Author:** Vibing World inc. / Jeet  
 **Product:** ArthaBuild — AI-powered NetSuite Development & Implementation Platform  
 
 ---
@@ -29,7 +29,7 @@ Customer's AWS VPC
 │                   [Customer's NetSuite]                  │
 └──────────────────────────────────────────────────────────┘
            ↕ License ping only (no data)
-    ArthaBuild License Server (TechCloudPro AWS)
+    ArthaBuild License Server (Vibing World inc. AWS)
 ```
 
 ---
@@ -452,7 +452,7 @@ FRONTEND_PORT=80
 ## 9. Module 7 — License Server
 
 ### 9.1 Overview
-ArthaBuild's central server (hosted on TechCloudPro AWS) handles license validation only. It receives: license key, account ID, version. It sends back: valid/invalid, expiry date. **No customer data, no prompts, no NetSuite info ever reaches this server.**
+ArthaBuild's central server (hosted on Vibing World inc. AWS) handles license validation only. It receives: license key, account ID, version. It sends back: valid/invalid, expiry date. **No customer data, no prompts, no NetSuite info ever reaches this server.**
 
 ### 9.2 Functional Requirements
 
@@ -615,7 +615,7 @@ Terraform >= 1.5       # For AWS deployment
 | **Phase 3** | LLM Migration | Ollama integration, replace OpenAI, local embeddings, FAISS rebuild |
 | **Phase 4** | Frontend Wiring | Wire chat to real backend, fix all mock mode, streaming responses |
 | **Phase 5** | Deployment Package | Dockerfile, docker-compose.yml, nginx, .env system, health checks |
-| **Phase 6** | License Server | Central license API (TechCloudPro AWS), license check in backend |
+| **Phase 6** | License Server | Central license API (Vibing World inc. AWS), license check in backend |
 | **Phase 7** | Terraform & AWS | Terraform module, EC2 provisioning, production hardening |
 | **Phase 8** | Testing & Hardening | All 80+ test cases executed, security audit, performance tuning |
 

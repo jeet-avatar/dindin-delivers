@@ -268,7 +268,7 @@ export default function OnboardingWizard({ userRole }: OnboardingWizardProps) {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-white">Verify Your License</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Enter your TechCloudPro license key to unlock full features</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Enter your ArthaBuild license key to unlock full features</p>
                 </div>
               </div>
               <div className="space-y-3">
@@ -299,7 +299,7 @@ export default function OnboardingWizard({ userRole }: OnboardingWizardProps) {
                 )}
                 {licenseStatus === "invalid" && licenseResult && (
                   <div className="text-xs text-red-400">
-                    {licenseResult.message ?? "Invalid license key. Contact sales@techcloudpro.com"}
+                    {licenseResult.message ?? "Invalid license key. Contact sales@artha.build"}
                   </div>
                 )}
               </div>

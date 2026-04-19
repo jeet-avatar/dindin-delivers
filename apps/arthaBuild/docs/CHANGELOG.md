@@ -53,7 +53,7 @@ First customer-ready release. All 116 test cases pass. SOC2 documentation comple
 - SuiteCloud CLI runs inside the backend container using session TBA credentials
 
 #### License System
-- License key validation against TechCloudPro license server on startup
+- License key validation against ArthaBuild license server on startup
 - Local SQLite cache with 7-day TTL; 72-hour grace period if server unreachable
 - Instance ID bound to license on first validation — prevents license key sharing
 - Deployment quota enforcement (configurable per license tier)
@@ -100,7 +100,7 @@ First customer-ready release. All 116 test cases pass. SOC2 documentation comple
 - `docs/security/DATA_CLASSIFICATION.md` — data inventory: sensitivity, retention, deletion procedures
 - `docs/security/DEPLOYMENT_SECURITY.md` — customer pre-deployment security checklist
 - `docs/security/ZAP_SCAN_REPORT.md` — pip-audit results + OWASP ZAP scan methodology
-- `SECURITY.md` — vulnerability disclosure policy (security@techcloudpro.com)
+- `SECURITY.md` — vulnerability disclosure policy (security@artha.build)
 
 ### Test Coverage
 
@@ -126,4 +126,4 @@ First customer-ready release. All 116 test cases pass. SOC2 documentation comple
 ---
 
 *All previous development phases (1–12) are internal pre-release iterations.*  
-*TechCloudPro — ArthaBuild*
+*Vibing World inc. — ArthaBuild*

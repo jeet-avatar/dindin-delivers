@@ -115,11 +115,11 @@ export default function PasswordPage() {
         </div>
 
         <div className="flex justify-center items-center text-xs text-gray-400 mt-2 gap-2">
-          <a href="#" className="hover:underline">
+          <a href="/terms" className="hover:underline">
             Terms of Use
           </a>
           <span>|</span>
-          <a href="#" className="hover:underline">
+          <a href="/privacy" className="hover:underline">
             Privacy Policy
           </a>
         </div>

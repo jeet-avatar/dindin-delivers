@@ -24,7 +24,7 @@ ArthaBuild is an AI-powered NetSuite development & implementation platform. It r
 | Database | SQLite via SQLAlchemy (user auth only) |
 | NetSuite | SuiteCloud CLI via TBA per session |
 | Deployment | Docker Compose + Terraform (customer's AWS) |
-| License | TechCloudPro central license server |
+| License | ArthaBuild central license server (hosted by Vibing World inc.) |
 
 ## Deployment Model
 BYOC (Bring Your Own Cloud) — entire stack runs in customer's AWS VPC.

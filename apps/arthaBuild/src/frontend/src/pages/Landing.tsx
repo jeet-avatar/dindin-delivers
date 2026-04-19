@@ -307,7 +307,7 @@ export default function Landing() {
           <a href="#how-it-works">How It Works</a>
           <a href="#security">Security</a>
           <a href="#deploy">How We Deploy</a>
-          <a href="#plans">Pricing</a>
+          <a href="https://calendar.app.google/hMxn4pJi3bKXBtjp6" target="_blank" rel="noopener noreferrer">Contact Sales</a>
           <Link to="/solutions">Solutions</Link>
           <Link to="/blog">Blog</Link>
         </div>
@@ -699,92 +699,26 @@ export default function Landing() {
             </div>
           </section>
 
-          {/* ── PLANS ── */}
-          <section className="l-section" id="plans">
-            <div className="l-container">
-              <div style={{ textAlign:'center', marginBottom:'72px' }}>
-                <span className="l-section-tag" style={{ display:'block' }}>Pricing</span>
-                <h2 className="l-section-title">
-                  Flat monthly. No per-seat.<br /><span style={{ color:'#6366F1' }}>No surprises.</span>
-                </h2>
-                <p style={{ color:'#A1A1AA', fontSize:'17px', maxWidth:'560px', margin:'0 auto 12px', lineHeight:1.7 }}>
-                  You pay the ArthaBuild license fee. Your cloud provider bill is separate — you own the infrastructure.
-                </p>
-                <p style={{ color:'#52525b', fontSize:'13px' }}>AWS compute adds approx. $600–$900/mo (GPU instance) billed directly to your account.</p>
-              </div>
-              <div className="l-pricing-wrap">
-                {/* Starter */}
-                <div className="l-pricing-card l-reveal">
-                  <h3 style={{ fontSize:'22px', marginBottom:'6px', fontFamily:'Outfit, sans-serif', color:'#F4F4F5' }}>Starter</h3>
-                  <p style={{ color:'#6366f1', fontSize:'13px', fontWeight:700, marginBottom:'24px' }}>For founders and solo operators.</p>
-                  <div style={{ marginBottom:'28px' }}>
-                    <span style={{ fontSize:'48px', fontWeight:800, fontFamily:'Outfit, sans-serif', color:'#F4F4F5', letterSpacing:'-.03em' }}>$799</span>
-                    <span style={{ color:'#52525b', fontSize:'14px' }}>&nbsp;/ month</span>
-                  </div>
-                  <ul style={{ listStyle:'none', color:'#A1A1AA', lineHeight:2.5, marginBottom:'36px', fontSize:'15px' }}>
-                    <li>✓ 1 ArthaBuild user</li>
-                    <li>✓ 1 NetSuite account</li>
-                    <li>✓ Unlimited AI script generation</li>
-                    <li>✓ 10 production deploys / month</li>
-                    <li>✓ Unlimited sandbox deploys</li>
-                    <li>✓ Private instance in your AWS / GCP</li>
-                    <li>✓ Email support</li>
-                  </ul>
-                  <a href="https://calendar.app.google/hMxn4pJi3bKXBtjp6" target="_blank" rel="noopener noreferrer" className="l-btn l-btn-ghost" style={{ width:'100%', justifyContent:'center' }}>Get a Demo</a>
-                </div>
-
-                {/* Growth — featured */}
-                <div className="l-pricing-card featured l-reveal" style={{ transitionDelay:'.1s' }}>
-                  <div style={{ background:'#6366F1', color:'#fff', fontSize:'10px', fontWeight:800, letterSpacing:'.18em', textTransform:'uppercase', padding:'5px 14px', borderRadius:'100px', display:'inline-block', marginBottom:'20px' }}>Most Popular</div>
-                  <h3 style={{ fontSize:'22px', marginBottom:'6px', fontFamily:'Outfit, sans-serif', color:'#F4F4F5' }}>Growth</h3>
-                  <p style={{ color:'#a5b4fc', fontSize:'13px', fontWeight:700, marginBottom:'24px' }}>For ops teams and growing businesses.</p>
-                  <div style={{ marginBottom:'28px' }}>
-                    <span style={{ fontSize:'48px', fontWeight:800, fontFamily:'Outfit, sans-serif', color:'#F4F4F5', letterSpacing:'-.03em' }}>$1,999</span>
-                    <span style={{ color:'#8b8b99', fontSize:'14px' }}>&nbsp;/ month</span>
-                  </div>
-                  <ul style={{ listStyle:'none', color:'#A1A1AA', lineHeight:2.5, marginBottom:'36px', fontSize:'15px' }}>
-                    <li>✓ Up to 5 users</li>
-                    <li>✓ 1 NetSuite account</li>
-                    <li>✓ Unlimited AI script generation</li>
-                    <li>✓ Unlimited production deploys</li>
-                    <li>✓ Unlimited sandbox deploys</li>
-                    <li>✓ Implementation Guide generator</li>
-                    <li>✓ Private GPU instance in your cloud</li>
-                    <li>✓ Priority support + onboarding call</li>
-                  </ul>
-                  <a href="https://calendar.app.google/hMxn4pJi3bKXBtjp6" target="_blank" rel="noopener noreferrer" className="l-btn l-btn-primary" style={{ width:'100%', justifyContent:'center' }}>Book a Call</a>
-                </div>
-
-                {/* Enterprise */}
-                <div className="l-pricing-card l-reveal" style={{ transitionDelay:'.2s' }}>
-                  <h3 style={{ fontSize:'22px', marginBottom:'6px', fontFamily:'Outfit, sans-serif', color:'#F4F4F5' }}>Enterprise</h3>
-                  <p style={{ color:'#A1A1AA', fontSize:'13px', fontWeight:700, marginBottom:'24px' }}>For consulting firms and mid-market.</p>
-                  <div style={{ marginBottom:'28px' }}>
-                    <span style={{ fontSize:'48px', fontWeight:800, fontFamily:'Outfit, sans-serif', color:'#F4F4F5', letterSpacing:'-.03em' }}>Custom</span>
-                  </div>
-                  <ul style={{ listStyle:'none', color:'#A1A1AA', lineHeight:2.5, marginBottom:'36px', fontSize:'15px' }}>
-                    <li>✓ Unlimited users</li>
-                    <li>✓ Multiple NetSuite accounts</li>
-                    <li>✓ Unlimited everything</li>
-                    <li>✓ White-label option</li>
-                    <li>✓ Multi-region deployment</li>
-                    <li>✓ Custom model fine-tuning</li>
-                    <li>✓ Dedicated success engineer</li>
-                    <li>✓ 4-hour SLA, custom contracts</li>
-                  </ul>
-                  <a href="https://calendar.app.google/hMxn4pJi3bKXBtjp6" target="_blank" rel="noopener noreferrer" className="l-btn l-btn-ghost" style={{ width:'100%', justifyContent:'center' }}>Contact Sales</a>
-                </div>
-              </div>
-
-              {/* Pricing footnote */}
-              <div style={{ textAlign:'center', marginTop:'48px' }}>
-                <p style={{ color:'#52525b', fontSize:'13px', lineHeight:1.8 }}>
-                  Annual plans save 20% &nbsp;·&nbsp; All plans billed monthly or annually &nbsp;·&nbsp; 14-day money-back guarantee
-                </p>
-                <p style={{ color:'#52525b', fontSize:'13px', marginTop:'6px' }}>
-                  AWS / GCP compute costs billed directly by your cloud provider — ArthaBuild never touches your billing.
-                </p>
-              </div>
+          {/* ── CONTACT SALES ── */}
+          <section id="contact" className="l-section">
+            <div className="l-container" style={{ textAlign:'center', maxWidth:'720px' }}>
+              <span className="l-section-tag" style={{ display:'block', marginBottom:'16px' }}>Talk to us</span>
+              <h2 className="l-section-title" style={{ marginBottom:'24px' }}>
+                Built for your <span style={{ color:'#6366F1' }}>NetSuite stack</span>
+              </h2>
+              <p style={{ color:'#A1A1AA', fontSize:'17px', lineHeight:1.7, marginBottom:'40px' }}>
+                Every ArthaBuild deployment runs inside your own AWS VPC. We&apos;ll walk you through
+                setup, TBA connection, and your first SuiteScript in a 30-minute call.
+              </p>
+              <a
+                href="https://calendar.app.google/hMxn4pJi3bKXBtjp6"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="l-btn l-btn-primary"
+                style={{ padding:'0 52px', height:'66px', fontSize:'17px' }}
+              >
+                Book a Contact Sales Call
+              </a>
             </div>
           </section>
 
@@ -808,7 +742,7 @@ export default function Landing() {
                 </a>
               </div>
               <p className="l-reveal" style={{ color:'#52525b', fontSize:'13px', marginTop:'28px', transitionDelay:'.3s' }}>
-                Enterprise pricing &nbsp;·&nbsp; BYOC deployment &nbsp;·&nbsp; Contact sales@techcloudpro.com
+                BYOC deployment &nbsp;·&nbsp; Contact sales@artha.build
               </p>
             </div>
           </section>
@@ -823,14 +757,13 @@ export default function Landing() {
                     The AI that automates NetSuite for small business.
                     No developers. No consultants. Just results.
                   </p>
-                  <p style={{ color:'#52525b', fontSize:'13px' }}>A product of Zietra Technologies inc.</p>
+                  <p style={{ color:'#52525b', fontSize:'13px' }}>A product of Vibing World inc.</p>
                 </div>
                 <div>
                   <h4 style={{ marginBottom:'20px', fontSize:'13px', textTransform:'uppercase', letterSpacing:'.1em', color:'#fff' }}>Platform</h4>
                   <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
                     <a href="#how-it-works" style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px' }}>How It Works</a>
                     <a href="#security"     style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px' }}>Security</a>
-                    <a href="#plans"      style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px' }}>Pricing</a>
                     <a href="#who"          style={{ color:'#A1A1AA', textDecoration:'none', fontSize:'14px' }}>Who Uses It</a>
                   </div>
                 </div>
@@ -848,7 +781,7 @@ export default function Landing() {
                 </div>
               </div>
               <div className="l-footer-bar" style={{ marginTop:'72px', paddingTop:'32px', borderTop:'1px solid rgba(99,102,241,.08)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <p style={{ color:'#52525b', fontSize:'13px' }}>© 2026 Zietra Technologies inc. All rights reserved.</p>
+                <p style={{ color:'#52525b', fontSize:'13px' }}>© 2026 Vibing World inc. All rights reserved.</p>
                 <p style={{ color:'#52525b', fontSize:'13px' }}>ArthaBuild is not affiliated with Oracle NetSuite.</p>
               </div>
             </div>

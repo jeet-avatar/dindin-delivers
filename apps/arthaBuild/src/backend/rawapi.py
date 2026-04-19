@@ -551,7 +551,8 @@ async def ask(request: Request, current_user: User = Depends(require_user)):
             if not _quota["allowed"]:
                 _upgrade_msg = (
                     f"\U0001f6ab You've used all {_quota['limit']} free script generations this month. "
-                    f"Upgrade to a paid plan \u2014 contact {os.getenv('SALES_EMAIL', 'sales@techcloudpro.com')} to get started."
+                    f"Book a call to keep going \u2192 https://calendar.app.google/hMxn4pJi3bKXBtjp6 "
+                    f"(or email {os.getenv('SALES_EMAIL', 'sales@artha.build')})."
                 )
                 _resp = {"response": _upgrade_msg, "intent": "generate_suitescript", "session_id": session_id, "latency_ms": round((time.time() - start_time) * 1000)}
                 if chat_session_id:
@@ -561,7 +562,7 @@ async def ask(request: Request, current_user: User = Depends(require_user)):
             async with AsyncSessionLocal() as _record_db:
                 await record_script_generation(_record_db, current_user.id)
 
-            # Send quota warning email when user has used limit-1 scripts (e.g. 4/5)
+            # Send quota warning email when user has used limit-1 scripts (e.g. 2/3)
             try:
                 _warn_used = _quota["used"] + 1  # +1 because we just recorded
                 _warn_limit = _quota["limit"]

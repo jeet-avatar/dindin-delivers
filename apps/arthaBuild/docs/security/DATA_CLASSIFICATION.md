@@ -34,7 +34,7 @@ ArthaBuild is a BYOC (Bring Your Own Cloud) product. The following data types NE
 - ArthaBuild user accounts and audit logs
 - Customer-indexed NetSuite script content
 
-The **only external communication** is the license validation ping to TechCloudPro's license server:
+The **only external communication** is the license validation ping to the ArthaBuild license server (hosted by Vibing World inc.):
 
 ```json
 {

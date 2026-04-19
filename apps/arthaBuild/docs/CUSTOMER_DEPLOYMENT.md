@@ -58,8 +58,8 @@ aws-cli/2.15.0 Python/3.11.6
 
 ### License Key
 
-You need an ArthaBuild license key from TechCloudPro before deployment.
-Contact us at **sales@techcloudpro.com** or visit **techcloudpro.com** to get one.
+You need an ArthaBuild license key from Vibing World inc. before deployment.
+Contact us at **sales@artha.build** or visit **artha.build** to get one.
 
 Your license key looks like: `AB-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX`
 
@@ -276,7 +276,7 @@ All configuration is in the `.env` file at the project root.
 | Variable | Example | Description |
 |----------|---------|-------------|
 | `SECRET_KEY` | `a3f9...b2d7` (64 hex chars) | JWT signing secret. Generate with `openssl rand -hex 32`. **Never share or commit this value.** |
-| `LICENSE_KEY` | `AB-XXXX-XXXX-XXXX-XXXX` | Your ArthaBuild license key from TechCloudPro. |
+| `LICENSE_KEY` | `AB-XXXX-XXXX-XXXX-XXXX` | Your ArthaBuild license key from Vibing World inc. |
 | `SMTP_HOST` | `smtp.gmail.com` | SMTP server for password reset emails. |
 | `SMTP_PORT` | `587` | SMTP port (587 = STARTTLS, 465 = SSL). |
 | `SMTP_USER` | `notifications@company.com` | Email address that sends password reset emails. |
@@ -294,7 +294,7 @@ All configuration is in the `.env` file at the project root.
 | `FAISS_PATH` | `/app/data/vectorstore_ollama` | Path to the pre-built FAISS index inside the backend container. |
 | `ACCESS_TOKEN_EXPIRE_HOURS` | `24` | JWT access token expiry in hours. |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `7` | JWT refresh token expiry in days. |
-| `LICENSE_SERVER_URL` | `https://license.arthaBuild.com` | ArthaBuild license validation server. Only change if TechCloudPro provides an updated URL. |
+| `LICENSE_SERVER_URL` | `https://license.arthaBuild.com` | ArthaBuild license validation server. Only change if Vibing World inc. provides an updated URL. |
 | `ALLOWED_ORIGINS` | `$FRONTEND_BASE_URL` | Comma-separated CORS allowed origins. Defaults to `FRONTEND_BASE_URL`. |
 
 ---
@@ -629,13 +629,13 @@ print('Vectorstore rebuild complete.')
 | Resource | Link |
 |----------|------|
 | Documentation | This guide + [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
-| Email support | support@techcloudpro.com |
-| Security issues | security@techcloudpro.com |
-| Website | techcloudpro.com |
+| Email support | support@artha.build |
+| Security issues | security@artha.build |
+| Website | artha.build |
 
 Include your `instance_id` (from `GET /api/license/status`) in all support requests to help us locate your license record.
 
 ---
 
-*ArthaBuild v1.0.0 — TechCloudPro*  
+*ArthaBuild v1.0.0 — Vibing World inc.*  
 *Document version: 2026-04-10*

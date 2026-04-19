@@ -13,7 +13,7 @@ export default function PrivacyPolicy() {
           Privacy Policy
         </h1>
         <p style={{ color: '#71717a', fontSize: '14px', marginBottom: '56px' }}>
-          Last updated: April 2026 &nbsp;·&nbsp; ArthaBuild by TechCloudPro
+          Last updated: April 2026 &nbsp;·&nbsp; ArthaBuild by Vibing World
         </p>
 
         <section style={{ marginBottom: '48px' }}>
@@ -21,10 +21,9 @@ export default function PrivacyPolicy() {
             1. Who We Are
           </h2>
           <p style={{ lineHeight: 1.8, color: '#a1a1aa' }}>
-            ArthaBuild is a product of <strong style={{ color: '#e2e8f0' }}>TechCloudPro</strong>, a brand of{' '}
-            <strong style={{ color: '#e2e8f0' }}>Zietra Technologies inc.</strong> Our platform domain is{' '}
+            ArthaBuild is a product of <strong style={{ color: '#e2e8f0' }}>Vibing World inc.</strong> Our platform domain is{' '}
             <span style={{ color: '#6366f1' }}>artha.build</span>. For privacy inquiries, contact:{' '}
-            <a href="mailto:privacy@techcloudpro.com" style={{ color: '#6366f1' }}>privacy@techcloudpro.com</a>
+            <a href="mailto:privacy@artha.build" style={{ color: '#6366f1' }}>privacy@artha.build</a>
           </p>
         </section>
 
@@ -80,7 +79,7 @@ export default function PrivacyPolicy() {
             4. License Validation
           </h2>
           <p style={{ lineHeight: 1.8, color: '#a1a1aa', marginBottom: '16px' }}>
-            ArthaBuild validates your license periodically with TechCloudPro's license server.
+            ArthaBuild validates your license periodically with the ArthaBuild license server.
             The <strong style={{ color: '#e2e8f0' }}>only data sent</strong> during license validation is:
           </p>
           <ul style={{ color: '#a1a1aa', lineHeight: 2, paddingLeft: '20px' }}>
@@ -113,7 +112,7 @@ export default function PrivacyPolicy() {
           <p style={{ lineHeight: 1.8, color: '#a1a1aa' }}>
             Because ArthaBuild runs on your own infrastructure, you are in full control of data retention.
             You can delete your deployment at any time, which deletes all stored data.
-            TechCloudPro does not retain copies of your data.
+            Vibing World inc. does not retain copies of your data.
           </p>
         </section>
 
@@ -122,15 +121,15 @@ export default function PrivacyPolicy() {
             7. Contact
           </h2>
           <p style={{ lineHeight: 1.8, color: '#a1a1aa' }}>
-            For privacy-related questions: <a href="mailto:privacy@techcloudpro.com" style={{ color: '#6366f1' }}>privacy@techcloudpro.com</a><br />
-            For general support: <a href="mailto:support@techcloudpro.com" style={{ color: '#6366f1' }}>support@techcloudpro.com</a><br />
-            Zietra Technologies inc. — artha.build
+            For privacy-related questions: <a href="mailto:privacy@artha.build" style={{ color: '#6366f1' }}>privacy@artha.build</a><br />
+            For general support: <a href="mailto:support@artha.build" style={{ color: '#6366f1' }}>support@artha.build</a><br />
+            Vibing World inc. — artha.build
           </p>
         </section>
 
         <div style={{ borderTop: '1px solid rgba(99,102,241,0.1)', paddingTop: '32px', marginTop: '48px' }}>
           <p style={{ color: '#52525b', fontSize: '13px' }}>
-            © 2026 Zietra Technologies inc. All rights reserved. ArthaBuild is not affiliated with Oracle NetSuite.
+            © 2026 Vibing World inc. All rights reserved. ArthaBuild is not affiliated with Oracle NetSuite.
           </p>
         </div>
       </div>

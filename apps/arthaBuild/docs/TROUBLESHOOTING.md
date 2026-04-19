@@ -113,7 +113,7 @@ curl -v https://license.arthaBuild.com/api/ping
 
 **If key shows "already registered to a different instance":**
 
-Each license key is locked to one `instance_id` on first validation. If you redeployed with a different instance ID, contact support@techcloudpro.com to reset the binding.
+Each license key is locked to one `instance_id` on first validation. If you redeployed with a different instance ID, contact support@artha.build to reset the binding.
 
 ---
 
@@ -240,7 +240,7 @@ The FAISS index file is missing or corrupt. Restore from backup or rebuild (30�
 
 **If dim=1536 (wrong embedding dimensions):**
 
-The pre-built index used OpenAI embeddings (1536-dim). You are using the wrong index file. The correct ArthaBuild index uses `nomic-embed-text` (768-dim). Obtain the correct `vectorstore_ollama/` directory from your TechCloudPro package.
+The pre-built index used OpenAI embeddings (1536-dim). You are using the wrong index file. The correct ArthaBuild index uses `nomic-embed-text` (768-dim). Obtain the correct `vectorstore_ollama/` directory from your ArthaBuild package.
 
 **If index has the right dimensions but answers are still generic:**
 
@@ -554,12 +554,12 @@ For automated daily EBS snapshots, enable AWS Data Lifecycle Manager in the AWS 
 |----------|---------|
 | Deployment guide | [CUSTOMER_DEPLOYMENT.md](CUSTOMER_DEPLOYMENT.md) |
 | Architecture reference | [ARCHITECTURE.md](ARCHITECTURE.md) |
-| Email support | support@techcloudpro.com |
-| Security issues | security@techcloudpro.com |
+| Email support | support@artha.build |
+| Security issues | security@artha.build |
 
 Include the output of `GET /api/license/status` and `GET /health` in all support requests.
 
 ---
 
-*ArthaBuild v1.0.0 Troubleshooting Guide — TechCloudPro*  
+*ArthaBuild v1.0.0 Troubleshooting Guide — Vibing World inc.*  
 *Document version: 2026-04-10*

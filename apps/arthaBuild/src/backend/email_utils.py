@@ -56,7 +56,7 @@ _BRAND_FOOTER = """
   <tr>
     <td style="background:linear-gradient(135deg,#0a0e1e 0%,#0d1128 100%);padding:24px 40px;border-top:1px solid rgba(99,102,241,0.2);">
       <p style="margin:0;font-family:'DM Sans',-apple-system,sans-serif;color:#6b7280;font-size:12px;line-height:1.6;">
-        &copy; 2026 ArthaBuild &bull; A <a href="https://techcloudpro.com" style="color:#8b5cf6;text-decoration:none;">TechCloudPro</a> product &bull;
+        &copy; 2026 ArthaBuild &bull; A Vibing World inc. product &bull;
         <a href="https://artha.build/privacy" style="color:#6b7280;text-decoration:none;">Privacy Policy</a>
       </p>
     </td>
@@ -382,7 +382,7 @@ def _render_quota_warning_email_html(first_name: str, used: int, limit: int) -> 
               When you reach {limit}, script generation pauses until next month. Upgrade to keep building.
             </p>
           </div>
-          {_cta_button("Upgrade Plan", f"{frontend_url}/#plans")}"""
+          {_cta_button("Book a Call", "https://calendar.app.google/hMxn4pJi3bKXBtjp6")}"""
     return _email_shell("You're almost at your free script limit — ArthaBuild", body)
 
 
