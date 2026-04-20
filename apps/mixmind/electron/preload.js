@@ -16,4 +16,7 @@ contextBridge.exposeInMainWorld('mixmind', {
 
   // Open Rekordbox app
   openRekordbox: () => ipcRenderer.invoke('open-rekordbox'),
+
+  // Phase 21-05: Native folder picker — resolves to absolute path or null if cancelled.
+  chooseFolder: () => ipcRenderer.invoke('show-folder-dialog'),
 });

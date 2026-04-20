@@ -11,6 +11,8 @@ import { sidecarGet, sidecarPost, sidecarUrl } from './hooks/useSidecar';
 import { AIPlaylistItem, Playlist, Track } from './types/track';
 import { CamelotWheel } from './components/CamelotWheel';
 import { DJDeck } from './components/dj/DJDeck';
+import { ImportFolderButton } from './components/ImportFolderButton';
+import { AnalyzeProgress } from './components/AnalyzeProgress';
 
 type Panel = 'library' | 'playlists' | 'duplicates' | 'usb' | 'setbuilder';
 
@@ -153,7 +155,20 @@ export default function App() {
                 <span style={{ fontSize: '13px', color: '#4b5563' }}>Connecting to sidecar…</span>
               </div>
             ) : (
-              <TrackTable tracks={tracks} onReload={reload} onPlay={(t) => setDeckA(t)} onLoadDeckB={handleLoadDeckB} onAddToSet={addToSet} onAnalyze={handleAnalyze} analyzingTrack={analyzingTrack} playedIds={playedIds} compatibleKeys={compatibleKeys} nowPlayingId={nowPlaying?.content_id} />
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+                <ImportFolderButton
+                  onImported={(r) => {
+                    if (r.imported > 0) {
+                      // Kick off backend analysis for newly imported tracks.
+                      fetch(sidecarUrl('/api/library/analyze'), { method: 'POST' })
+                        .catch(() => {/* AnalyzeProgress polling will still show state */});
+                    }
+                    reload();
+                  }}
+                />
+                <AnalyzeProgress />
+                <TrackTable tracks={tracks} onReload={reload} onPlay={(t) => setDeckA(t)} onLoadDeckB={handleLoadDeckB} onAddToSet={addToSet} onAnalyze={handleAnalyze} analyzingTrack={analyzingTrack} playedIds={playedIds} compatibleKeys={compatibleKeys} nowPlayingId={nowPlaying?.content_id} />
+              </div>
             )
           )}
 

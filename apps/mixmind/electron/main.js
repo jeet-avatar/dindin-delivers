@@ -211,6 +211,19 @@ ipcMain.handle('open-rekordbox', () => {
   spawn('open', ['-a', 'rekordbox'], { detached: true, stdio: 'ignore' });
 });
 
+// Phase 21-05: Native folder picker for "Import Folder" button in the React UI
+ipcMain.handle('show-folder-dialog', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+    title: 'Select folder of audio files to import',
+    buttonLabel: 'Import',
+  });
+  if (result.canceled || !result.filePaths.length) {
+    return null;
+  }
+  return result.filePaths[0];
+});
+
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
