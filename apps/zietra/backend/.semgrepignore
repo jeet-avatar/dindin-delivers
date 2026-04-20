@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+dist/
+build/
+*.js.map
+*.d.ts
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Environment files (already in .gitignore)
+.env
+.env.*
+
+# Prisma
+prisma/migrations/
+prisma/generated/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test files (if you want to skip them)
+# **/*.test.ts
+# **/*.spec.ts
+# src/__tests__/
+
+# Third-party configs
+sonar-scan.js
+jest.config.js

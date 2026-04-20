@@ -1,0 +1,124 @@
+name: SonarQube Full Stack Analysis
+
+# Use this workflow if both backend and frontend are in the same repository
+# This scans both projects in parallel for faster CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  backend-scan:
+    name: Backend Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        continue-on-error: true
+
+      - name: SonarQube Backend Scan
+        uses: SonarSource/sonarqube-scan-action@v3
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=crm-backend
+            -Dsonar.projectName=CRM Backend
+            -Dsonar.sources=src
+            -Dsonar.tests=src/__tests__
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/*.spec.ts,**/coverage/**,**/prisma/migrations/**
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+
+  frontend-scan:
+    name: Frontend Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: '../CRM Frontend/crm-app/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ../CRM Frontend/crm-app
+        run: npm ci
+
+      - name: Run linter
+        working-directory: ../CRM Frontend/crm-app
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build project
+        working-directory: ../CRM Frontend/crm-app
+        run: npm run build
+        continue-on-error: true
+
+      - name: SonarQube Frontend Scan
+        uses: SonarSource/sonarqube-scan-action@v3
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          projectBaseDir: ../CRM Frontend/crm-app
+          args: >
+            -Dsonar.projectKey=crm-frontend
+            -Dsonar.projectName=CRM Frontend
+            -Dsonar.sources=src
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/*.css
+
+  quality-gate:
+    name: Quality Gate Check
+    needs: [backend-scan, frontend-scan]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Backend Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1.1.0
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          scanMetadataReportFile: .scannerwork/report-task.txt
+        continue-on-error: true
+
+      - name: Report Results
+        run: |
+          echo "✅ SonarQube analysis completed"
+          echo "📊 Check the SonarQube dashboard for detailed results"

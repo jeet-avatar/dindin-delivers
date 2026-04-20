@@ -1,0 +1,320 @@
+import { useState, useEffect, useRef } from 'react';
+import {
+  SparklesIcon,
+  CodeBracketIcon,
+  XMarkIcon,
+  PaperAirplaneIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  ArrowPathIcon
+} from '@heroicons/react/24/outline';
+
+interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: Date;
+  codeChanges?: CodeChange[];
+}
+
+interface CodeChange {
+  filePath: string;
+  originalCode: string;
+  newCode: string;
+  description: string;
+  changeType: 'add' | 'modify' | 'delete';
+}
+
+interface AICodeAssistantProps {
+  userEmail: string;
+  currentPage: string;
+  pageContext?: any;
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+const AICodeAssistant = ({ userEmail, currentPage, pageContext, isOpen = false, onClose }: AICodeAssistantProps) => {
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState<CodeChange[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Check if user is authorized (only ethan@zietra.com)
+  useEffect(() => {
+    if (userEmail === 'ethan@zietra.com') {
+      setIsAuthorized(true);
+    }
+  }, [userEmail]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Initial system message
+  useEffect(() => {
+    if (isOpen && messages.length === 0) {
+      setMessages([{
+        role: 'system',
+        content: `🤖 **AI Code Assistant Active**\n\nI'm your intelligent coding assistant powered by Claude 4.5 Sonnet. I can:\n\n✅ Analyze and modify any component on this page\n✅ Generate new features and functionality\n✅ Fix bugs and optimize code\n✅ Create API endpoints and database changes\n✅ Update styles and layouts\n\nJust tell me what you want to change, and I'll handle it!\n\n📍 Current Page: **${currentPage}**`,
+        timestamp: new Date()
+      }]);
+    }
+  }, [isOpen, currentPage]);
+
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || isProcessing) return;
+
+    const userMessage: Message = {
+      role: 'user',
+      content: inputMessage,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setIsProcessing(true);
+
+    try {
+      const response = await fetch('/api/ai-code/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          command: inputMessage,
+          currentPage,
+          pageContext,
+          conversationHistory: messages
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.codeChanges && data.codeChanges.length > 0) {
+        setPendingChanges(data.codeChanges);
+        setShowPreview(true);
+      }
+
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.response,
+        timestamp: new Date(),
+        codeChanges: data.codeChanges
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: `❌ Error: ${error instanceof Error ? error.message : 'Failed to process request'}`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const applyCodeChanges = async () => {
+    setIsProcessing(true);
+    try {
+      const response = await fetch('/api/ai-code/apply', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          changes: pendingChanges,
+          currentPage
+        })
+      });
+
+      const data = await response.json();
+
+      const successMessage: Message = {
+        role: 'system',
+        content: `✅ **Code Changes Applied Successfully!**\n\n${data.message}\n\nFiles modified:\n${data.filesModified.map((f: string) => `• ${f}`).join('\n')}\n\nGit commit: ${data.commitHash}`,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, successMessage]);
+      setPendingChanges([]);
+      setShowPreview(false);
+
+      // Reload page to see changes
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      const errorMessage: Message = {
+        role: 'system',
+        content: `❌ Failed to apply changes: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const rejectChanges = () => {
+    setPendingChanges([]);
+    setShowPreview(false);
+    const rejectMessage: Message = {
+      role: 'system',
+      content: '❌ Code changes rejected. No files were modified.',
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, rejectMessage]);
+  };
+
+  if (!isAuthorized || !isOpen) {
+    return null; // Don't render if not authorized or not open
+  }
+
+  return (
+    <div className="fixed bottom-8 right-8 z-50 w-[500px] h-[700px] bg-white rounded-2xl shadow-2xl border-2 border-purple-200 flex flex-col">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4 rounded-t-2xl flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <SparklesIcon className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-lg">AI Code Assistant</h3>
+                <p className="text-purple-100 text-xs">Claude 4.5 Sonnet • Live Coding</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+            >
+              <XMarkIcon className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-2xl p-4 ${
+                    message.role === 'user'
+                      ? 'bg-gradient-to-br from-purple-600 to-pink-600 text-white'
+                      : message.role === 'system'
+                      ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white'
+                      : 'bg-white text-gray-900 shadow-md border border-gray-200'
+                  }`}
+                >
+                  <div className="prose prose-sm max-w-none">
+                    {message.content.split('\n').map((line, i) => (
+                      <p key={i} className="mb-2 last:mb-0">{line}</p>
+                    ))}
+                  </div>
+                  <div className={`text-xs mt-2 opacity-70`}>
+                    {message.timestamp.toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {isProcessing && (
+              <div className="flex justify-start">
+                <div className="bg-white rounded-2xl p-4 shadow-md border border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <ArrowPathIcon className="w-5 h-5 text-purple-600 animate-spin" />
+                    <span className="text-gray-600">AI is thinking...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Code Preview Modal */}
+          {showPreview && (
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
+              <div className="bg-white rounded-xl p-6 max-w-[90%] max-h-[80%] overflow-y-auto shadow-2xl">
+                <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <ExclamationTriangleIcon className="w-6 h-6 text-orange-500" />
+                  Review Code Changes
+                </h4>
+                <div className="space-y-4 mb-6">
+                  {pendingChanges.map((change, index) => (
+                    <div key={index} className="border-2 border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-mono text-sm text-gray-700">{change.filePath}</span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          change.changeType === 'add' ? 'bg-green-100 text-green-800' :
+                          change.changeType === 'modify' ? 'bg-blue-100 text-blue-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {change.changeType.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">{change.description}</p>
+                      <div className="bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto font-mono text-xs">
+                        <pre>{change.newCode.substring(0, 200)}...</pre>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={applyCodeChanges}
+                    disabled={isProcessing}
+                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <CheckCircleIcon className="w-5 h-5" />
+                    Apply Changes
+                  </button>
+                  <button
+                    onClick={rejectChanges}
+                    disabled={isProcessing}
+                    className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-300 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <XMarkIcon className="w-5 h-5" />
+                    Reject
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="p-4 border-t border-gray-200">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder="Ask AI to make code changes..."
+                className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
+                disabled={isProcessing}
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={isProcessing || !inputMessage.trim()}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3 rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <PaperAirplaneIcon className="w-6 h-6" />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+              <SparklesIcon className="w-3 h-3" />
+              Only accessible by ethan@zietra.com • Page: {currentPage}
+            </p>
+          </div>
+        </div>
+  );
+};
+
+export default AICodeAssistant;

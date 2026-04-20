@@ -1,0 +1,18 @@
+# Trivy Ignore File
+# Use this file to suppress false positives or accepted risks
+# Format: CVE-ID or package-name
+
+# Example: Ignore specific CVE
+# CVE-2021-12345
+
+# Example: Ignore all vulnerabilities in a specific package
+# pkg:npm/example-package
+
+# Add vulnerabilities to ignore below with justification comments
+# Template:
+# CVE-XXXX-XXXXX
+# Reason: <Why this is safe to ignore>
+# Ticket: <Link to tracking issue>
+# Expires: YYYY-MM-DD
+
+# Note: Review this file regularly and remove outdated ignores

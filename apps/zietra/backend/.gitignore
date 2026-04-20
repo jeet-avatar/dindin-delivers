@@ -1,0 +1,89 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.*.local
+.env.deploy
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Database
+*.db
+*.sqlite
+prisma/dev.db*
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.sw*
+.DS_Store
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+.cache/
+.temp/
+
+# OS
+Thumbs.db
+.Trash/
+
+# Prisma
+prisma/.env
+prisma/migrations/**/*.sql
+
+#Scripts (sensitive data)
+scripts/sendTrackableEmailToJM.ts
+scripts/sendArthaAnnouncementEmail.ts
+scripts/sendArthaWithPublicURL.ts
+scripts/sendEarlyAccessEmail.ts
+scripts/tests/
+
+# AWS/Terraform
+aws/terraform/.terraform/
+aws/terraform/*.tfstate
+aws/terraform/*.tfstate.backup
+aws/terraform/.terraform.lock.hcl
+aws/terraform/terraform.tfvars
+
+# Uploads and temporary data
+uploads/
+*.csv
+*.xlsx
+
+# Package lock files (keep only one)
+package-lock.json
+yarn.lock
+
+# Deployment credentials and SSH keys - SECURITY CRITICAL
+.env.deploy
+*.pem
+*.key
+*.crt
+*.pfx
+id_rsa*
+id_ecdsa*
+id_ed25519*
+
+# Security Scan Reports
+semgrep-results.sarif
+sonar-scanner.zip
+trivy-*.sarif
+trivy-results.*
+.trivy/
