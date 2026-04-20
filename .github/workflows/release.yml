@@ -13,53 +13,10 @@ env:
   APPLE_SECRETS_ARN: arn:aws:secretsmanager:us-east-1:134607809447:secret:apple/developer/api-credentials-q7XoI8
 
 
-# NOTE: macOS DMG is built locally via apps/mixmind/build-mac.sh
-# (same pattern as BeatMind Bridge sign_notarize_upload.sh)
-# and uploaded directly to S3. CI only handles Windows builds.
+# NOTE: MixMind has been extracted to its own repo (github.com/jeet-avatar/mixmind).
+# This workflow now only builds BeatMind Bridge.
 
 jobs:
-  # ── Windows: MixMind NSIS installer ───────────────────────────────────────
-  windows-mixmind:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: apps/mixmind
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Build sidecar (PyInstaller)
-        run: |
-          cd sidecar
-          pip install -r requirements.txt --quiet
-          pip install pyinstaller --quiet
-          pyinstaller mixmind-sidecar-windows.spec
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Build frontend
-        run: |
-          cd frontend
-          npm ci
-          npm run build
-
-      - name: Build Windows NSIS installer
-        working-directory: apps/mixmind/electron
-        run: |
-          npm ci
-          npx electron-builder --win nsis --publish=never
-
-      - name: Upload Windows installer artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-mixmind
-          path: apps/mixmind/electron/dist/*.exe
-
   # ── Windows: BeatMind Bridge onedir ───────────────────────────────────────
   windows-bridge:
     runs-on: windows-latest
@@ -87,7 +44,7 @@ jobs:
 
   # ── Release: Windows artifacts → S3 + GitHub Release ─────────────────────
   release:
-    needs: [windows-mixmind, windows-bridge]
+    needs: [windows-bridge]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -108,15 +65,8 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           mkdir -p release-assets
-          cp artifacts/windows-mixmind/*.exe "release-assets/MixMind-Setup-${TAG}-win.exe"
           # upload-artifact@v4 auto-zips directories — Bridge onedir arrives as .zip
           zip -r "release-assets/BeatMind-Bridge-${TAG}-win.zip" "artifacts/windows-bridge/"
-
-      - name: Upload Windows downloads to beatmind.io S3
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          aws s3 cp "release-assets/MixMind-Setup-${TAG}-win.exe" s3://beatmind-frontend/MixMind-Setup-win.exe
-          aws cloudfront create-invalidation --distribution-id E3F24X4TEVJ9X2 --paths "/MixMind-Setup-win.exe"
 
       - name: Create or update GitHub Release
         env:
