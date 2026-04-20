@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 21 (MixMind Native Pioneer USB Export) -- IN PROGRESS
 Plan: 5 of 6 complete in current phase
 Status: Plan 21-06 complete: CDJ-3000 artwork pipeline — artwork_extractor (MP3/AIFF/FLAC/MP4/WAV via mutagen + Pillow quality=85 re-encoder to 80×80 + 240×240 JPEG pairs); artwork_writer (deterministic bucket/slot with 20 slots/bucket + global slot numbering per reference USB enumeration; plan's 38-per-bucket-reset was a Rule 1 bug); reference USB oracle (77 parametrized tests, MAE<10, size within 2×); wired into usb_exporter._extract_and_write_artwork() + pdb_writer.write_pdb(artwork_assignments=...). Artwork PDB table stays empty per reference observation. 116 Phase 21-06 tests pass.
-Last activity: 2026-04-20 - Completed quick task 293: Foolproof arthaBuild launch — delete-account UI (/account/delete, type-DELETE gate), real 1200×630 og-image-v2.png (63KB), SPA 404 page, /security Compliance & Attestations section (truthful roadmap-framed), Sentry blocked-pending-DSN. arthaBuild commit 2c49db0 pushed to main.
+Last activity: 2026-04-20 - Completed quick task 294: arthaBuild launch hardening — MFA enforced at login (schemas.py + routers/auth.py with 3 unit tests), RFC 9116 /.well-known/security.txt live (200, 328 bytes), zero-assume 7-row retest table in SUMMARY. arthaBuild commit 6ae5307 pushed. Still user-blocked: Sentry DSN, CF SSL Full(Strict), CF cache purge for legacy og-image.png.
 
 Progress: [#################################.......] 83% (5/6 plans in phase 21)
 
@@ -472,6 +472,7 @@ None
 | 291 | Build AI Architecture Playground as free lead-gen tool on TechCloudPro | 2026-04-17 | bc42fb59 | [291-build-ai-architecture-playground-as-free](./quick/291-build-ai-architecture-playground-as-free/) |
 | 292 | Deploy Option A versioned consent capture to arthaBuild production | 2026-04-20 | 47d4a77 | [292-deploy-option-a-versioned-consent-captur](./quick/292-deploy-option-a-versioned-consent-captur/) |
 | 293 | Foolproof arthaBuild launch: delete-account UI, og-image, 404 page, security compliance, activate Sentry | 2026-04-20 | 2c49db0 | [293-foolproof-arthabuild-launch-delete-accou](./quick/293-foolproof-arthabuild-launch-delete-accou/) |
+| 294 | arthaBuild launch hardening: MFA login enforcement + RFC 9116 security.txt + zero-assume retest | 2026-04-20 | 6ae5307 | [294-arthabuild-launch-hardening-mfa-login-en](./quick/294-arthabuild-launch-hardening-mfa-login-en/) |
 ## Session Continuity
 
 Last session: 2026-04-19
