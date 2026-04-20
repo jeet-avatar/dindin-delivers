@@ -13,6 +13,7 @@ import { CamelotWheel } from './components/CamelotWheel';
 import { DJDeck } from './components/dj/DJDeck';
 import { ImportFolderButton } from './components/ImportFolderButton';
 import { AnalyzeProgress } from './components/AnalyzeProgress';
+import { UsbExportWizard } from './components/UsbExportWizard';
 
 type Panel = 'library' | 'playlists' | 'duplicates' | 'usb' | 'setbuilder';
 
@@ -37,6 +38,7 @@ export default function App() {
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
   const [compatibleKeys, setCompatibleKeys] = useState<string[]>([]);
   const [showCamelotWheel, setShowCamelotWheel] = useState(false);
+  const [showUsbWizard, setShowUsbWizard] = useState(false);
 
   // Track played IDs and fetch compatible keys
   useEffect(() => {
@@ -244,7 +246,15 @@ export default function App() {
 
           {panel === 'duplicates' && <DuplicatePanel onCountChange={setDuplicateCount} />}
           {panel === 'usb' && <USBPanel />}
-          {panel === 'setbuilder' && <SetBuilderPanel tracks={setTracks} onRemove={removeFromSet} onReorder={reorderSet} onClear={() => setSetTracks([])} />}
+          {panel === 'setbuilder' && (
+            <SetBuilderPanel
+              tracks={setTracks}
+              onRemove={removeFromSet}
+              onReorder={reorderSet}
+              onClear={() => setSetTracks([])}
+              onExportToUsb={() => setShowUsbWizard(true)}
+            />
+          )}
         </main>
 
         <AIChatSidebar onPlaylistCreated={handlePlaylistCreated} tracks={tracks} />
@@ -277,6 +287,13 @@ export default function App() {
           currentCamelot={deckA.camelot}
           compatibleKeys={compatibleKeys}
           onClose={() => setShowCamelotWheel(false)}
+        />
+      )}
+
+      {showUsbWizard && (
+        <UsbExportWizard
+          tracks={setTracks.length > 0 ? setTracks : tracks}
+          onClose={() => setShowUsbWizard(false)}
         />
       )}
 

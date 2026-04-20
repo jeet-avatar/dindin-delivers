@@ -26,6 +26,10 @@ security unlock-keychain ~/Library/Keychains/login.keychain-db
 echo "✅  Keychain unlocked"
 
 # ── 1. BUILD SIDECAR ─────────────────────────────────────
+# Phase 21 native-export modules are declared as hidden-imports in
+# mixmind-sidecar.spec (hiddenimports=[...'pdb_writer', 'usb_exporter',
+# 'anlz_writer', 'pdb_ext_writer', 'artwork_extractor', 'artwork_writer', ...]).
+# Do NOT add --hidden-import flags here — keep the truth inside the .spec file.
 echo ""
 echo "▸ Building sidecar with PyInstaller..."
 cd "$SIDECAR_DIR"
@@ -33,7 +37,7 @@ pip install -r requirements.txt --quiet
 pip install pyinstaller --quiet
 rm -rf build dist
 pyinstaller mixmind-sidecar.spec --noconfirm
-echo "✅  Sidecar built"
+echo "✅  Sidecar built (hidden-imports: anlz_writer, pdb_writer, usb_exporter, pdb_ext_writer, artwork_*, construct, mutagen, Pillow)"
 
 # ── 2. SIGN SIDECAR ──────────────────────────────────────
 echo ""

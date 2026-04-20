@@ -49,11 +49,12 @@ interface Props {
   onRemove: (contentId: string) => void;
   onReorder: (fromIdx: number, toIdx: number) => void;
   onClear: () => void;
+  onExportToUsb?: () => void;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function SetBuilderPanel({ tracks, onRemove, onReorder, onClear }: Props) {
+export function SetBuilderPanel({ tracks, onRemove, onReorder, onClear, onExportToUsb }: Props) {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const dragOverIdx = useRef<number | null>(null);
 
@@ -197,6 +198,19 @@ export function SetBuilderPanel({ tracks, onRemove, onReorder, onClear }: Props)
             >
               Export CSV
             </button>
+            {onExportToUsb && (
+              <button
+                onClick={onExportToUsb}
+                style={{
+                  fontSize: '11px', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer',
+                  background: 'rgba(74,170,255,0.15)', color: '#4af',
+                  border: '1px solid rgba(74,170,255,0.3)', fontFamily: 'var(--font)', fontWeight: 500,
+                }}
+                title="Export selected tracks to a Pioneer-format USB (CDJ-3000 compatible)"
+              >
+                💾 Export to USB
+              </button>
+            )}
             <button
               onClick={onClear}
               style={{
