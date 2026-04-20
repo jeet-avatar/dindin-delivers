@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 21 (MixMind Native Pioneer USB Export) -- IN PROGRESS
 Plan: 5 of 6 complete in current phase
 Status: Plan 21-06 complete: CDJ-3000 artwork pipeline — artwork_extractor (MP3/AIFF/FLAC/MP4/WAV via mutagen + Pillow quality=85 re-encoder to 80×80 + 240×240 JPEG pairs); artwork_writer (deterministic bucket/slot with 20 slots/bucket + global slot numbering per reference USB enumeration; plan's 38-per-bucket-reset was a Rule 1 bug); reference USB oracle (77 parametrized tests, MAE<10, size within 2×); wired into usb_exporter._extract_and_write_artwork() + pdb_writer.write_pdb(artwork_assignments=...). Artwork PDB table stays empty per reference observation. 116 Phase 21-06 tests pass.
-Last activity: 2026-04-19 - Completed Plan 21-06: Artwork Pipeline — zero rbox imports; Pillow (HPND, permissive) added; 5 task commits (d64b0eb2, 73678451, ec009488, 01ec9d36, 5b8555ab); Rule 1 deviations for SLOTS_PER_BUCKET (38→20) and empty-Artwork-table decision both documented in 21-06-SUMMARY.md and deferred-items.md.
+Last activity: 2026-04-20 - Completed quick task 292: Deploy Option A versioned consent capture to arthaBuild production — 3 user_consents rows written live (terms/privacy/scope_ack), SignUp.tsx 3-phase card + scope-ack checkbox live, arthaBuild repo commit 47d4a77 pushed to main.
 
 Progress: [#################################.......] 83% (5/6 plans in phase 21)
 
@@ -154,6 +154,7 @@ Progress: [#################################.......] 83% (5/6 plans in phase 21)
 - [Phase 21-02]: POST /api/library/analyze re-uses existing AnalysisBatchRunner with source='import' — no analyzer.py changes needed; Rekordbox /api/analyze/batch path untouched.
 - [Phase 21-02]: Zero new deps; allin1 deliberately NOT added per user decision (PyTorch bloat). Heuristic section_detector.py retained. If quality insufficient, follow-up phase.
 - [Phase 21-02]: Integration tests marked pytest.mark.slow (~22s each); CI default filter with -m 'not slow' keeps fast suite runnable. Synthetic 10s WAV audio generated inline via numpy/soundfile, no binary fixtures committed.
+- [Phase 292-quick]: Deploy Option A consent capture: committed 6 files (47d4a77) → scp backend + docker build backend + alembic upgrade head (23a_user_consents) → inode-safe dist swap + nginx restart → E2E smoke 201 + 3 rows with real IP/UA. Deviations: (a) smoke domain swap to fresh @optiona-smoke.com after hitting FREE_ACCOUNTS_PER_DOMAIN=3 cap on techcloudpro.com, (b) used python sqlite3 stdlib instead of missing sqlite3 CLI binary in container.
 
 ### Blockers
 
@@ -469,6 +470,7 @@ None
 | 289 | add Google Reviews section to VishMed website showing real reviews for Dr. Pillay from Google | 2026-04-15 | 13318e84 | [289-add-google-reviews-section-to-vishmed-we](./quick/289-add-google-reviews-section-to-vishmed-we/) |
 | 290 | add blog section to VishMed with 40 SEO-optimized posts across 6 categories with naturally spread historical dates | 2026-04-16 | 0d4aca9c | [290-add-blog-section-to-vishmed-with-40-seo-](./quick/290-add-blog-section-to-vishmed-with-40-seo-/) |
 | 291 | Build AI Architecture Playground as free lead-gen tool on TechCloudPro | 2026-04-17 | bc42fb59 | [291-build-ai-architecture-playground-as-free](./quick/291-build-ai-architecture-playground-as-free/) |
+| 292 | Deploy Option A versioned consent capture to arthaBuild production | 2026-04-20 | 47d4a77 | [292-deploy-option-a-versioned-consent-captur](./quick/292-deploy-option-a-versioned-consent-captur/) |
 ## Session Continuity
 
 Last session: 2026-04-19
