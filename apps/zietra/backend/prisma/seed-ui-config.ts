@@ -216,13 +216,13 @@ async function seedUIConfig() {
   if (!existingBranding) {
     await prisma.brandingConfig.create({
       data: {
-        companyName: 'BrandMonkz CRM',
-        footerText: '© 2025 BrandMonkz. All rights reserved.',
-        supportEmail: 'support@brandmonkz.com',
+        companyName: 'Zietra CRM',
+        footerText: '© 2026 Zietra. All rights reserved.',
+        supportEmail: 'support@zietra.com',
         isActive: true,
         socialLinks: {
-          twitter: 'https://twitter.com/brandmonkz',
-          linkedin: 'https://linkedin.com/company/brandmonkz',
+          twitter: 'https://twitter.com/zietra',
+          linkedin: 'https://linkedin.com/company/zietra',
         },
       },
     });

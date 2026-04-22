@@ -55,7 +55,7 @@ export function CampaignsPage() {
   const [showHelpGuide, setShowHelpGuide] = useState(false);
   const [sendingCampaignId, setSendingCampaignId] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<{ id: string; sent: number; total: number } | null>(null);
-  const [sendingyour ERP, setSendingyour ERP] = useState(false);
+  const [sendingErpCampaign, setSendingErpCampaign] = useState(false);
   const [erpResult, setErpResult] = useState<{ sent: number; total: number; failed: number; companyCount: number } | null>(null);
   const [wizardPreselect, setWizardPreselect] = useState<{ subject: string; campaignType: string } | null>(null);
 
@@ -149,9 +149,9 @@ export function CampaignsPage() {
     }
   };
 
-  const handleyour ERPCampaign = async () => {
+  const handleErpQuickSend = async () => {
     if (!window.confirm('Send the $2/hr staff augmentation campaign to ALL your ERP companies now?\n\nThis will send real emails via AWS SES.')) return;
-    setSendingyour ERP(true);
+    setSendingErpCampaign(true);
     setErpResult(null);
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -170,7 +170,7 @@ export function CampaignsPage() {
     } catch {
       alert('Failed to send your ERP campaign');
     } finally {
-      setSendingyour ERP(false);
+      setSendingErpCampaign(false);
     }
   };
 

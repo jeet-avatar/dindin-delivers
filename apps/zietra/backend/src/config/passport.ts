@@ -3,22 +3,11 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { prisma } from '../app';
 import { logger } from '../utils/logger';
 
-// Validate required environment variables
-if (!process.env.GOOGLE_CLIENT_ID) {
-  throw new Error('GOOGLE_CLIENT_ID environment variable is required');
-}
-if (!process.env.GOOGLE_CLIENT_SECRET) {
-  throw new Error('GOOGLE_CLIENT_SECRET environment variable is required');
-}
-if (!process.env.GOOGLE_CALLBACK_URL) {
-  throw new Error('GOOGLE_CALLBACK_URL environment variable is required');
-}
-
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL;
 
-// Configure Google OAuth Strategy
+if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && GOOGLE_CALLBACK_URL) {
 passport.use(
   new GoogleStrategy(
     {
@@ -80,6 +69,9 @@ passport.use(
     }
   )
 );
+} else {
+  logger.warn('Google OAuth disabled — GOOGLE_CLIENT_ID/SECRET/CALLBACK_URL not set');
+}
 
 // Serialize user for session
 passport.serializeUser((user: any, done) => {

@@ -32,25 +32,22 @@ export class GoogleSMTPService {
     const smtpPass = process.env.SMTP_PASS;
 
     if (!smtpUser || !smtpPass) {
-      throw new Error(
-        'Google Workspace SMTP credentials not configured. ' +
-        'Please set SMTP_USER and SMTP_PASS environment variables.'
-      );
+      console.warn('⚠️  SMTP credentials missing — email sends will fail at runtime (SMTP_USER/SMTP_PASS not set)');
+    } else {
+      console.log('✅ Initializing Google Workspace SMTP');
+      console.log(`   Host: ${smtpHost}:${smtpPort}`);
+      console.log(`   User: ${smtpUser}`);
+      console.log(`   Default From: ${this.DEFAULT_FROM}`);
     }
-
-    console.log('✅ Initializing Google Workspace SMTP');
-    console.log(`   Host: ${smtpHost}:${smtpPort}`);
-    console.log(`   User: ${smtpUser}`);
-    console.log(`   Default From: ${this.DEFAULT_FROM}`);
 
     this.transporter = nodemailer.createTransport({
       host: smtpHost,
       port: smtpPort,
       secure: false, // Use STARTTLS
-      auth: {
+      auth: smtpUser && smtpPass ? {
         user: smtpUser,
         pass: smtpPass,
-      },
+      } : undefined,
       tls: {
         // Do not fail on invalid certificates
         rejectUnauthorized: false,

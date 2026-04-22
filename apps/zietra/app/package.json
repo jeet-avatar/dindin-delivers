@@ -1,5 +1,5 @@
 {
-  "name": "crm-app",
+  "name": "zietra-crm-app",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,7 +11,7 @@
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",
     "test:e2e:headed": "npx playwright test --headed",
-    "test:e2e:prod": "E2E_BASE_URL=https://brandmonkz.com npx playwright test"
+    "test:e2e:prod": "E2E_BASE_URL=https://app.zietra.com npx playwright test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

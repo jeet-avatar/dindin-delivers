@@ -2,6 +2,54 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthUtils, TokenPayload } from '../utils/auth';
 import { AppError } from './errorHandler';
 import { prisma } from '../app';
+import { verifySupabaseJwt, isSupabaseJwtConfigured, SupabaseClaims } from './supabaseAuth';
+
+async function resolveUserFromSupabase(claims: SupabaseClaims) {
+  const email = claims.email?.toLowerCase();
+  if (!email) {
+    throw new AppError('Supabase JWT missing email', 401);
+  }
+  let user = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      firstName: true,
+      lastName: true,
+      isActive: true,
+      teamRole: true,
+      accountOwnerId: true,
+    },
+  });
+  if (!user) {
+    const metaFirst = (claims.user_metadata?.first_name as string | undefined)
+      || (claims.user_metadata?.firstName as string | undefined) || '';
+    const metaLast = (claims.user_metadata?.last_name as string | undefined)
+      || (claims.user_metadata?.lastName as string | undefined) || '';
+    user = await prisma.user.create({
+      data: {
+        email,
+        firstName: metaFirst,
+        lastName: metaLast,
+        passwordHash: `supabase:${claims.sub}`,
+        role: 'USER',
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        firstName: true,
+        lastName: true,
+        isActive: true,
+        teamRole: true,
+        accountOwnerId: true,
+      },
+    });
+  }
+  return user;
+}
 
 export const authenticate = async (
   req: Request,
@@ -16,22 +64,33 @@ export const authenticate = async (
       throw new AppError('Access token is required', 401);
     }
 
-    const payload: TokenPayload = AuthUtils.verifyToken(token);
+    let user: Awaited<ReturnType<typeof resolveUserFromSupabase>> | null = null;
 
-    // Get user from database with team collaboration fields
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        firstName: true,
-        lastName: true,
-        isActive: true,
-        teamRole: true,
-        accountOwnerId: true,
-      },
-    });
+    if (isSupabaseJwtConfigured()) {
+      try {
+        const claims = await verifySupabaseJwt(token);
+        user = await resolveUserFromSupabase(claims);
+      } catch {
+        // fall through to legacy HS256 verification
+      }
+    }
+
+    if (!user) {
+      const payload: TokenPayload = AuthUtils.verifyToken(token);
+      user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          firstName: true,
+          lastName: true,
+          isActive: true,
+          teamRole: true,
+          accountOwnerId: true,
+        },
+      });
+    }
 
     if (!user) {
       throw new AppError('User not found', 401);
@@ -41,7 +100,6 @@ export const authenticate = async (
       throw new AppError('Account is deactivated', 401);
     }
 
-    // Attach user to request (cast as any to avoid type issues with partial user)
     req.user = user as any;
     next();
   } catch (error) {

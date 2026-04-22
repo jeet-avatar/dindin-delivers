@@ -3,7 +3,7 @@ import { BuildingOfficeIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { jobLeadsApi } from '../../services/api';
 import type { JobLead } from '../../types';
 
-const STREAMS = ['All', 'AI/ML', 'Cloud/DevOps', 'Full-Stack', 'Cybersecurity', 'Data/Analytics', 'Mobile', 'your ERP', 'Enterprise/ERP', 'Product/Design', 'QA/Testing', 'Web3', 'Staffing/HR', 'Other'] as const;
+const STREAMS = ['All', 'AI/ML', 'Cloud/DevOps', 'Full-Stack', 'Cybersecurity', 'Data/Analytics', 'Mobile', 'Enterprise/ERP', 'Product/Design', 'QA/Testing', 'Web3', 'Staffing/HR', 'Other'] as const;
 
 const STREAM_BADGE_STYLES: Record<string, { bg: string; color: string }> = {
   'AI/ML': { bg: 'rgba(168,85,247,0.18)', color: '#a855f7' },
@@ -12,7 +12,6 @@ const STREAM_BADGE_STYLES: Record<string, { bg: string; color: string }> = {
   Cybersecurity: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444' },
   'Data/Analytics': { bg: 'rgba(34,211,238,0.15)', color: '#22d3ee' },
   Mobile: { bg: 'rgba(251,146,60,0.15)', color: '#fb923c' },
-  your ERP: { bg: 'rgba(99,102,241,0.18)', color: 'var(--accent-indigo)' },
   'Enterprise/ERP': { bg: 'rgba(234,179,8,0.15)', color: '#eab308' },
   'Product/Design': { bg: 'rgba(236,72,153,0.15)', color: '#ec4899' },
   'QA/Testing': { bg: 'rgba(20,184,166,0.15)', color: '#14b8a6' },
@@ -189,7 +188,7 @@ export default function JobLeadsPage() {
           <ol style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {[
               { emoji: '🔍', text: 'Click the big blue button to find companies looking to hire people from India' },
-              { emoji: '🏷️', text: 'Pick your stream at the top — your ERP, Cybersecurity, or Staffing' },
+              { emoji: '🏷️', text: 'Pick your stream at the top — Enterprise/ERP, Cybersecurity, or Staffing' },
               { emoji: '✅', text: 'Tick the boxes next to companies you want to reach out to' },
               { emoji: '📬', text: "Click 'Add to My CRM' — they go straight into your contacts list with an email address ready to use" },
               { emoji: '📧', text: 'Go to Campaigns → create a new campaign → pick these contacts → send your email!' },

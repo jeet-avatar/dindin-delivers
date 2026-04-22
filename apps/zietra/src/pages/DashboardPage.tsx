@@ -98,7 +98,7 @@ export default function DashboardPage() {
               title="CRM"
               body="Contact management, campaigns, visitor tracking."
               status={isProvisioned ? 'Available' : 'Pending provisioning'}
-              href={isProvisioned ? 'https://brandmonkz.com' : undefined}
+              href={isProvisioned ? 'https://app.zietra.com' : undefined}
             />
             <DashboardTile
               color="var(--social)"

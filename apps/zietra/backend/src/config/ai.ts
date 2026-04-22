@@ -3,9 +3,8 @@
  * All AI-related settings in one place for easy management
  */
 
-// Validate required AI configuration
 if (!process.env.ANTHROPIC_API_KEY) {
-  throw new Error('ANTHROPIC_API_KEY environment variable is required');
+  console.warn('⚠️  ANTHROPIC_API_KEY missing — AI features will fail at runtime');
 }
 
 export const AI_CONFIG = {

@@ -3,20 +3,20 @@
 **Effective Date:** October 5, 2025
 **Last Updated:** October 5, 2025
 
-## BrandMonkz CRM - Privacy Policy
+## Zietra CRM - Privacy Policy
 
-BrandMonkz Inc. ("we," "us," or "our") operates the BrandMonkz CRM platform (the "Service"). This page informs you of our policies regarding the collection, use, and disclosure of personal data when you use our Service and the choices you have associated with that data.
+Zietra Inc. ("we," "us," or "our") operates the Zietra CRM platform (the "Service"). This page informs you of our policies regarding the collection, use, and disclosure of personal data when you use our Service and the choices you have associated with that data.
 
 ### Company Information
 
-**BrandMonkz Inc.**
+**Zietra Inc.**
 350 Fifth Avenue, Suite 7520
 New York, NY 10118
 United States
 
-**Email:** privacy@brandmonkz.com
-**Support:** support@brandmonkz.com
-**Website:** https://brandmonkz.com
+**Email:** privacy@zietra.com
+**Support:** support@zietra.com
+**Website:** https://zietra.com
 
 ---
 
@@ -24,7 +24,7 @@ United States
 
 ### 1.1 Information You Provide
 
-When you register for and use BrandMonkz CRM, we collect:
+When you register for and use Zietra CRM, we collect:
 
 - **Account Information:** Name, email address, password, company name, phone number
 - **Profile Information:** Job title, department, business information
@@ -98,7 +98,7 @@ All service providers are contractually obligated to protect your data and use i
 
 ### 3.2 Business Transfers
 
-If BrandMonkz is involved in a merger, acquisition, or asset sale, your data may be transferred. We will provide notice before your data is transferred and becomes subject to a different Privacy Policy.
+If Zietra is involved in a merger, acquisition, or asset sale, your data may be transferred. We will provide notice before your data is transferred and becomes subject to a different Privacy Policy.
 
 ### 3.3 Legal Requirements
 
@@ -121,7 +121,7 @@ We may share your information for other purposes with your explicit consent.
 
 - We retain your account data for as long as your account is active
 - If you cancel your subscription, we retain data for 90 days before deletion
-- You can request immediate deletion by contacting support@brandmonkz.com
+- You can request immediate deletion by contacting support@zietra.com
 
 ### 4.2 Backup Data
 
@@ -179,7 +179,7 @@ You are responsible for:
 
 - You can delete your account at any time
 - Go to Settings → Account → Delete Account
-- Or email support@brandmonkz.com with deletion request
+- Or email support@zietra.com with deletion request
 - We will delete your data within 30 days
 
 ### 6.4 Opt-Out of Marketing
@@ -228,7 +228,7 @@ You are responsible for:
 
 ## 9. Children's Privacy
 
-- BrandMonkz CRM is not intended for children under 16
+- Zietra CRM is not intended for children under 16
 - We do not knowingly collect data from children
 - If we discover we have collected data from a child, we will delete it immediately
 - Parents/guardians can contact us to request deletion of a child's data
@@ -258,7 +258,7 @@ We process your data based on:
 - Right to withdraw consent
 - Right to lodge a complaint with a supervisory authority
 
-To exercise these rights, email: gdpr@brandmonkz.com
+To exercise these rights, email: gdpr@zietra.com
 
 ---
 
@@ -279,7 +279,7 @@ See Section 1 above for categories of personal information collected.
 
 ### 11.3 How to Exercise Your Rights
 
-- Email: ccpa@brandmonkz.com
+- Email: ccpa@zietra.com
 - We will respond within 45 days
 - We may request verification of your identity
 
@@ -298,7 +298,7 @@ See Section 1 above for categories of personal information collected.
 
 ### 13.1 Agent-Based System
 
-BrandMonkz CRM is built using AI agents and automation:
+Zietra CRM is built using AI agents and automation:
 
 - **AI Email Generation:** Uses AI to help draft emails (optional feature)
 - **Automated Workflows:** Marketing campaigns and follow-ups can be automated
@@ -323,10 +323,10 @@ BrandMonkz CRM is built using AI agents and automation:
 
 If you have questions about this Privacy Policy or our data practices:
 
-**Email:** privacy@brandmonkz.com
-**Support:** support@brandmonkz.com
+**Email:** privacy@zietra.com
+**Support:** support@zietra.com
 **Address:**
-BrandMonkz Inc.
+Zietra Inc.
 350 Fifth Avenue, Suite 7520
 New York, NY 10118
 United States
@@ -339,7 +339,7 @@ United States
 
 - **Personal Data:** Information that identifies you individually
 - **Processing:** Any operation performed on data (collection, storage, use, deletion)
-- **Controller:** Entity that determines how data is processed (BrandMonkz)
+- **Controller:** Entity that determines how data is processed (Zietra)
 - **Processor:** Entity that processes data on behalf of the controller (our service providers)
 - **Cookies:** Small files stored on your device
 - **Encryption:** Converting data into a secure format
@@ -348,6 +348,6 @@ United States
 
 **This Privacy Policy is part of our Terms of Service.**
 
-**By using BrandMonkz CRM, you agree to this Privacy Policy.**
+**By using Zietra CRM, you agree to this Privacy Policy.**
 
-© 2025 BrandMonkz Inc. All rights reserved.
+© 2025 Zietra Inc. All rights reserved.

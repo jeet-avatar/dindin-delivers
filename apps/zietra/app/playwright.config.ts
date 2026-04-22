@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * BrandMonkz CRM — Playwright E2E Configuration
+ * Zietra CRM — Playwright E2E Configuration
  *
  * Usage:
  *   Local (with backend running):  npx playwright test

@@ -6,7 +6,7 @@ export interface JobLead {
   url: string;
   location: string;
   postedAt: string;
-  stream: 'your ERP' | 'Cybersecurity' | 'Staffing/HR' | 'Other';
+  stream: string;
   tags: string[];
   companyDomain?: string;
   companyEmail?: string;

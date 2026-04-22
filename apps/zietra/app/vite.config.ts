@@ -5,17 +5,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    port: 5180,
     allowedHosts: ['.trycloudflare.com'],
     proxy: {
       '/api': {
-        target: 'https://brandmonkz.com',
+        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:3021',
         changeOrigin: true,
-        secure: true,
-        headers: {
-          'Origin': 'https://brandmonkz.com',
-          'Referer': 'https://brandmonkz.com/',
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
+        secure: false,
       },
     },
   },
