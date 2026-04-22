@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 21 (MixMind Native Pioneer USB Export) -- IN PROGRESS
 Plan: 5 of 6 complete in current phase
 Status: Plan 21-06 complete: CDJ-3000 artwork pipeline — artwork_extractor (MP3/AIFF/FLAC/MP4/WAV via mutagen + Pillow quality=85 re-encoder to 80×80 + 240×240 JPEG pairs); artwork_writer (deterministic bucket/slot with 20 slots/bucket + global slot numbering per reference USB enumeration; plan's 38-per-bucket-reset was a Rule 1 bug); reference USB oracle (77 parametrized tests, MAE<10, size within 2×); wired into usb_exporter._extract_and_write_artwork() + pdb_writer.write_pdb(artwork_assignments=...). Artwork PDB table stays empty per reference observation. 116 Phase 21-06 tests pass.
-Last activity: 2026-04-22 - Completed quick task 295: fix MFA frontend gap — authService.login returns mfa_required signal instead of throwing on backend 403, new /mfa-challenge TOTP entry page (MFAChallenge.tsx, 182 lines), Password.tsx branches on mfa_required to navigate to challenge. 3 atomic commits in arthaBuild (5aadd9a + c4cfd89 + 33cfcaa). npm run build passes, tsc --noEmit clean. Local only — NOT pushed, NOT deployed.
+Last activity: 2026-04-22 - Completed quick task 296: fix DELETE /api/user/me confirm bypass. Backend now requires {"confirm":"DELETE"} body — 422 on missing body, 400 on wrong confirm. Frontend authService.deleteAccount sends the body automatically. Shipped to prod: backend 50d62dc, frontend b8deeb8, new bundle index-CIx_UWrG.js. 9/9 launch-readiness suites green post-deploy including new 6/6 DELETE-confirm gate test.
 
 Progress: [#################################.......] 83% (5/6 plans in phase 21)
 
@@ -474,6 +474,7 @@ None
 | 293 | Foolproof arthaBuild launch: delete-account UI, og-image, 404 page, security compliance, activate Sentry | 2026-04-20 | 2c49db0 | [293-foolproof-arthabuild-launch-delete-accou](./quick/293-foolproof-arthabuild-launch-delete-accou/) |
 | 294 | arthaBuild launch hardening: MFA login enforcement + RFC 9116 security.txt + zero-assume retest | 2026-04-20 | 6ae5307 | [294-arthabuild-launch-hardening-mfa-login-en](./quick/294-arthabuild-launch-hardening-mfa-login-en/) |
 | 295 | fix MFA frontend gap - Password.tsx ignores backend 403 mfa_required response | 2026-04-22 | 33cfcaa | [295-fix-mfa-frontend-gap-password-tsx-ignore](./quick/295-fix-mfa-frontend-gap-password-tsx-ignore/) |
+| 296 | fix DELETE /api/user/me to require confirm=DELETE body — prevent unauthorized account erasure | 2026-04-22 | b8deeb8 | [296-fix-delete-api-user-me-to-require-confir](./quick/296-fix-delete-api-user-me-to-require-confir/) |
 ## Session Continuity
 
 Last session: 2026-04-19
