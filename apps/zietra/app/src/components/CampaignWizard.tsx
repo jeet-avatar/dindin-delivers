@@ -743,7 +743,7 @@ export function CampaignWizard({ isOpen, onClose, onSuccess, preselect }: Props)
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', maxHeight: '420px', overflowY: 'auto' }}>
                       {staffingTemplates.map((t: any, idx: number) => {
                         const descriptions: Record<string, string> = {
-                          'your ERP + your system': 'your ERP 2026.1 + your system — AI Canvas, SuiteScript 2.1, Solution Architects',
+                          'ERP': 'ERP modernization — AI Canvas, SuiteScript 2.1, Solution Architects',
                           'AI Consulting': 'AI agents, GenAI/LLM, RAG systems, ML pipelines — target companies stuck in pilot mode',
                           'Cloud & Platform Engineering': 'Kubernetes, Platform Engineering, DevOps, SRE — 90% of orgs face cloud skills gaps',
                           'Cybersecurity': '$4.88M per breach — pen testers, SOC analysts, Zero Trust, compliance (SOC2/HIPAA)',
@@ -991,7 +991,7 @@ export function CampaignWizard({ isOpen, onClose, onSuccess, preselect }: Props)
                   <textarea
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
-                    placeholder="e.g. We are offering 20% off our cyber security training for your ERP customers this month only"
+                    placeholder="e.g. We are offering 20% off our cyber security training for ERP customers this month only"
                     rows={4}
                     style={{
                       ...inputStyle,
@@ -1220,7 +1220,7 @@ export function CampaignWizard({ isOpen, onClose, onSuccess, preselect }: Props)
                     type="text"
                     value={companySearch}
                     onChange={e => setCompanySearch(e.target.value)}
-                    placeholder="Search companies... (e.g. your ERP, Cyber, Tech)"
+                    placeholder="Search companies... (e.g. ERP, Cyber, Tech)"
                     style={{
                       ...inputStyle,
                       paddingLeft: '36px',

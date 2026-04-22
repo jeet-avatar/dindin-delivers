@@ -19,7 +19,7 @@ interface ImportResults {
 const CRM_SOURCES = [
   { id: 'salesforce', name: 'Salesforce', icon: '☁️' },
   { id: 'hubspot', name: 'HubSpot', icon: '🟠' },
-  { id: 'erp', name: 'your ERP', icon: '🔷' },
+  { id: 'erp', name: 'ERP', icon: '🔷' },
   { id: 'pipedrive', name: 'Pipedrive', icon: '🟢' },
   { id: 'zoho', name: 'Zoho CRM', icon: '🔴' },
   { id: 'generic', name: 'Generic CSV', icon: '📄' },

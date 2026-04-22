@@ -42,7 +42,7 @@ export const AIChatWidget: React.FC<AIChatWidgetProps> = ({ isOpen: externalOpen
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: "Hi! I'm your Zietra AI Assistant. I can help with contacts, campaigns, importing from your ERP, and more. What would you like to do?",
+      content: "Hi! I'm your Zietra AI Assistant. I can help with contacts, campaigns, importing from ERP, and more. What would you like to do?",
       timestamp: new Date(),
     },
   ]);
@@ -155,7 +155,7 @@ export const AIChatWidget: React.FC<AIChatWidgetProps> = ({ isOpen: externalOpen
 
   const quickActions = [
     { label: 'New Computer Setup', prompt: 'How do I access Zietra on a new computer?' },
-    { label: 'Import Contacts', prompt: 'How do I import more contacts from your ERP or a CSV file?' },
+    { label: 'Import Contacts', prompt: 'How do I import more contacts from ERP or a CSV file?' },
     { label: 'Create Campaign', prompt: 'Walk me through creating and sending an email campaign' },
     { label: 'Lead Discovery', prompt: 'How do I use lead discovery to find new prospects?' },
   ];

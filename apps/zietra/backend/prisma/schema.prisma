@@ -21,6 +21,7 @@ enum Role {
 enum TeamRole {
   OWNER
   MEMBER
+  ADMIN
 }
 
 enum ContactStatus {

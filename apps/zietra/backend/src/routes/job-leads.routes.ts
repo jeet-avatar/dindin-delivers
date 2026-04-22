@@ -45,7 +45,7 @@ function classifyStream(title: string, description: string): string {
   const text = `${title} ${description}`.toLowerCase();
 
   // Enterprise / ERP
-  if (/erp|oracle erp|erp administrator|erp developer/.test(text)) return 'your ERP';
+  if (/erp|oracle erp|erp administrator|erp developer/.test(text)) return 'ERP';
   if (/\berp\b|sap\b|dynamics 365|workday|oracle erp/.test(text)) return 'Enterprise/ERP';
 
   // AI / ML / Data Science

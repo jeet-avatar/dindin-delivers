@@ -70,9 +70,13 @@ export const authenticate = async (
       try {
         const claims = await verifySupabaseJwt(token);
         user = await resolveUserFromSupabase(claims);
-      } catch {
-        // fall through to legacy HS256 verification
+      } catch (err) {
+        if (process.env.AUTH_DEBUG === '1') {
+          console.log('[auth] Supabase verify fell through:', (err as Error).message);
+        }
       }
+    } else if (process.env.AUTH_DEBUG === '1') {
+      console.log('[auth] Supabase JWKS not configured');
     }
 
     if (!user) {

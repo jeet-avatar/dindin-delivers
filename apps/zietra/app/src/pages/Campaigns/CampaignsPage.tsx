@@ -150,7 +150,7 @@ export function CampaignsPage() {
   };
 
   const handleErpQuickSend = async () => {
-    if (!window.confirm('Send the $2/hr staff augmentation campaign to ALL your ERP companies now?\n\nThis will send real emails via AWS SES.')) return;
+    if (!window.confirm('Send the $2/hr staff augmentation campaign to ALL ERP companies now?\n\nThis will send real emails via AWS SES.')) return;
     setSendingErpCampaign(true);
     setErpResult(null);
     try {
@@ -165,10 +165,10 @@ export function CampaignsPage() {
         setErpResult({ sent: data.sent, total: data.total, failed: data.failed, companyCount: data.companyCount });
         loadCampaigns();
       } else {
-        alert(data.error || 'Failed to send your ERP campaign');
+        alert(data.error || 'Failed to send ERP campaign');
       }
     } catch {
-      alert('Failed to send your ERP campaign');
+      alert('Failed to send ERP campaign');
     } finally {
       setSendingErpCampaign(false);
     }
@@ -263,13 +263,13 @@ export function CampaignsPage() {
             <button
               type="button"
               onClick={() => {
-                setWizardPreselect({ subject: "{{companyName}}'s your ERP team ready for 2026.1?", campaignType: 'erp' });
+                setWizardPreselect({ subject: "{{companyName}}'s ERP team ready for 2026.1?", campaignType: 'erp' });
                 setShowCreateModal(true);
               }}
               className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 active:scale-95 tracking-wide border border-orange-400/30"
             >
               <PaperAirplaneIcon className="h-5 w-5" />
-              Send your ERP Campaign
+              Send ERP Campaign
             </button>
             <button
               type="button"
@@ -337,13 +337,13 @@ export function CampaignsPage() {
         </div>
       </div>
 
-      {/* your ERP Campaign Success Banner */}
+      {/* ERP Campaign Success Banner */}
       {erpResult && (
         <div className="mb-6 bg-green-500/10 border border-green-500/30 rounded-xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <PaperAirplaneIcon className="h-6 w-6 text-green-400" />
             <span className="text-green-400 font-bold">
-              your ERP Campaign Sent! {erpResult.sent}/{erpResult.total} emails delivered to {erpResult.companyCount} companies.
+              ERP Campaign Sent! {erpResult.sent}/{erpResult.total} emails delivered to {erpResult.companyCount} companies.
               {erpResult.failed > 0 && ` (${erpResult.failed} failed)`}
             </span>
           </div>
@@ -356,11 +356,11 @@ export function CampaignsPage() {
       {/* All Campaign Templates — Dynamic from data */}
       {[
         { id: 'erp', title: 'ERP + ERP NEXT', icon: '🔥', color: '#FF6B35', desc: 'Pick one, send to a batch, compare open rates', subjects: [
-          { subject: "{{companyName}}'s your ERP team ready for 2026.1?", tag: 'Personal' },
-          { subject: "your system just launched — where's your talent?", tag: 'Urgency' },
-          { subject: "82% of firms can't find your ERP talent — here's how we solve it", tag: 'Data hook' },
-          { subject: "Quick question about {{companyName}}'s your ERP roadmap", tag: 'Top pick' },
-          { subject: "your ERP 2026.1 + your system — does {{companyName}} have the right engineers?", tag: 'News' },
+          { subject: "{{companyName}}'s ERP team ready for 2026.1?", tag: 'Personal' },
+          { subject: "modern stack just launched — where's your talent?", tag: 'Urgency' },
+          { subject: "82% of firms can't find ERP talent — here's how we solve it", tag: 'Data hook' },
+          { subject: "Quick question about {{companyName}}'s ERP roadmap", tag: 'Top pick' },
+          { subject: "ERP modernization — does {{companyName}} have the right engineers?", tag: 'News' },
         ]},
         { id: 'ai', title: 'AI CONSULTING — Get AI Projects', icon: '🤖', color: '#8B5CF6', desc: 'Target: companies stuck in AI pilot mode', subjects: [
           { subject: "67% of Fortune 500 deployed AI agents this year. Has {{companyName}}?", tag: 'FOMO' },

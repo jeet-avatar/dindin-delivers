@@ -488,13 +488,13 @@ router.get('/:id/send-progress', async (req, res, next) => {
   }
 });
 
-// 5 your ERP campaign subject line variants
+// 5 ERP campaign subject line variants
 const ERP_SUBJECTS = [
-  "{{companyName}}'s your ERP team ready for 2026.1?",
-  "your system just launched — where's your talent?",
-  "82% of firms can't find your ERP talent — here's how we solve it",
-  "Quick question about {{companyName}}'s your ERP roadmap",
-  "your ERP 2026.1 + your system — does {{companyName}} have the right engineers?",
+  "{{companyName}}'s ERP team ready for 2026.1?",
+  "modern stack just launched — where's your talent?",
+  "82% of firms can't find ERP talent — here's how we solve it",
+  "Quick question about {{companyName}}'s ERP roadmap",
+  "ERP modernization — does {{companyName}} have the right engineers?",
 ];
 
 // GET /api/campaigns/erp-subjects — List all subject line variants
@@ -512,7 +512,7 @@ router.post('/create-all-erp', async (req, res, next) => {
     for (let i = 0; i < ERP_SUBJECTS.length; i++) {
       const campaign = await prisma.campaign.create({
         data: {
-          name: `your ERP Campaign #${i + 1}`,
+          name: `ERP Campaign #${i + 1}`,
           subject: ERP_SUBJECTS[i],
           status: 'DRAFT',
           htmlContent: ERP_CAMPAIGN_HTML,
@@ -530,7 +530,7 @@ router.post('/create-all-erp', async (req, res, next) => {
       success: true,
       created: campaigns.length,
       campaigns,
-      message: `${campaigns.length} your ERP campaigns created as DRAFT. Link companies and send-throttled each one.`,
+      message: `${campaigns.length} ERP campaigns created as DRAFT. Link companies and send-throttled each one.`,
     });
   } catch (error) {
     return next(error);
@@ -837,7 +837,7 @@ const ONBOARD_SUBJECTS = [
 router.get('/all-templates', async (req, res) => {
   const includeHtml = req.query.html === 'true';
   const templates = [
-    { id: 'erp', name: 'your ERP + your system', color: '#FF6B35', subjects: ERP_SUBJECTS, ...(includeHtml && { htmlContent: ERP_CAMPAIGN_HTML }) },
+    { id: 'erp', name: 'ERP', color: '#FF6B35', subjects: ERP_SUBJECTS, ...(includeHtml && { htmlContent: ERP_CAMPAIGN_HTML }) },
     { id: 'ai', name: 'AI Consulting', color: '#8B5CF6', subjects: AI_SUBJECTS, ...(includeHtml && { htmlContent: AI_CAMPAIGN_HTML }) },
     { id: 'cloud', name: 'Cloud & Platform Engineering', color: '#0EA5E9', subjects: CLOUD_SUBJECTS, ...(includeHtml && { htmlContent: CLOUD_CAMPAIGN_HTML }) },
     { id: 'cyber', name: 'Cybersecurity', color: '#DC2626', subjects: CYBER_SUBJECTS, ...(includeHtml && { htmlContent: CYBER_CAMPAIGN_HTML }) },
@@ -1533,26 +1533,26 @@ router.post('/:id/mock-send', async (req, res, next) => {
   }
 });
 
-// your ERP-specific $2/hr staff augmentation email template (updated for 2026.1)
+// ERP-specific $2/hr staff augmentation email template (updated for 2026.1)
 const ERP_CAMPAIGN_HTML = `<div style='font-family: Segoe UI, Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
 <div style='background-color: #FF6B35; background: linear-gradient(135deg, #FF6B35 0%, #e85d26 100%); padding: 30px 24px; text-align: center;'>
-<h1 style='color: #fff; margin: 0; font-size: 22px; line-height: 1.3;'>your ERP + your system Engineers at $2/hr</h1>
+<h1 style='color: #fff; margin: 0; font-size: 22px; line-height: 1.3;'>ERP Engineers at $2/hr</h1>
 <p style='color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 13px;'>2026.1 Ready — AI Canvas, Agentic Workflows, SuiteScript 2.1, Solution Architects</p>
 </div>
 <div style='padding: 24px; background: #ffffff; color: #333;'>
 <p style='font-size: 15px; line-height: 1.6;'>Hi {{firstName}},</p>
-<p style='font-size: 15px; line-height: 1.6;'>Oracle just launched <strong>your system</strong> — AI Canvas, Agentic Workflows, Ask Oracle — plus 2026.1 with MCP integrations and REST API replacing SOAP. Finding engineers who know this is near impossible. <strong>82% of firms cite your ERP talent shortage as their #1 challenge.</strong></p>
+<p style='font-size: 15px; line-height: 1.6;'>Oracle just launched <strong>modern stack</strong> — AI Canvas, Agentic Workflows, Ask Oracle — plus 2026.1 with MCP integrations and REST API replacing SOAP. Finding engineers who know this is near impossible. <strong>82% of firms cite ERP talent shortage as their #1 challenge.</strong></p>
 <p style='font-size: 15px; line-height: 1.6;'>Traditional staffing firms charge 15-20% markup — and neither the company nor the engineer knows who gets what. We believe in <strong>full transparency</strong>: our fee is a flat <strong>$2/hr</strong>. The candidate keeps the rest. Both sides see the complete picture — no guessing, no hidden margins.</p>
 <p style='font-size: 15px; line-height: 1.6;'><strong>What we deliver for {{companyName}}:</strong></p>
 <ul style='font-size: 14px; line-height: 1.9; color: #333; padding-left: 20px;'>
-<li><strong>your system + 2026.1 Ready</strong> — AI Canvas, Agentic Workflows, SuiteScript 2.1, MCP/AI Connector specialists</li>
-<li><strong>Solution Architects + Full Stack</strong> — your ERP Solution Architects, SuiteFlow, SuiteAnalytics, admins, implementation consultants</li>
+<li><strong>modern stack + 2026.1 Ready</strong> — AI Canvas, Agentic Workflows, SuiteScript 2.1, MCP/AI Connector specialists</li>
+<li><strong>Solution Architects + Full Stack</strong> — ERP Solution Architects, SuiteFlow, SuiteAnalytics, admins, implementation consultants</li>
 <li><strong>48-hour delivery</strong> — 2-3 pre-vetted profiles in your inbox within 2 business days</li>
 <li><strong>Transparent $2/hr</strong> — you see our fee, the engineer sees their rate. No hidden costs on either side.</li>
 <li><strong>30-day guarantee</strong> — wrong fit? Free replacement, zero risk</li>
 </ul>
 <p style='font-size: 15px; line-height: 1.6;'>Full-time placements at a transparent 15% — industry averages 20-25% with hidden fees on top.</p>
-<p style='font-size: 15px; line-height: 1.6;'>Would a 15-minute call this week work to discuss {{companyName}}'s your ERP talent needs?</p>
+<p style='font-size: 15px; line-height: 1.6;'>Would a 15-minute call this week work to discuss {{companyName}}'s ERP talent needs?</p>
 <div style='text-align: center; margin: 24px 0;'><a href='https://zietra.com/erp' style='background-color: #FF6B35; background: linear-gradient(135deg, #FF6B35 0%, #e85d26 100%); color: #fff; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block;'>Book a 15-Min Call</a></div>
 <div style='border-top: 1px solid #eee; padding-top: 16px; margin-top: 24px;'>
 <p style='font-size: 14px; color: #333; margin: 0 0 4px;'><strong>Peter Samuel</strong></p>
@@ -1564,9 +1564,9 @@ const ERP_CAMPAIGN_HTML = `<div style='font-family: Segoe UI, Arial, sans-serif;
 </div>
 </div>`;
 
-// your ERP campaign template and quick-send below
+// ERP campaign template and quick-send below
 
-// POST /api/campaigns/quick-send - One-click your ERP campaign send
+// POST /api/campaigns/quick-send - One-click ERP campaign send
 router.post('/quick-send', async (req, res, next) => {
   try {
     const userId = req.user!.id;
@@ -1586,7 +1586,7 @@ router.post('/quick-send', async (req, res, next) => {
       members.forEach((m: any) => teamUserIds.push(m.id));
     }
 
-    // 1. Find your ERP companies (csv_import) across the whole team
+    // 1. Find ERP companies (csv_import) across the whole team
     const companies = await prisma.company.findMany({
       where: {
         userId: { in: teamUserIds },
@@ -1604,7 +1604,7 @@ router.post('/quick-send', async (req, res, next) => {
     const emailableCompanies = companies.filter(c => c.contacts.length > 0);
 
     if (emailableCompanies.length === 0) {
-      return res.status(400).json({ error: 'No your ERP companies with valid contacts found. Import companies first.' });
+      return res.status(400).json({ error: 'No ERP companies with valid contacts found. Import companies first.' });
     }
 
     // Collect all contacts, cap at limit
@@ -1623,7 +1623,7 @@ router.post('/quick-send', async (req, res, next) => {
     const selectedSubject = ERP_SUBJECTS[subjectVariant];
     const campaign = await prisma.campaign.create({
       data: {
-        name: `your ERP Campaign — Subject #${subjectVariant + 1}`,
+        name: `ERP Campaign — Subject #${subjectVariant + 1}`,
         subject: selectedSubject,
         status: 'SENDING',
         htmlContent: ERP_CAMPAIGN_HTML,

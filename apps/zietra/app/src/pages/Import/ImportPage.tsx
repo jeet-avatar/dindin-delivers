@@ -9,7 +9,7 @@ export function ImportPage() {
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-[#F1F5F9]">CRM Migration</h1>
-        <p className="text-[#94A3B8] mt-1">Import contacts, companies, and deals from Salesforce, HubSpot, your ERP, Pipedrive, Zoho, or CSV</p>
+        <p className="text-[#94A3B8] mt-1">Import contacts, companies, and deals from Salesforce, HubSpot, ERP, Pipedrive, Zoho, or CSV</p>
       </div>
 
       {results && !open ? (

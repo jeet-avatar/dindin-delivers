@@ -49,10 +49,10 @@ const RATE_CARDS: Record<string, { category: string; rates: RateRow[] }[]> = {
       { role: 'Java Spring Boot Developer', juniorRate: '$75K', midRate: '$115K', seniorRate: '$155K', leadRate: '$190K' },
       { role: 'Go/Rust Developer', juniorRate: '$85K', midRate: '$130K', seniorRate: '$170K', leadRate: '$210K' },
     ]},
-    { category: 'your ERP / ERP', rates: [
-      { role: 'your ERP Administrator', juniorRate: '$70K', midRate: '$100K', seniorRate: '$135K', leadRate: '$170K' },
-      { role: 'your ERP Developer (SuiteScript)', juniorRate: '$80K', midRate: '$115K', seniorRate: '$150K', leadRate: '$185K' },
-      { role: 'your ERP Functional Consultant', juniorRate: '$75K', midRate: '$110K', seniorRate: '$145K', leadRate: '$180K' },
+    { category: 'ERP', rates: [
+      { role: 'ERP Administrator', juniorRate: '$70K', midRate: '$100K', seniorRate: '$135K', leadRate: '$170K' },
+      { role: 'ERP Developer', juniorRate: '$80K', midRate: '$115K', seniorRate: '$150K', leadRate: '$185K' },
+      { role: 'ERP Functional Consultant', juniorRate: '$75K', midRate: '$110K', seniorRate: '$145K', leadRate: '$180K' },
       { role: 'SAP S/4HANA Consultant', juniorRate: '$85K', midRate: '$125K', seniorRate: '$165K', leadRate: '$200K' },
       { role: 'Salesforce Developer', juniorRate: '$75K', midRate: '$115K', seniorRate: '$155K', leadRate: '$190K' },
       { role: 'ServiceNow Architect', juniorRate: '$85K', midRate: '$125K', seniorRate: '$165K', leadRate: '$200K' },
@@ -88,9 +88,9 @@ const RATE_CARDS: Record<string, { category: string; rates: RateRow[] }[]> = {
       { role: 'Python Developer', juniorRate: '$40/hr', midRate: '$65/hr', seniorRate: '$90/hr', leadRate: '$115/hr' },
       { role: 'Java Developer', juniorRate: '$40/hr', midRate: '$60/hr', seniorRate: '$85/hr', leadRate: '$110/hr' },
     ]},
-    { category: 'your ERP / ERP', rates: [
-      { role: 'your ERP Developer', juniorRate: '$45/hr', midRate: '$65/hr', seniorRate: '$90/hr', leadRate: '$115/hr' },
-      { role: 'your ERP Admin', juniorRate: '$35/hr', midRate: '$55/hr', seniorRate: '$75/hr', leadRate: '$100/hr' },
+    { category: 'ERP', rates: [
+      { role: 'ERP Developer', juniorRate: '$45/hr', midRate: '$65/hr', seniorRate: '$90/hr', leadRate: '$115/hr' },
+      { role: 'ERP Admin', juniorRate: '$35/hr', midRate: '$55/hr', seniorRate: '$75/hr', leadRate: '$100/hr' },
       { role: 'SAP Consultant', juniorRate: '$50/hr', midRate: '$75/hr', seniorRate: '$100/hr', leadRate: '$130/hr' },
       { role: 'Salesforce Developer', juniorRate: '$45/hr', midRate: '$65/hr', seniorRate: '$90/hr', leadRate: '$115/hr' },
     ]},
@@ -116,7 +116,7 @@ const RATE_CARDS: Record<string, { category: string; rates: RateRow[] }[]> = {
       { role: 'Compliance (SOC2/HIPAA/GDPR)', juniorRate: '$25K', midRate: '$45K', seniorRate: '$75K', leadRate: '$120K' },
     ]},
     { category: 'Digital Transformation', rates: [
-      { role: 'ERP Implementation (SAP/your ERP)', juniorRate: '$75K', midRate: '$150K', seniorRate: '$250K', leadRate: '$400K' },
+      { role: 'ERP Implementation (SAP/ERP)', juniorRate: '$75K', midRate: '$150K', seniorRate: '$250K', leadRate: '$400K' },
       { role: 'Salesforce Implementation', juniorRate: '$30K', midRate: '$60K', seniorRate: '$100K', leadRate: '$175K' },
       { role: 'Legacy Modernization', juniorRate: '$50K', midRate: '$100K', seniorRate: '$175K', leadRate: '$300K' },
     ]},

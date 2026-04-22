@@ -435,7 +435,7 @@ export function CreateTemplateModal({ isOpen, onClose, onSuccess, editingTemplat
                   <p style={{ fontSize: 11, fontWeight: 700, color: '#6366F1', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Try these prompts:</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {[
-                      'your ERP consulting services for enterprise clients',
+                      'ERP consulting services for enterprise clients',
                       'Cybersecurity training discount for Q2',
                       'Welcome email for new customers with onboarding steps',
                       'Follow-up after a product demo meeting',

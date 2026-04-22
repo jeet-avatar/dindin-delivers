@@ -4,43 +4,43 @@
  * This is the SINGLE SOURCE OF TRUTH for all colors and gradients in the application.
  * Change colors here and they will automatically apply across ALL pages.
  *
- * Design Philosophy: Indigo Noir
- * - Primary: Indigo-Purple (Premium, Intelligence, Innovation)
+ * Design Philosophy: Zietra Blue
+ * - Primary: Sky-Blue (Premium, Intelligence, Innovation)
  * - Success: Emerald-Green (Growth, Success, Prosperity)
  * - Warning: Amber-Orange (Attention, Caution)
- * - Info: Indigo-Violet (Clarity, Knowledge)
+ * - Info: Sky-Cyan (Clarity, Knowledge)
  * - Danger: Red-Rose (Critical, Important, Action Required)
- * - Premium: Indigo-Purple (Luxury, Premium, Exclusive)
+ * - Premium: Sky-Blue (Luxury, Premium, Exclusive)
  */
 
 // ============================================================================
-// CORE BRAND COLORS - Main brand identity (Indigo Noir Theme)
+// CORE BRAND COLORS - Main brand identity (Zietra Blue Theme)
 // ============================================================================
 export const BRAND_COLORS = {
   primary: {
     name: 'Primary Brand',
-    gradient: 'from-indigo-500 to-purple-600',
-    hover: 'hover:from-indigo-600 hover:to-purple-700',
-    solid: 'bg-indigo-500',
-    text: 'text-indigo-400',
-    border: 'border-indigo-500',
-    ring: 'ring-indigo-500',
-    shadow: 'shadow-purple-500/30',
-    lightBg: 'from-indigo-50 to-purple-50',
-    description: 'Main brand gradient - Indigo Noir Premium'
+    gradient: 'from-sky-500 to-blue-600',
+    hover: 'hover:from-sky-600 hover:to-blue-700',
+    solid: 'bg-sky-500',
+    text: 'text-sky-400',
+    border: 'border-sky-500',
+    ring: 'ring-sky-500',
+    shadow: 'shadow-blue-500/30',
+    lightBg: 'from-sky-50 to-blue-50',
+    description: 'Main brand gradient - Zietra Blue Premium'
   },
 
   secondary: {
     name: 'Secondary Accent',
-    gradient: 'from-purple-600 to-indigo-600',
-    hover: 'hover:from-purple-700 hover:to-indigo-700',
-    solid: 'bg-purple-600',
-    text: 'text-purple-400',
-    border: 'border-purple-600',
-    ring: 'ring-purple-600',
-    shadow: 'shadow-indigo-500/30',
-    lightBg: 'from-purple-50 to-indigo-50',
-    description: 'Secondary brand accent - Deep Indigo'
+    gradient: 'from-blue-600 to-sky-600',
+    hover: 'hover:from-blue-700 hover:to-sky-700',
+    solid: 'bg-blue-600',
+    text: 'text-blue-400',
+    border: 'border-blue-600',
+    ring: 'ring-blue-600',
+    shadow: 'shadow-sky-500/30',
+    lightBg: 'from-blue-50 to-sky-50',
+    description: 'Secondary brand accent - Deep Blue'
   }
 } as const;
 
@@ -89,27 +89,27 @@ export const SEMANTIC_COLORS = {
 
   info: {
     name: 'Information',
-    gradient: 'from-indigo-500 to-violet-600',
-    hover: 'hover:from-indigo-600 hover:to-violet-700',
-    solid: 'bg-indigo-500',
-    text: 'text-indigo-400',
-    border: 'border-indigo-500',
-    ring: 'ring-indigo-500',
-    shadow: 'shadow-indigo-500/30',
-    lightBg: 'from-indigo-50 to-violet-50',
+    gradient: 'from-sky-500 to-cyan-600',
+    hover: 'hover:from-sky-600 hover:to-cyan-700',
+    solid: 'bg-sky-500',
+    text: 'text-sky-400',
+    border: 'border-sky-500',
+    ring: 'ring-sky-500',
+    shadow: 'shadow-sky-500/30',
+    lightBg: 'from-sky-50 to-violet-50',
     description: 'Information & Clarity'
   },
 
   premium: {
     name: 'Premium',
-    gradient: 'from-indigo-600 to-purple-600',
-    hover: 'hover:from-indigo-700 hover:to-purple-700',
-    solid: 'bg-indigo-600',
-    text: 'text-indigo-400',
-    border: 'border-indigo-600',
-    ring: 'ring-indigo-600',
-    shadow: 'shadow-indigo-500/30',
-    lightBg: 'from-indigo-50 to-purple-50',
+    gradient: 'from-sky-600 to-blue-600',
+    hover: 'hover:from-sky-700 hover:to-blue-700',
+    solid: 'bg-sky-600',
+    text: 'text-sky-400',
+    border: 'border-sky-600',
+    ring: 'ring-sky-600',
+    shadow: 'shadow-sky-500/30',
+    lightBg: 'from-sky-50 to-blue-50',
     description: 'Premium & Exclusive features'
   }
 } as const;
@@ -121,8 +121,8 @@ export const PAGE_COLORS = {
   // Settings Page Tabs
   settings: {
     profile: {
-      gradient: 'from-indigo-500 to-purple-600',
-      shadow: 'shadow-indigo-500/30',
+      gradient: 'from-sky-500 to-blue-600',
+      shadow: 'shadow-sky-500/30',
       description: 'Profile - Professional & Trustworthy'
     },
     account: {
@@ -136,13 +136,13 @@ export const PAGE_COLORS = {
       description: 'Notifications - Attention & Alerts'
     },
     security: {
-      gradient: 'from-violet-500 to-purple-600',
-      shadow: 'shadow-violet-500/30',
+      gradient: 'from-cyan-500 to-blue-600',
+      shadow: 'shadow-cyan-500/30',
       description: 'Security - Protection & Trust'
     },
     preferences: {
-      gradient: 'from-indigo-400 to-purple-600',
-      shadow: 'shadow-indigo-500/30',
+      gradient: 'from-sky-400 to-blue-600',
+      shadow: 'shadow-sky-500/30',
       description: 'Preferences - Personal & Custom'
     },
     billing: {
@@ -168,15 +168,15 @@ export const PAGE_COLORS = {
       description: 'Deals - Revenue & Success'
     },
     contacts: {
-      gradient: 'from-indigo-500 to-purple-600',
+      gradient: 'from-sky-500 to-blue-600',
       description: 'Contacts - Network & Connections'
     },
     companies: {
-      gradient: 'from-violet-500 to-indigo-600',
+      gradient: 'from-cyan-500 to-sky-600',
       description: 'Companies - Business & Growth'
     },
     activities: {
-      gradient: 'from-purple-500 to-indigo-600',
+      gradient: 'from-blue-500 to-sky-600',
       description: 'Activities - Energy & Action'
     }
   },
@@ -184,8 +184,8 @@ export const PAGE_COLORS = {
   // Campaign Stats
   campaigns: {
     sent: {
-      gradient: 'from-indigo-500 to-purple-600',
-      lightBg: 'from-indigo-50 to-purple-50',
+      gradient: 'from-sky-500 to-blue-600',
+      lightBg: 'from-sky-50 to-blue-50',
       description: 'Sent - Delivered & Completed'
     },
     opened: {
@@ -194,8 +194,8 @@ export const PAGE_COLORS = {
       description: 'Opened - Engagement & Interest'
     },
     clicked: {
-      gradient: 'from-violet-500 to-purple-600',
-      lightBg: 'from-violet-50 to-purple-50',
+      gradient: 'from-cyan-500 to-blue-600',
+      lightBg: 'from-violet-50 to-blue-50',
       description: 'Clicked - Action & Conversion'
     },
     bounced: {
@@ -213,21 +213,21 @@ export const PAGE_COLORS = {
       description: 'Free - Entry Level'
     },
     starter: {
-      gradient: 'from-indigo-500 to-purple-600',
-      hover: 'hover:from-indigo-600 hover:to-purple-700',
-      shadow: 'shadow-indigo-500/30',
+      gradient: 'from-sky-500 to-blue-600',
+      hover: 'hover:from-sky-600 hover:to-blue-700',
+      shadow: 'shadow-sky-500/30',
       description: 'Starter - Getting Started'
     },
     professional: {
-      gradient: 'from-purple-500 to-indigo-600',
-      hover: 'hover:from-purple-600 hover:to-indigo-700',
-      shadow: 'shadow-purple-500/30',
+      gradient: 'from-blue-500 to-sky-600',
+      hover: 'hover:from-blue-600 hover:to-sky-700',
+      shadow: 'shadow-blue-500/30',
       description: 'Professional - Most Popular'
     },
     enterprise: {
-      gradient: 'from-violet-600 to-purple-700',
-      hover: 'hover:from-violet-700 hover:to-purple-800',
-      shadow: 'shadow-violet-500/30',
+      gradient: 'from-cyan-600 to-blue-700',
+      hover: 'hover:from-cyan-700 hover:to-blue-800',
+      shadow: 'shadow-cyan-500/30',
       description: 'Enterprise - Premium & Unlimited'
     }
   },
@@ -235,11 +235,11 @@ export const PAGE_COLORS = {
   // AI Assistant
   aiAssistant: {
     header: {
-      gradient: 'from-indigo-600 to-purple-600',
+      gradient: 'from-sky-600 to-blue-600',
       description: 'AI - Intelligence & Innovation'
     },
     success: {
-      lightBg: 'from-emerald-50 to-indigo-50',
+      lightBg: 'from-emerald-50 to-sky-50',
       description: 'AI Success state'
     }
   }
@@ -250,7 +250,7 @@ export const PAGE_COLORS = {
 // ============================================================================
 export const NEUTRAL_COLORS = {
   background: {
-    page: 'from-gray-50 via-indigo-50/30 to-purple-50/30',
+    page: 'from-gray-50 via-sky-50/30 to-blue-50/30',
     card: 'bg-white',
     subtle: 'from-gray-50 to-gray-100',
     description: 'Page backgrounds - Dark Glass'
@@ -259,7 +259,7 @@ export const NEUTRAL_COLORS = {
   border: {
     default: 'border-gray-200',
     hover: 'hover:border-gray-300',
-    focus: 'focus:border-indigo-500',
+    focus: 'focus:border-sky-500',
     description: 'Borders & Dividers'
   },
 
@@ -306,7 +306,7 @@ export function getIconGradient(type: keyof typeof BRAND_COLORS | keyof typeof S
 
 export const THEME_PRESETS = {
   default: {
-    name: 'Indigo Noir',
+    name: 'Zietra Blue',
     description: 'Dark glassmorphism with indigo-purple accents',
     colors: BRAND_COLORS
   },
@@ -335,15 +335,15 @@ export const THEME_PRESETS = {
   royal: {
     name: 'Royal Purple',
     description: 'Deep purples for luxury and premium feel',
-    primary: 'from-purple-600 to-indigo-700',
-    secondary: 'from-violet-600 to-purple-700'
+    primary: 'from-blue-600 to-sky-700',
+    secondary: 'from-cyan-600 to-blue-700'
   },
 
   midnight: {
     name: 'Midnight Dark',
     description: 'Dark blues and purples for a modern, sleek look',
-    primary: 'from-indigo-700 to-purple-800',
-    secondary: 'from-blue-800 to-indigo-900'
+    primary: 'from-sky-700 to-blue-800',
+    secondary: 'from-blue-800 to-sky-900'
   }
 } as const;
 

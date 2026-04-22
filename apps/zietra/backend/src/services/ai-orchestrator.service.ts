@@ -148,7 +148,7 @@ That's it — nothing to install, download, or configure.
 - Password: TechCloud@2025!
 - Company: TechCloud Pro
 - Status: Active (contacts already imported)
-- Contacts imported: 18,373 contacts from your ERP are already in the CRM
+- Contacts imported: 18,373 contacts from ERP are already in the CRM
 
 **HOW TO IMPORT MORE CONTACTS:**
 Option 1 — CSV Upload (recommended):
@@ -157,8 +157,8 @@ Option 1 — CSV Upload (recommended):
 3. Map your columns to CRM fields (First Name, Last Name, Email, Company, etc.)
 4. Click Import — contacts appear immediately
 
-Option 2 — From your ERP export:
-1. Export contacts from your ERP as CSV
+Option 2 — From ERP export:
+1. Export contacts from ERP as CSV
 2. Follow Option 1 above
 
 **HOW TO CREATE AND SEND AN EMAIL CAMPAIGN (Step-by-Step — follow exactly):**

@@ -1010,7 +1010,7 @@ export function SettingsPage() {
               </div>
               <div className="p-6">
                 <p className="text-[#94A3B8] mb-6" style={{ lineHeight: 1.6 }}>
-                  Import contacts, companies, and deals from Salesforce, HubSpot, your ERP, Pipedrive, Zoho, or any CRM.
+                  Import contacts, companies, and deals from Salesforce, HubSpot, ERP, Pipedrive, Zoho, or any CRM.
                   Download a template CSV for your source, fill it in, and follow the step-by-step wizard to map your columns and import your data.
                 </p>
                 {lastImportResults && (
