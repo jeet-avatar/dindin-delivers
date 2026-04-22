@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 21 (MixMind Native Pioneer USB Export) -- IN PROGRESS
 Plan: 5 of 6 complete in current phase
 Status: Plan 21-06 complete: CDJ-3000 artwork pipeline — artwork_extractor (MP3/AIFF/FLAC/MP4/WAV via mutagen + Pillow quality=85 re-encoder to 80×80 + 240×240 JPEG pairs); artwork_writer (deterministic bucket/slot with 20 slots/bucket + global slot numbering per reference USB enumeration; plan's 38-per-bucket-reset was a Rule 1 bug); reference USB oracle (77 parametrized tests, MAE<10, size within 2×); wired into usb_exporter._extract_and_write_artwork() + pdb_writer.write_pdb(artwork_assignments=...). Artwork PDB table stays empty per reference observation. 116 Phase 21-06 tests pass.
-Last activity: 2026-04-20 - Completed quick task 294: arthaBuild launch hardening — MFA enforced at login (schemas.py + routers/auth.py with 3 unit tests), RFC 9116 /.well-known/security.txt live (200, 328 bytes), zero-assume 7-row retest table in SUMMARY. arthaBuild commit 6ae5307 pushed. Still user-blocked: Sentry DSN, CF SSL Full(Strict), CF cache purge for legacy og-image.png.
+Last activity: 2026-04-22 - Completed quick task 295: fix MFA frontend gap — authService.login returns mfa_required signal instead of throwing on backend 403, new /mfa-challenge TOTP entry page (MFAChallenge.tsx, 182 lines), Password.tsx branches on mfa_required to navigate to challenge. 3 atomic commits in arthaBuild (5aadd9a + c4cfd89 + 33cfcaa). npm run build passes, tsc --noEmit clean. Local only — NOT pushed, NOT deployed.
 
 Progress: [#################################.......] 83% (5/6 plans in phase 21)
 
@@ -473,6 +473,7 @@ None
 | 292 | Deploy Option A versioned consent capture to arthaBuild production | 2026-04-20 | 47d4a77 | [292-deploy-option-a-versioned-consent-captur](./quick/292-deploy-option-a-versioned-consent-captur/) |
 | 293 | Foolproof arthaBuild launch: delete-account UI, og-image, 404 page, security compliance, activate Sentry | 2026-04-20 | 2c49db0 | [293-foolproof-arthabuild-launch-delete-accou](./quick/293-foolproof-arthabuild-launch-delete-accou/) |
 | 294 | arthaBuild launch hardening: MFA login enforcement + RFC 9116 security.txt + zero-assume retest | 2026-04-20 | 6ae5307 | [294-arthabuild-launch-hardening-mfa-login-en](./quick/294-arthabuild-launch-hardening-mfa-login-en/) |
+| 295 | fix MFA frontend gap - Password.tsx ignores backend 403 mfa_required response | 2026-04-22 | 33cfcaa | [295-fix-mfa-frontend-gap-password-tsx-ignore](./quick/295-fix-mfa-frontend-gap-password-tsx-ignore/) |
 ## Session Continuity
 
 Last session: 2026-04-19
