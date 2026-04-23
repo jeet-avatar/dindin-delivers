@@ -1,8 +1,8 @@
 ---
-title: ArthaBuild Marketing Plan — AEO Backfill + 10-20 New Grounded Posts
+title: ArthaBuild Marketing Plan — AEO Backfill + 20 New Grounded Posts
 date: 2026-04-22
-status: spec-review-round-2-pending
-revision: 2
+status: spec-review-round-3-pending
+revision: 3
 author: claude-opus-4-7
 human_approval: Jeet (sections 1-5 approved explicitly; 6-7 locked per "rest all good to go")
 supersedes: none
@@ -12,7 +12,7 @@ related_memory:
   - feedback_arthaBuild_operational_separation.md
 ---
 
-# ArthaBuild Marketing Plan — AEO + E-E-A-T Design
+# ArthaBuild Marketing Plan — AEO Backfill + 20 New Grounded Posts
 
 ## 1. Problem and constraint
 
@@ -51,6 +51,14 @@ Five numbered phases, enforced sequentially with review gates between each.
 - **P4 — Deploy + verify.** Per quick-296/297 pattern. Submit updated sitemap.
 
 ## 5. Schema additions (P0 deliverable)
+
+### File layout note
+
+The arthaBuild repo uses **two separate files**:
+- `/Users/jeet/arthaBuild/src/frontend/src/data/blog.ts` — type definitions (`BlogPost` interface, `BlogCategory`, `categories` array, etc.)
+- `/Users/jeet/arthaBuild/src/frontend/src/data/blogPosts.ts` — the 84-post data array, imports `BlogPost` from `./blog`. **This is the file all P2 additive edits land in.**
+
+P0 schema additions go into `blog.ts`. P2 backfill reads/writes `blogPosts.ts`. Gate B's pre-commit hook watches `blogPosts.ts` for the provenance-delta pairing.
 
 ### `/Users/jeet/arthaBuild/src/frontend/src/data/blog.ts`
 
@@ -209,7 +217,7 @@ For each of the 84 posts:
 7. **Run link-health gate** (curl each citation). Any non-200 blocks commit.
 8. **Run word-count gate** on `answer`.
 
-### Cadence: 9 batches × ~10 posts (84 total — batch 9 has 4 posts)
+### Cadence: 8 full batches of 10 + 1 final batch of 4 = 9 batches, 84 posts total
 
 Between each batch:
 - Write batch (10 posts, additive only)
@@ -270,17 +278,19 @@ User reviews 20, kills bad candidates, requests replacements. Only after approva
 | **A** Link health | automated pre-commit | `curl -I -L` every citation URL **+ every `team[].linkedin`** | 404/5xx blocks commit; replace or remove citation |
 | **B** FAQ provenance | automated pre-commit | Every FAQ Q logged in provenance file. Pre-commit hook **fails if `blogPosts.ts` post modified without matching `faq-provenance.md` delta in the same commit**. | No provenance → commit blocked |
 | **C** Answer word count | automated lint | `answer` field 40-60 words | Reject commit if out of range |
-| **D** Claims audit | manual | For **backfill posts**: audit only what I add (answer + FAQs). For **new posts**: see Gate G below. | Soften or remove |
+| **D** Claims audit (BACKFILL ONLY) | manual | For **backfill posts**: audit only what I add (answer + FAQs). Gate D does not run for new posts — it is fully subsumed by Gate G. | Soften or remove |
 | **E** JSON-LD validation | automated | Article + FAQPage + Person schemas valid | Fix before commit |
 | **F** Human spot-check | manual | User reads **3/10 for P2 backfill batches; 5/10 for P3 new-post batches** (P3 higher fabrication risk) | Batch returned if drift detected |
 | **G** Claim-to-source map (NEW POSTS ONLY) | automated artifact | For each new post (P3), a sibling `claims-map-<slug>.md` lists every non-trivial factual assertion (numbers, API names, behavioral claims, version claims) with the exact Oracle doc URL + section anchor. Pre-commit fails if any cell is empty. | No source → claim removed or softened |
 
 ### Quarterly link-health re-check (scheduled, not just commit-time)
 
-Gate A is a commit-time check, but Oracle doc URLs can move (SuiteAnswers IDs change between releases, Release Notes get redirected). Add `/Users/jeet/arthaBuild/scripts/recheck-blog-citations.mjs` run quarterly (or on demand) that:
+Gate A is a commit-time check, but Oracle doc URLs can move (SuiteAnswers IDs change between releases, Release Notes get redirected). Add `/Users/jeet/arthaBuild/scripts/recheck-blog-citations.mjs` that:
 - curls every `citations[].url` and `team[].linkedin` across all posts
 - writes `/Users/jeet/arthaBuild/.planning/marketing/link-rot-<date>.md` listing dead URLs
 - Never auto-fixes — surfaces to user who picks replacements
+
+**Scheduling mechanism (pick one):** **macOS calendar reminder** set during P4 deploy for +90 days, +180 days, +270 days, +360 days post-ship. Simpler than cron (no server to run on), survives laptop rebuilds, user-visible. First baseline run happens on day of P4 deploy. Script README header documents the schedule.
 
 ### Drift log (per-batch attestation)
 
@@ -322,7 +332,7 @@ If mid-batch I discover my topic selection was stale or a citation is broken, I 
 |-------|-----------------|------------------|
 | P0 schema + team + bios | ~2.5 hr | Build passes, JSON-LD validates |
 | P1 DataForSEO sweep + 20-topic proposal | ~1 hr | **User approves topic list** |
-| P2 AEO backfill (9 batches × ~10, 84 total) | **~2 hr × 9 batches** (realistic per-post: 12 min incl. all gates) | Spot-check **3/10** per batch |
+| P2 AEO backfill (8 × 10 + 1 × 4 = 84 total) | **~2 hr × 9 batches** (realistic per-post: 12 min incl. all gates) | Spot-check **3/10** per batch (final batch: 3/4) |
 | P3 20 new posts (2 × 10) | ~3 hr × 2 batches (higher due to drafting from scratch) | Spot-check **5/10** per batch (higher fabrication risk) |
 | P4 Deploy + verify | ~30 min | Live URLs 200, sitemap accepted |
 
@@ -374,9 +384,9 @@ Organic lift cannot be fully attributed to this plan. Background drift, concurre
 
 | Risk | Mitigation |
 |------|-----------|
-| DataForSEO returns stale keyword volumes | Gate requires data fetched within 7 days of topic approval |
+| DataForSEO returns stale keyword volumes | Gate requires data fetched within 7 days of **proposal delivery to user** (not approval — approval lag can exceed window) |
 | Broken citation URL survives commit | Gate A (automated `curl -I`) blocks commit; no manual override |
-| User rubber-stamps topic list without real review | 20-item list is long enough that visual inspection alone won't catch bad topics; each topic includes "why artha is credible here" + DataForSEO evidence + 2-3 clearly weaker candidates deliberately included so range forces pushback |
+| User rubber-stamps topic list without real review | Each proposed topic includes "why artha is credible here" + DataForSEO evidence + Oracle doc anchor + community thread URL. User is expected to reject weak candidates; replacements are proposed until 20 strong candidates are approved. No deliberately-weaker decoys — that would conflict with the "exactly 20" target. If reviewer accepts all 20 without edit, I flag it: that outcome should be rare and deserves a second pass. |
 | AEO backfill triggers Google freshness-penalty | Measurable trigger: if GSC indexation drops >10% within 7 days of any P2 deploy, pause remaining deployments and spread across 2+ weeks (see §11) |
 | Person schema `sameAs` URL is wrong or breaks later | Gate A applies to LinkedIn URLs too (pre-commit); **quarterly re-check** catches post-ship drift; Ethan's slug flagged for P0-blocking verification (§13) |
 | Hallucinated statistic slips through | For new posts: Gate G (claim-to-source map) forces every non-trivial assertion to have a cited anchor. For backfill: Gate D audits only additions, existing content untouched. |
@@ -399,7 +409,7 @@ Ready to declare done when:
 1. `team.ts` has 3 real TeamMember entries with all 3 LinkedIn URLs returning **HTTP 200 via Gate A** (P0-blocking per §13)
 2. `/about/jithesh-manoharan`, `/about/rajesh-nair`, `/about/ethan-vereal` return 200 live and emit valid Person JSON-LD
 3. All 84 existing posts carry `answer`, `faqs`, `citations`, `reviewedBy`, `updatedAt`
-4. **Exactly 20 new posts shipped**, each passing all 7 gates (A through G)
+4. **Exactly 20 new posts shipped**, each passing gates A, B, C, E, F, G (Gate D is backfill-only, subsumed by Gate G for new posts)
 5. Google Rich Results Test returns valid Article + FAQPage for **10 posts sampled by Jeet** (user picks the URLs — either randomly or via a rule like every 10th post in slug-alphabetical order). Screenshots attached to final phase-complete artifact.
 6. Sitemap regenerated and submitted to GSC
 7. Provenance file has one entry per FAQ — same format for both backfill additions and new posts (no "delta" tier)
@@ -408,6 +418,7 @@ Ready to declare done when:
 10. `DRIFT_LOG.md` has an entry per shipped batch (empty entries OK; absence is not OK)
 11. For every new post (P3), a `claims-map-<slug>.md` sibling file exists with no empty cells (Gate G)
 12. **Soft criterion:** real headshots for Jithesh + Rajesh Nair swapped in within 14 days of P0 ship, or Jeet explicitly declines. Ethan is exempt (placeholder acceptable).
+13. **`scripts/recheck-blog-citations.mjs` exists, runs cleanly on day of P4 deploy (baseline run), and the quarterly schedule (4 calendar reminders +90/+180/+270/+360 days) is created in macOS Calendar.**
 
 ## 17. Appendices
 
@@ -423,7 +434,7 @@ Ready to declare done when:
 
 ### C — Session-approved decisions log
 
-- Scope: Option B (backfill 84 + 10-20 new)
+- Scope: Option B (backfill 84 + exactly 20 new posts)
 - Grounding: ① + ② + ③
 - Reviewer: Jithesh Manoharan (credential-only byline, no company)
 - Team: Jithesh + Rajesh Nair + Ethan (3 real people)
@@ -432,4 +443,4 @@ Ready to declare done when:
 - Reviewer default: Jithesh, with Ethan/Rajesh co-review by topic fit
 - Byline rule: NO company names anywhere (locked by user)
 - Provenance file location: artha repo
-- Gate F: 3 random posts per batch of 10
+- Gate F: 3 random posts per batch for P2 backfill; 5 random posts per batch for P3 new posts
