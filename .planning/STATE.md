@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 21 (MixMind Native Pioneer USB Export) -- IN PROGRESS
 Plan: 5 of 6 complete in current phase
 Status: Plan 21-06 complete: CDJ-3000 artwork pipeline — artwork_extractor (MP3/AIFF/FLAC/MP4/WAV via mutagen + Pillow quality=85 re-encoder to 80×80 + 240×240 JPEG pairs); artwork_writer (deterministic bucket/slot with 20 slots/bucket + global slot numbering per reference USB enumeration; plan's 38-per-bucket-reset was a Rule 1 bug); reference USB oracle (77 parametrized tests, MAE<10, size within 2×); wired into usb_exporter._extract_and_write_artwork() + pdb_writer.write_pdb(artwork_assignments=...). Artwork PDB table stays empty per reference observation. 116 Phase 21-06 tests pass.
-Last activity: 2026-04-22 - Completed quick task 297: fix login to reject soft-deleted users. auth.py now rejects is_active=0 with 401 identical to wrong-password (no enumeration). Bug caught by zero-assumption v3 re-verification. Shipped: backend 4c3cf15 deployed via scp+rebuild. All 9 suites re-verified green. Launch verdict: UNCONDITIONAL GO. 3 security findings from v3 all closed: MFA frontend gap (q295), DELETE confirm bypass (q296), soft-delete login bypass (q297).
+Last activity: 2026-04-23 - Completed quick task 298: register cap + SignUp UX fix. User-reported regression ("create account is not working") traced to THREE compounding bugs: (1) cap query counted soft-deleted users, (2) orphan verifytest@techcloudpro.com consumed slot, (3) SignUp.tsx silently swallowed backend 400s. Fix: is_active+erased_at filter, hard-delete orphan, add techcloudpro.com to EXEMPT_DOMAINS, render {error} banner on SignUp. Commits 6c87e1e (backend) + 07cbcec (frontend). New bundle index-8LYSa1zx.js live. 6/6 E2E tests pass. Flagged: v4 launch readiness gap — never tested non-exempt domain near-cap.
 
 Progress: [#################################.......] 83% (5/6 plans in phase 21)
 
@@ -476,6 +476,7 @@ None
 | 295 | fix MFA frontend gap - Password.tsx ignores backend 403 mfa_required response | 2026-04-22 | 33cfcaa | [295-fix-mfa-frontend-gap-password-tsx-ignore](./quick/295-fix-mfa-frontend-gap-password-tsx-ignore/) |
 | 296 | fix DELETE /api/user/me to require confirm=DELETE body — prevent unauthorized account erasure | 2026-04-22 | b8deeb8 | [296-fix-delete-api-user-me-to-require-confir](./quick/296-fix-delete-api-user-me-to-require-confir/) |
 | 297 | fix login to reject soft-deleted users (is_active=0) — no-enumeration 401 match wrong-password | 2026-04-22 | 4c3cf15 | [297-fix-login-to-reject-soft-deleted-users-a](./quick/297-fix-login-to-reject-soft-deleted-users-a/) |
+| 298 | fix register per-domain cap counting soft-deleted users + silent SignUp UX + EXEMPT TCP | 2026-04-23 | 07cbcec | [298-fix-register-per-domain-cap-counting-sof](./quick/298-fix-register-per-domain-cap-counting-sof/) |
 ## Session Continuity
 
 Last session: 2026-04-19
