@@ -1,7 +1,7 @@
 ---
 title: ArthaBuild Marketing Plan — AEO Backfill + 20 New Grounded Posts
 date: 2026-04-22
-status: spec-review-round-3-pending
+status: spec-review-passed-pending-user-signoff
 revision: 3
 author: claude-opus-4-7
 human_approval: Jeet (sections 1-5 approved explicitly; 6-7 locked per "rest all good to go")
