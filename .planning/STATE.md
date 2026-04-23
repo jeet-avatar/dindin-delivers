@@ -477,6 +477,7 @@ None
 | 296 | fix DELETE /api/user/me to require confirm=DELETE body — prevent unauthorized account erasure | 2026-04-22 | b8deeb8 | [296-fix-delete-api-user-me-to-require-confir](./quick/296-fix-delete-api-user-me-to-require-confir/) |
 | 297 | fix login to reject soft-deleted users (is_active=0) — no-enumeration 401 match wrong-password | 2026-04-22 | 4c3cf15 | [297-fix-login-to-reject-soft-deleted-users-a](./quick/297-fix-login-to-reject-soft-deleted-users-a/) |
 | 298 | fix register per-domain cap counting soft-deleted users + silent SignUp UX + EXEMPT TCP | 2026-04-23 | 07cbcec | [298-fix-register-per-domain-cap-counting-sof](./quick/298-fix-register-per-domain-cap-counting-sof/) |
+| 299 | parseApiError helper + 20-fn refactor + SignUp password-error render + 33-test E2E proof matrix | 2026-04-23 | 028d930 | [299-shared-parseapierror-helper-comprehensiv](./quick/299-shared-parseapierror-helper-comprehensiv/) |
 ## Session Continuity
 
 Last session: 2026-04-19

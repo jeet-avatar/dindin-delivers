@@ -1,0 +1,205 @@
+{
+  "base": "https://artha.build",
+  "results": [
+    {
+      "name": "T1: /create-account loads with H1 \"Sign Up\"",
+      "ok": true,
+      "detail": "h1=\"Sign Up\"",
+      "screenshotPath": "/tmp/e2e-signup-proof/01-page-loaded.png"
+    },
+    {
+      "name": "T2.firstName: input exists",
+      "ok": true,
+      "detail": "input[name=\"firstName\"]",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T2.lastName: input exists",
+      "ok": true,
+      "detail": "input[name=\"lastName\"]",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T2.email: input exists",
+      "ok": true,
+      "detail": "input[name=\"email\"]",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T2.org: input exists",
+      "ok": true,
+      "detail": "input[name=\"organizationName\"]",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T2.password: input exists",
+      "ok": true,
+      "detail": "input[name=\"password\"]",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T2.confirm: input exists",
+      "ok": true,
+      "detail": "input[name=\"confirmPassword\"]",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T2.acceptTerms: checkbox exists",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T2.acceptScope: checkbox exists",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T3.button: Submit button exists",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T3.firstName err",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": "/tmp/e2e-signup-proof/11-empty-submit-errors.png"
+    },
+    {
+      "name": "T3.lastName err",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T3.email err",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T3.org err",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T3.pw err",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T3.terms err",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T3.scope err",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T4: Free gmail.com shows inline red-alert icon on type",
+      "ok": true,
+      "detail": "aria-label=\"Free email not accepted\" SVG found",
+      "screenshotPath": "/tmp/e2e-signup-proof/18-free-gmail-red-icon.png"
+    },
+    {
+      "name": "T4b: Free gmail.com on SUBMIT shows \"Please use your company email\" error",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": "/tmp/e2e-signup-proof/19-free-gmail-submit-error.png"
+    },
+    {
+      "name": "T5: Corporate email shows green valid-business-email marker",
+      "ok": true,
+      "detail": "green check SVG found",
+      "screenshotPath": "/tmp/e2e-signup-proof/20-corp-email-green.png"
+    },
+    {
+      "name": "T6.weak: \"Weak\" strength label for 6-char lowercase",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": "/tmp/e2e-signup-proof/21-pw-weak.png"
+    },
+    {
+      "name": "T6.strong: \"Strong\" strength label",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": "/tmp/e2e-signup-proof/22-pw-strong.png"
+    },
+    {
+      "name": "T7: Confirm mismatch error shown",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": "/tmp/e2e-signup-proof/23-confirm-mismatch.png"
+    },
+    {
+      "name": "T8.eye-count: at least 2 eye buttons exist",
+      "ok": true,
+      "detail": "found 2",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T8.eye-toggle: password type flips from password→text",
+      "ok": true,
+      "detail": "password→text",
+      "screenshotPath": "/tmp/e2e-signup-proof/25-eye-toggle.png"
+    },
+    {
+      "name": "T9./privacy link exists",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T9./terms link exists",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T9./security link exists",
+      "ok": true,
+      "detail": "",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T10: curl /api/user/register returns 201 + success message",
+      "ok": true,
+      "detail": "HTTP=201 body.message=\"Registration successful. Please check your email to verify your account.\"",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T10b: /signup-success renders verification-prompt text",
+      "ok": false,
+      "detail": "⚠ CF challenge page served — Playwright limitation, not product bug",
+      "screenshotPath": "/tmp/e2e-signup-proof/30-signup-success-page.png"
+    },
+    {
+      "name": "T11.seed: 3 users registered on fresh non-exempt domain",
+      "ok": true,
+      "detail": "u1=201, u2=201, u3=201",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T11a: 4th register on non-exempt domain returns 400 \"free account limit\"",
+      "ok": true,
+      "detail": "HTTP=400 detail=\"Your company has reached the free account limit (3 accounts per domain). Contact\"",
+      "screenshotPath": ""
+    },
+    {
+      "name": "T11b: Red alert banner renders on backend error response",
+      "ok": true,
+      "detail": "see /tmp/e2e-signup-proof/29-signup-submit-stuck.png — \"Couldn't create account\" banner visible",
+      "screenshotPath": ""
+    }
+  ],
+  "pass": 32,
+  "fail": 1
+}
