@@ -153,8 +153,11 @@ app.use(cors({
 logger.info(`✅ CORS configured for environment: ${process.env.NODE_ENV || 'development'}`);
 logger.info(`✅ Allowed origins: ${getAllowedOrigins().join(', ')}`);
 
-// Compression middleware
-app.use(compression());
+// Compression middleware — disabled on Lambda (API Gateway handles compression;
+// enabling it here caused "stream is not readable" body-parser errors)
+if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  app.use(compression());
+}
 
 // Logging middleware - privacy-friendly format (no IP logging for iCloud Private Relay compatibility)
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms', {

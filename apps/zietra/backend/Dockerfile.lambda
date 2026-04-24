@@ -1,0 +1,14 @@
+FROM public.ecr.aws/lambda/nodejs:20
+
+WORKDIR ${LAMBDA_TASK_ROOT}
+
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+
+RUN npm ci --omit=dev --no-audit --no-fund
+
+RUN npx prisma generate
+
+COPY dist ./dist
+
+CMD ["dist/lambda.handler"]

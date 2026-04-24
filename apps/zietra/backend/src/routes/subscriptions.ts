@@ -6,10 +6,10 @@ import Stripe from 'stripe';
 const router = Router();
 const prisma = new PrismaClient();
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-09-30.clover',
-});
+// Initialize Stripe — lazy, only if STRIPE_SECRET_KEY is set
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-09-30.clover' })
+  : (null as unknown as Stripe);
 
 // POST /api/subscriptions/trial - Activate free trial (gives full platform access)
 router.post('/trial', authenticate, async (req, res) => {

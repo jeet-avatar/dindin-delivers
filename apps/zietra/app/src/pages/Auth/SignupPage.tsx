@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { supabase } from '../../lib/supabaseClient';
 
 // Google Icon SVG Component
 function GoogleIcon() {
@@ -66,32 +67,35 @@ export function SignupPage() {
     }
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const response = await fetch(`${apiUrl}/api/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+          },
         },
-        body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          password: formData.password,
-        }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+      if (signupError) {
+        throw new Error(signupError.message);
       }
 
-      // Store token and user data
-      localStorage.setItem('crmToken', data.token);
-      localStorage.setItem('crmUser', JSON.stringify(data.user));
-
-      // Redirect to pricing page to choose a plan
-      navigate('/pricing');
+      if (data.session?.access_token) {
+        localStorage.setItem('crmToken', data.session.access_token);
+        localStorage.setItem('crmUser', JSON.stringify({
+          id: data.user?.id,
+          email: data.user?.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+        }));
+        navigate('/pricing');
+      } else {
+        // Email confirmation required — user created but no session yet
+        setError('Account created. Please check your email to confirm, then log in.');
+        setIsLoading(false);
+      }
     } catch (err: any) {
       console.error('Signup error:', err);
       setError(err.message || 'Failed to create account. Please try again.');

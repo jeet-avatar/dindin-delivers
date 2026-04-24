@@ -1,7 +1,8 @@
 import winston from 'winston';
 import path from 'path';
 
-const logDir = 'logs';
+const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const logDir = isLambda ? '/tmp/logs' : 'logs';
 
 // Define log format
 const logFormat = winston.format.combine(
@@ -12,30 +13,42 @@ const logFormat = winston.format.combine(
   winston.format.json(),
 );
 
-// Define different log levels
+const transports: winston.transport[] = [];
+
+if (isLambda) {
+  // Lambda: stdout only — CloudWatch captures it
+  transports.push(
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json(),
+      ),
+    }),
+  );
+} else {
+  transports.push(
+    new winston.transports.File({
+      filename: path.join(logDir, 'error.log'),
+      level: 'error',
+      maxsize: 5242880,
+      maxFiles: 5,
+    }),
+    new winston.transports.File({
+      filename: path.join(logDir, 'combined.log'),
+      maxsize: 5242880,
+      maxFiles: 5,
+    }),
+  );
+}
+
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: logFormat,
   defaultMeta: { service: 'crm-api' },
-  transports: [
-    // Write all logs with level `error` and below to `error.log`
-    new winston.transports.File({
-      filename: path.join(logDir, 'error.log'),
-      level: 'error',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    }),
-    // Write all logs with level `info` and below to `combined.log`
-    new winston.transports.File({
-      filename: path.join(logDir, 'combined.log'),
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    }),
-  ],
+  transports,
 });
 
-// If we're not in production, log to the console as well
-if (process.env.NODE_ENV !== 'production') {
+if (!isLambda && process.env.NODE_ENV !== 'production') {
   logger.add(
     new winston.transports.Console({
       format: winston.format.combine(

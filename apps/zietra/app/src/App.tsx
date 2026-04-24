@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { supabase } from './lib/supabaseClient';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/Auth/LoginPage';
 import { SignupPage } from './pages/Auth/SignupPage';
@@ -33,8 +34,6 @@ import { TeamPage } from './pages/Team/TeamPage';
 import { AcceptInvitePage } from './pages/Auth/AcceptInvitePage';
 import PricingPage from './pages/Pricing/PricingPage';
 import { SubscriptionSuccess } from './pages/Subscription/SubscriptionSuccess';
-import { SuperAdminDashboard } from './pages/SuperAdmin/SuperAdminDashboard';
-import { SystemTemplates } from './pages/SuperAdmin/SystemTemplates';
 import JobLeadsPage from './pages/JobLeads/JobLeadsPage';
 import ScheduleCallPage from './pages/Landing/ScheduleCallPage';
 import TalentPage from './pages/Landing/TalentPage';
@@ -56,24 +55,42 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing auth
-    const token = localStorage.getItem('crmToken');
-    const userData = localStorage.getItem('crmUser');
-
-    if (token && userData) {
-      try {
-        setUser(JSON.parse(userData));
-      } catch (error) {
-        console.error('Error parsing user data:', error);
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        localStorage.setItem('crmToken', data.session.access_token);
+        const cached = localStorage.getItem('crmUser');
+        if (cached) {
+          try { setUser(JSON.parse(cached)); } catch { /* ignore */ }
+        } else {
+          setUser({
+            id: data.session.user.id,
+            email: data.session.user.email || '',
+            firstName: (data.session.user.user_metadata as any)?.first_name || '',
+            lastName: (data.session.user.user_metadata as any)?.last_name || '',
+          } as User);
+        }
+      } else {
         localStorage.removeItem('crmToken');
         localStorage.removeItem('crmUser');
       }
-    }
+      setIsLoading(false);
+    })();
 
-    setIsLoading(false);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) {
+        localStorage.setItem('crmToken', session.access_token);
+      } else {
+        localStorage.removeItem('crmToken');
+        localStorage.removeItem('crmUser');
+        setUser(null);
+      }
+    });
+    return () => { sub.subscription.unsubscribe(); };
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem('crmToken');
     localStorage.removeItem('crmUser');
     setUser(null);
@@ -138,8 +155,6 @@ function App() {
               <Route path="email-templates" element={<EmailTemplatesPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="team" element={<TeamPage />} />
-              <Route path="super-admin" element={<SuperAdminDashboard />} />
-              <Route path="super-admin/system-templates" element={<SystemTemplates />} />
               <Route path="job-leads" element={<JobLeadsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

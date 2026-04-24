@@ -12,8 +12,9 @@ import * as XLSX from 'xlsx';
 
 const router = Router();
 
-// Configure multer for file uploads
-const upload = multer({ dest: 'uploads/csv/' });
+// Configure multer for file uploads — use /tmp on Lambda (read-only FS)
+const uploadDir = process.env.AWS_LAMBDA_FUNCTION_NAME ? '/tmp/csv/' : 'uploads/csv/';
+const upload = multer({ dest: uploadDir });
 
 // All routes require authentication
 router.use(authenticate);

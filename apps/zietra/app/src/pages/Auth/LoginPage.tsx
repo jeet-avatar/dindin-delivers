@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { BRANDING } from '../../config/branding';
+import { supabase } from '../../lib/supabaseClient';
 
 export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -15,30 +16,24 @@ export function LoginPage() {
     setError('');
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const response = await fetch(`${apiUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
+      if (authError) {
+        throw new Error(authError.message);
+      }
+      if (!data.session?.access_token) {
+        throw new Error('Login failed — no session returned');
       }
 
-      localStorage.setItem('crmToken', data.token);
-      localStorage.setItem('crmUser', JSON.stringify(data.user));
+      localStorage.setItem('crmToken', data.session.access_token);
+      localStorage.setItem('crmUser', JSON.stringify({
+        id: data.user?.id,
+        email: data.user?.email,
+        firstName: (data.user?.user_metadata as any)?.first_name || '',
+        lastName: (data.user?.user_metadata as any)?.last_name || '',
+      }));
 
-      // Check if user needs to change password
-      if (data.requirePasswordChange) {
-        window.location.href = '/change-password';
-      } else {
-        window.location.href = '/';
-      }
+      window.location.href = '/';
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Failed to login. Please try again.');
