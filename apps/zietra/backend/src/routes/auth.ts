@@ -10,15 +10,26 @@ import { DefaultTemplateService } from '../services/default-template.service';
 const router = Router();
 
 // Validation middleware
+// NOTE: normalizeEmail() defaults strip "+alias" and "." from gmail addresses,
+// which mangles legitimate user emails. Lowercase only — preserve the rest.
+const emailNormalizeOpts = {
+  gmail_remove_dots: false,
+  gmail_remove_subaddress: false,
+  gmail_convert_googlemaildotcom: false,
+  outlookdotcom_remove_subaddress: false,
+  yahoo_remove_subaddress: false,
+  icloud_remove_subaddress: false,
+};
+
 const validateRegistration = [
-  body('email').isEmail().normalizeEmail(),
+  body('email').isEmail().normalizeEmail(emailNormalizeOpts),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('firstName').trim().isLength({ min: 1 }).withMessage('First name is required'),
   body('lastName').trim().isLength({ min: 1 }).withMessage('Last name is required'),
 ];
 
 const validateLogin = [
-  body('email').isEmail().normalizeEmail(),
+  body('email').isEmail().normalizeEmail(emailNormalizeOpts),
   body('password').isLength({ min: 1 }).withMessage('Password is required'),
 ];
 
