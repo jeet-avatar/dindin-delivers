@@ -1,0 +1,137 @@
+<h2>Habitat — pick a brand mood</h2>
+<p class="subtitle">Each option: wordmark, color palette, hero headline, CTA. This determines every visual choice downstream.</p>
+
+<style>
+  .brand-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 16px; }
+  .brand-card { border: 2px solid var(--border, #e5e7eb); border-radius: 12px; overflow: hidden; cursor: pointer; transition: all 0.2s; }
+  .brand-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+  .brand-card.selected { border-color: var(--accent, #2563eb); }
+  .brand-hero { padding: 28px 20px; min-height: 220px; display: flex; flex-direction: column; justify-content: space-between; }
+  .brand-wordmark { font-size: 32px; letter-spacing: -0.02em; margin-bottom: 4px; }
+  .brand-tag { font-size: 13px; opacity: 0.85; margin-bottom: 16px; }
+  .brand-headline { font-size: 22px; line-height: 1.2; margin-bottom: 14px; font-weight: 600; }
+  .brand-btn { display: inline-block; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+  .brand-meta { background: #fafafa; padding: 14px 20px; border-top: 1px solid #eee; }
+  .brand-meta h4 { margin: 0 0 6px 0; font-size: 13px; font-weight: 700; }
+  .brand-meta p { margin: 0; font-size: 12px; color: #666; line-height: 1.4; }
+  .brand-swatches { display: flex; gap: 6px; margin-top: 8px; }
+  .swatch { width: 22px; height: 22px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.08); }
+
+  /* A — Clean modern (Stanza/Colive feel) */
+  .mood-a .brand-hero { background: #ffffff; color: #0f172a; }
+  .mood-a .brand-wordmark { font-family: 'Inter', system-ui, sans-serif; font-weight: 700; color: #0ea5e9; }
+  .mood-a .brand-tag { color: #64748b; }
+  .mood-a .brand-btn { background: #0ea5e9; color: white; }
+
+  /* B — Warm homely */
+  .mood-b .brand-hero { background: #fdf6ed; color: #2a1f14; }
+  .mood-b .brand-wordmark { font-family: Georgia, 'Playfair Display', serif; font-weight: 600; color: #b45309; font-style: italic; }
+  .mood-b .brand-tag { color: #8b6f47; }
+  .mood-b .brand-btn { background: #b45309; color: white; }
+
+  /* C — Bold trustworthy */
+  .mood-c .brand-hero { background: #0f172a; color: #f8fafc; }
+  .mood-c .brand-wordmark { font-family: 'Inter', system-ui, sans-serif; font-weight: 800; color: #fbbf24; letter-spacing: -0.04em; }
+  .mood-c .brand-tag { color: #cbd5e1; }
+  .mood-c .brand-btn { background: #fbbf24; color: #0f172a; }
+
+  /* D — Local grounded */
+  .mood-d .brand-hero { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); color: #14532d; }
+  .mood-d .brand-wordmark { font-family: 'Poppins', system-ui, sans-serif; font-weight: 700; color: #166534; }
+  .mood-d .brand-tag { color: #4d7c5f; }
+  .mood-d .brand-btn { background: #166534; color: white; }
+</style>
+
+<div class="brand-cards">
+  <div class="brand-card mood-a" data-choice="a" onclick="toggleSelect(this)">
+    <div class="brand-hero">
+      <div>
+        <div class="brand-wordmark">Habitat</div>
+        <div class="brand-tag">Verified men's PG · Undri, Pune</div>
+      </div>
+      <div>
+        <div class="brand-headline">Your space. Your safety. Sorted.</div>
+        <div class="brand-btn">Book a tour →</div>
+      </div>
+    </div>
+    <div class="brand-meta">
+      <h4>A · Clean modern</h4>
+      <p>Stanza/Colive-style. White + sky blue + slate. Inter sans-serif. Premium-feeling, slightly corporate. Risk: may signal expensive when you're priced budget.</p>
+      <div class="brand-swatches">
+        <div class="swatch" style="background:#0ea5e9"></div>
+        <div class="swatch" style="background:#0f172a"></div>
+        <div class="swatch" style="background:#ffffff"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="brand-card mood-b" data-choice="b" onclick="toggleSelect(this)">
+    <div class="brand-hero">
+      <div>
+        <div class="brand-wordmark">Habitat</div>
+        <div class="brand-tag">A home in Undri for working men</div>
+      </div>
+      <div>
+        <div class="brand-headline">Like home — only closer to work.</div>
+        <div class="brand-btn">Book a tour →</div>
+      </div>
+    </div>
+    <div class="brand-meta">
+      <h4>B · Warm &amp; homely</h4>
+      <p>Cream + terracotta + forest. Serif italic wordmark. Feels like a friendly hostel, not a corporation. Pulls "homesick working professionals" emotion.</p>
+      <div class="brand-swatches">
+        <div class="swatch" style="background:#b45309"></div>
+        <div class="swatch" style="background:#fdf6ed"></div>
+        <div class="swatch" style="background:#2a1f14"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="brand-card mood-c" data-choice="c" onclick="toggleSelect(this)">
+    <div class="brand-hero">
+      <div>
+        <div class="brand-wordmark">HABITAT</div>
+        <div class="brand-tag">Verified · Secure · Working men only</div>
+      </div>
+      <div>
+        <div class="brand-headline">Pune's safest budget PG. Period.</div>
+        <div class="brand-btn">Book a tour →</div>
+      </div>
+    </div>
+    <div class="brand-meta">
+      <h4>C · Bold &amp; trustworthy</h4>
+      <p>Dark navy + saffron. Heavy sans-serif. Communicates safety + seriousness loudly. Best fit for "police verification + CCTV" positioning.</p>
+      <div class="brand-swatches">
+        <div class="swatch" style="background:#fbbf24"></div>
+        <div class="swatch" style="background:#0f172a"></div>
+        <div class="swatch" style="background:#f8fafc"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="brand-card mood-d" data-choice="d" onclick="toggleSelect(this)">
+    <div class="brand-hero">
+      <div>
+        <div class="brand-wordmark">Habitat</div>
+        <div class="brand-tag">Undri · Pune · Tech by Zietra</div>
+      </div>
+      <div>
+        <div class="brand-headline">Live close. Live local. Live clean.</div>
+        <div class="brand-btn">Book a tour →</div>
+      </div>
+    </div>
+    <div class="brand-meta">
+      <h4>D · Local &amp; grounded</h4>
+      <p>Soft green + forest. Friendly Poppins. Differentiates from corporate Stanza/Colive look. Reads as "neighbourhood PG, not chain". Pune-comfortable.</p>
+      <div class="brand-swatches">
+        <div class="swatch" style="background:#166534"></div>
+        <div class="swatch" style="background:#f0fdf4"></div>
+        <div class="swatch" style="background:#fbbf24"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:24px">My recommendation: <strong>C — Bold &amp; trustworthy</strong>. Your differentiator is "verified, police-cleared, CCTV everywhere, men only" — those are safety claims, and bold/dark/saffron sells safety better than cream-coloured warmth. Stanza-style (A) overspends on premium feel; warm/homely (B) undersells the verified-security angle; local (D) is fine but blends in.</p>
+
+<p class="subtitle">Click an option to select, then tell me in the terminal.</p>

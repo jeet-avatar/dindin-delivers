@@ -1,0 +1,113 @@
+<h2>Habitat — calm &amp; laid-back, three directions</h2>
+<p class="subtitle">Same vibe (unhurried, soft, take-your-time), different palette. Generous whitespace, light typography, no shouting.</p>
+
+<style>
+  .calm-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
+  .calm-card { border: 1px solid var(--border, #e5e7eb); border-radius: 14px; overflow: hidden; cursor: pointer; transition: all 0.2s; background: white; }
+  .calm-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.06); }
+  .calm-card.selected { border-color: var(--accent, #2563eb); border-width: 2px; }
+  .calm-hero { padding: 36px 24px; min-height: 280px; display: flex; flex-direction: column; justify-content: space-between; }
+  .calm-wordmark { font-size: 30px; letter-spacing: -0.01em; margin-bottom: 6px; font-weight: 400; }
+  .calm-tag { font-size: 12px; opacity: 0.75; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 24px; }
+  .calm-headline { font-size: 26px; line-height: 1.25; margin-bottom: 8px; font-weight: 400; letter-spacing: -0.01em; }
+  .calm-sub { font-size: 14px; opacity: 0.7; margin-bottom: 20px; line-height: 1.5; }
+  .calm-btn { display: inline-block; padding: 12px 22px; border-radius: 999px; font-size: 13px; font-weight: 500; letter-spacing: 0.02em; }
+  .calm-meta { background: #fafafa; padding: 14px 20px; border-top: 1px solid #f0f0f0; }
+  .calm-meta h4 { margin: 0 0 6px 0; font-size: 13px; font-weight: 600; }
+  .calm-meta p { margin: 0; font-size: 12px; color: #666; line-height: 1.5; }
+  .calm-swatches { display: flex; gap: 6px; margin-top: 8px; }
+  .swatch { width: 22px; height: 22px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.08); }
+
+  /* E — Sage & sand */
+  .mood-e .calm-hero { background: #f7f5f0; color: #2c3a30; }
+  .mood-e .calm-wordmark { font-family: 'Cormorant Garamond', Georgia, serif; font-style: normal; font-weight: 500; color: #5b7560; }
+  .mood-e .calm-tag { color: #8a9a85; }
+  .mood-e .calm-btn { background: #5b7560; color: #f7f5f0; }
+
+  /* F — Dusty terracotta & cream */
+  .mood-f .calm-hero { background: #faf3ec; color: #3a2a22; }
+  .mood-f .calm-wordmark { font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; color: #c97954; }
+  .mood-f .calm-tag { color: #a07a64; }
+  .mood-f .calm-btn { background: #c97954; color: #faf3ec; }
+
+  /* G — Soft slate & butter */
+  .mood-g .calm-hero { background: #f4f4f1; color: #2d3142; }
+  .mood-g .calm-wordmark { font-family: 'DM Sans', system-ui, sans-serif; font-weight: 500; color: #2d3142; }
+  .mood-g .calm-tag { color: #7a829a; }
+  .mood-g .calm-btn { background: #f5d27a; color: #2d3142; }
+</style>
+
+<div class="calm-cards">
+  <div class="calm-card mood-e" data-choice="e" onclick="toggleSelect(this)">
+    <div class="calm-hero">
+      <div>
+        <div class="calm-wordmark">habitat</div>
+        <div class="calm-tag">Undri · Pune</div>
+      </div>
+      <div>
+        <div class="calm-headline">Find your room. Take your time.</div>
+        <div class="calm-sub">A quiet, verified PG for working men. Full kitchen, fast Wi-Fi, parking, secure.</div>
+        <div class="calm-btn">Book a tour</div>
+      </div>
+    </div>
+    <div class="calm-meta">
+      <h4>E · Sage &amp; sand</h4>
+      <p>Muted green + warm cream. Garamond serif, lower-case wordmark. Reads like a small mature hostel. Calmest of the three.</p>
+      <div class="calm-swatches">
+        <div class="swatch" style="background:#5b7560"></div>
+        <div class="swatch" style="background:#f7f5f0"></div>
+        <div class="swatch" style="background:#2c3a30"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="calm-card mood-f" data-choice="f" onclick="toggleSelect(this)">
+    <div class="calm-hero">
+      <div>
+        <div class="calm-wordmark">habitat</div>
+        <div class="calm-tag">Undri · Pune</div>
+      </div>
+      <div>
+        <div class="calm-headline">A simple place to live well.</div>
+        <div class="calm-sub">Verified men's PG. No noise. No hassle. Just a clean room, a real kitchen, and a parking spot.</div>
+        <div class="calm-btn">Book a tour</div>
+      </div>
+    </div>
+    <div class="calm-meta">
+      <h4>F · Dusty terracotta &amp; cream</h4>
+      <p>Warm earth tones. DM Serif Display. Feels like a sun-drenched courtyard. Most "homely" of the three but still soft, not ornate.</p>
+      <div class="calm-swatches">
+        <div class="swatch" style="background:#c97954"></div>
+        <div class="swatch" style="background:#faf3ec"></div>
+        <div class="swatch" style="background:#3a2a22"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="calm-card mood-g" data-choice="g" onclick="toggleSelect(this)">
+    <div class="calm-hero">
+      <div>
+        <div class="calm-wordmark">habitat</div>
+        <div class="calm-tag">Undri · Pune</div>
+      </div>
+      <div>
+        <div class="calm-headline">Less to worry about.</div>
+        <div class="calm-sub">A verified PG for working men in Undri. We handle Wi-Fi, security, parking, cleaning. You handle the day job.</div>
+        <div class="calm-btn">Book a tour</div>
+      </div>
+    </div>
+    <div class="calm-meta">
+      <h4>G · Soft slate &amp; butter</h4>
+      <p>Off-white + slate + butter-yellow accent. DM Sans (no serif). Modernist but unhurried. Most "young professional" of the three.</p>
+      <div class="calm-swatches">
+        <div class="swatch" style="background:#2d3142"></div>
+        <div class="swatch" style="background:#f5d27a"></div>
+        <div class="swatch" style="background:#f4f4f1"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:24px">All three share: lower-case wordmark, generous whitespace, light/medium typography weights, soft buttons, friendly headlines (no exclamation marks, no "PUNE'S BEST" shouting). Difference is just the palette.</p>
+
+<p class="subtitle">My pick: <strong>E — Sage &amp; sand</strong>. It's the calmest, ages the best, and sits naturally next to plant photography (which Undri PG marketing should lean into — most PGs in Pune look beige and fluorescent).</p>
