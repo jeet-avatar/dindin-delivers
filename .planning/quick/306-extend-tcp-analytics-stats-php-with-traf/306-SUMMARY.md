@@ -208,7 +208,7 @@ None -- Hostinger SSH key already installed (305). Host is `147.93.101.51` on po
 | Repo | SHA | Description |
 |------|-----|-------------|
 | `techcloudpro` | `8ade7b6` | feat(tcp-analytics): add traffic-source breakdowns to stats.php (PUSHED to origin/main) |
-| `dollor.ai` | _final commit at end of task_ | docs(quick-306): SUMMARY |
+| `dollor.ai` | `8e907fc3` | docs(quick-306): SUMMARY (local-only, NOT pushed per CLAUDE.md) |
 
 ## Live URL
 
