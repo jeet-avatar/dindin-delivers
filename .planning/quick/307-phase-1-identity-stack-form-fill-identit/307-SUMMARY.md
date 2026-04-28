@@ -321,7 +321,7 @@ None — Hostinger SSH key already installed (since 305). Host=`147.93.101.51`, 
 | Repo | SHA | Description |
 |------|-----|-------------|
 | `techcloudpro` | `b817407` | feat(api): identity-stack phase 1 — form-fill identity chain |
-| `dollor.ai` | _final commit at end of task_ | docs(quick-307): identity-stack Phase 1 — PLAN + SCHEMA_PROBE + SUMMARY |
+| `dollor.ai` | `26ab5c59` | docs(quick-307): identity-stack Phase 1 — PLAN + SCHEMA_PROBE + SUMMARY |
 
 Per CLAUDE.md, neither pushed unless user asks.
 
@@ -347,6 +347,6 @@ New keys per window: `identified_visits.{pageviews_with_visitor_id, distinct_ide
 - [x] Privacy: zero external-network calls in `_visitor.php`
 - [x] `IDENTITY_SCHEMA_PROBE.md` artifact preserved
 - [x] techcloudpro commit `b817407` -- present in `git log`
-- [ ] dollor.ai commit SHA — pending (final commit captures this)
+- [x] dollor.ai commit `26ab5c59` -- present in `git log`
 
 ## Self-Check: PASSED
