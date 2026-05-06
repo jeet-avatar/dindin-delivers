@@ -1,0 +1,42 @@
+quick-323 PRE-FLIGHT verification — 2026-05-06T09:12Z
+
+baseline_total_passed=552
+baseline_total_failed=54
+baseline_total_skipped=18
+baseline_magic_redeem_passed=4
+preflight_facts_match=true
+
+STOP CONDITION 1 (auth.py:460 @router.post magic/redeem): PASS
+  - line 460: @router.post("/magic/redeem", response_model=TokenResponse)
+  - line 462: async def magic_redeem(
+
+STOP CONDITION 2 (models.py:105 redeem_count): PASS
+  - line 105: redeem_count = Column(Integer, nullable=False, default=0, server_default="0")
+
+STOP CONDITION 3 (create_access_token count inside magic_redeem): PASS
+  - sed -n '462,592p' returns 2 (matches grace branch + first-redeem branch)
+  - awk pattern in plan failed (regex anchor edge case); sed range used instead
+
+STOP CONDITION 4 (head migration k6l7m8n9o0p1_netsuite_connect_requests.py): PASS
+  - file exists at expected path
+
+STOP CONDITION 5 (test_magic_link_signup.py current pass): PASS
+  - 17 tests passed in file (4 magic_redeem + 13 ancillary)
+  - 4 magic_redeem tests confirmed: happy_path, second_attempt_within_grace, after_grace_window, third_within_grace_rejected
+
+STOP CONDITION 6 (full backend pytest baseline): PASS
+  - 552 passed, 54 failed, 18 skipped (matches quick-322 record exactly)
+
+DATA-LEAKAGE CHECK:
+  - Only auth.py reads MagicLinkToken (5 references, all inside auth.py)
+  - No middleware/ directory hits
+  - No /me, /admin/users, or other router exposes MagicLinkToken columns
+  - SAFE to add cached_access_token + cached_refresh_token columns
+
+POST-EDIT EXPECTED (will be verified at Task 3):
+  - create_access_token count inside magic_redeem (lines 462-end-of-fn): 1 (only first-redeem branch retains it)
+  - cached_access_token references inside magic_redeem: 3
+  - cached_refresh_token references inside magic_redeem: 3
+  - Total cached_(access|refresh)_token: 6
+
+PROCEED TO TASK 2.
