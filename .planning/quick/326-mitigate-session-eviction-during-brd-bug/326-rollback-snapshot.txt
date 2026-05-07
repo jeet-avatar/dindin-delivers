@@ -1,0 +1,43 @@
+Quick-326 Rollback Snapshot
+============================
+Captured: 2026-05-07T06:28:27Z
+
+PRE-DEPLOY STATE (baseline to restore):
+---------------------------------------
+Backend:
+  - /home/ubuntu/arthaBuild/.env  : SESSION_IDLE_MINUTES UNSET (defaults to 30 in code)
+  - Container             : arthaBuild-backend (running prior config)
+  - Effective idle window : 30 minutes (default in idle_timeout.py:67)
+
+Frontend:
+  - /home/ubuntu/arthaBuild/src/frontend/dist  : tarball at /tmp/dist.326-rollback.tar.gz on prod (44.194.34.223)
+  - Tarball size  : 1338592 bytes (1.3 MB)
+  - Tarball mtime : May  7 06:28 UTC
+
+Pre-flight verifications (all PASS):
+  - SESSION_IDLE_MINUTES code default = 30          [idle_timeout.py:67]
+  - Auth.tsx existing card at lines 79-103          [verified in-file]
+  - 5 quick-324 dirty files preserved (brd/pipeline.py, renderers.py, runtime.py, schemas.py, status_verbs.yaml)
+  - DB probe: user_id=14 exists, email=jm@techcloudpro.com, is_active=1 [confirmed via read-only sqlite probe]
+
+ROLLBACK COMMANDS (<5 min ETA):
+================================
+
+Backend rollback (revert SESSION_IDLE_MINUTES):
+  ssh -i ~/.ssh/techcloudpro-key-1764031372.pem ubuntu@44.194.34.223 \
+    "cd /home/ubuntu/arthaBuild && sed -i '/^SESSION_IDLE_MINUTES=/d' .env && \
+     docker compose up -d --force-recreate backend"
+
+Frontend rollback (restore prior dist):
+  ssh -i ~/.ssh/techcloudpro-key-1764031372.pem ubuntu@44.194.34.223 \
+    "cd /home/ubuntu/arthaBuild/src/frontend && \
+     rm -rf dist && \
+     tar xzf /tmp/dist.326-rollback.tar.gz && \
+     docker restart arthaBuild-nginx"
+
+Combined emergency rollback (both at once):
+  ssh -i ~/.ssh/techcloudpro-key-1764031372.pem ubuntu@44.194.34.223 \
+    "cd /home/ubuntu/arthaBuild && sed -i '/^SESSION_IDLE_MINUTES=/d' .env && \
+     cd src/frontend && rm -rf dist && tar xzf /tmp/dist.326-rollback.tar.gz && \
+     cd /home/ubuntu/arthaBuild && docker compose up -d --force-recreate backend && \
+     docker restart arthaBuild-nginx"
