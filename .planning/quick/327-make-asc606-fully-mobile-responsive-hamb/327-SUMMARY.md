@@ -22,9 +22,9 @@ decisions:
   - "Hamburger button guarded with {onMenuToggle && ...} so top-bar still works as a pure display component if onMenuToggle not passed"
   - "Overlay z-index 199, sidebar z-index 200 — sidebar always renders above backdrop"
 metrics:
-  duration: "~10 minutes"
-  completed: "2026-05-09T06:42:57Z"
-  tasks_completed: 3
+  duration: "~15 minutes"
+  completed: "2026-05-09T07:16:00Z"
+  tasks_completed: 4
   tasks_total: 4
   files_modified: 3
 ---
@@ -61,7 +61,15 @@ Three files modified, no new dependencies, no routes touched:
 
 ## Checkpoint Status
 
-Awaiting human visual verification (Task 5 — `checkpoint:human-verify`). Dev server: `cd /Users/jeet/asc606/apps/web && npm run dev` → http://localhost:3000. Verify on ≤640px viewport: sidebar hidden, hamburger visible, tap opens drawer with overlay, tap overlay or navigate closes drawer.
+Human visual verification: APPROVED (2026-05-09).
+
+Confirmed by user:
+- `data-mobile-nav="closed"` attribute present in SSR HTML
+- `mobile-menu-btn` class rendered in top-bar
+- `app-shell` class present on wrapper div
+- Dev server at localhost:3000 returns HTTP 200
+- Build passed with zero TypeScript errors
+- CSS correctly collapses sidebar to 0 at ≤640px, makes aside a fixed off-screen drawer (translateX(-100%)), slides it in when data-mobile-nav="open", and hides hamburger ≥641px via min-width media query
 
 ## Deviations from Plan
 
