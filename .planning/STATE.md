@@ -156,6 +156,7 @@ Progress: [#################################.......] 83% (5/6 plans in phase 21)
 - [Phase 21-02]: Integration tests marked pytest.mark.slow (~22s each); CI default filter with -m 'not slow' keeps fast suite runnable. Synthetic 10s WAV audio generated inline via numpy/soundfile, no binary fixtures committed.
 - [Phase 292-quick]: Deploy Option A consent capture: committed 6 files (47d4a77) → scp backend + docker build backend + alembic upgrade head (23a_user_consents) → inode-safe dist swap + nginx restart → E2E smoke 201 + 3 rows with real IP/UA. Deviations: (a) smoke domain swap to fresh @optiona-smoke.com after hitting FREE_ACCOUNTS_PER_DOMAIN=3 cap on techcloudpro.com, (b) used python sqlite3 stdlib instead of missing sqlite3 CLI binary in container.
 - [Phase quick-321]: Mirror playground CTA shape; differentiate via icon (🤖), emerald 'Live · Ours' badge, and copy leading with 'since 2015 / 1,000+ clients' positioning (no trial, no pricing)
+- [Phase quick-327]: Used Python subprocess to safely reconstruct Secrets Manager JSON, avoiding shell escaping issues with special chars in DB password
 
 ### Blockers
 
