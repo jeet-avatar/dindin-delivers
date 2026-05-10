@@ -430,11 +430,11 @@ Plans:
 
 **Goal:** Every SAT-003 part_definition (80 total) has a complete demo story — unique drawing, populated specifications JSONB, ≥1 instance, an approved make/buy decision, manufacturing process (work_orders + build_steps for make-parts) or procurement chain (procurement_requests + vendor_orders for buy-parts), realistic tiered cost data, deepened BOM hierarchy (~150 lines), and representative cross-system linkages (15-20 part_instances + 5-8 vendor_orders linked to legacy turion sales_orders / invoices / arena_docs / work_orders).
 **Depends on:** Phase 25
-**Plans:** 5 plans (5 sequential waves — each migration depends on prior data being in place)
+**Plans:** 2/5 plans executed
 
 Plans:
 - [x] 26-01-PLAN.md — Node.js generator script + migration 011: drawings (59 SVGs filling drawing_svg) + specifications (80 JSONB blobs matching spec-keys.ts contract) — fastener SVG parameterized template (shipped 2026-05-10, commit 9f262a4 on github.com/jeet-avatar/turion-satellite; migration generated + committed, NOT YET APPLIED — Plan 26-05 owns apply)
-- [ ] 26-02-PLAN.md — Migration 012: ensure every part_definition has ≥1 instance on SAT-003 + deepen BOM tree for 7 non-EPS subsystems to ~150 total bom_lines
+- [x] 26-02-PLAN.md — Migration 012: 50 new part_instances (100% coverage: 80/80 part_definitions have ≥1 SAT-003 instance) + 16 multi-qty for L3 wiring + 63 new bom_lines (93→156, every subsystem ASSY wired to children + 6 of 8 subsystems have L3 depth) (shipped 2026-05-10, commit 8403dba on github.com/jeet-avatar/turion-satellite; idempotent via BEGIN/ROLLBACK double-apply test, NOT YET APPLIED — Plan 26-05 owns apply)
 - [ ] 26-03-PLAN.md — Migration 013: 80 approved make_buy_decisions (rationale ≥20 chars) + work_orders + build_steps for make-parts + procurement_requests + sampled vendor_orders + tiered make_costs/buy_costs ($5M-$15M rollup)
 - [ ] 26-04-PLAN.md — Migration 014: 15-20 cross-system FK linkages on part_instances (sales_order_id / ns_invoice_id / arena_doc_id / mes_work_order_id) + 5-8 on vendor_orders, audit_log densify_seed entries
 - [ ] 26-05-PLAN.md — Apply all 4 migrations to production DB, prove live idempotency (re-apply changes 0 rows), live curl smoke 5-10 representative parts, push commits to github.com/jeet-avatar/turion-satellite
