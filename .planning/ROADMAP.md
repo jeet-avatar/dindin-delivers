@@ -405,7 +405,7 @@ Plans:
 
 **Goal:** First-class make-cost sheets + buy-cost sheets + per-(part × satellite) make-vs-buy decision records that gate procurement, with cost-rollup analytics, multi-currency support, audit trail via supersede-on-write, and a dedicated cost.html primary surface — replacing the existing approximate cost_breakdown panel on part.html with authoritative data.
 **Depends on:** Phase 21
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 
 Plans:
 - [ ] 24-01-PLAN.md — schema migrations (labor_rates SCD-2, fx_rates, currency_code, audit_log, views) + db.ts NUMERIC->Decimal typecast + lib/money.ts (Wave 1)
