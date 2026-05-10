@@ -401,6 +401,19 @@ Plans:
 - [ ] 21-05-PLAN.md -- Electron UI (folder picker IPC, ImportFolderButton, AnalyzeProgress, UsbExportWizard) + real CDJ-3000 acceptance + DMG build via build-mac.sh
 - [ ] 21-06-PLAN.md -- Artwork pipeline (extract embedded APIC/COVR via mutagen, resize 80×80 + 240×240 JPEG via Pillow, `Artwork/<bucket>/{a,b}<slot>{,_m}.jpg` with SLOTS_PER_BUCKET=38, wire into pdb_writer Artwork table)
 
+### Phase 24: Turion Satellite Make/Buy Cost Module — make-cost sheet, buy-cost sheet, make-vs-buy decision records per spec §3.2
+
+**Goal:** First-class make-cost sheets + buy-cost sheets + per-(part × satellite) make-vs-buy decision records that gate procurement, with cost-rollup analytics, multi-currency support, audit trail via supersede-on-write, and a dedicated cost.html primary surface — replacing the existing approximate cost_breakdown panel on part.html with authoritative data.
+**Depends on:** Phase 21
+**Plans:** 5 plans
+
+Plans:
+- [ ] 24-01-PLAN.md — schema migrations (labor_rates SCD-2, fx_rates, currency_code, audit_log, views) + db.ts NUMERIC->Decimal typecast + lib/money.ts (Wave 1)
+- [ ] 24-02-PLAN.md — 6 read-only routers: GET /api/{labor-rates,fx-rates,make-costs,buy-costs,make-buy-decisions,analytics/cost-rollup} (Wave 2)
+- [ ] 24-03-PLAN.md — write endpoints with supersede-on-write + HARD GATE on procurement-requests + vendor-orders + retire $150/hr hardcode (Wave 3)
+- [ ] 24-04-PLAN.md — cost.html + cost-detail.html + cost-render.js + part.html replacement + Cost nav across 8 pages (Wave 4)
+- [ ] 24-05-PLAN.md — seed SAT-003 cost data + extend smoke script + deploy backend + frontend + live hard-gate verification (Wave 5, has human checkpoint)
+
 ---
 
 ### Phase 19: CDJ-3000 Waveform Replica
