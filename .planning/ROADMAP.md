@@ -405,7 +405,7 @@ Plans:
 
 **Goal:** First-class make-cost sheets + buy-cost sheets + per-(part × satellite) make-vs-buy decision records that gate procurement, with cost-rollup analytics, multi-currency support, audit trail via supersede-on-write, and a dedicated cost.html primary surface — replacing the existing approximate cost_breakdown panel on part.html with authoritative data.
 **Depends on:** Phase 21
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans complete
 
 Plans:
 - [ ] 24-01-PLAN.md — schema migrations (labor_rates SCD-2, fx_rates, currency_code, audit_log, views) + db.ts NUMERIC->Decimal typecast + lib/money.ts (Wave 1)
@@ -413,6 +413,45 @@ Plans:
 - [ ] 24-03-PLAN.md — write endpoints with supersede-on-write + HARD GATE on procurement-requests + vendor-orders + retire $150/hr hardcode (Wave 3)
 - [ ] 24-04-PLAN.md — cost.html + cost-detail.html + cost-render.js + part.html replacement + Cost nav across 8 pages (Wave 4)
 - [ ] 24-05-PLAN.md — seed SAT-003 cost data + extend smoke script + deploy backend + frontend + live hard-gate verification (Wave 5, has human checkpoint)
+
+### Phase 25: Schema unification + cross-system integration: junction columns linking turion (SF/NS/Arena/MES) ↔ turion_satellite, add specifications JSONB to part_definitions, sync triggers for sales_order → part_instance creation
+
+**Goal:** Bridge the two parallel demo schemas (`turion` legacy + `turion_satellite` Phase 21+) on `turionspace.zietra.com` by adding nullable cross-schema TEXT FK columns, a free-form `specifications` JSONB column on part_definitions, four pull-only sync API endpoints under `/api/integration/*`, and an expanded audit_log — all shipped to live Lambda with goal-backward verification.
+**Depends on:** Phase 24
+**Plans:** 4 plans (Wave 1: 25-01 schema migrations; Wave 2: 25-02 backend code; Wave 3: 25-03 vitest tests; Wave 4: 25-04 deploy + smoke + human verify)
+
+Plans:
+- [ ] 25-01-PLAN.md — Migrations 008/009/010: 6 cross-schema TEXT FK columns + ON DELETE SET NULL, specifications JSONB on part_definitions, audit_log entity_id widened to TEXT + sync_* actions added to CHECK
+- [ ] 25-02-PLAN.md — Backend code: spec-keys.ts library + integration.ts router with 4 sync endpoints (sales-order/ns-invoice/arena-doc/mes-work-order) + parts.ts surfaces specifications + app.ts mount
+- [ ] 25-03-PLAN.md — Vitest coverage: 4 new integration test files (~37 tests) + parts.test.ts extension; full suite green; zero regressions
+- [ ] 25-04-PLAN.md — Deploy turion-satellite-api Lambda via build-and-push.sh, verify CodeSha256 changed, live curl smoke (401 gate + auth'd happy-path + audit_log assertion), commit GSD artifacts, human checkpoint
+
+### Phase 26: Full demo data densification: populate all 69 part_definitions on SAT-003 with instances, drawings, specifications, work_orders, build_steps, procurement_requests, costs, decisions, full BOM hierarchy
+
+**Goal:** [To be planned]
+**Depends on:** Phase 25
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 26 to break down)
+
+### Phase 27: Last-mile CAD coverage: ~70 unique SVG drawings for every part, plus interactive SVG hotspots for ~10 hero parts (clickable regions navigate to sub-parts)
+
+**Goal:** [To be planned]
+**Depends on:** Phase 26
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 27 to break down)
+
+### Phase 28: Drill-down UI overhaul: BOM tree viewer page, integrated SF→NS→Arena→MES side panel on cost-detail.html, recursive cost rollup, full-featured part page with all panels populated
+
+**Goal:** [To be planned]
+**Depends on:** Phase 27
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 28 to break down)
 
 ---
 
