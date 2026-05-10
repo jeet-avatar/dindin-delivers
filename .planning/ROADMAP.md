@@ -430,7 +430,7 @@ Plans:
 
 **Goal:** Every SAT-003 part_definition (80 total) has a complete demo story — unique drawing, populated specifications JSONB, ≥1 instance, an approved make/buy decision, manufacturing process (work_orders + build_steps for make-parts) or procurement chain (procurement_requests + vendor_orders for buy-parts), realistic tiered cost data, deepened BOM hierarchy (~150 lines), and representative cross-system linkages (15-20 part_instances + 5-8 vendor_orders linked to legacy turion sales_orders / invoices / arena_docs / work_orders).
 **Depends on:** Phase 25
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 - [x] 26-01-PLAN.md — Node.js generator script + migration 011: drawings (59 SVGs filling drawing_svg) + specifications (80 JSONB blobs matching spec-keys.ts contract) — fastener SVG parameterized template (shipped 2026-05-10, commit 9f262a4 on github.com/jeet-avatar/turion-satellite; migration generated + committed, NOT YET APPLIED — Plan 26-05 owns apply)
