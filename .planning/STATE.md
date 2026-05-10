@@ -47,6 +47,7 @@ Progress: [#################################.......] 83% (5/6 plans in phase 21)
 
 ### Roadmap Evolution
 
+- Phase 24 added: Turion Satellite Make/Buy Cost Module — make-cost sheet, buy-cost sheet, make-vs-buy decision records per spec §3.2 (renumbered from 22 due to stale 22- and 23- directories from prior milestones)
 - Phase 12 added: Fix Admin Portal UI — Fix broken admin portal screens (restaurants not loading, design issues, mock dashboards), make admin portal production-ready
 - Phase 8.1 inserted after Phase 8 (URGENT): Fix rideshare failure paths — no-show fee enforcement, bid race condition, payment failure recovery, no-drivers expiry flow, driver cancel handling
 
