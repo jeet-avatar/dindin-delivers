@@ -418,11 +418,11 @@ Plans:
 
 **Goal:** Bridge the two parallel demo schemas (`turion` legacy + `turion_satellite` Phase 21+) on `turionspace.zietra.com` by adding nullable cross-schema TEXT FK columns, a free-form `specifications` JSONB column on part_definitions, four pull-only sync API endpoints under `/api/integration/*`, and an expanded audit_log — all shipped to live Lambda with goal-backward verification.
 **Depends on:** Phase 24
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
-- [ ] 25-01-PLAN.md — Migrations 008/009/010: 6 cross-schema TEXT FK columns + ON DELETE SET NULL, specifications JSONB on part_definitions, audit_log entity_id widened to TEXT + sync_* actions added to CHECK
-- [ ] 25-02-PLAN.md — Backend code: spec-keys.ts library + integration.ts router with 4 sync endpoints (sales-order/ns-invoice/arena-doc/mes-work-order) + parts.ts surfaces specifications + app.ts mount
+- [x] 25-01-PLAN.md — Migrations 008/009/010: 6 cross-schema TEXT FK columns + ON DELETE SET NULL, specifications JSONB on part_definitions, audit_log entity_id widened to TEXT + sync_* actions added to CHECK (shipped 2026-05-10, commit e41c212)
+- [x] 25-02-PLAN.md — Backend code: spec-keys.ts library + integration.ts router with 4 sync endpoints (sales-order/ns-invoice/arena-doc/mes-work-order) + parts.ts surfaces specifications + app.ts mount (shipped 2026-05-10, commits 427d000+d70ca6d+b93be0d)
 - [ ] 25-03-PLAN.md — Vitest coverage: 4 new integration test files (~37 tests) + parts.test.ts extension; full suite green; zero regressions
 - [ ] 25-04-PLAN.md — Deploy turion-satellite-api Lambda via build-and-push.sh, verify CodeSha256 changed, live curl smoke (401 gate + auth'd happy-path + audit_log assertion), commit GSD artifacts, human checkpoint
 
