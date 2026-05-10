@@ -418,7 +418,7 @@ Plans:
 
 **Goal:** Bridge the two parallel demo schemas (`turion` legacy + `turion_satellite` Phase 21+) on `turionspace.zietra.com` by adding nullable cross-schema TEXT FK columns, a free-form `specifications` JSONB column on part_definitions, four pull-only sync API endpoints under `/api/integration/*`, and an expanded audit_log — all shipped to live Lambda with goal-backward verification.
 **Depends on:** Phase 24
-**Plans:** 4 plans (Wave 1: 25-01 schema migrations; Wave 2: 25-02 backend code; Wave 3: 25-03 vitest tests; Wave 4: 25-04 deploy + smoke + human verify)
+**Plans:** 1/4 plans executed
 
 Plans:
 - [ ] 25-01-PLAN.md — Migrations 008/009/010: 6 cross-schema TEXT FK columns + ON DELETE SET NULL, specifications JSONB on part_definitions, audit_log entity_id widened to TEXT + sync_* actions added to CHECK
