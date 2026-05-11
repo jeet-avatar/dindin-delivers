@@ -444,7 +444,7 @@ Plans:
 **Goal:** Replace migration-011's flat auto-generated SVGs with truly isometric 3D-rendered cabinet-projection drawings for all 87 SAT-003 part_definitions (79 generator-emitted + 8 v=016-protected from migration 016), and overlay clickable BOM-child callouts on every parent's drawing so users can drill down by clicking labels on the CAD diagram itself.
 **Depends on:** Phase 26
 **Requirements:** Drawings, Hotspots, Generator, FrontendOverlay, Coverage
-**Plans:** 5 plans across 4 waves (Wave 1 parallel: 27-01 + 27-02, Wave 2: 27-03, Wave 3: 27-04 with human-verify checkpoint, Wave 4: 27-05 deploy)
+**Plans:** 1/5 plans executed
 
 Plans:
 - [ ] 27-01-PLAN.md — Generator foundation: palette extraction from 8 hand-crafted silhouettes + cabinet-projection primitives + fastener/plate templates + Vitest coverage
