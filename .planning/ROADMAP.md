@@ -458,10 +458,15 @@ Plans:
 **Goal:** Make the satellite system fully drillable end-to-end: (a) seed internal sub-components for the ~15-25 mid-tier parts (batteries, OBC boards, IMU, star tracker, radios, tanks, valves, focal plane, FPGAs, MPPT, heat pipes, heater) so every non-leaf bottoms out at legitimate leaves (fasteners, single cells, harnesses) — mirror PCDU pattern from migration 016; (b) backfill spec sheet + cost + build steps + work order + procurement data for every new sub-component AND audit Phase 26 coverage; (c) ship the drill-down UI overhaul: BOM tree viewer page, integrated SF→NS→Arena→MES side panel on cost-detail.html, recursive cost rollup, full-featured part page with all panels populated. New migration 018 (BOM densify) and 019 (data backfill); both idempotent. After this, every part has full data and the UI surfaces it everywhere.
 **Depends on:** Phase 27
 **Requirements:** BOMDensity, DataCoverage, DrillDownUI, CostRollup, CrossSystem
-**Plans:** 0 plans
+**Plans:** 6 plans (Wave 1 parallel: 28-01 + 28-03; Wave 2: 28-02 + 28-04; Wave 3: 28-05; Wave 4: 28-06)
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 28 to break down)
+- [ ] 28-01-PLAN.md — Migration 018: BOM densification (~21 mid-tier parents → ~126 new sub-component part_definitions + instances + bom_lines on SAT-003, mirror of mig 016 PCDU pattern)
+- [ ] 28-02-PLAN.md — Migration 019: data coverage backfill (decisions + WO/build_steps + PR/VO + make_costs + buy_costs for mig-016 PCDU children AND mig-018 sub-components via set-difference WHERE NOT EXISTS)
+- [ ] 28-03-PLAN.md — Backend: new GET /api/satellites/:satId/bom/tree (recursive CTE with cycle guard) + GET /api/analytics/cost-rollup/instance/:instId (decision-aware subtree rollup) + Vitest coverage
+- [ ] 28-04-PLAN.md — Frontend: replace bom.html with recursive <details>/<summary> tree + add shared renderIntegrationsPanel helper to satellite-render.js
+- [ ] 28-05-PLAN.md — Frontend: insert integrations panel on cost-detail.html + insert integrations panel + subtree cost rollup panel on instance.html (parent-trail computed client-side)
+- [ ] 28-06-PLAN.md — Deploy: apply migrations 018+019 to prod DB (idempotency proof) → redeploy backend Lambda → deploy frontend → E2E smoke test 5-10 parts root-to-leaf → push commits to both repos
 
 ### Phase 29: UI workflow E2E UAT + fixes
 
