@@ -473,11 +473,12 @@ Plans:
 **Goal:** Every interactive button across the 11 satellite pages persists to backend and reflects on reload. Audit constellation, satellite, part, instance, work-order, bom, kanban, cost, cost-detail, sub-parts pages. Verify stage advance/revert, place-order modal, sign build step, create WO, edit BOM line, etc. Catch and fix dead buttons + missing endpoints. Ship final user-acceptance verification: launch a fresh browser session as the demo user, exercise every primary flow, prove backend persistence.
 **Depends on:** Phase 28
 **Requirements:** E2E_UAT, ButtonAudit, EndpointCoverage, PersistenceVerify
-**Plans:** 0 plans
+**Plans:** 3 plans (Wave 1 parallel: 29-01 + 29-02; Wave 2: 29-03)
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 29 to break down)
-
+- [ ] 29-01-PLAN.md — Static button/endpoint audit script (Vitest case in turion-satellite/backend deriving the route allowlist from app.ts) + auth/callback.html review (F4) + parts.html honors ?subsystem=/?search= (F3) + instance.html instance_index>1 "tracked on instance #1" hint (F5)
+- [ ] 29-02-PLAN.md — "+ Add BOM line" modal in bom.html wired to the existing POST /api/satellites/:satId/bom (F1, zero backend change) + document the 4 /api/integration/sync-* routes as API-only batch backfills (F2)
+- [ ] 29-03-PLAN.md — Deploy with F6 pre-flight (only intended files dirty before deploy-frontend.sh) + live UAT: fresh magic-link browser session walks all 6 primary flows + Add-BOM-line modal + edge auth, every mutation psql-proven against production turion_satellite Postgres; acknowledges the 2 Phase 28 deferred items out-of-scope (walks instance #1)
 ---
 
 ### Phase 19: CDJ-3000 Waveform Replica
