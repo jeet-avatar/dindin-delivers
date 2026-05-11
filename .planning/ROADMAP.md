@@ -461,7 +461,7 @@ Plans:
 **Plans:** 6 plans (Wave 1 parallel: 28-01 + 28-03; Wave 2: 28-02 + 28-04; Wave 3: 28-05; Wave 4: 28-06)
 
 Plans:
-- [ ] 28-01-PLAN.md — Migration 018: BOM densification (~21 mid-tier parents → ~126 new sub-component part_definitions + instances + bom_lines on SAT-003, mirror of mig 016 PCDU pattern)
+- [x] 28-01-PLAN.md — Migration 018: BOM densification (14 valid mid-tier parents → 78 new sub-component part_definitions + 78 instances + 78 bom_lines on SAT-003, mirror of mig 016 PCDU pattern; 7 RESEARCH candidates dropped for already having children; ALL 14 targets Phase 27-drawn → Block 1 drawing UPDATE omitted everywhere; idempotency double-apply proven, Phase 27 count 79 unchanged) — DONE 2026-05-11 (commit a253902 on turion-satellite, NOT pushed; Plan 28-06 owns apply)
 - [ ] 28-02-PLAN.md — Migration 019: data coverage backfill (decisions + WO/build_steps + PR/VO + make_costs + buy_costs for mig-016 PCDU children AND mig-018 sub-components via set-difference WHERE NOT EXISTS)
 - [x] 28-03-PLAN.md — Backend: new GET /api/satellites/:satId/bom/tree (recursive CTE with cycle guard) + GET /api/analytics/cost-rollup/instance/:instId (decision-aware subtree rollup) + Vitest coverage — DONE 2026-05-11 (commits a67110d, db27995; 16 new Vitest cases; full suite 325/326; deploy deferred to 28-06)
 - [ ] 28-04-PLAN.md — Frontend: replace bom.html with recursive <details>/<summary> tree + add shared renderIntegrationsPanel helper to satellite-render.js
