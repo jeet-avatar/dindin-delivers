@@ -463,7 +463,7 @@ Plans:
 Plans:
 - [ ] 28-01-PLAN.md — Migration 018: BOM densification (~21 mid-tier parents → ~126 new sub-component part_definitions + instances + bom_lines on SAT-003, mirror of mig 016 PCDU pattern)
 - [ ] 28-02-PLAN.md — Migration 019: data coverage backfill (decisions + WO/build_steps + PR/VO + make_costs + buy_costs for mig-016 PCDU children AND mig-018 sub-components via set-difference WHERE NOT EXISTS)
-- [ ] 28-03-PLAN.md — Backend: new GET /api/satellites/:satId/bom/tree (recursive CTE with cycle guard) + GET /api/analytics/cost-rollup/instance/:instId (decision-aware subtree rollup) + Vitest coverage
+- [x] 28-03-PLAN.md — Backend: new GET /api/satellites/:satId/bom/tree (recursive CTE with cycle guard) + GET /api/analytics/cost-rollup/instance/:instId (decision-aware subtree rollup) + Vitest coverage — DONE 2026-05-11 (commits a67110d, db27995; 16 new Vitest cases; full suite 325/326; deploy deferred to 28-06)
 - [ ] 28-04-PLAN.md — Frontend: replace bom.html with recursive <details>/<summary> tree + add shared renderIntegrationsPanel helper to satellite-render.js
 - [ ] 28-05-PLAN.md — Frontend: insert integrations panel on cost-detail.html + insert integrations panel + subtree cost rollup panel on instance.html (parent-trail computed client-side)
 - [ ] 28-06-PLAN.md — Deploy: apply migrations 018+019 to prod DB (idempotency proof) → redeploy backend Lambda → deploy frontend → E2E smoke test 5-10 parts root-to-leaf → push commits to both repos
