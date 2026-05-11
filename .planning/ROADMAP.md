@@ -453,14 +453,25 @@ Plans:
 - [ ] 27-04-PLAN.md — Generator orchestrator: DB introspect, dispatch 79 parts across 8 templates (skip v=016 sentinel), emit migration 017 + preview gallery + human-verify visual QA gate
 - [ ] 27-05-PLAN.md — Deploy: apply migration 017 to production, prove idempotency, deploy frontend via deploy-frontend.sh, live smoke test 5+ parts, push commits to both repos
 
-### Phase 28: Drill-down UI overhaul: BOM tree viewer page, integrated SF→NS→Arena→MES side panel on cost-detail.html, recursive cost rollup, full-featured part page with all panels populated
+### Phase 28: Full BOM densification + data coverage + drill-down UI
 
-**Goal:** [To be planned]
+**Goal:** Make the satellite system fully drillable end-to-end: (a) seed internal sub-components for the ~15-25 mid-tier parts (batteries, OBC boards, IMU, star tracker, radios, tanks, valves, focal plane, FPGAs, MPPT, heat pipes, heater) so every non-leaf bottoms out at legitimate leaves (fasteners, single cells, harnesses) — mirror PCDU pattern from migration 016; (b) backfill spec sheet + cost + build steps + work order + procurement data for every new sub-component AND audit Phase 26 coverage; (c) ship the drill-down UI overhaul: BOM tree viewer page, integrated SF→NS→Arena→MES side panel on cost-detail.html, recursive cost rollup, full-featured part page with all panels populated. New migration 018 (BOM densify) and 019 (data backfill); both idempotent. After this, every part has full data and the UI surfaces it everywhere.
 **Depends on:** Phase 27
+**Requirements:** BOMDensity, DataCoverage, DrillDownUI, CostRollup, CrossSystem
 **Plans:** 0 plans
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 28 to break down)
+
+### Phase 29: UI workflow E2E UAT + fixes
+
+**Goal:** Every interactive button across the 11 satellite pages persists to backend and reflects on reload. Audit constellation, satellite, part, instance, work-order, bom, kanban, cost, cost-detail, sub-parts pages. Verify stage advance/revert, place-order modal, sign build step, create WO, edit BOM line, etc. Catch and fix dead buttons + missing endpoints. Ship final user-acceptance verification: launch a fresh browser session as the demo user, exercise every primary flow, prove backend persistence.
+**Depends on:** Phase 28
+**Requirements:** E2E_UAT, ButtonAudit, EndpointCoverage, PersistenceVerify
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 29 to break down)
 
 ---
 
