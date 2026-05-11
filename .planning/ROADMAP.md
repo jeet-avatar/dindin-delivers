@@ -485,10 +485,12 @@ Plans:
 **Goal:** Replace the static isometric SVG drawings with a real interactive Three.js 3D viewer on part.html + instance.html so users can rotate / zoom / orbit each part and see it from every angle. Every one of the 165 part_definitions renders as a procedurally-built 3D mesh — shape dispatched by part-family (box / cylinder / sphere / antenna-dish / extruded-plate / fastener / solar-panel / harness) mirroring the Phase 27 8-template dispatch, sized from `specifications.dimensions_mm` (with defaults), colored by the subsystem palette. OrbitControls (drag-rotate, scroll-zoom, pan), three-point lighting, a ground plane / grid for scale. WebGL-unavailable browsers fall back to the existing isometric SVG. Three.js + OrbitControls loaded via CDN (the satellite frontend is vanilla HTML/JS — no bundler). Client-side only — no backend route or migration change (the frontend already receives subsystem_code / default_make_buy / specifications / part_number from /api/parts/:id). Static SVG kept as a selectable "2D drawing" view alongside the 3D one. Existing bom.html tree thumbnails stay SVG (3D per node would be too heavy); add a "view in 3D" link per node.
 **Depends on:** Phase 29
 **Requirements:** ThreeJSViewer, MeshGenerator, OrbitControls, WebGLFallback
-**Plans:** 0 plans
+**Plans:** 3 plans (Wave 1 -> Wave 2 -> Wave 3)
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 30 to break down)
+- [ ] 30-01-PLAN.md -- satellite-3d.js: Three.js viewer module (mount3DViewer/dispose, OrbitControls, WebGL feature-detect) + procedural mesh generator (8 part families, ported Phase-27 dispatch/perturb/palette) + 3d-test.html 8-family visual harness
+- [ ] 30-02-PLAN.md -- Wire the viewer into part.html + instance.html (jsDelivr import map, .cad-frame #viewer3d, 2D/3D toggle keeping the SVG as fallback, auto-rotate, ?view= param) + bom.html per-row "view in 3D" deep-link
+- [ ] 30-03-PLAN.md -- Deploy: F6 pre-flight (stash unrelated WIP) -> commit + push satellite/ changes -> deploy-frontend.sh -> CloudFront invalidation -> smoke-check (deployed pages + jsDelivr URLs) -> human visual verification of the live 3D viewer
 
 ---
 
