@@ -497,7 +497,7 @@ Plans:
 **Goal:** Enhance the Phase-30 Three.js viewer so it conveys part SIZE and lets you inspect assembly internals. (1) A dimension HUD overlay on the `.cad-frame` canvas, always visible, showing the current part's `L × W × H mm` + mass + material from `specifications` (the mesh is normalized to fit the viewport, so the textual dims are how size is communicated). (2) Assembly parts (those with ≥1 BOM child on a satellite) render as MULTIPLE meshes — one per BOM child built via the existing `buildPartMesh`, laid out in 3D (radial ring or grid sized by child count), each pickable via `THREE.Raycaster` + pointer events (hover → highlight outline, click → select + camera-frame it); selecting a child updates the HUD to that child's dimensions and shows its part number / ref designator. Leaf parts keep the single-mesh path. Small backend change: add `specifications` (or `dimensions_mm`) to the `GET /api/parts/:partDefId/children` SELECT so the viewer has each child's real dimensions (needs a Lambda redeploy via build-and-push.sh). Frontend changes in `satellite/satellite-3d.js` (new `mountAssemblyViewer` or an `assemblyChildren` opt on `mount3DViewer`, raycaster picker, HUD render helper) + `part.html` + `instance.html` (HUD overlay div in `.cad-frame`, fetch `/api/parts/:id/children?sat=` when present, wire `onSelect`). The static SVG 2D fallback + 2D/3D toggle from Phase 30 stay.
 **Depends on:** Phase 30
 **Requirements:** DimensionHUD, AssemblyMultiMesh, RaycastPicker, ChildrenSpecsAPI
-**Plans:** 4 plans
+**Plans:** 1/4 plans executed
 
 Plans:
 - [ ] 31-01-PLAN.md — Backend: add `c_pd.specifications AS specifications` to the GET /api/parts/:partDefId/children SELECT + update parts.test.ts mock rows/assertion (no DB migration)
