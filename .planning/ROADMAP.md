@@ -441,12 +441,17 @@ Plans:
 
 ### Phase 27: Last-mile CAD coverage: ~70 unique SVG drawings for every part, plus interactive SVG hotspots for ~10 hero parts (clickable regions navigate to sub-parts)
 
-**Goal:** [To be planned]
+**Goal:** Replace migration-011's flat auto-generated SVGs with truly isometric 3D-rendered cabinet-projection drawings for all 87 SAT-003 part_definitions (79 generator-emitted + 8 v=016-protected from migration 016), and overlay clickable BOM-child callouts on every parent's drawing so users can drill down by clicking labels on the CAD diagram itself.
 **Depends on:** Phase 26
-**Plans:** 0 plans
+**Requirements:** Drawings, Hotspots, Generator, FrontendOverlay, Coverage
+**Plans:** 5 plans across 4 waves (Wave 1 parallel: 27-01 + 27-02, Wave 2: 27-03, Wave 3: 27-04 with human-verify checkpoint, Wave 4: 27-05 deploy)
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 27 to break down)
+- [ ] 27-01-PLAN.md — Generator foundation: palette extraction from 8 hand-crafted silhouettes + cabinet-projection primitives + fastener/plate templates + Vitest coverage
+- [ ] 27-02-PLAN.md — Frontend callout overlay: renderCalloutsOnSvg + show/hide toggle + CSS in turion-space-demo (parallel with 27-01, independent files)
+- [ ] 27-03-PLAN.md — Remaining 6 part-family templates: assembly, subassembly, cylindrical, lens-optical, antenna-dish, solar-cell + 25-case test suite
+- [ ] 27-04-PLAN.md — Generator orchestrator: DB introspect, dispatch 79 parts across 8 templates (skip v=016 sentinel), emit migration 017 + preview gallery + human-verify visual QA gate
+- [ ] 27-05-PLAN.md — Deploy: apply migration 017 to production, prove idempotency, deploy frontend via deploy-frontend.sh, live smoke test 5+ parts, push commits to both repos
 
 ### Phase 28: Drill-down UI overhaul: BOM tree viewer page, integrated SF→NS→Arena→MES side panel on cost-detail.html, recursive cost rollup, full-featured part page with all panels populated
 
