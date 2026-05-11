@@ -164,6 +164,13 @@ This is a documented pre-existing data state (migrations 013/019 only backfill i
 - **Found during:** Task 2
 - **Outcome:** All three conditions (Supabase exchange / redirect-to-`/satellite/` on success / readable error + redirect-to-`login.html` on a bad link) already hold. The plan says "If ALL three already hold → no code change; record the finding in the SUMMARY." Done. No `?next=` preservation added because `login.html` never carries such a param (nothing to preserve).
 
+**5. [Rule 3 - Blocking, pre-existing tooling bug] `gsd-tools state add-decision` had bloated STATE.md to ~220k lines**
+- **Found during:** state-update step (after `node gsd-tools.cjs state add-decision --phase 29 ...`)
+- **Issue:** Each `state add-decision` run re-appends the entire `## Accumulated Context` block (Roadmap Evolution + Decisions + Performance Metrics + …) to the end of `.planning/STATE.md`, doubling the file every time. STATE.md was already 110,656 lines at Plan 29-02's commit; the 29-01 `add-decision` call took it to 219,798 lines / ≈38 MB. (Also `state advance-plan` / `state update-progress` / `state record-session` all fail against this STATE.md because it's free-form narrative, not the structured format those commands expect — the Current Position was updated manually.)
+- **Fix:** Truncated STATE.md back to lines 1–130 + a single copy of each block (the legit Current Position narrative + the new `[Phase 29]` decision entry preserved); file now 131 lines / ≈40 KB. Logged the gsd-tools bug to `.planning/phases/29-ui-workflow-e2e-uat-fixes/deferred-items.md` (NOT fixing the tooling itself — out of scope).
+- **Files modified:** `.planning/STATE.md`, `.planning/phases/29-ui-workflow-e2e-uat-fixes/deferred-items.md` (created)
+- **Commits:** `301e3496`, `bdbac932` (doordash-p2p)
+
 ### Auth Gates
 
 None.
