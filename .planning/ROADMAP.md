@@ -490,7 +490,17 @@ Plans:
 Plans:
 - [x] 30-01-PLAN.md -- satellite-3d.js: Three.js viewer module (mount3DViewer/dispose, OrbitControls, WebGL feature-detect) + procedural mesh generator (8 part families, ported Phase-27 dispatch/perturb/palette) + 3d-test.html 8-family visual harness
 - [x] 30-02-PLAN.md -- Wire the viewer into part.html + instance.html (jsDelivr import map, .cad-frame #viewer3d, 2D/3D toggle keeping the SVG as fallback, auto-rotate, ?view= param) + bom.html per-row "view in 3D" deep-link
-- [ ] 30-03-PLAN.md -- Deploy: F6 pre-flight (stash unrelated WIP) -> commit + push satellite/ changes -> deploy-frontend.sh -> CloudFront invalidation -> smoke-check (deployed pages + jsDelivr URLs) -> human visual verification of the live 3D viewer
+- [x] 30-03-PLAN.md -- Deploy: F6 pre-flight + push satellite/ changes + turion-satellite b36691a -> deploy-frontend.sh -> CloudFront invalidation IEHSI8TUSOTIJS0DZWF75YC244 -> smoke-check (deployed pages + jsDelivr URLs all 200+CORS) -> headless-substitute checkpoint (curl/HEAD proxies passed; browser visual walk = follow-up). DONE 2026-05-11; audit 0 violations.
+
+### Phase 31: 3D dimension HUD + clickable multi-mesh assemblies
+
+**Goal:** Enhance the Phase-30 Three.js viewer so it conveys part SIZE and lets you inspect assembly internals. (1) A dimension HUD overlay on the `.cad-frame` canvas, always visible, showing the current part's `L × W × H mm` + mass + material from `specifications` (the mesh is normalized to fit the viewport, so the textual dims are how size is communicated). (2) Assembly parts (those with ≥1 BOM child on a satellite) render as MULTIPLE meshes — one per BOM child built via the existing `buildPartMesh`, laid out in 3D (radial ring or grid sized by child count), each pickable via `THREE.Raycaster` + pointer events (hover → highlight outline, click → select + camera-frame it); selecting a child updates the HUD to that child's dimensions and shows its part number / ref designator. Leaf parts keep the single-mesh path. Small backend change: add `specifications` (or `dimensions_mm`) to the `GET /api/parts/:partDefId/children` SELECT so the viewer has each child's real dimensions (needs a Lambda redeploy via build-and-push.sh). Frontend changes in `satellite/satellite-3d.js` (new `mountAssemblyViewer` or an `assemblyChildren` opt on `mount3DViewer`, raycaster picker, HUD render helper) + `part.html` + `instance.html` (HUD overlay div in `.cad-frame`, fetch `/api/parts/:id/children?sat=` when present, wire `onSelect`). The static SVG 2D fallback + 2D/3D toggle from Phase 30 stay.
+**Depends on:** Phase 30
+**Requirements:** DimensionHUD, AssemblyMultiMesh, RaycastPicker, ChildrenSpecsAPI
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 31 to break down)
 
 ---
 
