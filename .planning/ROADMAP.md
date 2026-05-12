@@ -518,6 +518,26 @@ Plans:
 - [x] 32-03-PLAN.md — satellite-3d.js: remove debugInfo()/frameCount (keep resize/deselect/selectChild/dispose + the Phase-31 assembly path); work-order.html: show signed_by_name instead of the (signed_by||'').slice(0,8) UUID slice
 - [x] 32-04-PLAN.md — Deploy (FRONTEND-ONLY, no Lambda redeploy): Phase-29 audit 0 violations + push turion-space-demo + deploy-frontend.sh with the F6 pre-flight + CloudFront E37R9PT8IL44L2 invalidation + curl/HEAD smoke + /api/make-buy-decisions & /api/buy-costs route-alive probes + human-verify checkpoint (headless-substitute allowed per Phase 27-31)
 
+### Phase 33: End-to-end satellite-build flow — sales order → delivery, guided wizard + wire all pages
+
+**Goal:** Make the satellite app a complete, walkable end-to-end procedure for "build a satellite", from sales order to delivery. (A) A NEW "New satellite program" wizard: create a sales order (in the satellite-app context, persisting to the DB, tying into the Phase-25 cross-system sync where it makes sense) → it spawns the satellite + its BOM + initial part instances + lifecycle-stage-0 events. (B) Audit the WHOLE lifecycle chain (sales order → satellite → part_definitions → part_instances → BOM tree → procurement requests / vendor orders → work orders → build steps → lifecycle-stage advancement → cost rollup → ... → delivery/completion) and fix every dead end — every page gets a clear "next step" link so a user never gets stuck. (C) Backend: a sales-order creation endpoint + the "spawn satellite from sales order" logic (likely extends the Phase-25 sync triggers) — needs a Lambda redeploy via build-and-push.sh. (D) Frontend: the wizard pages + the "next step" wiring across constellation / satellite / parts / instance / bom / work-orders / work-order / kanban / cost / cost-detail / sub-parts. Phase-29 button audit must stay 0 violations. Likely 5-8 plans across several waves.
+**Depends on:** Phase 32
+**Requirements:** SalesOrderWizard, SatelliteSpawn, LifecycleWiring, NoDeadEnds, E2EFlowVerified
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 33 to break down)
+
+### Phase 34: In-site AI chat assistant — site-aware help (navigation, search, workflows), LLM-backed
+
+**Goal:** A floating chat button on EVERY satellite page → a chat panel → a NEW `POST /api/assistant/chat` endpoint on the turion-satellite Lambda that calls Claude (Anthropic SDK) with a curated "site knowledge" system prompt: every page + what it does, how to navigate, how to search/filter, the full sales-order→delivery workflow (Phase-33), the make/buy distinction, where data lives, common tasks ("how do I advance a lifecycle stage?", "where do I see a part's 3D model?", "how do I place a vendor order?", "how do I create a new satellite program?"). The endpoint reads the Anthropic API key from AWS Secrets Manager (NEW secret ARN, e.g. `turion-satellite/production/anthropic-key`) — if the secret/key is absent, the endpoint returns a clear "assistant not configured" message and the chat widget shows that gracefully (so it ships + deploys before the key is added; the user adds the key to light it up). Chat widget = a small shared JS module (`satellite/satellite-chat.js`) loaded on every page (via the topbar/shell or each page); passes the current page path so answers are page-aware. Chat button wired via addEventListener; the new `/api/assistant/chat` path resolves against `app.ts` (audit stays 0 violations). Backend redeploy via build-and-push.sh; frontend deploy via deploy-frontend.sh w/ F6 pre-flight. ~3-5 plans.
+**Depends on:** Phase 33 (so the site-knowledge prompt can describe the completed E2E flow)
+**Requirements:** ChatEndpoint, SiteKnowledgePrompt, ChatWidget, GracefulNoKey
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 34 to break down)
+
 ---
 
 ### Phase 19: CDJ-3000 Waveform Replica
