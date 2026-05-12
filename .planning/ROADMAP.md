@@ -505,6 +505,16 @@ Plans:
 - [x] 31-03-PLAN.md — part.html + instance.html: DOM dimension HUD `<div class=cad-hud>` in .cad-frame (L × W × H mm + Mass + Material + identity) + #hudBack chip + updateHud()/fmtDims(); wire `assemblyChildren`+`onSelect`→updateHud; instance.html gains the /api/parts/:id/children?sat= fetch (audit stays 0 violations)
 - [x] 31-04-PLAN.md — Deploy: F6 pre-flight + push both repos + turion-satellite ./build-and-push.sh (Lambda redeploy) + turion-space-demo deploy-frontend.sh + CloudFront invalidation + audit 0 violations + curl/HEAD smoke + human-verify checkpoint (headless-substitute allowed)
 
+### Phase 32: Build/procurement process documented + shown symmetrically (make AND buy)
+
+**Goal:** Comprehensive pass so every part page clearly documents how a part is realized, with the MAKE path and the BUY path given equal prominence. (1) The make/buy DECISION shown consistently everywhere — decision, rationale, decided_by, decided_at (from `make_buy_decisions`, latest non-superseded). (2) MAKE parts: manufacturing workflow + work order(s) + build steps (step number, type build/inspection/test, torque spec, estimated duration, result pass/fail/rework, sign-off + signer) + materials required + labor cost breakdown — clearly grouped as "the build process". (3) BUY parts: the FULL procurement chain rendered with the SAME prominence — RFQ (vendor, quoted unit cost, NRE, due date, awarded) → purchase request (material, est cost, status) → vendor order (vendor name/country/ITAR-compliant, qty, PO number, lead weeks, status) → invoiced value — instead of just a thin "no build steps for this part" placeholder. Audit + fix across `part.html` ("Make/Buy detail" / "Build process" / "Materials required" / "Recent orders" panels) and `instance.html` (the make/buy-aware "Manufacturing / Procurement" panel added in 29260a0); verify `work-order.html` (build steps + sign-off) and `cost-detail.html` (make/buy cost sheets + decision panel + integrations) are consistent. A small backend addition may be needed if `/api/parts/:partDefId/process` `recent_orders` doesn't already surface the RFQ→PO→invoice fields (check `parts.ts` + the `rfqs` / `buy_costs` tables) — if so, redeploy the Lambda via build-and-push.sh; otherwise frontend-only. Also: remove the temporary `[3d-wd]` console watchdog from `part.html`/`instance.html` + `debugInfo()`/`frameCount` from `satellite-3d.js` (the Phase-30/31 size-blowup is fixed; the watchdog has served its purpose). Deploy: `deploy-frontend.sh` with the F6 pre-flight.
+**Depends on:** Phase 31
+**Requirements:** MakeBuyDecisionUI, MakeProcessUI, BuyProcessUI, ProcessConsistency
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 32 to break down)
+
 ---
 
 ### Phase 19: CDJ-3000 Waveform Replica
