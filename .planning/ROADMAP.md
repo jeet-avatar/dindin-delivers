@@ -547,6 +547,18 @@ Plans:
 
 ---
 
+### Phase 35: Editable CAD drawings + part management (add / edit / retire parts)
+
+**Goal:** Let users fix what doesn't look right. (A) **Freehand SVG drawing editor** — an "Edit drawing" mode on `part.html` (and reachable from `instance.html`) that loads the part's `drawing_svg` into a lightweight in-browser SVG editor: select / move / resize / rotate / delete any shape, edit text labels, add new primitives (rect, line, circle, polyline, text), undo/redo, then Save → `PATCH` the part's `drawing_svg` back to the backend and bump a `drawing_rev`; the existing generated drawing + the Phase-30/31 3D viewer keep working (3D still re-derives from `dimensions_mm`, unaffected). A "Revert to generated" button regenerates the cabinet-projection SVG from the part's family+dimensions (the Phase-27 generator logic, server-side). (B) **Part management**: add a new BOM child to an assembly (extend the Phase-29 "+ Add BOM line" modal — pick an existing part OR create a brand-new `part_definition` inline: part_number, description, subsystem, dimensions_mm, default_make_buy, itar_flag); remove a BOM line; edit an existing part_definition's fields (rename / re-describe / change subsystem / dimensions / make-buy) — editing dimensions offers to regenerate the drawing + updates the 3D mesh; soft-delete / retire a part_definition that's wrong (a `retired_at` timestamp — hidden from the parts list, BOM tree, kanban, pickers; kept for audit; blocked if it still has live part_instances unless force). All gated behind auth. (C) **Backend**: new routes — `PATCH /api/parts/:partDefId` (fields), `PATCH /api/parts/:partDefId/drawing` (svg + rev bump), `POST /api/parts/:partDefId/drawing/regenerate` (server-side generator), `POST /api/parts` (create part_definition), `DELETE /api/parts/:partDefId` (soft-delete/retire, `?force=1` override), `DELETE /api/satellites/:satId/bom/:lineId` (remove BOM line) — all mounted in `app.ts`; a migration adds `part_definitions.drawing_rev int default 1` + `part_definitions.retired_at timestamptz` + a `part_revisions` audit table (or just an `audit_log` action); the Phase-27 SVG generator ported into a backend module so "regenerate" works server-side; Lambda redeploy via `build-and-push.sh`. (D) **Frontend**: the SVG editor module (`satellite/svg-editor.js` — vanilla, no bundler), the "Edit drawing" / "Revert to generated" controls on `part.html`/`instance.html`, the extended add-BOM-line modal + a "create new part" sub-form, an "Edit part" form, a "Retire part" control with confirmation, a delete control on BOM tree rows; everything via `addEventListener` (Phase-29 button audit stays 0 violations); frontend deploy via `deploy-frontend.sh` w/ F6 pre-flight. ~5-8 plans across several waves.
+**Depends on:** Phase 33 (BOM/instance/part pages + the spawn flow), Phase 30/31 (the 3D viewer that re-derives from dimensions)
+**Requirements:** DrawingEditor, DrawingRegenerate, PartCreate, PartEdit, PartRetire, BomLineDelete
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 35 to break down)
+
+---
+
 ### Phase 19: CDJ-3000 Waveform Replica
 **Goal**: Replace the broken DJWaveformView.tsx with a pixel-perfect CDJ-3000 display replica -- mirrored 3Band waveform, subtle beat grid, 3 color modes, source toggle, post-analysis UI update
 **Depends on**: None (MixMind standalone feature)
