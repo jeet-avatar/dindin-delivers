@@ -263,3 +263,4 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 336 | create exact replica of Marquee Brands website homepage design | 2026-05-12 | facb6ab9 | [336-create-exact-replica-of-marquee-brands-w](./quick/336-create-exact-replica-of-marquee-brands-w/) |
+| 337 | fix ArthaBuild NetSuite Q&A issues: safety refusal misfiring, over-eager clarifying questions, SS1 API leak in SS2 answers, fake search.Operator, wrong Map/Reduce structure, governance limits inconsistency | 2026-05-12 | f7a877f | [337-fix-arthabuild-netsuite-q-a-issues-safet](./quick/337-fix-arthabuild-netsuite-q-a-issues-safet/) |
