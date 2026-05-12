@@ -523,13 +523,13 @@ Plans:
 **Goal:** Make the satellite app a complete, walkable end-to-end procedure for "build a satellite", from sales order to delivery. (A) A NEW "New satellite program" wizard: create a sales order (in the satellite-app context, persisting to the DB, tying into the Phase-25 cross-system sync where it makes sense) → it spawns the satellite + its BOM + initial part instances + lifecycle-stage-0 events. (B) Audit the WHOLE lifecycle chain (sales order → satellite → part_definitions → part_instances → BOM tree → procurement requests / vendor orders → work orders → build steps → lifecycle-stage advancement → cost rollup → ... → delivery/completion) and fix every dead end — every page gets a clear "next step" link so a user never gets stuck. (C) Backend: a sales-order creation endpoint + the "spawn satellite from sales order" logic (likely extends the Phase-25 sync triggers) — needs a Lambda redeploy via build-and-push.sh. (D) Frontend: the wizard pages + the "next step" wiring across constellation / satellite / parts / instance / bom / work-orders / work-order / kanban / cost / cost-detail / sub-parts. Phase-29 button audit must stay 0 violations. Likely 5-8 plans across several waves.
 **Depends on:** Phase 32
 **Requirements:** SalesOrderWizard, SatelliteSpawn, LifecycleWiring, NoDeadEnds, E2EFlowVerified
-**Plans:** 3/6 plans executed
+**Plans:** 4/6 plans executed
 
 Plans:
 - [x] 33-01-PLAN.md — Migration 020: turion_satellite.sales_orders table + spawn_satellite_program() function (full SAT-003 BOM clone + stage-0 events), applied to prod, idempotent
 - [x] 33-02-PLAN.md — Backend routes: POST /api/sales-orders (+GET), POST /api/satellites (wraps spawn_satellite_program, transactional), PATCH /api/satellites/:id (status advance), app.ts mount, tests, button audit 0 violations — also migration 021 (audit_log action CHECK)
-- [ ] 33-03-PLAN.md — Wizard page satellite/program-new.html (program details → spawn → done) + "+ New satellite program" CTA on /satellite/ index
-- [ ] 33-04-PLAN.md — programProgress() lifecycle strip in satellite-render.js + "Next step ▸" wiring on sat.html / bom.html / kanban.html (incl. PATCH-driven advance-program-status)
+- [x] 33-03-PLAN.md — Wizard page satellite/program-new.html (program details → spawn → done) + "+ New satellite program" CTA on /satellite/ index
+- [x] 33-04-PLAN.md — programProgress() lifecycle strip in satellite-render.js + "Next step ▸" wiring on sat.html / bom.html / kanban.html (incl. PATCH-driven advance-program-status)
 - [ ] 33-05-PLAN.md — "Next step ▸" / "Back ▸" wiring + complete-WO control on instance.html / work-order.html / work-orders.html / part.html / cost.html / cost-detail.html — no dead ends
 - [ ] 33-06-PLAN.md — Deploy: ./build-and-push.sh Lambda redeploy + deploy-frontend.sh w/ F6 pre-flight + CF invalidation + button audit 0 violations both repos + DB-direct E2E walk (spawn → confirm chain → cleanup) + headless-substitute checkpoint + update STATE/ROADMAP
 
