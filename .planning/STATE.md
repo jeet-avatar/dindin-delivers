@@ -197,3 +197,9 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 31]: Plan 31-03 squashed two interim per-task commits into a single combined commit (802eec6) to honor plan must_have 'One local commit scoped to the two pages'
 - [Phase 31]: Phase 31 deploy (31-04): turion-satellite Lambda redeployed (CodeSha256 bddd42c8->5438a289) with /api/parts/:partDefId/children returning specifications; turion-space-demo frontend deployed (CF invalidation IBKKFN1F0OR9ER5YCGDILXEPHX, Completed); pre+post-deploy audit 0 violations; F6 pre-flight kept ERP WIP + .superpowers/ out of the aws s3 sync . --delete; 30/30 curl/HEAD smoke checks PASS; headless-substitute approval per Phase 27-30 precedent
 - [Phase 31]: F6 pre-flight pattern reaffirmed: any deploy-frontend.sh invocation MUST stash ERP-demo WIP HTMLs + mv .superpowers/ to /tmp BEFORE running (the script does aws s3 sync . --delete over the whole repo); restore both after; git stash list must end empty and working tree must match pre-deploy baseline
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 336 | create exact replica of Marquee Brands website homepage design | 2026-05-12 | facb6ab9 | [336-create-exact-replica-of-marquee-brands-w](./quick/336-create-exact-replica-of-marquee-brands-w/) |
