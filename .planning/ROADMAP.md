@@ -557,7 +557,7 @@ Plans:
 Plans:
 - [ ] 35-01-PLAN.md — migration 022 (drawing_rev + retired_at + part_revisions, applied to prod) + port the Phase-27 SVG generator into backend/src/cad-templates/ + cad-generator byte-equality self-test [W1, foundation]
 - [ ] 35-02-PLAN.md — backend: POST /api/parts (create + auto-generated drawing), PATCH /api/parts/:id (fields), PATCH /api/parts/:id/drawing (+rev bump + part_revisions row), POST /api/parts/:id/drawing/regenerate, POST /api/parts/:id/restore + tests [W2]
-- [ ] 35-03-PLAN.md — backend: DELETE /api/parts/:id (soft-retire, ?force=1), DELETE /api/satellites/:satId/bom/:lineId (refuse-on-sub-lines) + the retired_at sweep (hard-filter ONLY the parts list + children/picker; badge elsewhere) + tests [W2]
+- [ ] 35-03-PLAN.md — backend: DELETE /api/parts/:id (soft-retire, ?force=1), DELETE /api/satellites/:satId/bom/:lineId (refuse-on-sub-lines) + the retired_at sweep (hard-filter ONLY the parts list + children/picker; badge elsewhere) + tests [W3]
 - [ ] 35-04-PLAN.md — frontend plumbing: satellite/svg-editor.js (hand-rolled vanilla SVG editor) + satellite-api.js del() + audit-satellite-buttons.mjs regex tweak [W3]
 - [ ] 35-05-PLAN.md — wire the drawing editor into part.html + instance.html (Edit drawing / Revert to generated / ?edit=drawing deep-link / retired banner) [W4]
 - [ ] 35-06-PLAN.md — part-management UI: extended Add-BOM modal + create-new-part sub-form on bom.html, Edit-part form + Retire/Restore on part.html, retire control on parts.html, delete control on bom.html tree rows [W5]
