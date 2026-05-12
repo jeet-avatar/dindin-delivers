@@ -538,10 +538,12 @@ Plans:
 **Goal:** A floating chat button on EVERY satellite page → a chat panel → a NEW `POST /api/assistant/chat` endpoint on the turion-satellite Lambda that calls Claude (Anthropic SDK) with a curated "site knowledge" system prompt: every page + what it does, how to navigate, how to search/filter, the full sales-order→delivery workflow (Phase-33), the make/buy distinction, where data lives, common tasks ("how do I advance a lifecycle stage?", "where do I see a part's 3D model?", "how do I place a vendor order?", "how do I create a new satellite program?"). The endpoint reads the Anthropic API key from AWS Secrets Manager (NEW secret ARN, e.g. `turion-satellite/production/anthropic-key`) — if the secret/key is absent, the endpoint returns a clear "assistant not configured" message and the chat widget shows that gracefully (so it ships + deploys before the key is added; the user adds the key to light it up). Chat widget = a small shared JS module (`satellite/satellite-chat.js`) loaded on every page (via the topbar/shell or each page); passes the current page path so answers are page-aware. Chat button wired via addEventListener; the new `/api/assistant/chat` path resolves against `app.ts` (audit stays 0 violations). Backend redeploy via build-and-push.sh; frontend deploy via deploy-frontend.sh w/ F6 pre-flight. ~3-5 plans.
 **Depends on:** Phase 33 (so the site-knowledge prompt can describe the completed E2E flow)
 **Requirements:** ChatEndpoint, SiteKnowledgePrompt, ChatWidget, GracefulNoKey
-**Plans:** 0 plans
+**Plans:** 3 plans (3 waves)
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 34 to break down)
+- [ ] 34-01-PLAN.md — backend: @anthropic-ai/sdk dep + assistant-knowledge.ts (SITE_KNOWLEDGE) + routes/assistant.ts (POST /api/assistant/chat, requireAuth, graceful-no-key) + app.ts mount + vitest
+- [ ] 34-02-PLAN.md — frontend: satellite/satellite-chat.js self-injecting widget + <script> line on 12 content pages; button audit 0 violations
+- [ ] 34-03-PLAN.md — deploy: build-and-push.sh Lambda redeploy + deploy-frontend.sh (F6 pre-flight) + CF invalidation + curl smoke (200 {configured:false}) + button audit both repos + STATE/ROADMAP; user adds anthropic-key secret + resource policy + ANTHROPIC_API_KEY_ARN env var to light it up
 
 ---
 
