@@ -523,7 +523,7 @@ Plans:
 **Goal:** Make the satellite app a complete, walkable end-to-end procedure for "build a satellite", from sales order to delivery. (A) A NEW "New satellite program" wizard: create a sales order (in the satellite-app context, persisting to the DB, tying into the Phase-25 cross-system sync where it makes sense) → it spawns the satellite + its BOM + initial part instances + lifecycle-stage-0 events. (B) Audit the WHOLE lifecycle chain (sales order → satellite → part_definitions → part_instances → BOM tree → procurement requests / vendor orders → work orders → build steps → lifecycle-stage advancement → cost rollup → ... → delivery/completion) and fix every dead end — every page gets a clear "next step" link so a user never gets stuck. (C) Backend: a sales-order creation endpoint + the "spawn satellite from sales order" logic (likely extends the Phase-25 sync triggers) — needs a Lambda redeploy via build-and-push.sh. (D) Frontend: the wizard pages + the "next step" wiring across constellation / satellite / parts / instance / bom / work-orders / work-order / kanban / cost / cost-detail / sub-parts. Phase-29 button audit must stay 0 violations. Likely 5-8 plans across several waves.
 **Depends on:** Phase 32
 **Requirements:** SalesOrderWizard, SatelliteSpawn, LifecycleWiring, NoDeadEnds, E2EFlowVerified
-**Plans:** 2/6 plans executed
+**Plans:** 3/6 plans executed
 
 Plans:
 - [x] 33-01-PLAN.md — Migration 020: turion_satellite.sales_orders table + spawn_satellite_program() function (full SAT-003 BOM clone + stage-0 events), applied to prod, idempotent
