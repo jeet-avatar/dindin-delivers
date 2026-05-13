@@ -600,6 +600,18 @@ Plans:
 
 ---
 
+### Phase 38: ERP auth + login — first step toward "complete software" (internal-tool-grade)
+
+**Goal:** Add real authentication to the ERP demo side so it stops being "anyone with the URL can POST/PATCH/DELETE". Mirror the satellite app's existing auth pattern (Supabase ES256 magic-link JWT, verified server-side via JWKS) onto the ERP backend + frontend. (A) **Backend** (`turion-space-demo/backend/`): new `requireAuth` middleware (port from `turion-satellite/backend/src/middleware/auth.ts` — same Supabase project = same JWKS public key, no new secret needed; reuse `turion-satellite/production/supabase-jwt-secret` or its ARN as a Lambda env var on `turion-demo-api`), apply to every router except `/api/health` and any genuinely public endpoint, hardened catch (401 on missing/invalid JWT, no `err.message` leak). Lambda redeploy via `backend/build-and-push.sh`. (B) **Frontend** shared helpers: new `erp-auth.js` mirroring `satellite-auth.js` — exposes `window.erpAuth.requireSession()` (returns the Supabase session or redirects to `/erp-login.html`), uses the existing Supabase UMD already loaded by the data-loader's runtime. New `erp-api.js` (mirror of `satellite-api.js`) — `window.erpApi.{get,post,patch,del,put}(path, body?)` that auto-adds the `Authorization: Bearer <jwt>` header. New `erp-login.html` magic-link page — email input → `supabase.auth.signInWithOtp({email})` → "check your email" → click link → bounce back to original page (via `?redirect=`). (C) **Migrate frontend fetches**: every existing ERP fetch (`data-loader.js`, `erp-lookups.js`, `arena-lookups.js`, `ns-editable.js`, the per-page inline scripts) from raw `fetch(API_BASE + …)` → `erpApi.*`. Every ERP HTML page calls `erpAuth.requireSession()` at the top of its inline IIFE (before any fetch). (D) **Audit**: extend `audit-erp-buttons.mjs` to recognize `erpApi.{get,post,patch,del,put}` calls in addition to the existing raw-`fetch()` matcher. Stay 0 violations. (E) **Deploy + verify**: F6 pre-flight + `build-and-push.sh` + `deploy-frontend.sh` + CF invalidation; curl smoke proves write routes 401 unauth; manual browser walk (or DB-direct simulation) proves a magic-link flow round-trips successfully. ~3-5 plans across 2-3 waves.
+**Depends on:** Phase 37 (all the ERP routes that need auth are now in place; the satellite-side auth pattern proven across Phases 32-37)
+**Requirements:** ErpAuthMiddleware, ErpLoginPage, ErpAuthHelpers, ErpFetchMigration, AuditExtendedForErpApi
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 38 to break down)
+
+---
+
 ### Phase 19: CDJ-3000 Waveform Replica
 **Goal**: Replace the broken DJWaveformView.tsx with a pixel-perfect CDJ-3000 display replica -- mirrored 3Band waveform, subtle beat grid, 3 color modes, source toggle, post-analysis UI update
 **Depends on**: None (MixMind standalone feature)
