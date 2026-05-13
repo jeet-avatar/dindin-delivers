@@ -188,3 +188,6 @@ apps/ios/delivery/.dead-code-backup/
 
 # SQLite test artifacts
 *:memory:*
+
+.DS_Store
+.superpowers/
