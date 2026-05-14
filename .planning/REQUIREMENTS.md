@@ -125,8 +125,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TenantSignupFlow | 52-02 + 52-03 + 52-04 | Complete (E2E smoke 9/9 PASS) |
 | WelcomeEmailViaSES | 52-02 + 52-04 | Complete (CloudWatch hit confirmed) |
 | WildcardACMCert | 53-01 | Complete (cert ARN 4a29032a-..., SANs *.zietra.com + zietra.com, Status=ISSUED, NotAfter 2026-11-27, R53 wildcard A+AAAA aliases live) |
-| CloudFrontWildcardAlias | 53-02 | Pending |
-| TenantSubdomainExtractor | 53-02 | Pending |
+| CloudFrontWildcardAlias | 53-02 | Complete |
+| TenantSubdomainExtractor | 53-02 | Complete |
 | BackendTenantContextMiddleware | 53-03 | Complete (tenantContext middleware mirror-deployed to BOTH Lambdas — turion-demo-api `efb8d369…079695` + turion-satellite-api `19c656b4…f7eee`, 60s positive / 5s negative cache, 400/404/500 contract, smoke 10/10 PASS) |
 | TenantConfigEndpoint | 53-03 | Complete (public GET /api/tenants/current LIVE on both Lambdas, returns `{id, slug, name, plan, trial_ends_at, features: [...]}`, 13 enabled features for Turion, mirror payload byte-identical between ERP+Sat) |
 
