@@ -703,10 +703,10 @@ Plans:
 **Depends on:** Phase 52 (tenants table exists, signup writes rows).
 **Requirements:** WildcardACMCert, CloudFrontWildcardAlias, TenantSubdomainExtractor, BackendTenantContextMiddleware, TenantConfigEndpoint
 
-**Plans:** 1/4 plans executed
-- [ ] 53-01-PLAN.md — Wildcard ACM cert (`*.zietra.com` + `zietra.com` SANs, us-east-1) + Route 53 wildcard A+AAAA aliases — idempotent provision script (Wave 1)
+**Plans:** 2/4 plans executed
+- [x] 53-01-PLAN.md — Wildcard ACM cert (`*.zietra.com` + `zietra.com` SANs, us-east-1) + Route 53 wildcard A+AAAA aliases — idempotent provision script (Wave 1) — SUMMARY `53-01-SUMMARY.md`
 - [ ] 53-02-PLAN.md — CloudFront distribution alias swap (attach wildcard cert + add Aliases) + Function host→x-tenant-slug + reserved-slug filter + /* invalidation (Wave 2, depends 53-01)
-- [ ] 53-03-PLAN.md — Backend tenantContext middleware in BOTH Lambdas (mirror) + public GET /api/tenants/current + browser X-Tenant-Slug header in erp-api.js + satellite-api.js (Wave 2, depends 53-01)
+- [x] 53-03-PLAN.md — Backend tenantContext middleware in BOTH Lambdas (mirror) + public GET /api/tenants/current + browser X-Tenant-Slug header in erp-api.js + satellite-api.js (Wave 2, depends 53-01) — SUMMARY `53-03-SUMMARY.md`
 - [ ] 53-04-PLAN.md — End-to-end smoke (≥9 assertions + 3 regressions, anchor-guarded, re-runnable) + Phase 54 CHECKPOINT.md + ROADMAP/REQUIREMENTS close-out (Wave 3, depends 53-02 + 53-03)
 
 ---
