@@ -718,7 +718,7 @@ Plans:
 **Depends on:** Phase 53 (tenant context + `/api/tenants/current` returning `features[]`).
 **Requirements:** AppShell, ModuleAwareNavigation, NavigationLandingPages, CatalogPage, AddOnCTAs, ShellWrapperForExistingPages, TenantBrandedChrome, PlaywrightE2EScaffold
 
-**Plans:** 1/5 plans executed
+**Plans:** 2/5 plans executed
 - [ ] 54-01-PLAN.md — App shell + design system + NAV_TAXONOMY (Wave 1) — `AppShell`, `ModuleAwareNavigation`, `TenantBrandedChrome`
 - [ ] 54-02-PLAN.md — Idempotent migration script: STRIP old `/shells/*` + INJECT new shell into ~85 ERP pages (Wave 2, depends 54-01) — `ShellWrapperForExistingPages`
 - [ ] 54-03-PLAN.md — `/catalog` + 13-card MODULE_CATALOG + 17 module-landing stubs + 3 bottom-rail stubs (Wave 2, depends 54-01) — `CatalogPage`, `AddOnCTAs`, `NavigationLandingPages`
