@@ -667,7 +667,7 @@ Plans:
 **Depends on:** Phase 40 (dual-issuer middleware proven).
 **Requirements:** CognitoOnlyFrontend, CognitoOnlyBackend, SupabaseAuthDeprecation
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 - [ ] 41-01-PLAN.md — Wave 1: Frontend cutover — build cognito-auth-callback.html, rewrite erp-login.html + satellite/login.html, run 96-page migration script, rewire erp-api.js + satellite-api.js, add CloudFront /cognito-auth-callback rewrite, drop Supabase from config generators, deploy frontend
 - [ ] 41-02-PLAN.md — Wave 2: turion-demo-api Cognito-only — strip Supabase ES256/HS256 branch from auth.ts, make Cognito mandatory in secrets.ts, build+push+deploy via build-and-push.sh, smoke
 - [ ] 41-03-PLAN.md — Wave 2: turion-satellite-api Cognito-only (mirror of 41-02) — same diff applied to satellite repo, build+push+deploy, smoke

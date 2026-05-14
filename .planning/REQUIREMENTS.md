@@ -117,7 +117,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CognitoJwksLoader | 40 | Complete |
 | CognitoFrontendHelper | 40 | Complete |
 | CognitoOnlyFrontend | 41 | Complete (41-01) |
-| CognitoOnlyBackend | 41 | Pending (41-02 + 41-03) |
+| CognitoOnlyBackend | 41 | Partial — turion-demo-api done (41-02); turion-satellite-api pending (41-03) |
 | SupabaseAuthDeprecation | 41 | Partial — frontend done (41-01); backend ES256 branch + Lambda env vars + IAM grant + secret retirement pending (41-02/-03/-04) |
 
 ---

@@ -451,6 +451,7 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 40]: No @aws-sdk dep — raw fetch + X-Amz-Target hits the same Cognito HTTPS surface in ~6KB; Phase 40 ships JWT-acquire-only (no MFA / federation / AccessToken path, Rule 6)
 - [Phase 41]: Single shared cognito-auth-callback.html serves both ERP + satellite via sessionStorage zietra-cognito-app-hint forwarding (avoids per-app callback duplication)
 - [Phase 41]: Phase-38 helpers (erp-auth.js, satellite-auth.js, erp-auth-callback.html) kept on disk for rollback — Plan 41-04 deletes them after backend Supabase removal verified
+- [Phase 41]: turion-demo-api Cognito JWKS load now MANDATORY at cold start (Phase 41-02 — throws if COGNITO_CONFIG_SECRET_ARN missing; no swallow). Plan 41-04 will remove the still-attached SUPABASE_JWT_SECRET_ARN env var after 41-03 verifies the satellite Lambda.
 
 ### Quick Tasks Completed
 
@@ -468,4 +469,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 40 P02 | 13 min | 3 tasks | 2 files |
 | Phase 40 P03 | 7m | 3 tasks | 4 files |
 | Phase 41 P01 | 6m 36s | 3 tasks | 96 files |
+| Phase 41 P02 | 5 min 34 sec | 2 tasks | 6 files |
 
