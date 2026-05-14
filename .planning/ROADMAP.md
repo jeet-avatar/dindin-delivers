@@ -719,10 +719,10 @@ Plans:
 **Requirements:** AppShell, ModuleAwareNavigation, NavigationLandingPages, CatalogPage, AddOnCTAs, ShellWrapperForExistingPages, TenantBrandedChrome, PlaywrightE2EScaffold
 
 **Plans:** 4/5 plans executed
-- [ ] 54-01-PLAN.md — App shell + design system + NAV_TAXONOMY (Wave 1) — `AppShell`, `ModuleAwareNavigation`, `TenantBrandedChrome`
-- [ ] 54-02-PLAN.md — Idempotent migration script: STRIP old `/shells/*` + INJECT new shell into ~85 ERP pages (Wave 2, depends 54-01) — `ShellWrapperForExistingPages`
-- [ ] 54-03-PLAN.md — `/catalog` + 13-card MODULE_CATALOG + 17 module-landing stubs + 3 bottom-rail stubs (Wave 2, depends 54-01) — `CatalogPage`, `AddOnCTAs`, `NavigationLandingPages`
-- [ ] 54-04-PLAN.md — CloudFront Function: 27+ R-map entries + 14 RESERVED slugs + backend `RESERVED_SLUGS` expansion + Lambda redeploy (Wave 2, depends 54-01) — `ModuleAwareNavigation`, `NavigationLandingPages`
+- [x] 54-01-PLAN.md — App shell + design system + NAV_TAXONOMY (Wave 1) — `AppShell`, `ModuleAwareNavigation`, `TenantBrandedChrome` — SUMMARY `54-01-SUMMARY.md`
+- [x] 54-02-PLAN.md — Idempotent migration script: STRIP old `/shells/*` + INJECT new shell into ~85 ERP pages (Wave 2, depends 54-01) — `ShellWrapperForExistingPages` — SUMMARY `54-02-SUMMARY.md`
+- [x] 54-03-PLAN.md — `/catalog` + 13-card MODULE_CATALOG + 17 module-landing stubs + 3 bottom-rail stubs (Wave 2, depends 54-01) — `CatalogPage`, `AddOnCTAs`, `NavigationLandingPages` — SUMMARY `54-03-SUMMARY.md`
+- [x] 54-04-PLAN.md — CloudFront Function: 27+ R-map entries + 14 RESERVED slugs + backend `RESERVED_SLUGS` expansion + Lambda redeploy (Wave 2, depends 54-01) — `ModuleAwareNavigation`, `NavigationLandingPages` — SUMMARY `54-04-SUMMARY.md`
 - [ ] 54-05-PLAN.md — Playwright E2E scaffold + 28 tests + Phase 54.1 CHECKPOINT.md (Wave 3, depends 54-02 + 54-03 + 54-04) — `PlaywrightE2EScaffold`
 
 ---
