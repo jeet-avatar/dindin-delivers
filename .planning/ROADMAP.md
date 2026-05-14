@@ -631,10 +631,13 @@ Plans:
 **Depends on:** Phase 38 (auth pattern proven on both sub-apps), tonight's SES provisioning.
 **Requirements:** CognitoUserPool, CognitoSesIntegration, UserMigrationFromSupabase, CognitoAuthCheckpoint
 
-**Plans:** 0 plans
+**Plans:** 4 plans across 3 waves
 
 Plans:
-- [ ] TBD (run `/gsd:plan-phase 39` to break down — researcher should inventory current Supabase auth.users rows, spec the Cognito user pool attributes + app clients + custom email templates, recommend live-cutover vs. dual-write vs. backfill migration strategy)
+- [ ] 39-01-PLAN.md — Wave 1: KMS CMK + Cognito user pool + app client + 4 Groups + Secrets Manager `zietra/cognito-config` (idempotent bash provisioner in `turion-space-demo/infrastructure/cognito/`)
+- [ ] 39-02-PLAN.md — Wave 1: Custom Email Sender + Define/Create/Verify-Auth-Challenge Lambdas + IAM role + UpdateUserPool wiring (in `turion-space-demo/lambdas/cognito-custom-email-sender/`)
+- [ ] 39-03-PLAN.md — Wave 2: Migrate 4 confirmed Supabase users to Cognito (admin role + admin group) via `backend/scripts/migrate-supabase-users-to-cognito.ts`
+- [ ] 39-04-PLAN.md — Wave 3: Smoke test (admin-initiate-auth → magic-link → admin-respond-to-auth-challenge → IdToken claims verified) + CHECKPOINT.md handoff to Phase 40
 
 ---
 
