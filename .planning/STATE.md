@@ -1,5 +1,23 @@
 # Project State
 
+## 🛑 Current Position (2026-05-14) — Zietra Platform M1 kickoff
+
+**Next action for the next session:** read `/Users/jeet/.claude/handoffs/2026-05-14-zietra-platform-milestone-kickoff.md` AND `.planning/NEXT_SESSION.md`, confirm SES email chain works, run `/gsd:plan-phase 39`.
+
+The Turion demo (Phases 27–38) is the proof-of-concept. The pivot 2026-05-14 is to a **multi-tenant SaaS platform at `zietra.com`** — $99/mo base (CRM + sales + purchase + items-lite) + modular add-ons (PLM/MES/Quality/ASC 606/Royalty/Drop-ship/AI Agents/Lean ERP Pro/QB-migration), full AWS migration (Cognito + RDS + SES + Stripe), `<tenant>.zietra.com` subdomain routing, ~6–9 weeks across milestones M1–M8.
+
+**Phase 38 (last completed)**: ERP auth + login live, 96 routes gated, Supabase JWT verification proven end-to-end (2026-05-13).
+
+**Next phase**: Phase 39 (M1 — Cognito user pool + SES integration + migrate users from Supabase Auth). Scaffolded in ROADMAP.md. Run `/gsd:plan-phase 39` to break it down.
+
+**AWS state provisioned during the kickoff session (2026-05-14)**: SES domain `zietra.com` verified, DKIM SUCCESS, MAIL FROM `mail.zietra.com` SUCCESS, DMARC + apex SPF live, IAM user `ses-smtp-supabase` with SMTP credentials in Secrets Manager `zietra/ses-smtp-credentials-RsRKSm`. SES in **SANDBOX** (200/day, verified recipients only) — prod-access reopen pending User in AWS Console (prior case `176066476400763` was DENIED for an unrelated marketing case).
+
+**Six PERMANENT global engineering rules** apply from M1 onward: no hardcoded DB-derivable values · every link leads somewhere · no shortcuts/assumptions · all workflows same · remove dead code · no unnecessary code. See `feedback_global_engineering_rules.md` in memory.
+
+**Do NOT** break the Turion Thursday demo (Turion is anchor tenant on the current stack). M1–M2 must be reversible/parallel until full cutover.
+
+---
+
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-26)
