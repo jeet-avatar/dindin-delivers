@@ -617,6 +617,53 @@ Plans:
 
 ---
 
+## Milestone — Zietra Platform (multi-tenant SaaS on AWS) · M1–M8
+
+**Strategic pivot 2026-05-14**: zietra.com becomes a multi-tenant SaaS at `<tenant>.zietra.com`. $99/mo base (CRM + sales + purchase + items-lite) + modular add-ons (PLM/MES/Quality/ASC 606/Royalty/Drop-ship/AI Agents/Lean ERP Pro/QB-migration). Full AWS migration: Cognito + RDS Postgres + SES + Stripe. RLS for tenant isolation. Turion stack becomes `tenant_id = 1` (anchor demo, don't break). ~6–9 weeks. Full handover: `~/.claude/handoffs/2026-05-14-zietra-platform-milestone-kickoff.md`. SES already provisioned 2026-05-14 — see handover for credentials + AWS state.
+
+**Six PERMANENT global engineering rules apply from M1 onward** (no hardcoded DB-derivable values · every link leads somewhere · no shortcuts/assumptions · all workflows same · remove dead code · no unnecessary code). See `feedback_global_engineering_rules.md` in memory.
+
+---
+
+### Phase 39: M1 — Cognito user pool + SES integration + migrate users from Supabase Auth
+
+**Goal:** Stand up AWS Cognito as the platform's user-identity service. Configure a Cognito user pool with custom email templates that send via the SES SMTP that's already provisioned (`zietra/ses-smtp-credentials`). Migrate the existing Supabase Auth users (small set — the user + a few demo accounts) into Cognito with their email + role attributes. Don't cut over the Lambdas yet — Phase 40 does that. End state: Cognito user pool exists, can be authenticated against, sends magic-link emails via SES from `noreply@zietra.com`, has all current users with their attributes preserved. Test by `aws cognito-idp admin-initiate-auth` succeeding for a migrated user. **Both backends still use Supabase Auth JWTs** during this phase — no Lambda code change. ~3-4 plans.
+**Depends on:** Phase 38 (auth pattern proven on both sub-apps), tonight's SES provisioning.
+**Requirements:** CognitoUserPool, CognitoSesIntegration, UserMigrationFromSupabase, CognitoAuthCheckpoint
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run `/gsd:plan-phase 39` to break down — researcher should inventory current Supabase auth.users rows, spec the Cognito user pool attributes + app clients + custom email templates, recommend live-cutover vs. dual-write vs. backfill migration strategy)
+
+---
+
+### Phase 40: M1 — Replace Lambda JWT middleware (Supabase ES256 → Cognito RS256)
+
+**Goal:** Both Lambda backends (`turion-satellite-api` + `turion-demo-api`) accept Cognito RS256 JWTs *in addition to* Supabase ES256 JWTs (dual-mode during transition). New shared `cognitoAuth` JS helper on both frontends. Backend middleware reads Cognito JWKS from `https://cognito-idp.us-east-1.amazonaws.com/<pool-id>/.well-known/jwks.json` and verifies RS256. Dual-issuer mode means existing Supabase sessions keep working while new logins use Cognito. ~2-3 plans.
+**Depends on:** Phase 39 (Cognito pool exists).
+**Requirements:** DualIssuerJwtMiddleware, CognitoJwksLoader, CognitoFrontendHelper
+
+**Plans:** 0 plans
+- [ ] TBD
+
+---
+
+### Phase 41: M1 — Cut over fully to Cognito + remove Supabase Auth dependency
+
+**Goal:** Replace `satelliteAuth`/`erpAuth` JS helpers with one `cognitoAuth`. Remove Supabase Auth from both frontends (still keeping the Supabase Postgres connection until M2). New `erp-login.html` + the satellite app's login both call `cognitoAuth.signInWithMagicLink`. Lambda middleware drops ES256/Supabase support — Cognito-only. Old Supabase auth.users rows archived. Magic-link UX preserved; user-facing behavior unchanged. M1 complete. ~2 plans.
+**Depends on:** Phase 40 (dual-issuer middleware proven).
+**Requirements:** CognitoOnlyFrontend, CognitoOnlyBackend, SupabaseAuthDeprecation
+
+**Plans:** 0 plans
+- [ ] TBD
+
+---
+
+*M2-M8 outlined in the milestone handover doc (`~/.claude/handoffs/2026-05-14-zietra-platform-milestone-kickoff.md`). Add formal ROADMAP entries during/after each M1 phase as the architecture solidifies.*
+
+---
+
 ### Phase 19: CDJ-3000 Waveform Replica
 **Goal**: Replace the broken DJWaveformView.tsx with a pixel-perfect CDJ-3000 display replica -- mirrored 3Band waveform, subtle beat grid, 3 color modes, source toggle, post-analysis UI update
 **Depends on**: None (MixMind standalone feature)
