@@ -110,7 +110,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | CognitoUserPool | 39-01 | Complete |
-| CognitoSesIntegration | 39-02 | Pending |
+| CognitoSesIntegration | 39-02 | Complete |
 | UserMigrationFromSupabase | 39-03 | Pending |
 | CognitoAuthCheckpoint | 39-04 | Pending |
 | DualIssuerJwtMiddleware | 40 | Pending |
