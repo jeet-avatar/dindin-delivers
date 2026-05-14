@@ -631,12 +631,12 @@ Plans:
 **Depends on:** Phase 38 (auth pattern proven on both sub-apps), tonight's SES provisioning.
 **Requirements:** CognitoUserPool, CognitoSesIntegration, UserMigrationFromSupabase, CognitoAuthCheckpoint
 
-**Plans:** 4 plans across 3 waves
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 39-01-PLAN.md — Wave 1: KMS CMK + Cognito user pool + app client + 4 Groups + Secrets Manager `zietra/cognito-config` (idempotent bash provisioner in `turion-space-demo/infrastructure/cognito/`) — **COMPLETE 2026-05-14**: pool `us-east-1_KQuNS85nP`, client `1tuq2a1eedd3hvdsl0kvtu55ih`, KMS `fd1706a7-...`. Secrets Manager `zietra/cognito-config` populated. SES `demo@zietra.com` queued (Pending — recipient click optional). 3 commits on turion-space-demo `origin/main` (`cb2c713`, `b4fa1aa`, `68c92cd`). SUMMARY: `.planning/phases/39-m1-.../39-01-SUMMARY.md`.
 - [x] 39-02-PLAN.md — Wave 1: Custom Email Sender + Define/Create/Verify-Auth-Challenge Lambdas + IAM role + UpdateUserPool wiring (in `turion-space-demo/lambdas/cognito-custom-email-sender/`) — **COMPLETE 2026-05-14**: 4 Lambdas Active in us-east-1 (`zietra-cognito-custom-email-sender`, `zietra-cognito-define-auth-challenge`, `zietra-cognito-create-auth-challenge`, `zietra-cognito-verify-auth-challenge`), IAM role `zietra-cognito-email-sender-role` w/ inline SES+KMS+logs policy, pool `us-east-1_KQuNS85nP` LambdaConfig has all 5 slots populated (CES V1_0 + Define + Create + Verify + KMSKeyID). Idempotency proven via 2× deploy.sh end-to-end. 3 commits on turion-space-demo `origin/main` (`92d3a72`, `3cbb911`, `ab28814`). SUMMARY: `.planning/phases/39-m1-.../39-02-SUMMARY.md`.
-- [ ] 39-03-PLAN.md — Wave 2: Migrate 4 confirmed Supabase users to Cognito (admin role + admin group) via `backend/scripts/migrate-supabase-users-to-cognito.ts`
+- [x] 39-03-PLAN.md — Wave 2: Migrate 4 confirmed Supabase users to Cognito (admin role + admin group) via `backend/scripts/migrate-supabase-users-to-cognito.ts` — **COMPLETE 2026-05-14**: 4 Cognito users CONFIRMED (`demo@zietra.com`, `gteshnair@gmail.com`, `jm@techcloudpro.com`, `jeetnair.in@gmail.com`) — `email_verified=true`, `custom:role=admin`, `custom:supabase_sub=<original Supabase UUID>`, member of `admin` Cognito Group. DRY_RUN + real + idempotent re-run all passed (4 [migrated] + 1 [drop-deprecated] then 4 [skip-exists]). Supabase `auth.users` untouched (read-only). 1 commit on turion-space-demo `origin/main` (`85275a1`). SUMMARY: `.planning/phases/39-m1-.../39-03-SUMMARY.md`.
 - [ ] 39-04-PLAN.md — Wave 3: Smoke test (admin-initiate-auth → magic-link → admin-respond-to-auth-challenge → IdToken claims verified) + CHECKPOINT.md handoff to Phase 40
 
 ---
