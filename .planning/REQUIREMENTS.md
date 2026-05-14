@@ -122,9 +122,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TenantsTable | 52-01 | Complete |
 | TenantFeaturesTable | 52-01 | Complete |
 | MinimalTenantIdBackfill | 52-01 | Complete |
-| TenantSignupFlow | 52 | Complete |
-| WelcomeEmailViaSES | 52 | Complete |
+| TenantSignupFlow | 52-02 + 52-03 | Complete |
+| WelcomeEmailViaSES | 52-02 | Complete |
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-05-14T17:57Z -- Phase 52 Plan 01 complete. 3 M5 requirements (TenantsTable, TenantFeaturesTable, MinimalTenantIdBackfill) Complete. Multi-tenancy DB scaffolding LIVE on Supabase Postgres.*
+*Last updated: 2026-05-14T18:09Z -- Phase 52 Plan 03 complete. TenantSignupFlow now covers BOTH backend endpoint (52-02 `POST /api/tenants/signup`) AND frontend signup page (52-03 `https://turionspace.zietra.com/signup`). All 5 M5 requirements Complete; only end-to-end smoke + cleanup (52-04) remains for phase close-out.*
