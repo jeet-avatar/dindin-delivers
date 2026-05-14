@@ -122,8 +122,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TenantsTable | 52-01 | Complete |
 | TenantFeaturesTable | 52-01 | Complete |
 | MinimalTenantIdBackfill | 52-01 | Complete |
-| TenantSignupFlow | 52 | Pending |
-| WelcomeEmailViaSES | 52 | Pending |
+| TenantSignupFlow | 52 | Complete |
+| WelcomeEmailViaSES | 52 | Complete |
 
 ---
 *Requirements defined: 2026-02-26*
