@@ -116,10 +116,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DualIssuerJwtMiddleware | 40 | Complete |
 | CognitoJwksLoader | 40 | Complete |
 | CognitoFrontendHelper | 40 | Complete |
-| CognitoOnlyFrontend | 41 | Complete (41-01) |
-| CognitoOnlyBackend | 41 | Partial — turion-satellite-api done (41-03, commit `9531527` on `turion-satellite` `origin/main`, CodeSha256 `10b9ecb4…2039dc9`); turion-demo-api pending (41-02) |
-| SupabaseAuthDeprecation | 41 | Partial — frontend done (41-01); backend ES256 branch + Lambda env vars + IAM grant + secret retirement pending (41-02/-03/-04) |
+| CognitoOnlyFrontend | 41 | Complete |
+| CognitoOnlyBackend | 41 | Complete |
+| SupabaseAuthDeprecation | 41 | Complete |
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-05-14 -- Added Zietra Platform M1 requirements (Phase 39-41)*
+*Last updated: 2026-05-14T08:41Z -- Phase 41 COMPLETE / M1 CLOSED. All 10 M1 requirements (Phases 39-41) Complete. Cognito-only auth foundation LIVE; Supabase Auth fully retired.*
