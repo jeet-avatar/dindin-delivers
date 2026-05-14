@@ -711,15 +711,51 @@ Plans:
 
 ---
 
-### Phase 54: M6 — Modular UI shell + add-on catalog
+### Phase 54: M6 — Modular UI shell + module-aware navigation redesign + add-on catalog
 
-**Goal:** A single app shell at `<tenant>.zietra.com` with a dynamic top-nav rendered from the tenant's `tenant_features` rows. Each module (CRM, Sales, Purchase, Items, PLM, MES, Quality, ASC 606, Royalty, etc.) shows as a nav tile if `enabled=true` for the tenant, greyed-out "+ Add to plan" CTA if disabled. A `/catalog` page lists every available add-on with a description, "Try it free" CTA (in trial mode), and a placeholder "Subscribe" button (stubbed to Stripe portal which lands in M4). Browse the catalog inside the app, NOT only on marketing site. The shell wraps the existing satellite + ERP pages — they continue to render unchanged, just inside the new shell chrome. Phase 38/Phase 41 pages get a small shell wrapper added at the top via the migration script pattern.
+**Goal:** Single app shell at `<tenant>.zietra.com` with a redesigned LEFT-SIDE NAVIGATION that names each module by its source system (NetSuite, Salesforce, Arena PLM, Zietra Marketing, ASC 606, Royalty Management, Ramp, QB-Migration, AI Agents, MES, Quality), so users instantly understand the cross-system data flow. Each nav item clicks straight to a meaningful work-surface page (NOT a generic dashboard). Dynamic nav rendered from the tenant's `tenant_features` rows: enabled modules show with full icon + label; disabled ones grey out with "+ Add to plan" CTA. A `/catalog` page lists every add-on with description + "Try it free" CTA (trial) or "Subscribe" stub (M4 wires Stripe). Per-tenant chrome: header shows tenant name + plan badge + trial countdown. Shell wraps existing satellite + ERP pages via migration-script injection; pages render unchanged inside the shell. Playwright E2E scaffold + 20 nav-traversal tests bootstrapped here.
 
-**Depends on:** Phase 53 (tenant context resolved per request).
-**Requirements:** AppShell, DynamicNavFromFeatures, CatalogPage, AddOnCTAs, ShellWraperForExistingPages
+**Depends on:** Phase 53 (tenant context + `/api/tenants/current` returning `features[]`).
+**Requirements:** AppShell, ModuleAwareNavigation, NavigationLandingPages, CatalogPage, AddOnCTAs, ShellWrapperForExistingPages, TenantBrandedChrome, PlaywrightE2EScaffold
 
 **Plans:** 0 plans
 - [ ] TBD (run `/gsd:plan-phase 54` to break down)
+
+---
+
+### Phase 54.1: M6 — Multi-user per tenant (team invites + role middleware)
+
+**Goal:** A tenant owner can invite team members by email; each gets a role (`admin` / `manager` / `member` / `viewer`). New `tenant_users` table (tenant_id, cognito_sub, role, invited_at, joined_at, status). Invite flow: owner submits email + role → backend creates pending invite + sends magic-link email via SES → invitee clicks → Cognito user provisioned (if new) → row added to `tenant_users`. New role middleware enforces RBAC per route (admin = full; manager = no billing/team; member = no admin pages; viewer = read-only). UI: `/team` page lists members + invite form. Stripe seat counting deferred to M4. Adds vitest backend tests for the invite + role middleware.
+
+**Depends on:** Phase 54 (UI shell exists with `/team` route slot).
+**Requirements:** TenantUsersTable, InviteFlow, RoleMiddleware, TeamPage, VitestBackendBootstrap
+
+**Plans:** 0 plans
+- [ ] TBD (run `/gsd:plan-phase 54.1`)
+
+---
+
+### Phase 54.2: M6 — AI agents per-tenant (NCR→CAPA, EVMS Watchdog, Integration Sentinel)
+
+**Goal:** The 3 AI agents from Phase 36 (currently Turion-only) become per-tenant features gated by `tenant_features.ai-agents`. Each agent reads `req.tenant.id`, queries data scoped to that tenant (in code — full RLS isolation comes in M3), and writes its outputs (capa proposals, EVMS alerts, sync issues) scoped to the tenant. Per-agent UI page (`/agents/ncr-capa`, `/agents/evms`, `/agents/integration`) listing recent runs + manual trigger. Agent invocations require `admin` or `manager` role (RBAC from 54.1). Anthropic API key remains a global Lambda env (per-tenant API keys is M8 scope). Tests: agent mock-mode for non-live runs.
+
+**Depends on:** Phase 54.1 (RBAC middleware).
+**Requirements:** AgentsPerTenant, NcrCapaAgentMultiTenant, EvmsWatchdogMultiTenant, IntegrationSentinelMultiTenant, AgentMockMode
+
+**Plans:** 0 plans
+- [ ] TBD (run `/gsd:plan-phase 54.2`)
+
+---
+
+### Phase 54.3: M6 — Test infrastructure (Playwright E2E + vitest + axe + Lighthouse) bootstrap
+
+**Goal:** Full test stack bootstrapped end-to-end. Playwright suite covers signup → magic-link login → nav traversal → module CRUD → sign-out for both Turion and a freshly-created tenant. Vitest backend coverage for `tenantContext` + role middleware + signup atomic transaction (mocked Cognito/SES). Axe-core accessibility audit per page (WCAG 2.1 AA target). Lighthouse CI integration for perf + best-practices scores. Test count counter goes into STATE.md. CI workflow file scaffolded for future GitHub Actions integration (manual runs only for Phase 54.3). Load/chaos test stub deferred to M8.
+
+**Depends on:** Phase 54 + 54.1 + 54.2 (test targets exist).
+**Requirements:** PlaywrightE2ESuite, VitestBackendCoverage, AxeAccessibilityAudit, LighthouseCI, TestCountTracker
+
+**Plans:** 0 plans
+- [ ] TBD (run `/gsd:plan-phase 54.3`)
 
 ---
 
@@ -733,7 +769,7 @@ These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-
 | **M3** — Multi-tenancy + RLS | 44-48 | `tenant_id` everywhere + RLS policies + per-connection `app.tenant_id` setting. ~500 isolation tests. | M5 ships minimal `tenants` + `tenant_id` columns (no RLS). Demo-grade. | **MUST do before any production paid launch** — currently tenants can read each other's data |
 | **M4** — Stripe + entitlements | 49-51 | Stripe Subscriptions, base $99/mo + add-on prices, webhook Lambda, customer portal. | M5 defaults all modules ON in trial; M4 wires real billing + downgrades. | Before charging real money. M5+M6 give the UX scaffolding to plug Stripe into |
 | **M7** — Marketing site | 55 | `zietra.com` homepage, per-module pages, pricing, case studies, `docs.zietra.com`. | M5 ships at `zietra.com/signup`; static marketing pages can come later. | Before any outbound sales motion |
-| **M8** — Compliance + observability | 56-58 | Per-tenant audit log, KMS encryption-at-rest, SOC2 readiness, CloudWatch dashboards, RBAC per module. | Hardens for enterprise. Not needed for SMB pilot tenants. | Before first enterprise sale or SOC2 audit |
+| **M8** — Compliance + observability + load/chaos | 56-58 | Per-tenant audit log, KMS encryption-at-rest, SOC2 readiness, CloudWatch dashboards, RBAC per module (extends 54.1), **k6 load tests + chaos failures (Lambda timeout, DB drop)**. | Hardens for enterprise. Not needed for SMB pilot tenants. | Before first enterprise sale or SOC2 audit |
 
 *Last updated 2026-05-14: Strategy shift — M5+M6 ahead of M2/M3/M4 to land customer-facing SaaS UX with a real second tenant. M2/M3/M4 remain mandatory before production GA but unblocked for demo/pilot.*
 
