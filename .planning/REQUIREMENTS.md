@@ -105,6 +105,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 - Mapped to phases: 23
 - Unmapped: 0
 
+## Zietra Platform Milestone (M1–M8) Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| CognitoUserPool | 39-01 | Complete |
+| CognitoSesIntegration | 39-02 | Pending |
+| UserMigrationFromSupabase | 39-03 | Pending |
+| CognitoAuthCheckpoint | 39-04 | Pending |
+| DualIssuerJwtMiddleware | 40 | Pending |
+| CognitoJwksLoader | 40 | Pending |
+| CognitoFrontendHelper | 40 | Pending |
+| CognitoOnlyFrontend | 41 | Pending |
+| CognitoOnlyBackend | 41 | Pending |
+| SupabaseAuthDeprecation | 41 | Pending |
+
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-03-07 -- Added ADMIN-01 through ADMIN-06 for Phase 12*
+*Last updated: 2026-05-14 -- Added Zietra Platform M1 requirements (Phase 39-41)*

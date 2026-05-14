@@ -1,6 +1,16 @@
 # Project State
 
-## 🛑 Current Position (2026-05-14) — Zietra Platform M1 kickoff
+## 🛑 Current Position (2026-05-14) — Phase 39 Plan 01 LIVE, awaiting optional SES verification click
+
+**Next action for the next session:** continue with Phase 39 Plan 02 (Custom Email Sender Lambda + IAM role + KMS Decrypt grant). Optionally first click the SES verification link in the `demo@zietra.com` inbox (not blocking — Plan 39-04 smoke test uses already-verified `jm@techcloudpro.com`).
+
+**Phase 39 Plan 01 complete (2026-05-14T05:06Z)**: Cognito user pool `us-east-1_KQuNS85nP` (zietra-platform-users), app client `1tuq2a1eedd3hvdsl0kvtu55ih` (zietra-platform-web), 4 Groups (admin/customer/driver/vendor), KMS CMK `alias/zietra-cognito-email-sender` ARN `arn:aws:kms:us-east-1:134607809447:key/fd1706a7-f70a-4464-bfa7-991f5c52537a`, Secrets Manager `zietra/cognito-config` carrying `{user_pool_id, app_client_id, kms_key_arn, region}`. Idempotent bash provisioner at `turion-space-demo/infrastructure/cognito/`. Phase 38 regression intact (`/api/health` 200, `/api/data/all` 401). 3 commits pushed to turion-space-demo `origin/main` (`cb2c713`, `b4fa1aa`, `68c92cd`). SUMMARY: `.planning/phases/39-m1-.../39-01-SUMMARY.md`. Two Rule-3 auto-fixes during Task 3: (a) renamed `GROUPS` → `ROLE_GROUPS` (bash 3.2 readonly POSIX-gid array collision created 16 bogus numeric groups, deleted + recreated cleanly); (b) deferred `AllowLambdaDecrypt` KMS statement to Plan 39-02 because the principal role doesn't exist yet (KMS validates principals strictly at put-key-policy time). SES `demo@zietra.com` queued (`VerificationStatus=Pending` — recipient click pending). Zero code change in `turion-satellite-api` or `turion-demo-api` Lambda source.
+
+**Phase 39 progress:** 1/4 plans complete. Plans 39-02 (Custom Email Sender Lambda + CUSTOM_AUTH challenge triggers), 39-03 (Supabase→Cognito user migration), 39-04 (admin-initiate-auth smoke test) pending.
+
+---
+
+## 🛑 Previous Position (2026-05-14) — Zietra Platform M1 kickoff
 
 **Next action for the next session:** read `/Users/jeet/.claude/handoffs/2026-05-14-zietra-platform-milestone-kickoff.md` AND `.planning/NEXT_SESSION.md`, confirm SES email chain works, run `/gsd:plan-phase 39`.
 

@@ -634,7 +634,7 @@ Plans:
 **Plans:** 4 plans across 3 waves
 
 Plans:
-- [ ] 39-01-PLAN.md — Wave 1: KMS CMK + Cognito user pool + app client + 4 Groups + Secrets Manager `zietra/cognito-config` (idempotent bash provisioner in `turion-space-demo/infrastructure/cognito/`)
+- [x] 39-01-PLAN.md — Wave 1: KMS CMK + Cognito user pool + app client + 4 Groups + Secrets Manager `zietra/cognito-config` (idempotent bash provisioner in `turion-space-demo/infrastructure/cognito/`) — **COMPLETE 2026-05-14**: pool `us-east-1_KQuNS85nP`, client `1tuq2a1eedd3hvdsl0kvtu55ih`, KMS `fd1706a7-...`. Secrets Manager `zietra/cognito-config` populated. SES `demo@zietra.com` queued (Pending — recipient click optional). 3 commits on turion-space-demo `origin/main` (`cb2c713`, `b4fa1aa`, `68c92cd`). SUMMARY: `.planning/phases/39-m1-.../39-01-SUMMARY.md`.
 - [ ] 39-02-PLAN.md — Wave 1: Custom Email Sender + Define/Create/Verify-Auth-Challenge Lambdas + IAM role + UpdateUserPool wiring (in `turion-space-demo/lambdas/cognito-custom-email-sender/`)
 - [ ] 39-03-PLAN.md — Wave 2: Migrate 4 confirmed Supabase users to Cognito (admin role + admin group) via `backend/scripts/migrate-supabase-users-to-cognito.ts`
 - [ ] 39-04-PLAN.md — Wave 3: Smoke test (admin-initiate-auth → magic-link → admin-respond-to-auth-challenge → IdToken claims verified) + CHECKPOINT.md handoff to Phase 40
