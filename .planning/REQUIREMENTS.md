@@ -113,8 +113,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CognitoSesIntegration | 39-02 | Complete |
 | UserMigrationFromSupabase | 39-03 | Complete |
 | CognitoAuthCheckpoint | 39-04 | Complete |
-| DualIssuerJwtMiddleware | 40 | Pending |
-| CognitoJwksLoader | 40 | Pending |
+| DualIssuerJwtMiddleware | 40 | Complete |
+| CognitoJwksLoader | 40 | Complete |
 | CognitoFrontendHelper | 40 | Pending |
 | CognitoOnlyFrontend | 41 | Pending |
 | CognitoOnlyBackend | 41 | Pending |

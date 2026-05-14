@@ -649,7 +649,7 @@ Plans:
 **Depends on:** Phase 39 (Cognito pool exists).
 **Requirements:** DualIssuerJwtMiddleware, CognitoJwksLoader, CognitoFrontendHelper
 
-**Plans:** 4 plans in 3 waves
+**Plans:** 1/4 plans executed
 
 Plans:
 - [ ] 40-01-PLAN.md — Wave 1: Backend dual-issuer middleware in `turion-space-demo` (`turion-demo-api` Lambda) — extend `secrets.ts` (Cognito JWKS cold-start loader, try/caught) + `middleware/auth.ts` (pre-decode iss, route to RS256 or ES256 verifier, fail-fast on alg mismatch) + set `COGNITO_CONFIG_SECRET_ARN` env var (merged with existing) + IAM grant on `zietra-api-lambda-role` + deploy via `build-and-push.sh` + smoke (Cognito IdToken 200, unauth 401, forged 401, /api/health 200). Requirements: DualIssuerJwtMiddleware, CognitoJwksLoader.
