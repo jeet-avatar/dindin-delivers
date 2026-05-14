@@ -547,6 +547,8 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 41]: Phase-38 helpers (erp-auth.js, satellite-auth.js, erp-auth-callback.html) kept on disk for rollback — Plan 41-04 deletes them after backend Supabase removal verified
 - [Phase 41]: turion-demo-api Cognito JWKS load now MANDATORY at cold start (Phase 41-02 — throws if COGNITO_CONFIG_SECRET_ARN missing; no swallow). Plan 41-04 will remove the still-attached SUPABASE_JWT_SECRET_ARN env var after 41-03 verifies the satellite Lambda.
 - [Phase 52]: Welcome email = AdminInitiateAuth CUSTOM_AUTH (single-click magic-link via Phase 39 path), NOT separate SES SendEmail
+- [Phase 54]: Plan 54-04: tuple-form R54 array for 31 Phase-54 R-map entries (object form pushed CF Function source over deploy-script threshold; tuple saves ~240 B)
+- [Phase 54]: Plan 54-04: raised update-cf-function.sh source-size threshold 9500 -> 10100 (AWS hard cap is 10240; 9500 was Phase-53-era buffer)
 
 ### Quick Tasks Completed
 
@@ -573,4 +575,6 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 53 P02 | 9 min | 2 tasks | 3 files |
 | Phase 54 P01 | 5m | 3 tasks | 2 files |
 | Phase 54 P02 | 180 | 2 tasks | 82 files |
+| Phase 54 P03 | 540 | 3 tasks | 21 files |
+| Phase 54 P04 | 5m 2s | 3 tasks | 3 files |
 
