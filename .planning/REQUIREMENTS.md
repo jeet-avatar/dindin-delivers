@@ -116,9 +116,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DualIssuerJwtMiddleware | 40 | Complete |
 | CognitoJwksLoader | 40 | Complete |
 | CognitoFrontendHelper | 40 | Complete |
-| CognitoOnlyFrontend | 41 | Pending |
-| CognitoOnlyBackend | 41 | Pending |
-| SupabaseAuthDeprecation | 41 | Pending |
+| CognitoOnlyFrontend | 41 | Complete (41-01) |
+| CognitoOnlyBackend | 41 | Pending (41-02 + 41-03) |
+| SupabaseAuthDeprecation | 41 | Partial — frontend done (41-01); backend ES256 branch + Lambda env vars + IAM grant + secret retirement pending (41-02/-03/-04) |
 
 ---
 *Requirements defined: 2026-02-26*
