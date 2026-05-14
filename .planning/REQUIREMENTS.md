@@ -115,7 +115,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CognitoAuthCheckpoint | 39-04 | Complete |
 | DualIssuerJwtMiddleware | 40 | Complete |
 | CognitoJwksLoader | 40 | Complete |
-| CognitoFrontendHelper | 40 | Pending |
+| CognitoFrontendHelper | 40 | Complete |
 | CognitoOnlyFrontend | 41 | Pending |
 | CognitoOnlyBackend | 41 | Pending |
 | SupabaseAuthDeprecation | 41 | Pending |

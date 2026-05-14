@@ -649,7 +649,7 @@ Plans:
 **Depends on:** Phase 39 (Cognito pool exists).
 **Requirements:** DualIssuerJwtMiddleware, CognitoJwksLoader, CognitoFrontendHelper
 
-**Plans:** 1/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 40-01-PLAN.md — Wave 1: Backend dual-issuer middleware in `turion-space-demo` (`turion-demo-api` Lambda) — extended `secrets.ts` (Cognito JWKS cold-start loader, try/caught) + `middleware/auth.ts` (pre-decode iss, route to RS256 or ES256 verifier, fail-fast on alg mismatch) + set `COGNITO_CONFIG_SECRET_ARN` env var (merged via file:// JSON form to preserve commas in ANTHROPIC_API_KEY) + new IAM inline policy `zietra-cognito-config-secret-read` on `zietra-api-lambda-role` + deployed via `build-and-push.sh` — **COMPLETE 2026-05-14T06:50Z**: CodeSha256 `46c31406…`→`d6545f5a9ecc911b4bf3ff797e3c8b3aec515d3d59412d6638ef4ca0c18c4000`; cold-start CloudWatch `[secrets] Cognito JWKS loaded: 2 keys, issuer=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_KQuNS85nP`; smoke 10/10 PASS (valid Cognito IdToken→200 [53 data keys], unauth→401, forged junk→401, /api/health→200, forged ES256 Supabase-iss→401 [Phase 38 regression intact], Cognito-iss+HS256 alg-confusion→401 fail-fast, Cognito-iss+unknown-kid→401). 3 commits on `turion-space-demo` `origin/main` `c22f099..38a972e`: `217693a`+`b9fce35`+`38a972e`. Two Rule-N auto-fixes: (Rule 3) aws-cli shorthand mangled hyphenated base64url nonces — switched smoke to `--challenge-responses file:///tmp/cr.json` JSON-object form; (Rule 2) plan's verify regex would false-positive on a doc comment — rephrased the comment (no semantic change). SUMMARY: `.planning/phases/40-m1-.../40-01-SUMMARY.md`.
