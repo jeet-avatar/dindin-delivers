@@ -119,7 +119,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CognitoOnlyFrontend | 41 | Complete |
 | CognitoOnlyBackend | 41 | Complete |
 | SupabaseAuthDeprecation | 41 | Complete |
+| TenantsTable | 52-01 | Complete |
+| TenantFeaturesTable | 52-01 | Complete |
+| MinimalTenantIdBackfill | 52-01 | Complete |
+| TenantSignupFlow | 52 | Pending |
+| WelcomeEmailViaSES | 52 | Pending |
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-05-14T08:41Z -- Phase 41 COMPLETE / M1 CLOSED. All 10 M1 requirements (Phases 39-41) Complete. Cognito-only auth foundation LIVE; Supabase Auth fully retired.*
+*Last updated: 2026-05-14T17:57Z -- Phase 52 Plan 01 complete. 3 M5 requirements (TenantsTable, TenantFeaturesTable, MinimalTenantIdBackfill) Complete. Multi-tenancy DB scaffolding LIVE on Supabase Postgres.*

@@ -1,6 +1,16 @@
 # Project State
 
-## 🛑 Current Position (2026-05-14T08:41Z) — Phase 41 COMPLETE — M1 CLOSED. Cognito-only auth foundation LIVE across the full stack. Supabase Auth fully retired.
+## 🛑 Current Position (2026-05-14T17:57Z) — Phase 52 Plan 01 COMPLETE — Multi-tenancy DB scaffolding LIVE on Supabase Postgres. `public.tenants` + `public.tenant_features` tables created, `tenant_id` added + backfilled to Turion's anchor UUID across all 105 turion+turion_satellite tables.
+
+**Phase 52 status: 1/4 plans complete — IN PROGRESS.** 3 of 5 M5 requirement IDs satisfied (TenantsTable, TenantFeaturesTable, MinimalTenantIdBackfill). Remaining: TenantSignupFlow + WelcomeEmailViaSES (Plans 52-02/03/04).
+
+**Plan 52-01 complete (2026-05-14T17:57Z):** 2 idempotent migrations against Supabase Postgres direct port 5432 (NOT pgbouncer 6543 — Pitfall 7). (1) `024_tenants_and_features.sql` — `public.tenants` (UUID PK, slug UNIQUE w/ `^[a-z0-9-]{3,32}$` CHECK, name, owner_cognito_sub, plan CHECK trial/paid/disabled, created_at, trial_ends_at default `now()+30d`) + 2 B-tree indexes + `public.tenant_features` (composite PK tenant_id+module_code, 13-value module_code CHECK including hyphenated `lean-erp-pro`/`ai-agents`/`qb-migration`, FK ON DELETE CASCADE, enabled, enabled_at, expires_at). All DDL `IF NOT EXISTS`. (2) `025_tenant_id_columns_and_turion_seed.sql` — 5-step idempotent: Step 1 INSERT Turion seed `id=00000000-0000-0000-0000-000000000001 slug=turion plan=paid owner_cognito_sub=74989438-80d1-7095-47b2-27cf67f2e686` (jm@techcloudpro.com's Cognito sub, resolved at apply time via `aws cognito-idp admin-get-user` and passed via `psql -v cognito_sub=...` — Rule 1 no hardcoded user IDs in migration), `ON CONFLICT (id) DO UPDATE SET ...` for idempotent refresh; Step 2 INSERT 13 tenant_features rows for Turion via `unnest(array[...])` with `ON CONFLICT (tenant_id, module_code) DO NOTHING`; Step 3 DO-LOOP over `information_schema.tables WHERE table_schema IN ('turion','turion_satellite')` issuing `ALTER TABLE %I.%I ADD COLUMN IF NOT EXISTS tenant_id uuid`; Step 4 DO-LOOP `UPDATE %I.%I SET tenant_id = $1 WHERE tenant_id IS NULL` USING Turion UUID; Step 5 DO-LOOP `CREATE INDEX IF NOT EXISTS %I ON %I.%I (tenant_id)` named `<table>_tenant_id_idx`; Step 6 DEFERRED to M3 (SET NOT NULL + FK). **Apply output:** 024 → 5 statements (CREATE EXTENSION + 2 CREATE TABLE + 2 CREATE INDEX). 025 → `INSERT 0 1` + `INSERT 0 13` + 3× `DO`. **Live count verification:** `tenants=1, tenant_features=13, turion_tables_with_tenant_id=105`. **NULL-row sweep:** DO-block sums `count(*) WHERE tenant_id IS NULL` across all 105 tables → `NOTICE: rows with tenant_id IS NULL across 105 tables: 0`. **Idempotency proven:** re-applied both migrations end-to-end — 024 returned NOTICE "already exists, skipping" on every CREATE; 025 returned `INSERT 0 1` (ON CONFLICT DO UPDATE no-op refresh) + `INSERT 0 0` (all 13 features skipped) + every column-add and index NOTICE "already exists, skipping"; post-reapply counts unchanged (`tenants=1, tenant_features=13, tenant_id_cols=105`). 2 commits pushed `turion-space-demo` `origin/main` (`2bb077d..299f1a4`): `e097194` (`feat(52-01): add migration 024 — tenants + tenant_features tables`), `299f1a4` (`feat(52-01): add migration 025 — Turion seed + tenant_id column + backfill`). Identity `jeet-avatar <jm@techcloudpro.com>`. Zero deviations; zero auto-fixes. SUMMARY: `.planning/phases/52-m5-.../52-01-SUMMARY.md`. Duration 2 min.
+
+**Next action:** Plan 52-02 (backend signup endpoint `POST /api/tenants/signup` in `turion-space-demo/backend/src/routes/tenants.ts` — uses the tables this plan created; adds `ses-send.ts` SES helper; updates `zietra-api-lambda-role` IAM with Cognito mutation perms; deploys via `./build-and-push.sh`). Plan 52-03 frontend signup page. Plan 52-04 end-to-end smoke + cleanup. M3 (RLS) later will SET NOT NULL on `tenant_id` and add FK to `public.tenants(id)`.
+
+---
+
+## 🛑 Previous Position (2026-05-14T08:41Z) — Phase 41 COMPLETE — M1 CLOSED. Cognito-only auth foundation LIVE across the full stack. Supabase Auth fully retired.
 
 **Phase 41 status: 4/4 plans complete — CLOSED.** All 3 requirement IDs satisfied (CognitoOnlyFrontend, CognitoOnlyBackend, SupabaseAuthDeprecation). **M1 milestone closed** (Phases 39 + 40 + 41 — 10 requirements total across the milestone).
 
@@ -488,4 +498,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 40 P03 | 7m | 3 tasks | 4 files |
 | Phase 41 P01 | 6m 36s | 3 tasks | 96 files |
 | Phase 41 P02 | 5 min 34 sec | 2 tasks | 6 files |
+| Phase 52-m5-self-serve-signup-sandbox-provisioning-minimal-multi-tenancy-scaffolding P01 | 2 min | 3 tasks | 2 files |
 
