@@ -649,8 +649,15 @@ Plans:
 **Depends on:** Phase 39 (Cognito pool exists).
 **Requirements:** DualIssuerJwtMiddleware, CognitoJwksLoader, CognitoFrontendHelper
 
-**Plans:** 0 plans
-- [ ] TBD
+**Plans:** 4 plans in 3 waves
+
+Plans:
+- [ ] 40-01-PLAN.md — Wave 1: Backend dual-issuer middleware in `turion-space-demo` (`turion-demo-api` Lambda) — extend `secrets.ts` (Cognito JWKS cold-start loader, try/caught) + `middleware/auth.ts` (pre-decode iss, route to RS256 or ES256 verifier, fail-fast on alg mismatch) + set `COGNITO_CONFIG_SECRET_ARN` env var (merged with existing) + IAM grant on `zietra-api-lambda-role` + deploy via `build-and-push.sh` + smoke (Cognito IdToken 200, unauth 401, forged 401, /api/health 200). Requirements: DualIssuerJwtMiddleware, CognitoJwksLoader.
+- [ ] 40-02-PLAN.md — Wave 1: Backend dual-issuer middleware in `turion-satellite` (`turion-satellite-api` Lambda) — MIRROR of 40-01 (byte-identical Cognito state block in `secrets.ts` + middleware/auth.ts diff), env-var merge preserves `DATABASE_URL_ARN` + `S3_FILES_BUCKET` + `SUPABASE_JWT_SECRET_ARN`, IAM grant on shared role (idempotent). Requirements: DualIssuerJwtMiddleware, CognitoJwksLoader.
+- [ ] 40-03-PLAN.md — Wave 2: Frontend `cognito-auth.js` helper on BOTH apps (vanilla JS, raw fetch to `cognito-idp.us-east-1.amazonaws.com`, no SDK) — distinct localStorage keys (`zietra-cognito-erp`, `zietra-cognito-satellite`) + extend `generate-{turion,satellite}-config.sh` to emit `COGNITO_REGION/USER_POOL_ID/APP_CLIENT_ID` onto config globals + deploy via `deploy-frontend.sh`. NO existing HTML page modified (Phase 41 scope). Requirements: CognitoFrontendHelper.
+- [ ] 40-04-PLAN.md — Wave 3: End-to-end 5-case smoke (`scripts/smoke-phase-40.sh` — Cognito valid 200, Cognito forged 401, Supabase valid 200/SKIP, Supabase forged 401, Phase 38 regression) + Phase 41 `CHECKPOINT.md` handoff (page inventory, deletion targets, must-not-break list). Autonomous via CloudWatch nonce scrape — no human-action checkpoint. Requirements: DualIssuerJwtMiddleware, CognitoJwksLoader, CognitoFrontendHelper.
+
+*Last updated 2026-05-14: Phase 40 planned. 4 plans across 3 waves. Wave 1 (40-01 + 40-02) parallel — mirror backend change in both repos. Wave 2 (40-03) ships frontend helper. Wave 3 (40-04) smoke + handoff. Strictly additive — Phase 38 contract preserved throughout; Phase 41 cuts over fully to Cognito.*
 
 ---
 
