@@ -688,11 +688,11 @@ Plans:
 **Depends on:** Phase 41 (Cognito-only auth).
 **Requirements:** TenantSignupFlow, TenantsTable, TenantFeaturesTable, MinimalTenantIdBackfill, WelcomeEmailViaSES
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans executed — **PHASE 52 (M5) COMPLETE**
 - [x] 52-01-PLAN.md — DB migrations: tenants + tenant_features tables, Turion seed, tenant_id column on 105 tables + backfill (Wave 1, parallel with 52-02) — SUMMARY `52-01-SUMMARY.md`
 - [x] 52-02-PLAN.md — Backend signup endpoint POST /api/tenants/signup (atomic Cognito + DB transaction + CUSTOM_AUTH welcome magic-link, IAM grants, Lambda deploy) (Wave 1, parallel with 52-01) — SUMMARY `52-02-SUMMARY.md`
 - [x] 52-03-PLAN.md — Frontend signup.html + CloudFront /signup → /signup.html rewrite (Wave 2, depends on 52-01 + 52-02) — SUMMARY `52-03-SUMMARY.md`
-- [ ] 52-04-PLAN.md — End-to-end smoke (5 side effects, cleanup, anchor-guard) + Phase 53 CHECKPOINT.md (Wave 3, depends on 52-03)
+- [x] 52-04-PLAN.md — End-to-end smoke (9 assertions, 2/2 PASS, cleanup, anchor-guard) + Phase 53 CHECKPOINT.md handoff (Wave 3, depends on 52-03) — SUMMARY `52-04-SUMMARY.md` · CHECKPOINT `CHECKPOINT.md`
 
 ---
 

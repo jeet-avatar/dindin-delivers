@@ -122,9 +122,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TenantsTable | 52-01 | Complete |
 | TenantFeaturesTable | 52-01 | Complete |
 | MinimalTenantIdBackfill | 52-01 | Complete |
-| TenantSignupFlow | 52-02 + 52-03 | Complete |
-| WelcomeEmailViaSES | 52-02 | Complete |
+| TenantSignupFlow | 52-02 + 52-03 + 52-04 | Complete (E2E smoke 9/9 PASS) |
+| WelcomeEmailViaSES | 52-02 + 52-04 | Complete (CloudWatch hit confirmed) |
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-05-14T18:09Z -- Phase 52 Plan 03 complete. TenantSignupFlow now covers BOTH backend endpoint (52-02 `POST /api/tenants/signup`) AND frontend signup page (52-03 `https://turionspace.zietra.com/signup`). All 5 M5 requirements Complete; only end-to-end smoke + cleanup (52-04) remains for phase close-out.*
+*Last updated: 2026-05-14T18:33Z -- Phase 52 (M5) COMPLETE. Plan 52-04 end-to-end smoke 2/2 PASS verifies all 5 side effects (Cognito user + customer group + custom:role=customer, public.tenants row with plan=trial + matching owner_cognito_sub, 13 enabled tenant_features rows, CloudWatch `magic-link sent` log hit, 409-on-duplicate-slug + 409-on-reserved-slug + 400-on-empty-body). Turion baseline + M1 admin (jm@techcloudpro.com) intact via anchor-guarded cleanup. Phase 53 handoff CHECKPOINT.md ready for `/gsd:plan-phase 53` (wildcard subdomain routing).*
