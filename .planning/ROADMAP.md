@@ -703,7 +703,7 @@ Plans:
 **Depends on:** Phase 52 (tenants table exists, signup writes rows).
 **Requirements:** WildcardACMCert, CloudFrontWildcardAlias, TenantSubdomainExtractor, BackendTenantContextMiddleware, TenantConfigEndpoint
 
-**Plans:** 4 plans (Wave 1 → Wave 2 [parallel ×2] → Wave 3)
+**Plans:** 1/4 plans executed
 - [ ] 53-01-PLAN.md — Wildcard ACM cert (`*.zietra.com` + `zietra.com` SANs, us-east-1) + Route 53 wildcard A+AAAA aliases — idempotent provision script (Wave 1)
 - [ ] 53-02-PLAN.md — CloudFront distribution alias swap (attach wildcard cert + add Aliases) + Function host→x-tenant-slug + reserved-slug filter + /* invalidation (Wave 2, depends 53-01)
 - [ ] 53-03-PLAN.md — Backend tenantContext middleware in BOTH Lambdas (mirror) + public GET /api/tenants/current + browser X-Tenant-Slug header in erp-api.js + satellite-api.js (Wave 2, depends 53-01)

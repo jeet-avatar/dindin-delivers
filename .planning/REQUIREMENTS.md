@@ -124,7 +124,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MinimalTenantIdBackfill | 52-01 | Complete |
 | TenantSignupFlow | 52-02 + 52-03 + 52-04 | Complete (E2E smoke 9/9 PASS) |
 | WelcomeEmailViaSES | 52-02 + 52-04 | Complete (CloudWatch hit confirmed) |
+| WildcardACMCert | 53-01 | Complete (cert ARN 4a29032a-..., SANs *.zietra.com + zietra.com, Status=ISSUED, NotAfter 2026-11-27, R53 wildcard A+AAAA aliases live) |
+| CloudFrontWildcardAlias | 53-02 | Pending |
+| TenantSubdomainExtractor | 53-02 | Pending |
+| BackendTenantContextMiddleware | 53-03 | Pending |
+| TenantConfigEndpoint | 53-03 | Pending |
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-05-14T18:33Z -- Phase 52 (M5) COMPLETE. Plan 52-04 end-to-end smoke 2/2 PASS verifies all 5 side effects (Cognito user + customer group + custom:role=customer, public.tenants row with plan=trial + matching owner_cognito_sub, 13 enabled tenant_features rows, CloudWatch `magic-link sent` log hit, 409-on-duplicate-slug + 409-on-reserved-slug + 400-on-empty-body). Turion baseline + M1 admin (jm@techcloudpro.com) intact via anchor-guarded cleanup. Phase 53 handoff CHECKPOINT.md ready for `/gsd:plan-phase 53` (wildcard subdomain routing).*
+*Last updated: 2026-05-14T20:05Z -- Phase 53 (M5) Plan 01 COMPLETE. Wildcard ACM cert *.zietra.com + zietra.com SANs ISSUED in us-east-1 (arn:aws:acm:us-east-1:134607809447:certificate/4a29032a-1e82-4393-824c-5b2a6fb70207); Route 53 wildcard A + AAAA ALIAS records live on Z090201115UMJZ8TIAX5G pointing at d2bl7vqyf3n9m5.cloudfront.net (CloudFront E37R9PT8IL44L2). Idempotent provisioning script committed to turion-space-demo. Apex zietra.com + turionspace + 7 reserved-name aliases UNCHANGED (pre/post snapshot diff = 0). Ready for plan 53-02 (CloudFront distribution attach + Function update).*
