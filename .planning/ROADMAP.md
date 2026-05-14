@@ -677,7 +677,63 @@ Plans:
 
 ---
 
-*M2-M8 outlined in the milestone handover doc (`~/.claude/handoffs/2026-05-14-zietra-platform-milestone-kickoff.md`). Add formal ROADMAP entries during/after each M1 phase as the architecture solidifies.*
+## Zietra Platform — Next milestones
+
+**Strategy 2026-05-14:** Skip ahead to M5 + M6 (customer-facing self-serve signup + UI shell) to demonstrate the multi-tenant SaaS UX with a real second tenant. M2/M3/M4 deferred as TODOs — they harden the platform before GA but aren't blockers for onboarding the second pilot tenant. M7/M8 stay as TODOs.
+
+### Phase 52: M5 — Self-serve signup + sandbox provisioning (minimal multi-tenancy scaffolding)
+
+**Goal:** Land a working signup flow at `zietra.com` that creates a new Cognito user, provisions a real tenant row + seeded module entitlements, and lands the user in a working sandbox. Because M3 (RLS) and M4 (Stripe) are deferred, this phase includes the MINIMUM scaffolding to make a second tenant function: a `tenants` table (id, slug, name, owner_cognito_sub, created_at, plan='trial'), a `tenant_features` table (tenant_id, module_code, enabled — defaulting ALL modules ON during trial), and a nullable `tenant_id` column added to existing turion/turion_satellite tables (Turion's data labeled `tenant_id=1` via backfill). No RLS — code-level filtering optional, demo-grade isolation only. Signup creates Cognito user via `AdminCreateUser` + Cognito Group `customer`, inserts `tenants` row, inserts default `tenant_features` rows (one per module code), sends welcome email via SES, redirects to `<tenant-slug>.zietra.com` (handled by Phase 53). Backend: new `POST /api/tenants/signup` endpoint that does the whole atomic transaction.
+
+**Depends on:** Phase 41 (Cognito-only auth).
+**Requirements:** TenantSignupFlow, TenantsTable, TenantFeaturesTable, MinimalTenantIdBackfill, WelcomeEmailViaSES
+
+**Plans:** 0 plans
+- [ ] TBD (run `/gsd:plan-phase 52` to break down — researcher should inventory existing turion/turion_satellite tables for tenant_id retrofitting, spec the signup endpoint shape, decide on tenant slug validation rules, confirm SES sender for welcome email)
+
+---
+
+### Phase 53: M5 — Wildcard subdomain routing — `<tenant>.zietra.com`
+
+**Goal:** Every signed-up tenant gets a working subdomain. Provision wildcard ACM cert (`*.zietra.com` in us-east-1, required by CloudFront), update the `turion-demo-static` CloudFront distribution to accept the wildcard alias OR create a new distribution for tenants. CloudFront Function (or Lambda@Edge) reads the subdomain from `Host` header, sets it as a custom header forwarded to the origin (S3 static + APIGW Lambda). Backend Lambdas read the tenant slug from the header on every authenticated request and stamp `req.tenant_id` for downstream handlers. Frontend tenant-specific config (e.g., logo, name, plan) loaded from `GET /api/tenants/current` at app shell init. Existing `turionspace.zietra.com` stays as the Turion tenant (alias for `turion.zietra.com`); new tenants reach the same S3/APIGW with a different subdomain.
+
+**Depends on:** Phase 52 (tenants table exists, signup writes rows).
+**Requirements:** WildcardACMCert, CloudFrontWildcardAlias, TenantSubdomainExtractor, BackendTenantContextMiddleware, TenantConfigEndpoint
+
+**Plans:** 0 plans
+- [ ] TBD (run `/gsd:plan-phase 53` to break down)
+
+---
+
+### Phase 54: M6 — Modular UI shell + add-on catalog
+
+**Goal:** A single app shell at `<tenant>.zietra.com` with a dynamic top-nav rendered from the tenant's `tenant_features` rows. Each module (CRM, Sales, Purchase, Items, PLM, MES, Quality, ASC 606, Royalty, etc.) shows as a nav tile if `enabled=true` for the tenant, greyed-out "+ Add to plan" CTA if disabled. A `/catalog` page lists every available add-on with a description, "Try it free" CTA (in trial mode), and a placeholder "Subscribe" button (stubbed to Stripe portal which lands in M4). Browse the catalog inside the app, NOT only on marketing site. The shell wraps the existing satellite + ERP pages — they continue to render unchanged, just inside the new shell chrome. Phase 38/Phase 41 pages get a small shell wrapper added at the top via the migration script pattern.
+
+**Depends on:** Phase 53 (tenant context resolved per request).
+**Requirements:** AppShell, DynamicNavFromFeatures, CatalogPage, AddOnCTAs, ShellWraperForExistingPages
+
+**Plans:** 0 plans
+- [ ] TBD (run `/gsd:plan-phase 54` to break down)
+
+---
+
+## Deferred milestones (TODO — return after M5+M6 demo)
+
+These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-grade multi-tenant SaaS first; the items below harden it for GA / paid customers.
+
+| Milestone | Phases | What | Why deferred | When to do |
+|-----------|--------|------|--------------|------------|
+| **M2** — RDS Postgres migration | 42-43 | Move DB off Supabase → AWS RDS (Aurora Serverless v2 candidate). Tear down Supabase project. | Independent of customer-facing surface. M5+M6 can ship on Supabase Postgres. | After M5+M6 proves the model; before scaling to >10 tenants or any compliance work |
+| **M3** — Multi-tenancy + RLS | 44-48 | `tenant_id` everywhere + RLS policies + per-connection `app.tenant_id` setting. ~500 isolation tests. | M5 ships minimal `tenants` + `tenant_id` columns (no RLS). Demo-grade. | **MUST do before any production paid launch** — currently tenants can read each other's data |
+| **M4** — Stripe + entitlements | 49-51 | Stripe Subscriptions, base $99/mo + add-on prices, webhook Lambda, customer portal. | M5 defaults all modules ON in trial; M4 wires real billing + downgrades. | Before charging real money. M5+M6 give the UX scaffolding to plug Stripe into |
+| **M7** — Marketing site | 55 | `zietra.com` homepage, per-module pages, pricing, case studies, `docs.zietra.com`. | M5 ships at `zietra.com/signup`; static marketing pages can come later. | Before any outbound sales motion |
+| **M8** — Compliance + observability | 56-58 | Per-tenant audit log, KMS encryption-at-rest, SOC2 readiness, CloudWatch dashboards, RBAC per module. | Hardens for enterprise. Not needed for SMB pilot tenants. | Before first enterprise sale or SOC2 audit |
+
+*Last updated 2026-05-14: Strategy shift — M5+M6 ahead of M2/M3/M4 to land customer-facing SaaS UX with a real second tenant. M2/M3/M4 remain mandatory before production GA but unblocked for demo/pilot.*
+
+---
+
+*M2-M8 originally outlined in `~/.claude/handoffs/2026-05-14-zietra-platform-milestone-kickoff.md`. Phase entries above were formalized 2026-05-14 after M1 close-out.*
 
 ---
 

@@ -142,7 +142,7 @@ export default function HomePage() {
                 src="/photos/dr-pillay-portrait.jpg"
                 alt="Dr. Arpana Pillay, Internal Medicine Physician at Vish Medical"
                 fill
-                className="object-cover object-bottom"
+                className="object-cover object-top"
                 unoptimized
               />
             </div>

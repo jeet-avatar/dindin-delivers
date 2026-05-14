@@ -32,7 +32,11 @@ export function GoogleCalendarBooking({ type = 'telehealth' }: { type?: BookingT
     ? siteConfig.googleCalendarInPersonUrl
     : siteConfig.googleCalendarUrl
 
-  const embedUrl = bookingUrl ? `${bookingUrl}?gv=true` : ''
+  const directEmbedUrl = type === 'inperson'
+    ? siteConfig.googleCalendarInPersonEmbedUrl
+    : siteConfig.googleCalendarEmbedUrl
+
+  const embedUrl = directEmbedUrl ? `${directEmbedUrl}?gv=true` : ''
   const { title, subtitle } = config[type]
 
   return (

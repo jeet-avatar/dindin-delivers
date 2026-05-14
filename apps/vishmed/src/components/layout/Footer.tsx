@@ -74,6 +74,10 @@ export function Footer() {
                 </a>
               </div>
               <div>
+                <p className="text-slate-300 font-medium mb-0.5">Fax</p>
+                <p>{siteConfig.fax}</p>
+              </div>
+              <div>
                 <p className="text-slate-300 font-medium mb-0.5">Saturday Hours</p>
                 <p>{siteConfig.hours.saturday}</p>
               </div>

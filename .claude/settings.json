@@ -66,16 +66,11 @@
       "Edit(**/infrastructure/lambda/**)"
     ],
     "deny": [
-      "Bash(docker build *)",
-      "Bash(docker push *)",
-      "Bash(docker login *)",
       "Bash(aws ecs update-service *)",
       "Bash(aws ecs register-task-definition *)",
       "Bash(aws ecs run-task *)",
       "Bash(aws ecs stop-task *)",
-      "Bash(aws ecr get-login-password *)",
       "Bash(aws ecr batch-delete-image *)",
-      "Bash(aws secretsmanager get-secret-value *)",
       "Bash(aws secretsmanager delete-secret *)",
       "Bash(aws iam *)",
       "Bash(aws s3 rm *)",

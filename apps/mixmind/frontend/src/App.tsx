@@ -22,8 +22,25 @@ export default function App() {
   const { tracks, loading, error, reload } = useLibrary();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [duplicateCount, setDuplicateCount] = useState(0);
-  const [usbConnected] = useState(false);
-  const [usbName] = useState<string | undefined>();
+  const [usbConnected, setUsbConnected] = useState(false);
+  const [usbName, setUsbName] = useState<string | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const r = await sidecarGet<{ connected: boolean; name?: string }>('/api/usb/status');
+        if (cancelled) return;
+        setUsbConnected(r.connected);
+        setUsbName(r.connected ? r.name : undefined);
+      } catch {
+        if (!cancelled) { setUsbConnected(false); setUsbName(undefined); }
+      }
+    };
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
   // ── Dual deck state ──────────────────────────────────────────────────────
   const [deckA, setDeckA] = useState<Track | null>(null);
   const [deckB, setDeckB] = useState<Track | null>(null);
