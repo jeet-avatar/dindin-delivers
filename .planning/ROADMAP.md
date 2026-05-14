@@ -718,8 +718,12 @@ Plans:
 **Depends on:** Phase 53 (tenant context + `/api/tenants/current` returning `features[]`).
 **Requirements:** AppShell, ModuleAwareNavigation, NavigationLandingPages, CatalogPage, AddOnCTAs, ShellWrapperForExistingPages, TenantBrandedChrome, PlaywrightE2EScaffold
 
-**Plans:** 0 plans
-- [ ] TBD (run `/gsd:plan-phase 54` to break down)
+**Plans:** 5 plans (Wave 1: 54-01 · Wave 2 parallel: 54-02 + 54-03 + 54-04 · Wave 3: 54-05)
+- [ ] 54-01-PLAN.md — App shell + design system + NAV_TAXONOMY (Wave 1) — `AppShell`, `ModuleAwareNavigation`, `TenantBrandedChrome`
+- [ ] 54-02-PLAN.md — Idempotent migration script: STRIP old `/shells/*` + INJECT new shell into ~85 ERP pages (Wave 2, depends 54-01) — `ShellWrapperForExistingPages`
+- [ ] 54-03-PLAN.md — `/catalog` + 13-card MODULE_CATALOG + 17 module-landing stubs + 3 bottom-rail stubs (Wave 2, depends 54-01) — `CatalogPage`, `AddOnCTAs`, `NavigationLandingPages`
+- [ ] 54-04-PLAN.md — CloudFront Function: 27+ R-map entries + 14 RESERVED slugs + backend `RESERVED_SLUGS` expansion + Lambda redeploy (Wave 2, depends 54-01) — `ModuleAwareNavigation`, `NavigationLandingPages`
+- [ ] 54-05-PLAN.md — Playwright E2E scaffold + 28 tests + Phase 54.1 CHECKPOINT.md (Wave 3, depends 54-02 + 54-03 + 54-04) — `PlaywrightE2EScaffold`
 
 ---
 
