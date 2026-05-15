@@ -734,10 +734,10 @@ Plans:
 **Depends on:** Phase 54 (UI shell exists with `/team` route slot). **Waves 2-3 BLOCKED on Phase 54.5** (Aurora migration — pause inserted between Wave 1 and Wave 2 so invite endpoints + frontend rewrite + vitest land directly on Aurora, not Supabase).
 **Requirements:** TenantUsersTable, InviteFlow, RoleMiddleware, TeamPage, VitestBackendBootstrap
 
-**Plans:** 1/4 plans complete (Wave 1 done; Waves 2-3 paused for Phase 54.5)
+**Plans:** 2/4 plans executed
 - [x] 54.1-01-PLAN.md — Foundation: migration 026 `tenant_users` + `requireRole` middleware mirrored to both repos + 3 Cognito Groups (Wave 1) — `TenantUsersTable` + `RoleMiddleware` — SUMMARY `54.1-01-SUMMARY.md`
 - [ ] 54.1-02-PLAN.md — Backend invite/accept/list/role-mutation endpoints (Wave 2, depends 54.1-01 + **54.5**) — `InviteFlow`
-- [ ] 54.1-03-PLAN.md — Frontend `/team` page rewrite + `/accept-invite` page (Wave 2 parallel with 02, depends 54.1-01 + **54.5**) — `TeamPage`
+- [x] 54.1-03-PLAN.md — Frontend `/team` page rewrite + `/accept-invite` page (Wave 2 parallel with 02, depends 54.1-01) — `TeamPage` — SUMMARY `54.1-03-SUMMARY.md`
 - [ ] 54.1-04-PLAN.md — Vitest bootstrap + RBAC tests + closure smoke (Wave 3, depends 54.1-02 + 54.1-03) — `VitestBackendBootstrap`
 
 ---
