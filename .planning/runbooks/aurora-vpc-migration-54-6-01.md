@@ -91,13 +91,43 @@ AURORA_NEW_SG=sg-099d916a8fe5cdb65
 
 - [x] **Task 1.a** — VPC + IGW + 4 subnets (DONE 2026-05-15T06:54Z, commit `677b2111`)
 - [x] **Task 1.b** — NAT instance + NAT SG + 2 route tables + 3 app SGs (DONE 2026-05-15T07:05Z, after NAT pivot)
-- [ ] **Task 2** — Operator GO/NO-GO checkpoint before snapshot cutover (PENDING — executor PAUSES here per plan)
-- [ ] **Task 3** — Pre-flight baseline + final snapshot of old cluster (BLOCKED on Task 2 GO)
-- [ ] **Task 4** — Restore snapshot into new private VPC + parity gate (BLOCKED on Task 2 GO)
-- [ ] **Task 5** — Rollback runbook (BLOCKED on Task 2 GO)
-
-**Why we stop at Task 2:** the plan places its only blocking checkpoint at Task 2, before any Aurora touch. The orchestrator's resume prompt directs us not to execute the cutover. Tasks 3+4 ARE the cutover (snapshot + restore + parity), so they remain blocked. The new private VPC fabric is built and parked at $3.08/mo (NAT instance + EBS) until the operator says "go" for the snapshot.
+- [x] **Task 2** — Operator GO at 2026-05-15T07:10Z; cutover authorized
+- [x] **Task 3** — Pre-flight baseline + final snapshot (DONE 2026-05-15T07:17Z)
+- [ ] **Task 4** — Restore snapshot into new private VPC + parity gate
+- [ ] **Task 5** — Rollback runbook
 
 ---
 
-*Runbook updated 2026-05-15T07:08Z. NAT pivot complete. Awaiting operator GO at Task 2 checkpoint before snapshot+restore.*
+## T+0:00 — Snapshot+restore cutover begin: 2026-05-15T07:15:57Z
+
+## Task 3 — Pre-flight baseline + final pre-VPC-migration snapshot — 2026-05-15T07:17Z
+
+**Pre-migration baseline captured from `zietra-aurora-prod` (the OLD cluster, still serving live traffic):**
+
+| Metric | Value |
+|--------|-------|
+| Tables counted (4 schemas: public/crm/turion/turion_satellite) | **153** |
+| Total rows across all 153 tables | **3070** |
+| Baseline CSV | `/tmp/aurora-pre-54-6-counts.csv` |
+| Captured at | 2026-05-15T07:15:30Z |
+| Source endpoint | `zietra-aurora-prod.cluster-c23qcukqe810.us-east-1.rds.amazonaws.com` |
+| Postgres version | 16.4 (verified via `SELECT version()`) |
+
+**Final pre-VPC-migration snapshot — kept INDEFINITELY (rollback target beyond 14-day window):**
+
+| Field | Value |
+|-------|-------|
+| Snapshot ID | `zietra-aurora-pre-vpc-migration-2026-05-15` |
+| Snapshot ARN | `arn:aws:rds:us-east-1:134607809447:cluster-snapshot:zietra-aurora-pre-vpc-migration-2026-05-15` |
+| Source cluster | `zietra-aurora-prod` |
+| Snapshot type | manual |
+| Status | available |
+| Created at | 2026-05-15T07:16:12.930Z |
+| Tags | `Project=Zietra`, `Phase=54.6`, `Purpose=pre-vpc-migration-rollback` |
+| KMS key (inherited) | `arn:aws:kms:us-east-1:134607809447:key/1086212a-cf06-41ca-8767-514b2b18a008` |
+
+This snapshot is the **rollback target for the next 14 days AND beyond**. We retain it indefinitely per plan spec — if the old cluster is deleted on 2026-05-29, this snapshot remains the absolute last copy of pre-migration state.
+
+---
+
+*Runbook updated 2026-05-15T07:17Z. Snapshot ready. Proceeding to Task 4 (restore + parity gate).*
