@@ -788,22 +788,24 @@ Plans:
 
 ### Phase 54.5: M6 — Aurora Postgres migration (leave Supabase) ⚡ INSERTED 2026-05-15
 
-**Goal:** Migrate the entire Postgres workload off Supabase (`lbpkbpfwdpnwlccmlfxn`) onto **AWS Aurora Serverless v2 (Postgres-compatible)** in `us-east-1`. Single planned maintenance window. Affects 4 demo apps: `turion-demo-api` (ERP), `turion-satellite-api` (satellite), `marquee-app`, `asc606-app`. Strategic timing: lands BEFORE M3 (RLS) so tenant-isolation policies are written once on the target platform; lands BEFORE M4 (Stripe billing) so payment wiring sits on a reliable DB. Tenant count is currently small (3 tenants in `public.tenants`, 6 admin rows in `public.tenant_users`) — migration cost is at its lifetime minimum NOW.
+**Goal:** Migrate the entire Postgres workload off Supabase (`lbpkbpfwdpnwlccmlfxn`) onto **AWS Aurora Serverless v2 (Postgres-compatible)** in `us-east-1`. Single planned maintenance window. **Audit-corrected scope (2026-05-15):** 4 Lambdas — `turion-demo-api` (ERP), `turion-satellite-api` (satellite), `zietra-crm-api` (Zietra Meet booking, schema=`crm`), `zietra-api` (auth/identity). NOT in scope: `marquee-app` uses SQLite at /tmp; `asc606-app` uses S3 + Marquee API (no DB); Dollor mobile + VibingTicket already on AWS RDS (`dollor-db.c23qcukqe810.us-east-1.rds.amazonaws.com`). **DB size: 25 MB · 4 app schemas (`turion`, `turion_satellite`, `crm`, `public`) · 153 tables · 3,070 rows · 463 indexes · 193 FKs · 6 extensions (only `supabase_vault` is non-standard, on empty schema). Zero `@supabase/*` imports in app code; 5 RLS policies on 2 EMPTY tables (drop-or-replicate decision).** Strategic timing: lands BEFORE M3 (RLS) so tenant-isolation policies are written once on the target platform; lands BEFORE M4 (Stripe billing) so payment wiring sits on a reliable DB. Tenant count is currently small (3 tenants, 6 admin rows) — migration cost is at its lifetime minimum NOW.
 
 **Why this insertion:** With Phase 54.1 Wave 1 fresh (tenant_users + role middleware just landed on Supabase), pausing here is the cheapest possible interruption. Resuming Phase 54.1 on Aurora avoids two implementations of every M3 RLS policy. Supabase usage is purely Postgres-as-a-service — auth has been on Cognito since Phase 39, storage is on S3, no Realtime/Edge Functions in use — so this is a pure connection-string + dump/restore swap, no application logic changes required beyond Lambda env vars + Secrets Manager values.
 
-**Scope (locked):**
-- **Target:** Aurora Serverless v2 cluster, encrypted at rest (KMS), Multi-AZ, public-disabled with VPC peering OR public with SG allowlist (researcher decides based on Lambda networking requirements). 0.5–16 ACU autoscale.
-- **Cutover:** Single maintenance window. `pg_dump` from Supabase (DIRECT port 5432, NOT pgbouncer) → `pg_restore` to Aurora. Lambda env-var DATABASE_URL flipped via `aws lambda update-function-configuration`. AWS Secrets Manager secrets rotated to point at Aurora (current secrets: `turion-satellite/production/database-url`, `turion-satellite/production/supabase-jwt-secret-sWnNlr` — JWT secret stays the same since auth is Cognito).
-- **Rollback:** Keep Supabase project LIVE for 7 days post-cutover. If smoke fails, flip env vars back. Snapshot taken from Aurora pre-cutover for paranoia.
-- **Smoke matrix:** All 4 demos exercised end-to-end: Turion ERP /api/health + /api/data/all auth-gated read, satellite /api/satellites + part-instance round-trip, marquee /api/products + visit log, asc606 tenant-aware page load.
-- **Out of scope (deferred to M3):** RLS policies, `app.tenant_id` per-connection setting, isolation tests. M3 will write these on Aurora.
+**Scope (locked, audit-corrected):**
+- **Target:** Aurora Serverless v2 cluster, encrypted at rest (KMS), Multi-AZ, 0.5–16 ACU autoscale. **Networking decision deferred to planner** (biggest open question — Lambdas currently have NO VPC config, talk to public Supabase via port 6543; Aurora can be public+SG OR Lambdas can be put in VPC with private Aurora — tradeoff is cold-start time vs network exposure).
+- **Cutover:** Single maintenance window, est. <2 min for 25 MB. `pg_dump -Fc` from Supabase → `pg_restore` to Aurora. 4 Lambda env-var flips via `aws lambda update-function-configuration`. **2 secrets to rotate** (`turion-satellite/production/database-url` + 1 zetra-* secret TBD by audit), **1 secret to delete** (`turion-satellite/production/supabase-anon-key-cxGmm1` — already unused since Cognito migration).
+- **Rollback:** Keep Supabase project LIVE for 7 days post-cutover. If smoke fails, flip env vars back. Aurora pre-cutover snapshot for paranoia.
+- **Smoke matrix:** Turion ERP `/api/health` + auth-gated read, satellite `/api/satellites` + part-instance round-trip, Zietra CRM booking endpoint, Zietra auth `/api/tenants/current`. Plus Phase 54.1 Wave 1 tenant_users sanity (6 rows present post-restore).
+- **5 RLS policies on 2 empty tables:** decide drop-or-replicate during planning. Likely drop (M3 rewrites RLS holistically anyway).
+- **Out of scope (deferred to M3):** new RLS policies, `app.tenant_id` per-connection setting, isolation tests. M3 writes these on Aurora.
+- **Out of scope (not Supabase):** marquee-app (SQLite), asc606-app (S3-only), Dollor mobile + VibingTicket (already on RDS).
 
 **Depends on:** Phase 54.1-01 (just shipped — establishes `tenant_users` schema that must be carried over).
 **Blocks:** Phase 54.1 Waves 2-3 (invite endpoints / frontend / vitest), Phase 54.2, Phase 54.3, Phase 54.4, M3, M4.
-**Requirements:** AuroraClusterProvisioned, ConnectionStringSwap, SchemaParity, DataParity, RollbackRunbook, FourDemoSmoke, SupabaseRetention7Days
+**Requirements:** AuroraClusterProvisioned, ConnectionStringSwap, SchemaParity, DataParity, RollbackRunbook, FourLambdaSmoke, SupabaseRetention7Days
 
-**Plans:** 0 plans (proposed structure: 54.5-01 provision Aurora cluster + IAM + secret; 54.5-02 dry-run dump/restore + schema-parity check; 54.5-03 maintenance-window cutover + 4-demo smoke; 54.5-04 7-day soak + Supabase teardown plan)
+**Plans:** 0 plans (proposed structure: 54.5-01 provision Aurora cluster + IAM + secret + networking decision; 54.5-02 dry-run dump/restore + schema-parity check + 4-Lambda smoke against dry-run cluster; 54.5-03 maintenance-window cutover + production smoke; 54.5-04 7-day soak + Supabase teardown runbook + Phase 54.1 Wave 2 unblocking handoff)
 - [ ] TBD (run `/gsd:plan-phase 54.5`)
 
 ---
