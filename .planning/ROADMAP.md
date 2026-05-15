@@ -883,7 +883,7 @@ Plans:
 **Blocks:** Phase 54.4 + M4 if you want them safe for real paying customers. (You CAN run 54.4 + M4 in parallel during M3 implementation — they just can't onboard real money until M3 lands.)
 **Requirements:** TenantIdColumnEverywhere, RlsPoliciesActive, SetLocalAppTenantId, AdminBypassRole, IsolationTestSuite, RlsPerfImpactAssessed, RlsRollbackRunbook
 
-**Plans:** 2/5 plans executed
+**Plans:** 4/5 plans executed
 
 **Progress:** ████░░░░░░░░░░░░░░░░ 20% (1/5)
 
@@ -904,7 +904,7 @@ These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-
 | ~~**M2** — RDS Postgres migration~~ | ~~42-43~~ | **SUPERSEDED 2026-05-15 by Phase 54.5** — pulled forward into M6 because RLS (M3) wants a single implementation on the target platform, and tenant count is at lifetime minimum NOW. | n/a | n/a |
 | **M3** — Multi-tenancy + RLS | 44-48 | `tenant_id` everywhere + RLS policies + per-connection `app.tenant_id` setting. ~500 isolation tests. | M5 ships minimal `tenants` + `tenant_id` columns (no RLS). Demo-grade. | **MUST do before any production paid launch** — currently tenants can read each other's data |
 | **M4** — Stripe + entitlements | 49-51 | Stripe Subscriptions, base $99/mo + add-on prices, webhook Lambda, customer portal. | M5 defaults all modules ON in trial; M4 wires real billing + downgrades. | Before charging real money. M5+M6 give the UX scaffolding to plug Stripe into |
-| **M7** — Marketing site | 55 | 2/5 | In Progress|  |
+| **M7** — Marketing site | 55 | 4/5 | In Progress|  |
 | **M8** — Compliance + observability + load/chaos | 56-58 | Per-tenant audit log, KMS encryption-at-rest, SOC2 readiness, CloudWatch dashboards, RBAC per module (extends 54.1), **k6 load tests + chaos failures (Lambda timeout, DB drop)**. | Hardens for enterprise. Not needed for SMB pilot tenants. | Before first enterprise sale or SOC2 audit |
 
 *Last updated 2026-05-15: M2 (RDS migration) pulled forward into M6 as Phase 54.5 — Phase 54.1 paused at Wave 1, Aurora migration sits between 54.1-Wave1 and 54.1-Wave2. Strategy shift — M5+M6 ahead of M3/M4 to land customer-facing SaaS UX with a real second tenant. M3/M4 remain mandatory before production GA but unblocked for demo/pilot.*
