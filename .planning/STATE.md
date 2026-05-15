@@ -579,6 +579,10 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 54.5]: Pre-install 4 extensions (citext/pgcrypto/uuid-ossp/pg_stat_statements) in Aurora public BEFORE running restore — dump references public.citext but pg_dump filter excluded CREATE EXTENSION lines
 - [Phase 54.5]: REVERT SG hardening to allow 0.0.0.0/0:5432 — managed prefix list returns None and ip-ranges.json has no LAMBDA service for us-east-1; Aurora master pwd 28-char + KMS is the security boundary until Phase 54.5-04 RDS Proxy + VPC-attach
 - [Phase 54.5]: zietra-api keeps env-var NAMES as SUPABASE_DB_URL/SUPABASE_DB_URL_SERVICE despite Aurora values — names baked into code, renaming = code change = Phase 56+
+- [Phase 54.1-m6-multi-user-per-tenant-team-invites-role-middleware]: PUBLIC accept-invite (token-authed) lives in its own router file (routes/invites.ts), separate from routes/team.ts whose r.use(tenantContext, requireAuth) would otherwise 401 the unauthenticated invitee
+- [Phase 54.1-m6-multi-user-per-tenant-team-invites-role-middleware]: Best-effort SES (try/catch + console.warn) — sandbox failures log + still return 200; the DB invite row is the source of truth, the email is the secondary effect (CONTEXT.md autonomous mode)
+- [Phase 54.1-m6-multi-user-per-tenant-team-invites-role-middleware]: Idempotent invite via SELECT-then-UPDATE-or-INSERT (not ON CONFLICT) so suspended/removed/active/pending each get distinct error messages or behaviors
+- [Phase 54.1-m6-multi-user-per-tenant-team-invites-role-middleware]: Generic 410 'Invite expired or already used' + generic 500 'Failed to provision account' on accept-invite — no distinction between never-existed / expired / consumed (defeats token-enumeration probes)
 
 ### Quick Tasks Completed
 
@@ -611,4 +615,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 54.5 P01 | 16 min | 4 tasks | 2 files |
 | Phase 54.5 P03 | 29min | 5 tasks | 7 files |
 | Phase 54.1-m6-multi-user-per-tenant-team-invites-role-middleware P03 | 5min | 4 tasks | 4 files |
+| Phase 54.1-m6-multi-user-per-tenant-team-invites-role-middleware P02 | 8min | 5 tasks | 4 files |
 
