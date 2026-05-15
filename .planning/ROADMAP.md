@@ -850,7 +850,7 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 54.6-01-PLAN.md — VPC + 4 subnets + NAT + Aurora snapshot+restore-to-new-private-cluster (operator GO/NO-GO checkpoint before cutover)
+- [x] 54.6-01-PLAN.md — **Wave 1 COMPLETE 2026-05-15T07:40Z** — VPC `vpc-012ab4500dcd4ee41` (10.0.0.0/16, 4 subnets across 2 AZs) + NAT instance `i-0e9159d87ede802bd` (t4g.nano, Option-D pivot after EIP quota) + 3 app SGs + new Aurora cluster `zietra-aurora-prod-v2` restored from snapshot `zietra-aurora-pre-vpc-migration-2026-05-15` into private subnets (IAM auth on, NOT publicly accessible, ServerlessV2 0.5-4 ACU). Parity gate PASSED (153 tables / 3070 rows, diff=0 lines). 5 atomic commits, 3 Rule-1/2/3 auto-fix deviations. 270-line rollback runbook. OLD cluster STILL LIVE, 4 Lambdas STILL hitting OLD endpoint (cutover is 54.6-02's job). Satisfies `VpcIsolation` + `AuroraPrivate` requirements. SUMMARY at .planning/phases/54.6-.../54.6-01-SUMMARY.md.
 - [ ] 54.6-02-PLAN.md — RDS Proxy + Lambda VPC-attach + connection-string flip to Proxy endpoint + close 0/0:5432 on OLD SG after 24h soak
 - [ ] 54.6-03-PLAN.md — WAFv2 (COUNT-mode soak first) + GuardDuty + Security Hub + AWS Config + day-1 findings triage
 - [ ] 54.6-04-PLAN.md — zietra.com/security trust page + cross-cutting smoke matrix + Phase 55/M3 CHECKPOINT.md handoff
