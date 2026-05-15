@@ -781,11 +781,12 @@ Plans:
 **Depends on:** Phase 54.1 (tenant_users for tagging the owner who completes the wizard) + Phase 54.2 (AI agents available so the wizard can recommend them).
 **Requirements:** OnboardingWizard, ModuleRecommendationEngine, MigrationLanding, MigrationCards, OnboardingChecklistOnHome, RecommendationRuleEngine
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans executed ✓ PHASE COMPLETE
 - [x] 54.4-01 — Wizard + rule engine + migration 032 ([SUMMARY](phases/54.4-m6-module-selection-wizard-and-migration-onboarding-the-selling-point/54.4-01-SUMMARY.md))
-- [ ] 54.4-02 — Migration landing + 4 wizards + sample-data clone
-- [ ] 54.4-03 — Checklist on home + PATCH /api/onboarding/checklist + smoke + CHECKPOINT
-**Requirements progress:** 3 of 6 closed (OnboardingWizard ✓, ModuleRecommendationEngine ✓, RecommendationRuleEngine ✓; MigrationLanding/MigrationCards/OnboardingChecklistOnHome pending)
+- [x] 54.4-02 — Migration landing + 5 wizards + sample-data clone ([SUMMARY](phases/54.4-m6-module-selection-wizard-and-migration-onboarding-the-selling-point/54.4-02-SUMMARY.md))
+- [x] 54.4-03 — Checklist on home + PATCH /api/onboarding/checklist + smoke + CHECKPOINT ([SUMMARY](phases/54.4-m6-module-selection-wizard-and-migration-onboarding-the-selling-point/54.4-03-SUMMARY.md))
+**Requirements progress:** 6 of 6 closed ✓ (OnboardingWizard ✓, ModuleRecommendationEngine ✓, RecommendationRuleEngine ✓, MigrationLanding ✓, MigrationCards ✓, OnboardingChecklistOnHome ✓)
+**Handoff to Phase 56 (M4 Stripe billing):** see [CHECKPOINT.md](phases/54.4-m6-module-selection-wizard-and-migration-onboarding-the-selling-point/CHECKPOINT.md)
 
 ---
 
