@@ -92,7 +92,61 @@ Per Wave 2 lessons:
 
 ## Task 3 — 4 Lambda env vars/secrets flipped to Aurora
 
-(populated by executor during Task 3)
+### T+2:05 — turion-demo-api
+
+- **DEVIATION (Rule 3):** Plan-template inline JSON to `--environment "Variables=..."` failed with "Expected: '=', received: '\"'" because of special chars in env values. Switched to `file://` JSON input pattern.
+- File: `/tmp/lambda-env-turion-demo.json` (455 bytes, `{Variables: {...}}` shape)
+- Pre-flip: `DATABASE_URL` host = `aws-1-us-east-2.pooler.supabase.com:6543`
+- Post-flip: `DATABASE_URL` host = `zietra-aurora-prod.cluster-c23qcukqe810.us-east-1.rds.amazonaws.com:5432`, `?schema=turion`
+- LastUpdateStatus: Successful
+
+### T+2:30 — turion-satellite-api (rotate secret + force cold start)
+
+- **DEVIATION (Rule 3):** Plan secret-id `turion-satellite/production/database-url-NCbgX6` failed by-Name lookup (Wave 2 secret-id format). Used full ARN: `arn:aws:secretsmanager:us-east-1:134607809447:secret:turion-satellite/production/database-url-NCbgX6` — works.
+- Pre-rotation secret host: `aws-1-us-east-2.pooler.supabase.com:6543` (`postgresql://postgres.lbpkbpfwdpnwlccmlfxn:Thirumala977%21@...`)
+- Post-rotation secret host: `zietra-aurora-prod.cluster-c23qcukqe810.us-east-1.rds.amazonaws.com:5432`, `?schema=turion_satellite`
+- Lambda description bumped (force cold start) — twice (once at first attempt before secret rotated, once after rotation succeeded)
+- LastUpdateStatus: Successful
+
+### T+3:00 — zietra-crm-api
+
+- File: `/tmp/lambda-env-zietra-crm.json`
+- Pre-flip key count: 24 (incl. SUPABASE_URL/ANON_KEY/SERVICE_ROLE_KEY)
+- Post-flip key count: 21 (3 SUPABASE_* keys deleted)
+- DATABASE_URL host: `zietra-aurora-prod...:5432`, `?schema=crm`
+- DIRECT_URL host: `zietra-aurora-prod...:5432`, `?schema=crm`
+- SUPABASE_*_URL/ANON/SERVICE remaining: 0
+- LastUpdateStatus: Successful
+
+### T+3:30 — zietra-api
+
+- File: `/tmp/lambda-env-zietra-api.json`
+- Pre-flip keys: ENVIRONMENT, FINGERPRINT_SALT, SUPABASE_ANON_KEY, SUPABASE_DB_URL, SUPABASE_DB_URL_SERVICE, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL (7 total)
+- Post-flip keys: ENVIRONMENT, FINGERPRINT_SALT, SUPABASE_DB_URL, SUPABASE_DB_URL_SERVICE (4 total — 3 SUPABASE_*_URL/ANON/SERVICE deleted)
+- SUPABASE_DB_URL host: `zietra-aurora-prod...:5432`, `?schema=public`
+- SUPABASE_DB_URL_SERVICE host: same
+- **Note:** Per RESEARCH §D.3, env-var NAMES kept as `SUPABASE_DB_URL` / `SUPABASE_DB_URL_SERVICE` (baked into code). Renaming = code change = Phase 56+.
+- LastUpdateStatus: Successful
+
+### T+4:00 — Belt-and-suspenders force-refresh
+
+- Description bump on turion-demo-api, zietra-crm-api, zietra-api (satellite already had two bumps)
+- All 4 Lambdas LastUpdateStatus = Successful
+
+### Skipped: dollor/production/zietra-meet-8vOBAN
+
+Per Wave 2 Open Q1 resolution: secret is UNUSED by any Lambda. Skipped rotation as planned.
+
+### Final verification
+
+| Lambda | Status | Aurora refs in env | Supabase refs in env |
+|--------|--------|---------------------|----------------------|
+| turion-demo-api | Successful | 1 (DATABASE_URL) | 0 |
+| turion-satellite-api | Successful | (via secret, not env) | 0 |
+| zietra-crm-api | Successful | 2 (DATABASE_URL + DIRECT_URL) | 0 |
+| zietra-api | Successful | 2 (SUPABASE_DB_URL + SUPABASE_DB_URL_SERVICE) | 0 |
+
+Satellite secret value contains `zietra-aurora-prod`: VERIFIED.
 
 ## Task 4 — Production smoke matrix + SG hardening + NEXT_SESSION update
 
