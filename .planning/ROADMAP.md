@@ -841,14 +841,19 @@ Plans:
 - SAML SSO for enterprise tenants (M8)
 - Per-tenant WAF rules (M8)
 
-**Total estimated monthly cost delta:** ~$110-150/mo (NAT $32 + RDS Proxy $15 + WAF $25 + GuardDuty $30 + Security Hub $10 + Config $15 + per-request charges).
+**Total estimated monthly cost delta:** ~$240/mo (NAT $32 + RDS Proxy $144 + WAF $22 + GuardDuty $30 + Security Hub $10 + Config $15). Note: RDS Proxy on Aurora Serverless v2 hits 8-ACU minimum = $144/mo (corrected from $15 initial estimate per 54.6-RESEARCH §D.1).
 
 **Depends on:** Phase 54.1 (complete) + Phase 54.5-01/02/03 (Aurora cutover live).
 **Blocks:** Phase 54.5-04 Supabase teardown (54.5-04 only deletes Supabase AFTER 54.6 ships, since 54.6 VPC migration may need rollback to public Supabase); also blocks M3 (RLS), M4 (Stripe billing — won't bill real money on un-hardened infra), M7 (marketing site links to /security trust page).
 **Requirements:** VpcIsolation, AuroraPrivate, RdsProxyDeployed, LambdaVpcAttached, WafEnabledAllDistros, GuardDutyEnabled, SecurityHubEnabled, AwsConfigEnabled, ZeroPublicDbIngress, SecurityTrustPage
 
-**Plans:** 0 plans (proposed: 54.6-01 VPC + Aurora-private; 54.6-02 RDS Proxy + Lambda VPC-attach + close SG; 54.6-03 WAF + GuardDuty + Security Hub + Config; 54.6-04 zietra.com/security trust page + smoke + M3 CHECKPOINT)
-- [ ] TBD (run `/gsd:plan-phase 54.6`)
+**Plans:** 4 plans
+
+Plans:
+- [ ] 54.6-01-PLAN.md — VPC + 4 subnets + NAT + Aurora snapshot+restore-to-new-private-cluster (operator GO/NO-GO checkpoint before cutover)
+- [ ] 54.6-02-PLAN.md — RDS Proxy + Lambda VPC-attach + connection-string flip to Proxy endpoint + close 0/0:5432 on OLD SG after 24h soak
+- [ ] 54.6-03-PLAN.md — WAFv2 (COUNT-mode soak first) + GuardDuty + Security Hub + AWS Config + day-1 findings triage
+- [ ] 54.6-04-PLAN.md — zietra.com/security trust page + cross-cutting smoke matrix + Phase 55/M3 CHECKPOINT.md handoff
 
 ---
 
