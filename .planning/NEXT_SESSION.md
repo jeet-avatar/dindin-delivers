@@ -93,3 +93,35 @@ Phase 39 is the first M1 phase: Cognito user pool + SES integration + migrate us
 ### Phase 54.1 Wave 2 status
 - **NOT YET unblocked.** Wait for 54.5-04 7-day soak verdict before issuing the unblock signal.
 - 54.5-04 deliverables: alarm tuning, RDS Proxy provisioning, Lambda-into-VPC migration, Supabase project deletion, this NEXT_SESSION block updated to show Wave 2 unblock.
+
+---
+
+## Phase 54.6 — Enterprise Hardening Starter Pack COMPLETE 2026-05-15T09:37:00Z
+
+| | |
+|---|---|
+| **All 4 waves** | 54.6-01 VPC + private Aurora · 54.6-02 RDS Proxy + Lambda VPC-attach + 0/0:5432 revoke · 54.6-03 WAF + GuardDuty + Security Hub + Config · 54.6-04 trust page + smoke matrix |
+| **Requirements closed** | 10/10 (VpcIsolation, AuroraPrivate, LambdaVpcAttached, RdsProxyDeployed, ZeroPublicDbIngress, WafEnabledAllDistros, GuardDutyEnabled, SecurityHubEnabled, AwsConfigEnabled, SecurityTrustPage) |
+| **Cost delta** | ~$296/mo (Proxy $144 + WAF $43 + GuardDuty $30 + Security Hub $10 + Config $15 + 3 VPCE $22 + NAT $3 + Aurora ServerlessV2 baseline already in 54.5) |
+| **Architecture** | All 4 Lambdas (turion-demo-api, turion-satellite-api, zietra-crm-api, zietra-api) now serve via RDS Proxy in zietra-prod-vpc → private Aurora `zietra-aurora-prod-v2`. OLD cluster `zietra-aurora-prod` still LIVE for 14-day rollback through 2026-05-29. WAF on 2 of 3 CF distros in COUNT mode. |
+| **Smoke verdict** | `scripts/smoke-phase-54-6.sh` → 16/16 PASS (Lambda health + edges + trust page + Aurora public-blocked + posture services state) |
+| **CHECKPOINT** | `.planning/phases/54.6-enterprise-hardening-starter-pack-vpc-rds-proxy-waf-guardduty-close-sg/CHECKPOINT.md` |
+| **Trust page** | https://zietra.com/security.html LIVE — 12 sections, 149 lines |
+
+### Recurring operator tasks (high-priority, scheduled)
+- **Day +1 to +4 (2026-05-16 → 2026-05-19):** WAF COUNT→BLOCK transition (KBI → IpRep → CRS → BotControl), per `.planning/runbooks/waf-deployment-54-6-03.md`
+- **2026-05-29:** delete OLD Aurora cluster `zietra-aurora-prod` (rollback window expires) + delete OLD SG `sg-0760238c408d0f2b7`
+- **Immediate:** confirm SNS subscription `security@zietra.com` (click email link)
+- **Immediate:** `aws iam create-service-linked-role --aws-service-name config.amazonaws.com` (1-line from IAM-admin creds) to leave AWS Config FAILURE state
+
+### Deferred to M3 / future
+- WAF regional ACL attach to marquee + asc606 APIGW v2 (front each with new CF, or accept native APIGW v2 controls)
+- IAM token client conversion on Lambda Pool (replace password-auth on Proxy)
+- HA NAT across 2 AZs (~$32/mo extra)
+- SAML SSO (M8 / first enterprise pilot)
+- SOC 2 Type II audit (M8 / first customer requiring it)
+- zietra-api Lambda missing APIGW route (open since Phase 54.5-02)
+
+### Unblocked next
+- **Phase 55 / M3: RLS multi-tenancy** — Aurora hardened, all Lambdas in VPC, 0/0:5432 closed. M3 starts with `tenant_id` column audit + RLS policies + isolation tests.
+- Start via: `/gsd:plan-phase 55`
