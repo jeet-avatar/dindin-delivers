@@ -883,15 +883,17 @@ Plans:
 **Blocks:** Phase 54.4 + M4 if you want them safe for real paying customers. (You CAN run 54.4 + M4 in parallel during M3 implementation — they just can't onboard real money until M3 lands.)
 **Requirements:** TenantIdColumnEverywhere, RlsPoliciesActive, SetLocalAppTenantId, AdminBypassRole, IsolationTestSuite, RlsPerfImpactAssessed, RlsRollbackRunbook
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
-**Progress:** ████░░░░░░░░░░░░░░░░ 20% (1/5)
+**Progress:** ████████████████████ 100% (5/5)
 
 - [x] 55-01-PLAN.md — **COMPLETE 2026-05-15T19:12Z** — tenant_id schema lockdown across all 4 schemas (public, crm, turion, turion_satellite). 149 multi-tenant tables now have `tenant_id uuid NOT NULL` + FK to `public.tenants(id)` ON DELETE RESTRICT + single-col index. Migration 027 (44 column-adds: 37 crm.* + 7 public.* Zietra Meet) + Migration 028 (149 NOT NULL locks + 149 new FKs RESTRICT). Both idempotent (re-run = 0 modifications). Bucket-4 exempt: public.tenants (chicken-and-egg), public.schema_migrations, public.tenant_features/tenant_users (pre-existing CASCADE FKs from Phase 54.1). Row-count parity 3070→3070. **Rule-3 deviation**: direct operator psql to private-subnet Aurora doesn't work — switched to one-shot VPC Lambda pattern (zietra-tenant-id-audit-oneshot + zietra-migration-runner-oneshot, both deleted post-execution). TenantIdColumnEverywhere requirement closed. 3 atomic commits: e8f2ddcf (doordash-p2p audit) + a5f1dd0 + 3bc5639 (turion-space-demo migrations). 16 min wall-clock. SUMMARY: `.planning/phases/55-m3-multi-tenancy-rls-tenant-isolation/55-01-SUMMARY.md`.
-- [ ] 55-02-PLAN.md — RLS policies + zietra_admin_bypass role + withTenantClient helper
-- [ ] 55-03-PLAN.md — zietra_app role + Lambda credential rotation + secret rotation
-- [ ] 55-04-PLAN.md — ~500 isolation tests + perf benchmark + composite indexes
-- [ ] 55-05-PLAN.md — rollout + soak + CHECKPOINT for M4
+- [x] 55-02-PLAN.md — **COMPLETE 2026-05-15T19:30Z** — RLS policies + `zietra_admin_bypass` role (BYPASSRLS, ops only) + `zietra_app` role (NO BYPASSRLS, Lambdas). 151 multi-tenant tables RLS-enabled + FORCE + canonical `tenant_isolation` policy. 2 Secrets Manager secrets: `zietra-aurora/app-role-t0oumn` + `zietra-aurora/admin-bypass-role-pTsZjr`. Fail-closed PROVEN: zietra_app + no GUC → `42704 unrecognized configuration parameter`. Migration 029 + 030. 4 commits: `b86a219`+`680bb98` (turion-space-demo) + `fe4901e2`+`2c8a9ce9` (doordash-p2p). 10 min. **RlsPoliciesActive + AdminBypassRole closed**. SUMMARY: `55-02-SUMMARY.md`.
+- [x] 55-03-PLAN.md — **COMPLETE 2026-05-15T20:20Z** — `withTenantClient(req, fn)` helper + 37 route files refactored in both repos + 4 Lambdas flipped to zietra_app (2 Aurora-backed + 2 no-op). RDS Proxy registered zietra_app secret; proxy IAM role granted GetSecretValue on app-role + admin-bypass-role. Smoke 4/4 PASS post-cutover. Pinning Max=1 over 30min (SET LOCAL confirmed proxy-compatible). 6 auto-fixes (CLI quoting / proxy IAM / Lambda env shapes / RLS-incompatible health / TS narrowing / genericFanOut signature). 12 commits across 3 repos. 44 min. **SetLocalAppTenantId closed**. SUMMARY: `55-03-SUMMARY.md`.
+- [x] 55-04-PLAN.md — **COMPLETE 2026-05-15T20:40Z** — 459 isolation tests in CI (255 turion-space-demo + 204 turion-satellite), perf baseline (p50 380-529ms / p99 449-2378ms), pinning Max=3.0 ≤ 5, `[NEEDS-INDEX]` queue EMPTY. CI workflow `.github/workflows/rls-isolation.yml` in both repos. 7 commits. 14 min. **IsolationTestSuite + RlsPerfImpactAssessed closed**. 266 pre-existing satellite test failures (X-Tenant-Slug header missing) deferred to hygiene phase. SUMMARY: `55-04-SUMMARY.md`.
+- [x] 55-05-PLAN.md — **COMPLETE 2026-05-15T20:58Z** — Per-table rollout walk (5 stages all ADVANCE), rollback drill on `public.tenant_features` PASS in 9 sec wall-clock, 2 CloudWatch alarms armed (pinning + Lambda p99) wired to `zietra-aurora-alarms` SNS, CHECKPOINT.md handing off to Phase 56 (M4 Stripe). Migration 031 NO-OP marker (queue empty per 55-04). `disable-rls-per-table.sh` + `rls-rollback-drill.sh` + `setup-rls-cloudwatch-alarms.sh` shipped (idempotent). Rollback runbook 279 lines / 8 sections / 4-tier decision tree. 7-day soak started 2026-05-15T20:55Z → ends 2026-05-22T20:55Z; daily operator actions documented. 4 Rule-1/3 auto-fixes (master vs bypass for DDL / vpc-migration.env path / AWS CLI v1 syntax / SNS topic naming). 3 commits: `fc40fa2` (turion-space-demo migration 031) + `6622f966` + `534762d5` (doordash-p2p). 11 min 57 sec. **RlsRollbackRunbook closed**. SUMMARY: `55-05-SUMMARY.md`. **Phase 56 (M4 Stripe) UNBLOCKED.**
+
+*Phase 55 closed 2026-05-15T20:58Z. 7/7 requirements satisfied (TenantIdColumnEverywhere, RlsPoliciesActive, SetLocalAppTenantId, AdminBypassRole, IsolationTestSuite, RlsPerfImpactAssessed, RlsRollbackRunbook). RLS database-enforced on 152 tables across 4 schemas. Next: `/gsd:plan-phase 56` for M4 Stripe billing.*
 
 ---
 
@@ -902,12 +904,12 @@ These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-
 | Milestone | Phases | What | Why deferred | When to do |
 |-----------|--------|------|--------------|------------|
 | ~~**M2** — RDS Postgres migration~~ | ~~42-43~~ | **SUPERSEDED 2026-05-15 by Phase 54.5** — pulled forward into M6 because RLS (M3) wants a single implementation on the target platform, and tenant count is at lifetime minimum NOW. | n/a | n/a |
-| **M3** — Multi-tenancy + RLS | 44-48 | `tenant_id` everywhere + RLS policies + per-connection `app.tenant_id` setting. ~500 isolation tests. | M5 ships minimal `tenants` + `tenant_id` columns (no RLS). Demo-grade. | **MUST do before any production paid launch** — currently tenants can read each other's data |
-| **M4** — Stripe + entitlements | 49-51 | Stripe Subscriptions, base $99/mo + add-on prices, webhook Lambda, customer portal. | M5 defaults all modules ON in trial; M4 wires real billing + downgrades. | Before charging real money. M5+M6 give the UX scaffolding to plug Stripe into |
-| **M7** — Marketing site | 55 | 4/5 | In Progress|  |
+| ~~**M3** — Multi-tenancy + RLS~~ | ~~44-48~~ | **COMPLETE 2026-05-15 via Phase 55 (5 plans).** RLS database-enforced on 152 tables across 4 schemas; 459 isolation tests in CI; rollback runbook + drill; 2 CloudWatch alarms; 7/7 requirements closed. | n/a | Done |
+| **M4** — Stripe + entitlements | 56+ | Stripe Subscriptions, base $99/mo + add-on prices, webhook Lambda, customer portal. | M5 defaults all modules ON in trial; M4 wires real billing + downgrades. | **UNBLOCKED 2026-05-15 by Phase 55 closure** — next: `/gsd:plan-phase 56` |
+| **M7** — Marketing site | 55 | 5/5 | Complete   | 2026-05-15 |
 | **M8** — Compliance + observability + load/chaos | 56-58 | Per-tenant audit log, KMS encryption-at-rest, SOC2 readiness, CloudWatch dashboards, RBAC per module (extends 54.1), **k6 load tests + chaos failures (Lambda timeout, DB drop)**. | Hardens for enterprise. Not needed for SMB pilot tenants. | Before first enterprise sale or SOC2 audit |
 
-*Last updated 2026-05-15: M2 (RDS migration) pulled forward into M6 as Phase 54.5 — Phase 54.1 paused at Wave 1, Aurora migration sits between 54.1-Wave1 and 54.1-Wave2. Strategy shift — M5+M6 ahead of M3/M4 to land customer-facing SaaS UX with a real second tenant. M3/M4 remain mandatory before production GA but unblocked for demo/pilot.*
+*Last updated 2026-05-15T20:58Z: **Phase 55 COMPLETE — M3 CLOSED.** 5/5 plans, 7/7 requirements closed (TenantIdColumnEverywhere, RlsPoliciesActive, SetLocalAppTenantId, AdminBypassRole, IsolationTestSuite, RlsPerfImpactAssessed, RlsRollbackRunbook). RLS database-enforced on 152 tables / 4 schemas. 7-day soak window started 2026-05-15→2026-05-22. **M4 (Stripe billing) UNBLOCKED — next: `/gsd:plan-phase 56`.** Earlier note: M2 (RDS migration) pulled forward into M6 as Phase 54.5. Strategy shift was M5+M6 ahead of M3/M4; M3 closed 8 days behind original schedule via Phase 55 inserted 2026-05-15.*
 
 ---
 
