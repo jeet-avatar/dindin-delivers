@@ -805,7 +805,7 @@ Plans:
 **Blocks:** Phase 54.1 Waves 2-3 (invite endpoints / frontend / vitest), Phase 54.2, Phase 54.3, Phase 54.4, M3, M4.
 **Requirements:** AuroraClusterProvisioned, ConnectionStringSwap, SchemaParity, DataParity, RollbackRunbook, FourLambdaSmoke, SupabaseRetention7Days
 
-**Plans:** 2/4 plans complete
+**Plans:** 3/4 plans executed
 - [x] 54.5-01-PLAN.md — Aurora Serverless v2 cluster provisioning (PG 16.4, ACU 0.5–4, KMS-encrypted, 5 CloudWatch alarms, $100/mo budget) — `AuroraClusterProvisioned`
 - [x] 54.5-02-PLAN.md — Dry-run dump/restore + 153-table parity verification + 4-Lambda smoke matrix scripts + pre-flight env capture + Open Q1/Q2 resolution — `SchemaParity` + `DataParity` + `FourLambdaSmoke`
 - [ ] 54.5-03-PLAN.md — Production cutover (Supabase pg_dump → Aurora pg_restore + 4 Lambda env-var flips + smoke matrix + SG hardening) — `ConnectionStringSwap` + `RollbackRunbook`
