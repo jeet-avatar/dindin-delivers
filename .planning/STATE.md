@@ -616,6 +616,9 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 55-m3-multi-tenancy-rls-tenant-isolation]: Migration 031 NO-OP marker (composite-index [NEEDS-INDEX] queue empty per 55-04)
 - [Phase 55-m3-multi-tenancy-rls-tenant-isolation]: DDL uses master role (table owner) not bypass; bypass for cross-tenant SELECT only
 - [Phase 55-m3-multi-tenancy-rls-tenant-isolation]: CloudWatch alarms wired to existing SNS topic zietra-aurora-alarms (54.6 provisioned)
+- [Phase 54.4]: Adapted CSV import to actual Aurora schema (turion.customers/items/vendors with source_data jsonb) instead of non-existent ns_*/sf_accounts tables from PLAN; CSV columns packed into jsonb so existing readers see imports immediately
+- [Phase 54.4]: Two-pool DB topology: zietra_app (RLS) + lazy zietra_admin_bypass (cross-tenant SELECT only for sample-data clone)
+- [Phase 54.4]: papaparse bundled at /lib/ (not CDN) — CSP-safe per Pitfall 3
 
 ### Quick Tasks Completed
 
@@ -653,4 +656,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 55-m3-multi-tenancy-rls-tenant-isolation P03 | 44min | 3 tasks | 42 files |
 | Phase 55-m3-multi-tenancy-rls-tenant-isolation P04 | 14min 11sec | 3 tasks | 18 files |
 | Phase 55-m3-multi-tenancy-rls-tenant-isolation P05 | 11min 57sec | 3 tasks | 7 files |
+| Phase 54.4 P02 | 17m | 3 tasks | 14 files |
 
