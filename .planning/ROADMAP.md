@@ -901,6 +901,43 @@ Plans:
 
 ---
 
+### Phase 56: M4 — Stripe billing + entitlements ⚡ INSERTED 2026-05-15
+
+**Goal:** Tenants can pay. $99/mo base subscription + add-on prices per module. Self-serve trial → paid upgrade via Stripe Checkout. Webhook Lambda processes Stripe events (subscription created/updated/canceled, invoice paid/failed). Customer portal for tenants to manage subscription + payment methods + see invoices. Trial-to-paid conversion flow integrated with Phase 54.4 onboarding checklist. Test-mode first cutover with operator GO/NO-GO before flipping to live mode.
+
+**Why this is M4 + why now:** With Phase 54.1 (team), 54.5 (Aurora), 54.6 (hardening), 55 (RLS), 54.4 (wizard/migration), the platform can now safely onboard real tenants with isolated data. M4 is the "take money" layer. Required before any real customer signs.
+
+**Scope (locked):**
+- **Stripe integration:** test-mode first (publishable + secret keys in Secrets Manager). After validation, operator switches to live mode.
+- **Product/Price setup:** Stripe Products for base subscription ($99/mo) + 1 product per add-on module (12 add-ons since `crm` is in base + `sales` is in base — verify against module catalog). Prices stored in Stripe; sync metadata to local `pricing` table for fast lookups.
+- **Checkout flow:** `/billing/upgrade` page → Stripe Checkout session → success/cancel callback URLs → webhook fires.
+- **Webhook Lambda:** NEW `stripe-webhook-handler` Lambda OR endpoint on `turion-demo-api` (decide based on isolation tradeoffs). Idempotent via Stripe event_id. Handles: customer.subscription.created/updated/deleted, invoice.payment_succeeded/payment_failed.
+- **Customer portal:** Stripe-hosted portal for tenants to manage cards, see invoice history, cancel subscription. Generated via `stripe.billingPortal.sessions.create`.
+- **Trial-to-paid:** Existing 3 tenants stay on trial through their `trial_ends_at`. New tenants get 30-day trial. Auto-billing starts on day 31 unless paid earlier.
+- **Entitlement sync:** Webhook updates `tenant_features.enabled` based on active subscription items. Cancellation downgrades all add-ons to disabled (but keeps trial-base modules accessible until trial_ends_at).
+- **Onboarding checklist:** Add 5th item to 54.4-03 checklist: "Add payment method" → links to `/billing/upgrade` or Stripe portal.
+- **Multi-tenant Stripe customer mapping:** `tenants.stripe_customer_id` column (migration 033) maps platform tenant → Stripe Customer.
+
+**Out of scope (deferred to M8):**
+- Per-user seat billing (currently per-tenant flat + add-ons; per-seat is M8 enterprise tier)
+- Usage-based metering (Stripe Metered Billing — defer until clear use case)
+- Multi-currency (USD only for M4)
+- Tax handling (Stripe Tax — defer; charge net of tax for SMB pilot)
+- Custom invoicing for enterprise tenants (Stripe Invoicing API — M8)
+- Discount/coupon engine (deferred — Stripe supports it natively but UI work)
+- Annual prepay discount (deferred — easy to add via Stripe Pricing)
+
+**Test-mode safety:** Phase 56-NN ships entire flow in Stripe test mode FIRST. Operator runs ~10 test scenarios (signup → upgrade → cancel → restart → fail-card → etc.) and confirms before final cutover to live mode keys. Live-mode flip is the operator GO/NO-GO checkpoint.
+
+**Depends on:** Phase 55 (RLS — billing data is sensitive, must be tenant-isolated) + Phase 54.4 (onboarding checklist — billing item slots in).
+**Blocks:** Onboarding any real paying customer.
+**Requirements:** StripeTestModeIntegration, ProductPriceCatalog, CheckoutFlow, WebhookHandler, CustomerPortal, TrialToPaidConversion, EntitlementSync, StripeCustomerMapping, BillingChecklistItem, LiveModeCutover
+
+**Plans:** 0 plans (proposed structure: 56-01 Stripe products/prices + webhook scaffold + migration 033 stripe_customer_id; 56-02 checkout flow + customer portal + entitlement sync; 56-03 trial-to-paid + checklist integration + 10-scenario test-mode smoke + GO/NO-GO checkpoint; 56-04 live-mode cutover + production smoke + CHECKPOINT for next milestone)
+- [ ] TBD (run `/gsd:plan-phase 56`)
+
+---
+
 ## Deferred milestones (TODO — return after M5+M6 demo)
 
 These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-grade multi-tenant SaaS first; the items below harden it for GA / paid customers.
