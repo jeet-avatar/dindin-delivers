@@ -137,7 +137,53 @@ Task 2 status: **PASS** at `2026-05-15T03:46Z`.
 
 ## Task 3 — Extensions, schemas, baseline snapshot
 
-_Pending — to be appended live._
+Started: `2026-05-15T03:48Z` · Snapshot available: `2026-05-15T03:51:50Z`
+
+### Extensions installed in `zietra` DB
+
+| Extension | Version | Notes |
+|-----------|---------|-------|
+| `citext` | 1.6 | matches Supabase |
+| `pgcrypto` | 1.3 | matches Supabase |
+| `uuid-ossp` | 1.1 | matches Supabase |
+| `pg_stat_statements` | 1.10 | Supabase had 1.11 — minor version diff, no app impact |
+| `plpgsql` | 1.0 | preinstalled by Aurora |
+
+`supabase_vault` is NOT installed (per CONTEXT.md decision — vault schema empty on Supabase, no app code references it).
+
+### Application schemas pre-created
+
+| Schema | Notes |
+|--------|-------|
+| `public` | already existed |
+| `crm` | created |
+| `turion` | created |
+| `turion_satellite` | created |
+
+### Baseline snapshot
+
+| Field | Value |
+|-------|-------|
+| Identifier | `zietra-aurora-pre-restore-baseline` |
+| ARN | `arn:aws:rds:us-east-1:134607809447:cluster-snapshot:zietra-aurora-pre-restore-baseline` |
+| Type | `manual` |
+| Status | `available` |
+| Tags | `Project=Zietra`, `Phase=54.5`, `Purpose=empty-baseline-rollback` |
+
+This snapshot is the rollback target if Wave 2 dump/restore poisons the cluster.
+
+### Verification (gates)
+
+```
+Gate 1: extensions in (citext, pg_stat_statements, pgcrypto, plpgsql, uuid-ossp) → 5  PASS
+Gate 2: supabase_vault count → 0  PASS
+Gate 3: schemas in (public, crm, turion, turion_satellite) → 4  PASS
+Gate 4: snapshot Status/Type → ["available", "manual"]  PASS
+```
+
+Task 3 status: **PASS** at `2026-05-15T03:52Z`.
+
+
 
 ---
 
