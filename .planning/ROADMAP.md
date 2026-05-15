@@ -883,8 +883,15 @@ Plans:
 **Blocks:** Phase 54.4 + M4 if you want them safe for real paying customers. (You CAN run 54.4 + M4 in parallel during M3 implementation — they just can't onboard real money until M3 lands.)
 **Requirements:** TenantIdColumnEverywhere, RlsPoliciesActive, SetLocalAppTenantId, AdminBypassRole, IsolationTestSuite, RlsPerfImpactAssessed, RlsRollbackRunbook
 
-**Plans:** 0 plans (proposed structure: 55-01 audit + tenant_id backfill; 55-02 RLS policies + tenantContext middleware extension; 55-03 admin bypass role + migration script audit; 55-04 ~500 isolation tests + perf benchmark; 55-05 rollout + soak + CHECKPOINT for M4)
-- [ ] TBD (run `/gsd:plan-phase 55`)
+**Plans:** 5 plans (1 complete, 4 pending) — see `.planning/phases/55-m3-multi-tenancy-rls-tenant-isolation/`
+
+**Progress:** ████░░░░░░░░░░░░░░░░ 20% (1/5)
+
+- [x] 55-01-PLAN.md — **COMPLETE 2026-05-15T19:12Z** — tenant_id schema lockdown across all 4 schemas (public, crm, turion, turion_satellite). 149 multi-tenant tables now have `tenant_id uuid NOT NULL` + FK to `public.tenants(id)` ON DELETE RESTRICT + single-col index. Migration 027 (44 column-adds: 37 crm.* + 7 public.* Zietra Meet) + Migration 028 (149 NOT NULL locks + 149 new FKs RESTRICT). Both idempotent (re-run = 0 modifications). Bucket-4 exempt: public.tenants (chicken-and-egg), public.schema_migrations, public.tenant_features/tenant_users (pre-existing CASCADE FKs from Phase 54.1). Row-count parity 3070→3070. **Rule-3 deviation**: direct operator psql to private-subnet Aurora doesn't work — switched to one-shot VPC Lambda pattern (zietra-tenant-id-audit-oneshot + zietra-migration-runner-oneshot, both deleted post-execution). TenantIdColumnEverywhere requirement closed. 3 atomic commits: e8f2ddcf (doordash-p2p audit) + a5f1dd0 + 3bc5639 (turion-space-demo migrations). 16 min wall-clock. SUMMARY: `.planning/phases/55-m3-multi-tenancy-rls-tenant-isolation/55-01-SUMMARY.md`.
+- [ ] 55-02-PLAN.md — RLS policies + zietra_admin_bypass role + withTenantClient helper
+- [ ] 55-03-PLAN.md — zietra_app role + Lambda credential rotation + secret rotation
+- [ ] 55-04-PLAN.md — ~500 isolation tests + perf benchmark + composite indexes
+- [ ] 55-05-PLAN.md — rollout + soak + CHECKPOINT for M4
 
 ---
 
