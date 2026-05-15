@@ -734,7 +734,7 @@ Plans:
 **Depends on:** Phase 54 (UI shell exists with `/team` route slot).
 **Requirements:** TenantUsersTable, InviteFlow, RoleMiddleware, TeamPage, VitestBackendBootstrap
 
-**Plans:** 0 plans
+**Plans:** 1/1 plans complete
 - [ ] TBD (run `/gsd:plan-phase 54.1`)
 
 ---
