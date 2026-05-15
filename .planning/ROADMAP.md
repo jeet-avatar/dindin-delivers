@@ -847,7 +847,7 @@ Plans:
 **Blocks:** Phase 54.5-04 Supabase teardown (54.5-04 only deletes Supabase AFTER 54.6 ships, since 54.6 VPC migration may need rollback to public Supabase); also blocks M3 (RLS), M4 (Stripe billing — won't bill real money on un-hardened infra), M7 (marketing site links to /security trust page).
 **Requirements:** VpcIsolation, AuroraPrivate, RdsProxyDeployed, LambdaVpcAttached, WafEnabledAllDistros, GuardDutyEnabled, SecurityHubEnabled, AwsConfigEnabled, ZeroPublicDbIngress, SecurityTrustPage
 
-**Plans:** 4 plans
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 54.6-01-PLAN.md — **Wave 1 COMPLETE 2026-05-15T07:40Z** — VPC `vpc-012ab4500dcd4ee41` (10.0.0.0/16, 4 subnets across 2 AZs) + NAT instance `i-0e9159d87ede802bd` (t4g.nano, Option-D pivot after EIP quota) + 3 app SGs + new Aurora cluster `zietra-aurora-prod-v2` restored from snapshot `zietra-aurora-pre-vpc-migration-2026-05-15` into private subnets (IAM auth on, NOT publicly accessible, ServerlessV2 0.5-4 ACU). Parity gate PASSED (153 tables / 3070 rows, diff=0 lines). 5 atomic commits, 3 Rule-1/2/3 auto-fix deviations. 270-line rollback runbook. OLD cluster STILL LIVE, 4 Lambdas STILL hitting OLD endpoint (cutover is 54.6-02's job). Satisfies `VpcIsolation` + `AuroraPrivate` requirements. SUMMARY at .planning/phases/54.6-.../54.6-01-SUMMARY.md.
