@@ -857,6 +857,37 @@ Plans:
 
 ---
 
+### Phase 55: M3 — Multi-tenancy + RLS (tenant isolation) ⚡ INSERTED 2026-05-15
+
+**Goal:** Implement row-level security on Aurora so tenants CANNOT read each other's data, even via SQL injection or compromised app logic. Currently `tenant_id` columns exist on multi-tenant tables but enforcement is application-side only — a single forgotten `WHERE tenant_id = $1` could leak rows across tenants. RLS makes the database itself the security boundary: even with full DB access, queries return only the current tenant's rows. Required BEFORE any real paying customer is onboarded.
+
+**Why this insertion (pulled forward from "Deferred milestones"):** Phase 54.6 hardened the perimeter (VPC isolation, WAF, GuardDuty). M3 hardens the inside — between tenants on the same Aurora cluster. The two layers together are what enterprise customers need to see before signing. Original ROADMAP deferred M3 until after M6 demo; pulled forward because (a) Aurora cutover is fresh — RLS lands once on the target platform; (b) tenant count is 3 today — minimal data to backfill `tenant_id` on; (c) M4 (Stripe billing) shouldn't go live without M3 first.
+
+**Scope (locked):**
+- **Audit every multi-tenant table** for `tenant_id` column presence. Currently confirmed: `public.tenant_users` (Phase 54.1), `public.tenants` (Phase 52), `public.tenant_features` (Phase 53). Need to audit: ERP schemas (`turion`, `turion_satellite`) — most of those rows are demo data for tenant_id=`00000000-0000-0000-0000-000000000001` (Turion); CRM schema (`crm`) — Zietra Meet booking platform.
+- **Add `tenant_id` column** to any multi-tenant table that lacks one. Backfill from existing data + lock `NOT NULL` constraint after backfill verifies.
+- **RLS policies** per table: `CREATE POLICY tenant_isolation ON <table> USING (tenant_id = current_setting('app.tenant_id')::uuid)`. Enable via `ALTER TABLE <table> ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY` (so even table owner gets RLS'd).
+- **Per-connection `SET LOCAL app.tenant_id`** in `tenantContext` middleware (Phase 53 already extracts the slug → tenant; just add the `SET LOCAL` before any query). Handles RDS Proxy session pinning correctly — Proxy supports `SET LOCAL` within a transaction; verify behavior with research.
+- **Bypass for admin/migration paths:** Some scripts (migrations, backfills, ops queries) need cross-tenant access. Create a dedicated `zietra_admin_bypass` Postgres role that has `BYPASSRLS`, store its credentials in Secrets Manager, use ONLY from migration scripts (NOT from Lambda code).
+- **~500 isolation tests:** vitest + supertest matrix testing every API endpoint with tenant-A JWT trying to access tenant-B's data → must return 404 or 403 (NOT 200 with leaked rows). Generate test cases programmatically from the route table.
+- **Performance impact assessment:** Benchmark p50/p99 latency on the 10 hottest endpoints before/after RLS. AWS docs say <5% overhead at our scale; verify empirically.
+- **Rollback strategy:** If isolation tests find leaks or performance regresses >10%, can DISABLE RLS via `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` (policies stay defined, just inactive). Application logic remains the safety net; can re-enable per-table after fixing.
+
+**Out of scope (deferred to later phases):**
+- Cross-tenant aggregation / analytics (M8 — needs separate read-replica with cross-tenant grants)
+- Schema-per-tenant (vs row-level) — heavier isolation but breaks Aurora cost model for our 3-tenant scale
+- Field-level encryption (M8 — for HIPAA-style PHI handling)
+- Audit log per-tenant retention policies (M8)
+
+**Depends on:** Phase 54.6 (Aurora private, RDS Proxy, hardened perimeter — required as the platform RLS will run on).
+**Blocks:** Phase 54.4 + M4 if you want them safe for real paying customers. (You CAN run 54.4 + M4 in parallel during M3 implementation — they just can't onboard real money until M3 lands.)
+**Requirements:** TenantIdColumnEverywhere, RlsPoliciesActive, SetLocalAppTenantId, AdminBypassRole, IsolationTestSuite, RlsPerfImpactAssessed, RlsRollbackRunbook
+
+**Plans:** 0 plans (proposed structure: 55-01 audit + tenant_id backfill; 55-02 RLS policies + tenantContext middleware extension; 55-03 admin bypass role + migration script audit; 55-04 ~500 isolation tests + perf benchmark; 55-05 rollout + soak + CHECKPOINT for M4)
+- [ ] TBD (run `/gsd:plan-phase 55`)
+
+---
+
 ## Deferred milestones (TODO — return after M5+M6 demo)
 
 These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-grade multi-tenant SaaS first; the items below harden it for GA / paid customers.
