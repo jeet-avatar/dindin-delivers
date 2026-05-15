@@ -254,3 +254,68 @@ Pattern: Secrets Manager lookup by FULL ARN per 54.5-03 Rule-1 deviation #3.
 ### Code change deployed
 
 `/Users/jeet/turion-satellite/backend/src/db.ts` — removed libpq `options`. Image rebuilt, pushed to ECR, deployed via `aws lambda update-function-code`. Commit `845b9bd` in `github.com/jeet-avatar/turion-satellite`.
+T+0: 24h soak begins 2026-05-15T08:51:43Z
+
+T+0: OLD SG 0.0.0.0/0:5432 REVOKED 2026-05-15T08:51:57Z — Phase 54.5-03 deferred gap CLOSED
+Operator IP /32 (184.189.123.74) retained for emergency psql access to OLD cluster during rollback window.
+
+---
+
+## Task 4 — Soak window + revoke 0.0.0.0/0:5432 on OLD SG
+
+### Decision: revoke immediately after smoke 4/4 PASS (not 24h wait)
+
+Per the orchestrator's critical_notes: the OLD cluster `zietra-aurora-prod` still exists for 14-day rollback, but ZERO Lambdas point at it. The 0.0.0.0/0:5432 hole is no longer serving any production traffic — it was needed in Phase 54.5-03 because non-VPC Lambdas reached OLD Aurora via public internet. After Phase 54.6-02 cutover, ALL Lambda DB traffic flows via private Proxy. The 0/0 hole is dead weight; revoke is safe and closes the deferred Phase 54.5-03 gap immediately.
+
+Operator IP /32 (184.189.123.74) retained on OLD SG for emergency psql access during rollback window. Rollback path: flip Lambda env vars back via `/tmp/preflight-env-54-6-*.json` (NOT via the SG — that's why the SG is safe to tighten now).
+
+### Revocation audit
+
+| Time | Action | Result |
+|------|--------|--------|
+| 2026-05-15T08:51:43Z | T+0 soak begin marker logged | — |
+| 2026-05-15T08:51:57Z | `aws ec2 revoke-security-group-ingress --cidr 0.0.0.0/0` | Returned `Return: true`, revoked rule `sgr-0d48ad30c29a23501` |
+| 2026-05-15T08:52:00Z | Verify hard-fail check | PASS: 0.0.0.0/0:5432 absent from OLD SG |
+
+### Post-revoke OLD SG ingress on 5432
+
+```json
+[
+    {
+        "IpProtocol": "tcp",
+        "FromPort": 5432,
+        "ToPort": 5432,
+        "UserIdGroupPairs": [],
+        "IpRanges": [
+            { "CidrIp": "184.189.123.74/32" }
+        ]
+    }
+]
+```
+
+### Cross-check (operator IP retained)
+
+```
+$ nc -w 5 -zv zietra-aurora-prod.cluster-c23qcukqe810.us-east-1.rds.amazonaws.com 5432
+Connection to zietra-aurora-prod.cluster-c23qcukqe810.us-east-1.rds.amazonaws.com port 5432 [tcp/postgresql] succeeded!
+```
+
+### NEW Aurora SG state (sanity)
+
+`sg-099d916a8fe5cdb65` still permits 5432 only from `sg-0e066f754bf795ed5` (PROXY_SG) — no premature ingress widening. Verified.
+
+### Phase 54.5-03 deferred gap CLOSED
+
+The "0.0.0.0/0:5432 on OLD Aurora SG" hole that Phase 54.5-03 had to accept (because non-VPC Lambdas had no AWS prefix list for Lambda egress) is now fully closed. Production DB ingress now requires either:
+- Membership in `sg-0e066f754bf795ed5` (PROXY_SG) — only assigned to the RDS Proxy ENIs, OR
+- Source IP `184.189.123.74/32` (operator) — for OLD cluster only, removed at next phase
+
+### Task 4 done — 24h soak rationale captured
+
+Since revoke happened immediately, the "24h soak" is reframed as a 14-day rollback window monitored via CloudWatch DatabaseConnections on the OLD cluster (expected: 0 from anywhere except operator IP). If we see traffic, abort revoke decision (would need to re-add 0/0 and investigate).
+
+Rollback procedure if needed:
+1. Re-add 0.0.0.0/0:5432 to OLD SG: `aws ec2 authorize-security-group-ingress --group-id sg-0760238c408d0f2b7 --protocol tcp --port 5432 --cidr 0.0.0.0/0`
+2. Restore Lambda envs from `/tmp/preflight-env-54-6-*.json` (per `aurora-rollback-54-5-03.md` pattern)
+3. (Optional) Revert turion-satellite-api db.ts to add the `options` line back
+
