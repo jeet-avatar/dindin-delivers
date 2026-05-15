@@ -74,7 +74,62 @@ Task 1 status: **PASS** at `2026-05-15T03:39Z`.
 
 ## Task 2 — Aurora cluster + writer instance
 
-_Pending — to be appended live._
+Started: `2026-05-15T03:39Z` · Cluster available: `2026-05-15T03:40:42Z` · Writer available: `2026-05-15T03:45:47Z` · Wall time: ~6 min
+
+### Cluster
+
+| Field | Value |
+|-------|-------|
+| Cluster ID | `zietra-aurora-prod` |
+| Cluster ARN | `arn:aws:rds:us-east-1:134607809447:cluster:zietra-aurora-prod` |
+| Engine | `aurora-postgresql 16.4` |
+| Mode | Serverless v2 (MinACU=0.5, MaxACU=4) |
+| Database name | `zietra` |
+| Master user | `zietra_admin` (password auto-managed) |
+| Backup retention | 7 days, window 07:00-09:00 UTC |
+| Maintenance window | sun:09:00-sun:11:00 UTC |
+| Storage encryption | enabled (KMS `arn:aws:kms:us-east-1:134607809447:key/1086212a-cf06-41ca-8767-514b2b18a008`) |
+| CloudWatch Logs export | `postgresql` |
+| IAM DB auth | enabled |
+| **Writer endpoint** | `zietra-aurora-prod.cluster-c23qcukqe810.us-east-1.rds.amazonaws.com` |
+| **Reader endpoint** | `zietra-aurora-prod.cluster-ro-c23qcukqe810.us-east-1.rds.amazonaws.com` |
+| Status | `available` |
+
+### Master credential (auto-managed)
+
+| Field | Value |
+|-------|-------|
+| Secret ARN | `arn:aws:secretsmanager:us-east-1:134607809447:secret:rds!cluster-8dac9fc2-9172-4e70-a167-9fe6fe9e98d9-VbuP4h` |
+| Secret status | `active` |
+| Resolved password | redacted (length 28) |
+
+### Writer instance
+
+| Field | Value |
+|-------|-------|
+| Instance ID | `zietra-aurora-prod-writer` |
+| Class | `db.serverless` |
+| Publicly accessible | `true` |
+| Status | `available` |
+| Performance Insights | enabled (7-day retention, free tier) |
+
+### Verification (gates)
+
+```bash
+$ PGPASSWORD="<redacted>" psql -h zietra-aurora-prod.cluster-c23qcukqe810.us-east-1.rds.amazonaws.com \
+    -U zietra_admin -d zietra -c "SELECT version();"
+ PostgreSQL 16.4 on aarch64-unknown-linux-gnu, compiled by gcc 9.5.0, 64-bit
+exit=0
+```
+
+### Operator env files
+
+- `/tmp/aurora-cutover.env` — operator-only, mode 600, contains real `MASTER_PW`
+- `.planning/phases/54.5-aurora-postgres-migration-leave-supabase/aurora-cutover.env` — sanitized (placeholders), git-committed
+
+Task 2 status: **PASS** at `2026-05-15T03:46Z`.
+
+
 
 ---
 
