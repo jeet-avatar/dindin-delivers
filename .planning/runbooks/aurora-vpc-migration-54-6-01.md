@@ -93,7 +93,7 @@ AURORA_NEW_SG=sg-099d916a8fe5cdb65
 - [x] **Task 1.b** — NAT instance + NAT SG + 2 route tables + 3 app SGs (DONE 2026-05-15T07:05Z, after NAT pivot)
 - [x] **Task 2** — Operator GO at 2026-05-15T07:10Z; cutover authorized
 - [x] **Task 3** — Pre-flight baseline + final snapshot (DONE 2026-05-15T07:17Z)
-- [ ] **Task 4** — Restore snapshot into new private VPC + parity gate
+- [x] **Task 4** — Restore snapshot into new private VPC + parity gate PASS (DONE 2026-05-15T07:35Z)
 - [ ] **Task 5** — Rollback runbook
 
 ---
@@ -131,3 +131,98 @@ This snapshot is the **rollback target for the next 14 days AND beyond**. We ret
 ---
 
 *Runbook updated 2026-05-15T07:17Z. Snapshot ready. Proceeding to Task 4 (restore + parity gate).*
+
+---
+
+## Task 4 — Restore snapshot into new private VPC + parity gate — 2026-05-15T07:35Z
+
+### Resources created
+
+| Resource | ID / value | Detail |
+|----------|-----------|--------|
+| DB subnet group | `zietra-aurora-private-subnets` | spans PRIV_1A `subnet-052ed80f6904b9fe7` (us-east-1a) + PRIV_1B `subnet-07893035668f1b015` (us-east-1b) in `vpc-012ab4500dcd4ee41` |
+| New cluster | `zietra-aurora-prod-v2` | aurora-postgresql 16.4, ServerlessV2 MinCapacity=0.5/MaxCapacity=4, IAMDatabaseAuthenticationEnabled=true, StorageEncrypted=true (inherited), KMS `arn:aws:kms:us-east-1:134607809447:key/1086212a-cf06-41ca-8767-514b2b18a008` |
+| Writer endpoint | `zietra-aurora-prod-v2.cluster-c23qcukqe810.us-east-1.rds.amazonaws.com` | cluster writer endpoint |
+| Reader endpoint | `zietra-aurora-prod-v2.cluster-ro-c23qcukqe810.us-east-1.rds.amazonaws.com` | cluster reader endpoint |
+| Writer instance | `zietra-aurora-prod-v2-writer` | db.serverless, PubliclyAccessible=false (after parity revert), in `subnet-052ed80f6904b9fe7` |
+| New MasterUserSecret ARN | `arn:aws:secretsmanager:us-east-1:134607809447:secret:rds!cluster-16d5e38c-2fc2-4d06-8435-e4b01704bf74-mhV473` | freshly rotated via `--manage-master-user-password` (NOT the snapshot's master) |
+| Handoff env file | `.planning/phases/54.6-.../vpc-migration.handoff.sh` | sanitized — `source` this in 54.6-02 to import all IDs (no passwords) |
+| CloudWatch logs export | `["postgresql"]` | enabled at restore |
+
+### Timeline
+
+| Stamp | Event |
+|-------|-------|
+| 2026-05-15T07:20Z | `create-db-subnet-group` — `Complete` |
+| 2026-05-15T07:21Z | `restore-db-cluster-from-snapshot` — Status=creating |
+| 2026-05-15T07:25Z | Cluster `available` after restore (≈4 min) |
+| 2026-05-15T07:25Z | `modify-db-cluster --manage-master-user-password` — fresh Secrets Manager secret created |
+| 2026-05-15T07:29Z | `create-db-instance` writer (db.serverless) — Status=creating |
+| 2026-05-15T07:30Z | Writer `available` (≈5 min) |
+| 2026-05-15T07:33Z | Parity gate: row counts captured from new cluster → 153 tables / 3070 rows |
+| 2026-05-15T07:34Z | **PARITY DIFF: 0 lines → PASSED** |
+| 2026-05-15T07:34Z | All temporary diagnostic state reverted (see below) |
+
+### Parity gate verdict
+
+```
+$ wc -l /tmp/aurora-pre-54-6-counts.csv /tmp/aurora-post-54-6-counts.csv
+     153 /tmp/aurora-pre-54-6-counts.csv
+     153 /tmp/aurora-post-54-6-counts.csv
+
+$ awk -F, '{sum+=$2} END {print sum}' /tmp/aurora-pre-54-6-counts.csv
+3070
+$ awk -F, '{sum+=$2} END {print sum}' /tmp/aurora-post-54-6-counts.csv
+3070
+
+$ diff /tmp/aurora-pre-54-6-counts.csv /tmp/aurora-post-54-6-counts.csv
+$ echo $?
+0
+```
+
+**Verdict: PARITY GATE PASSED.** 153 tables match (public + crm + turion + turion_satellite schemas), 3070 total rows match byte-for-byte, zero-line diff.
+
+### Temporary diagnostic state (reverted post-parity)
+
+To reach the private-subnet cluster from the operator machine for the parity check, three temporary changes were made — **all reverted after the parity diff was captured**:
+
+| Change | Reverted state |
+|--------|----------------|
+| Aurora SG `sg-099d916a8fe5cdb65` ingress: added operator IP `184.189.123.74/32` on 5432 | **Revoked** — SG ingress is now `IpRanges=[]`, `UserIdGroupPairs=[proxy-SG]` ONLY |
+| Writer `--publicly-accessible` flipped to `true` | **Reverted** — `PubliclyAccessible=false` |
+| Private-RT 0/0 swapped IGW (NAT routing temporarily bypassed during connectivity test) | **Restored** — Private-RT 0/0 → NAT ENI `eni-0f6f2c8a5b11b53d5` |
+
+(Background: the writer's ENI gets an AWS-assigned public IP when `publicly-accessible=true`, but in a NAT-routed private subnet the return path goes through NAT and cannot reach internet origin. The temporary route swap routed 0/0 via IGW so the writer's public IP was Internet-reachable. NAT instance remained `running` throughout; no Lambda or other VPC consumer was affected because Wave 1 doesn't VPC-attach Lambdas — that's Wave 2.)
+
+### Post-parity state (verified)
+
+```
+$ aws rds describe-db-clusters --db-cluster-identifier zietra-aurora-prod-v2 \
+    --query 'DBClusters[0].[Status,EngineVersion,IAMDatabaseAuthenticationEnabled]'
+["available", "16.4", true]
+
+$ aws rds describe-db-instances --db-instance-identifier zietra-aurora-prod-v2-writer \
+    --query 'DBInstances[0].[DBInstanceStatus,PubliclyAccessible,DBSubnetGroup.DBSubnetGroupName]'
+["available", false, "zietra-aurora-private-subnets"]
+
+$ aws ec2 describe-security-groups --group-ids sg-099d916a8fe5cdb65 \
+    --query 'SecurityGroups[0].IpPermissions[?ToPort==`5432`].[IpRanges,UserIdGroupPairs[].GroupId]'
+[[[], ["sg-0e066f754bf795ed5"]]]   # No CIDR ingress; proxy-SG only
+
+$ aws ec2 describe-route-tables --route-table-ids rtb-0c00aa94b1cee94d1 \
+    --query 'RouteTables[0].Routes[?DestinationCidrBlock==`0.0.0.0/0`].NetworkInterfaceId'
+["eni-0f6f2c8a5b11b53d5"]          # 0/0 → NAT ENI (restored)
+```
+
+### Old cluster status (rollback target)
+
+The OLD cluster `zietra-aurora-prod` remained UNCHANGED throughout Tasks 3-4:
+- Status = `available`
+- Endpoint = `zietra-aurora-prod.cluster-c23qcukqe810.us-east-1.rds.amazonaws.com` (unchanged)
+- 4 Lambdas (zietra-api, turion-demo-api, turion-satellite-api, marquee-app) STILL hitting OLD endpoint via 0/0:5432 old SG
+- Pre-migration snapshot `zietra-aurora-pre-vpc-migration-2026-05-15` retained INDEFINITELY
+- Scheduled deletion: 2026-05-29 (14-day window)
+
+---
+
+*Runbook updated 2026-05-15T07:36Z. Parity gate PASSED. Proceeding to Task 5 (rollback runbook).*
