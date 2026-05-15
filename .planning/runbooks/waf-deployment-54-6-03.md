@@ -176,4 +176,78 @@ If KBI day-1 metric review reveals an FP spike on a specific rule WITHIN the man
 
 **Operator action required (NOT autonomous):** Click the AWS-sent confirmation link in security@zietra.com inbox to activate the subscription. Until that click, severity>=7 GuardDuty findings will be processed by EventBridge but the SNS delivery will not reach operator inboxes.
 
+---
+
+## Task 3 — Security Hub + AWS Config + Conformance Pack
+
+### Security Hub
+
+| Field | Value |
+|-------|-------|
+| Status | ENABLED |
+| Region | us-east-1 |
+| Default standards subscribed | AWS Foundational Security Best Practices v1.0.0, CIS AWS Foundations Benchmark v1.2.0 |
+| Additional standard subscribed | CIS AWS Foundations Benchmark v1.4.0 |
+| Standards state | 2 INCOMPLETE (provisioning), 1 READY (CIS 1.4) at triage time |
+| Auto-archive control | Default (90 days) |
+
+### AWS Config
+
+| Field | Value |
+|-------|-------|
+| Recorder name | default |
+| Recorder ARN | `arn:aws:config:us-east-1:134607809447:configuration-recorder/default/posgwmmczxvrfso6` |
+| Role ARN | `arn:aws:iam::134607809447:role/aws-service-role/config.amazonaws.com/AWSServiceRoleForConfig` (service-linked) |
+| Recording status | TRUE (recording) |
+| allSupported | FALSE — targeted 18 resource types |
+| Resource types | Lambda, RDS (Cluster/Instance/Proxy), S3, IAM (Role/Policy/User), EC2 (SecurityGroup/VPC/Subnet/NatGateway/InternetGateway), CloudFront, WAFv2, KMS, Cognito UserPool, SecretsManager Secret |
+| Delivery channel | default |
+| Delivery bucket | `zietra-aws-config-1778836033` |
+| Delivery frequency | Six_Hours |
+
+### Config S3 bucket configuration
+
+| Property | Value |
+|----------|-------|
+| Bucket | `zietra-aws-config-1778836033` |
+| Encryption | AES256 (SSE-S3) |
+| Lifecycle | Expire snapshots after 365 days; noncurrent versions after 30 days |
+| Public access block | All 4 flags enabled |
+| Bucket policy | Allows `config.amazonaws.com` to GetBucketAcl, ListBucket, PutObject (AWSLogs prefix) with SourceAccount condition |
+
+### Conformance pack
+
+| Field | Value |
+|-------|-------|
+| Pack name | `OperationalBestPracticesForAmazonRDS` |
+| Pack ARN | `arn:aws:config:us-east-1:134607809447:conformance-pack/OperationalBestPracticesForAmazonRDS/conformance-pack-xafj9lg1z` |
+| Template source | github.com/awslabs/aws-config-rules → `Security-Best-Practices-for-RDS.yaml` (internally titled "Operational Best Practices for RDS") |
+| Template URI | `s3://zietra-aws-config-1778836033/conformance-packs/operational-best-practices-for-rds.yaml` |
+| Delivery bucket | `zietra-aws-config-1778836033` |
+| Rules deployed | DbInstanceBackupEnabled, RdsAutomaticMinorVersionUpgradeEnabled, RdsInstanceDeletionProtectionEnabled, RdsLoggingEnabled, RdsStorageEncrypted, RdsMultiAzSupport, RdsInstancePublicAccessCheck, RdsClusterDeletionProtectionEnabled, RdsClusterAutoMinorVersionUpgradeEnabled, RdsClusterIamAuthenticationEnabled, RdsSnapshotsPublicProhibited (and more — full set in the YAML) |
+
+### Day-1 findings triage
+
+See companion runbook: `.planning/runbooks/security-hub-findings-triage-54-6-03.md`
+
+Findings count at triage time (T+15min from Security Hub enable):
+
+| Severity | NEW count |
+|----------|-----------|
+| CRITICAL | 0 (standards still provisioning) |
+| HIGH     | 0 (standards still provisioning) |
+| MEDIUM   | 0 (standards still provisioning) |
+| LOW      | 0 (standards still provisioning) |
+
+Initial Security Hub findings populate 30-90 min after standards reach `READY`. The triage runbook documents the methodology + operator re-run schedule (T+30min, T+2h, T+24h, T+48h).
+
+### Total Wave 3 cost (this plan only)
+
+- WAF CF ACL (active, ~10M req/mo): ~$22/mo
+- WAF REGIONAL ACL (created, unattached): $21/mo
+- GuardDuty (FIFTEEN_MINUTES + S3Logs): ~$30/mo at our log volume
+- Security Hub (2-3 standards subscribed): ~$10/mo
+- AWS Config (targeted recorder + S3 + conformance pack rule evaluations): ~$15/mo
+- **Total Wave 3: ~$98/mo** (slightly above the original ~$80/mo estimate due to second WAF ACL — acceptable trade for future-readiness)
+
 
