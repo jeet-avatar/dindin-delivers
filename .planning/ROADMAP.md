@@ -781,8 +781,11 @@ Plans:
 **Depends on:** Phase 54.1 (tenant_users for tagging the owner who completes the wizard) + Phase 54.2 (AI agents available so the wizard can recommend them).
 **Requirements:** OnboardingWizard, ModuleRecommendationEngine, MigrationLanding, MigrationCards, OnboardingChecklistOnHome, RecommendationRuleEngine
 
-**Plans:** 0 plans (proposed 3-plan structure: 54.4-01 wizard + rule engine; 54.4-02 migration landing + 3 new wizards; 54.4-03 checklist + smoke + CHECKPOINT)
-- [ ] TBD (run `/gsd:plan-phase 54.4`)
+**Plans:** 3 plans planned · **1/3 complete** (54.4-01 done 2026-05-15T21:40Z; 54.4-02 + 54.4-03 pending)
+- [x] 54.4-01 — Wizard + rule engine + migration 032 ([SUMMARY](phases/54.4-m6-module-selection-wizard-and-migration-onboarding-the-selling-point/54.4-01-SUMMARY.md))
+- [ ] 54.4-02 — Migration landing + 4 wizards + sample-data clone
+- [ ] 54.4-03 — Checklist on home + PATCH /api/onboarding/checklist + smoke + CHECKPOINT
+**Requirements progress:** 3 of 6 closed (OnboardingWizard ✓, ModuleRecommendationEngine ✓, RecommendationRuleEngine ✓; MigrationLanding/MigrationCards/OnboardingChecklistOnHome pending)
 
 ---
 
