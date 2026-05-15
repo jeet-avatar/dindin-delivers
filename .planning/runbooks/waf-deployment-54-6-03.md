@@ -138,4 +138,42 @@ If KBI day-1 metric review reveals an FP spike on a specific rule WITHIN the man
 
 ---
 
-(GuardDuty + Security Hub + Config sections appended by subsequent tasks below.)
+## Task 2 — GuardDuty + EventBridge + SNS
+
+### Detector
+
+| Field | Value |
+|-------|-------|
+| Detector ID | `2513bb867e054b19aad672b2cb676a7b` |
+| Status | ENABLED |
+| FindingPublishingFrequency | FIFTEEN_MINUTES |
+| S3Logs | ENABLED |
+| Kubernetes audit logs | disabled (we have no EKS) |
+| MalwareProtection EC2/EBS | disabled (cost — we have no production EC2 except NAT) |
+| Region | us-east-1 |
+| Created | 2026-05-15T09:0Xz |
+
+### SNS topic + subscription
+
+| Field | Value |
+|-------|-------|
+| Topic name | `zietra-security-findings` |
+| Topic ARN | `arn:aws:sns:us-east-1:134607809447:zietra-security-findings` |
+| Display name | Zietra Security |
+| Subscription endpoint | security@zietra.com |
+| Subscription status | **PendingConfirmation** — operator must click confirmation link in inbox |
+| Policy SID | `AllowEventBridgePublish-54-6-03` — allows `events.amazonaws.com` to `sns:Publish` |
+
+### EventBridge rule
+
+| Field | Value |
+|-------|-------|
+| Rule name | `zietra-gd-high-severity` |
+| Rule ARN | `arn:aws:events:us-east-1:134607809447:rule/zietra-gd-high-severity` |
+| State | ENABLED |
+| Event pattern | `{"source":["aws.guardduty"],"detail-type":["GuardDuty Finding"],"detail":{"severity":[{"numeric":[">=",7.0]}]}}` |
+| Target | SNS topic `zietra-security-findings` (Id=1) |
+
+**Operator action required (NOT autonomous):** Click the AWS-sent confirmation link in security@zietra.com inbox to activate the subscription. Until that click, severity>=7 GuardDuty findings will be processed by EventBridge but the SNS delivery will not reach operator inboxes.
+
+
