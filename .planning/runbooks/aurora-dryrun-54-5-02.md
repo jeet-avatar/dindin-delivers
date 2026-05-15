@@ -305,4 +305,142 @@ Wall time: 13 seconds.
 
 ---
 
+## Task 4: Pre-flight env snapshots + Open Q1/Q2 + dryrun cleanup
+
+### 4.1 Pre-flight Lambda env-var snapshots (rollback ground truth)
+
+```bash
+for L in turion-demo-api turion-satellite-api zietra-crm-api zietra-api; do
+  aws lambda get-function-configuration --function-name "$L" --region us-east-1 \
+    --query 'Environment.Variables' --output json > /tmp/preflight-env-$L.json
+  chmod 600 /tmp/preflight-env-$L.json
+done
+```
+
+| File | Bytes | Mode | References |
+|---|---|---|---|
+| `/tmp/preflight-env-turion-demo-api.json` | 438 | 600 | Supabase pooler URL inline (DATABASE_URL) |
+| `/tmp/preflight-env-turion-satellite-api.json` | 298 | 600 | DATABASE_URL_ARN → secret (no inline URL) |
+| `/tmp/preflight-env-zietra-crm-api.json` | 1426 | 600 | Supabase pooler URL inline (DATABASE_URL + DIRECT_URL + 3 SUPABASE_*) |
+| `/tmp/preflight-env-zietra-api.json` | 815 | 600 | Supabase pooler URL inline (SUPABASE_DB_URL + SUPABASE_DB_URL_SERVICE + 3 SUPABASE_*) |
+
+**SHA256 checksums** (committed to phase dir as proof of capture; contents NOT committed because they hold secrets):
+
+```
+6b7694bc0b6131cebc1811fd21ee5e73d40ab233a60154e0efd84bdcb4c838d6  preflight-env-turion-demo-api.json
+ff5f0f55080007d967e38186bedb480a3fe20d744eb4a39822306569d96ef761  preflight-env-turion-satellite-api.json
+cdd00d8dee3e5a4dac66476ca90da4f5e23f50f5e296e2780ffc611d3baad27f  preflight-env-zietra-crm-api.json
+49da15ae971e4c7198b49cca1a17c23168d140c5234644b19f7f7fe48dc5beba  preflight-env-zietra-api.json
+```
+
+These files are the EXACT current values. 54.5-03 rollback procedure: `aws lambda update-function-configuration --environment "Variables=$(cat /tmp/preflight-env-<L>.json)"`.
+
+### 4.2 Open Question 1: Which Lambda reads `dollor/production/zietra-meet-8vOBAN`?
+
+**Answer: NO Lambda reads it.** Verified by iterating all 14 Lambdas in `us-east-1`:
+
+```bash
+aws lambda list-functions --region us-east-1 --query 'Functions[].FunctionName' --output text \
+  | tr '\t' '\n' | while read L; do
+    aws lambda get-function-configuration --function-name "$L" --region us-east-1 \
+      --query 'Environment.Variables' --output json 2>/dev/null \
+      | grep -q "zietra-meet" && echo "READS: $L"
+  done
+```
+
+**Result:** zero Lambdas reference the secret in their env vars. The secret is dormant — likely a leftover from a previous Zietra-Meet integration prototype.
+
+**Impact on 54.5-03:** **Skip the secret rotation entirely** for `dollor/production/zietra-meet-8vOBAN`. The CONTEXT.md entry can be moved from "Action: Rotate → Aurora" to "Action: Delete post-cutover (unused)". Saves a step in the maintenance window.
+
+### 4.3 Open Question 2: turion-satellite-api secret resolution mechanism
+
+**Answer: SDK init pattern (no extension layer).**
+
+Evidence:
+- `aws lambda get-function-configuration --function-name turion-satellite-api --query Layers` → `null` (no Layers attached, ergo no AWS Parameters and Secrets extension)
+- `/Users/jeet/turion-satellite/backend/src/secrets.ts` imports `@aws-sdk/client-secrets-manager` and exports `loadSecrets()`:
+
+```typescript
+export async function loadSecrets(): Promise<void> {
+  if (loaded) return;
+  if (!process.env.DATABASE_URL && process.env.DATABASE_URL_ARN) {
+    process.env.DATABASE_URL = await fetchSecret(process.env.DATABASE_URL_ARN);
+  }
+  // ... Cognito JWKS load too
+  loaded = true;
+}
+```
+
+Once `loaded = true`, subsequent invocations on the same warm container skip the fetch. **Cold start = fresh secret fetch.**
+
+**Impact on 54.5-03:** No 300s extension-layer cache TTL to wait through. The cutover sequence can be:
+1. Update secret value (instant)
+2. Force Lambda cold-start by bumping `--description`
+3. New invocations get fresh `DATABASE_URL` immediately
+
+This is faster than RESEARCH §D.3 worst-case (which warned of a 300s wait). Cutover budget shrinks accordingly.
+
+### 4.4 Drop dry-run schemas — return Aurora to empty baseline
+
+```bash
+DROP SCHEMA _dryrun_public CASCADE;
+DROP SCHEMA _dryrun_crm CASCADE;
+DROP SCHEMA _dryrun_turion CASCADE;
+DROP SCHEMA _dryrun_turion_satellite CASCADE;
+```
+
+All 4 schemas dropped CASCADE successfully. **Aurora final state:**
+
+```
+Schemas (4 non-system, all empty):    Tables:
+crm                                   0
+public                                0  (extensions still present: citext, pgcrypto, uuid-ossp, pg_stat_statements)
+turion                                0
+turion_satellite                      0
+```
+
+Total tables in real schemas: **0**. Total tables in `_dryrun_*` schemas: **0**.
+
+This matches the post-Wave-1 state exactly. Aurora is ready for the production cutover in 54.5-03.
+
+### 4.5 Production-impact verification
+
+```bash
+for FN in turion-demo-api turion-satellite-api zietra-crm-api zietra-api; do
+  aws lambda get-function-configuration --function-name "$FN" --region us-east-1 \
+    --query 'Environment.Variables' --output json | grep -E "supabase|pooler|DATABASE_URL_ARN"
+done
+```
+
+| Lambda | Still on Supabase? |
+|---|---|
+| `turion-demo-api` | YES (DATABASE_URL inline → pooler) |
+| `turion-satellite-api` | YES (DATABASE_URL_ARN → secret value still `postgresql:***@aws-1-us-east-2.pooler.supabase.com:6543/postgres?schema=turion_satellite&pgbouncer=true`) |
+| `zietra-crm-api` | YES |
+| `zietra-api` | YES (Lambda has env vars but no live route, so no actual traffic — moot) |
+
+**Zero production traffic touched Aurora during Wave 2.** Demo URLs (`turionspace.zietra.com`, Zietra console, CRM Meet booking) continue serving Supabase.
+
+---
+
+## Task 4 Verdict: PASS
+
+Pre-flight env snapshots captured (4 files, mode 600); Open Q1 + Q2 resolved (zietra-meet unused, satellite uses SDK init); dry-run schemas dropped; Aurora at empty baseline; production traffic untouched.
+
+---
+
+## Plan 54.5-02 Final Verdict: PASS
+
+All 4 tasks complete. Aurora cluster verified end-to-end via dump→restore→parity→smoke matrix. 5 production-ready smoke scripts committed. Pre-flight rollback files captured. Open questions resolved with concrete impact on 54.5-03 cutover plan. Aurora is empty + ready for production cutover.
+
+**Handoff to 54.5-03:**
+- Smoke scripts at `/Users/jeet/doordash-p2p/scripts/aurora-cutover-smoke.sh` + 4 per-Lambda
+- Pre-flight env files at `/tmp/preflight-env-<lambda>.json` (mode 600, kept on disk only — checksums in `/Users/jeet/doordash-p2p/.planning/phases/54.5-aurora-postgres-migration-leave-supabase/preflight-env-checksums.txt`)
+- RLS policy real names captured at `/tmp/supabase-rls-policies.txt` (use these in 54.5-03 cleanup, NOT RESEARCH §C.6 placeholders)
+- Cutover SQL pipeline rehearsed: dump → strip transaction_timeout → strip auth refs → restore → sequence resync (8 sequences) → parity check → smoke matrix
+- Total wall time of dry-run rehearsal: ~20 min (Task 1 dump 30s, Task 2 restore 60s, Task 3 smoke 13s, plus tooling setup)
+- Open Q1 resolution: skip zietra-meet secret rotation entirely (unused)
+- Open Q2 resolution: turion-satellite cold-start gives instant new secret (no 300s extension TTL)
+
+
 

@@ -1,0 +1,17 @@
+# Phase 54.5 Plan 02 — Pre-flight Lambda env-var snapshot checksums
+# Captured: 2026-05-15T04:33Z (during Wave 2 dry-run, BEFORE Wave 3 cutover)
+#
+# Files live ONLY in /tmp/preflight-env-<lambda>.json (mode 600).
+# Contents NOT committed because they hold inline secrets (DATABASE_URL with
+# Supabase password, SUPABASE_SERVICE_ROLE_KEY, SMTP_PASS, etc).
+#
+# These checksums prove the rollback files were captured before the cutover and
+# weren't tampered with afterward. 54.5-03 rollback procedure references the
+# /tmp/preflight-env-<lambda>.json files directly.
+#
+# Verify integrity: `cd /tmp && shasum -a 256 -c <(grep -v '^#' .../preflight-env-checksums.txt)`
+
+6b7694bc0b6131cebc1811fd21ee5e73d40ab233a60154e0efd84bdcb4c838d6  preflight-env-turion-demo-api.json
+ff5f0f55080007d967e38186bedb480a3fe20d744eb4a39822306569d96ef761  preflight-env-turion-satellite-api.json
+cdd00d8dee3e5a4dac66476ca90da4f5e23f50f5e296e2780ffc611d3baad27f  preflight-env-zietra-crm-api.json
+49da15ae971e4c7198b49cca1a17c23168d140c5234644b19f7f7fe48dc5beba  preflight-env-zietra-api.json
