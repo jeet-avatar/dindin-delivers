@@ -125,7 +125,9 @@ exit=0
 ### Operator env files
 
 - `/tmp/aurora-cutover.env` — operator-only, mode 600, contains real `MASTER_PW`
-- `.planning/phases/54.5-aurora-postgres-migration-leave-supabase/aurora-cutover.env` — sanitized (placeholders), git-committed
+- `.planning/phases/54.5-aurora-postgres-migration-leave-supabase/aurora-cutover.env.example` — sanitized (placeholders), git-committed
+
+**Deviation [Rule 1 - Bug]:** Plan named the git-committed file `aurora-cutover.env` but the project's `.git/hooks/pre-commit` blocks any `*.env` or `*.env.local` regardless of content (`grep -qE '\\.env$|\\.env\\.local$'` at line 28). Renamed to `aurora-cutover.env.example` — the hook explicitly allows `.env.example` per its own comment ("Block .env files with actual secrets (not .env.example or .env.staging)"). File contents unchanged. Downstream plans 54.5-02/03/04 should source `aurora-cutover.env.example` (or `cp` it to `aurora-cutover.env` locally for tooling compatibility).
 
 Task 2 status: **PASS** at `2026-05-15T03:46Z`.
 
