@@ -808,8 +808,47 @@ Plans:
 **Plans:** 3/4 plans executed
 - [x] 54.5-01-PLAN.md — Aurora Serverless v2 cluster provisioning (PG 16.4, ACU 0.5–4, KMS-encrypted, 5 CloudWatch alarms, $100/mo budget) — `AuroraClusterProvisioned`
 - [x] 54.5-02-PLAN.md — Dry-run dump/restore + 153-table parity verification + 4-Lambda smoke matrix scripts + pre-flight env capture + Open Q1/Q2 resolution — `SchemaParity` + `DataParity` + `FourLambdaSmoke`
-- [ ] 54.5-03-PLAN.md — Production cutover (Supabase pg_dump → Aurora pg_restore + 4 Lambda env-var flips + smoke matrix + SG hardening) — `ConnectionStringSwap` + `RollbackRunbook`
-- [ ] 54.5-04-PLAN.md — 7-day soak monitoring + Supabase project deletion + cleanup of unused secrets — `SupabaseRetention7Days`
+- [x] 54.5-03-PLAN.md — **PRODUCTION CUTOVER LIVE 2026-05-15** — Supabase pg_dump → Aurora pg_restore (153 tables, 0 drift) + 4 Lambda env-var flips (all 4 Lambdas serving from Aurora) + smoke 4/4 PASS — `ConnectionStringSwap` + `RollbackRunbook`. SG hardening DEFERRED to Phase 54.6 (VPC + RDS Proxy is correct architectural fix; ip-ranges.json LAMBDA fallback doesn't exist).
+- [ ] 54.5-04-PLAN.md — 7-day soak monitoring + Supabase project deletion + cleanup of unused secrets (rollback window ends 2026-05-22) — `SupabaseRetention7Days`
+
+---
+
+### Phase 54.6: M6 — Enterprise hardening starter pack (VPC + RDS Proxy + WAF + GuardDuty + close 0/0 SG) ⚡ INSERTED 2026-05-15
+
+**Goal:** Close every obvious enterprise red flag in a single 2-week push so SMB + small-enterprise prospects (Plaitha-style D2C through Turion-Space-style aerospace) can audit our setup and find nothing embarrassing. **Not** SOC 2 Type II / multi-region / EKS / Organizations — that's $30K+ and 6-12 months. This is the high-ROI subset: VPC isolation, RDS Proxy (also fixes 54.5-03's deferred SG hardening), WAF on every CloudFront distro, GuardDuty + Security Hub for continuous posture, and a public `zietra.com/security` trust page summarizing the controls.
+
+**Why this insertion (strategy pivot 2026-05-15):** Original plan was M3 → M4 → harden later. User pivoted: "we are now selling the whole thing to small enterprise + SMB business — try-and-buy, if Plaitha-style D2C signs up we give them the right backend, if Turion-Space-style signs up we give them right product end-to-end so their IT spend is low." That positioning REQUIRES enterprise-grade security/audit posture BEFORE billing real money or scaling tenant count. Doing it now (3 tenants on platform, fresh Aurora cutover) is cheaper than doing it after M4/M5 at 50+ tenants under contracts.
+
+**Scope (locked):**
+- **VPC:** new `zietra-prod-vpc` in us-east-1 (10.0.0.0/16), 2 AZs (us-east-1a + us-east-1b), public subnets (NAT egress) + private subnets (Lambdas + Aurora). 1 NAT Gateway (single-AZ acceptable for cost; HA NAT is M8). ~$32/mo NAT.
+- **Aurora private:** migrate `zietra-aurora-prod` from default VPC public to `zietra-prod-vpc` private subnets. **In-place modify-db-cluster** preferred; if unavailable, snapshot → restore-to-new-cluster (with old cluster kept for 7-day rollback).
+- **Lambda VPC-attach:** 4 production Lambdas attached to `zietra-prod-vpc` private subnets. Cold-start penalty ~50-100ms post-2019 Hyperplane ENI improvements — acceptable for demo workload.
+- **RDS Proxy:** provision `zietra-aurora-proxy` in front of Aurora. IAM auth + connection pooling. Lambdas point at Proxy endpoint instead of cluster endpoint. ~$15/mo at our connection count.
+- **Close 0.0.0.0/0:5432 SG (the deferred Phase 54.5-03 gap):** post-VPC-migration, Aurora SG allows ONLY the RDS Proxy SG, which allows ONLY the Lambda VPC subnet CIDR. No public DB ingress.
+- **WAF on 3 CloudFront distributions:** turionspace.zietra.com (E37R9PT8IL44L2), marquee.zietra.com, asc606.zietra.com. AWS Managed Rules Common Rule Set + Known Bad Inputs + IP Reputation + Bot Control Common (Anonymous IP, datacenter ranges). ~$5/mo per rule group + $0.60 per million requests.
+- **GuardDuty:** enable in us-east-1. ~$30/mo at our log volume.
+- **Security Hub:** enable with AWS Foundational Security Best Practices + CIS AWS Benchmark v1.4. ~$10/mo.
+- **AWS Config:** enable recording + SOC 2 conformance pack (or subset that maps to our infra). ~$15/mo.
+- **`zietra.com/security` trust page:** public marketing page listing data residency (us-east-1), encryption at rest (AES-256/KMS), encryption in transit (TLS 1.3), auth (Cognito + RS256 JWT), authz (RBAC + tenant_users), audit logging, backup retention, incident response email (security@zietra.com), supported frameworks (SOC 2 controls deployable, GDPR data-export ready, HIPAA-eligible AWS services in use).
+
+**Out of scope (deferred to specific triggers):**
+- AWS Organizations / multi-account (defer until >$1M ARR or sub-account isolation requested)
+- Multi-region active-active (defer until first EU/APAC prospect)
+- ECS/EKS migration (defer until Lambda hits a wall — not yet)
+- SOC 2 Type II audit (defer until first customer requires it; $30K+ and 6-12 month observation)
+- Bedrock instead of Anthropic direct (defer to specific AWS-billed-AI customer ask)
+- HA NAT across 2 AZs (M8)
+- SAML SSO for enterprise tenants (M8)
+- Per-tenant WAF rules (M8)
+
+**Total estimated monthly cost delta:** ~$110-150/mo (NAT $32 + RDS Proxy $15 + WAF $25 + GuardDuty $30 + Security Hub $10 + Config $15 + per-request charges).
+
+**Depends on:** Phase 54.1 (complete) + Phase 54.5-01/02/03 (Aurora cutover live).
+**Blocks:** Phase 54.5-04 Supabase teardown (54.5-04 only deletes Supabase AFTER 54.6 ships, since 54.6 VPC migration may need rollback to public Supabase); also blocks M3 (RLS), M4 (Stripe billing — won't bill real money on un-hardened infra), M7 (marketing site links to /security trust page).
+**Requirements:** VpcIsolation, AuroraPrivate, RdsProxyDeployed, LambdaVpcAttached, WafEnabledAllDistros, GuardDutyEnabled, SecurityHubEnabled, AwsConfigEnabled, ZeroPublicDbIngress, SecurityTrustPage
+
+**Plans:** 0 plans (proposed: 54.6-01 VPC + Aurora-private; 54.6-02 RDS Proxy + Lambda VPC-attach + close SG; 54.6-03 WAF + GuardDuty + Security Hub + Config; 54.6-04 zietra.com/security trust page + smoke + M3 CHECKPOINT)
+- [ ] TBD (run `/gsd:plan-phase 54.6`)
 
 ---
 
