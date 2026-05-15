@@ -52,24 +52,47 @@ echo "  ${PUBLIC_SCHEMA}.tenant_features count: $ACTUAL_FEATURES (matches baseli
 
 # ============ Sentinel write (skipped in dry-run; SMOKE_WRITE=1 to enable) ============
 if [ "${SMOKE_WRITE:-0}" = "1" ]; then
-  SENTINEL="SMOKE-545-$(date +%s)"
-  # Use a low-stakes table — just confirm write+delete round-trip works.
-  # Insert a fake feature row tied to first tenant.
-  TENANT_ID=$(docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
+  # tenant_features has a CHECK constraint locking module_code to 13 valid values
+  # AND a composite PK (tenant_id, module_code) — INSERT-of-fake-module is impossible.
+  # Use UPDATE-then-revert pattern instead: toggle expires_at on a real row, verify, restore.
+  TARGET=$(docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
     -h "$WRITER" -U zietra_admin -d zietra -At -c \
-    "SELECT id FROM ${PUBLIC_SCHEMA}.tenants LIMIT 1;" 2>/dev/null)
+    "SELECT tenant_id || '|' || module_code FROM ${PUBLIC_SCHEMA}.tenant_features ORDER BY enabled_at LIMIT 1;" \
+    2>/dev/null | head -n 1)
+  TENANT_ID="${TARGET%%|*}"
+  MODULE_CODE="${TARGET##*|}"
+  [ -n "$TENANT_ID" ] && [ -n "$MODULE_CODE" ] || { echo "FAIL: no tenant_features row to write-test against"; exit 1; }
+
+  SENTINEL_TS="2099-01-01T00:00:00Z"
+  # Capture original
+  ORIGINAL=$(docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
+    -h "$WRITER" -U zietra_admin -d zietra -At -c \
+    "SELECT COALESCE(expires_at::text, 'NULL') FROM ${PUBLIC_SCHEMA}.tenant_features WHERE tenant_id='$TENANT_ID' AND module_code='$MODULE_CODE';" \
+    2>/dev/null | head -n 1)
+
+  # UPDATE: set expires_at to a sentinel value
   docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
     -h "$WRITER" -U zietra_admin -d zietra -v ON_ERROR_STOP=1 -c \
-    "INSERT INTO ${PUBLIC_SCHEMA}.tenant_features (tenant_id, feature_key, enabled) \
-     VALUES ('$TENANT_ID', '$SENTINEL', false);" >/dev/null
-  COUNT=$(docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
+    "UPDATE ${PUBLIC_SCHEMA}.tenant_features SET expires_at='$SENTINEL_TS' WHERE tenant_id='$TENANT_ID' AND module_code='$MODULE_CODE';" >/dev/null
+
+  # Verify the write took
+  VERIFY=$(docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
     -h "$WRITER" -U zietra_admin -d zietra -At -c \
-    "SELECT count(*) FROM ${PUBLIC_SCHEMA}.tenant_features WHERE feature_key='$SENTINEL';" 2>/dev/null)
-  [ "$COUNT" = "1" ] || { echo "FAIL: zietra sentinel missing"; exit 1; }
-  docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
-    -h "$WRITER" -U zietra_admin -d zietra -c \
-    "DELETE FROM ${PUBLIC_SCHEMA}.tenant_features WHERE feature_key='$SENTINEL';" >/dev/null
-  echo "  sentinel write+delete OK"
+    "SELECT to_char(expires_at, 'YYYY') FROM ${PUBLIC_SCHEMA}.tenant_features WHERE tenant_id='$TENANT_ID' AND module_code='$MODULE_CODE';" \
+    2>/dev/null | head -n 1)
+  [ "$VERIFY" = "2099" ] || { echo "FAIL: zietra sentinel UPDATE not visible (got '$VERIFY')"; exit 1; }
+
+  # Revert
+  if [ "$ORIGINAL" = "NULL" ]; then
+    docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
+      -h "$WRITER" -U zietra_admin -d zietra -c \
+      "UPDATE ${PUBLIC_SCHEMA}.tenant_features SET expires_at=NULL WHERE tenant_id='$TENANT_ID' AND module_code='$MODULE_CODE';" >/dev/null
+  else
+    docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
+      -h "$WRITER" -U zietra_admin -d zietra -c \
+      "UPDATE ${PUBLIC_SCHEMA}.tenant_features SET expires_at='$ORIGINAL' WHERE tenant_id='$TENANT_ID' AND module_code='$MODULE_CODE';" >/dev/null
+  fi
+  echo "  sentinel UPDATE+revert OK on ($TENANT_ID, $MODULE_CODE)"
 fi
 
 echo "PASS: zietra-api"

@@ -45,7 +45,7 @@ if [ "${SMOKE_WRITE:-0}" = "1" ]; then
   PART_ID=$(docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
     -h "$WRITER" -U zietra_admin -d zietra -At -v ON_ERROR_STOP=1 -c \
     "INSERT INTO ${SAT_SCHEMA}.part_definitions (part_number, description, default_make_buy) \
-     VALUES ('$SENTINEL', 'smoke part', 'MAKE') RETURNING id;" 2>/dev/null)
+     VALUES ('$SENTINEL', 'smoke part', 'make') RETURNING id;" 2>/dev/null | head -n 1)
   [ -n "$PART_ID" ] || { echo "FAIL: satellite sentinel insert returned no id"; exit 1; }
   docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
     -h "$WRITER" -U zietra_admin -d zietra -c \

@@ -62,3 +62,34 @@ Phase 39 is the first M1 phase: Cognito user pool + SES integration + migrate us
 ---
 
 *Created 2026-05-14 by the session that finished Phase 38 + provisioned SES. If you've read this and the handover, you're ready to execute. Don't proceed without both.*
+
+---
+
+## Phase 54.5 — Aurora cutover COMPLETE 2026-05-15T05:22:38Z
+
+| | |
+|---|---|
+| **Cutover wall-clock** | ~25 min (T+0:00 → T+25:13) |
+| **New Aurora writer endpoint** | `zietra-aurora-prod.cluster-c23qcukqe810.us-east-1.rds.amazonaws.com:5432/zietra` |
+| **Cluster ID / ARN** | `zietra-aurora-prod` / `arn:aws:rds:us-east-1:134607809447:cluster:zietra-aurora-prod` |
+| **Master secret** | `arn:aws:secretsmanager:us-east-1:134607809447:secret:rds!cluster-8dac9fc2-9172-4e70-a167-9fe6fe9e98d9-VbuP4h` (auto-rotated) |
+| **Restored data** | 153 tables across public/crm/turion/turion_satellite, 3070 rows, parity diff = 0 lines |
+| **Snapshot ID** | `zietra-aurora-pre-migration-cutover-2026-05-15` (available, 100%) |
+| **Smoke verdict** | 4/4 PASS (turion-demo, turion-satellite, zietra-crm, zietra-api) with SMOKE_WRITE=1 |
+| **CloudWatch (5min)** | 0 `pooler.supabase.com` references across all 4 Lambdas |
+| **SG state** | Operator IP /32 + 0.0.0.0/0:5432 (Lambda-egress fallback — Phase 54.5-04 will VPC-attach + RDS Proxy) |
+
+### 4 Lambdas now on Aurora
+- `turion-demo-api` — env DATABASE_URL → Aurora ?schema=turion
+- `turion-satellite-api` — secret `turion-satellite/production/database-url` rotated → Aurora ?schema=turion_satellite
+- `zietra-crm-api` — env DATABASE_URL + DIRECT_URL → Aurora ?schema=crm; SUPABASE_URL/ANON/SERVICE deleted
+- `zietra-api` — env SUPABASE_DB_URL + SUPABASE_DB_URL_SERVICE (kept names, new values) → Aurora ?schema=public; SUPABASE_URL/ANON/SERVICE deleted
+
+### Day-7 Supabase teardown (2026-05-22)
+- Phase 54.5-04 plan handles the soak monitoring (days 1–6) + the day-7 Supabase project deletion
+- Supabase project `lbpkbpfwdpnwlccmlfxn` (us-east-2) remains LIVE for rollback
+- Rollback runbook: `.planning/runbooks/aurora-rollback-54-5-03.md`
+
+### Phase 54.1 Wave 2 status
+- **NOT YET unblocked.** Wait for 54.5-04 7-day soak verdict before issuing the unblock signal.
+- 54.5-04 deliverables: alarm tuning, RDS Proxy provisioning, Lambda-into-VPC migration, Supabase project deletion, this NEXT_SESSION block updated to show Wave 2 unblock.

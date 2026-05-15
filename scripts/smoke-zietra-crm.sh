@@ -35,12 +35,14 @@ echo "  ${CRM_SCHEMA}.contacts row-count parity: $ACTUAL (matches baseline)"
 # ============ Sentinel write (skipped in dry-run; SMOKE_WRITE=1 to enable) ============
 if [ "${SMOKE_WRITE:-0}" = "1" ]; then
   SENTINEL="SMOKE-545-$(date +%s)"
-  # Use bookings table (low-stakes, write-frequent in normal CRM use)
+  # crm.bookings real schema (camelCase columns): id (text PK), userId, slug, guestName, guestEmail,
+  # scheduledAt, durationMins, status, roomId, createdAt, updatedAt — all NOT NULL.
+  # Pull userId + slug from booking_links to satisfy FK/value constraints.
   BOOKING_ID=$(docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
     -h "$WRITER" -U zietra_admin -d zietra -At -v ON_ERROR_STOP=1 -c \
-    "INSERT INTO ${CRM_SCHEMA}.bookings (id, link_id, name, email, scheduled_at, duration_minutes, created_at) \
-     SELECT gen_random_uuid(), id, '$SENTINEL', 'smoke@local.test', now(), 15, now() \
-     FROM ${CRM_SCHEMA}.booking_links LIMIT 1 RETURNING id;" 2>/dev/null)
+    "INSERT INTO ${CRM_SCHEMA}.bookings (id, \"userId\", slug, \"guestName\", \"guestEmail\", \"scheduledAt\", \"durationMins\", status, \"roomId\", \"createdAt\", \"updatedAt\") \
+     SELECT gen_random_uuid()::text, \"userId\", '$SENTINEL', '$SENTINEL', 'smoke@local.test', now(), 15, 'SMOKE', '$SENTINEL', now(), now() \
+     FROM ${CRM_SCHEMA}.booking_links LIMIT 1 RETURNING id;" 2>/dev/null | head -n 1)
   [ -n "$BOOKING_ID" ] || { echo "FAIL: crm sentinel booking insert returned no id"; exit 1; }
   docker run --rm -e PGPASSWORD="$MASTER_PW" postgres:17 psql \
     -h "$WRITER" -U zietra_admin -d zietra -c \

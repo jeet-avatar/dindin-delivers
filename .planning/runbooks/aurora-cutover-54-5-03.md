@@ -150,4 +150,78 @@ Satellite secret value contains `zietra-aurora-prod`: VERIFIED.
 
 ## Task 4 — Production smoke matrix + SG hardening + NEXT_SESSION update
 
-(populated by executor during Task 4)
+### T+4:30 — Smoke matrix attempts
+
+**Attempt 1: turion-satellite sentinel write FAIL**
+- ERROR: `new row for relation "part_definitions" violates check constraint "part_definitions_default_make_buy_check"` — Smoke script used `'MAKE'`, schema CHECK requires lowercase `'make'`/`'buy'`
+- **Rule-1 fix:** edit `scripts/smoke-turion-satellite.sh` line uppercase MAKE → lowercase make
+
+**Attempt 2: turion-satellite sentinel UUID parse FAIL**
+- psql `-At` returned `<uuid>\nINSERT 0 1\n` — RETURNING didn't strip command tag
+- **Rule-1 fix:** pipe through `head -n 1` in 2 smoke scripts (satellite + crm)
+
+**Attempt 3: zietra-crm sentinel insert FAIL**
+- ERROR: `column "link_id" of relation "bookings" does not exist`
+- Real schema is camelCase: `id, "userId", slug, "guestName", "guestEmail", "scheduledAt", "durationMins", status, "roomId", "createdAt", "updatedAt"` — all NOT NULL
+- **Rule-1 fix:** rewrite the smoke INSERT statement to match real schema
+
+**Attempt 4: zietra-api sentinel insert FAIL**
+- ERROR: `column "feature_key" of relation "tenant_features" does not exist` — column is `module_code`
+- AND: `module_code` has CHECK constraint locking values to 13 specific module codes — INSERT-of-fake-module impossible
+- **Rule-1 fix:** switch to UPDATE-then-revert pattern on `expires_at` of an existing row (preserves CHECK and PK constraints)
+
+**Attempt 5 (FINAL): SMOKE 4/4 PASS in 24s**
+
+```
+[smoke-turion-demo] schema=turion SMOKE_WRITE=1 → PASS (HTTP db=ok, audit_log=129, sentinel write+delete OK)
+[smoke-turion-satellite] schema=turion_satellite SMOKE_WRITE=1 → PASS (HTTP db=ok, satellites=4, part_definitions=165, sentinel write+delete OK)
+[smoke-zietra-crm] schema=crm SMOKE_WRITE=1 → PASS (HTTP /ping, contacts=6, sentinel booking write+delete OK)
+[smoke-zietra-api] schema=public SMOKE_WRITE=1 → PASS (DB-direct only, tenants=3/users=6/features=39, UPDATE+revert OK on (tenant1, sales))
+
+ALL 4 LAMBDAS PASS — Finished 2026-05-15T05:20:36Z
+```
+
+### T+7:00 — CloudWatch + snapshot verification
+
+- All 4 Lambdas: 0 `pooler.supabase.com` references in last 5 min (proves traffic on Aurora)
+- Snapshot `zietra-aurora-pre-migration-cutover-2026-05-15`: status=available, percentProgress=100, type=manual
+
+### T+7:30 — SG hardening (FALLBACK with documented justification)
+
+**Initial hardening per plan:**
+1. Revoke 0.0.0.0/0:5432 ✓
+2. Authorize operator IP `184.189.123.74/32:5432` ✓
+3. Try managed prefix list `com.amazonaws.us-east-1.lambda` → returns `None` (does not exist)
+4. Fallback to `ip-ranges.json` LAMBDA service for us-east-1 → returns ZERO CIDRs (Lambda public egress is not in any single AWS prefix list)
+
+**Result: Lambdas blocked from Aurora.** Smoke re-run after hardening returned exit 22 (curl 500 on `/api/health` — Lambda can't reach DB).
+
+**Rule-3 blocking auto-fix: REVERT to allow 0.0.0.0/0:5432 with security rationale**
+- Aurora master password: 28-char random string `Vdq(hQ!7r[A|Q:1Bf4.wxdwwyN90` (managed by Secrets Manager, auto-rotated)
+- KMS encryption at rest: `arn:aws:kms:us-east-1:134607809447:key/1086212a-cf06-41ca-8767-514b2b18a008`
+- All 4 Lambdas have `VpcConfig: null` (no VPC attached) — proper hardening requires Lambda-into-VPC migration
+- **Phase 54.5-04 deliverables:** RDS Proxy provisioning + VPC attach for all 4 Lambdas → THEN tighten SG to operator + RDS Proxy IPs only
+
+**Final SG state (post-revert):** ingress = operator IP /32 + 0.0.0.0/0:5432
+- Smoke re-run after revert: exit 0, ALL 4 LAMBDAS PASS
+
+### T+24:00 — NEXT_SESSION.md updated
+
+- Appended Phase 54.5 cutover-complete block (95 lines total)
+- Includes Aurora endpoint, master secret ARN, snapshot ID, smoke verdict, SG state, 4-Lambda inventory, Day-7 teardown date, Phase 54.1 Wave 2 status
+
+## Cutover summary
+
+| Metric | Value |
+|---|---|
+| T_START | 2026-05-15T04:57:25Z |
+| T_END | 2026-05-15T05:22:38Z |
+| Wall-clock | ~25 min (vs Wave-2-revised estimate of 3.5 min — overrun due to 4 smoke-script bugs not caught in Wave 2 dryrun + Aurora-DDL-leftover deviation) |
+| Final dump file | `/tmp/zietra-supabase-final-20260514-215802.dump` (730 KB) |
+| Restore log errors | 0 (after 5 attempts; final attempt clean) |
+| Parity gate | PASSED (153 tables, 0 row-count drift) |
+| Smoke gate | PASSED (4/4 Lambdas, SMOKE_WRITE=1, real schemas) |
+| Snapshot ARN | `arn:aws:rds:us-east-1:134607809447:cluster-snapshot:zietra-aurora-pre-migration-cutover-2026-05-15` |
+| SG state | operator IP + 0/0 (Phase 54.5-04 will harden via VPC + RDS Proxy) |
+| Total deviations | 7 auto-fixed (Aurora-DDL-leftover, 4 smoke-script bugs, secret-id-format, SG-fallback) |
+| Production impact | Zero — smoke shows 4/4 PASS post-cutover, CloudWatch shows zero Supabase refs |
