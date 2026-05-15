@@ -763,6 +763,26 @@ Plans:
 
 ---
 
+### Phase 54.4: M6 — Module-selection wizard + migration onboarding (THE SELLING POINT)
+
+**Goal:** Turn the 13-module catalog from "a list to read" into "an answer to two business-critical questions": (1) **What add-ons do I need for MY company?** and (2) **How do I migrate my existing data so I can start using this today?** Without 54.4, the catalog is just a price sheet. With 54.4, the catalog becomes the conversion engine.
+
+**(A) Module-selection wizard.** After signup at `/signup`, redirect the new tenant owner to `/onboarding/recommend` — a 3-5 question wizard (industry, team size, biggest pain right now, tools used today, ASC 606 needs). Hardcoded rule engine (no ML — explicit scoring per module per answer) produces a recommended set of 3-7 modules from the 13, displayed as cards with a "Why we recommend this" tooltip per card. User can override (add/remove). Final selection writes to `tenant_features` (enabled=true for selected) and lands the user on `/`. Same wizard accessible from `/catalog` via a "Help me choose" CTA so existing tenants can re-run it after onboarding.
+
+**(B) Migration onboarding flow.** `/onboarding/migrate` page shows cards for each migration source. Initial set: QuickBooks → NetSuite (already shipped in Phase 37 — wire `/quickbooks` as the canonical "your books migration"), Salesforce → CRM (NEW — CSV-based; user pastes SF export, we parse + import), NetSuite → NetSuite (cross-tenant — Turion's sample data clonable into the new tenant for demo), Excel → Items master (CSV upload), Vendor list import (CSV), Customer list import (CSV), "Bring nothing — start fresh with sample data" option (clones Turion's demo data into the new tenant's tables). Each card shows estimated time, what gets imported, and a "Start migration" CTA.
+
+**(C) Onboarding checklist on tenant home.** `/` for a freshly-signed-up tenant displays a 4-step checklist: (1) Pick your modules → links to /onboarding/recommend OR /catalog; (2) Invite your team → links to /team (Phase 54.1); (3) Migrate your data → links to /onboarding/migrate; (4) Connect to AI agents (if `ai-agents` enabled) → links to /agents/*. Each item is a real link, no dead ends. Checklist persists until all checked (state stored in `tenant.onboarding_state` JSONB column).
+
+**Why this is the selling point:** prospects ask "which add-ons do I need?" — without 54.4, they read 13 descriptions and guess. With 54.4, they answer 4 questions and see a curated plan. Prospects also ask "how hard is migration?" — without 54.4, they hear "we have a QB→NS wizard" but no Salesforce/Excel path. With 54.4, the migration page shows 7 cards, each a guided flow.
+
+**Depends on:** Phase 54.1 (tenant_users for tagging the owner who completes the wizard) + Phase 54.2 (AI agents available so the wizard can recommend them).
+**Requirements:** OnboardingWizard, ModuleRecommendationEngine, MigrationLanding, MigrationCards, OnboardingChecklistOnHome, RecommendationRuleEngine
+
+**Plans:** 0 plans (proposed 3-plan structure: 54.4-01 wizard + rule engine; 54.4-02 migration landing + 3 new wizards; 54.4-03 checklist + smoke + CHECKPOINT)
+- [ ] TBD (run `/gsd:plan-phase 54.4`)
+
+---
+
 ## Deferred milestones (TODO — return after M5+M6 demo)
 
 These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-grade multi-tenant SaaS first; the items below harden it for GA / paid customers.
