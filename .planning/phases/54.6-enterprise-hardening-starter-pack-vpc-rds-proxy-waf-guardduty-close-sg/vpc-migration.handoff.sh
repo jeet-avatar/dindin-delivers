@@ -48,3 +48,8 @@ export OLD_CLUSTER_DELETE_DATE=2026-05-29
 # --- PARITY GATE STATE (Phase 54.6-01 Task 4) ---
 # 153 tables · 3070 rows · diff /tmp/aurora-pre-54-6-counts.csv /tmp/aurora-post-54-6-counts.csv = 0 lines
 # Verdict: PASSED
+
+# --- RDS PROXY (Phase 54.6-02 Task 1) ---
+export PROXY_ENDPOINT=zietra-aurora-proxy.proxy-c23qcukqe810.us-east-1.rds.amazonaws.com
+export PROXY_ARN=arn:aws:rds:us-east-1:134607809447:db-proxy:prx-0ed4fed02640bec76
+export PROXY_ROLE_ARN=arn:aws:iam::134607809447:role/zietra-rds-proxy-role
