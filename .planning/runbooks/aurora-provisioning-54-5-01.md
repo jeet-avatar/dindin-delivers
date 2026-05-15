@@ -189,4 +189,65 @@ Task 3 status: **PASS** at `2026-05-15T03:52Z`.
 
 ## Task 4 — CloudWatch alarms + AWS Budget
 
-_Pending — to be appended live._
+Started: `2026-05-15T03:52Z`
+
+### SNS topic
+
+| Field | Value |
+|-------|-------|
+| `SNS_TOPIC` | `arn:aws:sns:us-east-1:134607809447:zietra-aurora-alarms` |
+| Subscription | `pending confirmation` (email to `jeetnair.in@gmail.com`) |
+
+**Operator action required:** confirm the SNS subscription email in `jeetnair.in@gmail.com` inbox before the alarms can deliver. Confirmation is non-blocking for plan completion.
+
+### CloudWatch alarms (5)
+
+All armed against `DBClusterIdentifier=zietra-aurora-prod`. Period 300s, single eval period.
+
+| Alarm name | Metric | Statistic | Threshold | Comparator |
+|------------|--------|-----------|-----------|------------|
+| `zietra-aurora-acu-saturation` | `ACUUtilization` | Average | 80 | `>` |
+| `zietra-aurora-connection-ceiling` | `DatabaseConnections` | Maximum | 150 | `>` |
+| `zietra-aurora-cpu-high` | `CPUUtilization` | Average | 80 | `>` |
+| `zietra-aurora-free-storage-low` | `FreeLocalStorage` | Average | 2 GB | `<` |
+| `zietra-aurora-login-failures` | `LoginFailures` | Sum | 10 | `>` |
+
+### AWS Budget
+
+| Field | Value |
+|-------|-------|
+| Name | `zietra-aurora-monthly` |
+| Amount | `$100 USD/MONTHLY` |
+| Cost filter | `user:Project$Zietra` (tag-scoped) |
+| Notification | `ACTUAL > 80%` ($80) → `jeetnair.in@gmail.com` |
+
+### Verification (gates)
+
+```
+Gate 1: alarm count → 5  PASS
+Gate 2: dimension Value → ["zietra-aurora-prod"]  PASS
+Gate 3: budget [Amount, TimeUnit] → ["100.0", "MONTHLY"]  PASS
+```
+
+Task 4 status: **PASS** at `2026-05-15T03:55Z`.
+
+---
+
+## Final state — all 4 tasks complete
+
+Cluster `zietra-aurora-prod` is alive in `us-east-1` (account `134607809447`):
+
+- Engine: Aurora Postgres 16.4 (Serverless v2, ACU 0.5–4)
+- Endpoints: writer `zietra-aurora-prod.cluster-c23qcukqe810.us-east-1.rds.amazonaws.com:5432`, reader `zietra-aurora-prod.cluster-ro-c23qcukqe810.us-east-1.rds.amazonaws.com:5432`
+- Master credential: `arn:aws:secretsmanager:us-east-1:134607809447:secret:rds!cluster-8dac9fc2-9172-4e70-a167-9fe6fe9e98d9-VbuP4h`
+- DB `zietra` has 5 extensions (no `supabase_vault`) + 4 schemas (`public`, `crm`, `turion`, `turion_satellite`)
+- Empty-baseline snapshot `zietra-aurora-pre-restore-baseline` available (rollback target)
+- 5 CloudWatch alarms armed → SNS topic → email (subscription pending confirm)
+- $100/mo budget with $80 actual notification
+
+**No app traffic touches Aurora.** All 4 in-scope Lambdas (`turion-demo-api`, `turion-satellite-api`, `zietra-crm-api`, `zietra-api`) still point at Supabase. Aurora is empty (extensions + schemas only, zero rows).
+
+Wave 2 (`54.5-02-PLAN.md`) is now unblocked: source `aurora-cutover.env.example`, resolve `MASTER_PW` from `MASTER_SECRET_ARN`, run dry-run dump/restore.
+
+Total wall time: `2026-05-15T03:37Z` → `2026-05-15T03:55Z` ≈ 18 minutes.
+
