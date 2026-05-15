@@ -731,11 +731,14 @@ Plans:
 
 **Goal:** A tenant owner can invite team members by email; each gets a role (`admin` / `manager` / `member` / `viewer`). New `tenant_users` table (tenant_id, cognito_sub, role, invited_at, joined_at, status). Invite flow: owner submits email + role → backend creates pending invite + sends magic-link email via SES → invitee clicks → Cognito user provisioned (if new) → row added to `tenant_users`. New role middleware enforces RBAC per route (admin = full; manager = no billing/team; member = no admin pages; viewer = read-only). UI: `/team` page lists members + invite form. Stripe seat counting deferred to M4. Adds vitest backend tests for the invite + role middleware.
 
-**Depends on:** Phase 54 (UI shell exists with `/team` route slot).
+**Depends on:** Phase 54 (UI shell exists with `/team` route slot). **Waves 2-3 BLOCKED on Phase 54.5** (Aurora migration — pause inserted between Wave 1 and Wave 2 so invite endpoints + frontend rewrite + vitest land directly on Aurora, not Supabase).
 **Requirements:** TenantUsersTable, InviteFlow, RoleMiddleware, TeamPage, VitestBackendBootstrap
 
-**Plans:** 1/1 plans complete
-- [ ] TBD (run `/gsd:plan-phase 54.1`)
+**Plans:** 1/4 plans complete (Wave 1 done; Waves 2-3 paused for Phase 54.5)
+- [x] 54.1-01-PLAN.md — Foundation: migration 026 `tenant_users` + `requireRole` middleware mirrored to both repos + 3 Cognito Groups (Wave 1) — `TenantUsersTable` + `RoleMiddleware` — SUMMARY `54.1-01-SUMMARY.md`
+- [ ] 54.1-02-PLAN.md — Backend invite/accept/list/role-mutation endpoints (Wave 2, depends 54.1-01 + **54.5**) — `InviteFlow`
+- [ ] 54.1-03-PLAN.md — Frontend `/team` page rewrite + `/accept-invite` page (Wave 2 parallel with 02, depends 54.1-01 + **54.5**) — `TeamPage`
+- [ ] 54.1-04-PLAN.md — Vitest bootstrap + RBAC tests + closure smoke (Wave 3, depends 54.1-02 + 54.1-03) — `VitestBackendBootstrap`
 
 ---
 
@@ -783,19 +786,41 @@ Plans:
 
 ---
 
+### Phase 54.5: M6 — Aurora Postgres migration (leave Supabase) ⚡ INSERTED 2026-05-15
+
+**Goal:** Migrate the entire Postgres workload off Supabase (`lbpkbpfwdpnwlccmlfxn`) onto **AWS Aurora Serverless v2 (Postgres-compatible)** in `us-east-1`. Single planned maintenance window. Affects 4 demo apps: `turion-demo-api` (ERP), `turion-satellite-api` (satellite), `marquee-app`, `asc606-app`. Strategic timing: lands BEFORE M3 (RLS) so tenant-isolation policies are written once on the target platform; lands BEFORE M4 (Stripe billing) so payment wiring sits on a reliable DB. Tenant count is currently small (3 tenants in `public.tenants`, 6 admin rows in `public.tenant_users`) — migration cost is at its lifetime minimum NOW.
+
+**Why this insertion:** With Phase 54.1 Wave 1 fresh (tenant_users + role middleware just landed on Supabase), pausing here is the cheapest possible interruption. Resuming Phase 54.1 on Aurora avoids two implementations of every M3 RLS policy. Supabase usage is purely Postgres-as-a-service — auth has been on Cognito since Phase 39, storage is on S3, no Realtime/Edge Functions in use — so this is a pure connection-string + dump/restore swap, no application logic changes required beyond Lambda env vars + Secrets Manager values.
+
+**Scope (locked):**
+- **Target:** Aurora Serverless v2 cluster, encrypted at rest (KMS), Multi-AZ, public-disabled with VPC peering OR public with SG allowlist (researcher decides based on Lambda networking requirements). 0.5–16 ACU autoscale.
+- **Cutover:** Single maintenance window. `pg_dump` from Supabase (DIRECT port 5432, NOT pgbouncer) → `pg_restore` to Aurora. Lambda env-var DATABASE_URL flipped via `aws lambda update-function-configuration`. AWS Secrets Manager secrets rotated to point at Aurora (current secrets: `turion-satellite/production/database-url`, `turion-satellite/production/supabase-jwt-secret-sWnNlr` — JWT secret stays the same since auth is Cognito).
+- **Rollback:** Keep Supabase project LIVE for 7 days post-cutover. If smoke fails, flip env vars back. Snapshot taken from Aurora pre-cutover for paranoia.
+- **Smoke matrix:** All 4 demos exercised end-to-end: Turion ERP /api/health + /api/data/all auth-gated read, satellite /api/satellites + part-instance round-trip, marquee /api/products + visit log, asc606 tenant-aware page load.
+- **Out of scope (deferred to M3):** RLS policies, `app.tenant_id` per-connection setting, isolation tests. M3 will write these on Aurora.
+
+**Depends on:** Phase 54.1-01 (just shipped — establishes `tenant_users` schema that must be carried over).
+**Blocks:** Phase 54.1 Waves 2-3 (invite endpoints / frontend / vitest), Phase 54.2, Phase 54.3, Phase 54.4, M3, M4.
+**Requirements:** AuroraClusterProvisioned, ConnectionStringSwap, SchemaParity, DataParity, RollbackRunbook, FourDemoSmoke, SupabaseRetention7Days
+
+**Plans:** 0 plans (proposed structure: 54.5-01 provision Aurora cluster + IAM + secret; 54.5-02 dry-run dump/restore + schema-parity check; 54.5-03 maintenance-window cutover + 4-demo smoke; 54.5-04 7-day soak + Supabase teardown plan)
+- [ ] TBD (run `/gsd:plan-phase 54.5`)
+
+---
+
 ## Deferred milestones (TODO — return after M5+M6 demo)
 
 These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-grade multi-tenant SaaS first; the items below harden it for GA / paid customers.
 
 | Milestone | Phases | What | Why deferred | When to do |
 |-----------|--------|------|--------------|------------|
-| **M2** — RDS Postgres migration | 42-43 | Move DB off Supabase → AWS RDS (Aurora Serverless v2 candidate). Tear down Supabase project. | Independent of customer-facing surface. M5+M6 can ship on Supabase Postgres. | After M5+M6 proves the model; before scaling to >10 tenants or any compliance work |
+| ~~**M2** — RDS Postgres migration~~ | ~~42-43~~ | **SUPERSEDED 2026-05-15 by Phase 54.5** — pulled forward into M6 because RLS (M3) wants a single implementation on the target platform, and tenant count is at lifetime minimum NOW. | n/a | n/a |
 | **M3** — Multi-tenancy + RLS | 44-48 | `tenant_id` everywhere + RLS policies + per-connection `app.tenant_id` setting. ~500 isolation tests. | M5 ships minimal `tenants` + `tenant_id` columns (no RLS). Demo-grade. | **MUST do before any production paid launch** — currently tenants can read each other's data |
 | **M4** — Stripe + entitlements | 49-51 | Stripe Subscriptions, base $99/mo + add-on prices, webhook Lambda, customer portal. | M5 defaults all modules ON in trial; M4 wires real billing + downgrades. | Before charging real money. M5+M6 give the UX scaffolding to plug Stripe into |
 | **M7** — Marketing site | 55 | `zietra.com` homepage, per-module pages, pricing, case studies, `docs.zietra.com`. | M5 ships at `zietra.com/signup`; static marketing pages can come later. | Before any outbound sales motion |
 | **M8** — Compliance + observability + load/chaos | 56-58 | Per-tenant audit log, KMS encryption-at-rest, SOC2 readiness, CloudWatch dashboards, RBAC per module (extends 54.1), **k6 load tests + chaos failures (Lambda timeout, DB drop)**. | Hardens for enterprise. Not needed for SMB pilot tenants. | Before first enterprise sale or SOC2 audit |
 
-*Last updated 2026-05-14: Strategy shift — M5+M6 ahead of M2/M3/M4 to land customer-facing SaaS UX with a real second tenant. M2/M3/M4 remain mandatory before production GA but unblocked for demo/pilot.*
+*Last updated 2026-05-15: M2 (RDS migration) pulled forward into M6 as Phase 54.5 — Phase 54.1 paused at Wave 1, Aurora migration sits between 54.1-Wave1 and 54.1-Wave2. Strategy shift — M5+M6 ahead of M3/M4 to land customer-facing SaaS UX with a real second tenant. M3/M4 remain mandatory before production GA but unblocked for demo/pilot.*
 
 ---
 
