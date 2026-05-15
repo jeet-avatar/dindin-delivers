@@ -10,105 +10,94 @@ Operator: GSD executor (Claude Code), AWS account `134607809447`, region `us-eas
 
 ---
 
-## VPC + Subnets + IGW — PARTIAL (created before EIP-quota block)
+## NAT pivot — 2026-05-15T07:05Z (Option D selected)
 
-The idempotent script `scripts/setup-vpc-and-private-aurora.sh` was executed at 2026-05-15T06:54Z. It successfully created the VPC, IGW, and 4 subnets, then halted when AWS rejected EIP allocation with `AddressLimitExceeded` (account currently at 21/21 allocated EIPs against the quota).
+Operator decision following the EIP-quota Rule-4 architectural checkpoint: **Option D — NAT instance instead of NAT Gateway.**
 
-| Resource | Name | ID | State | CIDR / AZ | Created |
-|----------|------|----|-------|-----------|---------|
+**Rationale:**
+- Avoids the 21/21 EIP quota ceiling (no EIP required — NAT instance gets an auto-assigned public IP on the public subnet ENI).
+- Saves ~$30/mo vs NAT Gateway ($3.07/mo t4g.nano vs ~$33/mo NAT GW).
+- Acceptable for demo workload — lower HA (single EC2, no multi-AZ failover) is tolerable; AWS-managed NAT GW upgrade path is documented below.
+
+**Tradeoffs accepted:**
+- Lower HA — if the NAT instance dies, private subnets lose egress until manual restart. Mitigation: t4g.nano is a Nitro instance running AL2023 (stable); CloudWatch alarm on instance status is a follow-up.
+- Lower throughput (~5 Gbps vs 45 Gbps NAT GW). Ample for demo + Lambda traffic.
+- Our maintenance burden — AMI updates, iptables persistence, kernel updates. Mitigated by `rc.local` MASQUERADE rule that survives reboot.
+
+**Upgrade path back to NAT Gateway (when EIP quota is raised):**
+1. `aws ec2 allocate-address --domain vpc` to get a free EIP (post quota raise).
+2. `aws ec2 create-nat-gateway --subnet-id $PUB_1A --allocation-id <eipalloc>` and wait for `available`.
+3. `aws ec2 replace-route --route-table-id $PRIV_RT --destination-cidr-block 0.0.0.0/0 --nat-gateway-id <natid>` (atomic swap — no downtime for outbound traffic if NAT GW is ready first).
+4. `aws ec2 terminate-instances --instance-ids $NAT_INSTANCE_ID`.
+5. `aws ec2 delete-security-group --group-id $NAT_SG`.
+
+Estimated upgrade window: <30 min. Acceptable maintenance window for the demo workload.
+
+---
+
+## VPC + Subnets + IGW + NAT instance + Route tables + 3 SGs — COMPLETE
+
+The idempotent script `scripts/setup-vpc-and-private-aurora.sh` was executed at 2026-05-15T07:05Z. After NAT pivot edit, re-run succeeded end-to-end. VPC/IGW/4 subnets from prior run were skipped (idempotent); NAT instance + NAT SG + 2 route tables + 3 app SGs created fresh.
+
+### Resource map
+
+| Resource | Name | ID | State | Detail | Created |
+|----------|------|----|-------|--------|---------|
 | VPC | `zietra-prod-vpc` | `vpc-012ab4500dcd4ee41` | available | 10.0.0.0/16 | 2026-05-15T06:54Z |
-| IGW | `zietra-prod-igw` | `igw-0f7bb813b6b5edb0d` | attached to vpc-012ab4500dcd4ee41 | — | 2026-05-15T06:54Z |
-| Subnet | `zietra-prod-public-1a` | `subnet-0b5e4abedde216d3a` | available | 10.0.0.0/24 / us-east-1a | 2026-05-15T06:54Z |
+| IGW | `zietra-prod-igw` | `igw-0f7bb813b6b5edb0d` | attached | — | 2026-05-15T06:54Z |
+| Subnet | `zietra-prod-public-1a` | `subnet-0b5e4abedde216d3a` | available | 10.0.0.0/24 / us-east-1a, MapPublicIpOnLaunch=true | 2026-05-15T06:54Z |
 | Subnet | `zietra-prod-public-1b` | `subnet-02f98e40f1b4afef7` | available | 10.0.1.0/24 / us-east-1b | 2026-05-15T06:54Z |
 | Subnet | `zietra-prod-private-1a` | `subnet-052ed80f6904b9fe7` | available | 10.0.10.0/24 / us-east-1a | 2026-05-15T06:54Z |
 | Subnet | `zietra-prod-private-1b` | `subnet-07893035668f1b015` | available | 10.0.11.0/24 / us-east-1b | 2026-05-15T06:54Z |
+| NAT instance | `zietra-nat-instance` | `i-0e9159d87ede802bd` | running | t4g.nano, AL2023 ARM (`ami-0f8551bed4b9b7adb`), SourceDestCheck=false, PublicIP=34.205.27.197 | 2026-05-15T07:05Z |
+| NAT instance ENI | (primary) | `eni-0f6f2c8a5b11b53d5` | in-use | attached to NAT instance | 2026-05-15T07:05Z |
+| NAT SG | `zietra-nat-instance-sg` | `sg-0400616d58a1129b6` | — | inbound all-traffic from 10.0.0.0/16; default egress | 2026-05-15T07:05Z |
+| Public RT | `zietra-prod-public-rt` | `rtb-050b67fa351db37bd` | — | 0.0.0.0/0 → IGW; associated to public-1a + public-1b | 2026-05-15T07:05Z |
+| Private RT | `zietra-prod-private-rt` | `rtb-0c00aa94b1cee94d1` | — | 0.0.0.0/0 → NAT ENI `eni-0f6f2c8a5b11b53d5`; associated to private-1a + private-1b | 2026-05-15T07:05Z |
+| Lambda SG | `zietra-prod-lambda-sg` | `sg-01768e18aaa6d3173` | — | no ingress; default egress allow-all | 2026-05-15T07:05Z |
+| RDS Proxy SG | `zietra-prod-rds-proxy-sg` | `sg-0e066f754bf795ed5` | — | 5432 ingress from lambda-sg | 2026-05-15T07:05Z |
+| Aurora new SG | `zietra-prod-aurora-sg` | `sg-099d916a8fe5cdb65` | — | 5432 ingress from rds-proxy-sg ONLY (NO 0.0.0.0/0) | 2026-05-15T07:05Z |
 
 **VPC attributes verified:** DNS hostnames + DNS support both `enabled`.
 
-**Cost so far:** $0/hr (VPC/IGW/subnets are free; NAT GW + EIP are the billable resources, neither has been created yet).
+**Cost now:** NAT instance ~$3.07/mo (t4g.nano on-demand, 100% uptime) + ~$0.01/mo for EBS root (8GB gp3); IGW/VPC/subnets/route tables/SGs all $0.
 
 ---
 
-## BLOCKER — EIP quota exhausted (Rule 4 — architectural decision required)
-
-**Issue:** `aws ec2 allocate-address --domain vpc` returned `AddressLimitExceeded`. Account holds **21 EIPs** (all in `vpc` domain, all `Associated`), and the soft quota appears applied at 21 (`service-quotas` API reports default `5` but actual ceiling is higher). Cannot allocate the EIP needed for the `zietra-prod-nat` NAT Gateway.
-
-**EIP inventory (from `aws ec2 describe-addresses`):**
-
-| AllocId | IP | Tag/Owner | Attached to | Reclaim risk |
-|---------|----|-----------|-------------|-------------|
-| eipalloc-0fb8cf45f782ec1d1 | 100.24.213.224 | (BrandMonkz CRM box per MEMORY) | i-0988d1a0a7e4c0a7e | LIVE — do not touch |
-| eipalloc-09050de3015dcc9f6 | 100.28.106.16 | (unnamed) | zyre-prod ALB | likely live |
-| eipalloc-0d187a104dd8f216a | 100.50.178.154 | (unnamed) | zietra-meet ALB | live |
-| eipalloc-0e5265dad82b7af1a | 107.20.92.214 | (unnamed) | Socialflow ALB | live |
-| eipalloc-0da0cbc0094b237db | 18.205.32.81 | (unnamed) | Socialflow ALB | live |
-| eipalloc-026d4964fab98e5da | 18.214.189.125 | (unnamed) | Socialflow ALB | live |
-| eipalloc-0d1475f611697a1a4 | 3.217.108.6 | (unnamed) | dollor-api ALB | live |
-| eipalloc-0bf3534119dec02bb | 3.228.239.112 | `arthaBuild-eip` | i-02e665cfa2b776226 | live |
-| eipalloc-0f52c37280a57ee24 | 3.93.84.207 | (unnamed) | zyre-prod ALB | live |
-| eipalloc-04081b4ffe08e1111 | 34.197.219.147 | (unnamed) | Socialflow ALB | live |
-| eipalloc-0b7a513a316f7d49c | 34.198.136.254 | (unnamed) | zyre-prod ALB | live |
-| eipalloc-0737b35f5bcab1059 | 35.175.61.157 | `dollor-staging-nat-eip-1` | NAT GW `nat-0edf6d0ff7ec26b80` (vpc-06b31cf4c5205c340, dollor-staging-nat-1) | **DEFUNCT?** — old dollor-staging VPC; verify before reclaim |
-| eipalloc-068ec6528ecd37961 | 44.194.34.223 | (unnamed) | i-062dcd31988aed289 | likely live |
-| eipalloc-048de2c6eea3dc5ec | 52.200.216.128 | (unnamed) | Socialflow ALB | live |
-| eipalloc-054581e95021b2519 | 52.203.153.64 | (unnamed) | zietra-meet ALB | live |
-| eipalloc-00e75d48b98ab7d17 | 52.203.19.73 | (unnamed) | RDSNetworkInterface | live |
-| eipalloc-0c835e9a56028fbe3 | 52.7.144.55 | (unnamed) | Socialflow ALB | live |
-| eipalloc-0b9b92fdf6718f10b | 52.72.203.115 | (unnamed) | RDSNetworkInterface | live |
-| eipalloc-073a6f31f5a4114cd | 54.174.45.93 | (unnamed) | dollor-api ALB | live |
-| eipalloc-0d501a89b5b0f0b2e | 54.236.97.40 | (unnamed) | NAT GW `nat-0a41bcbe59eba13a8` (vpc-0c87f730a3208b3f6, `dollor-nat-gateway`) | **DEFUNCT?** — pre-zietra dollor NAT; verify before reclaim |
-| eipalloc-089f1362f9d86cb71 | 54.83.1.152 | (unnamed) | RDSNetworkInterface | live |
-
-**Two candidate EIPs for reclaim (both attached to NAT Gateways in old VPCs):**
-
-1. `eipalloc-0737b35f5bcab1059` → `dollor-staging-nat-1` in VPC `vpc-06b31cf4c5205c340` — created 2025-12-17. Is dollor-staging still in use?
-2. `eipalloc-0d501a89b5b0f0b2e` → `dollor-nat-gateway` in VPC `vpc-0c87f730a3208b3f6` — created 2025-12-10. Is this NAT still serving any traffic?
-
-**Reclaim path (per candidate):** `aws ec2 delete-nat-gateway --nat-gateway-id <id>` → wait ~5 min for state=deleted → EIP returns to pool → `setup-vpc-and-private-aurora.sh` re-run succeeds (idempotent — picks up where it left off).
-
-**Decision options (require operator GO):**
-- **A — Reclaim dollor NAT GW (`nat-0a41bcbe59eba13a8`)** — oldest, "dollor-nat-gateway" is generic naming consistent with pre-zietra demo. **Risk:** unknown what depends on it.
-- **B — Reclaim dollor-staging NAT GW (`nat-0edf6d0ff7ec26b80`)** — explicitly named "staging" so likely safe.
-- **C — File AWS support ticket to raise EIP quota from 21 → 25** — clean, no risk, takes hours-days.
-- **D — Re-architect to use a NAT instance instead of NAT GW** — uses an EC2 ENI's auto-assigned public IP (no EIP needed), cheaper (~$3/mo) but no HA / lower throughput / our maintenance burden.
-
-**Recommended:** Option C (quota increase) — zero risk, $0 cost. Phase 54.6-01 simply pauses at this checkpoint until quota raised; VPC + subnets + IGW are already in place and idle ($0 cost). Once quota raised, re-run `bash scripts/setup-vpc-and-private-aurora.sh` (idempotent → completes from where it stopped).
-
-If operator picks A or B (faster, free), the script can be re-run immediately after the chosen NAT GW deletes.
-
-**Current state:** STOPPED at the EIP allocation step. No partial damage — VPC + IGW + 4 subnets are valid resources awaiting the NAT layer.
-
----
-
-## What still needs to happen (Tasks 1-5 of plan 54.6-01)
-
-- [x] **Task 1.a** — VPC + IGW + 4 subnets (DONE — see table above)
-- [ ] **Task 1.b** — EIP + NAT GW + 2 route tables + 3 SGs (BLOCKED — EIP quota)
-- [ ] **Task 2** — Operator GO/NO-GO checkpoint before snapshot cutover (PENDING — not yet reached)
-- [ ] **Task 3** — Pre-flight baseline + final snapshot of old cluster
-- [ ] **Task 4** — Restore snapshot into new private VPC + parity gate
-- [ ] **Task 5** — Rollback runbook
-
----
-
-## Resource IDs captured so far (for handoff)
+## T+1:12 (after pivot) — VPC fabric COMPLETE. Ready for Aurora migration.
 
 ```bash
+# Sourceable env (also written to vpc-migration.env at Task 4)
 VPC_ID=vpc-012ab4500dcd4ee41
 IGW_ID=igw-0f7bb813b6b5edb0d
 PUB_1A=subnet-0b5e4abedde216d3a
 PUB_1B=subnet-02f98e40f1b4afef7
 PRIV_1A=subnet-052ed80f6904b9fe7
 PRIV_1B=subnet-07893035668f1b015
-# EIP_ALLOC=<BLOCKED — quota exhausted>
-# NAT_ID=<BLOCKED — depends on EIP>
-# PUB_RT=<not yet created>
-# PRIV_RT=<not yet created>
-# LAMBDA_SG=<not yet created>
-# PROXY_SG=<not yet created>
-# AURORA_NEW_SG=<not yet created>
+NAT_INSTANCE_ID=i-0e9159d87ede802bd
+NAT_ENI_ID=eni-0f6f2c8a5b11b53d5
+NAT_PUBLIC_IP=34.205.27.197
+NAT_SG=sg-0400616d58a1129b6
+PUB_RT=rtb-050b67fa351db37bd
+PRIV_RT=rtb-0c00aa94b1cee94d1
+LAMBDA_SG=sg-01768e18aaa6d3173
+PROXY_SG=sg-0e066f754bf795ed5
+AURORA_NEW_SG=sg-099d916a8fe5cdb65
 ```
 
 ---
 
-*Runbook updated 2026-05-15T06:55Z. Halted at EIP quota block. Awaiting operator decision A/B/C/D before resuming Task 1.b.*
+## Task progress (against plan 54.6-01)
+
+- [x] **Task 1.a** — VPC + IGW + 4 subnets (DONE 2026-05-15T06:54Z, commit `677b2111`)
+- [x] **Task 1.b** — NAT instance + NAT SG + 2 route tables + 3 app SGs (DONE 2026-05-15T07:05Z, after NAT pivot)
+- [ ] **Task 2** — Operator GO/NO-GO checkpoint before snapshot cutover (PENDING — executor PAUSES here per plan)
+- [ ] **Task 3** — Pre-flight baseline + final snapshot of old cluster (BLOCKED on Task 2 GO)
+- [ ] **Task 4** — Restore snapshot into new private VPC + parity gate (BLOCKED on Task 2 GO)
+- [ ] **Task 5** — Rollback runbook (BLOCKED on Task 2 GO)
+
+**Why we stop at Task 2:** the plan places its only blocking checkpoint at Task 2, before any Aurora touch. The orchestrator's resume prompt directs us not to execute the cutover. Tasks 3+4 ARE the cutover (snapshot + restore + parity), so they remain blocked. The new private VPC fabric is built and parked at $3.08/mo (NAT instance + EBS) until the operator says "go" for the snapshot.
+
+---
+
+*Runbook updated 2026-05-15T07:08Z. NAT pivot complete. Awaiting operator GO at Task 2 checkpoint before snapshot+restore.*

@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
-# Phase 54.6-01 — Provision zietra-prod-vpc + 4 subnets + IGW + NAT GW + 3 SGs
+# Phase 54.6-01 — Provision zietra-prod-vpc + 4 subnets + IGW + NAT instance + 3 SGs
 #
 # IDEMPOTENT: safe to re-run. Each resource is created only if a matching Name-tagged
 # resource is not already present. Returns existing IDs on re-run.
+#
+# NAT pivot (2026-05-15): account is at 21/21 EIP quota and AWS support quota raise
+# would take hours. Pivoted from NAT Gateway → NAT instance per operator decision
+# (Option D in runbook). NAT instance uses auto-assigned public IP on a t4g.nano
+# (Graviton, ~$3/mo) — no EIP required. Tradeoffs documented in runbook:
+#   - Lower HA (single EC2, no multi-AZ failover; mitigated by demo workload)
+#   - Lower throughput (~5 Gbps vs 45 Gbps NAT GW; ample for demo traffic)
+#   - Our maintenance burden (AMI updates, iptables persistence) vs AWS-managed NAT GW
+# Upgrade path back to NAT Gateway: provision NAT GW in same subnet, swap private
+# route table 0/0 target from instance ENI → NAT GW ID, terminate NAT instance.
+# Estimated upgrade window: <30 min (acceptable maintenance).
 #
 # Naming convention (LOCKED per RESEARCH §A.1 + critical_constraints):
 #   VPC:      zietra-prod-vpc           10.0.0.0/16
@@ -11,10 +22,10 @@
 #             zietra-prod-private-1a    10.0.10.0/24 us-east-1a
 #             zietra-prod-private-1b    10.0.11.0/24 us-east-1b
 #   IGW:      zietra-prod-igw
-#   NAT GW:   zietra-prod-nat           (in public-1a; single AZ — HA NAT deferred to M8)
-#   EIP:      zietra-prod-nat-eip
+#   NAT inst: zietra-nat-instance       (in public-1a, t4g.nano, AL2023 ARM, source/dest disabled)
+#   NAT SG:   zietra-nat-instance-sg    (allow VPC CIDR inbound, 0/0 outbound)
 #   Routes:   zietra-prod-public-rt     (public-1a, public-1b → IGW)
-#             zietra-prod-private-rt    (private-1a, private-1b → NAT GW)
+#             zietra-prod-private-rt    (private-1a, private-1b → NAT instance ENI)
 #   SGs:      zietra-prod-lambda-sg     (no ingress; default egress allow-all)
 #             zietra-prod-rds-proxy-sg  (5432 ingress from lambda-sg)
 #             zietra-prod-aurora-sg     (5432 ingress from rds-proxy-sg ONLY — NO 0/0)
@@ -103,48 +114,128 @@ PUB_1B=$(get_or_create_subnet zietra-prod-public-1b 10.0.1.0/24 us-east-1b publi
 PRIV_1A=$(get_or_create_subnet zietra-prod-private-1a 10.0.10.0/24 us-east-1a private)
 PRIV_1B=$(get_or_create_subnet zietra-prod-private-1b 10.0.11.0/24 us-east-1b private)
 
-# ---------- Elastic IP for NAT ----------
-get_or_allocate_eip() {
+# Enable auto-assign public IP on public-1a so the NAT instance gets one without an EIP.
+# (Public-1b doesn't need MapPublicIpOnLaunch — nothing public launches there.)
+log "Ensuring MapPublicIpOnLaunch=true on $PUB_1A"
+aws ec2 modify-subnet-attribute --subnet-id "$PUB_1A" --map-public-ip-on-launch --region "$REGION" >/dev/null
+
+# ---------- NAT Instance SG ----------
+# Allows ALL traffic from the VPC CIDR inbound (so private subnets can MASQUERADE through it),
+# and ALL traffic outbound (default egress already allow-all on a fresh SG).
+get_or_create_nat_sg() {
   local existing
-  existing=$(aws ec2 describe-addresses \
-    --filters Name=tag:Name,Values=zietra-prod-nat-eip \
-    --query 'Addresses[0].AllocationId' --output text --region "$REGION" 2>/dev/null || echo None)
+  existing=$(aws ec2 describe-security-groups \
+    --filters Name=group-name,Values=zietra-nat-instance-sg Name=vpc-id,Values="$VPC_ID" \
+    --query 'SecurityGroups[0].GroupId' --output text --region "$REGION" 2>/dev/null || echo None)
   if [ "$existing" != "None" ] && [ "$existing" != "null" ] && [ -n "$existing" ]; then
-    log "EIP zietra-prod-nat-eip already allocated: $existing"
+    log "SG zietra-nat-instance-sg already exists: $existing"
     echo "$existing"
     return
   fi
-  log "Allocating EIP zietra-prod-nat-eip"
-  aws ec2 allocate-address --domain vpc \
-    --tag-specifications "ResourceType=elastic-ip,Tags=[{Key=Name,Value=zietra-prod-nat-eip},{Key=Phase,Value=$PHASE_TAG}]" \
-    --region "$REGION" --query 'AllocationId' --output text
+  log "Creating SG zietra-nat-instance-sg"
+  aws ec2 create-security-group \
+    --group-name zietra-nat-instance-sg \
+    --description "Zietra NAT instance (Phase 54.6-01) - allow VPC CIDR inbound, 0/0 outbound" \
+    --vpc-id "$VPC_ID" --region "$REGION" --query 'GroupId' --output text
 }
 
-EIP_ALLOC=$(get_or_allocate_eip)
+NAT_SG=$(get_or_create_nat_sg)
+aws ec2 create-tags --resources "$NAT_SG" \
+  --tags "Key=Name,Value=zietra-nat-instance-sg" "Key=Phase,Value=$PHASE_TAG" "Key=Environment,Value=$ENV_TAG" \
+  --region "$REGION" 2>/dev/null || true
 
-# ---------- NAT Gateway ----------
-get_or_create_nat() {
+# Ingress: all traffic from VPC CIDR 10.0.0.0/16
+EXISTING_NAT_INGRESS=$(aws ec2 describe-security-groups --group-ids "$NAT_SG" \
+  --query "SecurityGroups[0].IpPermissions[?IpProtocol=='-1'].IpRanges[?CidrIp=='10.0.0.0/16'].CidrIp" \
+  --output text --region "$REGION" 2>/dev/null || echo "")
+if [ -z "$EXISTING_NAT_INGRESS" ] || [ "$EXISTING_NAT_INGRESS" = "None" ]; then
+  log "Adding 10.0.0.0/16 all-traffic ingress on NAT SG $NAT_SG"
+  aws ec2 authorize-security-group-ingress --group-id "$NAT_SG" \
+    --ip-permissions 'IpProtocol=-1,IpRanges=[{CidrIp=10.0.0.0/16}]' \
+    --region "$REGION" >/dev/null
+else
+  log "NAT SG $NAT_SG already has VPC-CIDR ingress"
+fi
+
+# ---------- NAT Instance ----------
+# AL2023 ARM64 (latest); t4g.nano; iptables MASQUERADE via user-data.
+# Source/dest check disabled post-launch (required for NAT to forward traffic).
+get_or_create_nat_instance() {
   local existing
-  # Filter out DELETED/FAILED NATs (re-running after a deletion should create a new one)
-  existing=$(aws ec2 describe-nat-gateways \
-    --filter Name=tag:Name,Values=zietra-prod-nat Name=state,Values=available,pending \
-    --query 'NatGateways[0].NatGatewayId' --output text --region "$REGION" 2>/dev/null || echo None)
+  # Match running OR pending; ignore terminated/stopped (re-run after termination should create new)
+  existing=$(aws ec2 describe-instances \
+    --filters Name=tag:Name,Values=zietra-nat-instance \
+              Name=instance-state-name,Values=pending,running \
+    --query 'Reservations[0].Instances[0].InstanceId' --output text --region "$REGION" 2>/dev/null || echo None)
   if [ "$existing" != "None" ] && [ "$existing" != "null" ] && [ -n "$existing" ]; then
-    log "NAT GW zietra-prod-nat already exists: $existing"
+    log "NAT instance zietra-nat-instance already exists: $existing"
     echo "$existing"
     return
   fi
-  log "Creating NAT GW zietra-prod-nat in $PUB_1A"
-  aws ec2 create-nat-gateway \
-    --subnet-id "$PUB_1A" --allocation-id "$EIP_ALLOC" \
-    --tag-specifications "ResourceType=natgateway,Tags=[{Key=Name,Value=zietra-prod-nat},{Key=Phase,Value=$PHASE_TAG}]" \
-    --region "$REGION" --query 'NatGateway.NatGatewayId' --output text
+  log "Looking up latest AL2023 ARM64 AMI"
+  local ami
+  ami=$(aws ec2 describe-images --owners amazon \
+    --filters 'Name=name,Values=al2023-ami-2023*arm64' 'Name=state,Values=available' \
+    --query 'sort_by(Images, &CreationDate)[-1].ImageId' --output text --region "$REGION")
+  log "AMI selected: $ami"
+
+  # User-data: enable IP forward + iptables MASQUERADE on the ENI (ens5 on AL2023 Nitro)
+  local user_data
+  user_data=$(cat <<'USERDATA'
+#!/bin/bash
+set -e
+# Enable IP forwarding immediately and persist
+echo 1 > /proc/sys/net/ipv4/ip_forward
+sysctl -w net.ipv4.ip_forward=1
+echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/99-nat.conf
+
+# NAT/masquerade outbound traffic on the primary ENI (AL2023 Nitro = ens5)
+/sbin/iptables -t nat -A POSTROUTING -o ens5 -j MASQUERADE
+/sbin/iptables -F FORWARD
+
+# Persist iptables across reboots via rc.local
+cat > /etc/rc.d/rc.local <<'RC'
+#!/bin/bash
+echo 1 > /proc/sys/net/ipv4/ip_forward
+/sbin/iptables -t nat -A POSTROUTING -o ens5 -j MASQUERADE
+/sbin/iptables -F FORWARD
+RC
+chmod +x /etc/rc.d/rc.local
+USERDATA
+)
+
+  log "Launching NAT instance (t4g.nano, AL2023 ARM, subnet=$PUB_1A, sg=$NAT_SG)"
+  aws ec2 run-instances \
+    --image-id "$ami" \
+    --instance-type t4g.nano \
+    --subnet-id "$PUB_1A" \
+    --security-group-ids "$NAT_SG" \
+    --user-data "$user_data" \
+    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=zietra-nat-instance},{Key=Phase,Value=$PHASE_TAG},{Key=Role,Value=nat},{Key=Environment,Value=$ENV_TAG}]" \
+    --region "$REGION" --query 'Instances[0].InstanceId' --output text
 }
 
-NAT_ID=$(get_or_create_nat)
-log "Waiting for NAT GW $NAT_ID to become available (typically 2-3 min)..."
-aws ec2 wait nat-gateway-available --nat-gateway-ids "$NAT_ID" --region "$REGION"
-log "NAT GW $NAT_ID is available"
+NAT_INSTANCE_ID=$(get_or_create_nat_instance)
+log "Waiting for NAT instance $NAT_INSTANCE_ID to be running..."
+aws ec2 wait instance-running --instance-ids "$NAT_INSTANCE_ID" --region "$REGION"
+
+# Disable source/dest check (REQUIRED for NAT — instances must forward traffic not destined to them)
+SRC_DEST_CHECK=$(aws ec2 describe-instances --instance-ids "$NAT_INSTANCE_ID" \
+  --query 'Reservations[0].Instances[0].SourceDestCheck' --output text --region "$REGION")
+if [ "$SRC_DEST_CHECK" = "True" ]; then
+  log "Disabling source/dest check on $NAT_INSTANCE_ID"
+  aws ec2 modify-instance-attribute --instance-id "$NAT_INSTANCE_ID" --no-source-dest-check --region "$REGION"
+else
+  log "Source/dest check already disabled on $NAT_INSTANCE_ID"
+fi
+
+# Capture the NAT instance's ENI (primary network interface) for use as the private RT 0/0 target
+NAT_ENI_ID=$(aws ec2 describe-instances --instance-ids "$NAT_INSTANCE_ID" \
+  --query 'Reservations[0].Instances[0].NetworkInterfaces[0].NetworkInterfaceId' \
+  --output text --region "$REGION")
+NAT_PUBLIC_IP=$(aws ec2 describe-instances --instance-ids "$NAT_INSTANCE_ID" \
+  --query 'Reservations[0].Instances[0].PublicIpAddress' --output text --region "$REGION")
+log "NAT instance ready: $NAT_INSTANCE_ID  ENI=$NAT_ENI_ID  PublicIP=$NAT_PUBLIC_IP"
 
 # ---------- Route Tables ----------
 get_or_create_route_table() {
@@ -200,9 +291,10 @@ ensure_route "$PUB_RT" 0.0.0.0/0 --gateway-id "$IGW_ID"
 ensure_associate "$PUB_RT" "$PUB_1A"
 ensure_associate "$PUB_RT" "$PUB_1B"
 
-# Private RT: 0.0.0.0/0 → NAT
+# Private RT: 0.0.0.0/0 → NAT instance ENI
+# (When/if we upgrade to NAT Gateway later, swap target_flag from --network-interface-id to --nat-gateway-id.)
 PRIV_RT=$(get_or_create_route_table zietra-prod-private-rt)
-ensure_route "$PRIV_RT" 0.0.0.0/0 --nat-gateway-id "$NAT_ID"
+ensure_route "$PRIV_RT" 0.0.0.0/0 --network-interface-id "$NAT_ENI_ID"
 ensure_associate "$PRIV_RT" "$PRIV_1A"
 ensure_associate "$PRIV_RT" "$PRIV_1B"
 
@@ -266,8 +358,10 @@ echo "PUB_1A=$PUB_1A"
 echo "PUB_1B=$PUB_1B"
 echo "PRIV_1A=$PRIV_1A"
 echo "PRIV_1B=$PRIV_1B"
-echo "EIP_ALLOC=$EIP_ALLOC"
-echo "NAT_ID=$NAT_ID"
+echo "NAT_INSTANCE_ID=$NAT_INSTANCE_ID"
+echo "NAT_ENI_ID=$NAT_ENI_ID"
+echo "NAT_PUBLIC_IP=$NAT_PUBLIC_IP"
+echo "NAT_SG=$NAT_SG"
 echo "PUB_RT=$PUB_RT"
 echo "PRIV_RT=$PRIV_RT"
 echo "LAMBDA_SG=$LAMBDA_SG"
