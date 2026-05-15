@@ -193,12 +193,30 @@ If KBI day-1 metric review reveals an FP spike on a specific rule WITHIN the man
 
 ### AWS Config
 
+> **OPERATOR ACTION REQUIRED — one-time, blocks Config from recording**
+>
+> The executor sandbox blocks ALL `aws iam` commands, so the Config service-linked role
+> `AWSServiceRoleForConfig` was NOT auto-created. GuardDuty + Security Hub + Config-Conforms
+> SLRs were created successfully because those services trigger `iam:CreateServiceLinkedRole`
+> internally — but Config's `PutConfigurationRecorder` does NOT.
+>
+> The Config recorder is fully configured (recorder definition + S3 + delivery channel +
+> conformance pack), but `lastStatus: FAILURE` until the operator runs ONE command from
+> their own IAM-admin credentials (NOT the CRMaccesskey executor):
+>
+> ```bash
+> aws iam create-service-linked-role --aws-service-name config.amazonaws.com
+> ```
+>
+> Then re-run `scripts/provision-aws-config.sh` (idempotent — will start recorder again). Within 5-10 min,
+> `aws configservice describe-configuration-recorder-status` should show `lastStatus: SUCCESS`.
+
 | Field | Value |
 |-------|-------|
 | Recorder name | default |
 | Recorder ARN | `arn:aws:config:us-east-1:134607809447:configuration-recorder/default/posgwmmczxvrfso6` |
-| Role ARN | `arn:aws:iam::134607809447:role/aws-service-role/config.amazonaws.com/AWSServiceRoleForConfig` (service-linked) |
-| Recording status | TRUE (recording) |
+| Role ARN | `arn:aws:iam::134607809447:role/aws-service-role/config.amazonaws.com/AWSServiceRoleForConfig` (service-linked, **PENDING operator create**) |
+| Recording status | TRUE (configured); lastStatus=FAILURE pending SLR creation |
 | allSupported | FALSE — targeted 18 resource types |
 | Resource types | Lambda, RDS (Cluster/Instance/Proxy), S3, IAM (Role/Policy/User), EC2 (SecurityGroup/VPC/Subnet/NatGateway/InternetGateway), CloudFront, WAFv2, KMS, Cognito UserPool, SecretsManager Secret |
 | Delivery channel | default |
