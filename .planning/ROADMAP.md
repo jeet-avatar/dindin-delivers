@@ -1001,11 +1001,13 @@ Plans:
 **Blocks:** Outbound sales, organic SEO, public launch.
 **Requirements:** ModuleMarketingPages, CaseStudiesPage, AboutPage, ContactPage, ContactFormBackend, DocsLandingPage, CognitoMigratedAuth, PricingPageStripePlaceholder, MarketingHomeRefresh, SeoBaseline404SitemapRobots
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 - [x] 58-01-PLAN.md — Cognito auth migration + HomePage 13-module refresh + Pricing Stripe placeholder + Footer/NavBar real routes + Privacy/Terms post-Phase-55 update + NotFoundPage popular pages + build-time sitemap generator + llms.txt refresh — **CLOSED 2026-05-16** (4 requirements closed: CognitoMigratedAuth, PricingPageStripePlaceholder, MarketingHomeRefresh, SeoBaseline404SitemapRobots)
 - [x] 58-02-PLAN.md — 13 per-module marketing pages (shared template) + `src/data/modules.ts` + build-time sync from upstream module-catalog + `/modules` index w/ industry filter + sitemap 9→22 URLs — **CLOSED 2026-05-16** (2 requirements closed: ModuleMarketingPages, SeoBaseline404SitemapRobots)
-- [ ] 58-03-PLAN.md — /case-studies + /about + /contact form + contact backend endpoint
-- [ ] 58-04-PLAN.md — /docs landing + 404 polish + smoke + CHECKPOINT for M8
+- [x] 58-03-PLAN.md — /case-studies (3 entries) + /about + /contact form + public POST /api/contact (Origin allow-list + 5/hr/IP rate limit + honeypot + DB persist + best-effort SES) + mig 035 contact_submissions + sitemap 22→25 — **CLOSED 2026-05-16** (4 requirements closed: CaseStudiesPage, AboutPage, ContactPage, ContactFormBackend)
+- [x] 58-04-PLAN.md — /docs landing (13 module quick-starts) + /security trust page + PageHelmet wrapper + NotFoundPage polish + /og/default.png + sitemap 25→26 + 35/35 cross-cutting smoke + CHECKPOINT.md — **CLOSED 2026-05-15** (1 requirement closed: DocsLandingPage; SeoBaseline404SitemapRobots final closure)
+
+**Status: CLOSED 2026-05-15** — all 10 requirements addressed: CognitoMigratedAuth, PricingPageStripePlaceholder, MarketingHomeRefresh, SeoBaseline404SitemapRobots, ModuleMarketingPages, CaseStudiesPage, AboutPage, ContactPage, ContactFormBackend, DocsLandingPage. **Next: operator picks `/gsd:plan-phase 59` (M8 compliance + observability — RECOMMENDED), `/gsd:resume-work Phase 56` (M4 Stripe from paused Wave 1 Task 2), or polish phase (per-module OG images, Loom videos, blog posts).** See `.planning/phases/58-m7-marketing-site-completion/CHECKPOINT.md` for hand-off details.
 
 ---
 
@@ -1018,10 +1020,10 @@ These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-
 | ~~**M2** — RDS Postgres migration~~ | ~~42-43~~ | **SUPERSEDED 2026-05-15 by Phase 54.5** — pulled forward into M6 because RLS (M3) wants a single implementation on the target platform, and tenant count is at lifetime minimum NOW. | n/a | n/a |
 | ~~**M3** — Multi-tenancy + RLS~~ | ~~44-48~~ | **COMPLETE 2026-05-15 via Phase 55 (5 plans).** RLS database-enforced on 152 tables across 4 schemas; 459 isolation tests in CI; rollback runbook + drill; 2 CloudWatch alarms; 7/7 requirements closed. | n/a | Done |
 | **M4** — Stripe + entitlements | 56+ | Stripe Subscriptions, base $99/mo + add-on prices, webhook Lambda, customer portal. | M5 defaults all modules ON in trial; M4 wires real billing + downgrades. | **UNBLOCKED 2026-05-15 by Phase 55 closure** — next: `/gsd:plan-phase 56` |
-| **M7** — Marketing site | 55 | 5/5 | Complete   | 2026-05-15 |
+| **M7** — Marketing site | 58 | 4/4 | Complete   | 2026-05-16 |
 | **M8** — Compliance + observability + load/chaos | 56-58 | Per-tenant audit log, KMS encryption-at-rest, SOC2 readiness, CloudWatch dashboards, RBAC per module (extends 54.1), **k6 load tests + chaos failures (Lambda timeout, DB drop)**. | Hardens for enterprise. Not needed for SMB pilot tenants. | Before first enterprise sale or SOC2 audit |
 
-*Last updated 2026-05-16T01:32Z: **Phase 57 COMPLETE — M6 module page completion CLOSED.** 4/4 plans, 11/11 requirements closed across 4 waves: 16 stub→real module pages + page-template.js + 5 backend list endpoints (57-01); arena keyedEntity + chrome populator (57-02); MES + Quality + Royalty pages + Royalty backend mig 033 (57-03); 3 AI Agents pages + real Settings/Help + agent_runs mig 034 + 4 POST retrofits + 2 GET routes + CF Function 10,056→9,130 B + 16 orphaned stub HTML deletions + CHECKPOINT.md (57-04). **Next: operator picks `/gsd:plan-phase 58` (M7 marketing — RECOMMENDED), `/gsd:resume-work Phase 56` (M4 Stripe from paused Wave 1 Task 2), or `/gsd:plan-phase 59` (M8 compliance).** Earlier: Phase 55 COMPLETE 2026-05-15 (M3 CLOSED — RLS database-enforced on 152 tables / 4 schemas; 459 isolation tests in CI; 7-day soak window started 2026-05-15→2026-05-22).*
+*Last updated 2026-05-15T04:30Z: **Phase 58 COMPLETE — M7 marketing site CLOSED.** 4/4 plans, 10/10 requirements closed across 4 waves: Cognito auth migration + HomePage 13-module refresh + sitemap baseline (58-01); 13 per-module marketing pages w/ build-time upstream sync (58-02); 3 case studies + /about + /contact + public POST /api/contact backend (Origin allow-list + 5/hr/IP rate limit + honeypot + DB persist + best-effort SES) + mig 035 contact_submissions (58-03); /docs landing w/ 13 quick-starts + /security trust page + PageHelmet wrapper for M8 retrofit + NotFoundPage polish + 1200×630 default OG image + 35/35 cross-cutting smoke PASS + CHECKPOINT.md for M8 hand-off (58-04). Final live surface: 26 indexable URLs on zietra.com. Deferred for M8: SES-VPC fix (NAT or VPCE), per-module OG images, Astro vs Lambda@Edge OG-injector decision, PageHelmet retrofit across 25 pages. **Next: operator picks `/gsd:plan-phase 59` (M8 compliance + observability — RECOMMENDED), `/gsd:resume-work Phase 56` (M4 Stripe), or polish phase.** Earlier: Phase 57 COMPLETE 2026-05-16 (M6 module pages CLOSED — 11/11 requirements). Phase 55 COMPLETE 2026-05-15 (M3 RLS CLOSED — 152 tables / 4 schemas / 459 isolation tests).*
 
 ---
 
