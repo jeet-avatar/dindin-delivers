@@ -1001,7 +1001,7 @@ Plans:
 **Blocks:** Outbound sales, organic SEO, public launch.
 **Requirements:** ModuleMarketingPages, CaseStudiesPage, AboutPage, ContactPage, ContactFormBackend, DocsLandingPage, CognitoMigratedAuth, PricingPageStripePlaceholder, MarketingHomeRefresh, SeoBaseline404SitemapRobots
 
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 - [x] 58-01-PLAN.md — Cognito auth migration + HomePage 13-module refresh + Pricing Stripe placeholder + Footer/NavBar real routes + Privacy/Terms post-Phase-55 update + NotFoundPage popular pages + build-time sitemap generator + llms.txt refresh — **CLOSED 2026-05-16** (4 requirements closed: CognitoMigratedAuth, PricingPageStripePlaceholder, MarketingHomeRefresh, SeoBaseline404SitemapRobots)
 - [x] 58-02-PLAN.md — 13 per-module marketing pages (shared template) + `src/data/modules.ts` + build-time sync from upstream module-catalog + `/modules` index w/ industry filter + sitemap 9→22 URLs — **CLOSED 2026-05-16** (2 requirements closed: ModuleMarketingPages, SeoBaseline404SitemapRobots)
 - [ ] 58-03-PLAN.md — /case-studies + /about + /contact form + contact backend endpoint
