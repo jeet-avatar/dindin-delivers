@@ -643,6 +643,9 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 57-m6-module-page-completion-replace-stubs-tenant-aware-pages]: tenant.features is string[] not object — use Array.includes for feature gate
 - [Phase 57-m6-module-page-completion-replace-stubs-tenant-aware-pages]: Polling readiness fallback for window.zPage (no zietra-shell-ready event in app-shell.js)
 - [Phase 57-m6-module-page-completion-replace-stubs-tenant-aware-pages]: Old /stubs/* files kept (deferred to 57-04 cleanup)
+- [Phase 59-m8-compliance-observability-reliability]: Phase 59-01: SES VPCE = HTTPS API (com.amazonaws.us-east-1.email), NOT email-smtp — matches @aws-sdk/client-ses SDK
+- [Phase 59-m8-compliance-observability-reliability]: Phase 59-01: FORCE RLS does NOT subject table OWNER session — Lambda must run as zietra_app (not zietra_admin) for RLS to enforce cross-tenant isolation
+- [Phase 59-m8-compliance-observability-reliability]: Phase 59-01: auditLog() helper MUST be called inside withTenantClient callback — insert participates in caller txn for atomic rollback
 
 ### Quick Tasks Completed
 
@@ -687,4 +690,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 57 P04 | 13min | 3 tasks | 5 files |
 | Phase 58-m7-marketing-site-completion P01 | 10 min | 2 tasks | 15 files |
 | Phase 58-m7-marketing-site-completion P02 | 11min | 2 tasks | 12 files |
+| Phase 59-m8-compliance-observability-reliability P01 | 50min | 2 tasks | 9 files |
 
