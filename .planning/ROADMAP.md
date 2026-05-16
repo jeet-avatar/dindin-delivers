@@ -1011,6 +1011,42 @@ Plans:
 
 ---
 
+### Phase 59: M8 — Compliance + observability + reliability ⚡ INSERTED 2026-05-15
+
+**Goal:** Close every operational/compliance gap so the platform is GA-ready for SMB + small-enterprise paid customers. Items range from infrastructure fixes (SES VPC issue from 58-03 deferred) to platform observability (CloudWatch dashboards, status page, per-tenant audit log) to public assets (API docs, per-module OG images, PageHelmet retrofit) to validation (k6 load tests, chaos tests, SOC 2 controls audit).
+
+**Scope (locked):**
+- **Fix SES VPC issue** (58-03 deferred item): add SES VPCE in zietra-prod-vpc (~$7/mo/AZ) so /api/contact email actually delivers to support@zietra.com. Validate AbortController timeout in `routes/contact.ts` can be removed (the email send no longer hangs).
+- **Per-tenant audit log:** migration 036 `public.audit_log_v2` (tenant_id, actor_cognito_sub, action, resource_type, resource_id, before_jsonb, after_jsonb, ip_address, user_agent, timestamptz). RLS-scoped. Auto-write helper used in withTenantClient mutations (opt-in per route via `auditLog()` wrapper). Settings page gets new "Audit log" section visible to admin role only.
+- **CloudWatch dashboards** (extends 54.6 alarms): named `zietra-prod-overview` showing Aurora ACU + connection count + slow queries, RDS Proxy metrics, 4-Lambda invocation/error/duration, WAF blocks per rule, GuardDuty findings count, Cognito sign-ins/day. Single dashboard with 12 widgets.
+- **Status page** at `status.zietra.com` — separate static page (S3 + CF distro) showing real-time component health pulled from CloudWatch metrics via a public Lambda. Components: API (ERP, Satellite), Aurora, RDS Proxy, Cognito Auth, SES. Auto-refresh every 60s.
+- **API documentation landing** at `/docs/api` on marketing site: list 169 REST routes (per Phase 55-04 audit) grouped by module + interactive try-it-out via Swagger UI generated from a hand-curated OpenAPI 3.1 spec covering top 30 most-used endpoints (signup, tenants, team, modules, recommend, finalize, contact). Full coverage = M9.
+- **PageHelmet retrofit:** Apply the Phase 58-04 PageHelmet wrapper across all 25 marketing pages (every page has title + description + OG image + canonical URL).
+- **Per-module OG image generation:** Static PNG per of 13 modules at `public/og/modules/<slug>.png` (1200×630). Use Satori or `og-image` style server-side render OR hand-design 13 simple branded cards.
+- **k6 load tests** for top-10 endpoints from Phase 55-04 perf baseline. Verify Aurora ACU autoscales correctly; document the p95 cliff and the ACU at which it occurs.
+- **Chaos tests** — 3 scenarios: (a) Lambda timeout to 1s (force degradation, verify graceful 504 + retry), (b) Aurora secret rotate mid-flight (verify Lambda reconnects within 30s), (c) RDS Proxy max-connections exhaustion (verify queueing not crash).
+- **SOC 2 controls audit:** map our actual controls (encryption at rest, encryption in transit, access logging, RBAC, etc.) against SOC 2 Trust Services Criteria. Output: `docs/soc2-controls-status.md` with each control marked deployed/partial/not-yet. NOT a SOC 2 audit itself — preparation for one.
+
+**Out of scope (deferred to M9+):**
+- Actual SOC 2 Type II audit ($30K+, 6-12 month observation period — defer until first enterprise customer requires it)
+- Full OpenAPI coverage of 169 routes (M9)
+- Multi-region active-active (M9 — requires real EU/APAC customer demand)
+- HIPAA BAA (M9 — requires healthcare customer)
+- AWS Organizations multi-account (M9 — needed only at $1M+ ARR)
+- Sub-second Aurora failover (M9)
+- Per-tenant cost attribution dashboards (M9)
+- Customer-facing API rate limiting (M9 — Phase 55-04 added baseline)
+- Real-time tenant impersonation for support (M9)
+
+**Depends on:** Phase 58 (marketing surface exists for /docs/api + per-module OG retrofit) + Phase 54.6 (CloudWatch alarms + Security Hub baseline to extend) + Phase 55 (RLS — audit log table needs same enforcement) + Phase 57 (Settings page exists for audit-log UI to land in).
+**Blocks:** Production GA + first enterprise customer audit + status page brand trust.
+**Requirements:** SesVpceFix, AuditLogV2, AuditLogUiInSettings, CloudWatchOverviewDashboard, StatusPage, ApiDocsLanding, PageHelmetRetrofit, PerModuleOgImages, K6LoadTests, ChaosTests, Soc2ControlsAudit
+
+**Plans:** 0 plans (proposed structure: 59-01 SES VPCE + audit log v2 migration 036 + auditLog helper + retrofit to 5 hottest mutate routes; 59-02 CloudWatch overview dashboard + status.zietra.com + Settings audit-log UI; 59-03 /docs/api + Swagger UI + 30-route OpenAPI spec + PageHelmet retrofit + 13 per-module OG images; 59-04 k6 load tests + chaos tests + SOC 2 controls audit + cross-cutting smoke + CHECKPOINT to M9 / GA-launch readiness)
+- [ ] TBD (run `/gsd:plan-phase 59`)
+
+---
+
 ## Deferred milestones (TODO — return after M5+M6 demo)
 
 These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-grade multi-tenant SaaS first; the items below harden it for GA / paid customers.
