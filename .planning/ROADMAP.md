@@ -933,8 +933,43 @@ Plans:
 **Blocks:** Onboarding any real paying customer.
 **Requirements:** StripeTestModeIntegration, ProductPriceCatalog, CheckoutFlow, WebhookHandler, CustomerPortal, TrialToPaidConversion, EntitlementSync, StripeCustomerMapping, BillingChecklistItem, LiveModeCutover
 
-**Plans:** 0 plans (proposed structure: 56-01 Stripe products/prices + webhook scaffold + migration 033 stripe_customer_id; 56-02 checkout flow + customer portal + entitlement sync; 56-03 trial-to-paid + checklist integration + 10-scenario test-mode smoke + GO/NO-GO checkpoint; 56-04 live-mode cutover + production smoke + CHECKPOINT for next milestone)
-- [ ] TBD (run `/gsd:plan-phase 56`)
+**Plans:** 4 plans authored, 1 paused at Wave 1 Task 2 (operator-test-keys gate). Resumable in any session.
+
+---
+
+### Phase 57: M6 — Module page completion (replace 16 stubs + tenant-aware existing pages) ⚡ INSERTED 2026-05-15
+
+**Goal:** Every module landing page that the Phase 54 nav rail links to is a REAL list+detail+create UI that queries tenant-scoped data via existing backend endpoints, NOT a "coming soon" stub. Use cases per industry:
+- **D2C/E-commerce:** browse my customers (Salesforce CRM), see my SKUs (NetSuite Items), my open POs (Procurement), my drop-ship orders (Ramp), my orders (Sales), my invoices (NS Invoices)
+- **Aerospace:** my BOMs (Arena Parts), my ECOs (Change Orders), my work orders (MES), my NCRs/CAPAs (Quality), my royalty agreements
+- **SaaS:** my contacts (CRM), opportunities, ASC 606 contracts (link to asc606.zietra.com)
+- **Manufacturing:** my parts, ECOs, work orders, NCRs/CAPAs, items
+- **AI Agents:** see run history, manually trigger, view outputs
+
+**Scope:** Replace **16 stub pages** (`stubs/{salesforce-customers,salesforce-opportunities,netsuite-invoices,netsuite-journal-entries,arena-parts,arena-change-orders,mes-work-orders,mes-build-steps,quality-ncrs,quality-capas,quality-audits,royalty-agreements,agents-ncr-capa,agents-evms,agents-integration,ramp-cards}.html`) with real list+detail+create pages. Add **missing backend GET list/detail endpoints**: Arena (parts/ecos/ncrs/capas/audits — has POST-create only), NetSuite (items list, invoices, journal-entries), Royalty (entire new route file). Verify **6 Turion-content pages** (`netsuite-items.html`, `netsuite-customer-so.html`, `netsuite-procurement.html`, `netsuite-financials.html`, `arena-bom.html`, `mes-shop-floor.html`) query tenant-scoped data via existing API (RLS already enforces; UI may have Turion-hardcoded branding to clean). Build **settings.html** + **help.html** as real pages (currently stubs). Marketing/coming-soon stays as stub (intentional placeholder for un-marketed modules).
+
+**Out of scope:**
+- Stripe checkout UI (`/billing/upgrade`, `/billing` portal) — M4 (Phase 56) paused; this Phase 57 does NOT touch billing UI
+- AI Agents Anthropic integration changes (just expose existing endpoints in UI)
+- ASC 606 — already external link to asc606.zietra.com (no in-app page needed)
+- New backend business logic — only LIST/DETAIL/CREATE endpoints to mirror what already exists for some modules
+- Performance optimization (deferred — pages can be slow on first load, M8 fixes)
+- Mobile responsiveness audit (best-effort matching existing patterns)
+
+**Per-page deliverable (each must have):**
+- List view with pagination (default 25 per page)
+- Detail view (click row → modal or new page)
+- Create form (admin/manager role only) with validation
+- Empty state when tenant has no data ("You haven't imported any customers yet. → Migrate from /onboarding/migrate")
+- Loading + error states
+- Uses `withTenantClient` via existing tenant API (Phase 55 RLS)
+
+**Depends on:** Phase 55 (RLS — pages query tenant-scoped data) + Phase 54.4 (onboarding refers users TO these pages).
+**Blocks:** Demo-readiness for real prospect walkthroughs across industries.
+**Requirements:** SalesforceCrmRealPages, NetSuiteListPages, ArenaListPages, MesListPages, QualityListPages, RoyaltyMgmtPages, AiAgentsUi, RampDropshipPages, SettingsHelpPages, BackendListEndpointsGapFill, TurionPagesTenantAwarenessVerified
+
+**Plans:** 0 plans (proposed structure: 57-01 Sales+CRM frontend+backend gap; 57-02 Operations frontend+backend gap [Items, Procurement, Ramp, Vendor]; 57-03 Manufacturing+Quality+Royalty frontend+backend gap; 57-04 AI Agents UI + Settings/Help + Turion-page verification + cross-cutting smoke + CHECKPOINT)
+- [ ] TBD (run `/gsd:plan-phase 57`)
 
 ---
 
