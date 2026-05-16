@@ -1048,7 +1048,48 @@ Plans:
 - [x] 59-03-PLAN.md — /docs/api landing w/ Swagger UI (locally hosted) + 31-path OpenAPI 3.1 spec + PageHelmet retrofit across 17 components + 13 module + 3 case-study OG images
 - [x] 59-04-PLAN.md — k6 load test script + 3 chaos scenarios (Lambda timeout/secret rotate/Proxy exhaustion) w/ trap auto-revert + docs/soc2-controls-status.md (36 criteria) + scripts/smoke-phase-59.sh (49 checks) + CHECKPOINT.md
 
-**Status: CLOSED 2026-05-16** — all 11 requirements addressed: SesVpceFix, AuditLogV2, AuditLogUiInSettings, CloudWatchOverviewDashboard, StatusPage, ApiDocsLanding, PageHelmetRetrofit, PerModuleOgImages, K6LoadTests, ChaosTests, Soc2ControlsAudit. **Next: M9 GA-launch readiness (`/gsd:plan-phase 60`) — RECOMMENDED** (close 10 SOC 2 gaps from `docs/soc2-controls-status.md` + 169-route OpenAPI + multi-region POC + engage Drata/Vanta/Secureframe), or `/gsd:resume-work Phase 56` (M4 Stripe). See `.planning/phases/59-m8-compliance-observability-reliability/CHECKPOINT.md` for full hand-off + 3 prompts.
+**Status: CLOSED 2026-05-16** — all 11 requirements addressed: SesVpceFix, AuditLogV2, AuditLogUiInSettings, CloudWatchOverviewDashboard, StatusPage, ApiDocsLanding, PageHelmetRetrofit, PerModuleOgImages, K6LoadTests, ChaosTests, Soc2ControlsAudit. **Next: Phase 60 (real CAD support for robotics) per user direction — RECOMMENDED**, OR M9 GA-launch readiness (close 10 SOC 2 gaps), OR `/gsd:resume-work Phase 56` (M4 Stripe). See `.planning/phases/59-m8-compliance-observability-reliability/CHECKPOINT.md` for full hand-off.
+
+---
+
+### Phase 60: Real CAD support (STEP/STL upload + 3D viewer + drawing markup + revision control) ⚡ INSERTED 2026-05-16
+
+**Goal:** Robotics / mechanical-engineering customers can ingest their actual CAD files (STEP, STL, IGES, 3D-PDF), view them in a real 3D viewer in the browser, mark up engineering drawings, generate printable shop-floor PDFs, and version every revision. Closes the biggest gap identified during the post-Phase-59 robotic-arm use-case audit: today's CAD generation is hardcoded for aerospace nomenclature (regex matches THRUSTER/VALVE/SOLAR/ANTENNA) and falls through to generic boxes for everything else; no upload path exists.
+
+**Why this is real CAD vs the Phase 27-35 work:**
+- Phase 27 generated 87 SVG cabinet projections of Turion's specific satellite parts via procedural templates — beautiful for Turion, useless for a robotic arm
+- Phase 30-31 added a Three.js 3D viewer that renders **procedural geometry from dimensions** (L×W×H boxes, cylinders, spheres) — works for "ADCS-RW-MEDIUM-A" (Reaction Wheel) but renders a robotic arm as a stack of boxes
+- Phase 35 added an in-browser SVG editor for the auto-generated drawings — but no way to upload user-supplied drawings
+
+Phase 60 = upload YOUR CAD (real geometry from SolidWorks/Inventor/Fusion/Onshape) → render it accurately → mark it up → ship printable drawings to your shop floor.
+
+**Scope (locked):**
+- **CAD file upload** — NEW `part_cad_files` table (id, part_id, tenant_id, format ENUM[step,stl,iges,3dpdf,dwg,sldprt], s3_key, sha256, file_size, uploaded_by_cognito_sub, uploaded_at, is_active, revision). NEW S3 bucket `zietra-cad-files-<account-id>` with tenant-prefix paths + KMS encryption + 5-year lifecycle.
+- **Upload UI** — multi-part form on /arena/parts/:id (NEW edit-drawing tab). Direct-to-S3 presigned PUT (no Lambda payload limits).
+- **STL viewer** — Three.js + `STLLoader` (ships with Three.js). Browser-rendered. Works week 1.
+- **STEP/IGES viewer** — `occt-import-js` (open-source OpenCascade port → triangulated mesh → Three.js). ~2-3 days integration. Handles assemblies + colors + sub-parts.
+- **3D-PDF viewer** — embed as `<iframe>` or use PDF.js with 3D plugin. Defer to Phase 61 if complex; ship STL+STEP first.
+- **Drawing markup** — Fabric.js SVG annotation layer over the part-detail drawing view. Save markups as overlaid SVG layer (separate from base drawing). NEW `part_drawing_markups` table.
+- **Engineering drawing PDF generator** — Puppeteer in a NEW Lambda `zietra-cad-pdf-gen`. Renders an HTML "engineering drawing" template (title block + selected drawing + BOM table + notes) → PDF → returns S3 URL. Async via SQS to avoid blocking.
+- **Revision control on uploaded files** — extend `part_revisions` (Phase 35) to support uploaded files alongside auto-generated SVGs. Each new upload bumps revision. UI shows revision history with timestamps + uploader + diff (basic file-size + sha256 comparison; visual diff deferred).
+- **Template dispatch fallback** — modify `chooseTemplate()`: if `part_cad_files` has an active uploaded drawing for the part → render that; ONLY fall back to procedural generation if no upload exists. This is the key fix for the robotic-arm-feels-broken gap.
+
+**Out of scope (deferred to Phase 61+):**
+- CAD-driven BOM extraction (parse STEP assembly tree → auto-create BOM rows)
+- SolidWorks/CATIA/NX native file viewing (need commercial like CADexchanger — defer until customer asks)
+- Drawing comparison tools (Diff Mode showing rev N vs rev N-1)
+- Real-time multi-user markup collaboration
+- Inline geometry editing in the browser (Onshape territory — out of scope forever)
+- File size > 100 MB (chunked upload, defer to Phase 61)
+- Mesh decimation for large assemblies (browser perf — defer)
+- AR/VR view (defer)
+
+**Depends on:** Phase 55 (RLS — uploaded files must be tenant-isolated) + Phase 54.6 (S3 + KMS infrastructure pattern) + Phase 57 (parts page UI to extend) + Phase 35 (part revisions schema to extend).
+**Blocks:** Onboarding any robotics, mechanical engineering, aerospace (beyond Turion), or product-design customer who needs CAD viewing.
+**Requirements:** CadFileUploadEndpoint, CadFilesTable, CadStorageBucket, StlViewer, StepViewer, DrawingMarkup, DrawingPdfGenerator, RevisionControlOnUploads, TemplateDispatchFallback, CadAuditLog
+
+**Plans:** 0 plans (proposed structure: 60-01 part_cad_files schema migration 037 + S3 bucket + presigned upload backend + upload UI on parts page; 60-02 STL viewer + STEP viewer via occt-import-js + viewer toggle on part detail; 60-03 drawing markup via Fabric.js + part_drawing_markups schema migration 038 + revision control extension; 60-04 PDF generator Lambda + Puppeteer + SQS async + template dispatch fallback + cross-cutting smoke + robotic-arm walkthrough test + CHECKPOINT for Phase 61)
+- [ ] TBD (run `/gsd:plan-phase 60`)
 
 ---
 
