@@ -625,6 +625,9 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 54.4]: Adapted CSV import to actual Aurora schema (turion.customers/items/vendors with source_data jsonb) instead of non-existent ns_*/sf_accounts tables from PLAN; CSV columns packed into jsonb so existing readers see imports immediately
 - [Phase 54.4]: Two-pool DB topology: zietra_app (RLS) + lazy zietra_admin_bypass (cross-tenant SELECT only for sample-data clone)
 - [Phase 54.4]: papaparse bundled at /lib/ (not CDN) — CSP-safe per Pitfall 3
+- [Phase 57-m6-module-page-completion-replace-stubs-tenant-aware-pages]: tenant.features is string[] not object — use Array.includes for feature gate
+- [Phase 57-m6-module-page-completion-replace-stubs-tenant-aware-pages]: Polling readiness fallback for window.zPage (no zietra-shell-ready event in app-shell.js)
+- [Phase 57-m6-module-page-completion-replace-stubs-tenant-aware-pages]: Old /stubs/* files kept (deferred to 57-04 cleanup)
 
 ### Quick Tasks Completed
 
@@ -663,4 +666,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 55-m3-multi-tenancy-rls-tenant-isolation P04 | 14min 11sec | 3 tasks | 18 files |
 | Phase 55-m3-multi-tenancy-rls-tenant-isolation P05 | 11min 57sec | 3 tasks | 7 files |
 | Phase 54.4 P02 | 17m | 3 tasks | 14 files |
+| Phase 57-m6-module-page-completion-replace-stubs-tenant-aware-pages P01 | 7min | 3 tasks | 6 files |
 
