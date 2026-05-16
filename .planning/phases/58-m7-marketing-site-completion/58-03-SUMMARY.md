@@ -84,7 +84,7 @@ completed: 2026-05-15
 
 # Phase 58 Plan 03: m7-marketing-site-completion Wave 3 Summary
 
-**Shipped 3 case studies (Turion Space, Marquee + Anni Glitters, Glide Labs representative SaaS), /about, and /contact with a working contact form backed by a brand-new public Express route POST /api/contact (Origin allow-list + 5/hr/IP rate limit + honeypot + DB persist + best-effort SES). 4 atomic backend commits + 4 atomic marketing commits = 8 total. 12/12 live smoke pass on zietra.com. Backend Lambda turion-demo-api redeployed with CodeSha256 322dcbea... Discovered + worked around a VPC-no-NAT issue that made the SES send hang the whole Lambda — best-effort timeout fix landed inline (Rule-1).**
+**Shipped 3 case studies (Turion Space, Marquee + Anni Glitters, Glide Labs representative SaaS), /about, and /contact with a working contact form backed by a brand-new public Express route POST /api/contact (Origin allow-list + 5/hr/IP rate limit + honeypot + DB persist + best-effort SES). 4 atomic backend commits + 4 atomic marketing commits = 8 total. 12/12 live smoke pass on zietra.com. Backend Lambda turion-demo-api redeployed twice (pre-fix `322dcbea…`, post-fix `8a6a542b…` is the production value) Discovered + worked around a VPC-no-NAT issue that made the SES send hang the whole Lambda — best-effort timeout fix landed inline (Rule-1).**
 
 ## Performance
 
@@ -105,7 +105,7 @@ completed: 2026-05-15
 - `backend/src/app.ts` mounts `/api/contact` BEFORE requireAuth routers — public route pattern from Phase 52 (routes/tenants.ts).
 - IAM already had `ses:SendEmail` on `zietra.com` identity (existing inline policy `zietra-signup-cognito-ses`) — no IAM change needed.
 - SES identities `noreply@zietra.com` + `support@zietra.com` verified instantly (parent domain zietra.com DKIM covers child addresses in sandbox).
-- Lambda turion-demo-api redeployed via `build-and-push.sh` — new CodeSha256 `322dcbeaf58e9a8d1638b7185d6b2109621b89a34317330ff6f785b026416770`.
+- Lambda turion-demo-api redeployed via `build-and-push.sh` — new CodeSha256 `8a6a542befc37f0db2bb062b0428371ddab302a14a2546ce7644f44e46b5d790`.
 
 ### Frontend (zietra/marketing)
 - `src/data/case-studies.ts` — 3 hand-written CaseStudy entries (Turion / Marquee+Anni / Glide Labs sample SaaS) with drift sanity check that warns on unknown module slug references.
@@ -257,7 +257,7 @@ Until then, support team should poll `SELECT * FROM public.contact_submissions W
 
 **E2E contact form:** `curl -X POST https://lo254mvukl.execute-api.us-east-1.amazonaws.com/api/contact -H 'Origin: https://zietra.com' -H 'Content-Type: application/json' -d '{...}'` returned `{"ok":true,"id":"632edc16-..."}`. Test row cleaned up.
 
-**Lambda redeploy:** `aws lambda get-function-configuration --function-name turion-demo-api --query CodeSha256` returns `322dcbeaf58e9a8d1638b7185d6b2109621b89a34317330ff6f785b026416770` (changed from prior).
+**Lambda redeploy:** `aws lambda get-function-configuration --function-name turion-demo-api --query CodeSha256` returns `8a6a542befc37f0db2bb062b0428371ddab302a14a2546ce7644f44e46b5d790` (changed from prior).
 
 **CloudFront invalidations:** `I8ZLEHSNR9CDTM0NNGJ2FSREBG` (default / + /index.html) — Completed. `I8LZPLKN3UCCQ30FEK5A5FJQO6` (Rule-3 follow-up for /sitemap.xml + /robots.txt + /llms.txt) — Completed.
 
