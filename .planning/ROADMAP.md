@@ -1096,9 +1096,37 @@ Phase 60 = upload YOUR CAD (real geometry from SolidWorks/Inventor/Fusion/Onshap
 
 **Status: CLOSED 2026-05-16** — all 10 requirements addressed: CadFilesTable + CadStorageBucket + CadFileUploadEndpoint + CadAuditLog + StlViewer + StepViewer + TemplateDispatchFallback + DrawingMarkup + RevisionControlOnUploads + DrawingPdfGenerator. NEW repo `github.com/jeet-avatar/zietra-cad-pdf-gen` (private) + NEW Lambda + NEW IAM role + NEW SQS queue + NEW DLQ + NEW ESM + NEW S3 gateway VPC endpoint. Cross-cutting smoke `scripts/smoke-phase-60.sh` first-run: 34 pass / 0 fail / 0 errors. Robotic-arm walkthrough validates Pitfall 5 dispatch (uploaded > procedural) at BOTH the on-screen viewer AND the printed-drawing PDF render target. Ready for a robotics customer to onboard today. See `.planning/phases/60-real-cad-support-step-stl-upload-3d-viewer-drawing-markup/CHECKPOINT.md` for 8-item Phase 61 backlog + 3 next-step prompts (`/gsd:plan-phase 61` CAD enrichments / `/gsd:resume-work Phase 56` M4 Stripe / `/gsd:plan-phase 62` M9 GA readiness).
 
----
+### Phase 65.2: Data-aware, per-tenant dynamic onboarding wizard (Solo Brands lighthouse) ⚡ INSERTED 2026-05-16
 
-## Deferred milestones (TODO — return after M5+M6 demo)
+**Goal:** Replace the abstract, hardcoded 5-question wizard in `/onboarding/recommend.html` with a wizard that (a) introspects what the tenant has already imported (items, sales orders, vendors, customers, BOM, corporate facts), (b) loads tenant-specific question SETS AND tenant-specific pre-filled ANSWERS so the experience feels custom to "their environment" from first paint, and (c) drives module recommendations from actual data signals, not abstract categories. Solo Brands is the lighthouse: they should land on `/onboarding/recommend` and see "We see 109 items across Solo Stove, Chubbies, Oru, ISLE; 4 sales orders totalling $71K; 19 BOM parts; you're a delisted multi-brand D2C operator with 327 employees — here's the stack we'd turn on for you" with answers already selected, modules already checked, and a one-click finalize.
+
+**Why now:** Phase 65-01 imported Solo Brands' real data; Quick Task 338 proved the existing wizard's finalize round-trip works. The remaining gap is making the wizard feel like THEIR workspace — not a generic SaaS form — which is the selling-point promise from Phase 54.4. User explicitly asked 2026-05-16: *"ensure every question and onboarding is dynamic — every workspace should be loaded with question answers — so it makes them truly their environment."*
+
+**Requirements (every ID must appear in a plan):**
+- `TenantOnboardingProfileTable` — DB substrate: a `tenant_onboarding_profile` table (one row per tenant) holding `{question_set_code, answers JSONB, source ENUM(seeded|imported|user), updated_at}`. Migration is forward-only, idempotent, RLS-enforced.
+- `OnboardingProfileApi` — Backend: `GET /api/onboarding/profile` returns `{question_set, prefilled_answers, data_signals}`; `PATCH /api/onboarding/profile` accepts partial answer updates; both admin-or-tenant-member gated.
+- `DataIntrospector` — Backend: a `buildDataSignals(tenantId)` helper that reads `turion.items`, `turion.sales_orders`, `turion.vendors`, `turion.customers`, `bom_lines`, and tenant `corporate_data` and returns a typed signal pack (`{item_count, brand_breakdown, so_count, so_total_usd, bom_part_count, vendor_count, customer_count, has_corporate_facts}`).
+- `IndustryQuestionSets` — Backend: 3 question SETS keyed by industry (`d2c-multibrand`, `aerospace-hardware`, `services-saas`); each set has 3-7 questions with options. Set selection driven by `corporate_data.industry` if known, else `d2c-multibrand` default.
+- `RecommendationEngineDataDriven` — Backend: `/api/onboarding/recommend` extended to accept `data_signals` from the request body; recommendation logic uses signals first, abstract answers second. Solo Brands signal pack → `[crm, sales, items, plm, asc606, ai-agents, purchase, inventory, projects]` exact match to current 9 enabled modules.
+- `RecommendUiDynamic` — Frontend: `/onboarding/recommend.html` fetches `GET /api/onboarding/profile` on load, renders the right question set, pre-checks/pre-selects answers, shows a "💡 Why these picks?" data-signals strip ("Based on 109 items across 4 brands + 4 sales orders + corporate FY25 facts"). Selected answers persist on every change via `PATCH /api/onboarding/profile`.
+- `SeedSoloBrandsProfile` — Data: seed `tenant_onboarding_profile` for Solo Brands tenant with `{question_set_code='d2c-multibrand', answers={industry:'d2c-multibrand', team_size:'201-1000', pain_point:'consolidation', tools_today:['salesforce','netsuite'], asc606_needs:'yes-now'}, source='seeded'}`. Same migration seeds turion + brandmonkz + dollor with defensible defaults.
+- `OnboardingProfileSmoke` — Test: extend `scripts/smoke-onboarding.sh` (built in Quick 338) with 6 new checks covering GET/PATCH profile, signals presence, dynamic-question-set delivery per tenant, prefilled-answers survival across reloads. Round-trip MUST restore Solo Brands to seeded baseline.
+
+**Out of scope (defer to Phase 65.3+):**
+- Redesign of `/index.html` first-login experience (separate Phase 65.3 already pending)
+- New module add-ons beyond the 13 already in the catalog
+- AI-generated narrative ("Based on your imported data, you should…") — keep it deterministic; LLM-narration deferred
+- Editing tenant `corporate_data` from the wizard (read-only consumer for this phase)
+- Per-question conditional branching (Q3 depends on Q1) — straight-line set for now
+- Migration wizards (items CSV / vendors CSV / NS clone / SF) — already shipped Phase 54.4; this phase only touches `/onboarding/recommend`
+
+**Plans:** 4 plans in 3 waves
+
+Plans:
+- [ ] 65.2-01-PLAN.md — Migration 038 (tenant_onboarding_profile + tenants.corporate_data + 4-tenant seed) + question-sets.json + corporate.json industry tag (Wave 1)
+- [ ] 65.2-02-PLAN.md — Backend: data-signals introspector + rule-engine `consolidation`+`signal_rules` extension + GET/PATCH /api/onboarding/profile (Wave 2, parallel with 03)
+- [ ] 65.2-03-PLAN.md — Frontend: dynamic recommend.html rewrite — prefilled answers on first paint + "Why these picks?" signals strip + debounced 400ms autosave (Wave 2, parallel with 02)
+- [ ] 65.2-04-PLAN.md — Deploy (migration 038 apply + backend Docker push + frontend S3+CloudFront) + extend smoke-onboarding.sh with 6 new profile checks + round-trip restore (Wave 3)
 
 These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-grade multi-tenant SaaS first; the items below harden it for GA / paid customers.
 
