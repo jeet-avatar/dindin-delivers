@@ -1086,10 +1086,13 @@ Phase 60 = upload YOUR CAD (real geometry from SolidWorks/Inventor/Fusion/Onshap
 
 **Depends on:** Phase 55 (RLS — uploaded files must be tenant-isolated) + Phase 54.6 (S3 + KMS infrastructure pattern) + Phase 57 (parts page UI to extend) + Phase 35 (part revisions schema to extend).
 **Blocks:** Onboarding any robotics, mechanical engineering, aerospace (beyond Turion), or product-design customer who needs CAD viewing.
-**Requirements:** CadFileUploadEndpoint, CadFilesTable, CadStorageBucket, StlViewer, StepViewer, DrawingMarkup, DrawingPdfGenerator, RevisionControlOnUploads, TemplateDispatchFallback, CadAuditLog
+**Requirements:** CadFileUploadEndpoint, CadFilesTable, CadStorageBucket, StlViewer, StepViewer, DrawingMarkup, DrawingPdfGenerator, RevisionControlOnUploads, TemplateDispatchFallback, CadAuditLog (7/10 closed — 60-01: CadFilesTable + CadStorageBucket + CadFileUploadEndpoint + CadAuditLog; 60-02: StlViewer + StepViewer + TemplateDispatchFallback)
 
-**Plans:** 1/4 plans executed
-- [ ] TBD (run `/gsd:plan-phase 60`)
+**Plans:** 2/4 plans executed
+- [x] 60-01-PLAN.md — Real CAD support: upload + storage substrate (mig 023, S3 bucket + IAM, 5 routes, browser file picker with client-side SHA-256) — DONE 2026-05-16
+- [x] 60-02-PLAN.md — Real CAD viewers: STL via Three.js STLLoader + STEP via lazy occt-import-js + DB-aware chooseDrawingSource dispatcher + GET /drawing-source + part.html source badge — DONE 2026-05-16
+- [ ] 60-03-PLAN.md — Fabric.js drawing markup overlay + part_drawing_markups table (mig 024)
+- [ ] 60-04-PLAN.md — Engineering drawing PDF generator (async via SQS to zietra-cad-pdf-gen Lambda with Sparticuz Chromium)
 
 ---
 
