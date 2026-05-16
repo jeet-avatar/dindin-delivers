@@ -662,6 +662,8 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 60-real-cad-support-step-stl-upload-3d-viewer-drawing-markup]: Used SSE-AES256 (S3-managed) instead of KMS for zietra-cad-files bucket — no existing zietra prod CMK to reuse; sibling bucket turion-satellite-files also uses AES256 — Avoids new CMK creation + saves per-call KMS API cost + matches sibling-bucket convention
 - [Phase 60]: Plan 60-02: additive part.html rewire (not wholesale) preserves Phase 27/30/31/35 functionality on procedural path while uploaded CAD takes precedence
 - [Phase 60]: Plan 60-02: occt-import-js@0.0.23 loaded via runtime URL import (await import(URL) with locateFile for .wasm sibling), NEVER bundled — keeps parts list page free of 5MB WASM
+- [Phase 60-03]: Pinned isomorphic-dompurify@2.16.0 (not 3.x/2.36+); newer versions transitively pull @exodus/bytes ESM-only which crashes Lambda Node 20 require()
+- [Phase 60-03]: Fabric.js v6 markup overlay uses base-image-as-locked-DOM-layer (Pitfall 7) so canvas.toSVG() serializes only annotations
 
 ### Quick Tasks Completed
 
@@ -712,4 +714,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 59-m8-compliance-observability-reliability P04 | 22min | 2 tasks | 9 files |
 | Phase 60-real-cad-support-step-stl-upload-3d-viewer-drawing-markup P01 | 1h 17min | 2 tasks | 10 files |
 | Phase 60 P02 | 10m | 2 tasks | 6 files |
+| Phase 60-real-cad-support-step-stl-upload-3d-viewer-drawing-markup P03 | 17min | 2 tasks | 8 files |
 
