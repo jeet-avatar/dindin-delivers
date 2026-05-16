@@ -1086,13 +1086,15 @@ Phase 60 = upload YOUR CAD (real geometry from SolidWorks/Inventor/Fusion/Onshap
 
 **Depends on:** Phase 55 (RLS — uploaded files must be tenant-isolated) + Phase 54.6 (S3 + KMS infrastructure pattern) + Phase 57 (parts page UI to extend) + Phase 35 (part revisions schema to extend).
 **Blocks:** Onboarding any robotics, mechanical engineering, aerospace (beyond Turion), or product-design customer who needs CAD viewing.
-**Requirements:** CadFileUploadEndpoint, CadFilesTable, CadStorageBucket, StlViewer, StepViewer, DrawingMarkup, DrawingPdfGenerator, RevisionControlOnUploads, TemplateDispatchFallback, CadAuditLog (7/10 closed — 60-01: CadFilesTable + CadStorageBucket + CadFileUploadEndpoint + CadAuditLog; 60-02: StlViewer + StepViewer + TemplateDispatchFallback)
+**Requirements:** CadFileUploadEndpoint, CadFilesTable, CadStorageBucket, StlViewer, StepViewer, DrawingMarkup, DrawingPdfGenerator, RevisionControlOnUploads, TemplateDispatchFallback, CadAuditLog (**10/10 CLOSED** — 60-01: CadFilesTable + CadStorageBucket + CadFileUploadEndpoint + CadAuditLog; 60-02: StlViewer + StepViewer + TemplateDispatchFallback; 60-03: DrawingMarkup + RevisionControlOnUploads; 60-04: DrawingPdfGenerator)
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 - [x] 60-01-PLAN.md — Real CAD support: upload + storage substrate (mig 023, S3 bucket + IAM, 5 routes, browser file picker with client-side SHA-256) — DONE 2026-05-16
 - [x] 60-02-PLAN.md — Real CAD viewers: STL via Three.js STLLoader + STEP via lazy occt-import-js + DB-aware chooseDrawingSource dispatcher + GET /drawing-source + part.html source badge — DONE 2026-05-16
-- [ ] 60-03-PLAN.md — Fabric.js drawing markup overlay + part_drawing_markups table (mig 024)
-- [ ] 60-04-PLAN.md — Engineering drawing PDF generator (async via SQS to zietra-cad-pdf-gen Lambda with Sparticuz Chromium)
+- [x] 60-03-PLAN.md — Fabric.js drawing markup overlay + part_drawing_markups table (mig 024) — DONE 2026-05-16
+- [x] 60-04-PLAN.md — Engineering drawing PDF generator (async via SQS to zietra-cad-pdf-gen Lambda with Sparticuz Chromium) — DONE 2026-05-16
+
+**Status: CLOSED 2026-05-16** — all 10 requirements addressed: CadFilesTable + CadStorageBucket + CadFileUploadEndpoint + CadAuditLog + StlViewer + StepViewer + TemplateDispatchFallback + DrawingMarkup + RevisionControlOnUploads + DrawingPdfGenerator. NEW repo `github.com/jeet-avatar/zietra-cad-pdf-gen` (private) + NEW Lambda + NEW IAM role + NEW SQS queue + NEW DLQ + NEW ESM + NEW S3 gateway VPC endpoint. Cross-cutting smoke `scripts/smoke-phase-60.sh` first-run: 34 pass / 0 fail / 0 errors. Robotic-arm walkthrough validates Pitfall 5 dispatch (uploaded > procedural) at BOTH the on-screen viewer AND the printed-drawing PDF render target. Ready for a robotics customer to onboard today. See `.planning/phases/60-real-cad-support-step-stl-upload-3d-viewer-drawing-markup/CHECKPOINT.md` for 8-item Phase 61 backlog + 3 next-step prompts (`/gsd:plan-phase 61` CAD enrichments / `/gsd:resume-work Phase 56` M4 Stripe / `/gsd:plan-phase 62` M9 GA readiness).
 
 ---
 
