@@ -1120,10 +1120,10 @@ Phase 60 = upload YOUR CAD (real geometry from SolidWorks/Inventor/Fusion/Onshap
 - Per-question conditional branching (Q3 depends on Q1) — straight-line set for now
 - Migration wizards (items CSV / vendors CSV / NS clone / SF) — already shipped Phase 54.4; this phase only touches `/onboarding/recommend`
 
-**Plans:** 4 plans in 3 waves
+**Plans:** 1/4 plans executed
 
 Plans:
-- [ ] 65.2-01-PLAN.md — Migration 038 (tenant_onboarding_profile + tenants.corporate_data + 4-tenant seed) + question-sets.json + corporate.json industry tag (Wave 1)
+- [x] 65.2-01-PLAN.md — Migration 038 (tenant_onboarding_profile + tenants.corporate_data + 4-tenant seed) + question-sets.json + corporate.json industry tag (Wave 1) ([SUMMARY](phases/65.2-data-aware-per-tenant-dynamic-onboarding-wizard/65.2-01-SUMMARY.md))
 - [ ] 65.2-02-PLAN.md — Backend: data-signals introspector + rule-engine `consolidation`+`signal_rules` extension + GET/PATCH /api/onboarding/profile (Wave 2, parallel with 03)
 - [ ] 65.2-03-PLAN.md — Frontend: dynamic recommend.html rewrite — prefilled answers on first paint + "Why these picks?" signals strip + debounced 400ms autosave (Wave 2, parallel with 02)
 - [ ] 65.2-04-PLAN.md — Deploy (migration 038 apply + backend Docker push + frontend S3+CloudFront) + extend smoke-onboarding.sh with 6 new profile checks + round-trip restore (Wave 3)
