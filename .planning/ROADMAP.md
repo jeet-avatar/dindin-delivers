@@ -978,6 +978,34 @@ Plans:
 
 ---
 
+### Phase 58: M7 — Marketing site completion ⚡ INSERTED 2026-05-15
+
+**Goal:** zietra.com marketing site has every page a prospect could land on. Every CTA routes meaningfully (Start trial → app.zietra.com/signup, Contact → form, Pricing → tier display). **Stripe checkout stays as placeholder per user direction** — "Start paying" CTAs show "Coming soon" instead of routing to Stripe Checkout.
+
+**Pre-existing audit (2026-05-15):** Marketing site exists at `/Users/jeet/zietra/marketing/` (React 19 + Vite + Tailwind v4 + Framer Motion + react-router 7). Already built: HomePage, PricingPage, LoginPage, SignupPage, DashboardPage, TermsPage, PrivacyPage, NotFoundPage. Components: NavBar, SiteFooter, HeroSection, PricingSection, AutomationFlow, ProductReveal, StatsStrip, SuccessStories, StoryCard, DashboardMockup3D. Deploy: `deploy.sh` → S3 `zietra-marketing` + CF `E1X82T89JWL8CA` (us-east-1).
+
+**Gap scope:**
+- **Content refresh:** existing HomePage + PricingPage need to mirror the actual 13-module catalog (consistency with `/Users/jeet/turion-space-demo/lib/module-catalog.js`).
+- **Cognito auth migration:** Marketing `package.json` still has `@supabase/supabase-js` — Login + Signup must redirect to app.zietra.com/signup (Cognito), not duplicate auth on marketing site.
+- **13 per-module marketing pages** (NEW): `/modules/{crm,sales,items,plm,mes,quality,asc606,royalty,dropship,lean-erp-pro,purchase,ai-agents,qb-migration}` — value prop + use cases + screenshots + "Try free" CTA.
+- **/case-studies** (NEW): Turion Space (aerospace ERP), Marquee+Anni Glitters (D2C/fashion), one hypothetical SaaS.
+- **/about** (NEW): 1-page mission + team + traction.
+- **/contact** (NEW): Form → SES email to support@zietra.com + alternative channels (security@, sales@).
+- **/docs landing** (NEW): Quick-start guides per module. Full docs.zietra.com subdomain deferred to M8+.
+- **404 polish + sitemap.xml + robots.txt** — SEO baseline.
+- **Pricing CTA placeholder:** "Start free trial" → app.zietra.com/signup; "Upgrade to paid" → "Coming soon" tooltip.
+
+**Out of scope:** Stripe checkout wiring (M4 paused), blog/careers/press (post-launch), A/B testing, i18n, status page (M8), API docs (M8).
+
+**Depends on:** Phase 57 (in-app pages real — module marketing links land somewhere) + Phase 54.4 (signup flow exists).
+**Blocks:** Outbound sales, organic SEO, public launch.
+**Requirements:** ModuleMarketingPages, CaseStudiesPage, AboutPage, ContactPage, ContactFormBackend, DocsLandingPage, CognitoMigratedAuth, PricingPageStripePlaceholder, MarketingHomeRefresh, SeoBaseline404SitemapRobots
+
+**Plans:** 0 plans (proposed: 58-01 audit + content refresh + Cognito auth migration + pricing placeholder + sitemap/robots; 58-02 13 per-module marketing pages [shared template]; 58-03 /case-studies + /about + /contact form + contact backend endpoint; 58-04 /docs landing + 404 polish + smoke + CHECKPOINT for M8)
+- [ ] TBD (run `/gsd:plan-phase 58`)
+
+---
+
 ## Deferred milestones (TODO — return after M5+M6 demo)
 
 These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-grade multi-tenant SaaS first; the items below harden it for GA / paid customers.
