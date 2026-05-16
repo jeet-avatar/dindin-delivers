@@ -28,6 +28,11 @@ PAYLOAD_FILE=$(mktemp -t solobrands-runsql.XXXXXX)
 OUT_FILE=$(mktemp -t solobrands-runsql-out.XXXXXX)
 trap 'rm -f "$PAYLOAD_FILE" "$OUT_FILE"' EXIT
 
+# Runner Lambda invocations don't share session state, so RLS-protected
+# statements need the SET app.tenant_id prepended to every payload.
+# We track the last SET we saw and prefix it to subsequent statements.
+SESSION_SET=""
+
 # Read the whole file, split on `;` line endings (one stmt per line).
 # Statements that contain literal `;` inside quotes would break this, but
 # build-import-sql.py emits one stmt per line and never embeds `;` in literals.
@@ -36,12 +41,26 @@ while IFS= read -r line; do
   stmt="${line%;}"
   stmt="${stmt%"${stmt##*[![:space:]]}"}"
   [ -z "$stmt" ] && continue
+
+  # If this is itself a SET app.tenant_id=..., capture it for replay on
+  # subsequent statements and skip the no-op invocation.
+  if [[ "$stmt" =~ ^SET[[:space:]]+app\.tenant_id ]]; then
+    SESSION_SET="$stmt"
+    continue
+  fi
+
   TOTAL=$((TOTAL+1))
+
+  if [ -n "$SESSION_SET" ]; then
+    payload_sql="$SESSION_SET; $stmt"
+  else
+    payload_sql="$stmt"
+  fi
 
   python3 -c "
 import json, sys
 print(json.dumps({'sql': sys.argv[1], 'password': sys.argv[2], 'user': 'zietra_app'}))
-" "$stmt" "$RPASS" > "$PAYLOAD_FILE"
+" "$payload_sql" "$RPASS" > "$PAYLOAD_FILE"
 
   $AWS lambda invoke \
     --function-name "$LRUN_FN" \
