@@ -1,0 +1,243 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "Aurora ACU (zietra-aurora-prod-v2)",
+        "metrics": [
+          ["AWS/RDS", "ServerlessDatabaseCapacity", "DBClusterIdentifier", "zietra-aurora-prod-v2", { "label": "ACU", "stat": "Average" }],
+          ["AWS/RDS", "ACUUtilization", "DBClusterIdentifier", "zietra-aurora-prod-v2", { "label": "ACU Utilization %", "yAxis": "right", "stat": "Average" }]
+        ],
+        "period": 60,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false,
+        "annotations": {
+          "horizontal": [
+            { "label": "ACU ceiling", "value": 4, "yAxis": "left" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 0,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "Aurora DatabaseConnections (zietra-aurora-prod-v2)",
+        "metrics": [
+          ["AWS/RDS", "DatabaseConnections", "DBClusterIdentifier", "zietra-aurora-prod-v2", { "label": "Connections", "stat": "Average" }]
+        ],
+        "period": 60,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false,
+        "annotations": {
+          "horizontal": [
+            { "label": "DB Proxy max-conns target (80)", "value": 80 }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 0,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "Aurora CPUUtilization",
+        "metrics": [
+          ["AWS/RDS", "CPUUtilization", "DBClusterIdentifier", "zietra-aurora-prod-v2", { "label": "CPU %", "stat": "Average" }]
+        ],
+        "period": 60,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false,
+        "yAxis": { "left": { "min": 0, "max": 100 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "RDS Proxy DatabaseConnectionsCurrentlySessionPinned (zietra-aurora-proxy)",
+        "metrics": [
+          ["AWS/RDS", "DatabaseConnectionsCurrentlySessionPinned", "ProxyName", "zietra-aurora-proxy", { "label": "Pinned sessions", "stat": "Maximum" }]
+        ],
+        "period": 60,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false,
+        "annotations": {
+          "horizontal": [
+            { "label": "Alarm threshold (5)", "value": 5, "color": "#d62728" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "RDS Proxy DatabaseConnections (zietra-aurora-proxy)",
+        "metrics": [
+          ["AWS/RDS", "DatabaseConnections", "ProxyName", "zietra-aurora-proxy", { "label": "Proxy DB connections", "stat": "Average" }]
+        ],
+        "period": 60,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "turion-demo-api Invocations + Errors",
+        "metrics": [
+          ["AWS/Lambda", "Invocations", "FunctionName", "turion-demo-api", { "label": "Invocations", "stat": "Sum" }],
+          ["AWS/Lambda", "Errors", "FunctionName", "turion-demo-api", { "label": "Errors", "stat": "Sum", "color": "#d62728" }],
+          ["AWS/Lambda", "Throttles", "FunctionName", "turion-demo-api", { "label": "Throttles", "stat": "Sum", "color": "#ff7f0e" }]
+        ],
+        "period": 300,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 12,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "turion-demo-api Duration p50/p95/p99",
+        "metrics": [
+          ["AWS/Lambda", "Duration", "FunctionName", "turion-demo-api", { "label": "p50", "stat": "p50" }],
+          ["AWS/Lambda", "Duration", "FunctionName", "turion-demo-api", { "label": "p95", "stat": "p95" }],
+          ["AWS/Lambda", "Duration", "FunctionName", "turion-demo-api", { "label": "p99", "stat": "p99", "color": "#d62728" }]
+        ],
+        "period": 60,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false,
+        "annotations": {
+          "horizontal": [
+            { "label": "p99 SLO 800ms (Phase 55-04)", "value": 800, "color": "#d62728" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 12,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "turion-satellite-api Invocations + Errors",
+        "metrics": [
+          ["AWS/Lambda", "Invocations", "FunctionName", "turion-satellite-api", { "label": "Invocations", "stat": "Sum" }],
+          ["AWS/Lambda", "Errors", "FunctionName", "turion-satellite-api", { "label": "Errors", "stat": "Sum", "color": "#d62728" }],
+          ["AWS/Lambda", "Throttles", "FunctionName", "turion-satellite-api", { "label": "Throttles", "stat": "Sum", "color": "#ff7f0e" }]
+        ],
+        "period": 300,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 12,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "turion-satellite-api Duration p50/p95/p99",
+        "metrics": [
+          ["AWS/Lambda", "Duration", "FunctionName", "turion-satellite-api", { "label": "p50", "stat": "p50" }],
+          ["AWS/Lambda", "Duration", "FunctionName", "turion-satellite-api", { "label": "p95", "stat": "p95" }],
+          ["AWS/Lambda", "Duration", "FunctionName", "turion-satellite-api", { "label": "p99", "stat": "p99", "color": "#d62728" }]
+        ],
+        "period": 60,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 18,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "zietra-status-api Invocations",
+        "metrics": [
+          ["AWS/Lambda", "Invocations", "FunctionName", "zietra-status-api", { "label": "Invocations", "stat": "Sum" }],
+          ["AWS/Lambda", "Errors", "FunctionName", "zietra-status-api", { "label": "Errors", "stat": "Sum", "color": "#d62728" }],
+          ["AWS/Lambda", "Duration", "FunctionName", "zietra-status-api", { "label": "p95 (ms)", "stat": "p95", "yAxis": "right" }]
+        ],
+        "period": 300,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 18,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "WAF BlockedRequests (zietra-prod-waf, regional)",
+        "metrics": [
+          ["AWS/WAFV2", "BlockedRequests", "WebACL", "zietra-prod-waf", "Rule", "ALL", "Region", "us-east-1", { "label": "Blocked (ALL rules)", "stat": "Sum", "color": "#d62728" }],
+          ["AWS/WAFV2", "AllowedRequests", "WebACL", "zietra-prod-waf", "Rule", "ALL", "Region", "us-east-1", { "label": "Allowed (ALL rules)", "stat": "Sum", "color": "#2ca02c" }]
+        ],
+        "period": 300,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 18,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "title": "Cognito SignIn / SignUp (zietra-platform-users)",
+        "metrics": [
+          ["AWS/Cognito", "SignInSuccesses", "UserPool", "us-east-1_KQuNS85nP", "UserPoolClient", "ALL", { "label": "SignIn ok", "stat": "Sum", "color": "#2ca02c" }],
+          ["AWS/Cognito", "SignUpSuccesses", "UserPool", "us-east-1_KQuNS85nP", "UserPoolClient", "ALL", { "label": "SignUp ok", "stat": "Sum" }],
+          ["AWS/Cognito", "TokenRefreshSuccesses", "UserPool", "us-east-1_KQuNS85nP", "UserPoolClient", "ALL", { "label": "Token refresh ok", "stat": "Sum" }]
+        ],
+        "period": 3600,
+        "region": "us-east-1",
+        "view": "timeSeries",
+        "stacked": false
+      }
+    }
+  ]
+}
