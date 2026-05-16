@@ -667,6 +667,7 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 60-03]: Pinned isomorphic-dompurify@2.16.0 (not 3.x/2.36+); newer versions transitively pull @exodus/bytes ESM-only which crashes Lambda Node 20 require()
 - [Phase 60-03]: Fabric.js v6 markup overlay uses base-image-as-locked-DOM-layer (Pitfall 7) so canvas.toSVG() serializes only annotations
 - [Phase 60]: Phase 60 CLOSED — 4/4 plans complete; 10/10 ROADMAP requirements (CadFilesTable + CadStorageBucket + CadFileUploadEndpoint + CadAuditLog + StlViewer + StepViewer + TemplateDispatchFallback + DrawingMarkup + RevisionControlOnUploads + DrawingPdfGenerator). New repo zietra-cad-pdf-gen, new Lambda + IAM role + SQS queue + DLQ + ESM + S3 gateway VPC endpoint. Cross-cutting smoke 34/34 PASS; robotic-arm walkthrough validated Pitfall 5 dispatch (uploaded > procedural) at both viewer + PDF render targets. Ready for robotics customer.
+- [Phase 63]: Tenant-aware frontend: every page now swaps Turion Space → tenant.name via data-z-tenant-* hooks + runtime title rewriter; new generic /index.html; Turion content preserved at /architecture
 
 ### Quick Tasks Completed
 
@@ -719,4 +720,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 60 P02 | 10m | 2 tasks | 6 files |
 | Phase 60-real-cad-support-step-stl-upload-3d-viewer-drawing-markup P03 | 17min | 2 tasks | 8 files |
 | Phase 60 P04 | 42min | 2 tasks | 10 files |
+| Phase 63 P01 | 50min | 5 tasks | 39 files |
 
