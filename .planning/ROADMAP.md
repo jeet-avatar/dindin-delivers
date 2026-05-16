@@ -1088,7 +1088,7 @@ Phase 60 = upload YOUR CAD (real geometry from SolidWorks/Inventor/Fusion/Onshap
 **Blocks:** Onboarding any robotics, mechanical engineering, aerospace (beyond Turion), or product-design customer who needs CAD viewing.
 **Requirements:** CadFileUploadEndpoint, CadFilesTable, CadStorageBucket, StlViewer, StepViewer, DrawingMarkup, DrawingPdfGenerator, RevisionControlOnUploads, TemplateDispatchFallback, CadAuditLog
 
-**Plans:** 0 plans (proposed structure: 60-01 part_cad_files schema migration 037 + S3 bucket + presigned upload backend + upload UI on parts page; 60-02 STL viewer + STEP viewer via occt-import-js + viewer toggle on part detail; 60-03 drawing markup via Fabric.js + part_drawing_markups schema migration 038 + revision control extension; 60-04 PDF generator Lambda + Puppeteer + SQS async + template dispatch fallback + cross-cutting smoke + robotic-arm walkthrough test + CHECKPOINT for Phase 61)
+**Plans:** 1/4 plans executed
 - [ ] TBD (run `/gsd:plan-phase 60`)
 
 ---
