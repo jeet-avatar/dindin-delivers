@@ -647,6 +647,11 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 59-m8-compliance-observability-reliability]: Phase 59-01: FORCE RLS does NOT subject table OWNER session — Lambda must run as zietra_app (not zietra_admin) for RLS to enforce cross-tenant isolation
 - [Phase 59-m8-compliance-observability-reliability]: Phase 59-01: auditLog() helper MUST be called inside withTenantClient callback — insert participates in caller txn for atomic rollback
 - [Phase 59-m8-compliance-observability-reliability]: 59-02: CloudWatch dashboard zietra-prod-overview LIVE with 12 widgets; status.zietra.com LIVE (E2KQHHZTGT49L + APIGW w0bgjkwn3a + Lambda zietra-status-api); GET /api/audit-log admin-gated paginated route deployed (turion-demo-api 522dce7f); settings.html Audit log card. Operator follow-up: attach cloudwatch:DescribeAlarms to zietra-api-lambda-role.
+- [Phase 59-m8-compliance-observability-reliability]: Host Swagger UI assets locally at /swagger-ui/ (not CDN) for CSP strictness (Pitfall 6)
+- [Phase 59-m8-compliance-observability-reliability]: Hand-curated OpenAPI 3.1 spec (top 30 endpoints, 31 paths, 35 operations); auto-generation deferred to M9
+- [Phase 59-m8-compliance-observability-reliability]: Extended PageHelmet with noindex prop; eliminated NotFoundPage inline-Helmet exception
+- [Phase 59-m8-compliance-observability-reliability]: Satori OG generator as one-shot script (not prebuild) per RESEARCH Anti-Pattern
+- [Phase 59-m8-compliance-observability-reliability]: ROADMAP scope correction: 25 page-component count was URL-count; actual is 16 components (2 dynamic for /modules/:slug × 13 and /case-studies/:slug × 3)
 
 ### Quick Tasks Completed
 
@@ -693,4 +698,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 58-m7-marketing-site-completion P02 | 11min | 2 tasks | 12 files |
 | Phase 59-m8-compliance-observability-reliability P01 | 50min | 2 tasks | 9 files |
 | Phase 59-m8-compliance-observability-reliability P02 | 16min | 3 tasks | 11 files |
+| Phase 59-m8-compliance-observability-reliability P03 | 13min | 3 tasks | 36 files |
 
