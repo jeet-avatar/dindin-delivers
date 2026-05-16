@@ -158,17 +158,20 @@ def build_items_inserts():
 # ---------------------------------------------------------------------------
 
 SALES_ORDERS = [
+    # Item IDs verified to exist in turion.items for this tenant after the
+    # items import. ORU/ISLE/CHUB SKUs already start with the brand prefix
+    # so the canonical ID double-prefixes (e.g. ORU-ORU-LAKE).
     {
         "id": "SO-SB-2026-1001",
         "customer": "REI (Recreational Equipment Inc.)",
         "channel": "wholesale",
         "status": "fulfilled",
         "lines": [
-            {"item_id": "SOLO-SS-BONFIRE-2.0", "name_hint": "Bonfire", "qty": 100, "unit_price_usd": 299.99},
+            {"item_id": "SOLO-BONFIRE-19-5", "name_hint": "Bonfire 19.5", "qty": 100, "unit_price_usd": 299.99},
         ],
         "ship_to": "REI DC, Sumner, WA 98390",
         "po_number": "REI-PO-44892",
-        "notes": "Quarterly restock — Bonfire 2.0 (Solo Stove flagship)",
+        "notes": "Quarterly restock — Bonfire 19.5 (Solo Stove flagship)",
     },
     {
         "id": "SO-SB-2026-1002",
@@ -176,8 +179,8 @@ SALES_ORDERS = [
         "channel": "dtc",
         "status": "shipped",
         "lines": [
-            {"item_id": "ORU-OUTDOOR-FOLDABLE", "name_hint": "Oru Lake", "qty": 1, "unit_price_usd": 399.00},
-            {"item_id": "ISLE-PIONEER-PRO-2",   "name_hint": "Pioneer Pro 2", "qty": 1, "unit_price_usd": 795.00},
+            {"item_id": "ORU-ORU-LAKE",         "name_hint": "Oru Lake", "qty": 1, "unit_price_usd": 399.00},
+            {"item_id": "ISLE-ISLE-PIONEER-PRO-2", "name_hint": "Pioneer Pro 2", "qty": 1, "unit_price_usd": 795.00},
         ],
         "ship_to": "Sarah Hennessey, 2847 Mountain Vw Dr, Boulder CO 80302",
         "po_number": None,
@@ -189,7 +192,7 @@ SALES_ORDERS = [
         "channel": "wholesale",
         "status": "fulfilled",
         "lines": [
-            {"item_id": "ISLE-PIONEER-PRO-2", "name_hint": "Pioneer Pro 2", "qty": 50, "unit_price_usd": 795.00},
+            {"item_id": "ISLE-ISLE-PIONEER-PRO-2", "name_hint": "Pioneer Pro 2", "qty": 50, "unit_price_usd": 795.00},
         ],
         "ship_to": "Dick's Sporting Goods DC, Smithton PA 15479",
         "po_number": "DKS-PO-2026-7741",
@@ -201,9 +204,9 @@ SALES_ORDERS = [
         "channel": "dtc",
         "status": "processing",
         "lines": [
-            {"item_id": "CHUB-CHUB-DREAMHOUSE-PINKS-55-SWIM", "name_hint": "Dreamhouse Pinks", "qty": 1, "unit_price_usd": 79.50},
-            {"item_id": "CHUB-CHUB-TECHNICOLOR-STITCHES-55-SWIM", "name_hint": "Technicolor Stitches", "qty": 1, "unit_price_usd": 79.50},
-            {"item_id": "CHUB-CHUB-MIAMI-MOSAIC-55-SWIM", "name_hint": "Miami Mosaic", "qty": 1, "unit_price_usd": 79.50},
+            {"item_id": "CHUB-CHUB-DREAMHOUSE-PINKS-55-SWIM",      "name_hint": "Dreamhouse Pinks", "qty": 1, "unit_price_usd": 79.50},
+            {"item_id": "CHUB-CHUB-TECHNICOLOR-STITCHES-55-SWIM",  "name_hint": "Technicolor Stitches", "qty": 1, "unit_price_usd": 79.50},
+            {"item_id": "CHUB-CHUB-MIAMI-MOSAIC-55-SWIM",          "name_hint": "Miami Mosaic", "qty": 1, "unit_price_usd": 79.50},
         ],
         "ship_to": "Marcus Riley, 489 Coast Hwy, Newport Beach CA 92660",
         "po_number": None,
