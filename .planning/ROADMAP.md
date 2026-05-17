@@ -1172,6 +1172,33 @@ Plans:
 - [x] 65.3-04b-PLAN.md — Batch A: 12 NetSuite finance/inventory/procurement HTML pages (11 originally enumerated + netsuite-items single-record archetype) (PageRefactorBatchA) ✅ 2026-05-16
 - [x] 65.3-05-PLAN.md — Deploy + 3-tenant snapshot diff + smoke harness + ephemeral 5th tenant round-trip (SolobrandsDataLiveCheck, TurionDataPreservedCheck, EmptyStatesAcrossPages, ErpPageSmoke) ✅ 2026-05-17
 
+### Phase 65.3 reopened 2026-05-17T03:50Z → Gap-closure cycle 65.3.1 (G1 missed pages + G2 substitution race)
+
+**Why reopened:** User UAT immediately after Phase 65.3 close hit `https://solobrands.zietra.com/netsuite/sales-orders` and saw SO-2026-0341 / PROJ-ANDROMEDA / CLIN-004 (Turion content). Root cause #1: original Plan 01 audit was scoped to a hand-picked 34-page subset; actual ERP-page surface is 50, leaving 16 pages never refactored (159 violations). Root cause #2: narrative-substitution leak count was UNDERSTATED at phase close — claimed 10 leaks across 6 pages; actual is 187 across 7 pages (text-walker substitute() races data-loader's table re-render).
+
+**Gaps (verbatim from 65.3-VERIFICATION.md):**
+- `G1-MissedPages` (blocker) — 16 HTML files never refactored: netsuite-customer-so (25 violations, USER-REPORTED), netsuite-project-evms (19), netsuite-mrp (18), mes-shop-floor (17), netsuite-demand-planning (15), workflow-new-so (15), vendor-portal (13), dashboard-president (12), ns-record (10), salesforce-account (7), netsuite-fpa (2), projects-index (2), dashboard-cro (1), dashboard-dcma (1), dashboard-procurement (1), vendor-index (1)
+- `G2-NarrativeSubstitutionLeaks` (warning) — 7 refactored files still leak at runtime: arena-bom (71 leaks), netsuite-items (33), netsuite-procurement (30), arena-qms (17), workflow-e2e (16), netsuite-arm (10), netsuite-financials (10). Total 187.
+
+**Requirements (gap-closure cycle; every ID must appear in a plan):**
+- `MissedPagesRefactor` — Refactor the 16 missed HTML files to tenant-data-driven using the proven Plans 02a/02b/03/04b patterns (G1 fix)
+- `BackendApiCoverageMissedPages` — Verify backing APIs exist for the 16 pages and gap-fill if needed (verified all routes exist: /api/netsuite/{sales-orders, projects, mrp-runs, items, customers, vendors, work-orders, journal-entries}, /api/mes/stages, /api/salesforce/{customers, opportunities, cases}, /api/dashboards/{president, cro, dcma, procurement}, /api/extras/evms-curve, /api/vendor/sync-points)
+- `NarrativeSubstitutionRaceFix` — Wrap text-walker `substitute()` in `requestAnimationFrame()` across 7 affected files (G2 fix)
+- `MissedPagesPreservation` — Snapshot the 16 missed pages as Turion PRE-baseline before refactor; assert ≥75% line overlap per page (≥60% on dense narrative)
+- `MissedPagesIsolation` — Snapshot the 16 missed pages as Solo Brands; assert zero Turion-token leak
+- `FinalAuditZeroViolations` — Re-run audit harness across ALL HTML pages (not the original 34 subset); 0 violations target (≤200 acceptable narrative-fallback residual)
+- `UserUatPassesSalesOrders` — Specifically, https://solobrands.zietra.com/netsuite-customer-so.html MUST NOT show SO-2026-0341 or PROJ-ANDROMEDA or CLIN-004 in rendered DOM
+- `GapClosureSmoke` — Extend smoke-erp-pages.sh with the 16 new pages × 3 tenants (~48 new PASS lines); cumulative smoke 100% GREEN or YELLOW, 0 FAILs
+
+**Wave structure:**
+- Wave 1: 65.3-06 + 65.3-07 (parallel — disjoint file sets, no dependency)
+- Wave 2: 65.3-08 (deploy + final audit + 3-tenant snapshots + DIFF-REPORT + user UAT proof + teardown)
+
+**Plans:** 3 plans
+- [ ] 65.3-06-PLAN.md — Refactor 16 missed pages: Task 1 (7 heavy: customer-so/ns-record/salesforce-account/project-evms/workflow-new-so/mes-shop-floor/vendor-portal) + Task 2 (9 light: mrp/demand/fpa/dashboards/indexes) + Task 3 (extend snapshot tool to 51 pages) — closes G1 (MissedPagesRefactor, BackendApiCoverageMissedPages, MissedPagesPreservation, MissedPagesIsolation)
+- [ ] 65.3-07-PLAN.md — Wrap text-walker `substitute()` in `requestAnimationFrame()` across 7 already-refactored files (arena-bom, netsuite-items, netsuite-procurement, arena-qms, workflow-e2e, netsuite-arm, netsuite-financials) — closes G2 (NarrativeSubstitutionRaceFix)
+- [ ] 65.3-08-PLAN.md — Deploy + full-surface audit + 3-tenant snapshots + DIFF-REPORT + USER UAT URL proof + extend smoke harness 34→50 pages + tenant teardown — closes (FinalAuditZeroViolations, UserUatPassesSalesOrders, GapClosureSmoke)
+
 
 
 | Milestone | Phases | What | Why deferred | When to do |
