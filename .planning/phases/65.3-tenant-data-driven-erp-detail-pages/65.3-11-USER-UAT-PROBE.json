@@ -1,0 +1,58 @@
+{
+  "probed_at": "2026-05-17T06:57:17.292Z",
+  "tenant": "solobrands",
+  "tokens_checked": [
+    "SAT-001",
+    "ADCS-RW-MEDIUM",
+    "Blue Canyon",
+    "PROJ-ANDROMEDA",
+    "CLIN-004",
+    "BCT-RW-",
+    "Cygnus",
+    "DFARS",
+    "USSF",
+    "DCMA",
+    "ITAR",
+    "CMMC",
+    "DPAS",
+    "FFP",
+    "EVMS",
+    "Andromeda",
+    "Cape Canaveral",
+    "$147,500,000",
+    "TUR-FFP-",
+    "Col. M. Hansen",
+    "Maj. R. Kovacs",
+    "M. Rodriguez",
+    "Defense Production Act",
+    "Space Domain Awareness",
+    "Reaction Wheel"
+  ],
+  "token_count": 25,
+  "results": [
+    {
+      "url": "https://solobrands.zietra.com/netsuite/sales-orders",
+      "status": 200,
+      "text_length": 1342,
+      "title": "NetSuite · Sales Orders",
+      "body_first_400": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES ",
+      "leaks": [],
+      "leak_count": 0,
+      "has_empty_state": false,
+      "has_sb_content": true,
+      "error": null
+    },
+    {
+      "url": "https://solobrands.zietra.com/netsuite-customer-so.html",
+      "status": 200,
+      "text_length": 1217,
+      "title": "NetSuite · Customer · Sales Order",
+      "body_first_400": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES ",
+      "leaks": [],
+      "leak_count": 0,
+      "has_empty_state": true,
+      "has_sb_content": false,
+      "error": null
+    }
+  ]
+}
