@@ -1120,13 +1120,15 @@ Phase 60 = upload YOUR CAD (real geometry from SolidWorks/Inventor/Fusion/Onshap
 - Per-question conditional branching (Q3 depends on Q1) — straight-line set for now
 - Migration wizards (items CSV / vendors CSV / NS clone / SF) — already shipped Phase 54.4; this phase only touches `/onboarding/recommend`
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 65.2-01-PLAN.md — Migration 038 (tenant_onboarding_profile + tenants.corporate_data + 4-tenant seed) + question-sets.json + corporate.json industry tag (Wave 1) ([SUMMARY](phases/65.2-data-aware-per-tenant-dynamic-onboarding-wizard/65.2-01-SUMMARY.md))
-- [ ] 65.2-02-PLAN.md — Backend: data-signals introspector + rule-engine `consolidation`+`signal_rules` extension + GET/PATCH /api/onboarding/profile (Wave 2, parallel with 03)
-- [ ] 65.2-03-PLAN.md — Frontend: dynamic recommend.html rewrite — prefilled answers on first paint + "Why these picks?" signals strip + debounced 400ms autosave (Wave 2, parallel with 02)
-- [ ] 65.2-04-PLAN.md — Deploy (migration 038 apply + backend Docker push + frontend S3+CloudFront) + extend smoke-onboarding.sh with 6 new profile checks + round-trip restore (Wave 3)
+- [x] 65.2-02-PLAN.md — Backend: data-signals introspector + rule-engine `consolidation`+`signal_rules` extension + GET/PATCH /api/onboarding/profile (Wave 2, parallel with 03) ([SUMMARY](phases/65.2-data-aware-per-tenant-dynamic-onboarding-wizard/65.2-02-SUMMARY.md))
+- [x] 65.2-03-PLAN.md — Frontend: dynamic recommend.html rewrite — prefilled answers on first paint + "Why these picks?" signals strip + debounced 400ms autosave (Wave 2, parallel with 02) ([SUMMARY](phases/65.2-data-aware-per-tenant-dynamic-onboarding-wizard/65.2-03-SUMMARY.md))
+- [x] 65.2-04-PLAN.md — Deploy (migration 038 apply + backend Docker push + frontend S3+CloudFront) + extend smoke-onboarding.sh with 7 new profile checks + round-trip restore (Wave 3) ([SUMMARY](phases/65.2-data-aware-per-tenant-dynamic-onboarding-wizard/65.2-04-SUMMARY.md))
+
+**Status: CLOSED 2026-05-16** — all 8 requirements satisfied. Migration 038 live in Aurora (4 tenants seeded). Backend Lambda `turion-demo-api` redeployed (CodeSha256 `eefed668…` → `f1040638…`). Frontend deployed (S3 ETag changed, CloudFront `E37R9PT8IL44L2` invalidation `I3LO4WSF7HNVLPIPH8D8TOMELY` Completed). Smoke `scripts/smoke-onboarding.sh` (203 → 384 LOC) **VERDICT: YELLOW** — 34 PASS, 1 WARN (pre-existing Quick-338 sample-data 500, punted), 0 FAIL. All 8 new 65.2 PASS lines green incl. CHECK G (POST /recommend with Solo Brands signal pack returns 10 modules = Quick-338-9 ∪ {asc606}). Cross-tenant isolation proven (brandmonkz GET /profile = services-saas, no `consolidation` leak). Solo Brands profile restored byte-equal to seeded baseline (source=seeded, answers verbatim). tenant_features count unchanged at 9 enabled.
 
 These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-grade multi-tenant SaaS first; the items below harden it for GA / paid customers.
 

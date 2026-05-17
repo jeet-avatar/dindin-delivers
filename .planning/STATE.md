@@ -675,6 +675,7 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 60]: Phase 60 CLOSED — 4/4 plans complete; 10/10 ROADMAP requirements (CadFilesTable + CadStorageBucket + CadFileUploadEndpoint + CadAuditLog + StlViewer + StepViewer + TemplateDispatchFallback + DrawingMarkup + RevisionControlOnUploads + DrawingPdfGenerator). New repo zietra-cad-pdf-gen, new Lambda + IAM role + SQS queue + DLQ + ESM + S3 gateway VPC endpoint. Cross-cutting smoke 34/34 PASS; robotic-arm walkthrough validated Pitfall 5 dispatch (uploaded > procedural) at both viewer + PDF render targets. Ready for robotics customer.
 - [Phase 63]: Tenant-aware frontend: every page now swaps Turion Space → tenant.name via data-z-tenant-* hooks + runtime title rewriter; new generic /index.html; Turion content preserved at /architecture
 - [Phase 65.2]: Plan 02: cap widened 7->10 in rule-engine to satisfy Solo Brands data-aware must_haves (Quick-338-9 + asc606 = 10 modules). Legacy callers unaffected (typical output <=7 modules).
+- [Phase 65.2]: Phase 65.2 CLOSED: data-aware onboarding wizard live (migration 038 + backend Lambda + S3/CloudFront frontend + extended smoke). Verdict YELLOW (34 PASS, 1 WARN sample-data punted, 0 FAIL). Solo Brands round-trip restored byte-equal to seeded baseline.
 
 ### Quick Tasks Completed
 
@@ -731,4 +732,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 63 P01 | 50min | 5 tasks | 39 files |
 | Phase 65.2 P03 | 4min | 1 tasks | 1 files |
 | Phase 65.2 P02 | 7min | 3 tasks | 5 files |
+| Phase 65.2 P04 | 14min | 5 tasks | 3 files |
 
