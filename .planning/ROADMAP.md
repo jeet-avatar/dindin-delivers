@@ -1142,9 +1142,9 @@ Plans:
 - `TurionDataPreservedCheck` — Pre-Phase snapshot: a `scripts/snapshot-turion-erp-views.mjs` that loads each of the 34 pages as a Turion user (mocked JWT with `tenant=turion`) and captures the rendered text + visible row count per page. Post-Phase: re-run the snapshot and assert byte-equivalent semantic content (Turion still sees SAT-001 / ADCS / Blue Canyon — sourced now from API not HTML).
 - `SolobrandsDataLiveCheck` — Post-Phase: navigate to each of the 34 pages as a Solo Brands user, assert the rendered content reflects Solo Brands' real data (109 items visible somewhere, ISLE/ORU/CHUB SKUs in any items table, $71K SO total in any SO summary, NO `SAT-001`/`ADCS`/`Blue Canyon` tokens anywhere).
 - `EmptyStatesAcrossPages` — Each of the 34 pages, when called by a tenant with NO data (a synthetic 5th test tenant), MUST render a clean empty state with: a "no data yet" message, a "Run the import wizard" CTA linking to `/onboarding/migrate`, and no broken JS / no spinner-of-death.
-- `PageRefactorBatchA` — Convert 11 highest-traffic ERP pages to tenant-data-driven (`netsuite-financials.html`, `netsuite-tb.html`, `netsuite-bs.html`, `netsuite-coa.html`, `netsuite-arm.html`, `netsuite-procurement.html`, `netsuite-new-po.html`, `netsuite-new-vendor.html`, `inventory-index.html`, `manufacturing-index.html`, `finance-index.html`). Each fetches from its API, renders rows, empty-states if empty.
+- `PageRefactorBatchA` — Convert 12 highest-traffic ERP pages to tenant-data-driven (`netsuite-financials.html`, `netsuite-tb.html`, `netsuite-bs.html`, `netsuite-coa.html`, `netsuite-arm.html`, `netsuite-procurement.html`, `netsuite-new-po.html`, `netsuite-new-vendor.html`, `netsuite-items.html`, `inventory-index.html`, `manufacturing-index.html`, `finance-index.html`). 11 originally enumerated + `netsuite-items.html` (single-record detail archetype — without it, every items-list link goes to a static dead page, violating CLAUDE.md rule 2). Each fetches from its API, renders rows, empty-states if empty.
 - `PageRefactorBatchB` — Convert 11 Arena/QMS/lifecycle pages (`arena-qms.html`, `arena-new-part.html`, `arena-new-audit.html`, `arena-new-document.html`, `quality-index.html`, `inventory-index.html` quality sections, `lifecycle-index.html`, `quickbooks.html`, `sales-new-cdrl.html`, `sales-new-case.html`, `workflow-e2e.html`).
-- `PageRefactorBatchC` — Convert 12 dashboard + integration + executive pages (`dashboard-programs.html`, `dashboard-cto.html`, `dashboard-cio.html`, `dashboard-mfg.html`, `executive-cockpit.html`, `integration-vendor-ns.html`, `integration-mes-ns.html`, `integration-arena-ns.html`, `integration-bank-siem.html`, `architecture.html`, `index.html`, `admin-index.html`).
+- `PageRefactorBatchC` — Convert 15 dashboard + integration + executive pages (12 originally enumerated + 3 audit-discovered: `dashboard-cfo.html`, `dashboard-ceo.html`, `dashboard-sfhead.html`): `dashboard-programs.html`, `dashboard-cto.html`, `dashboard-cio.html`, `dashboard-mfg.html`, `dashboard-cfo.html`, `dashboard-ceo.html`, `dashboard-sfhead.html`, `executive-cockpit.html`, `integration-vendor-ns.html`, `integration-mes-ns.html`, `integration-arena-ns.html`, `integration-bank-siem.html`, `architecture.html`, `index.html`, `admin-index.html`.
 - `ErpPageSmoke` — Extend `scripts/smoke-onboarding.sh` (or new `scripts/smoke-erp-pages.sh`) with per-tenant page checks: for each of the 34 pages, GET as Turion (assert content present), GET as Solo Brands (assert different content present, no Turion tokens), GET as empty test tenant (assert empty state). ~100 new PASS lines. Round-trip restore (no test residue).
 
 **Out of scope (deferred to Phase 65.4+):**
@@ -1155,13 +1155,21 @@ Plans:
 - Modifying any `satellite/*` pages (those are already tenant-driven per Phase 27-36)
 - Modifying `onboarding/*` pages (already tenant-driven per Phase 65.2)
 
-**Plans:** 5 plans (Wave 1 → 2 → 3 → 4)
+**Plans:** 2/7 plans executed
+
+Wave structure:
+- Wave 1: 01 (audit + snapshot baseline + additive migration 039 + Cognito token mint)
+- Wave 2: 02a, 02b, 03, 04a (four plans run in parallel — disjoint file sets, all depend only on 01)
+- Wave 3: 04b (NetSuite frontend refactor — depends on 04a backend routes + sibling 02a/02b/03 pattern validation)
+- Wave 4: 05 (deploy + 3-tenant snapshot diff + smoke harness + ephemeral 5th tenant round-trip)
 
 Plans:
-- [ ] 65.3-01-PLAN.md — Audit + Turion snapshot baseline + additive migration 039 (HardcodeAudit, TurionDataPreservedCheck)
-- [ ] 65.3-02-PLAN.md — Batch C: 12 dashboard + integration + 3 platform pages refactor (PageRefactorBatchC)
+- [ ] 65.3-01-PLAN.md — Cognito token pre-flight + audit + Turion snapshot baseline + additive migration 039 (HardcodeAudit, TurionDataPreservedCheck)
+- [ ] 65.3-02a-PLAN.md — Batch C-1: 8 dashboards (programs/cto/cio/mfg/cfo/ceo/sfhead/executive-cockpit) + new /api/dashboards/sfhead route (PageRefactorBatchC)
+- [ ] 65.3-02b-PLAN.md — Batch C-2: 4 integration pages + 3 platform pages (architecture/index/admin-index) via Phase 63 populator (PageRefactorBatchC)
 - [ ] 65.3-03-PLAN.md — Batch B: 11 Arena/QMS/lifecycle/workflow pages refactor (PageRefactorBatchB, EmptyStatesAcrossPages)
-- [ ] 65.3-04-PLAN.md — Batch A: 12 NetSuite finance/inventory/procurement pages + 5 new backend gap-fill routes (PageRefactorBatchA, BackendDataApiCoverage)
+- [ ] 65.3-04a-PLAN.md — Backend: 5 new NetSuite gap-fill routes /coa /tb /pl /bs /period-close + Lambda redeploy (BackendDataApiCoverage)
+- [ ] 65.3-04b-PLAN.md — Batch A: 12 NetSuite finance/inventory/procurement HTML pages (11 originally enumerated + netsuite-items single-record archetype) (PageRefactorBatchA)
 - [ ] 65.3-05-PLAN.md — Deploy + 3-tenant snapshot diff + smoke harness + ephemeral 5th tenant round-trip (SolobrandsDataLiveCheck, TurionDataPreservedCheck, EmptyStatesAcrossPages, ErpPageSmoke)
 
 
