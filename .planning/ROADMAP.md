@@ -1130,7 +1130,41 @@ Plans:
 
 **Status: CLOSED 2026-05-16** — all 8 requirements satisfied. Migration 038 live in Aurora (4 tenants seeded). Backend Lambda `turion-demo-api` redeployed (CodeSha256 `eefed668…` → `f1040638…`). Frontend deployed (S3 ETag changed, CloudFront `E37R9PT8IL44L2` invalidation `I3LO4WSF7HNVLPIPH8D8TOMELY` Completed). Smoke `scripts/smoke-onboarding.sh` (203 → 384 LOC) **VERDICT: YELLOW** — 34 PASS, 1 WARN (pre-existing Quick-338 sample-data 500, punted), 0 FAIL. All 8 new 65.2 PASS lines green incl. CHECK G (POST /recommend with Solo Brands signal pack returns 10 modules = Quick-338-9 ∪ {asc606}). Cross-tenant isolation proven (brandmonkz GET /profile = services-saas, no `consolidation` leak). Solo Brands profile restored byte-equal to seeded baseline (source=seeded, answers verbatim). tenant_features count unchanged at 9 enabled.
 
-These are intentionally deferred per the 2026-05-14 strategy. M5+M6 ship a demo-grade multi-tenant SaaS first; the items below harden it for GA / paid customers.
+### Phase 65.3: Tenant-data-driven ERP detail pages (strip Turion-hardcoded HTML, preserve Turion's own tenant view) ⚡ INSERTED 2026-05-17
+
+**Goal:** 34 HTML pages under `/Users/jeet/turion-space-demo/` (e.g., `netsuite-*.html`, `arena-*.html`, `inventory-*.html`, `integration-*.html`, `dashboard-*.html`, `executive-cockpit.html`, `workflow-e2e.html`, `sales-new-*.html`) currently contain hardcoded Turion aerospace sample HTML (SAT-001, ADCS-RW-MEDIUM-A, Blue Canyon Technologies, PROJ-ANDROMEDA-SAT-001, CLIN-004, $147.5M FFP, etc.) which renders identically on every tenant — meaning Solo Brands sees Turion's aerospace reaction wheels with a "Solo Brands Inc · S-01" subsidiary string-swap on top. This phase converts those pages from static aerospace samples to tenant-data-driven renderers that read from `/api/netsuite/*`, `/api/arena/*`, `/api/integrations/*`, etc., and render the calling tenant's actual data with graceful empty states for tenants without data. **Turion's view must be preserved byte-functionally** — when a Turion user opens these pages, they see exactly what they see today (Turion's real `turion.items`, `turion.satellites`, ADCS data) because the API now returns it; the only thing that changes is the data source moves from inline HTML to API. Solo Brands sees Solo Brands data (109 items, 4 sales orders, ISLE/ORU/CHUB). New tenants see empty states with a "Run the onboarding wizard" CTA.
+
+**Why now:** Discovered during 65.2 UAT — user navigated to `https://solobrands.zietra.com/netsuite/sales-orders` and saw SAT-001 / PROJ-ANDROMEDA / $58M FFP content. CLAUDE.md rule 1 violation ("no hardcoded DB-derivable values anywhere"). User explicit ask 2026-05-17: *"turion data and details should not be deleted at any cost — we need to make this tenant of solobrands work perfectly — and any other new brands coming have a proper onboarding."* Phase 65.3 closes the first half (Solo Brands works perfectly + Turion preserved). Phase 65.4 closes the second half (new-tenant onboarding completeness).
+
+**Requirements (every ID must appear in a plan):**
+- `HardcodeAudit` — Inventory: a `scripts/audit-hardcoded-erp.mjs` script that scans all `*.html` files for the 8 Turion-specific tokens (`SAT-001`, `ADCS-RW-MEDIUM`, `Blue Canyon`, `PROJ-ANDROMEDA`, `CLIN-004`, `Honeywell · Aerospace`, `BCT-RW-`, `Cygnus`) and emits a JSON report of `{file, token, line}` triples. Output drives Plan 2+ targeting. Re-runnable; CI gate-ready.
+- `BackendDataApiCoverage` — Confirm every page the audit flags has a backing tenant-scoped API. For any gap (e.g., `/netsuite/coa` may not have `/api/netsuite/coa`), ADD the missing route (RLS-enforced read returning `[]` for tenants with no data). Existing routes preserved.
+- `TurionDataPreservedCheck` — Pre-Phase snapshot: a `scripts/snapshot-turion-erp-views.mjs` that loads each of the 34 pages as a Turion user (mocked JWT with `tenant=turion`) and captures the rendered text + visible row count per page. Post-Phase: re-run the snapshot and assert byte-equivalent semantic content (Turion still sees SAT-001 / ADCS / Blue Canyon — sourced now from API not HTML).
+- `SolobrandsDataLiveCheck` — Post-Phase: navigate to each of the 34 pages as a Solo Brands user, assert the rendered content reflects Solo Brands' real data (109 items visible somewhere, ISLE/ORU/CHUB SKUs in any items table, $71K SO total in any SO summary, NO `SAT-001`/`ADCS`/`Blue Canyon` tokens anywhere).
+- `EmptyStatesAcrossPages` — Each of the 34 pages, when called by a tenant with NO data (a synthetic 5th test tenant), MUST render a clean empty state with: a "no data yet" message, a "Run the import wizard" CTA linking to `/onboarding/migrate`, and no broken JS / no spinner-of-death.
+- `PageRefactorBatchA` — Convert 11 highest-traffic ERP pages to tenant-data-driven (`netsuite-financials.html`, `netsuite-tb.html`, `netsuite-bs.html`, `netsuite-coa.html`, `netsuite-arm.html`, `netsuite-procurement.html`, `netsuite-new-po.html`, `netsuite-new-vendor.html`, `inventory-index.html`, `manufacturing-index.html`, `finance-index.html`). Each fetches from its API, renders rows, empty-states if empty.
+- `PageRefactorBatchB` — Convert 11 Arena/QMS/lifecycle pages (`arena-qms.html`, `arena-new-part.html`, `arena-new-audit.html`, `arena-new-document.html`, `quality-index.html`, `inventory-index.html` quality sections, `lifecycle-index.html`, `quickbooks.html`, `sales-new-cdrl.html`, `sales-new-case.html`, `workflow-e2e.html`).
+- `PageRefactorBatchC` — Convert 12 dashboard + integration + executive pages (`dashboard-programs.html`, `dashboard-cto.html`, `dashboard-cio.html`, `dashboard-mfg.html`, `executive-cockpit.html`, `integration-vendor-ns.html`, `integration-mes-ns.html`, `integration-arena-ns.html`, `integration-bank-siem.html`, `architecture.html`, `index.html`, `admin-index.html`).
+- `ErpPageSmoke` — Extend `scripts/smoke-onboarding.sh` (or new `scripts/smoke-erp-pages.sh`) with per-tenant page checks: for each of the 34 pages, GET as Turion (assert content present), GET as Solo Brands (assert different content present, no Turion tokens), GET as empty test tenant (assert empty state). ~100 new PASS lines. Round-trip restore (no test residue).
+
+**Out of scope (deferred to Phase 65.4+):**
+- New-tenant signup → tenant provisioning → first-login experience (own phase: 65.4)
+- Adding NEW backend routes beyond what audit reveals as gaps
+- UI redesign / chrome changes (Phase 63 chrome is fine)
+- Migration of Turion's data into other tenants (Turion stays where it is)
+- Modifying any `satellite/*` pages (those are already tenant-driven per Phase 27-36)
+- Modifying `onboarding/*` pages (already tenant-driven per Phase 65.2)
+
+**Plans:** 5 plans (Wave 1 → 2 → 3 → 4)
+
+Plans:
+- [ ] 65.3-01-PLAN.md — Audit + Turion snapshot baseline + additive migration 039 (HardcodeAudit, TurionDataPreservedCheck)
+- [ ] 65.3-02-PLAN.md — Batch C: 12 dashboard + integration + 3 platform pages refactor (PageRefactorBatchC)
+- [ ] 65.3-03-PLAN.md — Batch B: 11 Arena/QMS/lifecycle/workflow pages refactor (PageRefactorBatchB, EmptyStatesAcrossPages)
+- [ ] 65.3-04-PLAN.md — Batch A: 12 NetSuite finance/inventory/procurement pages + 5 new backend gap-fill routes (PageRefactorBatchA, BackendDataApiCoverage)
+- [ ] 65.3-05-PLAN.md — Deploy + 3-tenant snapshot diff + smoke harness + ephemeral 5th tenant round-trip (SolobrandsDataLiveCheck, TurionDataPreservedCheck, EmptyStatesAcrossPages, ErpPageSmoke)
+
+
 
 | Milestone | Phases | What | Why deferred | When to do |
 |-----------|--------|------|--------------|------------|
