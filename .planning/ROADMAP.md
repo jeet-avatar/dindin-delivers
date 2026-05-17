@@ -1199,6 +1199,35 @@ Plans:
 - [ ] 65.3-07-PLAN.md — Wrap text-walker `substitute()` in `requestAnimationFrame()` across 7 already-refactored files (arena-bom, netsuite-items, netsuite-procurement, arena-qms, workflow-e2e, netsuite-arm, netsuite-financials) — closes G2 (NarrativeSubstitutionRaceFix)
 - [ ] 65.3-08-PLAN.md — Deploy + full-surface audit + 3-tenant snapshots + DIFF-REPORT + USER UAT URL proof + extend smoke harness 34→50 pages + tenant teardown — closes (FinalAuditZeroViolations, UserUatPassesSalesOrders, GapClosureSmoke)
 
+### Phase 65.3 reopened (2nd time) 2026-05-17T07:30Z → Gap-closure cycle 65.3.2 (G1-WIDE narrative preservation + G2 audit coverage)
+
+**Why reopened (again):** Cycle 65.3.1 (Plans 06+07+08) closed the NARROW 7-token gate but the verifier (65.3.1-VERIFICATION.md) found the audit was too narrow — Solo Brands rendered DOM still shows defense-narrative tokens (USSF, DCMA, DFARS, ITAR, CMMC, $147.5M FFP, Andromeda, Cape Canaveral, Col. M. Hansen, TUR-FFP-2024-001) on 5+ narrative pages. test65empty also rendered the full Turion defense profile. Same "passed narrowly while failed broadly" anti-pattern as the original 65.3 close. User constraint reaffirmed: opening `https://solobrands.zietra.com/netsuite/sales-orders` MUST NOT show defense-contractor content; tenant should see own data OR a clean empty-state.
+
+**Gaps (verbatim from 65.3.1-VERIFICATION.md):**
+- `G1-WIDE-MissedNarrativePreservation` (blocker) — Solo Brands sees Turion defense narrative (DFARS / USSF / DCMA / $147.5M / Cape Canaveral / CMMC / DPAS / ITAR / Andromeda / TUR-FFP- / Col. M. Hansen) on netsuite-customer-so + netsuite-project-evms + salesforce-account + netsuite-financials + ns-record. test65empty same.
+- `G2-AuditCoverageMisleading` (blocker) — Audit's TOKENS_IN_DOM scoped to 7 strings; ~18 user-visible narrative tokens never instrumented.
+
+**Requirements (gap-closure cycle 65.3.2; every ID must appear in a plan):**
+- `ExpandedAuditTokens` — TOKENS_IN_DOM in snapshot tool AND TOKENS in audit script expanded 7 → 25 (defense/aerospace narrative). Lockstep across snapshot + audit + smoke. (Plan 09)
+- `TenantOnlyAttributeContract` — HTML attribute pattern `data-tenant-only="<csv-of-slugs>"` defined; tiny app-shell.js shim REMOVES gated elements when current tenant slug not in allow-list. Documented + smoke-tested. (Plan 09)
+- `GateNarrativeBlocksTurionOnly` — Apply `data-tenant-only="turion"` wrappers to defense-narrative HTML blocks across 9 narrative pages (netsuite-customer-so, netsuite-project-evms, salesforce-account, netsuite-financials, ns-record, arena-bom, netsuite-items, netsuite-procurement, workflow-e2e). Turion still sees content. Non-Turion never renders it. (Plan 10)
+- `EmptyStateForGatedPages` — Uniform empty-state panel ("No <module> yet — Run the import wizard ▸") rendered via `<div data-tenant-only-fallback>` inverse contract for non-Turion tenants. Same pattern across all 9 pages. (Plan 10)
+- `BreadcrumbTenantSafe` — Audit all 9 detail pages' breadcrumb code paths; any hardcoded record-ID literal gated/wrapped/replaced with tenant-neutral path. Closes the Plan 08 renderListView() residual leak class. (Plan 10)
+- `EmptyTenantNoTurionNarrative` — test65empty rendered DOM contains ZERO of the 25 expanded tokens on the 9 gated pages. Empty-state actually renders. (Plan 11)
+- `WideUatPasses` — `https://solobrands.zietra.com/netsuite/sales-orders` rendered DOM contains ZERO of the 25 tokens AND shows SB content OR empty-state. Dual-URL probe on clean URL + .html backwards-compat. (Plan 11)
+- `WideAuditSmoke` — Extended smoke harness WIDE_AUDIT=1 mode runs the 25-token gate across 3 tenants × 50 pages and exits 0. (Plan 11)
+
+**Wave structure:**
+- Wave 1: 65.3-09 (substrate — expand audit + snapshot + smoke tokens 7→25 + define data-tenant-only shim in app-shell.js)
+- Wave 2: 65.3-10 (gate — apply data-tenant-only="turion" + data-tenant-only-fallback empty-state across 9 narrative pages + fix breadcrumb leaks)
+- Wave 3: 65.3-11 (deploy + 3-tenant snapshot diff with 25-token gate + extended smoke + ephemeral teardown + DIFF-REPORT)
+
+**Plans:** 3/3 gap-closure plans planned
+- [ ] 65.3-09-PLAN.md — Substrate: expand audit/snapshot/smoke 7→25 tokens (lockstep) + data-tenant-only HTML attribute shim in app-shell.js (~20 LOC) — closes (ExpandedAuditTokens, TenantOnlyAttributeContract)
+- [ ] 65.3-10-PLAN.md — Apply data-tenant-only="turion" + data-tenant-only-fallback empty-state across 9 narrative pages + audit/extend tokenIsWrapped() + fix all breadcrumb leaks — closes (GateNarrativeBlocksTurionOnly, EmptyStateForGatedPages, BreadcrumbTenantSafe)
+- [ ] 65.3-11-PLAN.md — Deploy + 25-token 3-tenant snapshots + extended WIDE_AUDIT smoke + dual-URL user UAT probe + Quick-339 guarded test65empty teardown + DIFF-REPORT — closes (EmptyTenantNoTurionNarrative, WideUatPasses, WideAuditSmoke)
+
+
 
 
 | Milestone | Phases | What | Why deferred | When to do |
