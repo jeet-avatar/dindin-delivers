@@ -745,4 +745,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 65.3 P03 | 42 | 2 tasks | 11 files |
 | Phase 65.3-tenant-data-driven-erp-detail-pages P05 | 19 min | 2 tasks | 5 files |
 | Phase 65.3 P07 | 25min | 1 tasks | 7 files |
+| Phase 65.3 P06 | 60min | 3 tasks | 17 files |
 

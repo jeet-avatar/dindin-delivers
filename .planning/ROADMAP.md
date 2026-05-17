@@ -1194,7 +1194,7 @@ Plans:
 - Wave 1: 65.3-06 + 65.3-07 (parallel — disjoint file sets, no dependency)
 - Wave 2: 65.3-08 (deploy + final audit + 3-tenant snapshots + DIFF-REPORT + user UAT proof + teardown)
 
-**Plans:** 8/10 plans executed
+**Plans:** 9/10 plans executed
 - [ ] 65.3-06-PLAN.md — Refactor 16 missed pages: Task 1 (7 heavy: customer-so/ns-record/salesforce-account/project-evms/workflow-new-so/mes-shop-floor/vendor-portal) + Task 2 (9 light: mrp/demand/fpa/dashboards/indexes) + Task 3 (extend snapshot tool to 51 pages) — closes G1 (MissedPagesRefactor, BackendApiCoverageMissedPages, MissedPagesPreservation, MissedPagesIsolation)
 - [ ] 65.3-07-PLAN.md — Wrap text-walker `substitute()` in `requestAnimationFrame()` across 7 already-refactored files (arena-bom, netsuite-items, netsuite-procurement, arena-qms, workflow-e2e, netsuite-arm, netsuite-financials) — closes G2 (NarrativeSubstitutionRaceFix)
 - [ ] 65.3-08-PLAN.md — Deploy + full-surface audit + 3-tenant snapshots + DIFF-REPORT + USER UAT URL proof + extend smoke harness 34→50 pages + tenant teardown — closes (FinalAuditZeroViolations, UserUatPassesSalesOrders, GapClosureSmoke)
