@@ -694,6 +694,7 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | 337 | fix ArthaBuild NetSuite Q&A issues: safety refusal misfiring, over-eager clarifying questions, SS1 API leak in SS2 answers, fake search.Operator, wrong Map/Reduce structure, governance limits inconsistency | 2026-05-12 | f7a877f | [337-fix-arthabuild-netsuite-q-a-issues-safet](./quick/337-fix-arthabuild-netsuite-q-a-issues-safet/) |
 | 338 | solobrands onboarding smoke — 24/25 endpoints OK, finalize round-trip proven, sample-data 500 punted to phase | 2026-05-16 | a40c5ed1 | [338-solobrands-onboarding-smoke-verify-file-](./quick/338-solobrands-onboarding-smoke-verify-file-/) |
 | 339 | delete 6 IMPORT-SMOKE-338-1-* test residue items from Solo Brands tenant (turion-safety-guarded, 4-layer defense) — restored to 109 baseline, turion untouched (59→59) | 2026-05-17 | b9d97bd7 | [339-delete-6-import-smoke-338-1-test-residue](./quick/339-delete-6-import-smoke-338-1-test-residue/) |
+| 340 | fix FOUC on data-tenant-only blocks — CSS default-hide + JS reveal-by-match. Probe: Solo Brands 0 Turion-token frames across 1500ms, Turion gate still works (114 frames visible) | 2026-05-17 | 03b87d42 | [340-fix-fouc-on-tenant-only-blocks-solo-bran](./quick/340-fix-fouc-on-tenant-only-blocks-solo-bran/) |
 | Phase 37 P01 | 38 min | 3 tasks | 5 files |
 | Phase 37 P02 | 4 min | 2 tasks | 4 files (2 .ts + 2 .js) |
 | Phase 38 P02 | 135s | 2 tasks | 5 files |
