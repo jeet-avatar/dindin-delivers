@@ -678,6 +678,9 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 65.2]: Phase 65.2 CLOSED: data-aware onboarding wizard live (migration 038 + backend Lambda + S3/CloudFront frontend + extended smoke). Verdict YELLOW (34 PASS, 1 WARN sample-data punted, 0 FAIL). Solo Brands round-trip restored byte-equal to seeded baseline.
 - [Phase 65.3]: Plan 02a: 8 dashboards refactored to [data-bind] harness — 100% audit-violation drop; /api/dashboards/sfhead route deployed (Lambda 611a9149...); Turion preservation 100% (deploy pending Plan 05); cross-tenant residual leakage from *-data.js fallbacks deferred to Plan 05 post-flight
 - [Phase 65.3]: Plan 03: Runtime text-walker substitution pattern carried from arena-bom to arena-qms — both pages have dense Turion-narrative HTML where pure static replace would lose Turion demo coherence. Audit script will continue flagging source-HTML; rendered-DOM snapshot is the real metric.
+- [Phase 65.3-tenant-data-driven-erp-detail-pages]: Skipped redundant backend redeploy when build-and-push.sh produced byte-equal CodeSha256 — Plan 04a routes were already live
+- [Phase 65.3-tenant-data-driven-erp-detail-pages]: 10 Solo Brands narrative-substitution leaks documented as deferred-debt per Plan 03/04b documented hand-off; one-line setTimeout(0) fix in follow-up Quick task
+- [Phase 65.3-tenant-data-driven-erp-detail-pages]: Bash 3 compatibility forced smoke harness rewrite using case statements instead of associative arrays
 
 ### Quick Tasks Completed
 
@@ -739,4 +742,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 65.3 P04a | 6 min | 1 tasks | 2 files |
 | Phase 65.3 P02a | 18m | 2 tasks | 10 files |
 | Phase 65.3 P03 | 42 | 2 tasks | 11 files |
+| Phase 65.3-tenant-data-driven-erp-detail-pages P05 | 19 min | 2 tasks | 5 files |
 
