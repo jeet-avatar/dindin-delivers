@@ -1,0 +1,685 @@
+{
+  "generated_at": "2026-05-17T06:09:02.905Z",
+  "purpose": "Plan 65.3-09 proof artifact: re-scan the existing Plan 08 SOLOBRANDS snapshot bodyText with the NEW 25-token audit list. A NON-EMPTY per_page result proves the expanded substrate detects the wider defense-narrative leak that the narrow 7-token audit missed. Plan 10 will gate the leak; Plan 11 will verify clean.",
+  "source_snapshot": "/Users/jeet/doordash-p2p/.planning/phases/65.3-tenant-data-driven-erp-detail-pages/65.3-08-SOLOBRANDS-SNAPSHOT-POST.json",
+  "source_tenant": "solobrands",
+  "source_captured_at": "2026-05-17T05:23:51.132Z",
+  "audit_token_count": 25,
+  "tokens_checked": [
+    "SAT-001",
+    "ADCS-RW-MEDIUM",
+    "Blue Canyon",
+    "PROJ-ANDROMEDA",
+    "CLIN-004",
+    "BCT-RW-",
+    "Cygnus",
+    "DFARS",
+    "USSF",
+    "DCMA",
+    "ITAR",
+    "CMMC",
+    "DPAS",
+    "FFP",
+    "EVMS",
+    "Andromeda",
+    "Cape Canaveral",
+    "$147,500,000",
+    "TUR-FFP-",
+    "Col. M. Hansen",
+    "Maj. R. Kovacs",
+    "M. Rodriguez",
+    "Defense Production Act",
+    "Space Domain Awareness",
+    "Reaction Wheel"
+  ],
+  "per_page": {
+    "netsuite-financials": {
+      "hit_count": 5,
+      "bodyText_length": 9200,
+      "hits": [
+        "PROJ-ANDROMEDA",
+        "DCMA",
+        "FFP",
+        "EVMS",
+        "Andromeda"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "PROJ-ANDROMEDA"
+      ]
+    },
+    "netsuite-tb": {
+      "hit_count": 2,
+      "bodyText_length": 1473,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "netsuite-bs": {
+      "hit_count": 2,
+      "bodyText_length": 1366,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "netsuite-coa": {
+      "hit_count": 3,
+      "bodyText_length": 2949,
+      "hits": [
+        "DCMA",
+        "FFP",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "netsuite-arm": {
+      "hit_count": 5,
+      "bodyText_length": 7600,
+      "hits": [
+        "PROJ-ANDROMEDA",
+        "DCMA",
+        "FFP",
+        "EVMS",
+        "$147,500,000"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "PROJ-ANDROMEDA"
+      ]
+    },
+    "netsuite-procurement": {
+      "hit_count": 8,
+      "bodyText_length": 16462,
+      "hits": [
+        "PROJ-ANDROMEDA",
+        "DFARS",
+        "DCMA",
+        "ITAR",
+        "CMMC",
+        "DPAS",
+        "EVMS",
+        "Defense Production Act"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "PROJ-ANDROMEDA"
+      ]
+    },
+    "netsuite-new-po": {
+      "hit_count": 2,
+      "bodyText_length": 1965,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "netsuite-new-vendor": {
+      "hit_count": 4,
+      "bodyText_length": 1745,
+      "hits": [
+        "DCMA",
+        "ITAR",
+        "DPAS",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "netsuite-items": {
+      "hit_count": 5,
+      "bodyText_length": 14525,
+      "hits": [
+        "BCT-RW-",
+        "DCMA",
+        "ITAR",
+        "EVMS",
+        "M. Rodriguez"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "BCT-RW-"
+      ]
+    },
+    "inventory-index": {
+      "hit_count": 3,
+      "bodyText_length": 1516,
+      "hits": [
+        "DCMA",
+        "ITAR",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "manufacturing-index": {
+      "hit_count": 2,
+      "bodyText_length": 1626,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "finance-index": {
+      "hit_count": 2,
+      "bodyText_length": 2005,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "arena-qms": {
+      "hit_count": 4,
+      "bodyText_length": 3980,
+      "hits": [
+        "DCMA",
+        "ITAR",
+        "EVMS",
+        "M. Rodriguez"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "arena-new-part": {
+      "hit_count": 4,
+      "bodyText_length": 1858,
+      "hits": [
+        "DCMA",
+        "ITAR",
+        "DPAS",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "arena-new-audit": {
+      "hit_count": 2,
+      "bodyText_length": 1377,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "arena-new-document": {
+      "hit_count": 3,
+      "bodyText_length": 1417,
+      "hits": [
+        "DCMA",
+        "ITAR",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "quality-index": {
+      "hit_count": 2,
+      "bodyText_length": 1440,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "arena-bom": {
+      "hit_count": 5,
+      "bodyText_length": 2618,
+      "hits": [
+        "PROJ-ANDROMEDA",
+        "DCMA",
+        "ITAR",
+        "EVMS",
+        "Andromeda"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "PROJ-ANDROMEDA"
+      ]
+    },
+    "lifecycle-index": {
+      "hit_count": 3,
+      "bodyText_length": 1586,
+      "hits": [
+        "USSF",
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "quickbooks": {
+      "hit_count": 2,
+      "bodyText_length": 2387,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "sales-new-cdrl": {
+      "hit_count": 3,
+      "bodyText_length": 1569,
+      "hits": [
+        "DCMA",
+        "ITAR",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "sales-new-case": {
+      "hit_count": 2,
+      "bodyText_length": 2132,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "workflow-e2e": {
+      "hit_count": 10,
+      "bodyText_length": 11116,
+      "hits": [
+        "SAT-001",
+        "PROJ-ANDROMEDA",
+        "USSF",
+        "DCMA",
+        "ITAR",
+        "CMMC",
+        "DPAS",
+        "FFP",
+        "EVMS",
+        "TUR-FFP-"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "SAT-001",
+        "PROJ-ANDROMEDA"
+      ]
+    },
+    "dashboard-programs": {
+      "hit_count": 7,
+      "bodyText_length": 3379,
+      "hits": [
+        "SAT-001",
+        "PROJ-ANDROMEDA",
+        "CLIN-004",
+        "DCMA",
+        "FFP",
+        "EVMS",
+        "TUR-FFP-"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "SAT-001",
+        "PROJ-ANDROMEDA",
+        "CLIN-004"
+      ]
+    },
+    "dashboard-cto": {
+      "hit_count": 4,
+      "bodyText_length": 3959,
+      "hits": [
+        "SAT-001",
+        "DCMA",
+        "ITAR",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "SAT-001"
+      ]
+    },
+    "dashboard-cio": {
+      "hit_count": 5,
+      "bodyText_length": 4681,
+      "hits": [
+        "USSF",
+        "DCMA",
+        "ITAR",
+        "CMMC",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "dashboard-mfg": {
+      "hit_count": 6,
+      "bodyText_length": 4190,
+      "hits": [
+        "SAT-001",
+        "ADCS-RW-MEDIUM",
+        "DCMA",
+        "ITAR",
+        "CMMC",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "SAT-001",
+        "ADCS-RW-MEDIUM"
+      ]
+    },
+    "dashboard-cfo": {
+      "hit_count": 3,
+      "bodyText_length": 3293,
+      "hits": [
+        "USSF",
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "dashboard-ceo": {
+      "hit_count": 7,
+      "bodyText_length": 3089,
+      "hits": [
+        "SAT-001",
+        "PROJ-ANDROMEDA",
+        "USSF",
+        "DCMA",
+        "FFP",
+        "EVMS",
+        "TUR-FFP-"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "SAT-001",
+        "PROJ-ANDROMEDA"
+      ]
+    },
+    "dashboard-sfhead": {
+      "hit_count": 5,
+      "bodyText_length": 5640,
+      "hits": [
+        "USSF",
+        "DCMA",
+        "ITAR",
+        "DPAS",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "executive-cockpit": {
+      "hit_count": 3,
+      "bodyText_length": 4272,
+      "hits": [
+        "DCMA",
+        "CMMC",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "integration-vendor-ns": {
+      "hit_count": 4,
+      "bodyText_length": 2808,
+      "hits": [
+        "DCMA",
+        "ITAR",
+        "DPAS",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "integration-mes-ns": {
+      "hit_count": 2,
+      "bodyText_length": 2799,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "integration-arena-ns": {
+      "hit_count": 3,
+      "bodyText_length": 2781,
+      "hits": [
+        "DCMA",
+        "ITAR",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "integration-bank-siem": {
+      "hit_count": 4,
+      "bodyText_length": 2864,
+      "hits": [
+        "DFARS",
+        "DCMA",
+        "ITAR",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "netsuite-customer-so": {
+      "hit_count": 15,
+      "bodyText_length": 3104,
+      "hits": [
+        "DFARS",
+        "USSF",
+        "DCMA",
+        "ITAR",
+        "CMMC",
+        "DPAS",
+        "FFP",
+        "EVMS",
+        "Andromeda",
+        "Cape Canaveral",
+        "$147,500,000",
+        "TUR-FFP-",
+        "Col. M. Hansen",
+        "Maj. R. Kovacs",
+        "Defense Production Act"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "netsuite-project-evms": {
+      "hit_count": 6,
+      "bodyText_length": 8492,
+      "hits": [
+        "SAT-001",
+        "PROJ-ANDROMEDA",
+        "CLIN-004",
+        "DCMA",
+        "FFP",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "SAT-001",
+        "PROJ-ANDROMEDA",
+        "CLIN-004"
+      ]
+    },
+    "netsuite-mrp": {
+      "hit_count": 4,
+      "bodyText_length": 4045,
+      "hits": [
+        "PROJ-ANDROMEDA",
+        "DCMA",
+        "ITAR",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "PROJ-ANDROMEDA"
+      ]
+    },
+    "mes-shop-floor": {
+      "hit_count": 6,
+      "bodyText_length": 6629,
+      "hits": [
+        "PROJ-ANDROMEDA",
+        "BCT-RW-",
+        "DCMA",
+        "ITAR",
+        "EVMS",
+        "M. Rodriguez"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "PROJ-ANDROMEDA",
+        "BCT-RW-"
+      ]
+    },
+    "netsuite-demand-planning": {
+      "hit_count": 2,
+      "bodyText_length": 4825,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "workflow-new-so": {
+      "hit_count": 9,
+      "bodyText_length": 2333,
+      "hits": [
+        "DCMA",
+        "ITAR",
+        "CMMC",
+        "DPAS",
+        "FFP",
+        "EVMS",
+        "$147,500,000",
+        "Defense Production Act",
+        "Space Domain Awareness"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "vendor-portal": {
+      "hit_count": 8,
+      "bodyText_length": 4412,
+      "hits": [
+        "PROJ-ANDROMEDA",
+        "DFARS",
+        "DCMA",
+        "ITAR",
+        "CMMC",
+        "DPAS",
+        "EVMS",
+        "Defense Production Act"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "PROJ-ANDROMEDA"
+      ]
+    },
+    "dashboard-president": {
+      "hit_count": 8,
+      "bodyText_length": 3944,
+      "hits": [
+        "SAT-001",
+        "ADCS-RW-MEDIUM",
+        "PROJ-ANDROMEDA",
+        "USSF",
+        "DCMA",
+        "CMMC",
+        "EVMS",
+        "Andromeda"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "SAT-001",
+        "ADCS-RW-MEDIUM",
+        "PROJ-ANDROMEDA"
+      ]
+    },
+    "ns-record": {
+      "hit_count": 2,
+      "bodyText_length": 1771,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "salesforce-account": {
+      "hit_count": 13,
+      "bodyText_length": 5811,
+      "hits": [
+        "DFARS",
+        "USSF",
+        "DCMA",
+        "ITAR",
+        "CMMC",
+        "DPAS",
+        "FFP",
+        "EVMS",
+        "Andromeda",
+        "$147,500,000",
+        "TUR-FFP-",
+        "Defense Production Act",
+        "Space Domain Awareness"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "netsuite-fpa": {
+      "hit_count": 5,
+      "bodyText_length": 3189,
+      "hits": [
+        "SAT-001",
+        "USSF",
+        "DCMA",
+        "ITAR",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "SAT-001"
+      ]
+    },
+    "projects-index": {
+      "hit_count": 2,
+      "bodyText_length": 1480,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    },
+    "dashboard-cro": {
+      "hit_count": 6,
+      "bodyText_length": 3668,
+      "hits": [
+        "SAT-001",
+        "USSF",
+        "DCMA",
+        "FFP",
+        "EVMS",
+        "TUR-FFP-"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "SAT-001"
+      ]
+    },
+    "dashboard-dcma": {
+      "hit_count": 10,
+      "bodyText_length": 4883,
+      "hits": [
+        "SAT-001",
+        "DFARS",
+        "USSF",
+        "DCMA",
+        "ITAR",
+        "CMMC",
+        "DPAS",
+        "FFP",
+        "EVMS",
+        "TUR-FFP-"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "SAT-001"
+      ]
+    },
+    "dashboard-procurement": {
+      "hit_count": 5,
+      "bodyText_length": 3956,
+      "hits": [
+        "ADCS-RW-MEDIUM",
+        "Blue Canyon",
+        "DCMA",
+        "DPAS",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": [
+        "ADCS-RW-MEDIUM",
+        "Blue Canyon"
+      ]
+    },
+    "vendor-index": {
+      "hit_count": 2,
+      "bodyText_length": 1569,
+      "hits": [
+        "DCMA",
+        "EVMS"
+      ],
+      "narrow_hardcodedTokens_at_plan_08": []
+    }
+  },
+  "total_pages_with_hits": 51,
+  "total_hits": 239,
+  "summary": "Wide audit (25 tokens) detected leaks on 51 of 51 pages — total 239 token-hits across the Plan 08 SOLOBRANDS snapshot. Narrow audit (7 tokens) at Plan 08 reported 30 hits. The delta is the substrate gap that Plan 10's data-tenant-only gating will close."
+}
