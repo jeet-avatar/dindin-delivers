@@ -681,6 +681,7 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 65.3-tenant-data-driven-erp-detail-pages]: Skipped redundant backend redeploy when build-and-push.sh produced byte-equal CodeSha256 — Plan 04a routes were already live
 - [Phase 65.3-tenant-data-driven-erp-detail-pages]: 10 Solo Brands narrative-substitution leaks documented as deferred-debt per Plan 03/04b documented hand-off; one-line setTimeout(0) fix in follow-up Quick task
 - [Phase 65.3-tenant-data-driven-erp-detail-pages]: Bash 3 compatibility forced smoke harness rewrite using case statements instead of associative arrays
+- [Phase 65.3]: Plan 07: Wrap text-walker substitute() in requestAnimationFrame across 7 narrative pages to close G2 (NarrativeSubstitutionRaceFix). Defensive RAF guard idiom; replaced pre-existing setTimeout(0) with strictly-stronger RAF; wrapped both .then() microtask and addEventListener paths.
 
 ### Quick Tasks Completed
 
@@ -743,4 +744,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 65.3 P02a | 18m | 2 tasks | 10 files |
 | Phase 65.3 P03 | 42 | 2 tasks | 11 files |
 | Phase 65.3-tenant-data-driven-erp-detail-pages P05 | 19 min | 2 tasks | 5 files |
+| Phase 65.3 P07 | 25min | 1 tasks | 7 files |
 
