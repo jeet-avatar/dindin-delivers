@@ -684,6 +684,7 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 - [Phase 65.3-tenant-data-driven-erp-detail-pages]: 10 Solo Brands narrative-substitution leaks documented as deferred-debt per Plan 03/04b documented hand-off; one-line setTimeout(0) fix in follow-up Quick task
 - [Phase 65.3-tenant-data-driven-erp-detail-pages]: Bash 3 compatibility forced smoke harness rewrite using case statements instead of associative arrays
 - [Phase 65.3]: Plan 07: Wrap text-walker substitute() in requestAnimationFrame across 7 narrative pages to close G2 (NarrativeSubstitutionRaceFix). Defensive RAF guard idiom; replaced pre-existing setTimeout(0) with strictly-stronger RAF; wrapped both .then() microtask and addEventListener paths.
+- [Phase 65.3]: Plan 11 (gap-closure cycle 65.3.2) PASSED: user UAT URL renders 0 of 25 defense-narrative tokens; Turion preservation intact; WIDE_AUDIT smoke exit 0; static audit -87% from baseline
 
 ### Quick Tasks Completed
 
@@ -748,4 +749,5 @@ _Prior position (Plan 28-02, Phase 28 Wave 2):_ Migration 019 data-coverage back
 | Phase 65.3-tenant-data-driven-erp-detail-pages P05 | 19 min | 2 tasks | 5 files |
 | Phase 65.3 P07 | 25min | 1 tasks | 7 files |
 | Phase 65.3 P06 | 60min | 3 tasks | 17 files |
+| Phase 65.3 P11 | 82min | 2 tasks | 36 files |
 
