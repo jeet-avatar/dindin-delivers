@@ -1,0 +1,1921 @@
+{
+  "scanned_at": "2026-05-17T08:00:32.766Z",
+  "root_dir": "/Users/jeet/turion-space-demo",
+  "tokens": [
+    "SAT-001",
+    "ADCS-RW-MEDIUM",
+    "Blue Canyon",
+    "PROJ-ANDROMEDA",
+    "CLIN-004",
+    "BCT-RW-",
+    "Cygnus",
+    "DFARS",
+    "USSF",
+    "DCMA",
+    "ITAR",
+    "CMMC",
+    "DPAS",
+    "FFP",
+    "EVMS",
+    "Andromeda",
+    "Cape Canaveral",
+    "$147,500,000",
+    "TUR-FFP-",
+    "Col. M. Hansen",
+    "Maj. R. Kovacs",
+    "M. Rodriguez",
+    "Defense Production Act",
+    "Space Domain Awareness",
+    "Reaction Wheel"
+  ],
+  "exclude_patterns": [
+    "/satellite/",
+    "/backend/",
+    "/node_modules/",
+    "/.git/",
+    "/.superpowers/",
+    "/onboarding/"
+  ],
+  "total_files_scanned": 115,
+  "total_violations": 152,
+  "violations": [
+    {
+      "file": "about-this-demo.html",
+      "token": "DCMA",
+      "line": 347,
+      "excerpt": "<li>Defense-contractor patterns: AS9100, DCMA QAR resident inspector, FAR 52.245-1, CMMC L2, ASC-606, EVMS</li>"
+    },
+    {
+      "file": "about-this-demo.html",
+      "token": "CMMC",
+      "line": 347,
+      "excerpt": "<li>Defense-contractor patterns: AS9100, DCMA QAR resident inspector, FAR 52.245-1, CMMC L2, ASC-606, EVMS</li>"
+    },
+    {
+      "file": "about-this-demo.html",
+      "token": "EVMS",
+      "line": 347,
+      "excerpt": "<li>Defense-contractor patterns: AS9100, DCMA QAR resident inspector, FAR 52.245-1, CMMC L2, ASC-606, EVMS</li>"
+    },
+    {
+      "file": "about-this-demo.html",
+      "token": "DCMA",
+      "line": 358,
+      "excerpt": "<li>NCR / CAPA / audit IDs, personnel certifications, supplier audit dates, DCMA QAR activity logs</li>"
+    },
+    {
+      "file": "about-this-demo.html",
+      "token": "EVMS",
+      "line": 372,
+      "excerpt": "<p>Customer, opportunity, and contract data follow public smallsat market patterns and FAR Part 15 contract conventions."
+    },
+    {
+      "file": "about-this-demo.html",
+      "token": "CMMC",
+      "line": 377,
+      "excerpt": "<span class=\"std-badge\"><span class=\"std-badge-dot\" style=\"background:#7c3aed;\"></span>CMMC Level 2</span>"
+    },
+    {
+      "file": "about-this-demo.html",
+      "token": "DFARS",
+      "line": 378,
+      "excerpt": "<span class=\"std-badge\"><span class=\"std-badge-dot\" style=\"background:#0f766e;\"></span>FAR / DFARS</span>"
+    },
+    {
+      "file": "about-this-demo.html",
+      "token": "EVMS",
+      "line": 380,
+      "excerpt": "<span class=\"std-badge\"><span class=\"std-badge-dot\" style=\"background:#b45309;\"></span>EVMS / EVM</span>"
+    },
+    {
+      "file": "about-this-demo.html",
+      "token": "ITAR",
+      "line": 381,
+      "excerpt": "<span class=\"std-badge\"><span class=\"std-badge-dot\" style=\"background:#dc2626;\"></span>ITAR Cat XV</span>"
+    },
+    {
+      "file": "about-this-demo.html",
+      "token": "DCMA",
+      "line": 382,
+      "excerpt": "<span class=\"std-badge\"><span class=\"std-badge-dot\" style=\"background:#0369a1;\"></span>DCMA QAR</span>"
+    },
+    {
+      "file": "about-this-demo.html",
+      "token": "EVMS",
+      "line": 413,
+      "excerpt": "<td><span class=\"tag-pill tag-modeled\">Modeled · ASC-606 / EVMS</span></td>"
+    },
+    {
+      "file": "admin-index.html",
+      "token": "DCMA",
+      "line": 34,
+      "excerpt": "<p class=\"lead\">NetSuite OneWorld setup · role-based access · DCMA-ready audit trail. CMMC L2 controls live · Okta SCIM "
+    },
+    {
+      "file": "admin-index.html",
+      "token": "ITAR",
+      "line": 34,
+      "excerpt": "<p class=\"lead\">NetSuite OneWorld setup · role-based access · DCMA-ready audit trail. CMMC L2 controls live · Okta SCIM "
+    },
+    {
+      "file": "admin-index.html",
+      "token": "CMMC",
+      "line": 34,
+      "excerpt": "<p class=\"lead\">NetSuite OneWorld setup · role-based access · DCMA-ready audit trail. CMMC L2 controls live · Okta SCIM "
+    },
+    {
+      "file": "admin-index.html",
+      "token": "CMMC",
+      "line": 61,
+      "excerpt": "\"label\": \"CMMC controls\","
+    },
+    {
+      "file": "agent-sales-cash.html",
+      "token": "EVMS",
+      "line": 291,
+      "excerpt": "<button class=\"tab-btn\" onclick=\"switchTab('evms')\">📊 EVMS Watchdog</button>"
+    },
+    {
+      "file": "agent-sales-cash.html",
+      "token": "USSF",
+      "line": 310,
+      "excerpt": "<div class=\"scenario-value\">USSF — U.S. Space Force</div>"
+    },
+    {
+      "file": "agent-sales-cash.html",
+      "token": "EVMS",
+      "line": 421,
+      "excerpt": "TAB 3 · EVMS WATCHDOG"
+    },
+    {
+      "file": "agent-sales-cash.html",
+      "token": "DCMA",
+      "line": 446,
+      "excerpt": "<div class=\"scenario-desc\">Agent will compute CPI and SPI across WBS elements, flag at-risk elements where CPI &lt; 0.90"
+    },
+    {
+      "file": "agent-sales-cash.html",
+      "token": "EVMS",
+      "line": 461,
+      "excerpt": "<div class=\"log-empty\" id=\"logEmpty-evms\">Click Run Agent to begin the EVMS analysis.</div>"
+    },
+    {
+      "file": "agent-sales-cash.html",
+      "token": "EVMS",
+      "line": 466,
+      "excerpt": "<div class=\"outcome-header\">✅ EVMS Report Filed — Variance Flagged</div>"
+    },
+    {
+      "file": "agent-sales-cash.html",
+      "token": "EVMS",
+      "line": 474,
+      "excerpt": "<a class=\"outcome-link\" href=\"/programs/evms\">View EVMS →</a>"
+    },
+    {
+      "file": "agent-sales-cash.html",
+      "token": "DCMA",
+      "line": 475,
+      "excerpt": "<a class=\"outcome-link\" href=\"/dashboard-dcma\">DCMA Dashboard →</a>"
+    },
+    {
+      "file": "agent-sales-cash.html",
+      "token": "EVMS",
+      "line": 665,
+      "excerpt": "evms: 'Click Run Agent to begin the EVMS analysis.',"
+    },
+    {
+      "file": "agents/evms.html",
+      "token": "EVMS",
+      "line": 5,
+      "excerpt": "<title>AI Agents · EVMS Watchdog · Zietra</title>"
+    },
+    {
+      "file": "agents/evms.html",
+      "token": "EVMS",
+      "line": 20,
+      "excerpt": "title: 'AI Agents — EVMS Watchdog',"
+    },
+    {
+      "file": "agents/evms.html",
+      "token": "EVMS",
+      "line": 56,
+      "excerpt": "emptyState: { title: \"No agent runs yet.\", body: \"Click 'Run agent' (top right) to run the EVMS watchdog.\", ctaLabel: ''"
+    },
+    {
+      "file": "architecture.html",
+      "token": "ITAR",
+      "line": 83,
+      "excerpt": "<div class=\"stat-item\"><div class=\"num\">76%</div><div class=\"lbl\">ITAR-controlled</div></div>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "Andromeda",
+      "line": 96,
+      "excerpt": "<li><strong>Opportunity</strong> · Andromeda Production Award</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "FFP",
+      "line": 97,
+      "excerpt": "<li><strong>Contract</strong> · TUR-FFP-2024-001 · $147.5M FFP</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "TUR-FFP-",
+      "line": 97,
+      "excerpt": "<li><strong>Contract</strong> · TUR-FFP-2024-001 · $147.5M FFP</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "ITAR",
+      "line": 114,
+      "excerpt": "<li><strong>ITAR workspace</strong> · technical-data control</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "EVMS",
+      "line": 132,
+      "excerpt": "<li><strong>EVMS</strong> · CPI 1.04 · SPI 0.97</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "USSF",
+      "line": 184,
+      "excerpt": "Watch one $47.8M USSF satellite flow through every system: SF Account + Opp → Celigo sync → NS Customer + SO + 7 CLINs +"
+    },
+    {
+      "file": "architecture.html",
+      "token": "DCMA",
+      "line": 184,
+      "excerpt": "Watch one $47.8M USSF satellite flow through every system: SF Account + Opp → Celigo sync → NS Customer + SO + 7 CLINs +"
+    },
+    {
+      "file": "architecture.html",
+      "token": "FFP",
+      "line": 199,
+      "excerpt": "The two NS panels above are the <em>entry points</em>. Below is every NS module that participates in the <span data-z-te"
+    },
+    {
+      "file": "architecture.html",
+      "token": "ITAR",
+      "line": 208,
+      "excerpt": "<li>Customer master · DPAS · CMMC · ITAR flags</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "CMMC",
+      "line": 208,
+      "excerpt": "<li>Customer master · DPAS · CMMC · ITAR flags</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "DPAS",
+      "line": 208,
+      "excerpt": "<li>Customer master · DPAS · CMMC · ITAR flags</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "ITAR",
+      "line": 223,
+      "excerpt": "<li>Bin locations · ITAR access logged</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "ITAR",
+      "line": 235,
+      "excerpt": "<li>Vendor master · 8 ITAR/DPAS qualified</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "DPAS",
+      "line": 235,
+      "excerpt": "<li>Vendor master · 8 ITAR/DPAS qualified</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "EVMS",
+      "line": 270,
+      "excerpt": "<h4>Project · EVMS</h4>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "EVMS",
+      "line": 273,
+      "excerpt": "<li>EVMS dashboard · BAC $116.2M</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "ITAR",
+      "line": 404,
+      "excerpt": "<li>Item · BOM · ECO · QMS · ITAR docs</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "ITAR",
+      "line": 407,
+      "excerpt": "<li>Box Govt Cloud for ITAR transit</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "ITAR",
+      "line": 418,
+      "excerpt": "<li>DPAS DO-A1 + ITAR Cat XV flow-down</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "DPAS",
+      "line": 418,
+      "excerpt": "<li>DPAS DO-A1 + ITAR Cat XV flow-down</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "EVMS",
+      "line": 457,
+      "excerpt": "<li><strong>President</strong> · 🏛 4 LOBs · programs (EVMS) · top customers · risk · integration health</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "CMMC",
+      "line": 459,
+      "excerpt": "<li><strong>CIO</strong> · 💻 5 integration boundaries · CMMC L2 (110/119) · SaaS stack · SIEM</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "DCMA",
+      "line": 469,
+      "excerpt": "<div class=\"ns-mod-role\">CFO · CTO · Programs · Procurement · DCMA · function-tailored views</div>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "ITAR",
+      "line": 472,
+      "excerpt": "<li><strong>CTO</strong> · MES stage progress · NCR/CAPA cycle · ECO cadence · ITAR posture</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "DCMA",
+      "line": 475,
+      "excerpt": "<li><strong>DCMA</strong> · NCR/CAPA trail · audit findings · ITAR access log · DPAS cascade</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "ITAR",
+      "line": 475,
+      "excerpt": "<li><strong>DCMA</strong> · NCR/CAPA trail · audit findings · ITAR access log · DPAS cascade</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "DPAS",
+      "line": 475,
+      "excerpt": "<li><strong>DCMA</strong> · NCR/CAPA trail · audit findings · ITAR access log · DPAS cascade</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "FFP",
+      "line": 522,
+      "excerpt": "<li>SF <strong>Contract</strong> → NS <code>customrecord_contract</code> (FFP terms preserved)</li>"
+    },
+    {
+      "file": "architecture.html",
+      "token": "ITAR",
+      "line": 538,
+      "excerpt": "<li>Arena <strong>Documents</strong> → NS Item URL refs (ITAR access inherits)</li>"
+    },
+    {
+      "file": "dashboard-cio.html",
+      "token": "CMMC",
+      "line": 42,
+      "excerpt": "/* CMMC Drill modal */"
+    },
+    {
+      "file": "dashboard-dcma.html",
+      "token": "DCMA",
+      "line": 7,
+      "excerpt": "<title>DCMA / Auditor Dashboard · Turion Space</title>"
+    },
+    {
+      "file": "dashboards.html",
+      "token": "ITAR",
+      "line": 61,
+      "excerpt": "<div class=\"who\">For: T. Pierce · Engineering · ITAR-cleared roles</div>"
+    },
+    {
+      "file": "dashboards.html",
+      "token": "ITAR",
+      "line": 62,
+      "excerpt": "<div class=\"desc\">Build progress: MES stage advancement · NCR/CAPA velocity · ECO release cadence · ITAR compliance · bu"
+    },
+    {
+      "file": "dashboards.html",
+      "token": "ITAR",
+      "line": 63,
+      "excerpt": "<div class=\"kpis\"><span>Open NCRs</span><span>CAPAs in 8D</span><span>ECOs YTD</span><span>Stage progress</span><span>IT"
+    },
+    {
+      "file": "dashboards.html",
+      "token": "EVMS",
+      "line": 71,
+      "excerpt": "<div class=\"desc\">Project EVMS: BAC · EV · AC · CPI · SPI · EAC · CDRL deliveries · risk register · variance analysis · "
+    },
+    {
+      "file": "dashboards.html",
+      "token": "DPAS",
+      "line": 80,
+      "excerpt": "<div class=\"desc\">Open POs · vendor scorecard · 3-way match exceptions · lead-time slip alerts · sub-supplier change not"
+    },
+    {
+      "file": "dashboards.html",
+      "token": "DCMA",
+      "line": 87,
+      "excerpt": "<div class=\"title\">DCMA / External Auditor</div>"
+    },
+    {
+      "file": "dashboards.html",
+      "token": "DCMA",
+      "line": 88,
+      "excerpt": "<div class=\"who\">For: J. Ortiz (DCMA QAR) · Big-4 audit · CMMC assessor</div>"
+    },
+    {
+      "file": "dashboards.html",
+      "token": "CMMC",
+      "line": 88,
+      "excerpt": "<div class=\"who\">For: J. Ortiz (DCMA QAR) · Big-4 audit · CMMC assessor</div>"
+    },
+    {
+      "file": "dashboards.html",
+      "token": "ITAR",
+      "line": 89,
+      "excerpt": "<div class=\"desc\">Read-only compliance view: NCR/CAPA trail · audit findings (open + closed) · ITAR access log · DPAS fl"
+    },
+    {
+      "file": "dashboards.html",
+      "token": "DPAS",
+      "line": 89,
+      "excerpt": "<div class=\"desc\">Read-only compliance view: NCR/CAPA trail · audit findings (open + closed) · ITAR access log · DPAS fl"
+    },
+    {
+      "file": "dashboards.html",
+      "token": "ITAR",
+      "line": 90,
+      "excerpt": "<div class=\"kpis\"><span>NCRs · 12mo</span><span>CAPAs in 8D</span><span>Audit findings</span><span>ITAR violations</span"
+    },
+    {
+      "file": "dashboards.html",
+      "token": "DCMA",
+      "line": 91,
+      "excerpt": "<div class=\"cta\">Open DCMA dashboard →</div>"
+    },
+    {
+      "file": "index.html",
+      "token": "EVMS",
+      "line": 162,
+      "excerpt": "{ code: 'ai-agents',    ic: '🤖', ttl: 'AI Agents',            href: '/agents/ncr-capa',          sub: 'NCR→CAPA, EVMS W"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "ITAR",
+      "line": 119,
+      "excerpt": "<div class=\"stat-card\"><div class=\"label\">CMMC L2 / ITAR</div><div class=\"value\">✓</div><div class=\"meta\">Box Govt + Spl"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "CMMC",
+      "line": 119,
+      "excerpt": "<div class=\"stat-card\"><div class=\"label\">CMMC L2 / ITAR</div><div class=\"value\">✓</div><div class=\"meta\">Box Govt + Spl"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "DPAS",
+      "line": 183,
+      "excerpt": "<text x=\"740\" y=\"280\" fill=\"#475569\" font-size=\"10\" font-style=\"italic\">EDI · DPAS flow-down</text>"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "ITAR",
+      "line": 231,
+      "excerpt": "<div class=\"b-flow\">Engineering + QMS ⇄ ERP · items + BOM + ECO + QMS + ITAR docs</div>"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "ITAR",
+      "line": 236,
+      "excerpt": "<p>Part / Item master · multi-level BOM with effectivity · ECO → Item rev push · CCB approval workflow · NCR / CAPA / Au"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "DPAS",
+      "line": 286,
+      "excerpt": "<div class=\"b-flow\">ERP ⇄ Supplier · EDI 850 / 855 / 856 / 810 + DPAS flow-down</div>"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "ITAR",
+      "line": 291,
+      "excerpt": "<p>EDI X12 transaction set: 850 (PO) · 855 (Acknowledgement) · 856 (Advance Shipping Notice) · 810 (Invoice → 3-way matc"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "DPAS",
+      "line": 291,
+      "excerpt": "<p>EDI X12 transaction set: 850 (PO) · 855 (Acknowledgement) · 856 (Advance Shipping Notice) · 810 (Invoice → 3-way matc"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "ITAR",
+      "line": 294,
+      "excerpt": "<li>3 Compliance flow-down flows (DPAS · ITAR · sub-supplier change)</li>"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "DPAS",
+      "line": 294,
+      "excerpt": "<li>3 Compliance flow-down flows (DPAS · ITAR · sub-supplier change)</li>"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "DFARS",
+      "line": 318,
+      "excerpt": "<p><strong>Bank (Wells Fargo):</strong> daily FX feed (USD base · EUR/GBP/CAD enabled) · transaction download · auto-mat"
+    },
+    {
+      "file": "integration-hub.html",
+      "token": "CMMC",
+      "line": 318,
+      "excerpt": "<p><strong>Bank (Wells Fargo):</strong> daily FX feed (USD base · EUR/GBP/CAD enabled) · transaction download · auto-mat"
+    },
+    {
+      "file": "integration-sf-ns.html",
+      "token": "EVMS",
+      "line": 173,
+      "excerpt": "<li><strong>Project · EVMS</strong> · MES · PO · GL</li>"
+    },
+    {
+      "file": "integration-sf-ns.html",
+      "token": "CMMC",
+      "line": 232,
+      "excerpt": "<li><strong>Okta SCIM</strong> is mandatory for CMMC L2 SSO + automated deprovisioning within 1 hour.</li>"
+    },
+    {
+      "file": "integration-sf-ns.html",
+      "token": "ITAR",
+      "line": 233,
+      "excerpt": "<li><strong>Box Government Cloud</strong> required for ITAR file transit · FedRAMP Moderate authorisation.</li>"
+    },
+    {
+      "file": "integration-sf-ns.html",
+      "token": "ITAR",
+      "line": 380,
+      "excerpt": "{ dir: 'bidi', label: 'Files (ITAR-aware)', meta: 'Box Gov Cloud middleman', cat: 'Operational' },"
+    },
+    {
+      "file": "integration-sf-ns.html",
+      "token": "CMMC",
+      "line": 381,
+      "excerpt": "{ dir: 'bidi', label: 'Audit log → SIEM', meta: 'Splunk · CMMC L2 · 7-yr retention', cat: 'Operational' },"
+    },
+    {
+      "file": "mes-shop-floor.html",
+      "token": "SAT-001",
+      "line": 7,
+      "excerpt": "<title>MES · Shop Floor · <a href=\"/records/item/SAT-001\" style=\"color: #0066b3; text-decoration: none; border-bottom: 1"
+    },
+    {
+      "file": "netsuite-customers.html",
+      "token": "DPAS",
+      "line": 95,
+      "excerpt": "<input type=\"text\" id=\"filterInput\" placeholder=\"Filter by name, id, address, DPAS…\">"
+    },
+    {
+      "file": "netsuite-customers.html",
+      "token": "DPAS",
+      "line": 111,
+      "excerpt": "<th style=\"width:80px;\">DPAS</th>"
+    },
+    {
+      "file": "netsuite-customers.html",
+      "token": "DPAS",
+      "line": 156,
+      "excerpt": "var dpas = (r.source_data && (r.source_data.dpas || r.source_data.DPAS || '')) || '';"
+    },
+    {
+      "file": "netsuite-mrp.html",
+      "token": "SAT-001",
+      "line": 7,
+      "excerpt": "<title>NetSuite Manufacturing · <a href=\"/records/item/SAT-001\" style=\"color: #0066b3; text-decoration: none; border-bot"
+    },
+    {
+      "file": "netsuite-project-evms.html",
+      "token": "EVMS",
+      "line": 7,
+      "excerpt": "<title>NetSuite · Project · EVMS</title>"
+    },
+    {
+      "file": "netsuite-project-evms.html",
+      "token": "EVMS",
+      "line": 15,
+      "excerpt": "/* S-curve chart · EVMS PV/EV/AC */"
+    },
+    {
+      "file": "netsuite-project-evms.html",
+      "token": "EVMS",
+      "line": 1384,
+      "excerpt": "<!-- 65.3-06: tenant-data-driven · EVMS single-project detail + list mode + text-walker substitution -->"
+    },
+    {
+      "file": "netsuite-setup.html",
+      "token": "DCMA",
+      "line": 234,
+      "excerpt": "<p style=\"font-size:12px; color:#6b7c93; margin-bottom:10px;\">All users require MFA (Authenticator or Yubikey). External"
+    },
+    {
+      "file": "netsuite-setup.html",
+      "token": "ITAR",
+      "line": 234,
+      "excerpt": "<p style=\"font-size:12px; color:#6b7c93; margin-bottom:10px;\">All users require MFA (Authenticator or Yubikey). External"
+    },
+    {
+      "file": "netsuite-setup.html",
+      "token": "DFARS",
+      "line": 256,
+      "excerpt": "<p style=\"font-size:12px; color:#6b7c93; margin-bottom:10px;\">Every authentication event logged · auto-blocks after 5 fa"
+    },
+    {
+      "file": "netsuite-setup.html",
+      "token": "CMMC",
+      "line": 256,
+      "excerpt": "<p style=\"font-size:12px; color:#6b7c93; margin-bottom:10px;\">Every authentication event logged · auto-blocks after 5 fa"
+    },
+    {
+      "file": "netsuite-setup.html",
+      "token": "USSF",
+      "line": 322,
+      "excerpt": "<h3>🏛 Federal government exempt logic · auto-applied on USSF / NASA / DoD sales</h3>"
+    },
+    {
+      "file": "netsuite-setup.html",
+      "token": "USSF",
+      "line": 335,
+      "excerpt": "<td><a href=\"/records/customer/CUST-2026-021\">CUST-2026-021 · USSF SSC</a></td>"
+    },
+    {
+      "file": "netsuite-setup.html",
+      "token": "ITAR",
+      "line": 545,
+      "excerpt": "<div class=\"field\" style=\"grid-column: span 2;\"><div class=\"label\">DDTC ITAR registration</div><div class=\"value\">${ci.d"
+    },
+    {
+      "file": "netsuite-setup.html",
+      "token": "CMMC",
+      "line": 546,
+      "excerpt": "<div class=\"field\"><div class=\"label\">CMMC level</div><div class=\"value\">${ci.cmmcLevel}</div></div>"
+    },
+    {
+      "file": "netsuite-setup.html",
+      "token": "ITAR",
+      "line": 607,
+      "excerpt": "let html = `<thead><tr><th>Emp #</th><th>Name</th><th>Email</th><th>Role</th><th>Dept</th><th>Last login</th><th>MFA</th"
+    },
+    {
+      "file": "pitch.html",
+      "token": "EVMS",
+      "line": 430,
+      "excerpt": "<a href=\"/agents\">EVMS Watchdog (2 runs — labor variance + cycle-time trend)</a>"
+    },
+    {
+      "file": "procurement-index.html",
+      "token": "ITAR",
+      "line": 52,
+      "excerpt": "\"desc\": \"14 POs · $4.8M committed · DPAS DO-A1 · ITAR Cat XV.\","
+    },
+    {
+      "file": "procurement-index.html",
+      "token": "DPAS",
+      "line": 52,
+      "excerpt": "\"desc\": \"14 POs · $4.8M committed · DPAS DO-A1 · ITAR Cat XV.\","
+    },
+    {
+      "file": "sales-index.html",
+      "token": "USSF",
+      "line": 49,
+      "excerpt": "{ url: '/sales/account', icon: '🏢', title: 'Account 360', desc: 'Salesforce account view · USSF · contacts, contracts, "
+    },
+    {
+      "file": "sales-index.html",
+      "token": "ITAR",
+      "line": 50,
+      "excerpt": "{ url: '/sales/orders', icon: '📋', title: 'Sales Orders', desc: 'NetSuite Customer + SO list · CLINs · DPAS rating · IT"
+    },
+    {
+      "file": "sales-index.html",
+      "token": "DPAS",
+      "line": 50,
+      "excerpt": "{ url: '/sales/orders', icon: '📋', title: 'Sales Orders', desc: 'NetSuite Customer + SO list · CLINs · DPAS rating · IT"
+    },
+    {
+      "file": "sales-new-account.html",
+      "token": "ITAR",
+      "line": 35,
+      "excerpt": "<span class=\"pill itar\" style=\"font-size: 10px;\">★ FedRAMP-High · ITAR-supported</span>"
+    },
+    {
+      "file": "sales-new-account.html",
+      "token": "DPAS",
+      "line": 119,
+      "excerpt": "<div class=\"field\"><label>DPAS rating</label><select id=\"dpas\"><option>none</option><option>DO-A1</option><option>DO-A7<"
+    },
+    {
+      "file": "sales-new-account.html",
+      "token": "ITAR",
+      "line": 120,
+      "excerpt": "<div class=\"field\"><label>ITAR tier</label><select id=\"itarTier\"><option>Unrestricted</option><option>Cat XV restricted<"
+    },
+    {
+      "file": "sales-new-account.html",
+      "token": "ITAR",
+      "line": 141,
+      "excerpt": "<div class=\"sf-card-body\"><div class=\"field-grid\"><div class=\"field full\"><label>Notes</label><textarea id=\"notes\" place"
+    },
+    {
+      "file": "sales-new-contact.html",
+      "token": "ITAR",
+      "line": 33,
+      "excerpt": "<span class=\"pill itar\" style=\"font-size: 10px;\">★ FedRAMP-High · ITAR-supported</span>"
+    },
+    {
+      "file": "sales-new-contact.html",
+      "token": "DCMA",
+      "line": 59,
+      "excerpt": "<div class=\"eyebrow\"><span class=\"type-pill\">Contact</span><span>New Contact · syncs to NS Customer.Contacts sublist (IN"
+    },
+    {
+      "file": "sales-new-contact.html",
+      "token": "DCMA",
+      "line": 108,
+      "excerpt": "<div class=\"sf-card-head\"><h3>D · Role flags</h3><span class=\"hint\">Multi-select. DCMA Inspector flag adds INT-022 to th"
+    },
+    {
+      "file": "sales-new-contact.html",
+      "token": "DCMA",
+      "line": 114,
+      "excerpt": "<div class=\"field\"><div class=\"checkbox-row\"><input type=\"checkbox\" id=\"roleDcmaInspector\"><label for=\"roleDcmaInspector"
+    },
+    {
+      "file": "sales-new-contact.html",
+      "token": "DPAS",
+      "line": 153,
+      "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">DPAS</span> ${c.dpas || 'none'}</div>"
+    },
+    {
+      "file": "sales-new-contact.html",
+      "token": "ITAR",
+      "line": 154,
+      "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">ITAR tier</span> ${c.itarTier || '—'}</div>"
+    },
+    {
+      "file": "sales-new-contract.html",
+      "token": "ITAR",
+      "line": 17,
+      "excerpt": "<header class=\"sf-global\"><div class=\"sf-app-launcher\">⚏</div><div class=\"sf-app-name\"><span class=\"cloud-icon\">☁</span>"
+    },
+    {
+      "file": "sales-new-contract.html",
+      "token": "FFP",
+      "line": 30,
+      "excerpt": "<div class=\"field\"><label>Contract ID <span class=\"req\">*</span></label><input id=\"contractId\" placeholder=\"TUR-FFP-2026"
+    },
+    {
+      "file": "sales-new-contract.html",
+      "token": "TUR-FFP-",
+      "line": 30,
+      "excerpt": "<div class=\"field\"><label>Contract ID <span class=\"req\">*</span></label><input id=\"contractId\" placeholder=\"TUR-FFP-2026"
+    },
+    {
+      "file": "sales-new-contract.html",
+      "token": "FFP",
+      "line": 32,
+      "excerpt": "<div class=\"field\"><label>Contract Type <span class=\"req\">*</span></label><select id=\"type\"><option>FFP · Firm Fixed Pri"
+    },
+    {
+      "file": "sales-new-contract.html",
+      "token": "DPAS",
+      "line": 36,
+      "excerpt": "<div class=\"field\"><label>DPAS</label><select id=\"dpas\"><option>none</option><option>DO-A1</option><option>DO-A7</option"
+    },
+    {
+      "file": "sales-new-contract.html",
+      "token": "ITAR",
+      "line": 37,
+      "excerpt": "<div class=\"field\"><label>ITAR Tier</label><select id=\"itar\"><option>—</option><option>Cat XV</option><option>Cat IV</op"
+    },
+    {
+      "file": "sales-new-contract.html",
+      "token": "FFP",
+      "line": 107,
+      "excerpt": "document.getElementById('contractId').value = SFChrome.suggestId('TUR-FFP', 2026);"
+    },
+    {
+      "file": "sales-new-opportunity.html",
+      "token": "ITAR",
+      "line": 41,
+      "excerpt": "<div class=\"sf-right\"><span class=\"pill itar\" style=\"font-size:10px;\">★ FedRAMP-High · ITAR-supported</span><span style="
+    },
+    {
+      "file": "sales-new-opportunity.html",
+      "token": "DPAS",
+      "line": 94,
+      "excerpt": "<div class=\"field\"><label>DPAS</label><select id=\"dpas\"><option>none</option><option>DO-A1</option><option>DO-A7</option"
+    },
+    {
+      "file": "sales-new-opportunity.html",
+      "token": "ITAR",
+      "line": 95,
+      "excerpt": "<div class=\"field\"><div class=\"checkbox-row\"><input type=\"checkbox\" id=\"itar\"><label for=\"itar\" style=\"text-transform:no"
+    },
+    {
+      "file": "sales-new-opportunity.html",
+      "token": "FFP",
+      "line": 147,
+      "excerpt": "<td><select class=\"lc-type\"><option>FFP</option><option>CPFF</option><option>T&amp;M</option><option>Cost milestones</op"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "ITAR",
+      "line": 53,
+      "excerpt": "<span class=\"pill itar\" style=\"font-size: 10px;\">★ FedRAMP-High · ITAR-supported</span>"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "FFP",
+      "line": 206,
+      "excerpt": "<input id=\"newContractId\" placeholder=\"TUR-FFP-2026-XXX\">"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "TUR-FFP-",
+      "line": 206,
+      "excerpt": "<input id=\"newContractId\" placeholder=\"TUR-FFP-2026-XXX\">"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "FFP",
+      "line": 211,
+      "excerpt": "<option>FFP · Firm Fixed Price</option>"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "FFP",
+      "line": 212,
+      "excerpt": "<option>FFP · IDIQ task order</option>"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "DPAS",
+      "line": 232,
+      "excerpt": "<label>DPAS rating</label>"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "EVMS",
+      "line": 287,
+      "excerpt": "<div class=\"hint\">Optional · links SO to a project for EVMS roll-up.</div>"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "DPAS",
+      "line": 300,
+      "excerpt": "<label>DPAS rating</label>"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "ITAR",
+      "line": 308,
+      "excerpt": "<label for=\"itar\" style=\"text-transform:none;letter-spacing:0;\">ITAR-controlled (USML Cat XV) — sets export-control flag"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "ITAR",
+      "line": 368,
+      "excerpt": "<textarea id=\"notes\" placeholder=\"ITAR flow-down terms · launch site instructions · PoP overrides · etc.\"></textarea>"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "DPAS",
+      "line": 478,
+      "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">DPAS rating</span> ${c.dpas || 'none'}</div>"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "ITAR",
+      "line": 479,
+      "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">ITAR tier</span> ${c.itarTier || '—'}</div>"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "DPAS",
+      "line": 500,
+      "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">DPAS</span> ${c.dpas || '—'}</div>"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "ITAR",
+      "line": 501,
+      "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">ITAR</span> ${c.itar || '—'}</div>"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "FFP",
+      "line": 521,
+      "excerpt": "SFChrome.toggleInlineSubform('contractMode', 'existingContract', 'newContract', 'newContractId', 'TUR-FFP');"
+    },
+    {
+      "file": "sales-new-order.html",
+      "token": "FFP",
+      "line": 537,
+      "excerpt": "<option>FFP</option>"
+    },
+    {
+      "file": "sales-new-quote.html",
+      "token": "ITAR",
+      "line": 29,
+      "excerpt": "<div class=\"sf-right\"><span class=\"pill itar\" style=\"font-size:10px;\">★ FedRAMP-High · ITAR</span><div class=\"sf-avatar\""
+    },
+    {
+      "file": "sales-new-quote.html",
+      "token": "USSF",
+      "line": 55,
+      "excerpt": "<div class=\"field\"><label>Quote Name <span class=\"req\">*</span></label><input id=\"quoteName\" placeholder=\"Q1 2026 USSF P"
+    },
+    {
+      "file": "vendor-portal.html",
+      "token": "Blue Canyon",
+      "line": 7,
+      "excerpt": "<title>Blue Canyon Technologies · Customer Portal · PO from Turion Space</title>"
+    }
+  ],
+  "by_file": {
+    "about-this-demo.html": [
+      {
+        "file": "about-this-demo.html",
+        "token": "DCMA",
+        "line": 347,
+        "excerpt": "<li>Defense-contractor patterns: AS9100, DCMA QAR resident inspector, FAR 52.245-1, CMMC L2, ASC-606, EVMS</li>"
+      },
+      {
+        "file": "about-this-demo.html",
+        "token": "CMMC",
+        "line": 347,
+        "excerpt": "<li>Defense-contractor patterns: AS9100, DCMA QAR resident inspector, FAR 52.245-1, CMMC L2, ASC-606, EVMS</li>"
+      },
+      {
+        "file": "about-this-demo.html",
+        "token": "EVMS",
+        "line": 347,
+        "excerpt": "<li>Defense-contractor patterns: AS9100, DCMA QAR resident inspector, FAR 52.245-1, CMMC L2, ASC-606, EVMS</li>"
+      },
+      {
+        "file": "about-this-demo.html",
+        "token": "DCMA",
+        "line": 358,
+        "excerpt": "<li>NCR / CAPA / audit IDs, personnel certifications, supplier audit dates, DCMA QAR activity logs</li>"
+      },
+      {
+        "file": "about-this-demo.html",
+        "token": "EVMS",
+        "line": 372,
+        "excerpt": "<p>Customer, opportunity, and contract data follow public smallsat market patterns and FAR Part 15 contract conventions."
+      },
+      {
+        "file": "about-this-demo.html",
+        "token": "CMMC",
+        "line": 377,
+        "excerpt": "<span class=\"std-badge\"><span class=\"std-badge-dot\" style=\"background:#7c3aed;\"></span>CMMC Level 2</span>"
+      },
+      {
+        "file": "about-this-demo.html",
+        "token": "DFARS",
+        "line": 378,
+        "excerpt": "<span class=\"std-badge\"><span class=\"std-badge-dot\" style=\"background:#0f766e;\"></span>FAR / DFARS</span>"
+      },
+      {
+        "file": "about-this-demo.html",
+        "token": "EVMS",
+        "line": 380,
+        "excerpt": "<span class=\"std-badge\"><span class=\"std-badge-dot\" style=\"background:#b45309;\"></span>EVMS / EVM</span>"
+      },
+      {
+        "file": "about-this-demo.html",
+        "token": "ITAR",
+        "line": 381,
+        "excerpt": "<span class=\"std-badge\"><span class=\"std-badge-dot\" style=\"background:#dc2626;\"></span>ITAR Cat XV</span>"
+      },
+      {
+        "file": "about-this-demo.html",
+        "token": "DCMA",
+        "line": 382,
+        "excerpt": "<span class=\"std-badge\"><span class=\"std-badge-dot\" style=\"background:#0369a1;\"></span>DCMA QAR</span>"
+      },
+      {
+        "file": "about-this-demo.html",
+        "token": "EVMS",
+        "line": 413,
+        "excerpt": "<td><span class=\"tag-pill tag-modeled\">Modeled · ASC-606 / EVMS</span></td>"
+      }
+    ],
+    "admin-index.html": [
+      {
+        "file": "admin-index.html",
+        "token": "DCMA",
+        "line": 34,
+        "excerpt": "<p class=\"lead\">NetSuite OneWorld setup · role-based access · DCMA-ready audit trail. CMMC L2 controls live · Okta SCIM "
+      },
+      {
+        "file": "admin-index.html",
+        "token": "ITAR",
+        "line": 34,
+        "excerpt": "<p class=\"lead\">NetSuite OneWorld setup · role-based access · DCMA-ready audit trail. CMMC L2 controls live · Okta SCIM "
+      },
+      {
+        "file": "admin-index.html",
+        "token": "CMMC",
+        "line": 34,
+        "excerpt": "<p class=\"lead\">NetSuite OneWorld setup · role-based access · DCMA-ready audit trail. CMMC L2 controls live · Okta SCIM "
+      },
+      {
+        "file": "admin-index.html",
+        "token": "CMMC",
+        "line": 61,
+        "excerpt": "\"label\": \"CMMC controls\","
+      }
+    ],
+    "agent-sales-cash.html": [
+      {
+        "file": "agent-sales-cash.html",
+        "token": "EVMS",
+        "line": 291,
+        "excerpt": "<button class=\"tab-btn\" onclick=\"switchTab('evms')\">📊 EVMS Watchdog</button>"
+      },
+      {
+        "file": "agent-sales-cash.html",
+        "token": "USSF",
+        "line": 310,
+        "excerpt": "<div class=\"scenario-value\">USSF — U.S. Space Force</div>"
+      },
+      {
+        "file": "agent-sales-cash.html",
+        "token": "EVMS",
+        "line": 421,
+        "excerpt": "TAB 3 · EVMS WATCHDOG"
+      },
+      {
+        "file": "agent-sales-cash.html",
+        "token": "DCMA",
+        "line": 446,
+        "excerpt": "<div class=\"scenario-desc\">Agent will compute CPI and SPI across WBS elements, flag at-risk elements where CPI &lt; 0.90"
+      },
+      {
+        "file": "agent-sales-cash.html",
+        "token": "EVMS",
+        "line": 461,
+        "excerpt": "<div class=\"log-empty\" id=\"logEmpty-evms\">Click Run Agent to begin the EVMS analysis.</div>"
+      },
+      {
+        "file": "agent-sales-cash.html",
+        "token": "EVMS",
+        "line": 466,
+        "excerpt": "<div class=\"outcome-header\">✅ EVMS Report Filed — Variance Flagged</div>"
+      },
+      {
+        "file": "agent-sales-cash.html",
+        "token": "EVMS",
+        "line": 474,
+        "excerpt": "<a class=\"outcome-link\" href=\"/programs/evms\">View EVMS →</a>"
+      },
+      {
+        "file": "agent-sales-cash.html",
+        "token": "DCMA",
+        "line": 475,
+        "excerpt": "<a class=\"outcome-link\" href=\"/dashboard-dcma\">DCMA Dashboard →</a>"
+      },
+      {
+        "file": "agent-sales-cash.html",
+        "token": "EVMS",
+        "line": 665,
+        "excerpt": "evms: 'Click Run Agent to begin the EVMS analysis.',"
+      }
+    ],
+    "agents/evms.html": [
+      {
+        "file": "agents/evms.html",
+        "token": "EVMS",
+        "line": 5,
+        "excerpt": "<title>AI Agents · EVMS Watchdog · Zietra</title>"
+      },
+      {
+        "file": "agents/evms.html",
+        "token": "EVMS",
+        "line": 20,
+        "excerpt": "title: 'AI Agents — EVMS Watchdog',"
+      },
+      {
+        "file": "agents/evms.html",
+        "token": "EVMS",
+        "line": 56,
+        "excerpt": "emptyState: { title: \"No agent runs yet.\", body: \"Click 'Run agent' (top right) to run the EVMS watchdog.\", ctaLabel: ''"
+      }
+    ],
+    "architecture.html": [
+      {
+        "file": "architecture.html",
+        "token": "ITAR",
+        "line": 83,
+        "excerpt": "<div class=\"stat-item\"><div class=\"num\">76%</div><div class=\"lbl\">ITAR-controlled</div></div>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "Andromeda",
+        "line": 96,
+        "excerpt": "<li><strong>Opportunity</strong> · Andromeda Production Award</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "FFP",
+        "line": 97,
+        "excerpt": "<li><strong>Contract</strong> · TUR-FFP-2024-001 · $147.5M FFP</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "TUR-FFP-",
+        "line": 97,
+        "excerpt": "<li><strong>Contract</strong> · TUR-FFP-2024-001 · $147.5M FFP</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "ITAR",
+        "line": 114,
+        "excerpt": "<li><strong>ITAR workspace</strong> · technical-data control</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "EVMS",
+        "line": 132,
+        "excerpt": "<li><strong>EVMS</strong> · CPI 1.04 · SPI 0.97</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "USSF",
+        "line": 184,
+        "excerpt": "Watch one $47.8M USSF satellite flow through every system: SF Account + Opp → Celigo sync → NS Customer + SO + 7 CLINs +"
+      },
+      {
+        "file": "architecture.html",
+        "token": "DCMA",
+        "line": 184,
+        "excerpt": "Watch one $47.8M USSF satellite flow through every system: SF Account + Opp → Celigo sync → NS Customer + SO + 7 CLINs +"
+      },
+      {
+        "file": "architecture.html",
+        "token": "FFP",
+        "line": 199,
+        "excerpt": "The two NS panels above are the <em>entry points</em>. Below is every NS module that participates in the <span data-z-te"
+      },
+      {
+        "file": "architecture.html",
+        "token": "ITAR",
+        "line": 208,
+        "excerpt": "<li>Customer master · DPAS · CMMC · ITAR flags</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "CMMC",
+        "line": 208,
+        "excerpt": "<li>Customer master · DPAS · CMMC · ITAR flags</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "DPAS",
+        "line": 208,
+        "excerpt": "<li>Customer master · DPAS · CMMC · ITAR flags</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "ITAR",
+        "line": 223,
+        "excerpt": "<li>Bin locations · ITAR access logged</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "ITAR",
+        "line": 235,
+        "excerpt": "<li>Vendor master · 8 ITAR/DPAS qualified</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "DPAS",
+        "line": 235,
+        "excerpt": "<li>Vendor master · 8 ITAR/DPAS qualified</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "EVMS",
+        "line": 270,
+        "excerpt": "<h4>Project · EVMS</h4>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "EVMS",
+        "line": 273,
+        "excerpt": "<li>EVMS dashboard · BAC $116.2M</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "ITAR",
+        "line": 404,
+        "excerpt": "<li>Item · BOM · ECO · QMS · ITAR docs</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "ITAR",
+        "line": 407,
+        "excerpt": "<li>Box Govt Cloud for ITAR transit</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "ITAR",
+        "line": 418,
+        "excerpt": "<li>DPAS DO-A1 + ITAR Cat XV flow-down</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "DPAS",
+        "line": 418,
+        "excerpt": "<li>DPAS DO-A1 + ITAR Cat XV flow-down</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "EVMS",
+        "line": 457,
+        "excerpt": "<li><strong>President</strong> · 🏛 4 LOBs · programs (EVMS) · top customers · risk · integration health</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "CMMC",
+        "line": 459,
+        "excerpt": "<li><strong>CIO</strong> · 💻 5 integration boundaries · CMMC L2 (110/119) · SaaS stack · SIEM</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "DCMA",
+        "line": 469,
+        "excerpt": "<div class=\"ns-mod-role\">CFO · CTO · Programs · Procurement · DCMA · function-tailored views</div>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "ITAR",
+        "line": 472,
+        "excerpt": "<li><strong>CTO</strong> · MES stage progress · NCR/CAPA cycle · ECO cadence · ITAR posture</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "DCMA",
+        "line": 475,
+        "excerpt": "<li><strong>DCMA</strong> · NCR/CAPA trail · audit findings · ITAR access log · DPAS cascade</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "ITAR",
+        "line": 475,
+        "excerpt": "<li><strong>DCMA</strong> · NCR/CAPA trail · audit findings · ITAR access log · DPAS cascade</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "DPAS",
+        "line": 475,
+        "excerpt": "<li><strong>DCMA</strong> · NCR/CAPA trail · audit findings · ITAR access log · DPAS cascade</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "FFP",
+        "line": 522,
+        "excerpt": "<li>SF <strong>Contract</strong> → NS <code>customrecord_contract</code> (FFP terms preserved)</li>"
+      },
+      {
+        "file": "architecture.html",
+        "token": "ITAR",
+        "line": 538,
+        "excerpt": "<li>Arena <strong>Documents</strong> → NS Item URL refs (ITAR access inherits)</li>"
+      }
+    ],
+    "dashboard-cio.html": [
+      {
+        "file": "dashboard-cio.html",
+        "token": "CMMC",
+        "line": 42,
+        "excerpt": "/* CMMC Drill modal */"
+      }
+    ],
+    "dashboard-dcma.html": [
+      {
+        "file": "dashboard-dcma.html",
+        "token": "DCMA",
+        "line": 7,
+        "excerpt": "<title>DCMA / Auditor Dashboard · Turion Space</title>"
+      }
+    ],
+    "dashboards.html": [
+      {
+        "file": "dashboards.html",
+        "token": "ITAR",
+        "line": 61,
+        "excerpt": "<div class=\"who\">For: T. Pierce · Engineering · ITAR-cleared roles</div>"
+      },
+      {
+        "file": "dashboards.html",
+        "token": "ITAR",
+        "line": 62,
+        "excerpt": "<div class=\"desc\">Build progress: MES stage advancement · NCR/CAPA velocity · ECO release cadence · ITAR compliance · bu"
+      },
+      {
+        "file": "dashboards.html",
+        "token": "ITAR",
+        "line": 63,
+        "excerpt": "<div class=\"kpis\"><span>Open NCRs</span><span>CAPAs in 8D</span><span>ECOs YTD</span><span>Stage progress</span><span>IT"
+      },
+      {
+        "file": "dashboards.html",
+        "token": "EVMS",
+        "line": 71,
+        "excerpt": "<div class=\"desc\">Project EVMS: BAC · EV · AC · CPI · SPI · EAC · CDRL deliveries · risk register · variance analysis · "
+      },
+      {
+        "file": "dashboards.html",
+        "token": "DPAS",
+        "line": 80,
+        "excerpt": "<div class=\"desc\">Open POs · vendor scorecard · 3-way match exceptions · lead-time slip alerts · sub-supplier change not"
+      },
+      {
+        "file": "dashboards.html",
+        "token": "DCMA",
+        "line": 87,
+        "excerpt": "<div class=\"title\">DCMA / External Auditor</div>"
+      },
+      {
+        "file": "dashboards.html",
+        "token": "DCMA",
+        "line": 88,
+        "excerpt": "<div class=\"who\">For: J. Ortiz (DCMA QAR) · Big-4 audit · CMMC assessor</div>"
+      },
+      {
+        "file": "dashboards.html",
+        "token": "CMMC",
+        "line": 88,
+        "excerpt": "<div class=\"who\">For: J. Ortiz (DCMA QAR) · Big-4 audit · CMMC assessor</div>"
+      },
+      {
+        "file": "dashboards.html",
+        "token": "ITAR",
+        "line": 89,
+        "excerpt": "<div class=\"desc\">Read-only compliance view: NCR/CAPA trail · audit findings (open + closed) · ITAR access log · DPAS fl"
+      },
+      {
+        "file": "dashboards.html",
+        "token": "DPAS",
+        "line": 89,
+        "excerpt": "<div class=\"desc\">Read-only compliance view: NCR/CAPA trail · audit findings (open + closed) · ITAR access log · DPAS fl"
+      },
+      {
+        "file": "dashboards.html",
+        "token": "ITAR",
+        "line": 90,
+        "excerpt": "<div class=\"kpis\"><span>NCRs · 12mo</span><span>CAPAs in 8D</span><span>Audit findings</span><span>ITAR violations</span"
+      },
+      {
+        "file": "dashboards.html",
+        "token": "DCMA",
+        "line": 91,
+        "excerpt": "<div class=\"cta\">Open DCMA dashboard →</div>"
+      }
+    ],
+    "index.html": [
+      {
+        "file": "index.html",
+        "token": "EVMS",
+        "line": 162,
+        "excerpt": "{ code: 'ai-agents',    ic: '🤖', ttl: 'AI Agents',            href: '/agents/ncr-capa',          sub: 'NCR→CAPA, EVMS W"
+      }
+    ],
+    "integration-hub.html": [
+      {
+        "file": "integration-hub.html",
+        "token": "ITAR",
+        "line": 119,
+        "excerpt": "<div class=\"stat-card\"><div class=\"label\">CMMC L2 / ITAR</div><div class=\"value\">✓</div><div class=\"meta\">Box Govt + Spl"
+      },
+      {
+        "file": "integration-hub.html",
+        "token": "CMMC",
+        "line": 119,
+        "excerpt": "<div class=\"stat-card\"><div class=\"label\">CMMC L2 / ITAR</div><div class=\"value\">✓</div><div class=\"meta\">Box Govt + Spl"
+      },
+      {
+        "file": "integration-hub.html",
+        "token": "DPAS",
+        "line": 183,
+        "excerpt": "<text x=\"740\" y=\"280\" fill=\"#475569\" font-size=\"10\" font-style=\"italic\">EDI · DPAS flow-down</text>"
+      },
+      {
+        "file": "integration-hub.html",
+        "token": "ITAR",
+        "line": 231,
+        "excerpt": "<div class=\"b-flow\">Engineering + QMS ⇄ ERP · items + BOM + ECO + QMS + ITAR docs</div>"
+      },
+      {
+        "file": "integration-hub.html",
+        "token": "ITAR",
+        "line": 236,
+        "excerpt": "<p>Part / Item master · multi-level BOM with effectivity · ECO → Item rev push · CCB approval workflow · NCR / CAPA / Au"
+      },
+      {
+        "file": "integration-hub.html",
+        "token": "DPAS",
+        "line": 286,
+        "excerpt": "<div class=\"b-flow\">ERP ⇄ Supplier · EDI 850 / 855 / 856 / 810 + DPAS flow-down</div>"
+      },
+      {
+        "file": "integration-hub.html",
+        "token": "ITAR",
+        "line": 291,
+        "excerpt": "<p>EDI X12 transaction set: 850 (PO) · 855 (Acknowledgement) · 856 (Advance Shipping Notice) · 810 (Invoice → 3-way matc"
+      },
+      {
+        "file": "integration-hub.html",
+        "token": "DPAS",
+        "line": 291,
+        "excerpt": "<p>EDI X12 transaction set: 850 (PO) · 855 (Acknowledgement) · 856 (Advance Shipping Notice) · 810 (Invoice → 3-way matc"
+      },
+      {
+        "file": "integration-hub.html",
+        "token": "ITAR",
+        "line": 294,
+        "excerpt": "<li>3 Compliance flow-down flows (DPAS · ITAR · sub-supplier change)</li>"
+      },
+      {
+        "file": "integration-hub.html",
+        "token": "DPAS",
+        "line": 294,
+        "excerpt": "<li>3 Compliance flow-down flows (DPAS · ITAR · sub-supplier change)</li>"
+      },
+      {
+        "file": "integration-hub.html",
+        "token": "DFARS",
+        "line": 318,
+        "excerpt": "<p><strong>Bank (Wells Fargo):</strong> daily FX feed (USD base · EUR/GBP/CAD enabled) · transaction download · auto-mat"
+      },
+      {
+        "file": "integration-hub.html",
+        "token": "CMMC",
+        "line": 318,
+        "excerpt": "<p><strong>Bank (Wells Fargo):</strong> daily FX feed (USD base · EUR/GBP/CAD enabled) · transaction download · auto-mat"
+      }
+    ],
+    "integration-sf-ns.html": [
+      {
+        "file": "integration-sf-ns.html",
+        "token": "EVMS",
+        "line": 173,
+        "excerpt": "<li><strong>Project · EVMS</strong> · MES · PO · GL</li>"
+      },
+      {
+        "file": "integration-sf-ns.html",
+        "token": "CMMC",
+        "line": 232,
+        "excerpt": "<li><strong>Okta SCIM</strong> is mandatory for CMMC L2 SSO + automated deprovisioning within 1 hour.</li>"
+      },
+      {
+        "file": "integration-sf-ns.html",
+        "token": "ITAR",
+        "line": 233,
+        "excerpt": "<li><strong>Box Government Cloud</strong> required for ITAR file transit · FedRAMP Moderate authorisation.</li>"
+      },
+      {
+        "file": "integration-sf-ns.html",
+        "token": "ITAR",
+        "line": 380,
+        "excerpt": "{ dir: 'bidi', label: 'Files (ITAR-aware)', meta: 'Box Gov Cloud middleman', cat: 'Operational' },"
+      },
+      {
+        "file": "integration-sf-ns.html",
+        "token": "CMMC",
+        "line": 381,
+        "excerpt": "{ dir: 'bidi', label: 'Audit log → SIEM', meta: 'Splunk · CMMC L2 · 7-yr retention', cat: 'Operational' },"
+      }
+    ],
+    "mes-shop-floor.html": [
+      {
+        "file": "mes-shop-floor.html",
+        "token": "SAT-001",
+        "line": 7,
+        "excerpt": "<title>MES · Shop Floor · <a href=\"/records/item/SAT-001\" style=\"color: #0066b3; text-decoration: none; border-bottom: 1"
+      }
+    ],
+    "netsuite-customers.html": [
+      {
+        "file": "netsuite-customers.html",
+        "token": "DPAS",
+        "line": 95,
+        "excerpt": "<input type=\"text\" id=\"filterInput\" placeholder=\"Filter by name, id, address, DPAS…\">"
+      },
+      {
+        "file": "netsuite-customers.html",
+        "token": "DPAS",
+        "line": 111,
+        "excerpt": "<th style=\"width:80px;\">DPAS</th>"
+      },
+      {
+        "file": "netsuite-customers.html",
+        "token": "DPAS",
+        "line": 156,
+        "excerpt": "var dpas = (r.source_data && (r.source_data.dpas || r.source_data.DPAS || '')) || '';"
+      }
+    ],
+    "netsuite-mrp.html": [
+      {
+        "file": "netsuite-mrp.html",
+        "token": "SAT-001",
+        "line": 7,
+        "excerpt": "<title>NetSuite Manufacturing · <a href=\"/records/item/SAT-001\" style=\"color: #0066b3; text-decoration: none; border-bot"
+      }
+    ],
+    "netsuite-project-evms.html": [
+      {
+        "file": "netsuite-project-evms.html",
+        "token": "EVMS",
+        "line": 7,
+        "excerpt": "<title>NetSuite · Project · EVMS</title>"
+      },
+      {
+        "file": "netsuite-project-evms.html",
+        "token": "EVMS",
+        "line": 15,
+        "excerpt": "/* S-curve chart · EVMS PV/EV/AC */"
+      },
+      {
+        "file": "netsuite-project-evms.html",
+        "token": "EVMS",
+        "line": 1384,
+        "excerpt": "<!-- 65.3-06: tenant-data-driven · EVMS single-project detail + list mode + text-walker substitution -->"
+      }
+    ],
+    "netsuite-setup.html": [
+      {
+        "file": "netsuite-setup.html",
+        "token": "DCMA",
+        "line": 234,
+        "excerpt": "<p style=\"font-size:12px; color:#6b7c93; margin-bottom:10px;\">All users require MFA (Authenticator or Yubikey). External"
+      },
+      {
+        "file": "netsuite-setup.html",
+        "token": "ITAR",
+        "line": 234,
+        "excerpt": "<p style=\"font-size:12px; color:#6b7c93; margin-bottom:10px;\">All users require MFA (Authenticator or Yubikey). External"
+      },
+      {
+        "file": "netsuite-setup.html",
+        "token": "DFARS",
+        "line": 256,
+        "excerpt": "<p style=\"font-size:12px; color:#6b7c93; margin-bottom:10px;\">Every authentication event logged · auto-blocks after 5 fa"
+      },
+      {
+        "file": "netsuite-setup.html",
+        "token": "CMMC",
+        "line": 256,
+        "excerpt": "<p style=\"font-size:12px; color:#6b7c93; margin-bottom:10px;\">Every authentication event logged · auto-blocks after 5 fa"
+      },
+      {
+        "file": "netsuite-setup.html",
+        "token": "USSF",
+        "line": 322,
+        "excerpt": "<h3>🏛 Federal government exempt logic · auto-applied on USSF / NASA / DoD sales</h3>"
+      },
+      {
+        "file": "netsuite-setup.html",
+        "token": "USSF",
+        "line": 335,
+        "excerpt": "<td><a href=\"/records/customer/CUST-2026-021\">CUST-2026-021 · USSF SSC</a></td>"
+      },
+      {
+        "file": "netsuite-setup.html",
+        "token": "ITAR",
+        "line": 545,
+        "excerpt": "<div class=\"field\" style=\"grid-column: span 2;\"><div class=\"label\">DDTC ITAR registration</div><div class=\"value\">${ci.d"
+      },
+      {
+        "file": "netsuite-setup.html",
+        "token": "CMMC",
+        "line": 546,
+        "excerpt": "<div class=\"field\"><div class=\"label\">CMMC level</div><div class=\"value\">${ci.cmmcLevel}</div></div>"
+      },
+      {
+        "file": "netsuite-setup.html",
+        "token": "ITAR",
+        "line": 607,
+        "excerpt": "let html = `<thead><tr><th>Emp #</th><th>Name</th><th>Email</th><th>Role</th><th>Dept</th><th>Last login</th><th>MFA</th"
+      }
+    ],
+    "pitch.html": [
+      {
+        "file": "pitch.html",
+        "token": "EVMS",
+        "line": 430,
+        "excerpt": "<a href=\"/agents\">EVMS Watchdog (2 runs — labor variance + cycle-time trend)</a>"
+      }
+    ],
+    "procurement-index.html": [
+      {
+        "file": "procurement-index.html",
+        "token": "ITAR",
+        "line": 52,
+        "excerpt": "\"desc\": \"14 POs · $4.8M committed · DPAS DO-A1 · ITAR Cat XV.\","
+      },
+      {
+        "file": "procurement-index.html",
+        "token": "DPAS",
+        "line": 52,
+        "excerpt": "\"desc\": \"14 POs · $4.8M committed · DPAS DO-A1 · ITAR Cat XV.\","
+      }
+    ],
+    "sales-index.html": [
+      {
+        "file": "sales-index.html",
+        "token": "USSF",
+        "line": 49,
+        "excerpt": "{ url: '/sales/account', icon: '🏢', title: 'Account 360', desc: 'Salesforce account view · USSF · contacts, contracts, "
+      },
+      {
+        "file": "sales-index.html",
+        "token": "ITAR",
+        "line": 50,
+        "excerpt": "{ url: '/sales/orders', icon: '📋', title: 'Sales Orders', desc: 'NetSuite Customer + SO list · CLINs · DPAS rating · IT"
+      },
+      {
+        "file": "sales-index.html",
+        "token": "DPAS",
+        "line": 50,
+        "excerpt": "{ url: '/sales/orders', icon: '📋', title: 'Sales Orders', desc: 'NetSuite Customer + SO list · CLINs · DPAS rating · IT"
+      }
+    ],
+    "sales-new-account.html": [
+      {
+        "file": "sales-new-account.html",
+        "token": "ITAR",
+        "line": 35,
+        "excerpt": "<span class=\"pill itar\" style=\"font-size: 10px;\">★ FedRAMP-High · ITAR-supported</span>"
+      },
+      {
+        "file": "sales-new-account.html",
+        "token": "DPAS",
+        "line": 119,
+        "excerpt": "<div class=\"field\"><label>DPAS rating</label><select id=\"dpas\"><option>none</option><option>DO-A1</option><option>DO-A7<"
+      },
+      {
+        "file": "sales-new-account.html",
+        "token": "ITAR",
+        "line": 120,
+        "excerpt": "<div class=\"field\"><label>ITAR tier</label><select id=\"itarTier\"><option>Unrestricted</option><option>Cat XV restricted<"
+      },
+      {
+        "file": "sales-new-account.html",
+        "token": "ITAR",
+        "line": 141,
+        "excerpt": "<div class=\"sf-card-body\"><div class=\"field-grid\"><div class=\"field full\"><label>Notes</label><textarea id=\"notes\" place"
+      }
+    ],
+    "sales-new-contact.html": [
+      {
+        "file": "sales-new-contact.html",
+        "token": "ITAR",
+        "line": 33,
+        "excerpt": "<span class=\"pill itar\" style=\"font-size: 10px;\">★ FedRAMP-High · ITAR-supported</span>"
+      },
+      {
+        "file": "sales-new-contact.html",
+        "token": "DCMA",
+        "line": 59,
+        "excerpt": "<div class=\"eyebrow\"><span class=\"type-pill\">Contact</span><span>New Contact · syncs to NS Customer.Contacts sublist (IN"
+      },
+      {
+        "file": "sales-new-contact.html",
+        "token": "DCMA",
+        "line": 108,
+        "excerpt": "<div class=\"sf-card-head\"><h3>D · Role flags</h3><span class=\"hint\">Multi-select. DCMA Inspector flag adds INT-022 to th"
+      },
+      {
+        "file": "sales-new-contact.html",
+        "token": "DCMA",
+        "line": 114,
+        "excerpt": "<div class=\"field\"><div class=\"checkbox-row\"><input type=\"checkbox\" id=\"roleDcmaInspector\"><label for=\"roleDcmaInspector"
+      },
+      {
+        "file": "sales-new-contact.html",
+        "token": "DPAS",
+        "line": 153,
+        "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">DPAS</span> ${c.dpas || 'none'}</div>"
+      },
+      {
+        "file": "sales-new-contact.html",
+        "token": "ITAR",
+        "line": 154,
+        "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">ITAR tier</span> ${c.itarTier || '—'}</div>"
+      }
+    ],
+    "sales-new-contract.html": [
+      {
+        "file": "sales-new-contract.html",
+        "token": "ITAR",
+        "line": 17,
+        "excerpt": "<header class=\"sf-global\"><div class=\"sf-app-launcher\">⚏</div><div class=\"sf-app-name\"><span class=\"cloud-icon\">☁</span>"
+      },
+      {
+        "file": "sales-new-contract.html",
+        "token": "FFP",
+        "line": 30,
+        "excerpt": "<div class=\"field\"><label>Contract ID <span class=\"req\">*</span></label><input id=\"contractId\" placeholder=\"TUR-FFP-2026"
+      },
+      {
+        "file": "sales-new-contract.html",
+        "token": "TUR-FFP-",
+        "line": 30,
+        "excerpt": "<div class=\"field\"><label>Contract ID <span class=\"req\">*</span></label><input id=\"contractId\" placeholder=\"TUR-FFP-2026"
+      },
+      {
+        "file": "sales-new-contract.html",
+        "token": "FFP",
+        "line": 32,
+        "excerpt": "<div class=\"field\"><label>Contract Type <span class=\"req\">*</span></label><select id=\"type\"><option>FFP · Firm Fixed Pri"
+      },
+      {
+        "file": "sales-new-contract.html",
+        "token": "DPAS",
+        "line": 36,
+        "excerpt": "<div class=\"field\"><label>DPAS</label><select id=\"dpas\"><option>none</option><option>DO-A1</option><option>DO-A7</option"
+      },
+      {
+        "file": "sales-new-contract.html",
+        "token": "ITAR",
+        "line": 37,
+        "excerpt": "<div class=\"field\"><label>ITAR Tier</label><select id=\"itar\"><option>—</option><option>Cat XV</option><option>Cat IV</op"
+      },
+      {
+        "file": "sales-new-contract.html",
+        "token": "FFP",
+        "line": 107,
+        "excerpt": "document.getElementById('contractId').value = SFChrome.suggestId('TUR-FFP', 2026);"
+      }
+    ],
+    "sales-new-opportunity.html": [
+      {
+        "file": "sales-new-opportunity.html",
+        "token": "ITAR",
+        "line": 41,
+        "excerpt": "<div class=\"sf-right\"><span class=\"pill itar\" style=\"font-size:10px;\">★ FedRAMP-High · ITAR-supported</span><span style="
+      },
+      {
+        "file": "sales-new-opportunity.html",
+        "token": "DPAS",
+        "line": 94,
+        "excerpt": "<div class=\"field\"><label>DPAS</label><select id=\"dpas\"><option>none</option><option>DO-A1</option><option>DO-A7</option"
+      },
+      {
+        "file": "sales-new-opportunity.html",
+        "token": "ITAR",
+        "line": 95,
+        "excerpt": "<div class=\"field\"><div class=\"checkbox-row\"><input type=\"checkbox\" id=\"itar\"><label for=\"itar\" style=\"text-transform:no"
+      },
+      {
+        "file": "sales-new-opportunity.html",
+        "token": "FFP",
+        "line": 147,
+        "excerpt": "<td><select class=\"lc-type\"><option>FFP</option><option>CPFF</option><option>T&amp;M</option><option>Cost milestones</op"
+      }
+    ],
+    "sales-new-order.html": [
+      {
+        "file": "sales-new-order.html",
+        "token": "ITAR",
+        "line": 53,
+        "excerpt": "<span class=\"pill itar\" style=\"font-size: 10px;\">★ FedRAMP-High · ITAR-supported</span>"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "FFP",
+        "line": 206,
+        "excerpt": "<input id=\"newContractId\" placeholder=\"TUR-FFP-2026-XXX\">"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "TUR-FFP-",
+        "line": 206,
+        "excerpt": "<input id=\"newContractId\" placeholder=\"TUR-FFP-2026-XXX\">"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "FFP",
+        "line": 211,
+        "excerpt": "<option>FFP · Firm Fixed Price</option>"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "FFP",
+        "line": 212,
+        "excerpt": "<option>FFP · IDIQ task order</option>"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "DPAS",
+        "line": 232,
+        "excerpt": "<label>DPAS rating</label>"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "EVMS",
+        "line": 287,
+        "excerpt": "<div class=\"hint\">Optional · links SO to a project for EVMS roll-up.</div>"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "DPAS",
+        "line": 300,
+        "excerpt": "<label>DPAS rating</label>"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "ITAR",
+        "line": 308,
+        "excerpt": "<label for=\"itar\" style=\"text-transform:none;letter-spacing:0;\">ITAR-controlled (USML Cat XV) — sets export-control flag"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "ITAR",
+        "line": 368,
+        "excerpt": "<textarea id=\"notes\" placeholder=\"ITAR flow-down terms · launch site instructions · PoP overrides · etc.\"></textarea>"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "DPAS",
+        "line": 478,
+        "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">DPAS rating</span> ${c.dpas || 'none'}</div>"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "ITAR",
+        "line": 479,
+        "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">ITAR tier</span> ${c.itarTier || '—'}</div>"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "DPAS",
+        "line": 500,
+        "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">DPAS</span> ${c.dpas || '—'}</div>"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "ITAR",
+        "line": 501,
+        "excerpt": "<div class=\"pv-row\"><span class=\"pv-label\">ITAR</span> ${c.itar || '—'}</div>"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "FFP",
+        "line": 521,
+        "excerpt": "SFChrome.toggleInlineSubform('contractMode', 'existingContract', 'newContract', 'newContractId', 'TUR-FFP');"
+      },
+      {
+        "file": "sales-new-order.html",
+        "token": "FFP",
+        "line": 537,
+        "excerpt": "<option>FFP</option>"
+      }
+    ],
+    "sales-new-quote.html": [
+      {
+        "file": "sales-new-quote.html",
+        "token": "ITAR",
+        "line": 29,
+        "excerpt": "<div class=\"sf-right\"><span class=\"pill itar\" style=\"font-size:10px;\">★ FedRAMP-High · ITAR</span><div class=\"sf-avatar\""
+      },
+      {
+        "file": "sales-new-quote.html",
+        "token": "USSF",
+        "line": 55,
+        "excerpt": "<div class=\"field\"><label>Quote Name <span class=\"req\">*</span></label><input id=\"quoteName\" placeholder=\"Q1 2026 USSF P"
+      }
+    ],
+    "vendor-portal.html": [
+      {
+        "file": "vendor-portal.html",
+        "token": "Blue Canyon",
+        "line": 7,
+        "excerpt": "<title>Blue Canyon Technologies · Customer Portal · PO from Turion Space</title>"
+      }
+    ]
+  }
+}

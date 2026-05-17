@@ -1,0 +1,620 @@
+{
+  "tenant": "solobrands",
+  "base_url": "https://solobrands.zietra.com",
+  "captured_at": "2026-05-17T07:57:42.566Z",
+  "runtime": "playwright-chromium",
+  "pages": {
+    "netsuite-financials": {
+      "httpStatus": 200,
+      "title": "NetSuite · Financials · Period 2026-04 close",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNetSuite\n(R)\nActivities\nLists\nFinancial\nReports\nCustomisation\nSetup\nRole · Controller\nSolo Brands\n·\nSOLOBRANDS\nHome › Financial\nFinancials · Period close summary · 2026-04\nperiod 2026-04 · subsidiary S-01 (Solo Brands Inc) · USD · Controller: K. Whitman · CFO: D. Wong\nPrint\nExport · XBRL\nSub-period view\nMore Actions\n▶ Open period 2026-05\n📭 No journal entries yet for this tenant — financial summary unavailable.\nImport GL data →\nPeriod Summary\nTrial Balance 182 acct\nProject P&L\nAR · Aging $2.3M\nAP · Aging $3.1M\nBank Reconciliation\nPeriod Close 0 / 16\nSystem\n📭\nNo financial period data yet\nConnect your data source to populate this page with your records.\nRun the import wizard ▸\n✎ Edit Mode OFF\n↺ Reset",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-tb": {
+      "httpStatus": 200,
+      "title": "NetSuite · Trial Balance · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNetSuite\nSolo Brands\nActivities\nLists\nManufacturing\nFinancial\nReports\nCustomisation\nSetup\nRole · Controller\nSOLOBRANDS\nHome › Financial › Trial Balance\nPeriod · 2026-04 (open)\nTOTAL DEBITS\n—\n0 accounts\nTOTAL CREDITS\n—\n0 accounts\nSTATUS\n✓ IN BALANCE\nDR = CR\nPERIOD\n2026-04 (open)\nMid-close · pre-final TB\nAll classes\nAssets\nLiabilities\nEquity\nRevenue\nExpense\nOther Income / Tax\nIndirect Pools\nSuspense\nHide zero-balance accounts\nReset\n🖨 Print\n0 accounts\nCODE\tACCOUNT NAME\tCLASS\tNORMAL\tDEBIT\tCREDIT\n\n📭 No trial balance entries yet for this tenant.\nImport GL accounts →",
+      "rowCounts": {
+        "tables": 1,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-bs": {
+      "httpStatus": 200,
+      "title": "NetSuite · Balance Sheet · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNetSuite\nSolo Brands\nActivities\nLists\nManufacturing\nFinancial\nReports\nCustomisation\nSetup\nRole · Controller\nSOLOBRANDS\nHome › Financial › Balance Sheet\nAs of 2026-04-30\n📭 No balance sheet accounts yet for this tenant.\nImport GL accounts →\nASSETS\nCURRENT ASSETS\nLONG-TERM ASSETS\nTOTAL ASSETS\n—\nLIABILITIES & EQUITY\nCURRENT LIABILITIES\nLONG-TERM LIABILITIES\nSTOCKHOLDERS' EQUITY\nCURRENT PERIOD OPERATIONS (P&L · NOT YET CLOSED TO RE)\nTOTAL LIABILITIES & EQUITY\n—",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-coa": {
+      "httpStatus": 200,
+      "title": "NetSuite · Chart of Accounts · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nChart of Accounts\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-arm": {
+      "httpStatus": 200,
+      "title": "NetSuite · Revenue Management (ARM) · ARR-2024-0341",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nAdvanced Revenue Management\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸\n✎ Edit Mode OFF\n↺ Reset",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-procurement": {
+      "httpStatus": 200,
+      "title": "NetSuite · Procurement",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNetSuite\n(R)\nActivities\nLists\nFinancial\nReports\nCustomisation\nSetup\nRole · Procurement\nSolo Brands\n·\nSOLOBRANDS\nHome › Purchase Orders\nPurchase Orders\nConnect your data source to populate this page.\nPO Header · Lines\nReceipts 1\nVendor Bills 1\n3-Way Match ✓\nApproval History 3\nCommunication\nSystem\n✎ Edit Mode OFF\n↺ Reset",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-new-po": {
+      "httpStatus": 200,
+      "title": "NetSuite · New Purchase Order · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\n≡\nN\nNetSuite OneWorld\nJM\nHome\nProcurement\n+ New PO\nVendors\nProcurement\n›\nNew PO\nCancel\nSave & Send to Vendor\nPO\nNS Purchase Order · auto-issues vendor portal notification\nNew Purchase Order\nPosts to /api/netsuite/pos-create · creates PO + line items + vendor_sync_runs row.\nPO header\nPO Number\n*\nVendor\n*\n—\nIMPORT-V-04a19d9e · Smoke Vendor 338\nIMPORT-V-0e74b464 · Smoke Vendor 338\nIMPORT-V-1d2ffe6b · Smoke Vendor 338\nIMPORT-V-445d5320 · Smoke Vendor 338\nIMPORT-V-e0981c8f · Smoke Vendor 338\nIMPORT-V-eea81c30 · Smoke Vendor 338\nVEND-CHUB-TEXTILE · Textil del Bajio S.A.\nVEND-ISLE-EPOXY · Hexion Specialty Resins\nVEND-ORU-MFG-CN · Shenzhen Foldwave Mfg Co.\nVEND-SOLO-FOUNDRY · Pacific Steel Foundry\nVEND-TERRA-CERAMIC · Northshore Ceramics LLC\nLinked Project\n—\nPO Date\n*\nRequired Delivery\nCurrency\nUSD\nEUR\nPayment Terms\nNet 30\nNet 45\nNet 60\nStatus\nIssued\nPending Vendor Ack\nAcknowledged\nIn Transit\nShip To\nFOB\nOrigin\nDestination\nLine items\nITEM / PART\tDESCRIPTION\tQTY\tUNIT PRICE\tEXTENDED\tREQUIRED BY\t\n\t\t\t\t$0\t\t×\nTotal\t$0\t\n+ Add line\nCancel\nSave & Send to Vendor",
+      "rowCounts": {
+        "tables": 1,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-new-vendor": {
+      "httpStatus": 200,
+      "title": "NetSuite · New Vendor · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNew Vendor\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-items": {
+      "httpStatus": 200,
+      "title": "NetSuite · Items & Inventory · SOLO-SS24-BASECAMP-SURROUND-BUNDLE",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNetSuite\n(R)\nActivities\nLists\nFinancial\nReports\nCustomisation\nSetup\nRole · Inventory Mgmt\nSolo Brands\n·\nSOLOBRANDS\nHome › Lists › Accounting › Items › SOLO-SS24-BASECAMP-SURROUND-BUNDLE · Basecamp 24\" Fire Pit + Surround Bundle\n← Source · Arena Item Master\n🛰 View 3D drawing in Satellite PLM\n→ Open POs (4)\n→ Currently being installed\nItems\nConnect your data source to populate this page.\nItem Master\nInventory 4 on hand\nLot / Serial 12\nBin Locations 3\nBOMs · Where Used 3\nVendors (AML) 2\nCosting\nSystem\n📭\nNo item records yet\nConnect your data source to populate this page with your records.\nRun the import wizard ▸\n✎ Edit Mode OFF\n↺ Reset",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "inventory-index": {
+      "httpStatus": 200,
+      "title": "Inventory · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nInventory\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "manufacturing-index": {
+      "httpStatus": 200,
+      "title": "Manufacturing · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nManufacturing\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "finance-index": {
+      "httpStatus": 200,
+      "title": "Finance · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\n← Home\n💰 Finance\nNetSuite GL · ARM · FP&A · close\nMODULE · FINANCE\nGL · close · revenue · plan\n\nNetSuite OneWorld holds the books for Solo Brands. Trial Balance balances Dr=Cr every period; Balance Sheet reconciles A=L+E. Advanced Revenue Management (ASC 606) releases deferred revenue on milestone acceptance. FP&A drives the 12-KPI executive scorecard.\n\nJOURNAL ENTRIES\n—\nACTIVE CONTRACTS\n—\nKPIS TRACKED\n—\nFUNDED BACKLOG\n$26.1M\n📊\nGeneral Ledger\nNS Financials · 13 journal entries YTD · multi-book ledger.\nOpen →\n⚖\nBalance Sheet\nAssets = Liabilities + Equity · validated each close.\nOpen →\n✓\nTrial Balance\nDebits = Credits every period · DCAA-compliant.\nOpen →\n📁\nChart of Accounts\nGL accounts mapped to FAR Part 31 cost categories.\nOpen →\n🎯\nRevenue Management (ARM)\nASC 606 performance obligations · milestone schedules.\nOpen →\n📈\nFP&A\n12-KPI scorecard · indirect rate true-up · backlog burn-down.\nOpen →\n👤\nCFO Dashboard\nCash · AR/AP aging · gross margin · DSO · 16-step close.\nOpen →\n📭 No finance journal entries yet for this tenant.\nImport data →\n← Home · Executive cockpit · Integration hub",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "arena-qms": {
+      "httpStatus": 200,
+      "title": "Arena QMS · Quality Management Workspace",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nQuality Management System\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸\n✎ Edit Mode OFF\n↺ Reset",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "arena-new-part": {
+      "httpStatus": 200,
+      "title": "Arena PLM · New Part",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNew Part\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "arena-new-audit": {
+      "httpStatus": 200,
+      "title": "Arena · New Audit Finding",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNew Audit\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "arena-new-document": {
+      "httpStatus": 200,
+      "title": "Arena · New Document",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNew Document\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "quality-index": {
+      "httpStatus": 200,
+      "title": "Quality · Workspace",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nQuality\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "arena-bom": {
+      "httpStatus": 200,
+      "title": "Arena PLM · Engineering BOM",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\narena.\nItems\nBOMs\nChanges\nManufacturers\nDocuments\nQuality\n★ PLM Workspace\nSolo Brands\n· ENG-PLM\njdoe@turionspace.com\nHome\n›\nBOMs\n📭\nNo bills of material yet\nConnect your data source to populate this page with your records.\nRun the import wizard ▸\n✎ Edit Mode OFF\n↺ Reset",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "lifecycle-index": {
+      "httpStatus": 200,
+      "title": "Lifecycle · End-to-end walkthrough",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nLifecycle\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "quickbooks": {
+      "httpStatus": 200,
+      "title": "QuickBooks → NetSuite · Migration walkthrough",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nQuickBooks → NetSuite\nMigration index\nRamp → NetSuite\nSource · QuickBooks Online (synthetic)\nTarget · SOLOBRANDS NetSuite\n← Back to architecture home\nQuickBooks → NetSuite migration\nPick a record type, review the canonical field-map, select source rows, click Migrate batch ▸. Each migration writes a row to turion.migration_runs and an entry to audit_log — full audit trail per click.\nSource: 0 QB records (synthetic Turion-style)\nMigrated: 0 · 0%\nTarget: live turion.* tables in Supabase\nRecommended migration order · 1. Chart of Accounts → 2. Customers → 3. Vendors → 4. Items → 5. Invoices → 6. Bills. Later record types reference the earlier ones (e.g. an Invoice points to a Customer + Item); migrating out of order surfaces resolution warnings (still inserts, but flags __warnings on the row).\nRECORD TYPES — 6 TOTAL\n📒\nChart of Accounts\nStep 1\nGL accounts (1000-6000 ranges)\n0 total\n0 new\n0 migrated\nOpen wizard →\n🏢\nCustomers\nStep 2\nYour customer master records\n0 total\n0 new\n0 migrated\nOpen wizard →\n🏭\nVendors\nStep 3\nYour vendor master records\n0 total\n0 new\n0 migrated\nOpen wizard →\n🧩\nItems\nStep 4\nYour product / SKU / material master\n0 total\n0 new\n0 migrated\nOpen wizard →\n🧾\nInvoices + Payments\nStep 5\nEmbedded payment leg, no JE\n0 total\n0 new\n0 migrated\nOpen wizard →\n📩\nBills + Bill-Payments\nStep 6\nVendor bills against POs\n0 total\n0 new\n0 migrated\nOpen wizard →\nRECENT MIGRATION RUNS\nNo migration runs yet — pick a record type above to start with Chart of Accounts.",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "sales-new-cdrl": {
+      "httpStatus": 200,
+      "title": "Salesforce · New CDRL",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNew CDRL\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "sales-new-case": {
+      "httpStatus": 200,
+      "title": "Salesforce · New Case",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\n⚏\n☁\nSales · Government Cloud Plus\nJM\nHome\nAccounts\nCases\nSales\n›\nNew Case\nCancel\nSave & Sync to NetSuite\nCase\nINT-042 · syncs to NS Service Cloud / customrecord_case\nNew Case\nPosts to /api/netsuite/cases · creates case row + sync_runs INT-042.\nCase\nCase ID\n*\nSubject\n*\nAccount\n*\n—\nCUST-DTC-001 · Sarah Mitchell\nCUST-DTC-002 · James Carrera\nCUST-DTC-003 · Aisha Patel\nCUST-DTC-004 · Marcus Lin\nCUST-WHOLESALE-BCC · Backcountry.com\nCUST-WHOLESALE-BPS · Bass Pro Shops\nCUST-WHOLESALE-DKS · Dick&#39;s Sporting Goods\nCUST-WHOLESALE-REI · REI Co-op\nIMPORT-C-1d9e7d94 · Smoke Customer 338\nIMPORT-C-3c7cce6a · Smoke Customer 338\nIMPORT-C-43cb1b69 · Smoke Customer 338\nIMPORT-C-64fbe99d · Smoke Customer 338\nIMPORT-C-71eec5cd · Smoke Customer 338\nIMPORT-C-d0f24e4c · Smoke Customer 338\nSF-IMP-44fd0560 · Smoke SF 338\nSF-IMP-50d27da6 · Smoke SF 338\nSF-IMP-54cb8f75 · Smoke SF 338\nSF-IMP-5903fa81 · Smoke SF 338\nSF-IMP-a92f6cc7 · Smoke SF 338\nSF-IMP-f31efa99 · Smoke SF 338\nContact\n—\nType\nBug\nQuestion\nFeature Request\nService Issue\nRMA\nPriority\nP3 · Low\nP2 · Medium\nP1 · High\nP0 · Critical\nStatus\nNew\nIn Progress\nPending Customer\nResolved\nClosed\nOrigin\nEmail\nPhone\nWeb Form\nInternal\nDescription\nDescription\nCancel\nSave & Sync to NetSuite",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "workflow-e2e": {
+      "httpStatus": 200,
+      "title": "End-to-End Lifecycle",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\n← Home\n⚡ SOLO-SS24-BASECAMP-SURROUND-BUNDLE End-to-End Lifecycle · Solo Brands\nStep 1 / 16\n▶ Play sequence\n📭\nNo workflow examples yet\nConnect your data source to populate this page with your records.\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "dashboard-programs": {
+      "httpStatus": 200,
+      "title": "Programs / PM Dashboard · Solo Brands",
+      "bodyText": "LIVE TENANT ROLLUP · PROGRAMS\nprojects:\n0\nwbs elements:\n0\ncontracts:\n0\nclins:\n9\nwork orders:\n0\nvariances:\n0\nrisks:\n0\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nPrograms Dashboard\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "dashboard-cto": {
+      "httpStatus": 200,
+      "title": "CTO Dashboard · Solo Brands",
+      "bodyText": "LIVE TENANT ROLLUP · CTO\nncrs:\n0\nopen ncrs:\n0\ncapas:\n0\naudits:\n0\nitems:\n109\nwork orders:\n0\necos:\n1\nmes stages:\n0\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nCTO Dashboard\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "dashboard-cio": {
+      "httpStatus": 200,
+      "title": "CIO Dashboard · Solo Brands",
+      "bodyText": "LIVE TENANT ROLLUP · CIO\nsf ns:\n0\nvendor ns:\n0\narena ns:\n0\nmes ns:\n0\nbank ns:\n0\nsync runs:\n0\ntotal integrations:\n0\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nCIO Dashboard\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "dashboard-mfg": {
+      "httpStatus": 200,
+      "title": "Mfg Head Dashboard · Solo Brands",
+      "bodyText": "LIVE TENANT ROLLUP · MFG\nwork orders:\n0\nitems:\n109\nmrp runs:\n0\nncrs:\n0\nvendors:\n11\nopen pos:\n0\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nManufacturing Dashboard\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "dashboard-cfo": {
+      "httpStatus": 200,
+      "title": "CFO Dashboard · Solo Brands",
+      "bodyText": "LIVE TENANT ROLLUP · CFO\ncustomers:\n20\nitems:\n109\ninvoices:\n0\nopen invoices:\n0\njournal entries:\n0\nsales orders:\n4\nbills:\n0\nwork orders:\n0\ngl accounts:\n0\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nCFO Dashboard\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "dashboard-ceo": {
+      "httpStatus": 200,
+      "title": "CEO Dashboard · Solo Brands",
+      "bodyText": "LIVE TENANT ROLLUP · CEO\ncustomers:\n20\nopportunities:\n0\nprojects:\n0\ncontracts:\n0\nsales orders:\n4\ninvoices:\n0\nclins:\n9\nwork orders:\n0\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nCEO Dashboard\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "dashboard-sfhead": {
+      "httpStatus": 200,
+      "title": "Salesforce Head · Solo Brands",
+      "bodyText": "LIVE TENANT ROLLUP · SFHEAD\nopportunities total:\n0\npipeline value:\n0\nqualified leads:\n0\nopportunities open:\n0\naccounts active:\n0\nactivities 30d:\n—\nlast updated:\n—\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nLive · Postgres\nSales Head Dashboard\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "executive-cockpit": {
+      "httpStatus": 200,
+      "title": "Executive Cockpit · Solo Brands",
+      "bodyText": "LIVE TENANT ROLLUP · EXECUTIVE\ncustomers:\n20\nopportunities:\n0\ncontracts:\n0\nprojects:\n0\nsales orders:\n4\ninvoices:\n0\nbills:\n0\nncrs:\n0\ncapas:\n0\nwork orders:\n0\nitems:\n109\npos:\n0\nvendors:\n11\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nExecutive Cockpit\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "integration-vendor-ns": {
+      "httpStatus": 200,
+      "title": "NS ↔ Vendor Portal (EDI) Integration · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nVendor ↔ NetSuite Integration\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "integration-mes-ns": {
+      "httpStatus": 200,
+      "title": "NS ↔ MES Shop Floor Integration · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\n🔗 NS ↔ MES Shop Floor\nHome › NetSuite MRP ⇄ MES Shop Floor · Manufacturing execution\nSolo Brands · 7 integration points · 4 connector technologies\nNetSuite\nERP · system of record for: WO release · BOM · pick lists · WIP cost · receipts · cost capture\nWork Order · top-level + sub-WOs · routing\nBOM components with allocated qty + serials\nWIP balance (1510 Inventory) · capitalized direct cost\nItem Receipts · serial-tracked items\nCalibrated Tool master · cal cycle + last/next dates\ncustomrecord_ncr · NCR mirror from MES via Arena QMS\n→ WO release · pick list · serials\nReal-time on NS WO Released\n← WO completion · serial registration\nReal-time on op-final-pass\n← Op log · time + operator + tool\nHourly digest · cost to 5200/5210\n← Stage advancement · WIP capitalization\nReal-time on stage gate\n← Component pull · serial deduction\nReal-time on cleanroom scan\n← NCR cascade · MES → Arena → NS\nReal-time · operator tablet\nNetSuite\nManufacturing execution system · cleanroom barcode + tablet · op-level traceability for class-A flight hardware\nWO queue · 8 stages · op-level routing\nOp execution · scan-in / scan-out · time-on-station\nComponent pull · serial-tracked from cleanroom bins\nTool scan · calibration check at op start\nNCR initiation · operator-level · tablet form\nFinal QA pass · gate to next stage\nTOTAL INTEGRATION POINTS\n7\n4 categories\nNS → MES FLOWS\n2\nWO release · tool cal lookup\nMES → NS FLOWS\n5\nop log · WIP · pull · WO complete · NCR\nREAL-TIME\n5/7\nwebhook + REST · sub-second\nCONNECTORS\n4\nREST + SuiteScript + Arena API + Hardware\n📋 All Integrations\n🏭 Work Order Release (2)\n⚙ Op-level Execution (2)\n📦 Receipt + Inventory (1)\n✓ Quality + Traceability (2)\n🔌 Connector Stack\n📜 Sync Run History\nAll categories\nWork Order Release\nOp-level Execution\nReceipt + Inventory\nQuality + Traceability\n📭\nNo integration points yet\nConnect a system to populate this view.\nGet started →",
+      "rowCounts": {
+        "tables": 2,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "integration-arena-ns": {
+      "httpStatus": 200,
+      "title": "Arena PLM ↔ NetSuite Integration · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nArena ↔ NetSuite Integration\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "integration-bank-siem": {
+      "httpStatus": 200,
+      "title": "NS ↔ Bank + Splunk SIEM Integration · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nBank ↔ SIEM Integration\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-customer-so": {
+      "httpStatus": 200,
+      "title": "NetSuite · Customer · Sales Order",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNetSuite\n(R)\nActivities\nLists\nFinancial\nReports\nCustomisation\nSetup\nRole · Sales Operations\nSolo Brands\n·\nSOLOBRANDS\nHome › Lists › Sales Orders\nSales Orders\nConnect your data source to populate this page.\n📭\nNo sales orders yet\nConnect your data source to populate this page with your records.\nRun the import wizard ▸\n✎ Edit Mode OFF\n↺ Reset",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-project-evms": {
+      "httpStatus": 200,
+      "title": "NetSuite · Project · EVMS",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNetSuite\n(R)\nActivities\nLists\nFinancial\nReports\nCustomisation\nSetup\nRole · Project Manager\nSolo Brands · SOLOBRANDS\nHome › Projects\nProjects\nConnect your data source to populate this page.\n📭 No projects in this workspace\nConnect NetSuite or run the import wizard to bring your projects in.\nRun the import wizard →\n📭\nNo projects yet\nConnect your data source to populate this page with your records.\nRun the import wizard ▸\n✎ Edit Mode OFF\n↺ Reset",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 2
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-mrp": {
+      "httpStatus": 200,
+      "title": "NetSuite Manufacturing · <a href=\"/records/item/SAT-001\" style=\"color: #0066b3; text-decoration: none; border-bottom: 1px dotted #0066b3;\">SAT-001</a> · MRP Plan",
+      "bodyText": "📭 No MRP runs yet\nRun the import wizard to bring your sales orders + items in; MRP will start producing plans automatically.\nRun the import wizard →\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nMRP Planning\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸\n✎ Edit Mode OFF\n↺ Reset",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "mes-shop-floor": {
+      "httpStatus": 200,
+      "title": "MES · Shop Floor · <a href=\"/records/item/SAT-001\" style=\"color: #0066b3; text-decoration: none; border-bottom: 1px dotted #0066b3;\">SAT-001</a> · Production Traveler",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nMES Shop Floor\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-demand-planning": {
+      "httpStatus": 200,
+      "title": "NetSuite · Demand Planning · <a href=\"/records/item/SAT-002\" style=\"color: #0066b3; text-decoration: none; border-bottom: 1px dotted #0066b3;\">SAT-002</a> forecast",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nDemand Planning\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸\n✎ Edit Mode OFF\n↺ Reset",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "workflow-new-so": {
+      "httpStatus": 200,
+      "title": "Workflow · New Sales Order → Final Build",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNew Sales Order Workflow\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "vendor-portal": {
+      "httpStatus": 200,
+      "title": "Blue Canyon Technologies · Customer Portal · PO from Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\n📭 No vendor sync activity\nConnect your vendor portal or run the import wizard to bring vendor sync data in.\nRun the import wizard →\nVendor Portal\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "dashboard-president": {
+      "httpStatus": 200,
+      "title": "President Dashboard · Solo Brands",
+      "bodyText": "LIVE TENANT ROLLUP · PRESIDENT\ncustomers:\n20\nopportunities:\n0\ncontracts:\n0\nprojects:\n0\nsales orders:\n4\ninvoices:\n0\nbills:\n0\nncrs:\n0\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nPresident Dashboard\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "ns-record": {
+      "httpStatus": 200,
+      "title": "NetSuite · Record",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nNetSuite\n(R)\nActivities\nLists\nFinancial\nReports\nCustomisation\nSetup\nRole · loading…\nSolo Brands · SOLOBRANDS\nHome › Record\nRecord type not specified\n\nProvide one of: ?type=po&id=… · ?type=bill&id=… · ?type=ncr&id=… · ?type=capa&id=… · ?type=eco&id=… · ?type=audit&id=… · ?type=procedure&id=… · ?type=person&id=… · ?type=tool&id=… · ?type=qmsdoc&id=… · ?type=doc&id=… · ?type=wbs&id=… · ?type=risk&id=… · ?type=variance&id=… · ?type=obligation&id=… · ?type=stage&id=… · ?type=receipt&id=… · ?type=item&id=… · ?type=so&id=… · ?type=clin&id=… · ?type=wo&id=… · ?type=project&id=… · ?type=je&id=… · ?type=invoice&id=… · ?type=contract&id=… · ?type=mrp_run&id=… · ?type=rfq&id=… · ?type=customer&id=… · ?type=opportunity&id=… · ?type=emp&id=… · ?type=account&id=… · ?type=asn&id=… · ?type=quote&id=… · ?type=opp&id=… · ?type=contact&id=… · ?type=case&id=…\n\n← Back to home\n\n📭\nNo record data yet\nConnect your data source to populate this page with your records.\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 1
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "salesforce-account": {
+      "httpStatus": 200,
+      "title": "Salesforce · Account",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\n⚏\n☁\nSales · Government Cloud Plus\n★ Government Cloud Plus\nSolo Brands · Sales\nJM\nHome\nAccounts\nContacts\nOpportunities\nContracts\nCases\nReports\nMore ▾\n🔗 SF ⇄ NS Integration Map\n→ View Customer in NetSuite\n📭\nNo customer accounts yet\nConnect your data source to populate this page with your records.\nRun the import wizard ▸\nLive · Postgres\n✎ Edit Mode OFF\n↺ Reset",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 7
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "netsuite-fpa": {
+      "httpStatus": 200,
+      "title": "NetSuite · FP&A · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nFP&A\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "projects-index": {
+      "httpStatus": 200,
+      "title": "Projects · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nProjects\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "dashboard-cro": {
+      "httpStatus": 200,
+      "title": "CRO Dashboard · Solo Brands",
+      "bodyText": "LIVE TENANT ROLLUP · CRO\ncustomers:\n20\ncontacts:\n0\nopportunities:\n0\nopen opportunities:\n0\ncases:\n0\ncontracts:\n0\nsales orders:\n4\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nLive · Postgres\nCRO Dashboard\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "dashboard-dcma": {
+      "httpStatus": 200,
+      "title": "DCMA / Auditor Dashboard · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nLIVE TENANT ROLLUP · COMPLIANCE\nncrs:\n0\ncapas:\n0\naudits:\n0\necos:\n1\naudit log entries:\n53\nCompliance Dashboard\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "dashboard-procurement": {
+      "httpStatus": 200,
+      "title": "Procurement Dashboard · Solo Brands",
+      "bodyText": "LIVE TENANT ROLLUP · PROCUREMENT\npos:\n0\nvendors:\n11\nbills:\n0\nopen bills:\n0\ninvoices:\n0\nitems:\n109\nS\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\nProcurement Dashboard\n\nConnect your data source to populate this page with your business data.\n\nRun the import wizard ▸",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    },
+    "vendor-index": {
+      "httpStatus": 200,
+      "title": "Vendor · Solo Brands",
+      "bodyText": "S\nSolo Brands\nWORKSPACE\nPaid\nCRM & SALES\nSalesforce • Customers\nSalesforce • Opportunities\nNetSuite • Sales Orders\nNetSuite • Invoices\nPROCURE-TO-PAY\nNetSuite • Vendors\nNetSuite • Purchase Orders\nINVENTORY & ITEMS\nNetSuite • Items\nNetSuite • Inventory\nPLM (ENGINEERING)\nArena • Part Library\nArena • BOMs\nArena • Change Orders\nTurion Satellite PLM\nMANUFACTURING\nMES • Shop Floor\nMES • Work Orders\nMES • Build Steps\nQUALITY\nArena • NCRs\nArena • CAPAs\nArena • Audits\nFINANCE\nNetSuite • General Ledger\nNetSuite • Journal Entries\nNetSuite • Chart of Accounts\nNetSuite • FP&A\nREVENUE & ROYALTY\n+ Add to plan\nAI AGENTS\nAI Agent • NCR → CAPA Closure\nAI Agent • Integration Sentinel\nMIGRATION TOOLS\n+ Add to plan\nMARKETING (M7)\n+ Add to plan\nDASHBOARDS\nAll dashboards\nExecutive cockpit\nCEO\nCFO\nCIO\nCRO\nCTO\nManufacturing\nProcurement\nPresident\nPrograms\nPitch\nTeam\nCatalog\nSettings\nHelp\n← Home\n📨 Vendor\nEDI 850/855/856/810 · Cleo AS2\nMODULE · VENDOR EDI\nOrder · acknowledge · ship · invoice\n\nVendor portal mirrors what your vendor partners see on their side — incoming PO, ack queue, ASN dispatch, invoice receipts. Behind the scenes Cleo AS2 transmits X12 EDI to active vendor partners. NetSuite auto-creates Item Receipts on 856 and AP bills on 810.\n\nOPEN POS\n—\nACTIVE VENDORS\n11\nEDI SYNC POINTS\n—\n30-DAY RETRANSMITS\n0\n📨\nVendor Portal (BCT)\nCustomer POs · Quotes · ASN · Invoices · Catalog · live with EDI flow.\nOpen →\n🔄\nEDI ↔ NS Sync Map\n9 sync points · X12 850/855/856/810 · sync-run history.\nOpen →\n← Home · Executive cockpit · Integration hub",
+      "rowCounts": {
+        "tables": 0,
+        "emptyStates": 0
+      },
+      "hardcodedTokens": [],
+      "dataReady": true,
+      "error": null
+    }
+  }
+}
