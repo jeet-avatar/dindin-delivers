@@ -541,6 +541,8 @@ export interface ActiveDeliveryData {
   items_count: number;
   total_amount?: number;
   payout: number;
+  delivery_fee?: number;  // Distance-based fee, 100% to driver
+  tip?: number;           // Customer tip, 100% to driver
   distance: string;
   estimated_time: string;
   status: 'accepted' | 'picked_up' | 'delivering' | 'delivered';

@@ -57,6 +57,7 @@ interface Order {
   items: OrderItem[];
   subtotal: number;
   delivery_fee: number;
+  delivery_distance_miles?: number | null;
   platform_fee: number;
   tax: number;
   tip: number;
@@ -519,7 +520,14 @@ const OrderTracking: React.FC = () => {
             </div>
 
             <div className="summary-line">
-              <Text>Delivery Fee</Text>
+              <Text>
+                Delivery Fee
+                {order.delivery_distance_miles != null && (
+                  <Text type="secondary" style={{ fontSize: 12, marginLeft: 6 }}>
+                    ({Number(order.delivery_distance_miles).toFixed(2)} mi, haversine)
+                  </Text>
+                )}
+              </Text>
               <Text>${order.delivery_fee.toFixed(2)}</Text>
             </div>
 

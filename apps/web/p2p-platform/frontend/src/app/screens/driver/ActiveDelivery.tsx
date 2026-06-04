@@ -314,12 +314,32 @@ const ActiveDelivery: React.FC = () => {
 
             <Divider style={{ margin: '16px 0' }} />
 
-            {/* Payout */}
+            {/* Payout — broken down so insurance underwriters see driver economics */}
             <div className="payout-section">
               <Text type="secondary">Your Earnings</Text>
               <Text strong style={{ fontSize: 28, color: '#10B981' }}>
                 ${activeDelivery.payout.toFixed(2)}
               </Text>
+              {(activeDelivery.delivery_fee != null || activeDelivery.tip != null) && (
+                <div style={{ marginTop: 8, fontSize: 13 }}>
+                  {activeDelivery.delivery_fee != null && (
+                    <div className="info-item" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Text type="secondary">Delivery fee (100% yours)</Text>
+                      <Text>${activeDelivery.delivery_fee.toFixed(2)}</Text>
+                    </div>
+                  )}
+                  {activeDelivery.tip != null && activeDelivery.tip > 0 && (
+                    <div className="info-item" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Text type="secondary">Tip (100% yours)</Text>
+                      <Text>${activeDelivery.tip.toFixed(2)}</Text>
+                    </div>
+                  )}
+                  <div className="info-item" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Platform fee deducted from you</Text>
+                    <Text style={{ fontSize: 12 }}>$0.00</Text>
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
 

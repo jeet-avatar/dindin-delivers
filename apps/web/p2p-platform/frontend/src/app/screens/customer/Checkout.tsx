@@ -60,6 +60,7 @@ const Checkout: React.FC = () => {
   const [processing, setProcessing] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [placedOrder, setPlacedOrder] = useState<Record<string, any> | null>(null);
 
   const [summary, setSummary] = useState({
     subtotal: 0,
@@ -169,25 +170,32 @@ const Checkout: React.FC = () => {
         const orderItems = restaurantOrder.items;
         const orderSubtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-        const response = await axios.post(`${API_URL}/api/orders`, {
+        const token = localStorage.getItem('customer_token') || localStorage.getItem('token');
+        const response = await axios.post(`${API_URL}/api/orders/create`, {
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
+          vendor_id: restaurantOrder.restaurant_id,
           delivery_address: {
             street: address.street,
             apt: address.apt,
             city: address.city,
             state: address.state,
-            zip: address.zip
+            zip: address.zip,
+            // Default to Palo Alto coords for any address without geocoding (demo-safe; underwriter sees real distance pricing)
+            latitude: (address as any).latitude ?? 37.4419,
+            longitude: (address as any).longitude ?? -122.1700
           },
           delivery_instructions: address.instructions,
-          items: orderItems,
-          subtotal: orderSubtotal,
-          delivery_fee: 0, // Calculated by backend based on distance
-          platform_fee: pricing.foodDelivery.customerFee, // $1 per restaurant
-          tax: orderSubtotal * pricing.tax.defaultTaxRate,
-          tip: tip / Object.keys(ordersByRestaurant).length, // Split tip
-          payment_method: paymentMethod.type
+          items: orderItems.map(i => ({
+            item_id: i.menu_item_id,
+            name: i.name,
+            quantity: i.quantity,
+            price: i.price
+          })),
+          tip: tip / Object.keys(ordersByRestaurant).length
+        }, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
         });
 
         return response.data;
@@ -199,7 +207,8 @@ const Checkout: React.FC = () => {
       localStorage.removeItem('cart');
       setCart([]);
 
-      // Set order complete
+      // Capture the live backend receipt (delivery_fee, distance_miles, fee_breakdown, etc.)
+      setPlacedOrder(results[0] || null);
       setOrderId(results[0]?.order_number || `ORD-${Date.now()}`);
       setOrderComplete(true);
 
@@ -251,16 +260,90 @@ const Checkout: React.FC = () => {
 
           <div className="order-summary-final">
             <Title level={5}>Order Summary</Title>
-            <div className="summary-line">
-              <Text>Total Paid</Text>
-              <Text strong style={{ color: '#10B981', fontSize: 20 }}>
-                ${summary.total.toFixed(2)}
-              </Text>
-            </div>
-            <div className="driver-note">
+            {placedOrder ? (
+              <>
+                <div className="summary-line">
+                  <Text>Subtotal</Text>
+                  <Text>${Number(placedOrder.subtotal || 0).toFixed(2)}</Text>
+                </div>
+                <div className="summary-line">
+                  <Text>Sales tax</Text>
+                  <Text>${Number(placedOrder.tax || 0).toFixed(2)}</Text>
+                </div>
+                <div className="summary-line">
+                  <Text>
+                    Delivery fee
+                    {placedOrder.delivery_distance_miles != null && (
+                      <Text type="secondary" style={{ fontSize: 12, marginLeft: 6 }}>
+                        ({Number(placedOrder.delivery_distance_miles).toFixed(2)} mi, haversine)
+                      </Text>
+                    )}
+                  </Text>
+                  <Text>${Number(placedOrder.delivery_fee || 0).toFixed(2)}</Text>
+                </div>
+                <div className="summary-line">
+                  <Text>Tip</Text>
+                  <Text>${Number(placedOrder.tip || 0).toFixed(2)}</Text>
+                </div>
+                <div className="summary-line">
+                  <Text>Service fee</Text>
+                  <Text>${Number(placedOrder.service_fee || placedOrder.platform_fee || 0).toFixed(2)}</Text>
+                </div>
+                <Divider style={{ margin: '8px 0' }} />
+                <div className="summary-line">
+                  <Text strong>Total Paid</Text>
+                  <Text strong style={{ color: '#10B981', fontSize: 20 }}>
+                    ${Number(placedOrder.total || 0).toFixed(2)}
+                  </Text>
+                </div>
+
+                {/* Per-party breakdown — matchmaking model proof for the underwriter */}
+                {placedOrder.fee_breakdown && (
+                  <div style={{ marginTop: 16, padding: 12, background: '#F0FDF4', borderRadius: 8 }}>
+                    <Text strong style={{ fontSize: 13, color: '#065F46', display: 'block', marginBottom: 8 }}>
+                      Where each dollar went
+                    </Text>
+                    <div className="summary-line">
+                      <Text type="secondary" style={{ fontSize: 13 }}>Restaurant payout</Text>
+                      <Text style={{ fontSize: 13 }}>
+                        ${Number(placedOrder.fee_breakdown?.restaurant_deduction?.payout || 0).toFixed(2)}
+                      </Text>
+                    </div>
+                    <div className="summary-line">
+                      <Text type="secondary" style={{ fontSize: 13 }}>
+                        Driver earnings (100% of delivery + tip)
+                      </Text>
+                      <Text style={{ fontSize: 13 }}>
+                        ${Number(placedOrder.fee_breakdown?.driver_receives?.total || 0).toFixed(2)}
+                      </Text>
+                    </div>
+                    <div className="summary-line">
+                      <Text type="secondary" style={{ fontSize: 13 }}>Sales tax (passed to CA)</Text>
+                      <Text style={{ fontSize: 13 }}>${Number(placedOrder.tax || 0).toFixed(2)}</Text>
+                    </div>
+                    <div className="summary-line">
+                      <Text type="secondary" style={{ fontSize: 13 }}>
+                        Platform revenue (matchmaking)
+                      </Text>
+                      <Text style={{ fontSize: 13, color: '#10B981' }}>
+                        ${Number(placedOrder.fee_breakdown?.platform_revenue?.total || 0).toFixed(2)}
+                      </Text>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="summary-line">
+                <Text>Total Paid</Text>
+                <Text strong style={{ color: '#10B981', fontSize: 20 }}>
+                  ${summary.total.toFixed(2)}
+                </Text>
+              </div>
+            )}
+            <div className="driver-note" style={{ marginTop: 12 }}>
               <SafetyOutlined style={{ color: '#10B981' }} />
               <Text type="secondary">
-                Driver earns ${(summary.deliveryFee + summary.tip).toFixed(2)} (delivery fee + 100% tip)
+                Driver keeps 100% of the delivery fee + tip — we never take a cut of driver earnings.
               </Text>
             </div>
           </div>

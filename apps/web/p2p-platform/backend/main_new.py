@@ -21826,6 +21826,8 @@ def get_driver_active_delivery(
         "items_count": items_count,
         "distance": "N/A",
         "estimated_time": "15-25 min",
+        "delivery_fee": float(active_order.delivery_fee or 0),
+        "tip": float(active_order.tip or 0),
         "payout": float(active_order.delivery_fee or 0) + float(active_order.tip or 0),
         "status": status_map.get(active_order.status, "accepted"),
         "pickup_latitude": vendor.latitude if vendor else None,
