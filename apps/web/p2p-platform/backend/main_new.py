@@ -19620,11 +19620,12 @@ async def proxy_create_payment_intent(
     that bypasses actual Stripe processing.
     """
     check_rate_limit(http_request, payment_limiter, "payment", identifier=str(_auth.get("user_id", _auth.get("customer_id", _auth.get("driver_id", "unknown")))))
-    # Check for demo account - bypass Stripe for App Store review
+    # Check for demo account - bypass Stripe for App Store review + underwriter demo
     DEMO_CUSTOMER_EMAILS = [
         "demo.customer@dollor.ai",
         "demo.driver@dollor.ai",
-        "demo.restaurant@dollor.ai"
+        "demo.restaurant@dollor.ai",
+        "jeetnair.in@gmail.com"
     ]
 
     customer = get_current_customer_from_token(authorization, db) if authorization else None

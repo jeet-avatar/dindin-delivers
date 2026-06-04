@@ -1406,9 +1406,9 @@ async def create_order(
     db.refresh(new_order)
 
     # Demo payment bypass: skip Stripe for demo orders at known demo vendors
-    DEMO_CUSTOMER_EMAIL = "demo.customer@dollor.ai"
+    DEMO_CUSTOMER_EMAILS = {"demo.customer@dollor.ai", "jeetnair.in@gmail.com"}
     DEMO_VENDOR_IDS = {1, 40, 134}
-    if (order_data.customer_email == DEMO_CUSTOMER_EMAIL and
+    if (order_data.customer_email in DEMO_CUSTOMER_EMAILS and
             order_data.vendor_id in DEMO_VENDOR_IDS):
         new_order.payment_status = "succeeded"
         new_order.status = OrderStatus.PENDING_RESTAURANT
