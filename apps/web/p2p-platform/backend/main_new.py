@@ -15994,9 +15994,9 @@ async def get_driver_active_order_alias(driver_id: int, driver: Driver = Depends
     return await get_driver_active_orders(driver_id, db)
 
 @app.get("/erp/orders/available-for-delivery")
-async def get_available_orders_alias(_auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def get_available_orders_alias(driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - get orders available for delivery"""
-    return await get_available_orders(db)
+    return await get_available_orders(db, driver)
 
 @app.post("/erp/orders/{order_id}/assign-driver")
 async def assign_driver_alias(order_id: int, request: AssignDriverRequest, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
@@ -16009,21 +16009,21 @@ async def picked_up_alias(order_id: int, driver: Driver = Depends(require_driver
     return await order_picked_up(order_id, db, driver)
 
 @app.put("/erp/orders/{order_id}/complete-delivery")
-async def complete_delivery_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def complete_delivery_alias(order_id: int, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark delivery as complete"""
-    return await complete_delivery(order_id, db, _auth)
+    return await complete_delivery(order_id, db, driver)
 
 @app.put("/erp/orders/{order_id}/unassign-driver")
-async def unassign_driver_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
-    """Alias for iOS Driver app - unassign driver from order"""
-    return await unassign_driver(order_id, db)
+async def unassign_driver_alias(order_id: int, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """Alias for admin portal - unassign driver from order (admin-only per order_flow contract)"""
+    return await unassign_driver(order_id, db, admin)
 
 @app.put("/erp/orders/{order_id}/status")
-async def update_order_status_alias(order_id: int, status: str, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
-    """Alias for iOS Restaurant app - update order status
+async def update_order_status_alias(order_id: int, status: str, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """Alias for admin portal - update order status (admin-only per order_flow contract)
     iOS calls: PUT /erp/orders/{orderId}/status?status={status}
     """
-    return await update_order_status(order_id, status, db)
+    return await update_order_status(order_id, status, db, admin)
 
 @app.post("/erp/orders/{order_id}/delivered")
 async def order_delivered_alias(order_id: int, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
@@ -16036,13 +16036,13 @@ async def order_delivered_alias(order_id: int, driver: Driver = Depends(require_
 async def delivery_photo_alias(
     order_id: int,
     file: UploadFile = File(...),
-    _auth: dict = Depends(require_any_auth),
+    driver: Driver = Depends(require_driver),
     db: Session = Depends(get_db),
 ):
     """Alias for iOS Driver/Restaurant app - upload delivery proof photo
     iOS calls: POST /erp/orders/{orderId}/delivery-photo
     """
-    return await upload_delivery_photo(order_id, file, db, _auth)
+    return await upload_delivery_photo(order_id, file, db, driver)
 
 @app.post("/erp/orders/{order_id}/restaurant-accept")
 async def restaurant_accept_alias(order_id: int, request: Optional[RestaurantAcceptRequest] = None, vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
@@ -16061,18 +16061,18 @@ async def restaurant_decline_alias(order_id: int, request: Optional[RestaurantDe
     return await restaurant_decline(order_id, request, db, vendor)
 
 @app.post("/erp/orders/{order_id}/restaurant-accept-delivery")
-async def restaurant_accept_delivery_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def restaurant_accept_delivery_alias(order_id: int, vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - accept self-delivery
     iOS calls: POST /erp/orders/{orderId}/restaurant-accept-delivery
     """
-    return await restaurant_accept_delivery(order_id, db)
+    return await restaurant_accept_delivery(order_id, db, vendor)
 
 @app.post("/erp/orders/{order_id}/restaurant-decline-delivery")
-async def restaurant_decline_delivery_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def restaurant_decline_delivery_alias(order_id: int, vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - decline self-delivery (send to driver pool)
     iOS calls: POST /erp/orders/{orderId}/restaurant-decline-delivery
     """
-    return await restaurant_decline_delivery(order_id, db)
+    return await restaurant_decline_delivery(order_id, db, vendor)
 
 @app.post("/erp/orders/{order_id}/driver-arrived-at-delivery")
 async def driver_arrived_alias(order_id: int, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
