@@ -16111,11 +16111,12 @@ async def address_unreachable_alias(order_id: int, request_body: AddressUnreacha
 # These enable iOS apps to call /erp/* paths without /api prefix
 
 @app.post("/erp/orders/create")
-async def create_order_ios_alias(order_data: CreateOrderRequest, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def create_order_ios_alias(order_data: CreateOrderRequest, db: Session = Depends(get_db), customer: Customer = Depends(require_customer)):
     """Alias for iOS Customer app - create order
     iOS calls: POST /erp/orders/create
+    quick-356: forward customer Depends to erp_create_order; require_any_auth removed because require_customer is stricter (verifies customer role) and erp_create_order needs customer.id at order_flow.py:1373.
     """
-    return await erp_create_order(order_data, db)
+    return await erp_create_order(order_data, db, customer)
 
 @app.post("/erp/orders/{order_id}/confirm-payment")
 async def confirm_payment_ios_alias(request: Request, order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
@@ -16538,8 +16539,9 @@ async def android_create_order(order_data: CreateOrderRequest, db: Session = Dep
     """
     Android alias for order creation.
     Maps to: POST /api/erp/orders/create
+    quick-356: forward customer Depends through — was dropped in original call, leaving order_flow.create_order to read .id off a Depends sentinel.
     """
-    return await erp_create_order(order_data=order_data, db=db)
+    return await erp_create_order(order_data=order_data, db=db, customer=customer)
 
 
 @app.get("/api/customer/orders")
