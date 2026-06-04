@@ -1,5 +1,7 @@
 # Project State
 
+**Last activity:** 2026-06-04T03:28Z - **Quick-356 VERIFIED**: full P2P lifecycle restored on api.dollor.ai. 12 alias functions in main_new.py:15996-16075+16114+16537 had same Depends-not-forwarded pattern (broken since 2026-03-31) → 500 on every order/lifecycle endpoint. Fixed in 3 deploys (`0e1c0239` order creation, `0d492a89` accept+assign+pickup+deliver, `09770b61` driver-list+photo+admin paths). E2E verified DOLL2026406 walked customer→vendor accept→driver assign→pickup→delivered+photo in 8 sec, accounting JE-20260604-00112 created showing $24.97 restaurant / $7.99 driver (100% delivery+tip) / **$2.00 platform** / $1.88 tax for $36.84 order. Email confirmation fires. Demo for insurance underwriter tomorrow AM = READY on www.dollor.ai with 3-window setup. Out of scope: frontend Checkout fake-success masking (line 208), background scheduler jobs still hitting stale dollor_staging connection (separate from API path). See `.planning/quick/356-fix-order-creation-bug-pass-customer-dep/356-SUMMARY.md`.
+
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-26)
