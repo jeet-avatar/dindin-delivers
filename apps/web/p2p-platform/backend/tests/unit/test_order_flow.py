@@ -33,7 +33,7 @@ from order_flow import (
     AI_EMPLOYEES,
     RESTAURANT_PLATFORM_FEE,
     CUSTOMER_SERVICE_FEE,
-    DELIVERY_FEE,
+    DELIVERY_DEFAULT_FEE,
     PLATFORM_FEE,
     BASE_FARE,
     PER_MILE_RATE,
@@ -154,10 +154,10 @@ def mock_order():
     order.subtotal = 25.98
     order.tax_rate = 0.09
     order.tax_amount = 2.34
-    order.delivery_fee = DELIVERY_FEE
+    order.delivery_fee = DELIVERY_DEFAULT_FEE
     order.tip = 5.0
     order.platform_fee = CUSTOMER_SERVICE_FEE
-    order.total_amount = 25.98 + 2.34 + CUSTOMER_SERVICE_FEE + DELIVERY_FEE + 5.0
+    order.total_amount = 25.98 + 2.34 + CUSTOMER_SERVICE_FEE + DELIVERY_DEFAULT_FEE + 5.0
     order.delivery_address = json.dumps({
         "street": "456 Oak St",
         "city": "San Francisco",
@@ -1865,7 +1865,7 @@ class TestEdgeCases:
         """Test all fee constants are defined correctly"""
         assert RESTAURANT_PLATFORM_FEE == 1.00
         assert CUSTOMER_SERVICE_FEE == 1.00  # $1 service fee from customer per order
-        assert DELIVERY_FEE == 4.99
+        assert DELIVERY_DEFAULT_FEE == 4.99
         assert BASE_FARE == 2.50
         assert PER_MILE_RATE == 1.15
         assert PER_MINUTE_RATE == 0.18
@@ -1909,10 +1909,10 @@ class TestDeliveryProofPhoto:
         order.subtotal = 25.98
         order.tax_rate = 0.09
         order.tax_amount = 2.34
-        order.delivery_fee = DELIVERY_FEE
+        order.delivery_fee = DELIVERY_DEFAULT_FEE
         order.tip = 5.0
         order.platform_fee = CUSTOMER_SERVICE_FEE
-        order.total_amount = 25.98 + 2.34 + CUSTOMER_SERVICE_FEE + DELIVERY_FEE + 5.0
+        order.total_amount = 25.98 + 2.34 + CUSTOMER_SERVICE_FEE + DELIVERY_DEFAULT_FEE + 5.0
         order.status = OrderStatus.OUT_FOR_DELIVERY
         order.created_at = datetime.now()
         order.delivered_at = None
@@ -1937,10 +1937,10 @@ class TestDeliveryProofPhoto:
         order.subtotal = 25.98
         order.tax_rate = 0.09
         order.tax_amount = 2.34
-        order.delivery_fee = DELIVERY_FEE
+        order.delivery_fee = DELIVERY_DEFAULT_FEE
         order.tip = 5.0
         order.platform_fee = CUSTOMER_SERVICE_FEE
-        order.total_amount = 25.98 + 2.34 + CUSTOMER_SERVICE_FEE + DELIVERY_FEE + 5.0
+        order.total_amount = 25.98 + 2.34 + CUSTOMER_SERVICE_FEE + DELIVERY_DEFAULT_FEE + 5.0
         order.status = OrderStatus.OUT_FOR_DELIVERY
         order.created_at = datetime.now()
         order.delivered_at = None
@@ -2280,7 +2280,7 @@ class TestDeliveryProofPhoto:
         stuck_order.vendor_id = 1
         stuck_order.driver_id = 1
         stuck_order.subtotal = 30.0
-        stuck_order.delivery_fee = DELIVERY_FEE
+        stuck_order.delivery_fee = DELIVERY_DEFAULT_FEE
         stuck_order.tip = 3.0
         stuck_order.created_at = datetime.now() - timedelta(hours=25)
         stuck_order.updated_at = datetime.now() - timedelta(hours=25)
