@@ -16001,12 +16001,12 @@ async def get_available_orders_alias(_auth: dict = Depends(require_any_auth), db
 @app.post("/erp/orders/{order_id}/assign-driver")
 async def assign_driver_alias(order_id: int, request: AssignDriverRequest, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - assign driver to order"""
-    return await assign_driver(order_id, request, db)
+    return await assign_driver(order_id, request, db, _auth)
 
 @app.post("/erp/orders/{order_id}/picked-up")
-async def picked_up_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def picked_up_alias(order_id: int, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - mark order as picked up"""
-    return await order_picked_up(order_id, db, _auth)
+    return await order_picked_up(order_id, db, driver)
 
 @app.put("/erp/orders/{order_id}/complete-delivery")
 async def complete_delivery_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
@@ -16026,11 +16026,11 @@ async def update_order_status_alias(order_id: int, status: str, _auth: dict = De
     return await update_order_status(order_id, status, db)
 
 @app.post("/erp/orders/{order_id}/delivered")
-async def order_delivered_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def order_delivered_alias(order_id: int, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant/Driver app - mark order as delivered
     iOS calls: POST /erp/orders/{orderId}/delivered
     """
-    return await order_delivered(order_id, db, _auth)
+    return await order_delivered(order_id, db, driver)
 
 @app.post("/erp/orders/{order_id}/delivery-photo")
 async def delivery_photo_alias(
@@ -16045,20 +16045,20 @@ async def delivery_photo_alias(
     return await upload_delivery_photo(order_id, file, db, _auth)
 
 @app.post("/erp/orders/{order_id}/restaurant-accept")
-async def restaurant_accept_alias(order_id: int, request: Optional[RestaurantAcceptRequest] = None, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def restaurant_accept_alias(order_id: int, request: Optional[RestaurantAcceptRequest] = None, vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - accept order
     iOS calls: POST /erp/orders/{orderId}/restaurant-accept
     Body: {"estimated_prep_minutes": 15}
     """
-    return await restaurant_accept(order_id, request, db)
+    return await restaurant_accept(order_id, request, db, vendor)
 
 @app.post("/erp/orders/{order_id}/restaurant-decline")
-async def restaurant_decline_alias(order_id: int, request: Optional[RestaurantDeclineRequest] = None, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def restaurant_decline_alias(order_id: int, request: Optional[RestaurantDeclineRequest] = None, vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
     """Alias for iOS Restaurant app - decline order
     iOS calls: POST /erp/orders/{orderId}/restaurant-decline
     Body: {"reason": "optional reason"}
     """
-    return await restaurant_decline(order_id, request, db)
+    return await restaurant_decline(order_id, request, db, vendor)
 
 @app.post("/erp/orders/{order_id}/restaurant-accept-delivery")
 async def restaurant_accept_delivery_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
