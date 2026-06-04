@@ -248,8 +248,18 @@ const OrderTracking: React.FC = () => {
 
   const fetchOrder = async () => {
     try {
+      const authHeaders = {
+        Authorization: `Bearer ${
+          localStorage.getItem('customer_token') ||
+          localStorage.getItem('access_token') ||
+          localStorage.getItem('token') ||
+          ''
+        }`
+      };
       if (orderId) {
-        const response = await axios.get(`${API_URL}/erp/orders/${orderId}/full-tracking`);
+        const response = await axios.get(`${API_URL}/erp/orders/${orderId}/full-tracking`, {
+          headers: authHeaders
+        });
         if (response.data.success) {
           setOrder(mapApiOrder(response.data));
         } else {
@@ -258,7 +268,8 @@ const OrderTracking: React.FC = () => {
       } else {
         // Get most recent order
         const response = await axios.get(`${API_URL}/api/orders`, {
-          params: { limit: 1, sort: '-created_at' }
+          params: { limit: 1, sort: '-created_at' },
+          headers: authHeaders
         });
         if (response.data && response.data.length > 0) {
           setOrder(mapApiOrder(response.data[0]));
