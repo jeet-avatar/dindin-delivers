@@ -632,7 +632,7 @@ const VendorOrders: React.FC = () => {
   // === ORDER ACTIONS ===
   const handleAcceptOrder = async (orderId: number) => {
     try {
-      await axios.post(`${API_URL}/api/erp/orders/${orderId}/restaurant-accept`);
+      await axios.post(`${API_URL}/erp/orders/${orderId}/restaurant-accept`);
       message.success('Order accepted! Starting preparation.');
       fetchOrders();
     } catch (error) {
@@ -642,7 +642,7 @@ const VendorOrders: React.FC = () => {
 
   const handleRejectOrder = async (orderId: number) => {
     try {
-      await axios.post(`${API_URL}/api/erp/orders/${orderId}/restaurant-decline`, {
+      await axios.post(`${API_URL}/erp/orders/${orderId}/restaurant-decline`, {
         reason: 'Restaurant unavailable'
       });
       message.success('Order declined. Customer will be refunded.');
@@ -654,7 +654,7 @@ const VendorOrders: React.FC = () => {
 
   const handleMarkReady = async (orderId: number) => {
     try {
-      await axios.post(`${API_URL}/api/erp/orders/${orderId}/ready-for-pickup`);
+      await axios.post(`${API_URL}/erp/orders/${orderId}/ready-for-pickup`);
       message.success('Order marked as ready!');
       fetchOrders();
     } catch (error) {
@@ -664,7 +664,7 @@ const VendorOrders: React.FC = () => {
 
   const handleSelfDeliver = async (orderId: number) => {
     try {
-      await axios.post(`${API_URL}/api/erp/orders/${orderId}/restaurant-accept-delivery`);
+      await axios.post(`${API_URL}/erp/orders/${orderId}/restaurant-accept-delivery`);
       message.success('You will deliver this order.');
       fetchOrders();
     } catch (error) {
@@ -674,7 +674,7 @@ const VendorOrders: React.FC = () => {
 
   const handleSendToDriver = async (orderId: number) => {
     try {
-      await axios.post(`${API_URL}/api/erp/orders/${orderId}/restaurant-decline-delivery`);
+      await axios.post(`${API_URL}/erp/orders/${orderId}/restaurant-decline-delivery`);
       message.success('Order sent to driver pool.');
       fetchOrders();
     } catch (error) {
@@ -684,7 +684,7 @@ const VendorOrders: React.FC = () => {
 
   const handleMarkDelivered = async (orderId: number) => {
     try {
-      await axios.post(`${API_URL}/api/erp/orders/${orderId}/delivered`);
+      await axios.post(`${API_URL}/erp/orders/${orderId}/delivered`);
       message.success('Order marked as delivered!');
       fetchOrders();
     } catch (error) {

@@ -145,8 +145,11 @@ const DriverLogin: React.FC = () => {
         }
       );
 
-      // Store driver credentials
+      // Store driver credentials. Also overwrite access_token so the shared
+      // axios interceptor (which prefers access_token) sends the driver JWT —
+      // otherwise driver pages send a stale vendor/customer token and 401.
       localStorage.setItem('driver_token', response.data.access_token);
+      localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('driver_id', response.data.driver_id);
       localStorage.setItem('driver_code', response.data.driver_code);
       localStorage.setItem('driver_name', response.data.name);

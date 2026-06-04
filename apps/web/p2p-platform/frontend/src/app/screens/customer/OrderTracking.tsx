@@ -249,7 +249,7 @@ const OrderTracking: React.FC = () => {
   const fetchOrder = async () => {
     try {
       if (orderId) {
-        const response = await axios.get(`${API_URL}/api/erp/orders/${orderId}/full-tracking`);
+        const response = await axios.get(`${API_URL}/erp/orders/${orderId}/full-tracking`);
         if (response.data.success) {
           setOrder(mapApiOrder(response.data));
         } else {
