@@ -309,7 +309,14 @@ const OrderTracking: React.FC = () => {
       tax: (orderData.tax as number) || (orderData.tax_amount as number) || 0,
       tip: orderData.tip as number || 0,
       total: (orderData.total_amount as number) || (orderData.total as number) || 0,
-      delivery_address: orderData.delivery_address as string || '',
+      delivery_address: typeof orderData.delivery_address === 'string'
+        ? orderData.delivery_address as string
+        : orderData.delivery_address
+          ? (() => {
+              const a = orderData.delivery_address as Record<string, unknown>;
+              return [a.street, a.apt, a.city, a.state, a.zip].filter(Boolean).join(', ');
+            })()
+          : '',
       estimated_delivery: orderData.estimated_delivery as string,
       driver: driver,
       status_history: orderData.status_history as OrderStatus[] || [],
