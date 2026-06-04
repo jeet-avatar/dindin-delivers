@@ -435,9 +435,8 @@ DELIVERY_MIN_FEE = 2.99          # Minimum delivery fee
 DELIVERY_MAX_FEE = 12.99         # Maximum delivery fee (cap for long distances)
 DELIVERY_DEFAULT_FEE = 4.99      # Default when distance unknown
 
-# Legacy variables for backward compatibility
+# Legacy alias kept because rideshare module imports PLATFORM_FEE
 PLATFORM_FEE = RESTAURANT_PLATFORM_FEE
-DELIVERY_FEE = DELIVERY_DEFAULT_FEE
 
 # Restaurant Acceptance Window Configuration
 RESTAURANT_ACCEPTANCE_WINDOW_SECONDS = 180  # 3 minutes to accept/decline
@@ -1453,7 +1452,7 @@ async def create_order(
         "subtotal": subtotal,
         "tax": tax_amount,
         "service_fee": CUSTOMER_SERVICE_FEE,
-        "delivery_fee": DELIVERY_FEE,
+        "delivery_fee": delivery_fee,
         "tip": order_data.tip,
         "discount": discount_amount,
         "promo_code": applied_promo_code,
@@ -1462,12 +1461,13 @@ async def create_order(
         "status": "Pending Payment",
         "processed_by": ai_employee["name"],
         "restaurant": vendor.restaurant_name or vendor.company_name,
+        "delivery_distance_miles": round(delivery_distance, 2) if delivery_distance is not None else None,
         "fee_breakdown": {
             "customer_pays": {
                 "subtotal": subtotal,
                 "tax": tax_amount,
                 "service_fee": CUSTOMER_SERVICE_FEE,
-                "delivery_fee": DELIVERY_FEE,
+                "delivery_fee": delivery_fee,
                 "tip": order_data.tip,
                 "discount": discount_amount,
                 "promo_code": applied_promo_code,
@@ -1480,9 +1480,9 @@ async def create_order(
                 "description": "Vendor absorbs discount; platform keeps $2 flat"
             },
             "driver_receives": {
-                "delivery_fee": DELIVERY_FEE,
+                "delivery_fee": delivery_fee,
                 "tip": order_data.tip,
-                "total": DELIVERY_FEE + order_data.tip
+                "total": delivery_fee + order_data.tip
             },
             "platform_revenue": {
                 "from_customer_service_fee": CUSTOMER_SERVICE_FEE,
