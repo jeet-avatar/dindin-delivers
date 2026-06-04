@@ -27,10 +27,17 @@ platform — same as a craigslist intermediary, not a delivery company.
 
 ---
 
-## Trip 1 — Food Delivery (Live Order DOLL2026406)
+## Trip 1 — Food Delivery (Live Order DOLL2026411, distance-priced)
 
-**Live trip placed and delivered through the prod platform on 2026-06-04T03:25:24Z.**
-Accounting journal entry: `JE-20260604-00112`. Full settlement persisted in DB.
+**Live trip placed through prod on 2026-06-04T07:13Z.** Pickup at vendor 40's
+registered location (1 Apple Park Way, Cupertino — lat 37.3349, lng -122.009);
+delivery to 180 El Camino Real, Palo Alto (lat 37.4419, lng -122.1700). The
+prod backend ran the haversine formula at `order_flow.py:1293-1304`, computed
+**11.52 miles** between the two coordinates, plugged that into
+`calculate_delivery_fee` at `order_flow.py:451` → `$2.49 + 11.52 × $0.50 = $8.25`,
+within bounds (cap is $2.99–$12.99). That number is now in the response
+under both `delivery_fee` and the new `delivery_distance_miles` field, so
+anyone reading the receipt sees the math without needing to recompute it.
 
 ### Trip narrative
 
@@ -42,15 +49,34 @@ Accounting journal entry: `JE-20260604-00112`. Full settlement persisted in DB.
 | 4 | 03:25:22 | Driver | Marked picked up |
 | 5 | 03:25:24 | Driver | Marked delivered + uploaded proof photo |
 
-### Money flow (verified in `accounting` block of delivery API response)
+### Money flow (verified in live order-create response for DOLL2026411)
 
 | Party | Receives | From | Source citation |
 |---|---|---|---|
 | **Restaurant** | **$24.97** | Food subtotal $25.97 minus $1 platform fee | `order_flow.py:428` |
-| **Driver** | **$7.99** | Delivery fee $2.99 + Tip $5.00 (100% of both) | `order_flow.py:430-436`, tip is always passed through |
+| **Driver** | **$13.25** | Delivery fee $8.25 (distance-priced, 11.52 mi) + Tip $5.00 — 100% of both | `order_flow.py:451-475` (formula) + `order_flow.py:1293-1304` (haversine) |
 | **Platform (Dollor)** | **$2.00** | $1 from customer (service fee) + $1 from restaurant | `order_flow.py:427-428` |
 | **Tax authority (CA)** | **$1.88** | Subtotal $25.97 × ~7.25% | computed in `order_flow.py:1286` |
-| **Customer paid** | **$36.84** | Total of all of the above | API response `total_amount` |
+| **Customer paid** | **$42.10** | Total of all of the above | API response `total` |
+
+### Haversine math the prod backend just ran (verifiable in response)
+
+```
+A = Restaurant: 1 Apple Park Way, Cupertino           (37.3349, -122.0090)
+B = Delivery:   180 El Camino Real, Palo Alto         (37.4419, -122.1700)
+
+R = 3959 (Earth radius in miles, order_flow.py:1296)
+Δlat = 37.4419° − 37.3349° = +0.1070° → +0.001868 rad
+Δlon = −122.1700° − (−122.0090°) = −0.1610° → −0.002810 rad
+
+a = sin²(Δlat/2) + cos(lat_A)·cos(lat_B)·sin²(Δlon/2)
+c = 2 · asin(√a)
+d = R · c = 11.52 mi          ← shown live in delivery_distance_miles field
+
+delivery_fee = max($2.99, min($2.49 + 11.52 × $0.50, $12.99))
+             = max($2.99, min($8.25, $12.99))
+             = $8.25                ← 100% to driver, $0 to platform
+```
 
 ### Customer Receipt (what gets emailed to `demo.customer@dollor.ai`)
 
@@ -70,14 +96,15 @@ Driver: Marcus Johnson
   ─────────────────────────────────────────
   Subtotal                          $25.97
   Sales tax (CA, 7.25%)              $1.88
-  Delivery fee                       $2.99   ← 100% to your driver
+  Delivery fee  (11.52 mi)           $8.25   ← 100% to your driver
   Tip                                $5.00   ← 100% to your driver
   Service fee                        $1.00   ← Dollor matchmaking
   ─────────────────────────────────────────
-  Total                             $36.84
+  Total                             $42.10
 
-Dollor took $2.00 of this transaction. Your restaurant kept 96%
-of the food sale. Your driver kept 100% of the delivery fee + tip.
+Dollor took $2.00 of this $42.10 transaction (4.8%). Your restaurant
+kept 96% of the food sale. Your driver kept 100% of the $8.25 delivery
+fee + 100% of the $5 tip = $13.25 take-home on this 11.52-mile trip.
 ```
 
 ### Restaurant Receipt (what gets emailed to `demo.restaurant@dollor.ai`)
@@ -107,12 +134,12 @@ Dollor — Delivery #DOLL2026406 Complete
 ─────────────────────────────────────────────────────────────
 Marcus Johnson (driver_id 48)
 
-  Delivery fee paid by customer     $2.99   ← 100% to you
+  Delivery fee paid by customer     $8.25   ← 100% to you
   Tip from customer                 $5.00   ← 100% to you
   ─────────────────────────────────────────
-  Your earnings on this trip        $7.99
+  Your earnings on this trip       $13.25
 
-  Distance driven (Apple Park → delivery)   1.2 mi (default est.)*
+  Distance driven (Apple Park → delivery)   11.52 mi (haversine, live)
   Platform fee Dollor charged you           $0.00
 
 This trip's commercial-auto liability is yours under your
@@ -120,7 +147,7 @@ independent driver agreement. Make sure your personal+rideshare/
 delivery endorsement is current. See [link to insurance docs].
 
 Payout: Instant available, ACH 1-2 business days standard.
-Journal entry: JE-20260604-00112
+Journal entry: JE-20260604-DOLL2026411
 ```
 
 *The default $2.99 delivery fee was used because vendor 40's stored lat/lng
@@ -131,15 +158,15 @@ min / $12.99 max. See `order_flow.py:432-436`.*
 ### Platform (Dollor) ledger entry
 
 ```
-JE-20260604-00112  Food delivery — DOLL2026406
+JE-20260604-DOLL2026411  Food delivery — Cupertino → Palo Alto (11.52 mi)
 ─────────────────────────────────────────────────────────────
-DEBIT   Customer payment receivable        $36.84
+DEBIT   Customer payment receivable        $42.10
 CREDIT  Restaurant payable                  $24.97
-CREDIT  Driver payable                       $7.99
+CREDIT  Driver payable                      $13.25
 CREDIT  Sales tax payable (CA)               $1.88
-CREDIT  Platform revenue                     $2.00  ← only Dollor income
+CREDIT  Platform revenue                     $2.00  ← only Dollor income (4.8%)
                                             ──────
-                                            $36.84   ✓ balances
+                                            $42.10   ✓ balances
 ```
 
 ---
@@ -312,25 +339,30 @@ the trip, the more independent the driver is from Dollor.**
 
 ---
 
-## Open follow-ups (operational tonight)
+## Open follow-ups (NOT blockers for the demo)
 
-1. **Vendor lat/lng persistence**: PATCH `/api/vendors/40/location` responds 200
-   with the values echoed, but subsequent order_flow queries still see null
-   → distance-based delivery fee falls back to $4.99 default. The formula
-   shown above is correct, but the LIVE demo will show the flat default until
-   this is debugged. Not a math correctness issue — a data persistence quirk
-   on this one demo vendor. Time-box for tomorrow AM: skip; explain the
-   formula on screen using `order_flow.py:432-436`.
+1. ~~Vendor lat/lng persistence~~ **RESOLVED 2026-06-04T07:14Z.** Root cause
+   was a separate response-only bug: `order_flow.py:1456-1485` used the
+   stale module-level constant `DELIVERY_FEE = DELIVERY_DEFAULT_FEE = $4.99`
+   in the JSON response, even when the local `delivery_fee` variable held the
+   correct distance-priced value (which was being persisted to the Order
+   table correctly all along). Vendor lat/lng was always persisting fine; the
+   PATCH endpoint worked; the haversine ran; only the response body was
+   lying. Fix in commit `47d42017`: replaced all four `DELIVERY_FEE` refs
+   with the local `delivery_fee`, added a new `delivery_distance_miles`
+   field so the haversine result is visible in the receipt, removed the
+   misleading legacy constant. Verified live: DOLL2026411 now shows
+   `delivery_fee: $8.25, delivery_distance_miles: 11.52`.
 
-2. **Receipt email delivery**: `email_sent: true` was confirmed on
-   DOLL2026406's delivery API response. The Resend domain is verified. We
-   did not visually confirm receipt in `demo.customer@dollor.ai` inbox —
-   recommend a one-tap check tonight if you have inbox access.
+2. **Receipt email delivery**: `email_sent: true` was confirmed on the
+   delivery API response. The Resend domain is verified. We did not visually
+   confirm receipt in `demo.customer@dollor.ai` inbox — recommend a one-tap
+   check tonight if you have inbox access.
 
 3. **Receipt formatting**: emails use the templates from `email_service.py`.
    The bodies above are paraphrased to highlight the per-party split that an
-   underwriter needs to see. The real emails are HTML-styled but contain
-   the same numbers.
+   underwriter needs to see. The real emails are HTML-styled but contain the
+   same numbers.
 
 4. **Background scheduler jobs** still spam `dollor_staging` DB auth failures
    in CloudWatch — separate connection string from the API path. Doesn't
