@@ -16221,8 +16221,18 @@ async def ride_picked_up_ios_alias(ride_id: int, _auth: dict = Depends(require_a
     """Alias for iOS Driver app - mark ride picked up (transitions to IN_PROGRESS).
     iOS calls: POST /api/erp/rides/{rideId}/picked-up
     """
-    from bid_routes import start_ride as _start_ride
-    return await _start_ride(ride_id, db)
+    # Inline the start logic — calling bid_routes.start_ride as a function
+    # fails because its `request: Request, auth_driver: Driver = Depends(...)`
+    # parameters are FastAPI Depends and don't resolve outside a route handler.
+    from models import RideRequest as RR, RideRequestStatus as RRS
+    ride = db.query(RR).filter(RR.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    if ride.status not in [RRS.MATCHED, RRS.IN_PROGRESS]:
+        raise HTTPException(status_code=400, detail=f"Ride must be matched (current: {ride.status.value})")
+    ride.status = RRS.IN_PROGRESS
+    db.commit()
+    return {"success": True, "message": "Ride picked up", "ride_id": ride.id, "status": "in_progress"}
 
 @app.post("/erp/rides/{ride_id}/start")
 @app.post("/api/erp/rides/{ride_id}/start")
