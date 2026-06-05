@@ -138,7 +138,16 @@ const VendorLogin: React.FC = () => {
       );
 
       localStorage.setItem('access_token', response.data.access_token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      // Merge vendor_id from top-level response into the stored user object so
+      // getCurrentVendorId() returns the Vendor table id (40), not the auth
+      // User table id (125). Without this, /vendor/orders queries the wrong id
+      // and shows "No orders" even when DOLL... orders exist for the vendor.
+      const storedUser = {
+        ...response.data.user,
+        vendor_id: response.data.vendor_id ?? response.data.user?.vendor_id,
+        business_name: response.data.business_name ?? response.data.user?.business_name
+      };
+      localStorage.setItem('user', JSON.stringify(storedUser));
 
       message.success('Welcome back! Redirecting to your dashboard...');
       navigate('/vendor/dashboard');
