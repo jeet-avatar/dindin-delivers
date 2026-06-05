@@ -133,4 +133,14 @@ class DollorTestCase: XCTestCase {
             tab.tap()
         }
     }
+
+    /// Captures the current screen as an XCTAttachment that survives in the
+    /// .xcresult bundle. Used by Phase 68 to assemble the insurance evidence
+    /// PDF — each named screenshot becomes a captioned page.
+    func screenshot(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "customer__\(name)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
 }
