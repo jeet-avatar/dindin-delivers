@@ -16119,11 +16119,19 @@ async def create_order_ios_alias(order_data: CreateOrderRequest, db: Session = D
     return await erp_create_order(order_data, db, customer)
 
 @app.post("/erp/orders/{order_id}/confirm-payment")
-async def confirm_payment_ios_alias(request: Request, order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
+async def confirm_payment_ios_alias(
+    request: Request,
+    order_id: int,
+    customer: Customer = Depends(require_customer),
+    db: Session = Depends(get_db),
+):
     """Alias for iOS Customer app - confirm payment
     iOS calls: POST /erp/orders/{orderId}/confirm-payment
+    quick-358: forward typed customer Depends to real confirm_payment
+    (was passing _auth dict where Customer ORM was expected → 500).
     """
-    return await confirm_payment(request, order_id, db, _auth)
+    from order_flow import confirm_payment as _real_confirm_payment
+    return await _real_confirm_payment(request, order_id, db=db, customer=customer)
 
 @app.get("/erp/orders/{order_id}/driver-location")
 async def get_driver_location_ios_alias(order_id: int, _auth: dict = Depends(require_any_auth), db: Session = Depends(get_db)):
