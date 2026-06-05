@@ -20,13 +20,15 @@ export const getCurrentVendorId = (): number | null => {
     const userData = globalThis.localStorage.getItem('user');
     if (userData) {
       const user = JSON.parse(userData);
-      // user.id can be string or number depending on auth method
-      if (user.id) {
-        return typeof user.id === 'number' ? user.id : parseInt(user.id, 10);
-      }
-      // Fallback to vendor_id if present
+      // Prefer vendor_id (the Vendor table primary key) over user.id (the
+      // auth User table id). These differ — auth user 125 maps to vendor 40
+      // for the demo restaurant — so the wrong precedence makes the orders
+      // page query the wrong rows and show "No orders".
       if (user.vendor_id) {
         return typeof user.vendor_id === 'number' ? user.vendor_id : parseInt(user.vendor_id, 10);
+      }
+      if (user.id) {
+        return typeof user.id === 'number' ? user.id : parseInt(user.id, 10);
       }
     }
   } catch (error) {
