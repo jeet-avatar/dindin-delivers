@@ -14,7 +14,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 20 (CDJ-3000 Functional Controls) -- COMPLETE
 Plan: 5 of 5 complete in current phase
 Status: Phase 20 complete: All CDJ-3000 functional controls wired (hot cues, loops, beat jump, pitch, sync, grid nudge).
-Last activity: 2026-04-17 - Completed quick task 291: Build AI Architecture Playground as free lead-gen tool on TechCloudPro
+Last activity: 2026-06-05 - Completed quick task 357: fix vendor-id precedence on vendor login (prod deployed, login returns vendor_id=40 top-level)
 
 Progress: [########################################] 100% (5/5 plans in phase 20)
 
@@ -437,6 +437,7 @@ None
 | 289 | add Google Reviews section to VishMed website showing real reviews for Dr. Pillay from Google | 2026-04-15 | 13318e84 | [289-add-google-reviews-section-to-vishmed-we](./quick/289-add-google-reviews-section-to-vishmed-we/) |
 | 290 | add blog section to VishMed with 40 SEO-optimized posts across 6 categories with naturally spread historical dates | 2026-04-16 | 0d4aca9c | [290-add-blog-section-to-vishmed-with-40-seo-](./quick/290-add-blog-section-to-vishmed-with-40-seo-/) |
 | 291 | Build AI Architecture Playground as free lead-gen tool on TechCloudPro | 2026-04-17 | bc42fb59 | [291-build-ai-architecture-playground-as-free](./quick/291-build-ai-architecture-playground-as-free/) |
+| 357 | fix vendor-id precedence on vendor login — prefer user.vendor_id over user.id; merge top-level vendor_id+business_name from /api/auth/vendor/login response into stored user. Prod verified: vendor_id=40 top-level, Profile/Menu/Earnings/AIInsights now query vendor 40 instead of user 125 | 2026-06-05 | 6acd8223 | [357-fix-vendor-id-precedence-on-vendor-login](./quick/357-fix-vendor-id-precedence-on-vendor-login/) |
 ## Session Continuity
 
 Last session: 2026-04-15
