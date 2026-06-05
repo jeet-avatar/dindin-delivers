@@ -16148,7 +16148,10 @@ async def get_vendor_orders_alias(vendor_id: int, vendor: Vendor = Depends(requi
     # SECURITY: Verify the authenticated vendor owns this account
     if vendor.id != vendor_id:
         raise HTTPException(status_code=403, detail="Access denied")
-    return await get_vendor_orders(vendor_id, db, _auth={})
+    # Forward typed Depends to the real handler in order_flow.py — passing
+    # _auth={} was the bug (real signature takes `vendor: Vendor`).
+    from order_flow import get_vendor_orders as _real_get_vendor_orders
+    return await _real_get_vendor_orders(vendor_id, db=db, vendor=vendor)
 
 @app.get("/erp/vendor/earnings")
 async def get_vendor_earnings_alias(period: str = "today", vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
