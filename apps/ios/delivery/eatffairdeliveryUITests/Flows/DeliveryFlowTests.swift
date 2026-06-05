@@ -139,4 +139,100 @@ final class DriverDeliveryFlowTests: DollorTestCase {
             XCTAssertTrue(choosePhotoButton.exists, "Choose from Library option should exist")
         }
     }
+
+    // MARK: - Phase 68 Insurance Tour (Driver)
+
+    @MainActor
+    func testInsuranceTour_driverFood() throws {
+        navigateToLogin()
+        screenshot("01_driver_login")
+
+        try ensureLoggedIn()
+        screenshot("02_driver_dashboard")
+
+        // Delivery (food) tab
+        navigateToTab("Delivery")
+        sleep(2)
+        screenshot("03_driver_delivery_available")
+
+        // Active deliveries
+        navigateToTab("Active")
+        sleep(2)
+        screenshot("04_driver_active_deliveries")
+
+        let activeCard = app.cells.firstMatch
+        if activeCard.waitForExistence(timeout: 5) {
+            activeCard.tap()
+            sleep(2)
+            screenshot("05_driver_active_delivery_detail")
+        }
+
+        // Earnings — the critical receipt screen for insurance
+        let earningsTab = app.tabBars.buttons["Earnings"]
+        if earningsTab.waitForExistence(timeout: 3) {
+            earningsTab.tap()
+            sleep(2)
+            screenshot("06_driver_food_earnings_summary")
+        } else {
+            navigateToTab("Profile")
+            sleep(1)
+            let earningsRow = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Earnings' OR label CONTAINS[c] 'Payout' OR label CONTAINS[c] 'Income'")).firstMatch
+            if earningsRow.waitForExistence(timeout: 3), earningsRow.isHittable {
+                earningsRow.tap()
+                sleep(2)
+                screenshot("06_driver_food_earnings_summary")
+            }
+        }
+
+        let firstEarning = app.cells.firstMatch
+        if firstEarning.waitForExistence(timeout: 5) {
+            firstEarning.tap()
+            sleep(2)
+            screenshot("07_driver_food_earnings_detail")
+        }
+    }
+
+    @MainActor
+    func testInsuranceTour_driverRideshare() throws {
+        try ensureLoggedIn()
+
+        // Rideshare tab — many driver apps have it adjacent to Delivery
+        let rideTab = app.tabBars.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Ride' OR label CONTAINS[c] 'Rideshare'")).firstMatch
+        if rideTab.waitForExistence(timeout: 3), rideTab.isHittable {
+            rideTab.tap()
+            sleep(2)
+            screenshot("10_driver_rideshare_dashboard")
+        }
+
+        // Available rides / bids
+        let availableTab = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Available'")).firstMatch
+        if availableTab.waitForExistence(timeout: 3), availableTab.isHittable {
+            availableTab.tap()
+            sleep(2)
+            screenshot("11_driver_rideshare_available")
+        }
+
+        // My bids
+        let myBidsTab = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'My Bids' OR label CONTAINS[c] 'Bids'")).firstMatch
+        if myBidsTab.waitForExistence(timeout: 3), myBidsTab.isHittable {
+            myBidsTab.tap()
+            sleep(2)
+            screenshot("12_driver_rideshare_my_bids")
+        }
+
+        // Payouts
+        let payoutBtn = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Payout' OR label CONTAINS[c] 'Earnings'")).firstMatch
+        if payoutBtn.waitForExistence(timeout: 3), payoutBtn.isHittable {
+            payoutBtn.tap()
+            sleep(2)
+            screenshot("13_driver_rideshare_payout")
+        }
+
+        let firstRide = app.cells.firstMatch
+        if firstRide.waitForExistence(timeout: 5) {
+            firstRide.tap()
+            sleep(2)
+            screenshot("14_driver_rideshare_trip_receipt")
+        }
+    }
 }

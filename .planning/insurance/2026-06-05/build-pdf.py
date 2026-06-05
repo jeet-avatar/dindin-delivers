@@ -219,11 +219,33 @@ def flow_pages(story, slug: str, label: str, screens: list):
         story.append(Paragraph(CONTEXT[slug], BODY))
         story.append(Spacer(1, 0.15 * inch))
 
-    found_any = False
+    # First: live iOS UI test captures (`iostour_*.png`). These are the freshest
+    # and most authentic — actual production app running on iPhone 16 sim with
+    # api.dollor.ai backend, driven through a real XCUITest narrative tour.
+    folder = BASE / slug
+    live = sorted(folder.glob("iostour_*.png")) if folder.is_dir() else []
+    if live:
+        story.append(Paragraph("Live iOS captures (XCUITest tour)", H3))
+        for p in live:
+            label_text = p.stem.replace("iostour_", "").replace("_", " ")
+            group = [
+                scaled_image(p),
+                Spacer(1, 0.08 * inch),
+                Paragraph(f"<b>{slug}/{p.name}</b> — {label_text}", CAP),
+                Spacer(1, 0.25 * inch),
+            ]
+            story.append(KeepTogether(group))
+
+    # Then: curated existing assets from prior demo work.
+    found_any = bool(live)
+    static_added = False
     for fname, caption in screens:
         p = BASE / slug / fname
         if not p.exists():
             continue
+        if not static_added:
+            story.append(Paragraph("Reference assets (prior demo + App Store)", H3))
+            static_added = True
         found_any = True
         group = [
             scaled_image(p),

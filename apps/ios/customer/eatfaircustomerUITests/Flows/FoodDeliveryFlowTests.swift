@@ -228,4 +228,96 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
             }
         }
     }
+
+    // MARK: - Phase 68 Insurance Tour
+    //
+    // Single narrative test that walks the customer journey and screenshots
+    // every meaningful state. Each shot becomes a captioned page in the
+    // insurance underwriter PDF.
+
+    @MainActor
+    func testInsuranceTour_customerFood() throws {
+        navigateToLogin()
+        screenshot("01_login")
+
+        try ensureLoggedIn()
+        screenshot("02_home_logged_in")
+
+        // Restaurant list
+        let orderFood = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Order Food' OR label CONTAINS[c] 'restaurant'")
+        ).firstMatch
+        if orderFood.waitForExistence(timeout: 5) {
+            orderFood.tap()
+            _ = app.cells.firstMatch.waitForExistence(timeout: 10)
+            screenshot("03_restaurant_list")
+        }
+
+        // Restaurant detail (first card)
+        let firstRestaurant = app.cells.firstMatch
+        if firstRestaurant.waitForExistence(timeout: 8) {
+            firstRestaurant.tap()
+            _ = app.staticTexts.containing(NSPredicate(format: "label CONTAINS '$'")).firstMatch.waitForExistence(timeout: 10)
+            screenshot("04_restaurant_menu")
+        }
+
+        // Orders tab — past orders with receipts
+        navigateToTab("Orders")
+        sleep(2)
+        screenshot("05_orders_history")
+
+        let orderCell = app.cells.firstMatch
+        if orderCell.waitForExistence(timeout: 8) {
+            orderCell.tap()
+            sleep(3)
+            screenshot("06_order_detail_receipt")
+        }
+    }
+
+    @MainActor
+    func testInsuranceTour_customerRideshare() throws {
+        try ensureLoggedIn()
+
+        // Home → Book Ride
+        navigateToTab("Home")
+        sleep(1)
+        let bookRide = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Book Ride' OR label CONTAINS[c] 'ride'")
+        ).firstMatch
+        if bookRide.waitForExistence(timeout: 5) {
+            bookRide.tap()
+            sleep(2)
+            screenshot("10_ride_request_form")
+        }
+
+        // Rides history tab
+        navigateToTab("Rides")
+        sleep(2)
+        screenshot("11_rides_history")
+
+        let rideCell = app.cells.firstMatch
+        if rideCell.waitForExistence(timeout: 8) {
+            rideCell.tap()
+            sleep(3)
+            screenshot("12_ride_detail_receipt")
+        }
+    }
+
+    @MainActor
+    func testInsuranceTour_customerProfile() throws {
+        try ensureLoggedIn()
+
+        navigateToTab("Profile")
+        sleep(2)
+        screenshot("20_profile_main")
+
+        let payment = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Payment' OR label CONTAINS[c] 'Card'")
+        ).firstMatch
+        if payment.waitForExistence(timeout: 3), payment.isHittable {
+            payment.tap()
+            sleep(2)
+            screenshot("21_payment_methods")
+        }
+    }
 }

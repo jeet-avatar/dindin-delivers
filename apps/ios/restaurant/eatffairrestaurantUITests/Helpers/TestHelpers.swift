@@ -19,6 +19,18 @@ class DollorTestCase: XCTestCase {
         app = XCUIApplication()
         app.launchArguments = ["UI_TESTING"]
         app.launch()
+
+        // Dismiss the system notification permission alert that pops on first
+        // launch and blocks the login form (Phase 68 insurance capture).
+        let alert = app.alerts.firstMatch
+        if alert.waitForExistence(timeout: 4) {
+            let dontAllow = alert.buttons["Don't Allow"]
+            if dontAllow.exists {
+                dontAllow.tap()
+            } else {
+                alert.buttons.firstMatch.tap()
+            }
+        }
     }
 
     override func tearDownWithError() throws {

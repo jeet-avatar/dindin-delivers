@@ -128,4 +128,83 @@ final class RestaurantOrderManagementTests: DollorTestCase {
             XCTAssertTrue(contactButton.exists, "Contact customer/driver button should exist")
         }
     }
+
+    // MARK: - Phase 68 Insurance Tour (Restaurant)
+
+    @MainActor
+    func testInsuranceTour_restaurantOrders() throws {
+        navigateToLogin()
+        screenshot("01_restaurant_login")
+
+        try ensureLoggedIn()
+        screenshot("02_restaurant_dashboard")
+
+        navigateToTab("Orders")
+        sleep(2)
+        screenshot("03_orders_list")
+
+        let firstOrder = app.cells.firstMatch
+        if firstOrder.waitForExistence(timeout: 5) {
+            firstOrder.tap()
+            sleep(2)
+            screenshot("04_order_detail_with_breakdown")
+
+            // Look for KOT / print
+            let kotBtn = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'KOT' OR label CONTAINS[c] 'Print'")).firstMatch
+            if kotBtn.waitForExistence(timeout: 3), kotBtn.isHittable {
+                kotBtn.tap()
+                sleep(1)
+                screenshot("05_order_kot_view")
+                // dismiss any modal
+                let dismiss = app.buttons["Close"]
+                if dismiss.exists { dismiss.tap() }
+            }
+        }
+    }
+
+    @MainActor
+    func testInsuranceTour_restaurantEarnings() throws {
+        try ensureLoggedIn()
+
+        // Common label variants for the settlement tab
+        let settlementTab = app.tabBars.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Earning' OR label CONTAINS[c] 'Payout' OR label CONTAINS[c] 'Revenue' OR label CONTAINS[c] 'Settlement'")).firstMatch
+        if settlementTab.waitForExistence(timeout: 3), settlementTab.isHittable {
+            settlementTab.tap()
+            sleep(2)
+            screenshot("10_restaurant_earnings_summary")
+        } else {
+            navigateToTab("Profile")
+            sleep(1)
+            screenshot("10_restaurant_profile")
+            let earningsRow = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Earning' OR label CONTAINS[c] 'Payout' OR label CONTAINS[c] 'Revenue'")).firstMatch
+            if earningsRow.waitForExistence(timeout: 3), earningsRow.isHittable {
+                earningsRow.tap()
+                sleep(2)
+                screenshot("11_restaurant_earnings_summary")
+            }
+        }
+
+        // Try opening a settlement detail
+        let firstSettlement = app.cells.firstMatch
+        if firstSettlement.waitForExistence(timeout: 5) {
+            firstSettlement.tap()
+            sleep(2)
+            screenshot("12_restaurant_settlement_detail")
+        }
+    }
+
+    @MainActor
+    func testInsuranceTour_restaurantMenuAndProfile() throws {
+        try ensureLoggedIn()
+
+        // Menu management tab
+        navigateToTab("Menu")
+        sleep(2)
+        screenshot("20_restaurant_menu_management")
+
+        // Profile tab
+        navigateToTab("Profile")
+        sleep(2)
+        screenshot("21_restaurant_profile")
+    }
 }
