@@ -16172,16 +16172,28 @@ async def get_vendor_earnings_alias(period: str = "today", vendor: Vendor = Depe
 @app.get("/erp/rides/available")
 @app.get("/api/erp/rides/available")
 async def get_available_rides_ios_alias(
+    request: Request,
     driver_lat: Optional[float] = None,
     driver_lng: Optional[float] = None,
-    _auth: dict = Depends(require_any_auth),
-    db: Session = Depends(get_db)
+    driver: Driver = Depends(require_driver),
+    db: Session = Depends(get_db),
 ):
     """Alias for iOS Driver app - get available rides
     iOS calls: GET /erp/rides/available
+    quick-360: forward typed driver Depends + Request, and remap the iOS-side
+    `driver_lat`/`driver_lng` query names to the real handler's
+    `latitude`/`longitude` parameters. Previously 500'd because (a) the real
+    handler needs `request: Request`, and (b) the kwarg names didn't match.
     """
     from bid_routes import get_available_ride_requests as _get_available
-    return await _get_available(driver_lat=driver_lat, driver_lng=driver_lng, db=db)
+    return await _get_available(
+        request=request,
+        driver_id=driver.id,
+        latitude=driver_lat,
+        longitude=driver_lng,
+        driver=driver,
+        db=db,
+    )
 
 @app.post("/erp/rides/{ride_id}/accept")
 @app.post("/api/erp/rides/{ride_id}/accept")
