@@ -4,14 +4,21 @@ import os
 
 private let storageLogger = Logger(subsystem: "ai.dollor.shared", category: "SecureStorage")
 
-/// Secure storage using iOS Keychain
+/// Secure storage using iOS Keychain.
 /// Use this for storing authentication tokens, sensitive user data, and API keys.
 ///
-/// On simulator dev builds (no code signing → no entitlements), Keychain ACL
-/// can reject `SecItemAdd` silently with `errSecMissingEntitlement`. The token
-/// then never lands and every subsequent authenticated request 401s. Production
-/// signed builds don't have this problem, but the same path fires in the dev
-/// loop, so an in-memory fallback is kept alongside the keychain backing.
+/// Fallback chain (best → last):
+///   1. Keychain — best, encrypted at rest, survives app updates
+///   2. UserDefaults — survives app restart, NOT encrypted. Used when
+///      Keychain rejects writes (which happens silently on real devices when
+///      the keychain-access-groups entitlement is missing from the provisioning
+///      profile — quick-362 confirmed this was the production cause of users
+///      being logged out and losing their saved addresses across app restarts).
+///   3. In-memory mirror — session-only, primarily for tests and dev builds.
+///
+/// Reads check all three (Keychain → UserDefaults → memory). Writes mirror to
+/// all three so that even if one tier silently fails, the value is still
+/// retrievable.
 public final class SecureStorage {
     public static let shared = SecureStorage()
 
@@ -22,6 +29,10 @@ public final class SecureStorage {
     /// return the latest value even on dev builds).
     private var memoryStore: [String: Data] = [:]
     private let memoryQueue = DispatchQueue(label: "ai.dollor.secure.memory")
+
+    /// UserDefaults fallback prefix. UserDefaults is unencrypted but survives
+    /// app restart — that's the property we need when Keychain is unavailable.
+    private let userDefaultsPrefix = "ai.dollor.secure_fallback."
 
     private init() {}
 
@@ -61,12 +72,16 @@ public final class SecureStorage {
     /// - Returns: True if save was successful
     @discardableResult
     public func save(_ data: Data, for key: Key) -> Bool {
-        // Always update the in-memory mirror so reads work even when the
-        // keychain rejects the write.
+        // Always update the in-memory mirror first so reads in this process
+        // work even when both keychain and UserDefaults reject the write.
         memoryQueue.sync { memoryStore[key.rawValue] = data }
 
-        // Delete existing item first
-        delete(key)
+        // Also persist to UserDefaults so the value survives app restart when
+        // keychain is unavailable (the production root cause of quick-362).
+        UserDefaults.standard.set(data, forKey: userDefaultsPrefix + key.rawValue)
+
+        // Delete existing keychain item first (idempotent)
+        deleteKeychainOnly(key)
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -80,13 +95,24 @@ public final class SecureStorage {
         let status = SecItemAdd(query as CFDictionary, nil)
 
         if status != errSecSuccess {
-            storageLogger.error("Keychain save rejected for \(key.rawValue): OSStatus \(status) — using in-memory fallback")
+            storageLogger.error("Keychain save rejected for \(key.rawValue): OSStatus \(status) — UserDefaults + in-memory fallback active")
         }
 
-        // Return true: the value is retrievable via getData(), regardless of
+        // Return true: the value is retrievable via getData() regardless of
         // whether the keychain accepted it. Callers (login flows) treat this
         // as "the token is now available".
         return true
+    }
+
+    /// Delete only the keychain entry (used internally by save to overwrite).
+    /// The full `delete(_:)` clears all three tiers; we don't want that here.
+    private func deleteKeychainOnly(_ key: Key) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: key.rawValue
+        ]
+        _ = SecItemDelete(query as CFDictionary)
     }
 
     // MARK: - Retrieve
@@ -120,11 +146,16 @@ public final class SecureStorage {
             return data
         }
         if status != errSecSuccess && status != errSecItemNotFound {
-            storageLogger.error("Keychain read rejected for \(key.rawValue): OSStatus \(status) — falling back to memory")
+            storageLogger.error("Keychain read rejected for \(key.rawValue): OSStatus \(status) — falling back to UserDefaults")
         }
-        // Keychain miss → check the in-memory mirror so dev builds (and any
-        // other transient Keychain failure mode) still read back what was
-        // last written in this process.
+        // Keychain miss → UserDefaults (survives restart) → memory (current
+        // process). Without the UserDefaults tier, real devices that silently
+        // failed the keychain write would lose the auth token on every app
+        // relaunch, logging the user out and losing their saved addresses
+        // (quick-362).
+        if let stored = UserDefaults.standard.data(forKey: userDefaultsPrefix + key.rawValue) {
+            return stored
+        }
         return memoryQueue.sync { memoryStore[key.rawValue] }
     }
 
@@ -136,6 +167,7 @@ public final class SecureStorage {
     @discardableResult
     public func delete(_ key: Key) -> Bool {
         memoryQueue.sync { memoryStore.removeValue(forKey: key.rawValue) }
+        UserDefaults.standard.removeObject(forKey: userDefaultsPrefix + key.rawValue)
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
