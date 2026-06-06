@@ -275,9 +275,9 @@ pytest tests/ -v
 | iOS | Customer | 1129 | 1.1 | `com.dollorai.customer` | Uploaded 2026-06-05 (quick-359: orders decoder + Keychain fallback) |
 | iOS | Driver | 235 | 1.1 | `com.dollorai.delivery` | Uploaded 2026-06-05 (quick-359 shared fixes) |
 | iOS | Restaurant | 224 | 1.1 | `com.dollorai.restaurant` | Uploaded 2026-06-05 (quick-359 shared fixes) |
-| Android | Customer | vC=39 | 1.0.38 | `ai.dollor.customer` | Firebase pending reauth |
-| Android | Driver | vC=35 | 1.0.34 | `ai.dollor.driver` | Firebase pending reauth |
-| Android | Partner | vC=34 | 1.0.33 | `ai.dollor.partner` | Firebase pending reauth |
+| Android | Customer | vC=43 | 1.0.40 | `ai.dollor.customer` | Distributed 2026-06-06 (quick-361 defensive parity) |
+| Android | Driver | vC=39 | 1.0.36 | `ai.dollor.driver` | Distributed 2026-06-06 (quick-361 defensive parity) |
+| Android | Partner | vC=38 | 1.0.35 | `ai.dollor.partner` | Distributed 2026-06-06 (quick-361 defensive parity) |
 
 ### Production Deployment Status (Feb 23, 2026)
 - **Backend**: All security fixes deployed to staging (smoke tested 12/12 pass) → production. CI/CD run `22328867724` succeeded.
