@@ -80,6 +80,19 @@ public final class SecureStorage {
         // keychain is unavailable (the production root cause of quick-362).
         UserDefaults.standard.set(data, forKey: userDefaultsPrefix + key.rawValue)
 
+        // quick-363: legacy code paths (PaymentService, parts of the customer
+        // checkout flow) fall back to UserDefaults under the *unprefixed* keys
+        // declared in AppConfig.UserDefaultsKeys ("p2p_customer_access_token",
+        // "p2p_driver_access_token", etc). Mirror the token writes there too
+        // so those code paths keep working even when Keychain rejected the
+        // primary write. Symptom on production was "fails to initialize
+        // payment" on checkout because PaymentService's fallback path read a
+        // never-written key.
+        if let legacyKey = Self.legacyUserDefaultsKey(for: key),
+           let string = String(data: data, encoding: .utf8) {
+            UserDefaults.standard.set(string, forKey: legacyKey)
+        }
+
         // Delete existing keychain item first (idempotent)
         deleteKeychainOnly(key)
 
@@ -113,6 +126,18 @@ public final class SecureStorage {
             kSecAttrAccount as String: key.rawValue
         ]
         _ = SecItemDelete(query as CFDictionary)
+    }
+
+    /// quick-363: legacy unprefixed UserDefaults keys used by callers outside
+    /// SecureStorage (PaymentService, etc.). Mapped only for tokens — other
+    /// SecureStorage keys don't have legacy readers.
+    private static func legacyUserDefaultsKey(for key: Key) -> String? {
+        switch key {
+        case .customerAccessToken: return "p2p_customer_access_token"
+        case .driverAccessToken:   return "p2p_driver_access_token"
+        case .vendorAccessToken:   return "p2p_vendor_access_token"
+        default:                   return nil
+        }
     }
 
     // MARK: - Retrieve
@@ -156,6 +181,15 @@ public final class SecureStorage {
         if let stored = UserDefaults.standard.data(forKey: userDefaultsPrefix + key.rawValue) {
             return stored
         }
+        // quick-363: also look under the legacy unprefixed UserDefaults key
+        // in case the value was written by a code path that doesn't go
+        // through SecureStorage (older versions of the app, or the customer
+        // login flow's manual UserDefaults writes).
+        if let legacyKey = Self.legacyUserDefaultsKey(for: key),
+           let stored = UserDefaults.standard.string(forKey: legacyKey),
+           let data = stored.data(using: .utf8) {
+            return data
+        }
         return memoryQueue.sync { memoryStore[key.rawValue] }
     }
 
@@ -168,6 +202,9 @@ public final class SecureStorage {
     public func delete(_ key: Key) -> Bool {
         memoryQueue.sync { memoryStore.removeValue(forKey: key.rawValue) }
         UserDefaults.standard.removeObject(forKey: userDefaultsPrefix + key.rawValue)
+        if let legacyKey = Self.legacyUserDefaultsKey(for: key) {
+            UserDefaults.standard.removeObject(forKey: legacyKey)
+        }
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
