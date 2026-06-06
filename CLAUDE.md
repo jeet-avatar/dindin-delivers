@@ -268,13 +268,13 @@ pytest tests/ -v
 ./gradlew :app:testDebugUnitTest
 ```
 
-### Current Build Versions (Mar 19, 2026)
+### Current Build Versions (Jun 5, 2026)
 
 | Platform | App | Build | Version | Bundle/Package | TestFlight/Firebase |
 |----------|-----|-------|---------|----------------|---------------------|
-| iOS | Customer | 1122 | 1.1 | `com.dollorai.customer` | Uploaded 2026-03-19 |
-| iOS | Driver | 227 | 1.1 | `com.dollorai.delivery` | Uploaded 2026-03-19 |
-| iOS | Restaurant | 218 | 1.1 | `com.dollorai.restaurant` | Uploaded 2026-03-19 |
+| iOS | Customer | 1129 | 1.1 | `com.dollorai.customer` | Uploaded 2026-06-05 (quick-359: orders decoder + Keychain fallback) |
+| iOS | Driver | 235 | 1.1 | `com.dollorai.delivery` | Uploaded 2026-06-05 (quick-359 shared fixes) |
+| iOS | Restaurant | 224 | 1.1 | `com.dollorai.restaurant` | Uploaded 2026-06-05 (quick-359 shared fixes) |
 | Android | Customer | vC=39 | 1.0.38 | `ai.dollor.customer` | Firebase pending reauth |
 | Android | Driver | vC=35 | 1.0.34 | `ai.dollor.driver` | Firebase pending reauth |
 | Android | Partner | vC=34 | 1.0.33 | `ai.dollor.partner` | Firebase pending reauth |
