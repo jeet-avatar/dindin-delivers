@@ -167,4 +167,37 @@ final class RestaurantSettingsFlowTests: DollorTestCase {
             XCTAssertTrue(termsLink.exists, "Terms of Service link should exist")
         }
     }
+
+    // MARK: - Phase C extended coverage
+
+    @MainActor
+    func testPhaseC_restaurantSettingsSubScreens() throws {
+        try ensureLoggedIn()
+        navigateToTab("Settings")
+        sleep(3)
+        screenshot("c50_settings_main")
+
+        let candidates: [(String, String)] = [
+            ("Hours",        "c51_hours"),
+            ("Profile",      "c52_profile"),
+            ("Bank",         "c53_bank"),
+            ("Payout",       "c54_payout"),
+            ("Notifica",     "c55_notifications"),
+            ("Privacy",      "c56_privacy"),
+            ("Help",         "c57_help"),
+            ("Support",      "c58_support"),
+        ]
+        for (label, shotName) in candidates {
+            let btn = app.buttons.containing(
+                NSPredicate(format: "label CONTAINS[c] %@", label)
+            ).firstMatch
+            if btn.waitForExistence(timeout: 2), btn.isHittable {
+                btn.tap()
+                sleep(2)
+                screenshot(shotName)
+                let back = app.navigationBars.buttons.firstMatch
+                if back.exists { back.tap(); sleep(1) }
+            }
+        }
+    }
 }

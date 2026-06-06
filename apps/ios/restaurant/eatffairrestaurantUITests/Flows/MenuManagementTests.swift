@@ -112,4 +112,34 @@ final class RestaurantMenuManagementTests: DollorTestCase {
             }
         }
     }
+
+    // MARK: - Phase C extended coverage
+
+    @MainActor
+    func testPhaseC_menuSubScreens() throws {
+        try ensureLoggedIn()
+        navigateToTab("Menu")
+        sleep(3)
+        screenshot("c40_menu_list")
+
+        // Try opening first menu item for detail
+        let firstItem = app.cells.firstMatch
+        if firstItem.waitForExistence(timeout: 4), firstItem.isHittable {
+            firstItem.tap()
+            sleep(2)
+            screenshot("c41_menu_item_detail")
+            let back = app.navigationBars.buttons.firstMatch
+            if back.exists { back.tap(); sleep(1) }
+        }
+
+        // Categories button
+        let categoriesBtn = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Categor'")
+        ).firstMatch
+        if categoriesBtn.waitForExistence(timeout: 2), categoriesBtn.isHittable {
+            categoriesBtn.tap()
+            sleep(2)
+            screenshot("c42_categories")
+        }
+    }
 }

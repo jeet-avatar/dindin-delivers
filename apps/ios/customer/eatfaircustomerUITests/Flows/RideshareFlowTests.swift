@@ -174,4 +174,43 @@ final class CustomerRideshareFlowTests: DollorTestCase {
             XCTAssertTrue(recurringButton.exists, "Recurring ride setup button should exist")
         }
     }
+
+    // MARK: - Phase C extended coverage
+
+    @MainActor
+    func testPhaseC_searchTab() throws {
+        try ensureLoggedIn()
+        navigateToTab("Search")
+        sleep(3)
+        screenshot("c01_search_tab")
+        // Try typing into search
+        let searchField = app.searchFields.firstMatch
+        if searchField.waitForExistence(timeout: 3) {
+            searchField.tap()
+            searchField.typeText("burger")
+            sleep(2)
+            screenshot("c02_search_results")
+        }
+    }
+
+    @MainActor
+    func testPhaseC_rideshareDetailScreens() throws {
+        try ensureLoggedIn()
+        // Open Rides history tab
+        navigateToTab("Orders")
+        sleep(2)
+        let ridesTab = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Rides'")).firstMatch
+        if ridesTab.waitForExistence(timeout: 3), ridesTab.isHittable {
+            ridesTab.tap()
+            sleep(2)
+            screenshot("c03_rides_tab")
+        }
+        // Tap first ride if present
+        let firstRide = app.cells.firstMatch
+        if firstRide.waitForExistence(timeout: 5), firstRide.isHittable {
+            firstRide.tap()
+            sleep(2)
+            screenshot("c04_ride_detail")
+        }
+    }
 }

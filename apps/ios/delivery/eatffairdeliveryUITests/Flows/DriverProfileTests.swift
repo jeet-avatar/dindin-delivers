@@ -170,4 +170,50 @@ final class DriverProfileFlowTests: DollorTestCase {
             XCTAssertTrue(toggles.count >= 1, "At least one settings toggle should exist")
         }
     }
+
+    // MARK: - Phase C extended coverage
+
+    @MainActor
+    func testPhaseC_driverProfileSubScreens() throws {
+        try ensureLoggedIn()
+        navigateToTab("Profile")
+        sleep(2)
+        screenshot("c20_driver_profile_main")
+
+        let candidates: [(String, String)] = [
+            ("Documents",   "c21_documents"),
+            ("Vehicle",     "c22_vehicle"),
+            ("Bank",        "c23_bank_info"),
+            ("Earnings",    "c24_earnings_summary"),
+            ("History",     "c25_history"),
+            ("Settings",    "c26_settings"),
+            ("Notifica",    "c27_notifications"),
+            ("Help",        "c28_help"),
+            ("Support",     "c29_support"),
+        ]
+        for (label, shotName) in candidates {
+            let btn = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] %@", label)).firstMatch
+            if btn.waitForExistence(timeout: 2), btn.isHittable {
+                btn.tap()
+                sleep(2)
+                screenshot(shotName)
+                let back = app.navigationBars.buttons.firstMatch
+                if back.exists { back.tap(); sleep(1) }
+            }
+        }
+    }
+
+    @MainActor
+    func testPhaseC_driverActiveDetail() throws {
+        try ensureLoggedIn()
+        navigateToTab("Active")
+        sleep(3)
+        screenshot("c30_active_list")
+        let firstActive = app.cells.firstMatch
+        if firstActive.waitForExistence(timeout: 5), firstActive.isHittable {
+            firstActive.tap()
+            sleep(2)
+            screenshot("c31_active_detail")
+        }
+    }
 }

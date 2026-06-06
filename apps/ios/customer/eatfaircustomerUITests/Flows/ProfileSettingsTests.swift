@@ -148,4 +148,37 @@ final class CustomerProfileSettingsTests: DollorTestCase {
             XCTAssertTrue(addAddressButton.exists, "Add Address button should exist")
         }
     }
+
+    // MARK: - Phase C extended coverage
+
+    @MainActor
+    func testPhaseC_profileSubScreens() throws {
+        try ensureLoggedIn()
+        navigateToTab("Profile")
+        sleep(2)
+        screenshot("c10_profile_main")
+
+        // Try each common settings row by label
+        let candidates: [(String, String)] = [
+            ("Payment",     "c11_payment_methods"),
+            ("Address",     "c12_addresses"),
+            ("Notifica",    "c13_notifications"),
+            ("Privacy",     "c14_privacy"),
+            ("Help",        "c15_help"),
+            ("Support",     "c16_support"),
+            ("About",       "c17_about"),
+            ("Terms",       "c18_terms"),
+        ]
+        for (label, shotName) in candidates {
+            let btn = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] %@", label)).firstMatch
+            if btn.waitForExistence(timeout: 2), btn.isHittable {
+                btn.tap()
+                sleep(2)
+                screenshot(shotName)
+                // Go back
+                let back = app.navigationBars.buttons.firstMatch
+                if back.exists { back.tap(); sleep(1) }
+            }
+        }
+    }
 }
