@@ -261,15 +261,31 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
             screenshot("04_restaurant_menu")
         }
 
-        // Orders tab — past orders with receipts
+        // Orders tab — past orders with receipts.
+        // Pull-to-refresh + longer wait so the live order list actually loads
+        // (the empty-state ("No orders yet") shows briefly before network resolves).
         navigateToTab("Orders")
         sleep(2)
+        // Pull-to-refresh
+        let mainView = app.scrollViews.firstMatch
+        if mainView.waitForExistence(timeout: 3) {
+            let start = mainView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+            let end   = mainView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        sleep(6)
         screenshot("05_orders_history")
 
+        // Try tapping into the first order — SwiftUI Lists sometimes expose as
+        // buttons rather than cells, so try both.
         let orderCell = app.cells.firstMatch
-        if orderCell.waitForExistence(timeout: 8) {
-            orderCell.tap()
-            sleep(3)
+        let orderButton = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'DOLL' OR label CONTAINS[c] 'delivered' OR label CONTAINS[c] '$'")
+        ).firstMatch
+        let target: XCUIElement = orderCell.waitForExistence(timeout: 5) ? orderCell : orderButton
+        if target.waitForExistence(timeout: 5), target.isHittable {
+            target.tap()
+            sleep(4)
             screenshot("06_order_detail_receipt")
         }
     }
@@ -300,6 +316,22 @@ final class CustomerFoodDeliveryFlowTests: DollorTestCase {
             rideCell.tap()
             sleep(3)
             screenshot("12_ride_detail_receipt")
+        }
+    }
+
+    @MainActor
+    func testInsuranceTour_customerOrdersLong() throws {
+        try ensureLoggedIn()
+        navigateToTab("Orders")
+        // Capture across a 20-sec window — distinguishes timing-issue from data-issue
+        sleep(3);   screenshot("orders_at_03s")
+        sleep(3);   screenshot("orders_at_06s")
+        sleep(5);   screenshot("orders_at_11s")
+        sleep(9);   screenshot("orders_at_20s")
+        // Try tapping anything that looks like an order — fallback heuristics
+        let any = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] 'DOLL' OR label CONTAINS[c] '$33.53' OR label CONTAINS[c] '525'")).firstMatch
+        if any.waitForExistence(timeout: 3), any.isHittable {
+            any.tap(); sleep(3); screenshot("order_detail_caught")
         }
     }
 

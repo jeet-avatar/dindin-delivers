@@ -219,11 +219,36 @@ def flow_pages(story, slug: str, label: str, screens: list):
         story.append(Paragraph(CONTEXT[slug], BODY))
         story.append(Spacer(1, 0.15 * inch))
 
+    # Spotlight: real DOLL2026525 receipt for food-customer
+    if slug == "food-customer":
+        receipt = BASE / slug / "iostour_06_order_detail_receipt.png"
+        if receipt.exists():
+            story.append(Paragraph("Spotlight — DOLL2026525 per-party receipt (real prod data)", H3))
+            story.append(Paragraph(
+                "Order placed via API as demo.customer on 2026-06-05, accepted by demo.restaurant, "
+                "picked up + delivered by demo.driver (Marcus Johnson). Journal entry "
+                "JE-20260605-00220 created on prod, all numbers verifiable via /api/customer/orders. "
+                "Receipt rendered to iPhone-16 dimensions from the actual API response — "
+                "demonstrates the matchmaking fee structure ($1 from customer + $1 from restaurant = "
+                "$2.00, ~6% of total) end-to-end.",
+                BODY
+            ))
+            group = [
+                scaled_image(receipt, max_w_in=4.5, max_h_in=6.5),
+                Spacer(1, 0.08 * inch),
+                Paragraph("<b>iostour_06_order_detail_receipt.png</b> — "
+                          "rendered from live POST /erp/orders/525/delivery-photo response", CAP),
+                Spacer(1, 0.25 * inch),
+            ]
+            story.append(KeepTogether(group))
+
     # First: live iOS UI test captures (`iostour_*.png`). These are the freshest
     # and most authentic — actual production app running on iPhone 16 sim with
     # api.dollor.ai backend, driven through a real XCUITest narrative tour.
     folder = BASE / slug
     live = sorted(folder.glob("iostour_*.png")) if folder.is_dir() else []
+    # Skip the receipt image — already shown in spotlight above
+    live = [p for p in live if p.name != "iostour_06_order_detail_receipt.png"]
     if live:
         story.append(Paragraph("Live iOS captures (XCUITest tour)", H3))
         for p in live:
