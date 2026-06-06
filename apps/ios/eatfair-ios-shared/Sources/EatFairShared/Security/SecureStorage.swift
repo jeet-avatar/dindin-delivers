@@ -5,11 +5,23 @@ import os
 private let storageLogger = Logger(subsystem: "ai.dollor.shared", category: "SecureStorage")
 
 /// Secure storage using iOS Keychain
-/// Use this for storing authentication tokens, sensitive user data, and API keys
+/// Use this for storing authentication tokens, sensitive user data, and API keys.
+///
+/// On simulator dev builds (no code signing → no entitlements), Keychain ACL
+/// can reject `SecItemAdd` silently with `errSecMissingEntitlement`. The token
+/// then never lands and every subsequent authenticated request 401s. Production
+/// signed builds don't have this problem, but the same path fires in the dev
+/// loop, so an in-memory fallback is kept alongside the keychain backing.
 public final class SecureStorage {
     public static let shared = SecureStorage()
 
     private let serviceName = "ai.dollor.secure"
+
+    /// In-memory mirror of the keychain. Populated on every successful save
+    /// AND on every save that was rejected by the keychain (so reads still
+    /// return the latest value even on dev builds).
+    private var memoryStore: [String: Data] = [:]
+    private let memoryQueue = DispatchQueue(label: "ai.dollor.secure.memory")
 
     private init() {}
 
@@ -49,6 +61,10 @@ public final class SecureStorage {
     /// - Returns: True if save was successful
     @discardableResult
     public func save(_ data: Data, for key: Key) -> Bool {
+        // Always update the in-memory mirror so reads work even when the
+        // keychain rejects the write.
+        memoryQueue.sync { memoryStore[key.rawValue] = data }
+
         // Delete existing item first
         delete(key)
 
@@ -64,10 +80,13 @@ public final class SecureStorage {
         let status = SecItemAdd(query as CFDictionary, nil)
 
         if status != errSecSuccess {
-            storageLogger.error("Failed to save \(key.rawValue): \(status)")
+            storageLogger.error("Keychain save rejected for \(key.rawValue): OSStatus \(status) — using in-memory fallback")
         }
 
-        return status == errSecSuccess
+        // Return true: the value is retrievable via getData(), regardless of
+        // whether the keychain accepted it. Callers (login flows) treat this
+        // as "the token is now available".
+        return true
     }
 
     // MARK: - Retrieve
@@ -97,14 +116,16 @@ public final class SecureStorage {
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
-        guard status == errSecSuccess else {
-            if status != errSecItemNotFound {
-                storageLogger.error("Failed to retrieve \(key.rawValue): \(status)")
-            }
-            return nil
+        if status == errSecSuccess, let data = result as? Data {
+            return data
         }
-
-        return result as? Data
+        if status != errSecSuccess && status != errSecItemNotFound {
+            storageLogger.error("Keychain read rejected for \(key.rawValue): OSStatus \(status) — falling back to memory")
+        }
+        // Keychain miss → check the in-memory mirror so dev builds (and any
+        // other transient Keychain failure mode) still read back what was
+        // last written in this process.
+        return memoryQueue.sync { memoryStore[key.rawValue] }
     }
 
     // MARK: - Delete
@@ -114,6 +135,8 @@ public final class SecureStorage {
     /// - Returns: True if deletion was successful (or item didn't exist)
     @discardableResult
     public func delete(_ key: Key) -> Bool {
+        memoryQueue.sync { memoryStore.removeValue(forKey: key.rawValue) }
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceName,

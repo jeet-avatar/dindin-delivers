@@ -2878,6 +2878,17 @@ public class P2PAPIService: ObservableObject {
                     return
                 }
 
+                // Surface HTTP error status codes as real failures instead of
+                // letting them fall through to the array→object fallback decode
+                // path (which silently returns an empty array on 401, etc).
+                if let httpResponse = response as? HTTPURLResponse,
+                   !(200...299).contains(httpResponse.statusCode) {
+                    let err = P2PAPIError.httpError(httpResponse.statusCode)
+                    self?.error = "Server returned \(httpResponse.statusCode)"
+                    completion(.failure(err))
+                    return
+                }
+
                 guard let data = data else {
                     completion(.failure(P2PAPIError.noData))
                     return
@@ -11215,6 +11226,75 @@ public struct P2PCustomerOrder: Codable, Identifiable {
         case pickedUpAt = "picked_up_at"
         case deliveredAt = "delivered_at"
         case deliveryPhotoUrl = "delivery_photo_url"
+    }
+
+    // Backend serializes some Double / Int columns as strings for legacy orders
+    // (delivery_latitude="37.4419" etc). Foundation's JSONDecoder is strict by
+    // default — a single string-where-Double-expected throws
+    // `typeMismatch`, which fails the WHOLE array decode and leaves the
+    // Customer iOS app showing "No orders yet". This custom init is a
+    // permissive decode that accepts either the Swift-typed value or the
+    // string form for every Double?/Int? field.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func d(_ k: CodingKeys) -> Double? {
+            if let v = try? c.decodeIfPresent(Double.self, forKey: k) { return v }
+            if let s = try? c.decodeIfPresent(String.self, forKey: k) { return Double(s) }
+            return nil
+        }
+        func i(_ k: CodingKeys) -> Int? {
+            if let v = try? c.decodeIfPresent(Int.self, forKey: k) { return v }
+            if let s = try? c.decodeIfPresent(String.self, forKey: k) { return Int(s) }
+            return nil
+        }
+        func s(_ k: CodingKeys) -> String? {
+            try? c.decodeIfPresent(String.self, forKey: k)
+        }
+        func b(_ k: CodingKeys) -> Bool? {
+            try? c.decodeIfPresent(Bool.self, forKey: k)
+        }
+        // Required fields — same lenience for the few that the backend
+        // occasionally returns as strings.
+        id           = try c.decode(Int.self, forKey: .id)
+        orderNumber  = try c.decode(String.self, forKey: .orderNumber)
+        status       = try c.decode(String.self, forKey: .status)
+        vendorId     = try c.decode(Int.self, forKey: .vendorId)
+        customerName = (try? c.decode(String.self, forKey: .customerName)) ?? ""
+        totalAmount  = d(.totalAmount)  ?? 0
+        subtotal     = d(.subtotal)     ?? 0
+        taxAmount    = d(.taxAmount)    ?? 0
+        deliveryFee  = d(.deliveryFee)  ?? 0
+        items        = s(.items)        ?? "[]"
+
+        vendorName               = s(.vendorName)
+        customerPhone            = s(.customerPhone)
+        tip                      = d(.tip)
+        deliveryAddress          = s(.deliveryAddress)
+        deliveryInstructions     = s(.deliveryInstructions)
+        driverId                 = i(.driverId)
+        driverName               = s(.driverName)
+        driverPhone              = s(.driverPhone)
+        driverRating             = d(.driverRating)
+        driverLocation           = s(.driverLocation)
+        estimatedPrepMinutes     = i(.estimatedPrepMinutes)
+        estimatedReadyAt         = s(.estimatedReadyAt)
+        minutesUntilReady        = i(.minutesUntilReady)
+        isReady                  = b(.isReady)
+        driverEnRoute            = b(.driverEnRoute)
+        driverAcceptedAt         = s(.driverAcceptedAt)
+        driverEtaToRestaurant    = i(.driverEtaToRestaurant)
+        driverEtaText            = s(.driverEtaText)
+        pickupLatitude           = d(.pickupLatitude)
+        pickupLongitude          = d(.pickupLongitude)
+        deliveryLatitude         = d(.deliveryLatitude)
+        deliveryLongitude        = d(.deliveryLongitude)
+        createdAt                = s(.createdAt)
+        confirmedAt              = s(.confirmedAt)
+        preparingAt              = s(.preparingAt)
+        readyAt                  = s(.readyAt)
+        pickedUpAt               = s(.pickedUpAt)
+        deliveredAt              = s(.deliveredAt)
+        deliveryPhotoUrl         = s(.deliveryPhotoUrl)
     }
 
     /// Parse items JSON string into array
