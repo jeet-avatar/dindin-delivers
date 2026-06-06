@@ -272,9 +272,9 @@ pytest tests/ -v
 
 | Platform | App | Build | Version | Bundle/Package | TestFlight/Firebase |
 |----------|-----|-------|---------|----------------|---------------------|
-| iOS | Customer | 1129 | 1.1 | `com.dollorai.customer` | Uploaded 2026-06-05 (quick-359: orders decoder + Keychain fallback) |
-| iOS | Driver | 235 | 1.1 | `com.dollorai.delivery` | Uploaded 2026-06-05 (quick-359 shared fixes) |
-| iOS | Restaurant | 224 | 1.1 | `com.dollorai.restaurant` | Uploaded 2026-06-05 (quick-359 shared fixes) |
+| iOS | Customer | 1130 | 1.1 | `com.dollorai.customer` | Uploaded 2026-06-06 (quick-362: UserDefaults fallback for cross-restart auth persistence) |
+| iOS | Driver | 236 | 1.1 | `com.dollorai.delivery` | Uploaded 2026-06-06 (quick-362 shared fix) |
+| iOS | Restaurant | 226 | 1.1 | `com.dollorai.restaurant` | Uploaded 2026-06-06 (quick-362 shared fix; 225 was a collision with prior upload) |
 | Android | Customer | vC=43 | 1.0.40 | `ai.dollor.customer` | Distributed 2026-06-06 (quick-361 defensive parity) |
 | Android | Driver | vC=39 | 1.0.36 | `ai.dollor.driver` | Distributed 2026-06-06 (quick-361 defensive parity) |
 | Android | Partner | vC=38 | 1.0.35 | `ai.dollor.partner` | Distributed 2026-06-06 (quick-361 defensive parity) |
