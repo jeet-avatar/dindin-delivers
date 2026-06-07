@@ -390,12 +390,15 @@ class OrdersViewModel: ObservableObject {
                     let errorMsg = error.localizedDescription.lowercased()
                     if errorMsg.contains("expired") || errorMsg.contains("timeout") || errorMsg.contains("window") {
                         self?.errorMessage = "Acceptance window expired. Order was auto-cancelled."
+                        self?.showError = true
+                        self?.fetchP2POrders()
                     } else if errorMsg.contains("already") {
-                        self?.errorMessage = "This order has already been processed."
+                        // quick-371: order already accepted — refresh so UI advances.
+                        self?.fetchP2POrders()
                     } else {
-                        self?.errorMessage = "Unable to accept order. Please try again."
+                        self?.errorMessage = "Unable to accept order. \(error.localizedDescription)"
+                        self?.showError = true
                     }
-                    self?.showError = true
                 }
             }
         }
@@ -425,11 +428,12 @@ class OrdersViewModel: ObservableObject {
                 case .failure(let error):
                     let errorMsg = error.localizedDescription.lowercased()
                     if errorMsg.contains("already") || errorMsg.contains("processed") {
-                        self?.errorMessage = "This order has already been processed."
+                        // quick-371: already declined/advanced — refresh so UI updates.
+                        self?.fetchP2POrders()
                     } else {
-                        self?.errorMessage = "Unable to decline order. Please try again."
+                        self?.errorMessage = "Unable to decline order. \(error.localizedDescription)"
+                        self?.showError = true
                     }
-                    self?.showError = true
                 }
             }
         }
@@ -546,11 +550,15 @@ class OrdersViewModel: ObservableObject {
                 case .failure(let error):
                     let errorMsg = error.localizedDescription.lowercased()
                     if errorMsg.contains("already") {
-                        self?.errorMessage = "Already marked as arrived."
+                        // quick-371: "already arrived" is not a user-actionable error —
+                        // it's a successful state for the user's intent. Refresh
+                        // so the UI advances to the next button (Mark Delivered)
+                        // instead of leaving the Arrived button stuck.
+                        self?.fetchP2POrders()
                     } else {
-                        self?.errorMessage = "Failed to mark arrival. Please try again."
+                        self?.errorMessage = "Failed to mark arrival. \(error.localizedDescription)"
+                        self?.showError = true
                     }
-                    self?.showError = true
                 }
             }
         }
@@ -586,11 +594,12 @@ class OrdersViewModel: ObservableObject {
                 case .failure(let error):
                     let errorMsg = error.localizedDescription.lowercased()
                     if errorMsg.contains("already") || errorMsg.contains("completed") {
-                        self?.errorMessage = "This order has already been marked as delivered."
+                        // quick-371: already delivered — refresh so UI advances.
+                        self?.fetchP2POrders()
                     } else {
-                        self?.errorMessage = "Unable to mark order as delivered. Please try again."
+                        self?.errorMessage = "Unable to mark order as delivered. \(error.localizedDescription)"
+                        self?.showError = true
                     }
-                    self?.showError = true
                 }
             }
         }
@@ -670,12 +679,14 @@ class OrdersViewModel: ObservableObject {
                     let errorMsg = error.localizedDescription.lowercased()
                     if errorMsg.contains("invalid") || errorMsg.contains("transition") {
                         self?.errorMessage = "Cannot update order to this status."
+                        self?.showError = true
                     } else if errorMsg.contains("already") {
-                        self?.errorMessage = "This order status has already been updated."
+                        // quick-371: status already updated — refresh so UI matches.
+                        self?.fetchP2POrders()
                     } else {
-                        self?.errorMessage = "Unable to update order status. Please try again."
+                        self?.errorMessage = "Unable to update order status. \(error.localizedDescription)"
+                        self?.showError = true
                     }
-                    self?.showError = true
                 }
             }
         }
