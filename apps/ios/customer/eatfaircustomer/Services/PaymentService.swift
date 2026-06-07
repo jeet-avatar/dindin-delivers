@@ -54,12 +54,14 @@ struct PaymentSheetKeys: Decodable, Sendable {
 struct PaymentIntentData: Decodable, Sendable {
     let clientSecret: String
     let publishableKey: String
+    let demo: Bool?
 
     // Alternative field names from API
     enum CodingKeys: String, CodingKey {
         case clientSecret
         case paymentIntent
         case publishableKey
+        case demo
     }
 
     init(from decoder: Decoder) throws {
@@ -73,13 +75,19 @@ struct PaymentIntentData: Decodable, Sendable {
             throw DecodingError.keyNotFound(CodingKeys.clientSecret, .init(codingPath: [], debugDescription: "Missing clientSecret or paymentIntent"))
         }
         publishableKey = try container.decode(String.self, forKey: .publishableKey)
+        demo = try container.decodeIfPresent(Bool.self, forKey: .demo)
     }
 
     /// Convenience initializer for manual creation
-    init(clientSecret: String, publishableKey: String) {
+    init(clientSecret: String, publishableKey: String, demo: Bool? = nil) {
         self.clientSecret = clientSecret
         self.publishableKey = publishableKey
+        self.demo = demo
     }
+
+    /// True when backend returned a demo-account response (App Store review / underwriter demo).
+    /// Caller MUST bypass Stripe SDK — the fake clientSecret is not a valid Stripe intent.
+    var isDemoPayment: Bool { demo == true || clientSecret.hasPrefix("demo_pi_") }
 }
 
 class PaymentService {
@@ -134,7 +142,8 @@ class PaymentService {
                     if let keys = try? JSONDecoder().decode(PaymentSheetKeys.self, from: data) {
                         let intentData = PaymentIntentData(
                             clientSecret: keys.paymentIntent,
-                            publishableKey: keys.publishableKey
+                            publishableKey: keys.publishableKey,
+                            demo: keys.demo
                         )
                         completion(.success(intentData))
                     } else {

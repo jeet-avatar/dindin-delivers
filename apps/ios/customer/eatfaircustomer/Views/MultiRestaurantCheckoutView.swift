@@ -847,6 +847,13 @@ struct MultiRestaurantCheckoutView: View {
                 switch result {
                 case .success(let paymentIntentData):
 
+                    // Demo accounts (App Store review / underwriter demo): backend returns a
+                    // synthetic clientSecret that Stripe SDK would reject. Skip the SDK entirely.
+                    if paymentIntentData.isDemoPayment {
+                        self.placeOrder()
+                        return
+                    }
+
                     // Set the publishable key
                     STPAPIClient.shared.publishableKey = paymentIntentData.publishableKey
 
@@ -929,6 +936,13 @@ struct MultiRestaurantCheckoutView: View {
                 self.isLoadingStripe = false
                 switch result {
                 case .success(let keys):
+                    // Demo accounts: synthetic clientSecret/customer/ephemeralKey would crash Stripe SDK.
+                    // Skip the PaymentSheet entirely and place the order directly.
+                    if keys.isDemoPayment {
+                        self.placeOrder()
+                        return
+                    }
+
                     STPAPIClient.shared.publishableKey = keys.publishableKey
 
                     var configuration = PaymentSheet.Configuration()
