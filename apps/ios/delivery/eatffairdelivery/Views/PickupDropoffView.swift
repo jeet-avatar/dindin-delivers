@@ -62,6 +62,15 @@ struct PickupDropoffView: View {
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
+        // quick-372: the swipe-to-complete-delivery button on this view fires
+        // viewModel.markAsDelivered, which sets showDeliveryProofCamera = true
+        // on success. Without this sheet binding here, the camera never opened
+        // → order stayed at pending_delivery_proof → no payout, no driver tip,
+        // no restaurant payout fired. ActiveDeliveryDetailView and
+        // MyDeliveriesView had the binding; this view did not.
+        .sheet(isPresented: $viewModel.showDeliveryProofCamera) {
+            DeliveryProofSheet(viewModel: viewModel)
+        }
     }
 }
 
