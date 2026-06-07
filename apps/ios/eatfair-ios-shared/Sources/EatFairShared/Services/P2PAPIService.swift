@@ -3581,6 +3581,177 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    // MARK: - Vendor Stripe Connect (Payout Setup)
+
+    /// Response from GET /api/vendors/{id}/stripe/status
+    public struct VendorStripeStatus: Decodable, Sendable {
+        public let success: Bool?
+        public let hasStripeAccount: Bool
+        public let onboarded: Bool?
+        public let chargesEnabled: Bool?
+        public let payoutsEnabled: Bool?
+        public let bankAccountLinked: Bool?
+        public let bankAccount: BankAccount?
+        public let detailsSubmitted: Bool?
+        public let message: String?
+
+        public struct BankAccount: Decodable, Sendable {
+            public let bankName: String?
+            public let last4: String?
+            public let accountHolderName: String?
+            public let status: String?
+
+            enum CodingKeys: String, CodingKey {
+                case bankName = "bank_name"
+                case last4
+                case accountHolderName = "account_holder_name"
+                case status
+            }
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case success
+            case hasStripeAccount = "has_stripe_account"
+            case onboarded
+            case chargesEnabled = "charges_enabled"
+            case payoutsEnabled = "payouts_enabled"
+            case bankAccountLinked = "bank_account_linked"
+            case bankAccount = "bank_account"
+            case detailsSubmitted = "details_submitted"
+            case message
+        }
+    }
+
+    /// Response from POST /api/vendors/{id}/stripe/connect
+    public struct VendorStripeConnectResponse: Decodable, Sendable {
+        public let success: Bool
+        public let stripeAccountId: String?
+        public let onboarded: Bool?
+        public let message: String?
+
+        enum CodingKeys: String, CodingKey {
+            case success
+            case stripeAccountId = "stripe_account_id"
+            case onboarded
+            case message
+        }
+    }
+
+    /// Response from GET /api/vendors/{id}/stripe/onboarding-link
+    public struct VendorOnboardingLinkResponse: Decodable, Sendable {
+        public let success: Bool?
+        public let url: String?
+        public let onboardingUrl: String?
+        public let expiresAt: Int?
+
+        /// The link the user must open in Safari to complete KYC.
+        public var bestUrl: String? { onboardingUrl ?? url }
+
+        enum CodingKeys: String, CodingKey {
+            case success
+            case url
+            case onboardingUrl = "onboarding_url"
+            case expiresAt = "expires_at"
+        }
+    }
+
+    /// GET /api/vendors/{id}/stripe/status — what state the vendor's payout setup is in
+    public func getVendorStripeStatus(
+        vendorId: Int,
+        completion: @escaping (Result<VendorStripeStatus, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/stripe/status") else {
+            completion(.failure(P2PAPIError.invalidURL)); return
+        }
+        var request = URLRequest(url: url)
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        secureSession.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                guard let data = data,
+                      let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                    completion(.failure(P2PAPIError.serverError("Failed to load payout status"))); return
+                }
+                do {
+                    let decoded = try JSONDecoder().decode(VendorStripeStatus.self, from: data)
+                    completion(.success(decoded))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// POST /api/vendors/{id}/stripe/connect — create Stripe Connect Express account (idempotent)
+    public func createVendorStripeAccount(
+        vendorId: Int,
+        completion: @escaping (Result<VendorStripeConnectResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/stripe/connect") else {
+            completion(.failure(P2PAPIError.invalidURL)); return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        secureSession.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                guard let data = data,
+                      let http = response as? HTTPURLResponse else {
+                    completion(.failure(P2PAPIError.serverError("Invalid response from server"))); return
+                }
+                if http.statusCode >= 400 {
+                    if let err = try? JSONDecoder().decode(P2PErrorResponse.self, from: data) {
+                        completion(.failure(P2PAPIError.serverError(err.detail)))
+                    } else {
+                        completion(.failure(P2PAPIError.serverError("Payout setup failed (HTTP \(http.statusCode))")))
+                    }
+                    return
+                }
+                do {
+                    let decoded = try JSONDecoder().decode(VendorStripeConnectResponse.self, from: data)
+                    completion(.success(decoded))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    /// GET /api/vendors/{id}/stripe/onboarding-link — fetch a fresh Stripe-hosted onboarding URL
+    public func getVendorStripeOnboardingLink(
+        vendorId: Int,
+        completion: @escaping (Result<VendorOnboardingLinkResponse, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/vendors/\(vendorId)/stripe/onboarding-link") else {
+            completion(.failure(P2PAPIError.invalidURL)); return
+        }
+        var request = URLRequest(url: url)
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        secureSession.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                guard let data = data,
+                      let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                    completion(.failure(P2PAPIError.serverError("Failed to get onboarding link"))); return
+                }
+                do {
+                    let decoded = try JSONDecoder().decode(VendorOnboardingLinkResponse.self, from: data)
+                    completion(.success(decoded))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
     /// Restaurant marks arrival at customer's delivery location (self-delivery)
     /// POST /api/erp/orders/{orderId}/vendor-arrived-at-delivery
     public func markArrivedAtDelivery(

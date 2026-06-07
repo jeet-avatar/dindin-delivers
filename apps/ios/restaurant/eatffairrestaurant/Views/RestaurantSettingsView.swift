@@ -1361,104 +1361,236 @@ struct NotificationSettingsView: View {
 // MARK: - Payment Settings View
 struct PaymentSettingsView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.scenePhase) var scenePhase
 
-    @State private var payoutFrequency = "Weekly"
+    private let p2pAPI = P2PAPIService.shared
+
+    @State private var isLoading = true
+    @State private var isOpeningOnboarding = false
+    @State private var status: P2PAPIService.VendorStripeStatus?
+    @State private var errorMessage: String?
+    @State private var showError = false
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    HStack(spacing: 12) {
-                        Image(systemName: "building.columns.fill")
-                            .font(.title2)
-                            .foregroundColor(.red)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Wells Fargo")
-                                .font(.headline)
-                            Text("Checking Account")
-                                .font(.caption)
+                if isLoading {
+                    Section {
+                        HStack {
+                            ProgressView().padding(.trailing, 8)
+                            Text("Loading payout setup...")
                                 .foregroundColor(.secondary)
                         }
-                        Spacer()
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                        .padding(.vertical, 8)
                     }
-                    .padding(.vertical, 4)
-                } header: {
-                    Text("Linked Bank Account")
-                }
-
-                Section {
-                    HStack {
-                        Text("Account Number")
+                } else if let status = status {
+                    statusSection(status)
+                    actionSection(status)
+                    infoSection
+                } else {
+                    Section {
+                        Text("Couldn't load payout setup. Pull to retry.")
                             .foregroundColor(.secondary)
-                        Spacer()
-                        Text("xxxx xxxx 4891")
-                            .font(.system(.body, design: .monospaced))
                     }
-                    HStack {
-                        Text("Routing Number")
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("xxxx xxxx 2710")
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    HStack {
-                        Text("Account Type")
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("Business Checking")
-                    }
-                } header: {
-                    Text("Account Details")
-                }
-
-                Section("Payout Schedule") {
-                    Picker("Frequency", selection: $payoutFrequency) {
-                        Text("Daily").tag("Daily")
-                        Text("Weekly").tag("Weekly")
-                        Text("Bi-Weekly").tag("Bi-Weekly")
-                        Text("Monthly").tag("Monthly")
-                    }
-                }
-
-                Section("Recent Payouts") {
-                    PayoutRow(date: "Mar 8, 2026", amount: 1250.00, status: "Completed")
-                    PayoutRow(date: "Mar 1, 2026", amount: 980.50, status: "Completed")
-                    PayoutRow(date: "Feb 22, 2026", amount: 1420.00, status: "Completed")
                 }
             }
-            .navigationTitle("Payment Settings")
+            .refreshable { await loadStatus() }
+            .navigationTitle("Payouts")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
                         .accessibilityLabel("Done")
-                        .accessibilityHint("Closes payment settings")
+                        .accessibilityHint("Closes payout setup")
+                }
+            }
+            .alert("Payout Setup", isPresented: $showError, actions: {
+                Button("OK", role: .cancel) {}
+            }, message: { Text(errorMessage ?? "Something went wrong.") })
+            .task { await loadStatus() }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active && !isLoading {
+                    Task { await loadStatus() }
                 }
             }
         }
     }
-}
 
-struct PayoutRow: View {
-    let date: String
-    let amount: Double
-    let status: String
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading) {
-                Text(date)
-                    .font(.subheadline)
-                Text(status)
-                    .font(.caption)
-                    .foregroundColor(.green)
+    @ViewBuilder
+    private func statusSection(_ s: P2PAPIService.VendorStripeStatus) -> some View {
+        Section("Status") {
+            HStack(spacing: 12) {
+                Image(systemName: statusIcon(for: s))
+                    .font(.title2)
+                    .foregroundColor(statusColor(for: s))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(statusTitle(for: s)).font(.headline)
+                    Text(statusSubtitle(for: s))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
             }
-            Spacer()
-            Text("$\(String(format: "%.2f", amount))")
-                .fontWeight(.semibold)
+            .padding(.vertical, 4)
+
+            if let bank = s.bankAccount, let last4 = bank.last4, !last4.isEmpty {
+                HStack {
+                    Image(systemName: "building.columns.fill")
+                        .foregroundColor(.blue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(bank.bankName ?? "Linked Bank").font(.subheadline.weight(.medium))
+                        Text("•••• \(last4)").font(.caption.monospacedDigit()).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    if bank.status == "verified" {
+                        Image(systemName: "checkmark.seal.fill").foregroundColor(.green)
+                    }
+                }
+            }
         }
+    }
+
+    @ViewBuilder
+    private func actionSection(_ s: P2PAPIService.VendorStripeStatus) -> some View {
+        if !(s.onboarded ?? false) {
+            Section {
+                Button(action: startOrContinueOnboarding) {
+                    HStack {
+                        if isOpeningOnboarding {
+                            ProgressView().padding(.trailing, 6)
+                        } else {
+                            Image(systemName: "arrow.up.right.square.fill")
+                        }
+                        Text(s.hasStripeAccount ? "Continue Setup with Stripe" : "Set Up Payouts with Stripe")
+                            .fontWeight(.semibold)
+                        Spacer()
+                    }
+                }
+                .disabled(isOpeningOnboarding)
+                .accessibilityLabel(s.hasStripeAccount ? "Continue Stripe setup" : "Set up payouts with Stripe")
+                .accessibilityHint("Opens Stripe in Safari to verify your business and bank account")
+            } footer: {
+                Text("Dollor uses Stripe Connect Express to deposit your earnings directly into your bank. You'll verify your business, ID, and bank account on stripe.com.")
+                    .font(.caption)
+            }
+        } else {
+            Section {
+                Button(action: startOrContinueOnboarding) {
+                    HStack {
+                        Image(systemName: "arrow.up.right.square")
+                        Text("Open Stripe Dashboard")
+                        Spacer()
+                    }
+                }
+                .accessibilityHint("Opens your Stripe Connect dashboard to view payouts and update details")
+            } footer: {
+                Text("Payouts are processed automatically by Stripe after each delivered order. Update your bank account or business details anytime from the Stripe dashboard.")
+                    .font(.caption)
+            }
+        }
+    }
+
+    private var infoSection: some View {
+        Section("How payouts work") {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("$1 platform fee per order", systemImage: "tag.fill")
+                Label("Payout is subtotal − $1 platform fee", systemImage: "equal.circle")
+                Label("Transferred automatically after each delivery", systemImage: "bolt.fill")
+            }
+            .font(.subheadline)
+            .padding(.vertical, 4)
+        }
+    }
+
+    // MARK: - Actions
+
+    private func loadStatus() async {
+        isLoading = true
+        guard let vendorId = p2pAPI.currentVendorId else {
+            isLoading = false
+            errorMessage = "No vendor ID — log out and log back in."
+            showError = true
+            return
+        }
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            p2pAPI.getVendorStripeStatus(vendorId: vendorId) { result in
+                isLoading = false
+                switch result {
+                case .success(let s): status = s
+                case .failure(let err):
+                    errorMessage = err.localizedDescription
+                    showError = true
+                }
+                cont.resume()
+            }
+        }
+    }
+
+    private func startOrContinueOnboarding() {
+        guard let vendorId = p2pAPI.currentVendorId else { return }
+        isOpeningOnboarding = true
+
+        let openLink: () -> Void = {
+            p2pAPI.getVendorStripeOnboardingLink(vendorId: vendorId) { result in
+                isOpeningOnboarding = false
+                switch result {
+                case .success(let link):
+                    guard let urlString = link.bestUrl, let url = URL(string: urlString) else {
+                        errorMessage = "Couldn't open onboarding link."
+                        showError = true; return
+                    }
+                    UIApplication.shared.open(url)
+                case .failure(let err):
+                    errorMessage = err.localizedDescription
+                    showError = true
+                }
+            }
+        }
+
+        if status?.hasStripeAccount == true {
+            openLink()
+        } else {
+            p2pAPI.createVendorStripeAccount(vendorId: vendorId) { result in
+                switch result {
+                case .success:
+                    openLink()
+                case .failure(let err):
+                    isOpeningOnboarding = false
+                    errorMessage = err.localizedDescription
+                    showError = true
+                }
+            }
+        }
+    }
+
+    // MARK: - UI Helpers
+
+    private func statusIcon(for s: P2PAPIService.VendorStripeStatus) -> String {
+        if s.onboarded == true { return "checkmark.seal.fill" }
+        if s.hasStripeAccount { return "clock.badge.exclamationmark.fill" }
+        return "creditcard.trianglebadge.exclamationmark"
+    }
+
+    private func statusColor(for s: P2PAPIService.VendorStripeStatus) -> Color {
+        if s.onboarded == true { return .green }
+        if s.hasStripeAccount { return .orange }
+        return .red
+    }
+
+    private func statusTitle(for s: P2PAPIService.VendorStripeStatus) -> String {
+        if s.onboarded == true { return "Payouts active" }
+        if s.hasStripeAccount { return "Setup incomplete" }
+        return "Not set up"
+    }
+
+    private func statusSubtitle(for s: P2PAPIService.VendorStripeStatus) -> String {
+        if s.onboarded == true {
+            return "Your earnings will deposit directly to your linked bank."
+        }
+        if s.hasStripeAccount {
+            return "Finish verifying your business and bank account on Stripe to start receiving payouts."
+        }
+        return "Connect a bank account to receive your earnings."
     }
 }
 
