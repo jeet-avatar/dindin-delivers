@@ -19,6 +19,17 @@ class OrdersViewModel: ObservableObject {
     @Published var successMessage = ""
     @Published var showSuccess = false
 
+    /// quick-366: explicit fetch lifecycle so empty-state UI can distinguish
+    /// loading vs error vs truly-empty. Drives the Retry button.
+    enum FetchState: Equatable {
+        case idle           // never fetched
+        case loading        // first fetch in flight, allOrders may be []
+        case refreshing     // background refresh (allOrders has prior data)
+        case loaded(at: Date)
+        case failed(reason: String)
+    }
+    @Published var fetchState: FetchState = .idle
+
     // MARK: - AI Insights
     @Published var averagePrepTime: Int = 20 // Will be updated from config or calculated
     @Published var busyLevel: BusyLevel = .normal
@@ -222,11 +233,21 @@ class OrdersViewModel: ObservableObject {
         }
     }
 
-    /// Fetch orders from P2P backend
-    private func fetchP2POrders() {
+    /// Fetch orders from P2P backend.
+    /// quick-366: drives `fetchState` so the empty UI can show loading vs error
+    /// vs truly empty, and surfaces the real error to the user.
+    func fetchP2POrders() {
         guard let vendorId = p2pVendorId else {
             isLoading = false
             return
+        }
+
+        // Pick the right loading state — first fetch shows full spinner,
+        // refreshes show a subtler indicator and keep prior data visible.
+        if allOrders.isEmpty {
+            fetchState = .loading
+        } else {
+            fetchState = .refreshing
         }
 
         p2pAPI.fetchVendorOrders(vendorId: vendorId) { [weak self] result in
@@ -237,30 +258,58 @@ class OrdersViewModel: ObservableObject {
 
                 switch result {
                 case .success(let p2pVendorOrders):
-                    // Convert to Order models
-                    self.allOrders = p2pVendorOrders.map { vendorOrder in
+                    let mapped = p2pVendorOrders.map { vendorOrder in
                         vendorOrder.toOrder(
                             vendorId: String(vendorId),
                             restaurantName: self.restaurantName
                         )
                     }.sorted { $0.placedAt > $1.placedAt }
 
-                    // Update AI insights
+                    // Integrity log: catch silent drops (decoded count < server count).
+                    // If this fires repeatedly we know the lenient decoder is dropping rows.
+                    let mappedCount = mapped.count
+                    let rawCount = p2pVendorOrders.count
+                    if mappedCount != rawCount {
+                        logger.warning("[fetchP2POrders] count mismatch: server=\(rawCount), mapped=\(mappedCount)")
+                    }
+
+                    self.allOrders = mapped
+                    self.fetchState = .loaded(at: Date())
                     self.updateAIInsights()
 
                 case .failure(let error):
-                    let errorMsg = error.localizedDescription.lowercased()
-                    if errorMsg.contains("network") || errorMsg.contains("connection") || errorMsg.contains("internet") {
-                        self.errorMessage = "Unable to connect. Please check your internet connection."
-                    } else if errorMsg.contains("unauthorized") || errorMsg.contains("401") {
-                        self.errorMessage = "Session expired. Please log in again."
+                    // Surface the actual error to the user — not a generic
+                    // "please try again" — so they can call us with something
+                    // useful when something breaks.
+                    let raw = error.localizedDescription
+                    let lower = raw.lowercased()
+                    let friendly: String
+                    if lower.contains("network") || lower.contains("connection") || lower.contains("internet") || lower.contains("offline") {
+                        friendly = "Can't reach Dollor. Check your internet connection."
+                    } else if lower.contains("unauthorized") || lower.contains("401") {
+                        friendly = "Session expired. Log out and log back in."
+                    } else if lower.contains("cancelled") || lower.contains("canceled") {
+                        // In-flight cancel from a newer fetch — keep current state.
+                        return
                     } else {
-                        self.errorMessage = "Unable to load orders. Please try again."
+                        friendly = raw
                     }
-                    self.showError = true
+
+                    self.fetchState = .failed(reason: friendly)
+                    self.errorMessage = friendly
+                    // Don't auto-popup an alert on background refreshes — the
+                    // empty-state UI now carries the error + Retry button.
+                    if self.allOrders.isEmpty {
+                        self.showError = true
+                    }
                 }
             }
         }
+    }
+
+    /// Public retry from the empty/error UI.
+    func retryFetch() {
+        fetchP2POrders()
     }
 
     func stopListening() {

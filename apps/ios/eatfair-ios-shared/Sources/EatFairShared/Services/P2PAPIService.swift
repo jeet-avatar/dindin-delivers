@@ -3234,6 +3234,11 @@ public class P2PAPIService: ObservableObject {
     // MARK: - Vendor Orders API (Restaurant App)
 
     /// Fetch orders for a vendor from the P2P backend
+    /// quick-366: holds the in-flight fetch task so a newer call can cancel an
+    /// older one in flight. Avoids race conditions where a slow fetch lands
+    /// after a fresh fetch and overwrites with stale data.
+    private var inFlightVendorOrdersTask: URLSessionDataTask?
+
     public func fetchVendorOrders(
         vendorId: Int,
         completion: @escaping (Result<[P2PVendorOrder], Error>) -> Void
@@ -3248,19 +3253,39 @@ public class P2PAPIService: ObservableObject {
             return
         }
 
+        // Cancel any prior in-flight fetch for vendor orders so the latest
+        // request wins. Cancelled tasks surface NSURLErrorCancelled which the
+        // caller filters out.
+        inFlightVendorOrdersTask?.cancel()
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 20
 
         isLoading = true
 
-        secureSession.dataTask(with: request) { [weak self] data, response, error in
+        let task = secureSession.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
+                self?.inFlightVendorOrdersTask = nil
 
                 if let error = error {
                     self?.error = error.localizedDescription
                     completion(.failure(error))
+                    return
+                }
+
+                // Surface HTTP-level failures with the actual status code, not
+                // a generic decode error from trying to decode an error body.
+                if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                    let detail: String = {
+                        if let data = data, let body = String(data: data, encoding: .utf8), !body.isEmpty {
+                            return "HTTP \(http.statusCode): \(body.prefix(200))"
+                        }
+                        return "HTTP \(http.statusCode)"
+                    }()
+                    completion(.failure(P2PAPIError.serverError(detail)))
                     return
                 }
 
@@ -3277,7 +3302,9 @@ public class P2PAPIService: ObservableObject {
                     completion(.failure(error))
                 }
             }
-        }.resume()
+        }
+        inFlightVendorOrdersTask = task
+        task.resume()
     }
 
     /// Update order status via P2P backend

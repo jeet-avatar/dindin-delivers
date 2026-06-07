@@ -112,8 +112,12 @@ struct OrdersDashboardView: View {
                             )
                         }
 
-                        if filteredOrders.isEmpty && !ordersVM.isLoading {
-                            EmptyOrdersView(filter: selectedFilter)
+                        if filteredOrders.isEmpty {
+                            EmptyOrdersView(
+                                filter: selectedFilter,
+                                fetchState: ordersVM.fetchState,
+                                onRetry: { ordersVM.retryFetch() }
+                            )
                         }
                     }
                     .padding()
@@ -1445,20 +1449,77 @@ struct SelfDeliveryMapPin: Identifiable {
 // MARK: - Empty Orders View
 struct EmptyOrdersView: View {
     let filter: OrdersDashboardView.OrderFilter
+    var fetchState: OrdersViewModel.FetchState = .idle
+    var onRetry: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: filter == .history ? "clock" : "tray")
-                .font(.system(size: 50))
-                .foregroundColor(.gray.opacity(0.5))
+            switch fetchState {
+            case .loading, .idle:
+                ProgressView()
+                    .scaleEffect(1.4)
+                    .padding(.bottom, 4)
+                Text("Loading orders...")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                Text("Pulling the latest from Dollor")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
 
-            Text(filter == .history ? "No order history yet" : "No \(filter == .all ? "" : filter.rawValue.lowercased() + " ")orders")
-                .font(.headline)
-                .foregroundColor(.secondary)
+            case .failed(let reason):
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 50))
+                    .foregroundColor(.orange)
+                Text("Couldn't load orders")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                Text(reason)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                if let onRetry = onRetry {
+                    Button(action: onRetry) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Retry")
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
+                    }
+                    .padding(.top, 8)
+                    .accessibilityLabel("Retry loading orders")
+                    .accessibilityHint("Tries to fetch your orders again from the server")
+                }
 
-            Text(filter == .history ? "Completed and cancelled orders will appear here" : "New orders will appear here automatically")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+            case .refreshing, .loaded:
+                // Truly empty — the fetch succeeded but no orders match this filter.
+                Image(systemName: filter == .history ? "clock" : "tray")
+                    .font(.system(size: 50))
+                    .foregroundColor(.gray.opacity(0.5))
+                Text(filter == .history ? "No order history yet" : "No \(filter == .all ? "" : filter.rawValue.lowercased() + " ")orders")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                Text(filter == .history ? "Completed and cancelled orders will appear here" : "New orders will appear here automatically")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                if filter == .history, let onRetry = onRetry {
+                    Button(action: onRetry) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Refresh")
+                        }
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                    }
+                    .padding(.top, 4)
+                    .accessibilityLabel("Refresh order history")
+                }
+            }
         }
         .padding(.vertical, 60)
     }
