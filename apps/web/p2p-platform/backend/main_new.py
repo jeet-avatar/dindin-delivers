@@ -5603,11 +5603,17 @@ def create_vendor_stripe_account(
         # Determine business type from vendor record or default to company
         biz_type = getattr(vendor, 'business_type', None) or "company"
 
+        # Vendor model uses contact_email + restaurant_name/company_name (no plain .email/.name).
+        vendor_email = vendor.contact_email
+        vendor_display_name = vendor.restaurant_name or vendor.company_name or ""
+        if not vendor_email:
+            raise HTTPException(status_code=400, detail="Vendor has no contact email — set one before onboarding to Stripe")
+
         # Create Stripe Connect Express account
         account = stripe.Account.create(
             type="express",
             country="US",
-            email=vendor.email,
+            email=vendor_email,
             capabilities={
                 "card_payments": {"requested": True},
                 "transfers": {"requested": True},
@@ -5619,7 +5625,7 @@ def create_vendor_stripe_account(
             },
             metadata={
                 "vendor_id": str(vendor.id),
-                "vendor_name": vendor.name or "",
+                "vendor_name": vendor_display_name,
                 "platform": "dollor.ai"
             }
         )
@@ -5666,12 +5672,16 @@ def get_vendor_stripe_onboarding_link(
 
     # Create Stripe account if doesn't exist
     if not vendor.stripe_account_id:
+        vendor_email = vendor.contact_email
+        vendor_display_name = vendor.restaurant_name or vendor.company_name or ""
+        if not vendor_email:
+            raise HTTPException(status_code=400, detail="Vendor has no contact email — set one before onboarding to Stripe")
         try:
             biz_type = getattr(vendor, 'business_type', None) or "company"
             account = stripe.Account.create(
                 type="express",
                 country="US",
-                email=vendor.email,
+                email=vendor_email,
                 capabilities={
                     "card_payments": {"requested": True},
                     "transfers": {"requested": True},
@@ -5683,7 +5693,7 @@ def get_vendor_stripe_onboarding_link(
                 },
                 metadata={
                     "vendor_id": str(vendor.id),
-                    "vendor_name": vendor.name or "",
+                    "vendor_name": vendor_display_name,
                     "platform": "dollor.ai"
                 }
             )
