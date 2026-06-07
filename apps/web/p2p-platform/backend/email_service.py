@@ -2096,6 +2096,101 @@ def send_password_reset_link_email(
     return send_email(to_email, subject, html_body, text_body)
 
 
+def send_delivery_completed_vendor_email(
+    to_email: str,
+    restaurant_name: str,
+    order_number: str,
+    customer_name: str,
+    order_items: list,
+    subtotal: float,
+    platform_fee: float,
+    discount_amount: float,
+    promo_code: str,
+    vendor_payout: float,
+    driver_name: str,
+    delivered_at_str: str,
+) -> bool:
+    """quick-374: per-order payout receipt for the restaurant on delivery.
+
+    The customer and driver already get emails on delivery; the restaurant
+    only got a "new order" email at order-placement time. Restaurants need
+    a definitive payout confirmation per order — what they earned, what
+    was deducted, when it transferred. This closes that loop.
+    """
+    subject = f"Payout confirmed — Order #{order_number} • ${vendor_payout:.2f}"
+
+    items_html = ""
+    for it in (order_items or []):
+        qty = it.get("quantity", 1) if isinstance(it, dict) else 1
+        name = it.get("name", "Item") if isinstance(it, dict) else str(it)
+        line_total = it.get("total_price") or it.get("unit_price") or 0 if isinstance(it, dict) else 0
+        items_html += f"""
+            <tr><td style="padding:6px 0;color:#475569;">{qty}× {name}</td>
+            <td style="padding:6px 0;text-align:right;color:#475569;">${float(line_total):.2f}</td></tr>"""
+
+    discount_row = ""
+    if discount_amount and discount_amount > 0:
+        discount_row = f"""
+            <div style="display:flex;justify-content:space-between;padding:4px 0;color:#22c55e;">
+                <span>Discount ({promo_code or 'Promo'})</span>
+                <span>-${discount_amount:.2f}</span>
+            </div>"""
+
+    html_body = f"""<!DOCTYPE html>
+    <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;padding:20px;">
+    <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#10b981 0%,#059669 100%);padding:32px 24px;text-align:center;color:#fff;">
+            <div style="font-size:14px;font-weight:600;letter-spacing:1.2px;opacity:0.9;">PAYOUT CONFIRMED</div>
+            <div style="font-size:42px;font-weight:800;margin-top:8px;">${vendor_payout:.2f}</div>
+            <div style="margin-top:8px;opacity:0.9;">Order #{order_number}</div>
+        </div>
+        <div style="padding:28px 24px;">
+            <p style="margin:0 0 12px;color:#1e293b;">Hi {restaurant_name},</p>
+            <p style="margin:0 0 20px;color:#475569;">Your delivery has been completed and your payout has been recorded. Stripe will transfer the funds to your connected bank account on your next payout cycle.</p>
+
+            <div style="background:#f0fdf4;border-radius:10px;padding:16px;margin:20px 0;border:1px solid #86efac;">
+                <div style="font-weight:600;color:#15803d;margin-bottom:10px;">PAYOUT BREAKDOWN</div>
+                <div style="display:flex;justify-content:space-between;padding:4px 0;color:#475569;">
+                    <span>Subtotal</span><span>${subtotal:.2f}</span>
+                </div>
+                {discount_row}
+                <div style="display:flex;justify-content:space-between;padding:4px 0;color:#475569;">
+                    <span>Platform fee</span><span>-${platform_fee:.2f}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:10px 0 0;margin-top:8px;border-top:2px solid #16a34a;font-weight:bold;font-size:16px;color:#15803d;">
+                    <span>YOUR PAYOUT</span><span>${vendor_payout:.2f}</span>
+                </div>
+            </div>
+
+            <div style="background:#f8fafc;border-radius:10px;padding:16px;margin:20px 0;">
+                <div style="font-weight:600;color:#1e293b;margin-bottom:10px;">ORDER DETAILS</div>
+                <table style="width:100%;font-size:14px;">{items_html}</table>
+                <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;color:#64748b;font-size:13px;">
+                    <div>Customer: {customer_name}</div>
+                    <div>Driver: {driver_name}</div>
+                    <div>Delivered: {delivered_at_str}</div>
+                </div>
+            </div>
+
+            <p style="margin:20px 0 0;color:#94a3b8;font-size:12px;">This is an automatic receipt from Dollor.ai. View your full sales history any time in the Restaurant app.</p>
+        </div>
+    </div>
+    </body></html>"""
+
+    text_body = (
+        f"PAYOUT CONFIRMED — ${vendor_payout:.2f}\n\n"
+        f"Order #{order_number}\nRestaurant: {restaurant_name}\n\n"
+        f"Subtotal:     ${subtotal:.2f}\n"
+        + (f"Discount ({promo_code or 'Promo'}): -${discount_amount:.2f}\n" if discount_amount and discount_amount > 0 else "")
+        + f"Platform fee: -${platform_fee:.2f}\n"
+        f"YOUR PAYOUT:  ${vendor_payout:.2f}\n\n"
+        f"Customer: {customer_name}\nDriver: {driver_name}\nDelivered: {delivered_at_str}\n\n"
+        "— Dollor.ai"
+    )
+
+    return send_email(to_email=to_email, subject=subject, html_body=html_body, text_body=text_body)
+
+
 def send_new_order_vendor_email(
     to_email: str,
     restaurant_name: str,

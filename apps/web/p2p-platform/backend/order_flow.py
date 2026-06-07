@@ -32,7 +32,7 @@ import os
 import requests
 
 from database import get_db, SessionLocal
-from email_service import send_order_delivered_with_receipt_email, send_delivery_completed_driver_email, send_email
+from email_service import send_order_delivered_with_receipt_email, send_delivery_completed_driver_email, send_delivery_completed_vendor_email, send_email
 from google_maps_service import get_traffic_eta, ETAResult
 
 # Service URLs
@@ -4942,6 +4942,27 @@ async def order_delivered(
                 tip=float(order.tip or 0)
             )
             logging.info(f"Earnings email sent to driver {driver.email} for order {order.order_number}")
+
+        # quick-374: per-order payout receipt to the restaurant. The customer
+        # and driver get emails on delivery; the restaurant previously only
+        # got a "new order" email at order placement, no payout confirmation.
+        vendor_email_addr = (vendor.contact_email if vendor else None)
+        if vendor_email_addr:
+            send_delivery_completed_vendor_email(
+                to_email=vendor_email_addr,
+                restaurant_name=vendor.restaurant_name or vendor.company_name or "Restaurant",
+                order_number=order.order_number,
+                customer_name=order.customer_name or "Customer",
+                order_items=order_items,
+                subtotal=float(order.subtotal or 0),
+                platform_fee=float(RESTAURANT_PLATFORM_FEE),
+                discount_amount=float(order.discount_amount or 0),
+                promo_code=order.promo_code,
+                vendor_payout=float(restaurant_payout or 0),
+                driver_name=order.driver_name or "Driver",
+                delivered_at_str=order.delivered_at.strftime("%B %d, %Y at %I:%M %p") if order.delivered_at else "",
+            )
+            logging.info(f"Payout receipt email sent to vendor {vendor_email_addr} for order {order.order_number}")
     except Exception as e:
         # Don't fail the delivery if email fails
         logging.error(f"Failed to send delivery emails for order {order.order_number}: {e}")
