@@ -16107,6 +16107,36 @@ async def vendor_delivered_alias(order_id: int, vendor: Vendor = Depends(require
     """
     return await order_delivered_for_vendor(order_id, db, vendor)
 
+
+@app.post("/erp/orders/{order_id}/vendor-start-delivery")
+async def vendor_start_delivery_alias(order_id: int, vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
+    """quick-370: vendor transitions own self-delivery order from
+    RESTAURANT_WILL_DELIVER → OUT_FOR_DELIVERY. Previously iOS called
+    PUT /erp/orders/{id}/status which requires admin (gap discovered
+    2026-06-07 during live testing).
+    """
+    from models import Order, OrderStatus
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.vendor_id != vendor.id:
+        raise HTTPException(status_code=403, detail="Not authorized for this order")
+    if order.status != OrderStatus.RESTAURANT_WILL_DELIVER:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot start delivery for order in {order.status.value if hasattr(order.status,'value') else order.status} status (expected restaurant_will_deliver)"
+        )
+    order.status = OrderStatus.OUT_FOR_DELIVERY
+    order.picked_up_at = datetime.utcnow()
+    db.commit()
+    return {
+        "success": True,
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": "out_for_delivery",
+        "message": "Self-delivery started"
+    }
+
 @app.post("/erp/orders/{order_id}/cancel-no-customer")
 async def cancel_no_customer_alias(order_id: int, request_body: CancelNoCustomerRequest, driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Alias for iOS Driver app - cancel due to customer not available"""
