@@ -496,8 +496,9 @@ struct EnhancedOrderCard: View {
             #if DEBUG
             logger.debug("⏰ Timer already expired - auto-sending order \(order.orderId) to driver pool")
             #endif
-            onAccept()  // Accept order first
-            onSendToDriver?()  // Then send to driver
+            // quick-369: do not double-fire onAccept — the send-to-driver
+            // endpoint atomically transitions PENDING_RESTAURANT → READY_FOR_PICKUP.
+            onSendToDriver?()
             return
         }
 
@@ -518,8 +519,8 @@ struct EnhancedOrderCard: View {
                 #if DEBUG
                 logger.debug("⏰ Timer expired - auto-sending order \(order.orderId) to driver pool")
                 #endif
-                onAccept()  // Accept order first
-                onSendToDriver?()  // Then send to driver
+                // quick-369: single combined call, see above.
+                onSendToDriver?()
             }
         }
     }
@@ -670,6 +671,13 @@ struct EnhancedOrderCard: View {
                     .padding(.horizontal)
 
                     // Accept buttons - two options
+                    // quick-369: backend endpoints (restaurant-accept-delivery /
+                    // restaurant-decline-delivery) atomically transition the order
+                    // from PENDING_RESTAURANT → final state. Calling onAccept()
+                    // here ALSO would race against the delivery-decision call —
+                    // whichever loses the race returned 400 ("Cannot accept
+                    // delivery for order in X status") which surfaced as
+                    // "Unable to accept order." Only fire the combined call.
                     VStack(spacing: 8) {
                         // Accept & Send to Driver
                         SwipeToConfirmButton(
@@ -679,7 +687,6 @@ struct EnhancedOrderCard: View {
                             onConfirm: {
                                 isAcceptingSendToDriver = true
                                 deliveryTimer?.invalidate()
-                                onAccept()
                                 onSendToDriver?()
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isAcceptingSendToDriver = false }
                             }
@@ -697,7 +704,6 @@ struct EnhancedOrderCard: View {
                             onConfirm: {
                                 isAcceptingSelfDeliver = true
                                 deliveryTimer?.invalidate()
-                                onAccept()
                                 onSelfDeliver?()
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { isAcceptingSelfDeliver = false }
                             }
