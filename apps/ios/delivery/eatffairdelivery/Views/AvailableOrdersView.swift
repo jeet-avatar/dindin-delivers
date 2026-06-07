@@ -1017,117 +1017,171 @@ struct OrdersMapView: View {
 }
 
 // MARK: - Order Detail Sheet
+/// quick-373: DoorDash-style offer sheet. Earnings front and center, the
+/// route in one glance, and a CTA at the bottom that cannot be missed.
+/// Trimmed everything that wasn't decision-critical (full item list,
+/// instructions) into a compact "See more" disclosure.
 struct OrderDetailSheet: View {
     let order: Order
     @ObservedObject var viewModel: DeliveryViewModel
     let locationManager: LocationManager
-    var onAccepted: (() -> Void)?  // Callback to switch tabs
+    var onAccepted: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
+
+    @State private var showDetails = false
+    @State private var isAccepting = false
+
+    private var totalEarnings: Double { order.deliveryFee + order.priorityFee + order.tip }
+
+    private var pickupMiles: String? {
+        guard let m = locationManager.distanceTo(latitude: order.restaurant.latitude, longitude: order.restaurant.longitude), m.isFinite else { return nil }
+        return String(format: "%.1f mi", m / 1609.34)
+    }
+
+    private var totalMiles: String? {
+        // Pickup → dropoff segment (driver still has to traverse it).
+        let lat = order.deliveryAddress.latitude
+        let lon = order.deliveryAddress.longitude
+        guard lat != 0, lon != 0 else { return nil }
+        let pickupLoc = CLLocation(latitude: order.restaurant.latitude, longitude: order.restaurant.longitude)
+        let dropoffLoc = CLLocation(latitude: lat, longitude: lon)
+        let segment = pickupLoc.distance(from: dropoffLoc)
+        guard segment.isFinite else { return nil }
+        let toPickup = locationManager.distanceTo(latitude: order.restaurant.latitude, longitude: order.restaurant.longitude) ?? 0
+        return String(format: "%.1f mi", (toPickup + segment) / 1609.34)
+    }
 
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Map Preview
-                    OrderDetailMapPreview(order: order, locationManager: locationManager)
-                        .frame(height: 200)
-                        .cornerRadius(16)
-                        .padding(.horizontal)
-
-                    // Earnings Card
-                    VStack(spacing: 12) {
-                        Text("Estimated Earnings")
-                            .font(.subheadline)
-                            .foregroundColor(Theme.textSecondary)
-
-                        Text("$\(String(format: "%.2f", order.deliveryFee + order.priorityFee + order.tip))")
-                            .font(.system(size: 44, weight: .bold))
-                            .foregroundColor(Theme.statusActive)
-
-                        HStack(spacing: 20) {
-                            EarningBreakdownItem(label: "Delivery", amount: order.deliveryFee)
-                            if order.priorityFee > 0 {
-                                EarningBreakdownItem(label: "Priority", amount: order.priorityFee)
-                            }
+                    // ============== EARNINGS HERO ==============
+                    VStack(spacing: 6) {
+                        Text("YOU'LL EARN")
+                            .font(.caption.weight(.semibold))
+                            .tracking(1.2)
+                            .foregroundColor(.white.opacity(0.85))
+                        Text("$\(String(format: "%.2f", totalEarnings))")
+                            .font(.system(size: 56, weight: .heavy, design: .rounded))
+                            .foregroundColor(.white)
+                        HStack(spacing: 12) {
                             if order.tip > 0 {
-                                EarningBreakdownItem(label: "Tip", amount: order.tip)
+                                Label("$\(String(format: "%.2f", order.tip)) tip", systemImage: "heart.fill")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 10).padding(.vertical, 4)
+                                    .background(Color.white.opacity(0.2)).cornerRadius(10)
+                                    .foregroundColor(.white)
                             }
+                            Label("100% of fee + tip", systemImage: "checkmark.seal.fill")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 10).padding(.vertical, 4)
+                                .background(Color.white.opacity(0.2)).cornerRadius(10)
+                                .foregroundColor(.white)
                         }
+                        .padding(.top, 4)
                     }
-                    .padding()
-                    .background(Theme.earningsGradient)
-                    .cornerRadius(16)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 28)
+                    .background(LinearGradient(colors: [Theme.statusActive, Theme.brandOrange],
+                                                startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .cornerRadius(20)
                     .padding(.horizontal)
 
-                    // Route Details
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Route")
-                            .font(.headline)
-                            .foregroundColor(Theme.textPrimary)
+                    // ============== ROUTE GLANCE ==============
+                    VStack(spacing: 0) {
+                        // Pickup row
+                        HStack(spacing: 14) {
+                            ZStack {
+                                Circle().fill(Theme.brandOrange).frame(width: 36, height: 36)
+                                Image(systemName: "bag.fill").foregroundColor(.white)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("PICKUP").font(.caption.weight(.bold)).foregroundColor(.secondary).tracking(0.8)
+                                Text(order.restaurant.name).font(.subheadline.weight(.semibold))
+                                Text(order.restaurant.address).font(.caption).foregroundColor(.secondary).lineLimit(1)
+                            }
+                            Spacer()
+                            if let miles = pickupMiles {
+                                Text(miles).font(.caption.weight(.bold)).foregroundColor(Theme.brandOrange)
+                            }
+                        }
+                        .padding()
 
-                        DetailRouteCard(
-                            icon: "bag.fill",
-                            iconColor: Theme.brandOrange,
-                            title: "Pickup",
-                            name: order.restaurant.name,
-                            address: order.restaurant.address
-                        )
+                        // Vertical connector
+                        HStack {
+                            Rectangle().fill(Color.gray.opacity(0.3)).frame(width: 2, height: 16).padding(.leading, 32)
+                            Spacer()
+                        }
 
-                        DetailRouteCard(
-                            icon: "house.fill",
-                            iconColor: Theme.statusActive,
-                            title: "Dropoff",
-                            name: order.customerName,
-                            address: order.deliveryAddress.fullAddress
-                        )
+                        // Dropoff row
+                        HStack(spacing: 14) {
+                            ZStack {
+                                Circle().fill(Theme.statusActive).frame(width: 36, height: 36)
+                                Image(systemName: "house.fill").foregroundColor(.white)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("DROPOFF").font(.caption.weight(.bold)).foregroundColor(.secondary).tracking(0.8)
+                                Text(order.customerName).font(.subheadline.weight(.semibold))
+                                Text(order.deliveryAddress.fullAddress).font(.caption).foregroundColor(.secondary).lineLimit(1)
+                            }
+                            Spacer()
+                            if let total = totalMiles {
+                                Text(total).font(.caption.weight(.bold)).foregroundColor(Theme.statusActive)
+                            }
+                        }
+                        .padding()
                     }
-                    .padding()
                     .background(Theme.cardBackground)
                     .cornerRadius(16)
                     .padding(.horizontal)
 
-                    // Order Items
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Order Items (\(order.itemsCount))")
-                            .font(.headline)
-                            .foregroundColor(Theme.textPrimary)
-
-                        ForEach(order.items) { item in
-                            HStack {
-                                Text("\(item.quantity)x")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(Theme.brandRed)
-                                    .frame(width: 30)
-
-                                Text(item.name)
-                                    .font(.subheadline)
-                                    .foregroundColor(Theme.textPrimary)
-
-                                Spacer()
-                            }
-                            .padding(.vertical, 4)
+                    // ============== AT-A-GLANCE BADGES ==============
+                    HStack(spacing: 10) {
+                        OfferBadge(icon: "bag.fill", text: "\(order.itemsCount) item\(order.itemsCount == 1 ? "" : "s")")
+                        if order.priorityFee > 0 {
+                            OfferBadge(icon: "bolt.fill", text: "Priority +$\(String(format: "%.2f", order.priorityFee))", tint: Theme.statusWarning)
+                        }
+                        if !order.deliveryInstructions.isEmpty {
+                            OfferBadge(icon: "note.text", text: "Instructions", tint: .blue)
                         }
                     }
-                    .padding()
-                    .background(Theme.cardBackground)
-                    .cornerRadius(16)
                     .padding(.horizontal)
 
-                    // Delivery Instructions
-                    if !order.deliveryInstructions.isEmpty {
+                    // ============== SEE MORE (collapsed details) ==============
+                    Button(action: { withAnimation { showDetails.toggle() } }) {
+                        HStack {
+                            Text(showDetails ? "Hide details" : "See items + instructions")
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Image(systemName: showDetails ? "chevron.up" : "chevron.down")
+                        }
+                        .foregroundColor(Theme.brandRed)
+                        .padding()
+                        .background(Theme.cardBackground)
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    .accessibilityLabel(showDetails ? "Hide order details" : "Show order details")
+
+                    if showDetails {
                         VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Image(systemName: "note.text")
-                                    .foregroundColor(Theme.statusWarning)
-                                Text("Delivery Instructions")
-                                    .font(.headline)
+                            Text("Order Items (\(order.itemsCount))").font(.headline)
+                            ForEach(order.items) { item in
+                                HStack {
+                                    Text("\(item.quantity)x").font(.subheadline.weight(.semibold))
+                                        .foregroundColor(Theme.brandRed).frame(width: 30)
+                                    Text(item.name).font(.subheadline)
+                                    Spacer()
+                                }
                             }
-                            .foregroundColor(Theme.textPrimary)
-
-                            Text(order.deliveryInstructions)
-                                .font(.subheadline)
-                                .foregroundColor(Theme.textSecondary)
+                            if !order.deliveryInstructions.isEmpty {
+                                Divider().padding(.vertical, 4)
+                                HStack {
+                                    Image(systemName: "note.text").foregroundColor(.blue)
+                                    Text("Delivery Instructions").font(.headline)
+                                }
+                                Text(order.deliveryInstructions).font(.subheadline).foregroundColor(.secondary)
+                            }
                         }
                         .padding()
                         .background(Theme.cardBackground)
@@ -1138,40 +1192,71 @@ struct OrderDetailSheet: View {
                 .padding(.vertical)
             }
             .background(Theme.backgroundGrey.ignoresSafeArea())
-            .navigationTitle("Order #\(order.orderId)")
+            .navigationTitle("New Delivery")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") { dismiss() }
-                        .accessibilityLabel("Close order details")
+                    Button("Decline") { dismiss() }
+                        .foregroundColor(.secondary)
+                        .accessibilityLabel("Decline order")
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                Button(action: {
-                    viewModel.acceptOrder(order)
-                    dismiss()
-                    // Switch to Active tab after accepting
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        onAccepted?()
+                VStack(spacing: 0) {
+                    Divider()
+                    Button(action: acceptTapped) {
+                        HStack {
+                            if isAccepting {
+                                ProgressView().tint(.white).padding(.trailing, 4)
+                            } else {
+                                Image(systemName: "checkmark.circle.fill")
+                            }
+                            Text(isAccepting ? "Accepting…" : "Accept — $\(String(format: "%.2f", totalEarnings))")
+                                .fontWeight(.bold)
+                        }
+                        .font(.title3)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(Theme.brandRed)
+                        .cornerRadius(16)
                     }
-                }) {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Accept Delivery")
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Theme.brandRed)
-                    .cornerRadius(16)
+                    .background(Theme.cardBackground)
+                    .disabled(isAccepting)
+                    .accessibilityLabel("Accept this delivery for $\(String(format: "%.2f", totalEarnings))")
                 }
-                .accessibilityLabel("Accept this delivery order")
-                .accessibilityHint("Assigns this order to you for delivery")
-                .padding()
-                .background(Theme.cardBackground)
             }
         }
+    }
+
+    private func acceptTapped() {
+        isAccepting = true
+        viewModel.acceptOrder(order)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            isAccepting = false
+            dismiss()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                onAccepted?()
+            }
+        }
+    }
+}
+
+/// Compact badge for the at-a-glance row.
+struct OfferBadge: View {
+    let icon: String
+    let text: String
+    var tint: Color = Theme.textSecondary
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon).font(.caption2)
+            Text(text).font(.caption.weight(.medium))
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(tint.opacity(0.15))
+        .foregroundColor(tint)
+        .cornerRadius(10)
     }
 }
 
