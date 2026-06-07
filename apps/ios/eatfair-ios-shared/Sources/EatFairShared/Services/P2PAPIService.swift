@@ -11011,6 +11011,30 @@ public struct P2PVendorDeliveryAddress: Codable {
     public var resolvedZip: String {
         return zipCode ?? zip ?? ""
     }
+
+    /// quick-367: lenient decoder. The backend has ~14% of orders where
+    /// `delivery_address.latitude` / `.longitude` arrive as STRINGS
+    /// ("32.77") instead of numbers. Swift's default strict decoder
+    /// rejected the field and aborted the WHOLE orders array decode,
+    /// which is why the Restaurant app's History tab showed empty —
+    /// one bad row poisoned all 287. Accept Double, Int, or String here.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        street = try c.decodeIfPresent(String.self, forKey: .street)
+        city = try c.decodeIfPresent(String.self, forKey: .city)
+        state = try c.decodeIfPresent(String.self, forKey: .state)
+        zip = try c.decodeIfPresent(String.self, forKey: .zip)
+        zipCode = try c.decodeIfPresent(String.self, forKey: .zipCode)
+        latitude = Self.lenientDouble(in: c, key: .latitude)
+        longitude = Self.lenientDouble(in: c, key: .longitude)
+    }
+
+    private static func lenientDouble(in c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Double? {
+        if let d = try? c.decodeIfPresent(Double.self, forKey: key) { return d }
+        if let i = try? c.decodeIfPresent(Int.self, forKey: key) { return Double(i) }
+        if let s = try? c.decodeIfPresent(String.self, forKey: key) { return Double(s) }
+        return nil
+    }
 }
 
 /// Driver information for pickup/delivery coordination
