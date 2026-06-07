@@ -418,6 +418,14 @@ struct EnhancedOrderCard: View {
     @State private var deliveryDecisionSeconds: Int = 180
     @State private var deliveryTimer: Timer? = nil
     @State private var showDeliveryPhoto = false
+    @State private var newOrderPulse = false
+
+    /// quick-368: a brand-new order awaiting restaurant acceptance must be
+    /// IMPOSSIBLE to miss. Drives bright border, pulsing scale, and a banner.
+    private var isNewOrder: Bool {
+        let s = order.status.lowercased()
+        return s == "placed" || s == "pending_restaurant"
+    }
 
     // Per-action loading states for SwipeToConfirmButton
     @State private var isAcceptingSendToDriver = false
@@ -537,15 +545,21 @@ struct EnhancedOrderCard: View {
                             .font(.headline)
                             .fontWeight(.bold)
 
-                        if order.status.lowercased() == "placed" || order.status.lowercased() == "pending_restaurant" {
-                            Text("NEW")
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(RestaurantTheme.brandOrange)
-                                .clipShape(Capsule())
+                        if isNewOrder {
+                            HStack(spacing: 4) {
+                                Image(systemName: "bell.badge.fill")
+                                    .font(.caption2)
+                                Text("NEW ORDER")
+                                    .font(.caption.weight(.heavy))
+                                    .tracking(0.5)
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(RestaurantTheme.brandOrange)
+                            .clipShape(Capsule())
+                            .scaleEffect(newOrderPulse ? 1.1 : 1.0)
+                            .accessibilityLabel("New order — needs your acceptance")
                         }
                     }
 
@@ -1426,13 +1440,47 @@ struct EnhancedOrderCard: View {
                 }
             }
         }
-        .background(RestaurantTheme.backgroundPrimary)
+        .background(
+            isNewOrder
+                ? RestaurantTheme.brandOrange.opacity(0.08)
+                : RestaurantTheme.backgroundPrimary
+        )
         .cornerRadius(16)
-        .shadow(color: RestaurantTheme.cardShadow, radius: 8, x: 0, y: 4)
+        .overlay(
+            // quick-368: bright orange border on new orders, pulsing.
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(
+                    isNewOrder ? RestaurantTheme.brandOrange : Color.clear,
+                    lineWidth: isNewOrder ? 3 : 0
+                )
+                .scaleEffect(newOrderPulse ? 1.01 : 1.0)
+        )
+        .shadow(
+            color: isNewOrder ? RestaurantTheme.brandOrange.opacity(0.35) : RestaurantTheme.cardShadow,
+            radius: isNewOrder ? 12 : 8,
+            x: 0,
+            y: 4
+        )
+        .onAppear {
+            if isNewOrder {
+                // Pulse loop + one-shot haptic so a busy kitchen catches it.
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                    newOrderPulse = true
+                }
+                let generator = UINotificationFeedbackGenerator()
+                generator.prepare()
+                generator.notificationOccurred(.warning)
+            }
+        }
         .onChange(of: order.status) { newStatus in
             if newStatus.lowercased() != "pending_delivery_decision" {
                 deliveryTimer?.invalidate()
                 deliveryTimer = nil
+            }
+            // Stop pulsing once the order is no longer "new".
+            let s = newStatus.lowercased()
+            if s != "placed" && s != "pending_restaurant" {
+                newOrderPulse = false
             }
         }
     }
