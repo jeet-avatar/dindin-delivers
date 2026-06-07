@@ -437,9 +437,27 @@ class OrdersViewModel: ObservableObject {
 
     // MARK: - Self-Delivery Flow
 
-    /// Restaurant starts self-delivery — transitions from restaurant_will_deliver to out_for_delivery
+    /// Restaurant starts self-delivery — transitions from restaurant_will_deliver to out_for_delivery.
+    /// quick-370: was calling updateOrderStatus which hits an admin-only endpoint
+    /// (PUT /erp/orders/{id}/status) → vendor token → 401 → button broken silently.
+    /// Now calls POST /erp/orders/{id}/vendor-start-delivery which accepts vendor auth.
     func startDelivery(_ order: Order) {
-        updateOrderStatus(order, newStatus: "OUT_FOR_DELIVERY")
+        guard let idString = order.id, let orderIdInt = Int(idString) else {
+            errorMessage = "Unable to start delivery — invalid order ID."
+            showError = true
+            return
+        }
+        p2pAPI.vendorStartDelivery(orderId: orderIdInt) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self?.fetchP2POrders()
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    self?.showError = true
+                }
+            }
+        }
     }
 
     // MARK: - Delivery Decision Flow (3-minute window)

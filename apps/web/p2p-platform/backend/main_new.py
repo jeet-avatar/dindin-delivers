@@ -16108,6 +16108,7 @@ async def vendor_delivered_alias(order_id: int, vendor: Vendor = Depends(require
     return await order_delivered_for_vendor(order_id, db, vendor)
 
 
+@app.post("/api/erp/orders/{order_id}/vendor-start-delivery")
 @app.post("/erp/orders/{order_id}/vendor-start-delivery")
 async def vendor_start_delivery_alias(order_id: int, vendor: Vendor = Depends(require_vendor), db: Session = Depends(get_db)):
     """quick-370: vendor transitions own self-delivery order from

@@ -3566,6 +3566,38 @@ public class P2PAPIService: ObservableObject {
         }.resume()
     }
 
+    /// quick-370: Restaurant starts self-delivery
+    /// POST /api/erp/orders/{orderId}/vendor-start-delivery
+    /// Replaces the old admin-only PUT /erp/orders/{id}/status?status=OUT_FOR_DELIVERY.
+    public func vendorStartDelivery(
+        orderId: Int,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        guard let url = URL(string: "\(baseURL)/erp/orders/\(orderId)/vendor-start-delivery") else {
+            completion(.failure(P2PAPIError.invalidURL))
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        if let token = vendorToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        secureSession.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error { completion(.failure(error)); return }
+                guard let http = response as? HTTPURLResponse else {
+                    completion(.failure(P2PAPIError.serverError("Invalid response"))); return
+                }
+                if http.statusCode == 200 {
+                    completion(.success(true))
+                } else {
+                    let detail = data.flatMap { String(data: $0, encoding: .utf8) }?.prefix(200) ?? "HTTP \(http.statusCode)"
+                    completion(.failure(P2PAPIError.serverError(String(detail))))
+                }
+            }
+        }.resume()
+    }
+
     /// Restaurant marks self-delivery order as delivered
     /// POST /api/erp/orders/{orderId}/delivered
     public func restaurantCompleteDelivery(
