@@ -46,6 +46,13 @@ class DeliveryViewModel: ObservableObject {
     @Published var deliveryProofImage: UIImage?
     @Published var isUploadingProof = false
 
+    // quick-375: success sheet shown after photo upload — gives the driver
+    // a clear "you earned $X" celebration instead of silently dropping them
+    // back to the Available Orders tab with no acknowledgement.
+    @Published var showDeliverySuccess = false
+    @Published var lastCompletedOrder: Order?
+    @Published var lastCompletedProofImage: UIImage?
+
     // Computed property for average per trip
     var averagePerTrip: Double {
         guard todayCompletedCount > 0 else { return 0.0 }
@@ -495,12 +502,24 @@ class DeliveryViewModel: ObservableObject {
 
                 switch result {
                 case .success:
+                    // quick-375: stash the completed order + photo for the
+                    // success sheet to render before we wipe state.
+                    self?.lastCompletedOrder = order
+                    self?.lastCompletedProofImage = image
+
                     // Delivery completed with proof
                     LocationManager.shared.stopDeliveryTracking()
                     self?.pendingDeliveryOrder = nil
                     self?.deliveryProofImage = nil
-                    self?.showDeliveryProofCamera = false
+                    self?.showDeliveryProofCamera = false   // Dismiss camera sheet first
                     self?.refreshAllData()
+
+                    // Trigger success sheet on next run-loop tick — SwiftUI can't
+                    // present two sheets simultaneously from the same parent, so
+                    // we must wait for the proof camera to fully dismiss first.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        self?.showDeliverySuccess = true
+                    }
 
                 case .failure(let error):
                     self?.showErrorMessage("Failed to upload proof photo. Please try again.")
@@ -508,6 +527,13 @@ class DeliveryViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    /// quick-375: called by the success sheet's Done button.
+    func dismissDeliverySuccess() {
+        showDeliverySuccess = false
+        lastCompletedOrder = nil
+        lastCompletedProofImage = nil
     }
 
     /// Cancel the proof photo flow without completing delivery

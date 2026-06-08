@@ -30,6 +30,28 @@ class OrdersViewModel: ObservableObject {
     }
     @Published var fetchState: FetchState = .idle
 
+    /// quick-376: when an order transitions to "delivered" between polls,
+    /// stash it so the dashboard can pop a "Payout received" toast. Set
+    /// to nil after the toast dismisses.
+    @Published var newlyDeliveredOrder: Order?
+
+    /// quick-376: snapshot of order_id → status from the previous poll,
+    /// used to detect status transitions (esp. anything → delivered).
+    private var previousStatusByOrderId: [String: String] = [:]
+
+    /// Estimated payout the restaurant earned on a delivered order.
+    /// Subtotal minus $1 platform fee minus discount (matches backend
+    /// RESTAURANT_PLATFORM_FEE rule).
+    func estimatedPayout(for order: Order) -> Double {
+        let subtotal = order.subtotal
+        let discount = order.discount
+        return max(0, subtotal - discount - 1.0)
+    }
+
+    func dismissDeliveredToast() {
+        newlyDeliveredOrder = nil
+    }
+
     // MARK: - AI Insights
     @Published var averagePrepTime: Int = 20 // Will be updated from config or calculated
     @Published var busyLevel: BusyLevel = .normal
@@ -271,6 +293,27 @@ class OrdersViewModel: ObservableObject {
                     let rawCount = p2pVendorOrders.count
                     if mappedCount != rawCount {
                         logger.warning("[fetchP2POrders] count mismatch: server=\(rawCount), mapped=\(mappedCount)")
+                    }
+
+                    // quick-376: detect any order that transitioned to
+                    // "delivered" since the last poll. Pop the toast for the
+                    // first one found — keeps state simple and the toast
+                    // queues naturally on the next poll if there are more.
+                    let prev = self.previousStatusByOrderId
+                    let justDelivered = mapped.first { order in
+                        let oid = order.id ?? ""
+                        guard !oid.isEmpty else { return false }
+                        let priorStatus = prev[oid]?.lowercased() ?? ""
+                        let nowStatus = order.status.lowercased()
+                        return nowStatus == "delivered" && priorStatus != "delivered" && !priorStatus.isEmpty
+                    }
+                    self.previousStatusByOrderId = Dictionary(uniqueKeysWithValues:
+                        mapped.compactMap { o -> (String, String)? in
+                            guard let oid = o.id, !oid.isEmpty else { return nil }
+                            return (oid, o.status)
+                        })
+                    if let delivered = justDelivered {
+                        self.newlyDeliveredOrder = delivered
                     }
 
                     self.allOrders = mapped

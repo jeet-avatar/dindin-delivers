@@ -71,6 +71,12 @@ struct PickupDropoffView: View {
         .sheet(isPresented: $viewModel.showDeliveryProofCamera) {
             DeliveryProofSheet(viewModel: viewModel)
         }
+        // quick-375: success / earnings receipt sheet after the photo uploads.
+        // Previously the proof sheet just dismissed and dumped the driver back
+        // to Available Orders with no acknowledgement that they earned money.
+        .sheet(isPresented: $viewModel.showDeliverySuccess) {
+            DeliverySuccessSheet(viewModel: viewModel)
+        }
     }
 }
 

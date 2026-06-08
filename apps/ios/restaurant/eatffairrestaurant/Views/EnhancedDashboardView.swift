@@ -165,6 +165,28 @@ struct OrdersDashboardView: View {
             } message: {
                 Text(ordersVM.successMessage)
             }
+            // quick-376: "payout received" toast — pops when any order
+            // transitions to delivered between polls (detected in fetchP2POrders).
+            .overlay(alignment: .top) {
+                if let delivered = ordersVM.newlyDeliveredOrder {
+                    DeliveredPayoutToast(order: delivered,
+                                          payout: ordersVM.estimatedPayout(for: delivered),
+                                          onDismiss: { ordersVM.dismissDeliveredToast() })
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: ordersVM.newlyDeliveredOrder?.id)
+                        .onAppear {
+                            // Auto-dismiss after 5 seconds.
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                                if ordersVM.newlyDeliveredOrder?.id == delivered.id {
+                                    ordersVM.dismissDeliveredToast()
+                                }
+                            }
+                            // Haptic punch so a busy kitchen feels it.
+                            let g = UINotificationFeedbackGenerator()
+                            g.notificationOccurred(.success)
+                        }
+                }
+            }
         }
     }
 
@@ -2580,6 +2602,53 @@ struct SwipeToConfirmButton: View {
             }
         }
         .frame(height: 58)
+    }
+}
+
+// MARK: - quick-376: Delivered Payout Toast
+struct DeliveredPayoutToast: View {
+    let order: Order
+    let payout: Double
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle().fill(RestaurantTheme.brandGreen).frame(width: 48, height: 48)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.white)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("DOLL\(order.orderId.replacingOccurrences(of: "DOLL", with: "")) delivered")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primary)
+                Text("Payout: $\(String(format: "%.2f", payout)) → your bank")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title3)
+                    .foregroundColor(.gray.opacity(0.6))
+            }
+            .accessibilityLabel("Dismiss payout notification")
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(.regularMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(RestaurantTheme.brandGreen.opacity(0.3), lineWidth: 1))
+                .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
+        )
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Order delivered. Payout $\(String(format: "%.2f", payout)) sent to your bank.")
     }
 }
 

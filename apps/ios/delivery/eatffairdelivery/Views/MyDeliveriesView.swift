@@ -175,6 +175,10 @@ struct MyDeliveriesView: View {
         .sheet(isPresented: $viewModel.showDeliveryProofCamera) {
             DeliveryProofSheet(viewModel: viewModel)
         }
+        // quick-375: success sheet after proof photo uploads.
+        .sheet(isPresented: $viewModel.showDeliverySuccess) {
+            DeliverySuccessSheet(viewModel: viewModel)
+        }
     }
 }
 
