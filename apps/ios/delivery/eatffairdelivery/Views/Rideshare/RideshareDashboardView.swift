@@ -103,14 +103,32 @@ struct RideshareDashboardView: View {
             .sheet(isPresented: $showPayoutDashboard) {
                 PayoutDashboardView()
             }
+            // quick-377: when the driver has a matched ride, take over the full
+            // screen with the ActiveRideView automatically. No more "go to
+            // Active tab → tap the card to find the I've-arrived button."
+            // When activeRides becomes empty (ride completed), the cover
+            // auto-dismisses back to the dashboard. Reuses existing
+            // ActiveRideView + RideBiddingViewModel — no new endpoints.
+            .fullScreenCover(isPresented: Binding(
+                get: { !viewModel.activeRides.isEmpty },
+                set: { _ in /* driver cannot dismiss — must complete ride */ }
+            )) {
+                if let activeBid = viewModel.activeRides.first {
+                    NavigationStack {
+                        ActiveRideView(bid: activeBid, viewModel: viewModel)
+                    }
+                    .interactiveDismissDisabled(true)
+                }
+            }
             .onAppear {
                 viewModel.refreshData()
             }
             .onChange(of: viewModel.hasNewAcceptedRide) { _, isNew in
                 if isNew {
-                    withAnimation(.spring(response: 0.3)) {
-                        selectedTab = .active
-                    }
+                    // quick-377: clear the flag — the fullScreenCover above
+                    // already auto-presents based on activeRides. Tab switch
+                    // is no longer needed since the active ride view takes
+                    // over the screen entirely.
                     viewModel.hasNewAcceptedRide = false
                 }
             }
