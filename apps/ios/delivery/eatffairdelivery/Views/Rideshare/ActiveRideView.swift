@@ -744,6 +744,10 @@ struct ActiveRideView: View {
         let previousStatus = rideStatus
         rideStatus = .inProgress
         viewModel.startRide(bid)
+        // quick-378: when the trip starts, auto-launch Apple Maps with the
+        // dropoff destination so the driver gets turn-by-turn nav without
+        // hunting for a button. Matches Uber/DoorDash pattern.
+        openNavigation()
         // Revert on error after API response
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             if viewModel.showError {
