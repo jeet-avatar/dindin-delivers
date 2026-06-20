@@ -438,6 +438,7 @@ None
 | 290 | add blog section to VishMed with 40 SEO-optimized posts across 6 categories with naturally spread historical dates | 2026-04-16 | 0d4aca9c | [290-add-blog-section-to-vishmed-with-40-seo-](./quick/290-add-blog-section-to-vishmed-with-40-seo-/) |
 | 291 | Build AI Architecture Playground as free lead-gen tool on TechCloudPro | 2026-04-17 | bc42fb59 | [291-build-ai-architecture-playground-as-free](./quick/291-build-ai-architecture-playground-as-free/) |
 | 357 | fix vendor-id precedence on vendor login — prefer user.vendor_id over user.id; merge top-level vendor_id+business_name from /api/auth/vendor/login response into stored user. Prod verified: vendor_id=40 top-level, Profile/Menu/Earnings/AIInsights now query vendor 40 instead of user 125 | 2026-06-05 | 6acd8223 | [357-fix-vendor-id-precedence-on-vendor-login](./quick/357-fix-vendor-id-precedence-on-vendor-login/) |
+| 358 | A/B test arthaBuild BRD generation: Qwen/Ollama vs Claude/Bedrock (non-prod harness). Replayed real intake 2eb5e3be through full pipeline per provider w/ guardrails on both. Result: Claude 143KB/59 sections vs Qwen 50KB/31 sections; "fab_vendor" traps were false positives (ABH/GSTIN/VIP) on both, no real hallucination delta; Claude ~17min vs Qwen ~2min. Code on arthaBuild EC2 (BRD_LLM_PROVIDER switch, default ollama); NO deploy/IAM/GPU change. | 2026-06-19 | _pending_ | [358-a-b-test-brd-generation-qwen-ollama-vs-c](./quick/358-a-b-test-brd-generation-qwen-ollama-vs-c/) |
 ## Session Continuity
 
 Last session: 2026-04-15
