@@ -41,6 +41,7 @@ import DriverApplication from './app/screens/public/DriverApplication';
 import HelpSupport from './app/screens/public/HelpSupport';
 import ReferAndEarn from './app/screens/public/ReferAndEarn';
 import RefundPolicy from './app/screens/public/RefundPolicy';
+import ZeroTolerancePolicy from './app/screens/public/ZeroTolerancePolicy';
 import InvestorDeck from './app/screens/public/InvestorDeck';
 import InvestorDeck2026 from './app/screens/public/InvestorDeck2026';
 
@@ -151,6 +152,8 @@ function App() {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/refund" element={<RefundPolicy />} />
         <Route path="/refunds" element={<RefundPolicy />} />
+        <Route path="/zero-tolerance" element={<ZeroTolerancePolicy />} />
+        <Route path="/safety" element={<ZeroTolerancePolicy />} />
         <Route path="/help" element={<HelpSupport />} />
         <Route path="/support" element={<HelpSupport />} />
         <Route path="/refer" element={<ReferAndEarn />} />

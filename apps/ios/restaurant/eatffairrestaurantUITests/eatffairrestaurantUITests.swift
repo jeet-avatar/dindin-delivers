@@ -383,9 +383,9 @@ final class eatffairrestaurantUITests: XCTestCase {
         let brandName = app.staticTexts["Dollor AI Restaurant"]
         XCTAssertTrue(brandName.waitForExistence(timeout: 5), "Brand name should match Android: 'Dollor AI Restaurant'")
 
-        // Logo should exist
-        let logo = app.staticTexts["$"]
-        XCTAssertTrue(logo.waitForExistence(timeout: 5), "Dollar sign logo should exist like Android")
+        // Logo is the LaunchIcon image (replaced the old "$" text logo)
+        let logo = app.images.firstMatch
+        XCTAssertTrue(logo.waitForExistence(timeout: 5), "App logo image should exist like Android")
     }
 }
 

@@ -424,6 +424,7 @@ const LandingPage: React.FC = () => {
               <h4>Company</h4>
               <Link to="/terms">Terms of Service</Link>
               <Link to="/privacy">Privacy Policy</Link>
+              <Link to="/zero-tolerance">Zero Tolerance Policy</Link>
               <a href="mailto:support@dollor.ai">Contact Us</a>
             </div>
             <div className="footer-links-group">

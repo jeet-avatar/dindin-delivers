@@ -73,8 +73,19 @@ struct SafetyReportSheet: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Divider()
+                        Text("Dollor.ai has a zero-tolerance policy for drug or alcohol use by drivers. Report a suspected violation with this form, by phone, or by email:")
+                            .font(.caption).foregroundColor(.secondary)
+                        HStack {
+                            Image(systemName: "phone.fill").font(.caption)
+                            Text("+1-800-365-5671").font(.caption.weight(.medium))
+                        }
+                        HStack {
+                            Image(systemName: "envelope.fill").font(.caption)
+                            Text("support@dollor.ai").font(.caption.weight(.medium))
+                        }
                         Text("You may also contact CPUC directly:")
                             .font(.caption).foregroundColor(.secondary)
+                            .padding(.top, 4)
                         HStack {
                             Image(systemName: "phone.fill").font(.caption)
                             Text("1-800-894-9444").font(.caption.weight(.medium))
