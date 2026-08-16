@@ -18,3 +18,16 @@
 .ant-spin-text {
     color: #ff2902 !important;
 }
+
+/* WCAG 2.1 AA color-contrast fixes (axe-core findings on public/legal pages).
+   antd defaults render secondary text and breadcrumb links below the 4.5:1
+   minimum contrast ratio on white backgrounds. */
+.legal-page .ant-typography .ant-typography-secondary,
+.legal-page .ant-typography-secondary {
+    color: #595959 !important;
+}
+.legal-page .ant-breadcrumb a,
+.legal-page .ant-breadcrumb li:last-child,
+.legal-page .ant-breadcrumb-link {
+    color: #434343 !important;
+}
