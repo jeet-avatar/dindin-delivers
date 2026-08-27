@@ -262,6 +262,169 @@ ABLETON_TOOLS = [
         "description": "Get a full snapshot of the current Ableton session: tempo, track count, track names, playing status. Use this to understand the current state before making changes.",
         "input_schema": {"type": "object", "properties": {}},
     },
+
+    # --- Structure: create / duplicate / delete tracks & scenes ---
+    {
+        "name": "create_midi_track",
+        "description": "Create a new MIDI track (for instruments/drums). Use this to build the track architecture before loading instruments.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "index": {"type": "integer", "description": "Position to insert at. Use -1 to append at the end (default)."}
+            },
+        },
+    },
+    {
+        "name": "create_audio_track",
+        "description": "Create a new audio track.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "index": {"type": "integer", "description": "Position to insert at. Use -1 to append at the end (default)."}
+            },
+        },
+    },
+    {
+        "name": "create_return_track",
+        "description": "Create a new return track (for shared reverb/delay sends). Load a reverb or delay onto it, then use set_track_send to route dry tracks into it.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "create_scene",
+        "description": "Create a new scene (a horizontal row of clip slots). Scenes are used as SONG SECTIONS: intro, build, drop, breakdown, outro. Build a full arrangement by giving each section its own scene.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "index": {"type": "integer", "description": "Position to insert at. Use -1 to append at the end (default)."}
+            },
+        },
+    },
+    {
+        "name": "duplicate_track",
+        "description": "Duplicate a track (including its devices and clips). Fast way to create a variation of an element.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index to duplicate"}
+            },
+            "required": ["track"],
+        },
+    },
+    {
+        "name": "duplicate_scene",
+        "description": "Duplicate a scene (all its clips). The primary way to build song progression: duplicate a section, then modify the copy to create the next section (e.g., duplicate the drop, mute elements to make a breakdown).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "scene": {"type": "integer", "description": "Scene index to duplicate"}
+            },
+            "required": ["scene"],
+        },
+    },
+    {
+        "name": "duplicate_clip",
+        "description": "Copy a clip from one slot to another (e.g., reuse a hi-hat pattern across sections).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Source track index"},
+                "scene": {"type": "integer", "description": "Source scene index"},
+                "target_track": {"type": "integer", "description": "Destination track index"},
+                "target_scene": {"type": "integer", "description": "Destination scene index"},
+            },
+            "required": ["track", "scene", "target_track", "target_scene"],
+        },
+    },
+    {
+        "name": "delete_track",
+        "description": "Delete a track by index.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index to delete"}
+            },
+            "required": ["track"],
+        },
+    },
+    {
+        "name": "delete_scene",
+        "description": "Delete a scene by index.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "scene": {"type": "integer", "description": "Scene index to delete"}
+            },
+            "required": ["scene"],
+        },
+    },
+    {
+        "name": "delete_clip",
+        "description": "Delete the clip in a specific slot.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index"},
+                "scene": {"type": "integer", "description": "Scene index"},
+            },
+            "required": ["track", "scene"],
+        },
+    },
+    {
+        "name": "clear_notes",
+        "description": "Remove ALL MIDI notes from a clip so you can rewrite the pattern. Use before re-adding notes when fixing a pattern.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index"},
+                "scene": {"type": "integer", "description": "Scene index"},
+            },
+            "required": ["track", "scene"],
+        },
+    },
+
+    # --- Sample / browser loading ---
+    {
+        "name": "list_browser",
+        "description": "List the items available in a browser category so you can pick real names before loading. Categories: samples, sounds, drums, instruments, audio_effects, midi_effects, plugins.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "category": {"type": "string", "description": "One of: samples, sounds, drums, instruments, audio_effects, midi_effects, plugins"}
+            },
+            "required": ["category"],
+        },
+    },
+    {
+        "name": "load_sample",
+        "description": "Load a raw sample (from the user's sample packs) onto a MIDI track. Live wraps it in a Simpler so it can be triggered by MIDI notes. Great for signature kicks, rumbles, vocal chops, or one-shots. Use list_browser('samples') first to find exact names.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index to load the sample onto"},
+                "sample_name": {"type": "string", "description": "Name of the sample (as shown in the browser)"},
+            },
+            "required": ["track", "sample_name"],
+        },
+    },
+
+    # --- Performed automation (movement) ---
+    {
+        "name": "automate_parameter",
+        "description": "Create MOVEMENT by ramping a device parameter over time during playback (filter sweep, riser, reverb throw, build-up). This is performed in real time (not a stored clip envelope). Start playback first, then call this. Example: sweep an Auto Filter cutoff up over 8 beats for a build.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index"},
+                "device": {"type": "integer", "description": "Device index on the track"},
+                "parameter": {"type": "integer", "description": "Parameter INDEX to automate"},
+                "from_value": {"type": "number", "description": "Starting parameter value (0.0-1.0 typical)"},
+                "to_value": {"type": "number", "description": "Ending parameter value (0.0-1.0 typical)"},
+                "duration_seconds": {"type": "number", "description": "How long the ramp takes, in seconds"},
+                "steps": {"type": "integer", "description": "Number of intermediate steps (higher = smoother). 16-64 typical."},
+            },
+            "required": ["track", "device", "parameter", "from_value", "to_value", "duration_seconds", "steps"],
+        },
+    },
 ]
 
 
@@ -299,13 +462,15 @@ def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
         case "set_track_send":
             return [{"address": "/live/track/set/send", "args": [tool_input["track"], tool_input["send"], tool_input["value"]]}]
 
-        # Instrument/effect loading
+        # Instrument/effect loading — load_device searches all categories by name,
+        # so pass the leaf name (e.g. "DS Kick" from "Drums/Drum Hits/DS Kick").
         case "load_instrument" | "load_effect":
-            uri = tool_input.get("instrument_uri") or tool_input.get("effect_uri")
+            uri = tool_input.get("instrument_uri") or tool_input.get("effect_uri") or ""
+            device_name = uri.split("/")[-1]
             track = tool_input["track"]
             return [
                 {"address": "/live/view/set/selected_track", "args": [track]},
-                {"address": "/live/browser/load_path", "args": [uri], "delay": 0.5},
+                {"address": "/live/browser/load_device", "args": [device_name], "delay": 0.5},
             ]
 
         # Device parameters
@@ -354,6 +519,63 @@ def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
                 {"address": "/live/song/get/is_playing", "args": [], "query": True},
             ]
 
+        # Structure: create / duplicate / delete tracks & scenes
+        case "create_midi_track":
+            return [{"address": "/live/song/create_midi_track", "args": [tool_input.get("index", -1)]}]
+        case "create_audio_track":
+            return [{"address": "/live/song/create_audio_track", "args": [tool_input.get("index", -1)]}]
+        case "create_return_track":
+            return [{"address": "/live/song/create_return_track", "args": []}]
+        case "create_scene":
+            return [{"address": "/live/song/create_scene", "args": [tool_input.get("index", -1)]}]
+        case "duplicate_track":
+            return [{"address": "/live/song/duplicate_track", "args": [tool_input["track"]]}]
+        case "duplicate_scene":
+            return [{"address": "/live/song/duplicate_scene", "args": [tool_input["scene"]]}]
+        case "duplicate_clip":
+            return [{"address": "/live/clip_slot/duplicate_clip_to", "args": [
+                tool_input["track"], tool_input["scene"],
+                tool_input["target_track"], tool_input["target_scene"],
+            ]}]
+        case "delete_track":
+            return [{"address": "/live/song/delete_track", "args": [tool_input["track"]]}]
+        case "delete_scene":
+            return [{"address": "/live/song/delete_scene", "args": [tool_input["scene"]]}]
+        case "delete_clip":
+            return [{"address": "/live/clip_slot/delete_clip", "args": [tool_input["track"], tool_input["scene"]]}]
+        case "clear_notes":
+            # No extra args after [track, scene] removes all notes in the clip.
+            return [{"address": "/live/clip/remove/notes", "args": [tool_input["track"], tool_input["scene"]]}]
+
+        # Sample / browser loading
+        case "list_browser":
+            return [{"address": "/live/browser/list", "args": [tool_input["category"]], "query": True}]
+        case "load_sample":
+            track = tool_input["track"]
+            return [
+                {"address": "/live/view/set/selected_track", "args": [track]},
+                {"address": "/live/browser/load_sample", "args": [tool_input["sample_name"]], "delay": 0.5},
+            ]
+
+        # Performed automation: ramp a parameter over time via delayed messages
+        case "automate_parameter":
+            track = tool_input["track"]
+            device = tool_input["device"]
+            parameter = tool_input["parameter"]
+            from_value = tool_input["from_value"]
+            to_value = tool_input["to_value"]
+            steps = max(1, int(tool_input["steps"]))
+            step_delay = float(tool_input["duration_seconds"]) / steps
+            commands = []
+            for i in range(steps + 1):
+                value = from_value + (to_value - from_value) * (i / steps)
+                commands.append({
+                    "address": "/live/device/set/parameter/value",
+                    "args": [track, device, parameter, value],
+                    "delay": step_delay,
+                })
+            return commands
+
         case _:
             raise ValueError(f"Unknown tool: {tool_name}")
 
@@ -363,9 +585,12 @@ SYSTEM_PROMPT = """You are an expert music producer and Ableton Live specialist.
 
 ## Your Capabilities
 - Create full tracks from natural language descriptions ("Make me an Afro House track")
+- Build the track architecture yourself: create MIDI/audio/return tracks and scenes
 - Add/modify individual elements (drums, bass, synths, effects)
+- Load the user's own sample packs (list_browser -> load_sample) for signature sounds
 - Mix and master tracks (volume, panning, EQ, compression)
-- Arrange songs with intros, builds, drops, breakdowns, outros
+- Arrange full songs across scenes: intro, build, drop, breakdown, outro
+- Add movement with performed automation (filter sweeps, risers, reverb throws)
 
 ## Production Knowledge
 
@@ -402,13 +627,42 @@ SYSTEM_PROMPT = """You are an expert music producer and Ableton Live specialist.
 - Use 0.008s delay between OSC messages, 0.05s between note batches
 - Monitoring must be Off (state=2) for clip playback on browser-created tracks
 
+### Full Track Arrangement (scenes = song sections)
+Do NOT stop at a single looping scene — that is a loop, not a track. Build sections as
+separate scenes and progress through them:
+1. INTRO — kick + hats + atmosphere; sparse
+2. BUILD — add bass/perc, ramp energy (use automate_parameter for a filter/riser sweep)
+3. DROP — full arrangement, all elements, maximum energy
+4. BREAKDOWN — duplicate the drop scene, then mute drums/bass, feature pads/lead + reverb
+5. SECOND DROP — reintroduce elements, add a variation
+6. OUTRO — strip back to kick + hats, fade elements out
+Fastest way to build sections: duplicate_scene from an existing section, then modify the copy
+(mute elements, change a pattern, load a variation). Use duplicate_clip to reuse patterns.
+
+### Using the User's Sample Packs
+The user has many sample packs loaded. For signature sounds (custom kick, rumble, vocal chop,
+one-shot), call list_browser("samples") to see real names, then load_sample(track, name) onto a
+MIDI track — Live wraps it in a Simpler you can trigger with add_notes.
+
+### Adding Movement (performed automation)
+Static loops sound flat. Use automate_parameter to ramp a parameter over time DURING playback
+(start playback first). Classic techno moves:
+- Build riser: sweep an Auto Filter cutoff from low to high over 8-16 beats
+- Reverb throw: ramp a reverb Dry/Wet up briefly on a snare hit
+- Filter breakdown: close a low-pass filter over a bar as the drop ends
+This is performed in real time, not a stored envelope, so trigger it at the right moment.
+
 ## Workflow
 1. First call get_session_state to understand the current project
 2. Set tempo for the genre
-3. Create tracks with appropriate instruments and effects chains
-4. Create clips with MIDI notes (patterns appropriate to genre)
-5. Set mix levels (volume, pan)
-6. Fire the scene to play
+3. Create the tracks you need (create_midi_track) and load instruments/samples + effect chains
+4. Create scenes for each song section (create_scene)
+5. Create clips with MIDI notes (patterns appropriate to genre); use clear_notes to rewrite
+6. Set mix levels (volume, pan) in proportion
+7. Duplicate + modify scenes to arrange intro/build/drop/breakdown/outro
+8. Fire scenes to play; add automate_parameter movement at builds and transitions
 
-When the user asks you to create music, think about what genre best fits, plan the track architecture, then execute step by step. Explain what you're doing as you go.
+When the user asks you to create music, think about what genre best fits, plan the FULL
+arrangement (not just one loop), build the architecture, then execute step by step. Explain
+what you're doing as you go.
 """
