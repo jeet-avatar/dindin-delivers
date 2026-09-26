@@ -265,3 +265,34 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
   left playing. No full Arrangement, sidechain or subjective approval claimed.
 - Experiment script syntax checked and archived. No application deployment or
   application regression test run; local Ableton recordings remain outside Git.
+
+## Full Arrangement and Timing Verification
+
+- Created separate Original Groove - Full Arrangement 02.als from the saved
+  eight-part Session set: 92 Arrangement clips, 128 musical bars plus four-bar
+  tail, 122 BPM, duration 259.672 seconds. Source Session clips retained.
+- Added staggered entrances, sparse responses, two builds/main sections,
+  breakdown, stripped outro, keys/pad filter automation, pad balance changes,
+  and Main tail fade. No extracted reference music or new samples added.
+- Found and corrected a real first-draft error: generation removed the source
+  Swing 16ths 66 assignment. All arranged clips now preserve groove ID 4.
+  Native OSC readback checks all clip starts and lengths; structured checks
+  confirm shared loop origin, eight-bar alignment and non-overlap. Old draft
+  renamed Superseded Draft 01; original Session and before-state files retained.
+- Initial section auditions restarted/resumed at unintended positions. Those
+  captures are invalid as section evidence. A later continuous live capture
+  made no transport changes and verified beat 302.482 -> 337.293, actual audio,
+  no Session override, and active keys/pad automation. Playback started from
+  bar 1 for the user, loop off, no muted/soloed tracks, Arrangement visible.
+- Full native Main export: stereo 44.1 kHz 16-bit WAV with triangular dither,
+  normalize off, render-as-loop off, 132 bars. 320 kbps MP3 derived without
+  gain changes. Audio files remain local, not committed.
+- Full render audit: duration within one sample of 528 beats, zero clipping,
+  peak -4.78 dBFS, true peak -4.7 dBTP, -17.6 LUFS, LRA 7.8 LU. Musical
+  sections all have signal; final-second RMS -96.33 dBFS. 64 intro low-band
+  kick attacks have max relative deviation 2.87 ms and measured drift -0.41 ms.
+- Preserved generator, continuous-output test, structured audio-audit script,
+  arrangement manifest and measured audit as experiments. This does not deploy
+  Arrangement editing into BeatMind chat or fix the production bridge's large
+  rack UDP limit. No application regression suite run. Subjective user approval
+  and release mastering are not claimed.

@@ -1,0 +1,948 @@
+{
+  "source_sha256": "41e0042f402652333e212e936141806233a17f8a0e3a5830fa8fb997b023aa82",
+  "bpm": 122,
+  "bars_of_music": 128,
+  "tail_bars": 4,
+  "duration_seconds": 259.672131147541,
+  "reference_audio_used": false,
+  "clips": [
+    {
+      "track": 0,
+      "section": "Intro - Foundation",
+      "start_beat": 0,
+      "end_beat": 32,
+      "mode": "soft",
+      "notes": 32
+    },
+    {
+      "track": 0,
+      "section": "Intro - Texture",
+      "start_beat": 32,
+      "end_beat": 64,
+      "mode": "full",
+      "notes": 32
+    },
+    {
+      "track": 0,
+      "section": "Groove - Bass Enters",
+      "start_beat": 64,
+      "end_beat": 96,
+      "mode": "full",
+      "notes": 32
+    },
+    {
+      "track": 0,
+      "section": "Groove - Keys Enter",
+      "start_beat": 96,
+      "end_beat": 128,
+      "mode": "full",
+      "notes": 32
+    },
+    {
+      "track": 0,
+      "section": "Lift - Opening",
+      "start_beat": 128,
+      "end_beat": 160,
+      "mode": "full",
+      "notes": 32
+    },
+    {
+      "track": 0,
+      "section": "Build - First Return",
+      "start_beat": 160,
+      "end_beat": 192,
+      "mode": "gap",
+      "notes": 31
+    },
+    {
+      "track": 0,
+      "section": "Main I - Lead",
+      "start_beat": 192,
+      "end_beat": 224,
+      "mode": "full",
+      "notes": 32
+    },
+    {
+      "track": 0,
+      "section": "Main I - Response",
+      "start_beat": 224,
+      "end_beat": 256,
+      "mode": "gap",
+      "notes": 31
+    },
+    {
+      "track": 0,
+      "section": "Build - Final Return",
+      "start_beat": 320,
+      "end_beat": 352,
+      "mode": "build",
+      "notes": 31
+    },
+    {
+      "track": 0,
+      "section": "Main II - Return",
+      "start_beat": 352,
+      "end_beat": 384,
+      "mode": "full",
+      "notes": 32
+    },
+    {
+      "track": 0,
+      "section": "Main II - Response",
+      "start_beat": 384,
+      "end_beat": 416,
+      "mode": "full",
+      "notes": 32
+    },
+    {
+      "track": 0,
+      "section": "Release - Groove",
+      "start_beat": 416,
+      "end_beat": 448,
+      "mode": "full",
+      "notes": 32
+    },
+    {
+      "track": 0,
+      "section": "Outro - Strip Back",
+      "start_beat": 448,
+      "end_beat": 480,
+      "mode": "full",
+      "notes": 32
+    },
+    {
+      "track": 0,
+      "section": "Outro - Last Pulse",
+      "start_beat": 480,
+      "end_beat": 512,
+      "mode": "exit-half",
+      "notes": 16
+    },
+    {
+      "track": 1,
+      "section": "Groove - Bass Enters",
+      "start_beat": 64,
+      "end_beat": 96,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 1,
+      "section": "Groove - Keys Enter",
+      "start_beat": 96,
+      "end_beat": 128,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 1,
+      "section": "Lift - Opening",
+      "start_beat": 128,
+      "end_beat": 160,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 1,
+      "section": "Build - First Return",
+      "start_beat": 160,
+      "end_beat": 192,
+      "mode": "gap",
+      "notes": 29
+    },
+    {
+      "track": 1,
+      "section": "Main I - Lead",
+      "start_beat": 192,
+      "end_beat": 224,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 1,
+      "section": "Main I - Response",
+      "start_beat": 224,
+      "end_beat": 256,
+      "mode": "gap",
+      "notes": 29
+    },
+    {
+      "track": 1,
+      "section": "Build - Final Return",
+      "start_beat": 320,
+      "end_beat": 352,
+      "mode": "enter-half",
+      "notes": 14
+    },
+    {
+      "track": 1,
+      "section": "Main II - Return",
+      "start_beat": 352,
+      "end_beat": 384,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 1,
+      "section": "Main II - Response",
+      "start_beat": 384,
+      "end_beat": 416,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 1,
+      "section": "Release - Groove",
+      "start_beat": 416,
+      "end_beat": 448,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 1,
+      "section": "Outro - Strip Back",
+      "start_beat": 448,
+      "end_beat": 480,
+      "mode": "soft",
+      "notes": 30
+    },
+    {
+      "track": 2,
+      "section": "Intro - Foundation",
+      "start_beat": 0,
+      "end_beat": 32,
+      "mode": "sparse",
+      "notes": 16
+    },
+    {
+      "track": 2,
+      "section": "Intro - Texture",
+      "start_beat": 32,
+      "end_beat": 64,
+      "mode": "sparse",
+      "notes": 16
+    },
+    {
+      "track": 2,
+      "section": "Groove - Bass Enters",
+      "start_beat": 64,
+      "end_beat": 96,
+      "mode": "full",
+      "notes": 42
+    },
+    {
+      "track": 2,
+      "section": "Groove - Keys Enter",
+      "start_beat": 96,
+      "end_beat": 128,
+      "mode": "full",
+      "notes": 42
+    },
+    {
+      "track": 2,
+      "section": "Lift - Opening",
+      "start_beat": 128,
+      "end_beat": 160,
+      "mode": "full",
+      "notes": 42
+    },
+    {
+      "track": 2,
+      "section": "Build - First Return",
+      "start_beat": 160,
+      "end_beat": 192,
+      "mode": "gap",
+      "notes": 40
+    },
+    {
+      "track": 2,
+      "section": "Main I - Lead",
+      "start_beat": 192,
+      "end_beat": 224,
+      "mode": "full",
+      "notes": 42
+    },
+    {
+      "track": 2,
+      "section": "Main I - Response",
+      "start_beat": 224,
+      "end_beat": 256,
+      "mode": "full",
+      "notes": 42
+    },
+    {
+      "track": 2,
+      "section": "Build - Final Return",
+      "start_beat": 320,
+      "end_beat": 352,
+      "mode": "build",
+      "notes": 40
+    },
+    {
+      "track": 2,
+      "section": "Main II - Return",
+      "start_beat": 352,
+      "end_beat": 384,
+      "mode": "full",
+      "notes": 42
+    },
+    {
+      "track": 2,
+      "section": "Main II - Response",
+      "start_beat": 384,
+      "end_beat": 416,
+      "mode": "full",
+      "notes": 42
+    },
+    {
+      "track": 2,
+      "section": "Release - Groove",
+      "start_beat": 416,
+      "end_beat": 448,
+      "mode": "full",
+      "notes": 42
+    },
+    {
+      "track": 2,
+      "section": "Outro - Strip Back",
+      "start_beat": 448,
+      "end_beat": 480,
+      "mode": "full",
+      "notes": 42
+    },
+    {
+      "track": 2,
+      "section": "Outro - Last Pulse",
+      "start_beat": 480,
+      "end_beat": 512,
+      "mode": "fade",
+      "notes": 42
+    },
+    {
+      "track": 3,
+      "section": "Groove - Keys Enter",
+      "start_beat": 96,
+      "end_beat": 128,
+      "mode": "full",
+      "notes": 16
+    },
+    {
+      "track": 3,
+      "section": "Lift - Opening",
+      "start_beat": 128,
+      "end_beat": 160,
+      "mode": "full",
+      "notes": 16
+    },
+    {
+      "track": 3,
+      "section": "Build - First Return",
+      "start_beat": 160,
+      "end_beat": 192,
+      "mode": "build",
+      "notes": 15
+    },
+    {
+      "track": 3,
+      "section": "Main I - Lead",
+      "start_beat": 192,
+      "end_beat": 224,
+      "mode": "full",
+      "notes": 16
+    },
+    {
+      "track": 3,
+      "section": "Main I - Response",
+      "start_beat": 224,
+      "end_beat": 256,
+      "mode": "full",
+      "notes": 16
+    },
+    {
+      "track": 3,
+      "section": "Build - Final Return",
+      "start_beat": 320,
+      "end_beat": 352,
+      "mode": "build",
+      "notes": 15
+    },
+    {
+      "track": 3,
+      "section": "Main II - Return",
+      "start_beat": 352,
+      "end_beat": 384,
+      "mode": "full",
+      "notes": 16
+    },
+    {
+      "track": 3,
+      "section": "Main II - Response",
+      "start_beat": 384,
+      "end_beat": 416,
+      "mode": "full",
+      "notes": 16
+    },
+    {
+      "track": 3,
+      "section": "Release - Groove",
+      "start_beat": 416,
+      "end_beat": 448,
+      "mode": "full",
+      "notes": 16
+    },
+    {
+      "track": 3,
+      "section": "Outro - Strip Back",
+      "start_beat": 448,
+      "end_beat": 480,
+      "mode": "sparse",
+      "notes": 8
+    },
+    {
+      "track": 4,
+      "section": "Groove - Keys Enter",
+      "start_beat": 96,
+      "end_beat": 128,
+      "mode": "sparse",
+      "notes": 16
+    },
+    {
+      "track": 4,
+      "section": "Lift - Opening",
+      "start_beat": 128,
+      "end_beat": 160,
+      "mode": "full",
+      "notes": 50
+    },
+    {
+      "track": 4,
+      "section": "Build - First Return",
+      "start_beat": 160,
+      "end_beat": 192,
+      "mode": "full",
+      "notes": 50
+    },
+    {
+      "track": 4,
+      "section": "Main I - Lead",
+      "start_beat": 192,
+      "end_beat": 224,
+      "mode": "sparse",
+      "notes": 16
+    },
+    {
+      "track": 4,
+      "section": "Main I - Response",
+      "start_beat": 224,
+      "end_beat": 256,
+      "mode": "full",
+      "notes": 50
+    },
+    {
+      "track": 4,
+      "section": "Breakdown - Space",
+      "start_beat": 256,
+      "end_beat": 288,
+      "mode": "sparse",
+      "notes": 16
+    },
+    {
+      "track": 4,
+      "section": "Breakdown - Melody",
+      "start_beat": 288,
+      "end_beat": 320,
+      "mode": "sparse",
+      "notes": 16
+    },
+    {
+      "track": 4,
+      "section": "Build - Final Return",
+      "start_beat": 320,
+      "end_beat": 352,
+      "mode": "full",
+      "notes": 50
+    },
+    {
+      "track": 4,
+      "section": "Main II - Return",
+      "start_beat": 352,
+      "end_beat": 384,
+      "mode": "sparse",
+      "notes": 16
+    },
+    {
+      "track": 4,
+      "section": "Main II - Response",
+      "start_beat": 384,
+      "end_beat": 416,
+      "mode": "full",
+      "notes": 50
+    },
+    {
+      "track": 4,
+      "section": "Release - Groove",
+      "start_beat": 416,
+      "end_beat": 448,
+      "mode": "full",
+      "notes": 50
+    },
+    {
+      "track": 5,
+      "section": "Intro - Texture",
+      "start_beat": 32,
+      "end_beat": 64,
+      "mode": "soft",
+      "notes": 12
+    },
+    {
+      "track": 5,
+      "section": "Lift - Opening",
+      "start_beat": 128,
+      "end_beat": 160,
+      "mode": "soft",
+      "notes": 12
+    },
+    {
+      "track": 5,
+      "section": "Build - First Return",
+      "start_beat": 160,
+      "end_beat": 192,
+      "mode": "soft",
+      "notes": 12
+    },
+    {
+      "track": 5,
+      "section": "Main I - Lead",
+      "start_beat": 192,
+      "end_beat": 224,
+      "mode": "soft",
+      "notes": 12
+    },
+    {
+      "track": 5,
+      "section": "Main I - Response",
+      "start_beat": 224,
+      "end_beat": 256,
+      "mode": "soft",
+      "notes": 12
+    },
+    {
+      "track": 5,
+      "section": "Breakdown - Space",
+      "start_beat": 256,
+      "end_beat": 288,
+      "mode": "full",
+      "notes": 12
+    },
+    {
+      "track": 5,
+      "section": "Breakdown - Melody",
+      "start_beat": 288,
+      "end_beat": 320,
+      "mode": "full",
+      "notes": 12
+    },
+    {
+      "track": 5,
+      "section": "Build - Final Return",
+      "start_beat": 320,
+      "end_beat": 352,
+      "mode": "soft",
+      "notes": 12
+    },
+    {
+      "track": 5,
+      "section": "Main II - Return",
+      "start_beat": 352,
+      "end_beat": 384,
+      "mode": "soft",
+      "notes": 12
+    },
+    {
+      "track": 5,
+      "section": "Main II - Response",
+      "start_beat": 384,
+      "end_beat": 416,
+      "mode": "soft",
+      "notes": 12
+    },
+    {
+      "track": 5,
+      "section": "Outro - Strip Back",
+      "start_beat": 448,
+      "end_beat": 480,
+      "mode": "soft",
+      "notes": 12
+    },
+    {
+      "track": 5,
+      "section": "Outro - Last Pulse",
+      "start_beat": 480,
+      "end_beat": 512,
+      "mode": "fade",
+      "notes": 12
+    },
+    {
+      "track": 6,
+      "section": "Build - First Return",
+      "start_beat": 160,
+      "end_beat": 192,
+      "mode": "sparse",
+      "notes": 8
+    },
+    {
+      "track": 6,
+      "section": "Main I - Lead",
+      "start_beat": 192,
+      "end_beat": 224,
+      "mode": "full",
+      "notes": 16
+    },
+    {
+      "track": 6,
+      "section": "Main I - Response",
+      "start_beat": 224,
+      "end_beat": 256,
+      "mode": "sparse",
+      "notes": 8
+    },
+    {
+      "track": 6,
+      "section": "Breakdown - Melody",
+      "start_beat": 288,
+      "end_beat": 320,
+      "mode": "sparse",
+      "notes": 8
+    },
+    {
+      "track": 6,
+      "section": "Main II - Return",
+      "start_beat": 352,
+      "end_beat": 384,
+      "mode": "full",
+      "notes": 16
+    },
+    {
+      "track": 6,
+      "section": "Main II - Response",
+      "start_beat": 384,
+      "end_beat": 416,
+      "mode": "sparse",
+      "notes": 8
+    },
+    {
+      "track": 7,
+      "section": "Intro - Texture",
+      "start_beat": 32,
+      "end_beat": 64,
+      "mode": "sparse",
+      "notes": 12
+    },
+    {
+      "track": 7,
+      "section": "Groove - Bass Enters",
+      "start_beat": 64,
+      "end_beat": 96,
+      "mode": "sparse",
+      "notes": 12
+    },
+    {
+      "track": 7,
+      "section": "Groove - Keys Enter",
+      "start_beat": 96,
+      "end_beat": 128,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 7,
+      "section": "Lift - Opening",
+      "start_beat": 128,
+      "end_beat": 160,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 7,
+      "section": "Build - First Return",
+      "start_beat": 160,
+      "end_beat": 192,
+      "mode": "sparse",
+      "notes": 12
+    },
+    {
+      "track": 7,
+      "section": "Main I - Lead",
+      "start_beat": 192,
+      "end_beat": 224,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 7,
+      "section": "Main I - Response",
+      "start_beat": 224,
+      "end_beat": 256,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 7,
+      "section": "Breakdown - Space",
+      "start_beat": 256,
+      "end_beat": 288,
+      "mode": "sparse",
+      "notes": 12
+    },
+    {
+      "track": 7,
+      "section": "Build - Final Return",
+      "start_beat": 320,
+      "end_beat": 352,
+      "mode": "sparse",
+      "notes": 12
+    },
+    {
+      "track": 7,
+      "section": "Main II - Return",
+      "start_beat": 352,
+      "end_beat": 384,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 7,
+      "section": "Main II - Response",
+      "start_beat": 384,
+      "end_beat": 416,
+      "mode": "full",
+      "notes": 30
+    },
+    {
+      "track": 7,
+      "section": "Release - Groove",
+      "start_beat": 416,
+      "end_beat": 448,
+      "mode": "sparse",
+      "notes": 12
+    },
+    {
+      "track": 7,
+      "section": "Outro - Strip Back",
+      "start_beat": 448,
+      "end_beat": 480,
+      "mode": "sparse",
+      "notes": 12
+    },
+    {
+      "track": 7,
+      "section": "Outro - Last Pulse",
+      "start_beat": 480,
+      "end_beat": 512,
+      "mode": "sparse",
+      "notes": 12
+    }
+  ],
+  "automation": [
+    {
+      "label": "Keys: opening, breakdown and closing filter",
+      "target": "25049",
+      "points": [
+        [
+          0,
+          850
+        ],
+        [
+          96,
+          1100
+        ],
+        [
+          128,
+          1400
+        ],
+        [
+          188,
+          2100
+        ],
+        [
+          192,
+          1804.36
+        ],
+        [
+          252,
+          1600
+        ],
+        [
+          256,
+          900
+        ],
+        [
+          288,
+          1150
+        ],
+        [
+          320,
+          1300
+        ],
+        [
+          348,
+          2200
+        ],
+        [
+          352,
+          1804.36
+        ],
+        [
+          416,
+          1804.36
+        ],
+        [
+          448,
+          1100
+        ],
+        [
+          512,
+          750
+        ]
+      ]
+    },
+    {
+      "label": "Pad: gradual tonal movement",
+      "target": "25347",
+      "points": [
+        [
+          0,
+          700
+        ],
+        [
+          32,
+          900
+        ],
+        [
+          64,
+          1100
+        ],
+        [
+          128,
+          1200
+        ],
+        [
+          192,
+          1401.95
+        ],
+        [
+          252,
+          1200
+        ],
+        [
+          256,
+          700
+        ],
+        [
+          288,
+          1100
+        ],
+        [
+          320,
+          1400
+        ],
+        [
+          348,
+          1600
+        ],
+        [
+          352,
+          1401.95
+        ],
+        [
+          448,
+          1000
+        ],
+        [
+          480,
+          800
+        ],
+        [
+          512,
+          500
+        ]
+      ]
+    },
+    {
+      "label": "Pad: support in main sections, focus in breakdown",
+      "target": "25199",
+      "points": [
+        [
+          0,
+          0.32972449062
+        ],
+        [
+          32,
+          0.38467857239
+        ],
+        [
+          192,
+          0.38467857239
+        ],
+        [
+          252,
+          0.38467857239
+        ],
+        [
+          256,
+          0.5495408177
+        ],
+        [
+          316,
+          0.5495408177
+        ],
+        [
+          352,
+          0.38467857239
+        ],
+        [
+          448,
+          0.38467857239
+        ],
+        [
+          480,
+          0.32972449062
+        ],
+        [
+          512,
+          0.192339286195
+        ],
+        [
+          524,
+          0
+        ]
+      ]
+    },
+    {
+      "label": "Main: final effects-tail fade",
+      "target": "5",
+      "points": [
+        [
+          0,
+          1
+        ],
+        [
+          512,
+          1
+        ],
+        [
+          520,
+          0.3
+        ],
+        [
+          528,
+          0
+        ]
+      ]
+    }
+  ],
+  "status": "Native full-length export verified; corrected groove preservation and timing structure pass; subjective review pending",
+  "export": "Original Groove - Full Arrangement 02.wav",
+  "loudness_lufs": -17.6,
+  "true_peak_dbtp": -4.7
+}

@@ -1,0 +1,56 @@
+{
+  "start_beat": 302.482421875,
+  "end_beat": 337.2930908203125,
+  "metrics": {
+    "channels": 2,
+    "duration_seconds": 17.04,
+    "has_signal": true,
+    "peak_dbfs": -5.645575142329382,
+    "rms_dbfs": -23.71385355580726,
+    "sample_rate": 48000
+  },
+  "automation": [
+    {
+      "track": 4,
+      "parameter": {
+        "index": 170,
+        "name": "Filter Freq",
+        "aliases": [
+          "filter_cutoff"
+        ],
+        "min": 0.0,
+        "max": 1.0,
+        "value": 0.638502836227417,
+        "display": "1.81 kHz",
+        "enabled": true,
+        "quantized": false,
+        "state": 0,
+        "automation_state": 1,
+        "choices": [],
+        "choices_complete": true
+      }
+    },
+    {
+      "track": 5,
+      "parameter": {
+        "index": 1,
+        "name": "LP Freq",
+        "aliases": [
+          "filter_cutoff"
+        ],
+        "min": 0.0,
+        "max": 1.0,
+        "value": 0.626539409160614,
+        "display": "1.52 kHz",
+        "enabled": true,
+        "quantized": false,
+        "state": 0,
+        "automation_state": 1,
+        "choices": [],
+        "choices_complete": true
+      }
+    }
+  ],
+  "session_override": false,
+  "transport_changed_by_test": false
+}

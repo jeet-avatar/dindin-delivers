@@ -1,0 +1,187 @@
+"""Create a separate local Arrangement from the approved working Session parts."""
+from copy import deepcopy
+import gzip
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import xml.etree.ElementTree as ET
+
+ROOT = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project')
+SOURCE = ROOT / 'Original Groove - Dub Percussion 01.als'
+DEST = ROOT / 'Original Groove - Full Arrangement 02.als'
+OUT = ROOT / 'Arrangement 02'
+assert not DEST.exists() and not OUT.exists(), 'Inspect an existing arrangement; never overwrite an attempt.'
+root = ET.fromstring(gzip.decompress(SOURCE.read_bytes()))
+live = root.find('LiveSet')
+tracks = live.find('Tracks').findall('MidiTrack')
+assert len(tracks) == 8
+assert [len(t.findall('.//MidiNoteEvent')) for t in tracks] == [32, 30, 42, 16, 50, 12, 16, 30]
+assert live.find('MainTrack/DeviceChain/Mixer/Tempo/Manual').get('Value') == '122'
+OUT.mkdir()
+backup = ROOT / 'Original Groove - Before Arrangement.als'
+if backup.exists():
+    assert backup.read_bytes() == SOURCE.read_bytes(), 'Do not replace an existing backup.'
+else:
+    shutil.copy2(SOURCE, backup)
+
+
+def value(node, path, new):
+    target = node.find(path)
+    assert target is not None, path
+    target.set('Value', str(new))
+
+
+# Eight-bar phrases. Missing parts deliberately leave room for entrances and replies.
+blocks = [
+    ('Intro - Foundation', {0:'soft', 2:'sparse'}),
+    ('Intro - Texture', {0:'full', 2:'sparse', 5:'soft', 7:'sparse'}),
+    ('Groove - Bass Enters', {0:'full', 1:'full', 2:'full', 7:'sparse'}),
+    ('Groove - Keys Enter', {0:'full', 1:'full', 2:'full', 3:'full', 4:'sparse', 7:'full'}),
+    ('Lift - Opening', {0:'full', 1:'full', 2:'full', 3:'full', 4:'full', 5:'soft', 7:'full'}),
+    ('Build - First Return', {0:'gap', 1:'gap', 2:'gap', 3:'build', 4:'full', 5:'soft', 6:'sparse', 7:'sparse'}),
+    ('Main I - Lead', {0:'full', 1:'full', 2:'full', 3:'full', 4:'sparse', 5:'soft', 6:'full', 7:'full'}),
+    ('Main I - Response', {0:'gap', 1:'gap', 2:'full', 3:'full', 4:'full', 5:'soft', 6:'sparse', 7:'full'}),
+    ('Breakdown - Space', {4:'sparse', 5:'full', 7:'sparse'}),
+    ('Breakdown - Melody', {4:'sparse', 5:'full', 6:'sparse'}),
+    ('Build - Final Return', {0:'build', 1:'enter-half', 2:'build', 3:'build', 4:'full', 5:'soft', 7:'sparse'}),
+    ('Main II - Return', {0:'full', 1:'full', 2:'full', 3:'full', 4:'sparse', 5:'soft', 6:'full', 7:'full'}),
+    ('Main II - Response', {0:'full', 1:'full', 2:'full', 3:'full', 4:'full', 5:'soft', 6:'sparse', 7:'full'}),
+    ('Release - Groove', {0:'full', 1:'full', 2:'full', 3:'full', 4:'full', 7:'sparse'}),
+    ('Outro - Strip Back', {0:'full', 1:'soft', 2:'full', 3:'sparse', 5:'soft', 7:'sparse'}),
+    ('Outro - Last Pulse', {0:'exit-half', 2:'fade', 5:'fade', 7:'sparse'}),
+]
+colors = [13, 13, 16, 16, 22, 22, 5, 5, 26, 26, 22, 5, 5, 16, 13, 13]
+manifest = {'source_sha256': hashlib.sha256(SOURCE.read_bytes()).hexdigest(),
+            'bpm':122, 'bars_of_music':128, 'tail_bars':4, 'duration_seconds':528*60/122,
+            'reference_audio_used':False, 'clips':[], 'automation':[],
+            'status':'generated; native Live playback and export verification pending'}
+session_bytes = [ET.tostring(t.find('DeviceChain/MainSequencer/ClipSlotList')) for t in tracks]
+
+for index, track in enumerate(tracks):
+    events = track.find('DeviceChain/MainSequencer/ClipTimeable/ArrangerAutomation/Events')
+    assert len(events) == 0, 'Existing Arrangement must not be replaced.'
+    template = track.find('.//MidiClip')
+    for block, (section, parts) in enumerate(blocks):
+        if index not in parts:
+            continue
+        mode = parts[index]
+        clip = deepcopy(template)
+        start = block * 32
+        clip.set('Id', str(len(events)))
+        clip.set('Time', str(start))
+        for path, new in {'CurrentStart':start, 'CurrentEnd':start+32,
+                          'Name':section, 'Color':colors[block], 'Loop/LoopStart':0,
+                          'Loop/LoopEnd':32, 'Loop/StartRelative':0, 'Loop/OutMarker':32,
+                          'Loop/HiddenLoopStart':0, 'Loop/HiddenLoopEnd':32,
+                          'Loop/LoopOn':'true'}.items():
+            value(clip, path, new)
+        for key in clip.findall('Notes/KeyTracks/KeyTrack'):
+            container = key.find('Notes')
+            for note in list(container):
+                time = float(note.get('Time'))
+                bar = int(time // 4)
+                beat = time % 4
+                keep = True
+                if mode == 'sparse':
+                    if index == 2:
+                        keep = abs(beat-0.5) < .05 or abs(beat-2.5) < .05
+                    elif index == 3:
+                        keep = bar % 2 == 1
+                    elif index == 4:
+                        keep = beat < 1.1
+                    elif index == 6:
+                        keep = bar % 2 == 1
+                    elif index == 7:
+                        keep = bar % 2 == 0
+                if mode == 'gap' and time >= 31:
+                    keep = False
+                if mode == 'enter-half' and (time < 16 or time >= 31):
+                    keep = False
+                if mode == 'exit-half' and time >= 16:
+                    keep = False
+                if mode == 'build' and time >= 31:
+                    keep = False
+                if not keep:
+                    container.remove(note)
+                    continue
+                velocity = float(note.get('Velocity'))
+                if mode in ('soft', 'sparse'):
+                    velocity *= .85 if index != 5 else .88
+                if mode == 'fade':
+                    velocity *= max(.35, 1-time/40)
+                if mode == 'build':
+                    velocity *= .65 + .35 * time/32
+                note.set('Velocity', str(round(max(1, min(127, velocity)), 2)))
+                # Prevent bass sustains crossing the intentional pre-return silence.
+                if mode in ('gap', 'enter-half'):
+                    note.set('Duration', str(min(float(note.get('Duration')), 31-time)))
+        assert clip.findall('.//MidiNoteEvent')
+        assert clip.find('GrooveSettings/GrooveId').get('Value') == template.find('GrooveSettings/GrooveId').get('Value')
+        events.append(clip)
+        manifest['clips'].append({'track':index, 'section':section, 'start_beat':start,
+                                  'end_beat':start+32, 'mode':mode,
+                                  'notes':len(clip.findall('.//MidiNoteEvent'))})
+
+
+def envelope(track, parameter, points, label):
+    target = parameter.find('AutomationTarget').get('Id')
+    envs = track.find('AutomationEnvelopes/Envelopes')
+    assert not any(e.find('EnvelopeTarget/PointeeId').get('Value') == target for e in envs)
+    env = ET.SubElement(envs, 'AutomationEnvelope', Id=str(max([int(e.get('Id')) for e in envs] + [-1])+1))
+    ET.SubElement(ET.SubElement(env, 'EnvelopeTarget'), 'PointeeId', Value=target)
+    auto = ET.SubElement(env, 'Automation')
+    events = ET.SubElement(auto, 'Events')
+    for i, (beat, val) in enumerate([(-63072000, points[0][1])] + points):
+        ET.SubElement(events, 'FloatEvent', Id=str(i), Time=str(beat), Value=str(val))
+    view = ET.SubElement(auto, 'AutomationTransformViewState')
+    ET.SubElement(view, 'IsTransformPending', Value='false')
+    ET.SubElement(view, 'TimeAndValueTransforms')
+    parameter.find('Manual').set('Value', str(points[0][1]))
+    manifest['automation'].append({'label':label, 'target':target, 'points':points})
+
+
+envelope(tracks[4], tracks[4].find('DeviceChain/DeviceChain/Devices/Operator/Filter/Frequency'),
+         [(0,850),(96,1100),(128,1400),(188,2100),(192,1804.36),(252,1600),
+          (256,900),(288,1150),(320,1300),(348,2200),(352,1804.36),(416,1804.36),
+          (448,1100),(512,750)], 'Keys: opening, breakdown and closing filter')
+envelope(tracks[5], tracks[5].find('DeviceChain/DeviceChain/Devices/Drift/Filter_Frequency'),
+         [(0,700),(32,900),(64,1100),(128,1200),(192,1401.95),(252,1200),
+          (256,700),(288,1100),(320,1400),(348,1600),(352,1401.95),(448,1000),
+          (480,800),(512,500)], 'Pad: gradual tonal movement')
+pad_volume = tracks[5].find('DeviceChain/Mixer/Volume')
+base = float(pad_volume.find('Manual').get('Value'))
+envelope(tracks[5], pad_volume, [(0,base*.6),(32,base*.7),(192,base*.7),
+         (252,base*.7),(256,base),(316,base),(352,base*.7),(448,base*.7),
+         (480,base*.6),(512,base*.35),(524,0)], 'Pad: support in main sections, focus in breakdown')
+main = live.find('MainTrack')
+envelope(main, main.find('DeviceChain/Mixer/Volume'),
+         [(0,1),(512,1),(520,.3),(528,0)], 'Main: final effects-tail fade')
+
+locators = live.find('Locators/Locators')
+locators.clear()
+for i, (beat, label) in enumerate([(0,'Intro'),(64,'Groove'),(128,'Lift'),(160,'Build I'),
+        (192,'Main I'),(256,'Breakdown'),(320,'Build II'),(352,'Main II'),
+        (416,'Release'),(448,'Outro'),(512,'Tail'),(528,'End')]):
+    locator = ET.SubElement(locators, 'Locator', Id=str(i))
+    for tag, val in [('LomId',0),('Time',beat),('Name',label),('Annotation','Original arrangement section'),
+                     ('IsSongStart','true' if beat == 0 else 'false')]:
+        ET.SubElement(locator, tag, Value=str(val))
+for path, new in {'Transport/CurrentTime':0,'Transport/LoopStart':0,'Transport/LoopLength':528,
+                  'Transport/LoopOn':'false','SelectedDocumentViewInMainWindow':0,
+                  'SequencerNavigator/BeatTimeHelper/CurrentZoom':1.65,
+                  'Annotation':'Original eight-part minimal groove. Full 128-bar Arrangement plus four-bar effects tail at 122 BPM. Session originals retained. No extracted reference audio. Review mix, not a mastered release.'}.items():
+    value(live,path,new)
+assert session_bytes == [ET.tostring(t.find('DeviceChain/MainSequencer/ClipSlotList')) for t in tracks]
+assert not live.findall('.//AudioClip')
+for ref in live.findall('.//SampleRef/FileRef'):
+    relative = ref.find('RelativePath')
+    if ref.find('RelativePathType').get('Value') == '3':
+        assert (ROOT / relative.get('Value')).is_file()
+for t in tracks:
+    cs=t.findall('DeviceChain/MainSequencer/ClipTimeable/ArrangerAutomation/Events/MidiClip')
+    assert all(float(a.find('CurrentEnd').get('Value')) <= float(b.find('CurrentStart').get('Value')) for a,b in zip(cs,cs[1:]))
+DEST.write_bytes(gzip.compress(ET.tostring(root,encoding='utf-8',xml_declaration=True)))
+(OUT / 'arrangement-manifest.json').write_text(json.dumps(manifest,indent=2))
+print(json.dumps({'file':str(DEST),'clips':len(manifest['clips']),'duration_seconds':manifest['duration_seconds'],
+                  'track_clip_counts':[len(t.findall('DeviceChain/MainSequencer/ClipTimeable/ArrangerAutomation/Events/MidiClip')) for t in tracks]}))

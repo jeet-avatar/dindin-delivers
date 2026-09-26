@@ -6,6 +6,12 @@ stems are not sources for this composition.
 
 ## Method
 
+Current version: Original Groove - Full Arrangement 02.als. This contains the
+full original Arrangement, not only Session clips. A 4:19.672 review WAV and
+320 kbps MP3 are in Arrangement 02. Earlier sections below describe historical
+checkpoints; their pending-Arrangement notes no longer describe this version.
+Final musical approval and release mastering remain separate from these checks.
+
 Build and review one musical part at a time. Audition each part alone and with
 the existing groove. After the sound and pattern are approved, refine its tone,
 dynamics and appropriate effects; recapture changed sounds. User audibility and
@@ -52,6 +58,41 @@ The bass Saturator experiment remains active (Soft Sine, Drive 4 dB, Dry/Wet
 the dry or saturated A/B version; do not label the effect approved.
 
 ## Proposed Sequence
+
+### Full Arrangement and Timing Correction
+
+- Preserved the eight-part Session version and Before Arrangement checkpoint.
+  Created 92 non-overlapping Arrangement clips across eight tracks: 128 bars
+  of music plus four bars for the effects tail, at 122 BPM (259.672 seconds).
+- Sections: Intro 0:00, Groove 0:31.475, Lift 1:02.951, Build I 1:18.689,
+  Main I 1:34.426, Breakdown 2:05.902, Build II 2:37.377, Main II 2:53.115,
+  Release 3:24.590, Outro 3:40.328, Tail 4:11.803, End 4:19.672.
+- Layer entrances/exits, sparse melodic responses, velocity variations and
+  pre-return gaps create development without extra instruments. Added keys/pad
+  filter automation, pad balance automation and a final Main fade.
+- The first generated draft incorrectly removed the original Swing 16ths 66
+  assignment. Corrected every arranged clip to retain source groove ID 4.
+  Native readback confirmed all 92 starts/lengths; structured checks confirmed
+  32-beat lengths, shared loop origin zero and exact eight-bar downbeats.
+  The first draft is retained as Original Groove - Superseded Draft 01.als.
+- Early section-capture attempts were invalid: start/continue commands did not
+  honor a stopped-position seek. They are NOT proof of section playback.
+  Replaced that test with full native render analysis and a non-interrupting
+  continuous capture. Live advanced from beat 302.482 to 337.293, with audio,
+  no Session override and active keys/pad automation. No seek during that test.
+- Exported Main, stereo WAV, 44.1 kHz / 16-bit, triangular dither, no normalize,
+  no loop rendering, exactly 132 bars. MP3 derived at 320 kbps, no gain change.
+- Full render: sample peak -4.78 dBFS, true peak -4.7 dBTP, -17.6 LUFS,
+  no clipped samples. Every musical section has signal; final-second RMS
+  -96.33 dBFS. 64 intro kick attacks: maximum deviation from median attack
+  offset 2.87 ms, drift across intro -0.41 ms. This is not an assertion that
+  every expressive note must be rigidly quantized or that taste is verified.
+- Saved Session parts remain available; all 64 rack samples stay collected
+  inside the project. Playback was started from bar 1 with loop off, no muted
+  or soloed tracks, no Session override, and an expanded Arrangement overview.
+- Subjective audibility/timing feedback requested from the user. Do not claim
+  their approval, a mastered release, or production-app support for these local
+  arrangement-generation and verification scripts.
 
 ### Eighth Part: Sparse Dub Percussion
 

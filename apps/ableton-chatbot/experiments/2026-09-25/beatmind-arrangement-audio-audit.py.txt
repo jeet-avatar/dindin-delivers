@@ -1,0 +1,67 @@
+import json
+from pathlib import Path
+import numpy as np
+import soundfile as sf
+from scipy.signal import butter, sosfiltfilt, resample_poly
+from scipy.ndimage import uniform_filter1d
+
+ROOT = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project/Arrangement 02')
+path = ROOT / 'Original Groove - Full Arrangement 02.wav'
+audio, rate = sf.read(path, dtype='float32', always_2d=True)
+duration = len(audio) / rate
+assert audio.shape[1] == 2 and np.isfinite(audio).all()
+assert abs(duration - 528*60/122) <= 1.1/rate
+
+
+def db(value):
+    return float(20*np.log10(max(float(value), 1e-12)))
+
+
+def rms(data):
+    return db(np.sqrt(np.mean(np.square(data, dtype='float64'))))
+
+
+sections = [(0,64,'Intro'),(64,128,'Groove'),(128,160,'Lift'),(160,192,'Build I'),
+            (192,256,'Main I'),(256,320,'Breakdown'),(320,352,'Build II'),
+            (352,416,'Main II'),(416,448,'Release'),(448,512,'Outro'),(512,528,'Tail')]
+result = {'file':str(path),'sample_rate':rate,'channels':2,'duration_seconds':duration,
+          'peak_dbfs':db(np.max(np.abs(audio))), 'rms_dbfs':rms(audio),
+          'clipped_samples':int(np.sum(np.abs(audio)>=1)), 'sections':[]}
+assert result['peak_dbfs'] < -1 and result['clipped_samples'] == 0
+for start,end,name in sections:
+    data=audio[round(start*60/122*rate):round(end*60/122*rate)]
+    row={'name':name,'start_seconds':start*60/122,'end_seconds':end*60/122,
+         'peak_dbfs':db(np.max(np.abs(data))),'rms_dbfs':rms(data)}
+    result['sections'].append(row)
+    if name != 'Tail':
+        assert row['rms_dbfs'] > -55, row
+result['last_second_rms_dbfs'] = rms(audio[-rate:])
+assert result['last_second_rms_dbfs'] < -75, 'Ending has not faded sufficiently.'
+
+# Compare the 64 intro kick attacks against a single 122 BPM quarter-note grid.
+intro = audio[:round(64*60/122*rate)].mean(axis=1)
+low = resample_poly(intro, 20, 441)
+assert rate == 44100
+low = sosfiltfilt(butter(3,[25,140],btype='bandpass',fs=2000,output='sos'), low)
+energy = uniform_filter1d(low*low,size=16)
+rise = np.diff(energy,prepend=energy[0])
+offsets=[]
+for beat in range(64):
+    expected=beat*60/122
+    start=round(expected*2000)
+    stop=min(len(rise),start+160)
+    found=(start+int(np.argmax(rise[start:stop])))/2000
+    offsets.append(found-expected)
+center=float(np.median(offsets))
+deviations=np.abs(np.array(offsets)-center)
+result['intro_kick_grid']={'beats_checked':64,'median_attack_offset_ms':center*1000,
+    'max_deviation_from_median_ms':float(deviations.max()*1000),
+    'drift_over_intro_ms':float((np.polyfit(np.arange(64),offsets,1)[0]*63)*1000),
+    'method':'Low-band attack-energy rises; fixed synth attack is not grid error.'}
+result['intro_kick_grid']['passed'] = bool(np.percentile(deviations,95)<.015 and abs(result['intro_kick_grid']['drift_over_intro_ms'])<5)
+assert result['intro_kick_grid']['passed'], result['intro_kick_grid']
+result['limits']=['This verifies signal, timing structure and measured intro pulse stability, not subjective musical approval.',
+                  'All arranged clips retain the original Swing 16ths 66 assignment; intentional microtiming remains.',
+                  'This is a review mix with headroom, not a loudness-mastered release.']
+(ROOT/'full-render-audit.json').write_text(json.dumps(result,indent=2))
+print(json.dumps(result,indent=2))

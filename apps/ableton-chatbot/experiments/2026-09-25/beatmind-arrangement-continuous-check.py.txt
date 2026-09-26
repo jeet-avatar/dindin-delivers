@@ -1,0 +1,72 @@
+"""Verify current Arrangement playback without jumping or interrupting the user."""
+import asyncio
+import importlib.util
+import json
+import subprocess
+import time
+
+spec = importlib.util.spec_from_file_location('dub', '/private/tmp/beatmind-dub-percussion.py')
+dub = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dub)
+OUT = dub.ROOT / 'Arrangement 02'
+
+
+async def main():
+    assert await dub.bass.window_title() == 'Original Groove - Full Arrangement 02'
+    live = dub.bass.Live()
+    try:
+        assert live.get('/live/song/get/track_names') == dub.BASE + [dub.NAME]
+        assert live.get('/live/song/get/is_playing')[-1]
+        assert not live.get('/live/song/get/back_to_arranger')[-1]
+        assert not live.get('/live/song/get/loop')[-1]
+        assert not live.get('/live/song/get/record_mode')[-1] and not live.get('/live/song/get/session_record')[-1]
+        assert not any(live.get('/live/track/get/mute',[i])[-1] or live.get('/live/track/get/solo',[i])[-1] for i in range(8))
+        manifest = json.loads((OUT / 'arrangement-manifest.json').read_text())
+        for i in range(8):
+            clips = [c for c in manifest['clips'] if c['track'] == i]
+            assert live.get('/live/track/get/arrangement_clips/start_time',[i])[1:] == [c['start_beat'] for c in clips]
+            assert live.get('/live/track/get/arrangement_clips/length',[i])[1:] == [32.0]*len(clips)
+        assert live.get('/live/song/get/current_song_time')[-1] < 480, 'Too near the end for this signal check; do not restart automatically.'
+        audio, events, errors = [OUT / ('Continuous-Playback' + ext) for ext in ('.m4a','.jsonl','.log')]
+        assert not any(p.exists() for p in (audio,events,errors)), 'Keep the earlier capture.'
+        subprocess.run(['open','-n','--stdout',str(events),'--stderr',str(errors),
+            '/Applications/BeatMind Bridge.app/Contents/Helpers/BeatMind Audio.app','--args',str(audio),'16'],check=True)
+        deadline = time.monotonic()+40
+        start, complete = None, None
+        while time.monotonic() < deadline:
+            for line in events.read_text().splitlines() if events.exists() else []:
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if 'error' in event:
+                    raise RuntimeError(event['error'])
+                if event.get('type') == 'ready' and start is None:
+                    start = live.get('/live/song/get/current_song_time')[-1]
+                if event.get('type') == 'complete':
+                    complete = event
+            if complete:
+                break
+            await asyncio.sleep(.1)
+        assert complete and start is not None and audio.is_file()
+        end = live.get('/live/song/get/current_song_time')[-1]
+        assert 29 < end-start < 38, 'Playhead did not advance continuously at 122 BPM.'
+        assert not live.get('/live/song/get/back_to_arranger')[-1]
+        metrics = {k:v for k,v in complete['metrics'].items() if k != 'waveform'}
+        assert metrics['has_signal'] and metrics['peak_dbfs'] < -1
+        mappings = []
+        for track, control in [(4,'Filter Freq'),(5,'LP Freq')]:
+            mapping = await live.tool('get_device_control_map',{'track':track,'path':[0],'query':control})
+            parameter = next(p for p in mapping['parameters'] if p['name'] == control)
+            assert parameter['automation_state'] == 1
+            mappings.append({'track':track,'parameter':parameter})
+        result = {'start_beat':start,'end_beat':end,'metrics':metrics,'automation':mappings,
+                  'session_override':False,'transport_changed_by_test':False}
+        (OUT/'continuous-playback-review.json').write_text(json.dumps(result,indent=2))
+        print(json.dumps(result),flush=True)
+    finally:
+        live.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
