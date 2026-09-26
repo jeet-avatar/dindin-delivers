@@ -1,0 +1,111 @@
+import asyncio
+import base64
+import importlib.util
+import json
+from pathlib import Path
+import shutil
+import sys
+
+spec = importlib.util.spec_from_file_location('bass', '/private/tmp/beatmind-original-bass.py')
+bass = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(bass)
+ROOT = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project')
+BASE = ['YOUR Kick', 'YOUR Bass', 'YOUR Closed Hat', 'YOUR Clap', 'YOUR Plucked Keys', 'YOUR Atmosphere']
+
+
+async def main():
+    assert await bass.window_title() == 'Original Groove - Keys and Atmosphere'
+    live = bass.Live()
+    try:
+        mode = sys.argv[1]
+        assert live.get('/live/song/get/tempo') == [122.0]
+        assert not live.get('/live/song/get/record_mode')[-1]
+        assert not live.get('/live/song/get/session_record')[-1]
+        live.send('/live/song/stop_playing')
+        await asyncio.sleep(0.2)
+        live.send('/live/song/set/current_song_time', [0.0])
+        await asyncio.sleep(0.2)
+        assert live.get('/live/song/get/current_song_time') == [0.0]
+        if mode == 'load':
+            assert live.get('/live/song/get/track_names') == BASE
+            backup = ROOT / 'Original Groove - Before Lead.als'
+            assert not backup.exists(), 'Inspect existing attempt before any retry.'
+            shutil.copy2(ROOT / 'Original Groove - Keys and Atmosphere.als', backup)
+            live.send('/live/song/create_midi_track', [-1])
+            await asyncio.sleep(0.3)
+            names = live.get('/live/song/get/track_names')
+            assert names[:6] == BASE and len(names) == 7
+            live.send('/live/track/set/name', [6, 'YOUR Lead'])
+            await asyncio.sleep(0.2)
+            assert live.get('/live/song/get/track_names') == BASE + ['YOUR Lead']
+            assert live.get('/live/track/get/devices/name', [6]) == [6]
+            for kind, category, device in [('instrument', 'instruments', 'Drift'),
+                                            ('effect', 'audio_effects', 'Echo')]:
+                result = await live.tool('load_library_item', {'track': 6, 'kind': kind,
+                    'category': category, 'folders': [device]})
+                print(result['summary'], flush=True)
+        elif mode in ('make', 'audition'):
+            assert live.get('/live/song/get/track_names') == BASE + ['YOUR Lead']
+            assert live.get('/live/track/get/devices/name', [6]) == [6, 'Drift', 'Echo']
+            if mode == 'make':
+                assert not live.get('/live/clip_slot/get/has_clip', [6, 0])[-1], 'Inspect existing clip; do not duplicate.'
+                previous = [live.get('/live/clip/get/notes', [i, 0]) for i in range(6)]
+                changes = []
+                controls = [(0, 'Osc 1 Wave', 'Triangle', 'label'), (0, 'Osc 2 On', 'Off', 'label'),
+                    (0, 'LP Freq', 3200, 'Hz'), (0, 'HP Freq', 150, 'Hz'),
+                    (0, 'LP Mod Amt 1', 0, '%'), (0, 'LP Mod Amt 2', 0, '%'),
+                    (0, 'Env 1 Attack', 18, 'ms'), (0, 'Env 1 Decay', 900, 'ms'),
+                    (0, 'Env 1 Sustain', 55, '%'), (0, 'Env 1 Release', 450, 'ms'),
+                    (0, 'Volume', 0.35, 'normalized'),
+                    (1, 'L Sync Mode', 'Notes', 'label'), (1, 'L Division', -2, 'native'),
+                    (1, 'Feedback', 22, '%'), (1, 'Dry Wet', 14, '%'),
+                    (1, 'Channel Mode', 'Ping Pong', 'label'),
+                    (1, 'HP Freq', 400, 'Hz'), (1, 'LP Freq', 4500, 'Hz')]
+                for device, name, value, unit in controls:
+                    mapping = await live.tool('get_device_control_map', {'track': 6, 'path': [device], 'query': name})
+                    result = await live.tool('set_device_control', {'track': 6, 'path': [device], 'map_id': mapping['map_id'],
+                                          'control': name, 'value': value, 'unit': unit})
+                    changes.append(result)
+                    print(result['summary'], flush=True)
+                mapping = await live.tool('get_device_control_map', {'track': 6, 'path': [1], 'limit': 32})
+                displays = {p['name']:p['display'] for p in mapping['parameters']}
+                assert displays['L Division'] == '1/4' and displays['L Sync Mode'] == 'Notes' and displays['L Sync'] == 'On'
+                live.send('/live/track/set/volume', [6, 0.74])
+                await asyncio.sleep(0.2)
+                assert abs(live.get('/live/track/get/volume', [6])[-1] - 0.74) < 0.001
+                pitches = [(72,75),(74,79),(79,75),(72,70),(72,68),(77,75),(74,77),(79,74)]
+                notes = []
+                for bar, pair in enumerate(pitches):
+                    notes.append([pair[0], float(bar*4+2), 0.65, float(68-bar%3), 0])
+                    notes.append([pair[1], float(bar*4+(3.5 if bar%2==0 else 3.25)),
+                                  0.35 if bar%2==0 else 0.55, float(60+bar%3*2), 0])
+                live.send('/live/clip_slot/create_clip', [6, 0, 32.0])
+                await asyncio.sleep(0.3)
+                assert live.get('/live/clip_slot/get/has_clip', [6, 0])[-1]
+                live.send('/live/clip/set/name', [6, 0, 'Lead 01 - Original - Awaiting Review'])
+                live.send('/live/scene/set/name', [0, 'Groove 01 - Original Ensemble'])
+                live.send('/live/clip/add/notes', [6, 0] + [v for note in notes for v in note])
+                await asyncio.sleep(0.3)
+                actual = live.get('/live/clip/get/notes', [6, 0])[2:]
+                actual = sorted([actual[i:i+5] for i in range(0, len(actual), 5)])
+                assert len(actual) == len(notes) and all(all(abs(a-b)<0.0001 for a,b in zip(x,y))
+                                                                       for x,y in zip(actual, sorted(notes)))
+                assert [live.get('/live/clip/get/notes', [i, 0]) for i in range(6)] == previous
+                (ROOT / 'lead-01-design.json').write_text(json.dumps({'source':'Drift + Echo',
+                    'reference_audio_used':False, 'midi_origin':'New answering phrase, not a reference transcription',
+                    'notes':notes,'controls':changes,'echo_division':'quarter note','approval':'pending'},indent=2))
+            assert live.get('/live/clip/get/name', [6, 0])[-1] == 'Lead 01 - Original - Awaiting Review'
+            preview = await bass.capture_part(live, 6, 0, 16)
+            if preview.get('audio_base64'):
+                (ROOT / 'Lead-01-Original.m4a').write_bytes(base64.b64decode(preview.pop('audio_base64')))
+            (ROOT / 'lead-01-audition.json').write_text(json.dumps(preview,indent=2))
+            assert preview['status'] == 'verified', preview.get('summary')
+            print(json.dumps({k:v for k,v in preview['metrics'].items() if k!='waveform'}),flush=True)
+        else:
+            raise ValueError('Unknown operation')
+    finally:
+        live.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

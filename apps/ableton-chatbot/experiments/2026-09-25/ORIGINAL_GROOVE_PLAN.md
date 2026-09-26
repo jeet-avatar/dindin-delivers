@@ -53,6 +53,21 @@ the dry or saturated A/B version; do not label the effect approved.
 
 ## Proposed Sequence
 
+### Seventh Part Checkpoint
+
+- Added YOUR Lead: Drift + Echo, 16 original notes across eight bars. Triangle
+  oscillator, HP 150 Hz / LP 3.20 kHz, attack 18 ms, decay 899 ms, sustain 55%,
+  release 450 ms. Quarter-note ping-pong echo, feedback 22%, wet 14%, filtered
+  from 400 Hz to 4.50 kHz. Earlier six parts' MIDI read back unchanged.
+- Solo recording: peak -27.96 dBFS, RMS -40.89 dBFS. This is a quiet layer;
+  presence in the full mix requires user listening, not just a signal check.
+- Seven-part recording: 17.02 seconds, peak -4.77 dBFS, RMS -16.30 dBFS.
+  All seven Session clips checked playing. Saved Original Groove - Ensemble
+  01.als; parsed saved notes [32, 30, 42, 16, 50, 12, 16], no audio clips.
+- User asked about kick delay and sidechain. Suggested subtle kick-triggered
+  bass/pad ducking first, then a separate quiet filtered kick delay for comparison.
+  Neither change has been applied. Arrangement and musical approval remain pending.
+
 1. Review the kick against the bass; refine decay, attack and balance if needed.
 2. Add a closed-hat/shaker groove with restrained velocity and timing variation.
 3. Add a clap or snare accent, chosen with the user.

@@ -1,0 +1,76 @@
+import asyncio
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import time
+
+spec = importlib.util.spec_from_file_location('bass', '/private/tmp/beatmind-original-bass.py')
+bass = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(bass)
+ROOT = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project')
+
+
+async def main():
+    assert await bass.window_title() == 'Original Groove - Keys and Atmosphere'
+    live = bass.Live()
+    leave_playing = False
+    started = False
+    try:
+        assert live.get('/live/song/get/track_names') == ['YOUR Kick', 'YOUR Bass', 'YOUR Closed Hat', 'YOUR Clap', 'YOUR Plucked Keys', 'YOUR Atmosphere', 'YOUR Lead']
+        assert not live.get('/live/song/get/record_mode')[-1]
+        assert not live.get('/live/song/get/session_record')[-1]
+        live.send('/live/song/stop_playing')
+        await asyncio.sleep(0.2)
+        assert not live.get('/live/song/get/is_playing')[-1]
+        live.send('/live/song/set/current_song_time', [0.0])
+        await asyncio.sleep(0.2)
+        assert live.get('/live/song/get/current_song_time') == [0.0]
+        assert not any(live.get('/live/track/get/solo', [i])[-1] for i in range(7))
+        assert not any(live.get('/live/track/get/mute', [i])[-1] for i in range(7))
+        assert live.get('/live/clip/get/name', [0, 0])[-1] == 'Kick 01 - Original - Awaiting Review'
+        assert live.get('/live/clip/get/name', [1, 0])[-1] == 'Bass 01 - Original - Awaiting Review'
+        assert live.get('/live/clip/get/name', [2, 0])[-1] == 'Hat 01 - Original - Awaiting Review'
+        assert live.get('/live/clip/get/name', [3, 0])[-1] == 'Clap 01 - Original - Awaiting Review'
+        assert live.get('/live/clip/get/name', [4, 0])[-1] == 'Keys 01 - Original - Awaiting Review'
+        assert live.get('/live/clip/get/name', [5, 0])[-1] == 'Atmosphere 01 - Original - Awaiting Review'
+        assert live.get('/live/clip/get/name', [6, 0])[-1] == 'Lead 01 - Original - Awaiting Review'
+        output, errors, audio = [ROOT / ('Ensemble-01.' + ext) for ext in ('jsonl', 'log', 'm4a')]
+        assert not any(p.exists() for p in (output, errors, audio)), 'Preserve existing capture.'
+        subprocess.run(['open', '-n', '--stdout', str(output), '--stderr', str(errors),
+            '/Applications/BeatMind Bridge.app/Contents/Helpers/BeatMind Audio.app', '--args', str(audio), '16'], check=True)
+        deadline = time.monotonic() + 40
+        started, complete = False, None
+        while time.monotonic() < deadline:
+            for line in output.read_text().splitlines() if output.exists() else []:
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if 'error' in event:
+                    raise RuntimeError(event['error'])
+                if event.get('type') == 'ready' and not started:
+                    live.send('/live/scene/fire', [0])
+                    started = True
+                if event.get('type') == 'complete':
+                    complete = event
+            if complete:
+                break
+            await asyncio.sleep(0.1)
+        assert complete and audio.is_file(), 'Capture did not complete.'
+        assert all(live.get('/live/clip/get/is_playing', [i, 0])[-1] for i in range(7))
+        metrics = complete['metrics']
+        print(json.dumps({k: v for k, v in metrics.items() if k != 'waveform'}), flush=True)
+        assert metrics['has_signal'] and metrics['peak_dbfs'] < -1, 'Signal/headroom check failed.'
+        (ROOT / 'ensemble-01-review.json').write_text(json.dumps({'metrics': metrics,
+            'parts': ['DS Kick', 'Operator bass with Saturator', 'DS HH', 'DS Clap', 'Operator plucked keys + Echo', 'Drift + Reverb', 'Drift lead + Echo'],
+            'approval': 'pending', 'recording': str(audio)}, indent=2))
+        leave_playing = True
+    finally:
+        if started and not leave_playing:
+            live.send('/live/song/stop_playing')
+        live.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

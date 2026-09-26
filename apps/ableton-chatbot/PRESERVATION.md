@@ -202,3 +202,19 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
   before-pad checkpoints remain. All six parts are Session clips; no Arrangement
   clips, song completion or exact reference match is claimed. Subjective review
   remains pending for the two new parts. No application deployment occurred.
+
+## Seventh Part: Lead
+
+- Added YOUR Lead with Drift + Echo and 16 original notes across eight bars.
+  Triangle oscillator; HP 150 Hz, LP 3.20 kHz; attack 18 ms, decay 899 ms,
+  sustain 55%, release 450 ms. Quarter-note ping-pong Echo: feedback 22%,
+  wet 14%, HP 400 Hz, LP 4.50 kHz. Controls independently read back.
+- Earlier six parts' MIDI verified unchanged. Solo actual capture had signal,
+  peak -27.96 dBFS / RMS -40.89 dBFS. Quiet lead balance needs subjective review.
+- Seven-part capture passed: 17.02 seconds, peak -4.77 dBFS, RMS -16.30 dBFS.
+  All seven clips checked playing. Saved Original Groove - Ensemble 01.als and
+  parsed saved MIDI counts [32, 30, 42, 16, 50, 12, 16]; no audio clips.
+- Previous reference and writing checkpoints retained. Kick delay and bass/pad
+  sidechain were discussed, not applied. Session loops are not a full Arrangement.
+- Archived local scripts as non-executable experimental text, not production
+  automation. No application deployment or application regression test claimed.
