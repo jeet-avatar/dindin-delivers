@@ -58,3 +58,26 @@ No deployment is performed by creating this checkpoint. Local Git references and
 backup bundles are not off-machine backups until transferred to a private remote
 or approved backup location. Do not push to `main` merely to back up work: the
 root deployment workflow runs automatically for BeatMind changes on that branch.
+
+## Continuation: First Bass Audition
+
+- Initial checkpoint `9c86c6b8461c64a002b5eaa1e1cc74ed9322f25e` was pushed
+  to `origin/checkpoint/beatmind-20260925-210546`, and the remote hash matched.
+  This branch does not trigger the production workflow.
+- The failed sustain adjustment was omitted, leaving the observed 0.0 dB
+  sustain unchanged. Other listed patch controls, including 110 ms release,
+  passed readback. This is not a fix for unsupported dB display conversion.
+- The audition script now compares note tuples independently of Live's pitch
+  ordering. Its `audition` mode verifies the existing named 32-beat clip and
+  all 30 expected notes without creating a clip or adding notes again.
+- Actual Live output capture passed: 17.04 seconds, stereo 48 kHz,
+  peak -21.88 dBFS, RMS -31.21 dBFS. The captured file was played with `afplay`.
+  Browser playback, subjective sound quality and user approval remain unverified.
+- Native Save As created `Original Groove - Bass 01 Project/Original Groove - Bass 01.als`.
+  Saved XML verification found one track MIDI clip with 30 notes, Operator,
+  122 BPM, no AudioClips and no SampleRefs. The factory groove-pool clip is
+  separate from the musical track clip.
+- The bass is a Session audition. The Arrangement still has no musical clips;
+  estimated section locators are retained, not a completed arrangement.
+- This continuation did not rerun the application regression suite or deploy
+  application/bridge changes. Human approval is still pending before the next part.

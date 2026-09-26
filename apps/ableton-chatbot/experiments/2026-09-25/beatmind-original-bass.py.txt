@@ -50,25 +50,31 @@ async def main():
             result = await live.tool('load_library_item', {'track': 1, 'kind': 'instrument', 'category': 'instruments', 'folders': ['Operator']})
         elif sys.argv[1] == 'map':
             result = await live.tool('get_device_control_map', {'track': 1, 'path': [0], 'query': sys.argv[2] if len(sys.argv) > 2 else '', 'limit': 32})
-        elif sys.argv[1] == 'make':
+        elif sys.argv[1] in ('make', 'audition'):
             assert live.get('/live/track/get/devices/name', [1]) == [1, 'Operator']
-            assert not live.get('/live/clip_slot/get/has_clip', [1, 0])[-1], 'Audition clip already exists; do not duplicate'
+            creating = sys.argv[1] == 'make'
+            if creating:
+                assert not live.get('/live/clip_slot/get/has_clip', [1, 0])[-1], 'Audition clip already exists; do not duplicate'
+            else:
+                assert live.get('/live/clip/get/name', [1, 0])[-1] == 'Bass 01 - Original - Awaiting Review'
+                assert live.get('/live/clip/get/length', [1, 0])[-1] == 32.0
             controls = [('Osc-A Wave', 'Triangle', 'label'), ('Filter Freq', 450, 'Hz'),
                         ('Filter Res', 15, '%'), ('Ae Attack', 3, 'ms'), ('Ae Decay', 280, 'ms'),
-                        ('Ae Sustain', -9, 'dB'), ('Ae Release', 110, 'ms')]
+                        ('Ae Release', 110, 'ms')]
             changes = []
-            for name, value, unit in controls:
+            for name, value, unit in controls if creating else []:
                 mapped = await live.tool('get_device_control_map', {'track': 1, 'path': [0], 'query': name, 'limit': 32})
                 result = await live.tool('set_device_control', {'track': 1, 'path': [0], 'map_id': mapped['map_id'],
                                               'control': name, 'value': value, 'unit': unit})
                 changes.append(result)
                 print(result['summary'], flush=True)
             live.send('/live/song/stop_playing')
-            live.send('/live/clip_slot/create_clip', [1, 0, 32.0])
-            await asyncio.sleep(0.3)
-            assert live.get('/live/clip_slot/get/has_clip', [1, 0])[-1]
-            live.send('/live/clip/set/name', [1, 0, 'Bass 01 - Original - Awaiting Review'])
-            live.send('/live/scene/set/name', [0, 'Bass 01 - Audition'])
+            if creating:
+                live.send('/live/clip_slot/create_clip', [1, 0, 32.0])
+                await asyncio.sleep(0.3)
+                assert live.get('/live/clip_slot/get/has_clip', [1, 0])[-1]
+                live.send('/live/clip/set/name', [1, 0, 'Bass 01 - Original - Awaiting Review'])
+                live.send('/live/scene/set/name', [0, 'Bass 01 - Audition'])
             notes = []
             for bar in range(8):
                 pattern = [(0.5,36,0.38,94), (1.75,36,0.23,80), (2.5,43 if bar%2 else 36,0.42,88),
@@ -79,13 +85,18 @@ async def main():
                     notes.append([pitch, bar*4+start+(0.012 if n==1 else 0), length,
                                   float(velocity-(bar%3)*2), 0])
             flat = [v for note in notes for v in note]
-            live.send('/live/clip/add/notes', [1, 0] + flat)
-            await asyncio.sleep(0.3)
+            if creating:
+                live.send('/live/clip/add/notes', [1, 0] + flat)
+                await asyncio.sleep(0.3)
             observed = live.get('/live/clip/get/notes', [1, 0])[2:]
-            assert len(observed) == len(flat) and all(abs(a-b)<0.0001 for a,b in zip(observed,flat))
+            observed_notes = sorted([observed[i:i+5] for i in range(0, len(observed), 5)])
+            assert len(observed) == len(flat) and all(
+                all(abs(a-b)<0.0001 for a,b in zip(actual, expected))
+                for actual, expected in zip(observed_notes, sorted(notes)))
             (ROOT / 'bass-01-design.json').write_text(json.dumps({'source':'Ableton Operator; newly designed triangle patch',
                 'midi_origin':'Newly written pattern, not extracted from the reference', 'notes':notes,
-                'controls':changes, 'approval':'pending'}, indent=2))
+                'controls':changes, 'sustain':'Unchanged at observed 0.0 dB; dB conversion unsupported',
+                'approval':'pending'}, indent=2))
             preview = await capture_part(live, 1, 0, 16)
             if preview.get('status') == 'verified':
                 (ROOT / 'Bass-01-Original.m4a').write_bytes(base64.b64decode(preview.pop('audio_base64')))
