@@ -1,0 +1,56 @@
+import asyncio
+import base64
+import importlib.util
+import json
+import sys
+
+spec = importlib.util.spec_from_file_location('kick', '/private/tmp/beatmind-first-kick.py')
+kick = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(kick)
+sys.path.insert(0, '/Users/jeet/doordash-p2p/apps/ableton-chatbot/backend')
+from automation import execute_automation
+
+
+async def main():
+    live = kick.Local()
+    live.log_name = 'saturation-actions-' + sys.argv[1] + '.json'
+    async def send(address, args, query, timeout):
+        result = await live._query_osc('effect', address, args, timeout)
+        return {**result, 'address': address}
+    async def tool(name, data):
+        result = await execute_automation(name, data, send)
+        assert result['status'] in ('observed', 'verified'), result.get('summary')
+        return result
+    try:
+        assert (await live.get('/live/song/get/track_names'))[0] == 'Kick - Deep Minimal'
+        assert not (await live.get('/live/song/get/record_mode'))[-1], 'Recording active; do not interrupt'
+        assert not (await live.get('/live/song/get/session_record'))[-1], 'Session recording active'
+        if (await live.get('/live/song/get/is_playing'))[-1]:
+            await live.write('/live/song/stop_playing', [])
+        assert not (await live.get('/live/song/get/is_playing'))[-1]
+        if sys.argv[1] == 'load':
+            assert (await live.get('/live/track/get/devices/name', [0])) == [0, 'Kick Dublyn Tech Round']
+            catalog = await tool('get_library_catalog', {'category': 'audio_effects', 'offset': 32, 'limit': 32})
+            assert any(i['name'] == 'Saturator' and i['loadable'] for i in catalog['items'])
+            result = await tool('load_library_item', {'track': 0, 'kind': 'effect', 'category': 'audio_effects', 'folders': ['Saturator']})
+            (kick.ROOT / 'saturator-load.json').write_text(json.dumps(result, indent=2))
+        mapped = await tool('get_device_control_map', {'track': 0, 'path': [1], 'limit': 32})
+        assert mapped['device_name'] == 'Saturator'
+        (kick.ROOT / 'saturator-controls.json').write_text(json.dumps(mapped, indent=2))
+        print(json.dumps({k:v for k,v in mapped.items() if k != 'steps'}), flush=True)
+        if sys.argv[1] == 'tune':
+            for control, value in [('Drive', 1.5), ('Output', -1.5)]:
+                result = await tool('set_device_control', {'track': 0, 'path': [1], 'map_id': mapped['map_id'],
+                                    'control': control, 'value': value, 'unit': 'dB'})
+                print(result['summary'], flush=True)
+            preview = await kick.capture_part(live, 0, 0, 10)
+            if preview.get('status') == 'verified':
+                (kick.ROOT / 'Kick-03-Gentle-Saturation.m4a').write_bytes(base64.b64decode(preview.pop('audio_base64')))
+            (kick.ROOT / 'saturation-audition.json').write_text(json.dumps(preview, indent=2))
+            print(json.dumps({'status': preview['status'], 'error': preview.get('error'),
+                              'metrics': {k:v for k,v in preview.get('metrics', {}).items() if k != 'waveform'}}))
+    finally:
+        live.close()
+
+
+asyncio.run(main())

@@ -1,0 +1,48 @@
+import asyncio
+import base64
+import importlib.util
+import json
+
+spec = importlib.util.spec_from_file_location('kick', '/private/tmp/beatmind-first-kick.py')
+kick = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(kick)
+
+
+async def main():
+    live = kick.Local()
+    live.log_name = 'velocity-action-log.json'
+    try:
+        names = await live.get('/live/song/get/track_names')
+        assert names[0] == 'Kick - Deep Minimal', 'Track changed; inspect before editing'
+        assert not (await live.get('/live/song/get/is_playing'))[-1], 'Stop playback before editing'
+        sample = await live.get('/live/browser/get_loaded_sample', [0])
+        expected_source = json.loads((kick.ROOT / 'sample-source.json').read_text())['source']
+        assert sample[0].endswith('/' + expected_source['relative_path']), 'Sample changed'
+        before = (await live.get('/live/clip/get/notes', [0, 0]))[2:]
+        expected = [v for beat in range(16) for v in [60, float(beat), 0.25, 100.0, False]]
+        assert before == expected, 'Clip changed; inspect before editing'
+        (kick.ROOT / 'kick-notes-before-velocity.json').write_text(json.dumps(before))
+        velocities = [103, 98, 101, 97, 102, 99, 100, 98, 104, 98, 102, 96, 103, 99, 101, 97]
+        after = before.copy()
+        for i, velocity in enumerate(velocities):
+            after[i * 5 + 3] = float(velocity)
+            after[i * 5 + 4] = int(after[i * 5 + 4])
+        await live.write('/live/clip/remove/notes', [0, 0])
+        assert (await live.get('/live/clip/get/notes', [0, 0]))[2:] == []
+        await live.write('/live/clip/add/notes', [0, 0] + after)
+        actual = (await live.get('/live/clip/get/notes', [0, 0]))[2:]
+        assert actual == after, 'Readback mismatch; inspect before retrying'
+        assert all(actual[i] == before[i] for i in range(len(before)) if i % 5 != 3)
+        assert await live.get('/live/browser/get_loaded_sample', [0]) == sample
+        print('Verified: all 16 hits retain pitch, timing and duration; only velocities changed to 96-104.', flush=True)
+        preview = await kick.capture_part(live, 0, 0, 10)
+        if preview.get('status') == 'verified':
+            (kick.ROOT / 'Kick-02-Subtle-Velocity.m4a').write_bytes(base64.b64decode(preview.pop('audio_base64')))
+        (kick.ROOT / 'velocity-audition.json').write_text(json.dumps(preview, indent=2))
+        print(json.dumps({'status': preview['status'], 'error': preview.get('error'),
+                          'metrics': {k: v for k, v in preview.get('metrics', {}).items() if k != 'waveform'}}))
+    finally:
+        live.close()
+
+
+asyncio.run(main())

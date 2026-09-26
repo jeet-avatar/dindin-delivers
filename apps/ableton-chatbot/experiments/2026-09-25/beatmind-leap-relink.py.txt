@@ -1,0 +1,18 @@
+import gzip
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+project = Path('/Users/jeet/Music/BeatMind Projects/Leap of Faith - Wo-Core Project')
+source = project / 'Leap of Faith - Wo-Core.als'
+target = project / 'Leap of Faith - Ready.als'
+assert not target.exists(), 'Do not overwrite an existing set'
+root = ET.fromstring(gzip.open(source).read())
+for ref in root.findall('.//AudioClip/SampleRef/FileRef'):
+    audio = project / 'Samples/Imported' / Path(ref.find('Path').get('Value')).name
+    assert audio.is_file(), audio
+    ref.find('Path').set('Value', str(audio))
+    ref.find('RelativePathType').set('Value', '0')
+    ref.find('RelativePath').set('Value', '')
+with gzip.open(target, 'wb') as output:
+    output.write(ET.tostring(root, encoding='utf-8', xml_declaration=True))
+print(target)

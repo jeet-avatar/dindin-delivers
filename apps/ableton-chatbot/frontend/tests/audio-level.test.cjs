@@ -1,0 +1,11 @@
+const assert = require('node:assert/strict'), fs = require('node:fs'), Module = require('node:module'), ts = require('typescript');
+const file = require('node:path').resolve(__dirname, '../src/lib/audio-level.ts');
+const mod = new Module(file, module);
+mod._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, file);
+const { levelHint } = mod.exports;
+assert.match(levelHint(-26.56, -36.1).title, /Quiet preview/);
+assert.equal(levelHint(-12, -25), null);
+assert.match(levelHint(-0.3, -20).title, /headroom/);
+assert.match(levelHint(-15, -45).title, /Low average/);
+assert.equal(levelHint(NaN), null);
+console.log('Audio-level hints passed.');

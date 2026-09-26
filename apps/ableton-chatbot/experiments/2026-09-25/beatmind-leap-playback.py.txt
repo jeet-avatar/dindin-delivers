@@ -1,0 +1,91 @@
+import asyncio
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import time
+
+spec = importlib.util.spec_from_file_location('leap_live', '/private/tmp/beatmind-leap-inspect.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+project = Path('/Users/jeet/Music/BeatMind Projects/Leap of Faith - Wo-Core Project')
+out = project / 'Auditions'
+out.mkdir(exist_ok=True)
+helper = '/Applications/BeatMind Bridge.app/Contents/Helpers/BeatMind Audio.app'
+report = json.loads(Path('/private/tmp/beatmind-reference-dev/a6f7f9e6adc94e44851e0d9fa8ffa78b/report.json').read_text())
+assert asyncio.run(module.window_title()).startswith('Leap of Faith - Ready')
+live = module.Local()
+results = []
+try:
+    names = live.get('/live/song/get/track_names')
+    assert len(names) == 9 and names[0] == 'REF - Original Mix (muted)'
+    assert not live.get('/live/song/get/record_mode')[-1]
+    assert not live.get('/live/song/get/session_record')[-1]
+    live.send('/live/song/stop_playing')
+    time.sleep(0.2)
+    assert not live.get('/live/song/get/is_playing')[-1]
+    solos = [live.get('/live/track/get/solo', [i])[-1] for i in range(len(names))]
+    assert not any(solos), 'Unexpected solo state; inspect before testing'
+    for i in range(5):
+        live.send('/live/track/set/mute', [i, int(i == 0)])
+    time.sleep(0.2)
+    assert live.get('/live/track/get/mute', [0])[-1]
+    assert all(not live.get('/live/track/get/mute', [i])[-1] for i in range(1, 5))
+    jobs = []
+    for i, stem in enumerate(['drums', 'bass', 'vocals', 'other'], 1):
+        data = next(s for s in report['stems'] if s['name'] == stem)
+        start = max(range(len(data['activity'])), key=data['activity'].__getitem__) * 8
+        jobs.append((stem, i, min(start, 250), 4))
+    jobs.append(('combined-stems', None, 32, 8))
+    for name, index, seconds, length in jobs:
+        assert live.get('/live/song/get/track_names') == names
+        for i in range(len(names)):
+            live.send('/live/track/set/solo', [i, int(i == index)])
+        live.send('/live/song/set/back_to_arranger', [0])
+        live.send('/live/song/set/current_song_time', [float(seconds * 122 / 60)])
+        time.sleep(0.3)
+        assert [live.get('/live/track/get/solo', [i])[-1] for i in range(len(names))] == [i == index for i in range(len(names))]
+        audio, events, errors = [out / f'{name}-playback.{ext}' for ext in ('m4a', 'jsonl', 'log')]
+        assert not audio.exists(), 'Do not overwrite earlier playback captures'
+        subprocess.run(['open', '-n', '--stdout', str(events), '--stderr', str(errors), helper,
+                        '--args', str(audio), str(length)], check=True)
+        deadline = time.monotonic() + length + 25
+        started = False
+        complete = None
+        while time.monotonic() < deadline:
+            lines = events.read_text().splitlines() if events.exists() else []
+            for line in lines:
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if 'error' in event:
+                    raise RuntimeError(event['error'])
+                if event.get('type') == 'ready' and not started:
+                    live.send('/live/song/start_playing')
+                    started = True
+                if event.get('type') == 'complete':
+                    complete = event
+            if complete:
+                break
+            time.sleep(0.1)
+        live.send('/live/song/stop_playing')
+        time.sleep(0.2)
+        assert complete and audio.is_file(), f'{name} capture incomplete'
+        metrics = {k: v for k, v in complete['metrics'].items() if k != 'waveform'}
+        result = {'stem': name, 'reference_start_seconds': seconds, 'metrics': metrics}
+        results.append(result)
+        print(json.dumps(result), flush=True)
+        assert metrics['has_signal'], f'{name} produced no audio'
+finally:
+    live.send('/live/song/stop_playing')
+    if live.get('/live/song/get/track_names') == names:
+        for i in range(len(names)):
+            live.send('/live/track/set/solo', [i, 0])
+        live.send('/live/song/set/current_song_time', [0.0])
+        live.send('/live/view/set/selected_track', [1])
+        time.sleep(0.3)
+        assert not live.get('/live/song/get/is_playing')[-1]
+        assert abs(live.get('/live/song/get/current_song_time')[-1]) < 0.01
+    (out / 'playback-verification.json').write_text(json.dumps(results, indent=2))
+    live.close()

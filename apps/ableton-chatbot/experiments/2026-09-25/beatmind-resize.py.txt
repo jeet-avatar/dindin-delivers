@@ -1,0 +1,50 @@
+"""Capacity-only ECS rollout; keep task credentials out of files and logs."""
+import json
+import subprocess
+import sys
+import boto3
+
+REGION = "us-east-1"
+CLUSTER = "dollor-production"
+SERVICE = "beatmind-api-service"
+
+
+def aws(*args, payload=None):
+    if payload is not None:
+        return boto3.client("ecs", region_name=REGION).register_task_definition(**payload)
+    command = ["aws", "--region", REGION, "--output", "json", *args]
+    if payload is not None:
+        command += ["--cli-input-json", "file:///dev/stdin"]
+    result = subprocess.run(command, input=json.dumps(payload) if payload else None,
+                            text=True, capture_output=True, timeout=120)
+    if result.returncode:
+        error = result.stderr
+        for container in (payload or {}).get("containerDefinitions", []):
+            for entry in container.get("environment", []):
+                if entry.get("value"):
+                    error = error.replace(entry["value"], "[redacted]")
+        raise RuntimeError("AWS operation failed: " + " ".join(args[:2]) + " " + error[:1500])
+    return json.loads(result.stdout)
+
+
+service = aws("ecs", "describe-services", "--cluster", CLUSTER,
+              "--services", SERVICE)["services"][0]
+old = service["taskDefinition"]
+if not old.endswith("beatmind-api:18"):
+    sys.exit("Task revision changed; inspect before resizing.")
+if any(d.get("rolloutState") != "COMPLETED" for d in service["deployments"]):
+    sys.exit("Deployment already in progress; refusing concurrent rollout.")
+task = aws("ecs", "describe-task-definition", "--task-definition", old)["taskDefinition"]
+for key in ("taskDefinitionArn", "revision", "status", "requiresAttributes",
+            "compatibilities", "registeredAt", "registeredBy", "deregisteredAt"):
+    task.pop(key, None)
+task["cpu"] = "2048"
+task["memory"] = "8192"
+new = aws("ecs", "register-task-definition", payload=task)["taskDefinition"]["taskDefinitionArn"]
+latest = aws("ecs", "describe-services", "--cluster", CLUSTER,
+             "--services", SERVICE)["services"][0]
+if latest["taskDefinition"] != old:
+    sys.exit("Service changed after registration; no rollout started.")
+aws("ecs", "update-service", "--cluster", CLUSTER, "--service", SERVICE,
+    "--task-definition", new)
+print(json.dumps({"previous": old, "requested": new, "cpu": 2048, "memory_mib": 8192}), flush=True)

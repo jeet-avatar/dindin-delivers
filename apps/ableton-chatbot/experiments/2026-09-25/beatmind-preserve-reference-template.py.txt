@@ -1,0 +1,53 @@
+from copy import deepcopy
+import gzip
+import hashlib
+import json
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+source = Path('/Users/jeet/Music/BeatMind Projects/Leap of Faith - Wo-Core Project/Leap of Faith - Ready.als')
+template = Path('/Users/jeet/Music/Ableton/User Library/Templates/BeatMind/Leap of Faith - Reference Only.als')
+writing = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - 122 BPM Project')
+destination = writing / 'Original Groove - Writing Template.als'
+assert not template.exists() and not destination.exists(), 'Existing template: inspect rather than overwrite'
+root = ET.fromstring(gzip.open(source).read())
+assert root.find('LiveSet/MainTrack/DeviceChain/Mixer/Tempo/Manual').get('Value') == '122'
+reference = deepcopy(root)
+for ref in reference.findall('.//AudioClip/SampleRef/FileRef'):
+    audio = Path(ref.find('Path').get('Value'))
+    assert audio.is_file(), audio
+    ref.find('RelativePathType').set('Value', '0')
+    ref.find('RelativePath').set('Value', '')
+reference.find('LiveSet/Annotation').set('Value', 'REFERENCE ONLY. Estimated stems of Gutenn - Leap of Faith (Wo-Core Remix). Preserve for comparison, not as audio in an original release. Original writing uses a separate set.')
+template.parent.mkdir(parents=True, exist_ok=True)
+with gzip.open(template, 'wb') as out:
+    out.write(ET.tostring(reference, encoding='utf-8', xml_declaration=True))
+
+live = root.find('LiveSet')
+tracks = live.find('Tracks')
+for track in list(tracks):
+    if track.tag == 'AudioTrack':
+        tracks.remove(track)
+assert len(tracks.findall('MidiTrack')) == 4
+assert not root.findall('.//AudioClip')
+assert not root.findall('.//SampleRef')
+for tag, val in [('HighlightedTrackIndex', '1'), ('Transport/CurrentTime', '0'),
+                 ('Annotation', 'Original writing set. No extracted reference audio is included. New synthesis and original MIDI required. Reference-derived section boundaries are estimates, not approved musical labels.')]:
+    live.find(tag).set('Value', val)
+writing.mkdir(parents=True, exist_ok=True)
+with gzip.open(destination, 'wb') as out:
+    out.write(ET.tostring(root, encoding='utf-8', xml_declaration=True))
+manifest = {'reference_template': str(template), 'writing_template': str(destination),
+            'reference_source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+            'extracted_reference_audio_in_writing_set': False,
+            'writing_set_live_verification': 'pending - Mac locked',
+            'next_part': 'Newly synthesized bass with original MIDI; audition required',
+            'rules': ['Do not reuse separated reference stems in the original-track export.',
+                      'Do not transcribe the reference hook or bass line; write new parts.',
+                      'Use discovered instruments or user-owned/licensed sample sources with provenance.',
+                      'Record actual Live output and verify browser playback before requesting approval.',
+                      'Signal checks are not human approval or an originality guarantee.']}
+(writing / 'source-provenance.json').write_text(json.dumps(manifest, indent=2))
+print(json.dumps({'reference_template': str(template), 'writing_set': str(destination),
+                  'audio_clips_in_writing_set': 0, 'sample_refs_in_writing_set': 0,
+                  'midi_tracks': 4, 'live_playback': 'not yet tested'}))

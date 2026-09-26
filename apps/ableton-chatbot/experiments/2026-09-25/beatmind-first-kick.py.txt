@@ -1,0 +1,96 @@
+import asyncio
+import base64
+import json
+import os
+from pathlib import Path
+import socket
+import subprocess
+import sys
+import time
+
+sys.path.insert(0, '/Users/jeet/doordash-p2p/apps/ableton-chatbot/bridge')
+from bridge import build_osc_message, parse_osc_message
+from sample_library import SampleLibrary, load_exact
+from audio_preview import capture_part
+
+ROOT = Path.home() / 'Music/BeatMind Auditions/Deep Minimal 2026-09-25'
+ROOT.mkdir(parents=True, exist_ok=True)
+os.environ['BEATMIND_AUDIO_APP'] = '/Applications/BeatMind Bridge.app/Contents/Helpers/BeatMind Audio.app'
+
+
+class Local:
+    def __init__(self):
+        ip = subprocess.check_output(['ipconfig', 'getifaddr', 'en0'], text=True).strip()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind((ip, 11001))
+        self.sock.settimeout(6)
+        self.log = []
+        self.log_name = 'action-log.json'
+
+    def _send_osc(self, address, args):
+        self.sock.sendto(build_osc_message(address, args), ('127.0.0.1', 11000))
+        self.log.append({'address': address, 'args': args, 'time': time.time()})
+
+    async def _query_osc(self, request, address, args, timeout):
+        self._send_osc(address, args)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            a, values = parse_osc_message(self.sock.recvfrom(65535)[0])
+            if a == '/live/error':
+                raise RuntimeError(values)
+            if a == address:
+                return {'status': 'ok', 'args': values}
+        raise TimeoutError(address)
+
+    async def get(self, address, args=None):
+        return (await self._query_osc('kick', address, args or [], 6))['args']
+
+    async def write(self, address, args):
+        self._send_osc(address, args)
+        await asyncio.sleep(0.2)
+
+    def close(self):
+        (ROOT / self.log_name).write_text(json.dumps(self.log, indent=2))
+        self.sock.close()
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.bind(('127.0.0.1', 0))
+            s.sendto(build_osc_message('/live/song/get/tempo', []), ('127.0.0.1', 11000))
+
+
+async def main():
+    live = Local()
+    try:
+        names = await live.get('/live/song/get/track_names')
+        assert names == ['1-MIDI', '2-MIDI', '3-Audio', '4-Audio'], 'Set changed; inspect before writing'
+        assert not (await live.get('/live/song/get/is_playing'))[-1]
+        assert (await live.get('/live/track/get/devices/name', [0])) == [0]
+        assert all(x is None for x in (await live.get('/live/track/get/clips/name', [0]))[1:])
+        result = await load_exact(live, SampleLibrary(), {
+            'pack_id': 'c642dceebdf9210142e976d2', 'sample_id': 'c8f8270615561f3acea5449a', 'track': 0})
+        (ROOT / 'sample-source.json').write_text(json.dumps(result, indent=2))
+        assert result['status'] == 'verified', result['summary']
+        print('Verified exact Drum Essentials kick sample loaded.', flush=True)
+        await live.write('/live/song/set/tempo', [124.0])
+        await live.write('/live/track/set/name', [0, 'Kick - Deep Minimal'])
+        await live.write('/live/clip_slot/create_clip', [0, 0, 16.0])
+        assert (await live.get('/live/clip_slot/get/has_clip', [0, 0]))[-1]
+        await live.write('/live/clip/set/name', [0, 0, 'Kick 01 - Four on Floor'])
+        notes = [[60, float(beat), 0.25, 100.0, 0] for beat in range(16)]
+        await live.write('/live/clip/add/notes', [0, 0] + [value for note in notes for value in note])
+        actual = (await live.get('/live/clip/get/notes', [0, 0]))[2:]
+        assert actual == [value for note in notes for value in note], 'MIDI readback mismatch'
+        assert (await live.get('/live/song/get/tempo'))[-1] == 124.0
+        assert (await live.get('/live/clip/get/loop_end', [0, 0]))[-1] == 16.0
+        print('Verified 16 kick hits across four bars at 124 BPM. Capturing audition.', flush=True)
+        preview = await capture_part(live, 0, 0, 10)
+        if preview.get('status') == 'verified':
+            (ROOT / 'Kick-01.m4a').write_bytes(base64.b64decode(preview.pop('audio_base64')))
+        (ROOT / 'audition.json').write_text(json.dumps(preview, indent=2))
+        print(json.dumps({k: v for k, v in preview.items() if k not in ('steps', 'metrics')}))
+        print(json.dumps({k: v for k, v in preview.get('metrics', {}).items() if k != 'waveform'}))
+    finally:
+        live.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

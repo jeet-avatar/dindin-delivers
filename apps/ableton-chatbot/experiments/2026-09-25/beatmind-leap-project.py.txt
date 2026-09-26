@@ -1,0 +1,143 @@
+"""Build this local reference study from Ableton's installed native templates."""
+from copy import deepcopy
+import gzip
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import xml.etree.ElementTree as ET
+import soundfile as sf
+
+SOURCE = Path('/private/tmp/beatmind-reference-dev/a6f7f9e6adc94e44851e0d9fa8ffa78b')
+PROJECT = Path('/Users/jeet/Music/BeatMind Projects/Leap of Faith - Wo-Core Reference Project')
+APP = Path('/Applications/Ableton Live 12 Suite.app/Contents/App-Resources')
+report = json.loads((SOURCE / 'report.json').read_text())
+assert report['stem_health']['checks_passed'] and report['duration_seconds'] == 260
+assert not PROJECT.exists(), 'Refusing to overwrite an existing project'
+samples = PROJECT / 'Samples/Imported'
+samples.mkdir(parents=True)
+bpm = 122.0  # The selected file's embedded TBPM tag, not the 123 BPM estimator.
+duration = report['duration_seconds']
+end_beat = duration * bpm / 60
+root = ET.fromstring(gzip.open(APP / 'Builtin/Templates/DefaultLiveSet.als').read())
+live = root.find('LiveSet')
+tracks = live.find('Tracks')
+audio_template = deepcopy(tracks.find('AudioTrack'))
+midi_template = deepcopy(tracks.find('MidiTrack'))
+returns = [deepcopy(t) for t in tracks if t.tag == 'ReturnTrack']
+tracks.clear()
+clip_source = ET.fromstring(gzip.open(APP / 'Core Library/Lessons/Sets/Driver Error Compensation.als').read())
+clip_template = min(clip_source.iter('AudioClip'), key=lambda c: len(ET.tostring(c)))
+next_id = max(int(e.get('Id', 0)) for e in root.iter()) + 1000
+
+
+def value(node, path, val):
+    element = node.find(path)
+    assert element is not None, path
+    element.set('Value', str(val))
+
+
+def clone_track(template, index, name, color):
+    global next_id
+    track = deepcopy(template)
+    track.set('Id', str(100 + index))
+    mapping = {}
+    for e in track.iter():
+        if 'Id' in e.attrib and (e.tag.endswith('Target') or e.tag == 'Pointee'):
+            old = e.get('Id')
+            mapping[old] = str(next_id)
+            e.set('Id', str(next_id))
+            next_id += 1
+    for e in track.iter('PointeeId'):
+        if e.get('Value') in mapping:
+            e.set('Value', mapping[e.get('Value')])
+    for field in ['Name/EffectiveName', 'Name/UserName']:
+        value(track, field, name)
+    value(track, 'Name/Annotation', 'Reference study. Estimated stems and section boundaries require listening review.' if index < 5 else 'Your original sound: choose and audition an instrument before adding effects.')
+    value(track, 'Color', color)
+    value(track, 'DeviceChain/Mixer/Volume/Manual', 0.5011872336 if index < 5 else 1)
+    value(track, 'DeviceChain/Mixer/Speaker/Manual', 'false' if index == 0 else 'true')
+    for send in track.findall('DeviceChain/Mixer/Sends/TrackSendHolder/Send/Manual'):
+        send.set('Value', '0')
+    tracks.append(track)
+    return track
+
+
+manifest = {'title': 'Gutenn - Leap of Faith (Wo-Core Remix)', 'bpm': bpm,
+            'tempo_source': 'Embedded TBPM tag; detected tempo was 123 BPM',
+            'duration_seconds': duration, 'section_status': 'estimated, not user-confirmed',
+            'stem_status': 'separated estimates, not original multitracks', 'files': []}
+for index, (stem, color) in enumerate([('mix', 13), ('drums', 1), ('bass', 16), ('vocals', 26), ('other', 22)]):
+    target = samples / (stem + '.wav')
+    shutil.copy2(SOURCE / (stem + '.wav'), target)
+    info = sf.info(target)
+    assert info.frames == 11466000 and info.samplerate == 44100
+    name = 'REF - Original Mix (muted)' if stem == 'mix' else 'REF - ' + stem.title() + ' (estimated)'
+    track = clone_track(audio_template, index, name, color)
+    clip = deepcopy(clip_template)
+    clip.set('Id', str(index + 1))
+    clip.set('Time', '0')
+    for path, val in {
+        'Name': name, 'CurrentStart': 0, 'CurrentEnd': end_beat,
+        'Loop/LoopStart': 0, 'Loop/LoopEnd': duration, 'Loop/StartRelative': 0,
+        'Loop/OutMarker': duration, 'Loop/HiddenLoopStart': 0, 'Loop/HiddenLoopEnd': duration,
+        'Loop/LoopOn': 'false', 'IsWarped': 'false', 'Color': color,
+        'SampleRef/FileRef/RelativePathType': 3,
+        'SampleRef/FileRef/RelativePath': 'Samples/Imported/' + target.name,
+        'SampleRef/FileRef/Path': str(target), 'SampleRef/FileRef/LivePackName': '',
+        'SampleRef/FileRef/LivePackId': '', 'SampleRef/FileRef/OriginalFileSize': target.stat().st_size,
+        'SampleRef/FileRef/OriginalCrc': 0, 'SampleRef/LastModDate': int(target.stat().st_mtime),
+        'SampleRef/DefaultDuration': info.frames, 'SampleRef/DefaultSampleRate': info.samplerate,
+        'SampleVolume': 1, 'Annotation': 'Estimated reference stem; no recovered instrument or effect settings.'
+    }.items():
+        value(clip, path, val)
+    clip.find('Envelopes/Envelopes').clear()
+    clip.find('SampleRef/SourceContext').clear()
+    markers = clip.find('WarpMarkers')
+    markers.clear()
+    ET.SubElement(markers, 'WarpMarker', Id='0', SecTime='0', BeatTime='0')
+    ET.SubElement(markers, 'WarpMarker', Id='1', SecTime=str(duration), BeatTime=str(end_beat))
+    track.find('DeviceChain/MainSequencer/Sample/ArrangerAutomation/Events').append(clip)
+    with target.open('rb') as source:
+        digest = hashlib.file_digest(source, 'sha256').hexdigest()
+    manifest['files'].append({'stem': stem, 'path': str(target.relative_to(PROJECT)), 'sha256': digest})
+
+for index, name in enumerate(['YOUR Kick', 'YOUR Bass', 'YOUR Percussion', 'YOUR Synth'], 5):
+    clone_track(midi_template, index, name, 5 + index)
+for track in returns:
+    tracks.append(track)
+value(live, 'MainTrack/DeviceChain/Mixer/Tempo/Manual', bpm)
+tempo_id = live.find('MainTrack/DeviceChain/Mixer/Tempo/AutomationTarget').get('Id')
+for envelope in live.findall('MainTrack/AutomationEnvelopes/Envelopes/AutomationEnvelope'):
+    if envelope.find('EnvelopeTarget/PointeeId').get('Value') == tempo_id:
+        for event in envelope.findall('Automation/Events/FloatEvent'):
+            event.set('Value', str(bpm))
+value(live, 'NextPointeeId', next_id + 100)
+value(live, 'Transport/LoopStart', 0)
+value(live, 'Transport/LoopLength', end_beat)
+value(live, 'Transport/LoopOn', 'false')
+value(live, 'Transport/CurrentTime', 0)
+value(live, 'SelectedDocumentViewInMainWindow', 0)
+value(live, 'SequencerNavigator/BeatTimeHelper/CurrentZoom', 1.65)
+boundaries = report['structure']['boundary_seconds'] + [duration]
+locators = live.find('Locators/Locators')
+manifest['sections'] = []
+for index, second in enumerate(boundaries):
+    name = f'Section {index + 1:02d} - estimated' if second < duration else 'End - 4:20'
+    locator = ET.SubElement(locators, 'Locator', Id=str(index))
+    for tag, val in [('LomId', 0), ('Time', second * bpm / 60), ('Name', name),
+                     ('Annotation', 'Estimated boundary; review before arranging original parts.'), ('IsSongStart', 'true' if index == 0 else 'false')]:
+        ET.SubElement(locator, tag, Value=str(val))
+    if second < duration:
+        manifest['sections'].append({'name': name, 'start_seconds': second, 'end_seconds': boundaries[index + 1]})
+    scene = live.find(f'Scenes/Scene[@Id="{index}"]')
+    if scene is not None:
+        value(scene, 'Name', name)
+value(live, 'Annotation', 'Leap of Faith reference study. 122 BPM from source tag. Warp off preserves 260 seconds. Estimated stems/section labels require review. Original mix is muted to prevent doubling. Four empty MIDI tracks are ready for your own sounds.')
+destination = PROJECT / 'Leap of Faith - Reference Study.als'
+with gzip.open(destination, 'wb') as out:
+    out.write(ET.tostring(root, encoding='utf-8', xml_declaration=True))
+(PROJECT / 'reference-manifest.json').write_text(json.dumps(manifest, indent=2))
+shutil.copy2(SOURCE / 'report.json', PROJECT / 'reference-analysis.json')
+print(json.dumps({'project': str(destination), 'reference_tracks': 5, 'original_instrument_tracks': 4,
+                  'sections_estimated': len(manifest['sections']), 'duration_seconds': duration, 'bpm': bpm}))

@@ -1,0 +1,106 @@
+import asyncio
+import base64
+import importlib.util
+import json
+import os
+from pathlib import Path
+import sys
+import time
+
+sys.path.insert(0, '/Users/jeet/doordash-p2p/apps/ableton-chatbot/backend')
+sys.path.insert(0, '/Users/jeet/doordash-p2p/apps/ableton-chatbot/bridge')
+from automation import execute_automation
+from audio_preview import capture_part
+from live_set import window_title
+spec = importlib.util.spec_from_file_location('connection', '/private/tmp/beatmind-leap-inspect.py')
+connection = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(connection)
+ROOT = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - 122 BPM Project')
+os.environ['BEATMIND_AUDIO_APP'] = '/Applications/BeatMind Bridge.app/Contents/Helpers/BeatMind Audio.app'
+
+
+class Live(connection.Local):
+    def _send_osc(self, address, args):
+        self.send(address, args)
+
+    async def _query_osc(self, request, address, args, timeout):
+        return {'status': 'ok', 'address': address, 'args': self.get(address, args)}
+
+    async def tool(self, name, data):
+        async def send(address, args, query, timeout):
+            return await self._query_osc('bass', address, args, timeout)
+        result = await execute_automation(name, data, send)
+        assert result['status'] in ('observed', 'verified'), result.get('summary')
+        return result
+
+
+async def main():
+    title = await window_title()
+    assert title.startswith('Original Groove'), title
+    live = Live()
+    try:
+        names = live.get('/live/song/get/track_names')
+        assert names == ['YOUR Kick', 'YOUR Bass', 'YOUR Percussion', 'YOUR Synth'], names
+        assert not live.get('/live/song/get/record_mode')[-1]
+        assert not live.get('/live/song/get/session_record')[-1]
+        if sys.argv[1] == 'catalog':
+            result = await live.tool('get_library_catalog', {'category': 'instruments', 'limit': 32})
+        elif sys.argv[1] == 'load':
+            assert live.get('/live/track/get/devices/name', [1]) == [1]
+            result = await live.tool('load_library_item', {'track': 1, 'kind': 'instrument', 'category': 'instruments', 'folders': ['Operator']})
+        elif sys.argv[1] == 'map':
+            result = await live.tool('get_device_control_map', {'track': 1, 'path': [0], 'query': sys.argv[2] if len(sys.argv) > 2 else '', 'limit': 32})
+        elif sys.argv[1] == 'make':
+            assert live.get('/live/track/get/devices/name', [1]) == [1, 'Operator']
+            assert not live.get('/live/clip_slot/get/has_clip', [1, 0])[-1], 'Audition clip already exists; do not duplicate'
+            controls = [('Osc-A Wave', 'Triangle', 'label'), ('Filter Freq', 450, 'Hz'),
+                        ('Filter Res', 15, '%'), ('Ae Attack', 3, 'ms'), ('Ae Decay', 280, 'ms'),
+                        ('Ae Sustain', -9, 'dB'), ('Ae Release', 110, 'ms')]
+            changes = []
+            for name, value, unit in controls:
+                mapped = await live.tool('get_device_control_map', {'track': 1, 'path': [0], 'query': name, 'limit': 32})
+                result = await live.tool('set_device_control', {'track': 1, 'path': [0], 'map_id': mapped['map_id'],
+                                              'control': name, 'value': value, 'unit': unit})
+                changes.append(result)
+                print(result['summary'], flush=True)
+            live.send('/live/song/stop_playing')
+            live.send('/live/clip_slot/create_clip', [1, 0, 32.0])
+            await asyncio.sleep(0.3)
+            assert live.get('/live/clip_slot/get/has_clip', [1, 0])[-1]
+            live.send('/live/clip/set/name', [1, 0, 'Bass 01 - Original - Awaiting Review'])
+            live.send('/live/scene/set/name', [0, 'Bass 01 - Audition'])
+            notes = []
+            for bar in range(8):
+                pattern = [(0.5,36,0.38,94), (1.75,36,0.23,80), (2.5,43 if bar%2 else 36,0.42,88),
+                           (3.25,39 if bar in (3,7) else 36,0.27,76)]
+                if bar in (1,5):
+                    pattern = pattern[:3]
+                for n, (start,pitch,length,velocity) in enumerate(pattern):
+                    notes.append([pitch, bar*4+start+(0.012 if n==1 else 0), length,
+                                  float(velocity-(bar%3)*2), 0])
+            flat = [v for note in notes for v in note]
+            live.send('/live/clip/add/notes', [1, 0] + flat)
+            await asyncio.sleep(0.3)
+            observed = live.get('/live/clip/get/notes', [1, 0])[2:]
+            assert len(observed) == len(flat) and all(abs(a-b)<0.0001 for a,b in zip(observed,flat))
+            (ROOT / 'bass-01-design.json').write_text(json.dumps({'source':'Ableton Operator; newly designed triangle patch',
+                'midi_origin':'Newly written pattern, not extracted from the reference', 'notes':notes,
+                'controls':changes, 'approval':'pending'}, indent=2))
+            preview = await capture_part(live, 1, 0, 16)
+            if preview.get('status') == 'verified':
+                (ROOT / 'Bass-01-Original.m4a').write_bytes(base64.b64decode(preview.pop('audio_base64')))
+            (ROOT / 'bass-01-audition.json').write_text(json.dumps(preview, indent=2))
+            assert preview['status'] == 'verified', preview.get('summary')
+            live.send('/live/view/set/selected_track', [1])
+            result = {'status':'verified', 'note_count':len(notes), 'bars':8, 'bpm':122,
+                      'audio':str(ROOT/'Bass-01-Original.m4a'),
+                      'metrics':{k:v for k,v in preview.get('metrics',{}).items() if k!='waveform'}, 'approval':'pending'}
+        else:
+            raise ValueError('Unknown step')
+        print(json.dumps({k:v for k,v in result.items() if k!='steps'}, indent=2), flush=True)
+    finally:
+        live.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

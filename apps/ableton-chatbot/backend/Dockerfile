@@ -19,5 +19,8 @@ USER appuser
 
 # NOTE: ECS task def may override DB_PATH if needed
 ENV DB_PATH=/data/beatmind.db
+ENV BEATMIND_RECORDINGS_DIR=/data/recordings
+ENV BEATMIND_PLANS_DIR=/data/production-plans
+ENV BEATMIND_SECTIONS_DIR=/data/section-briefs
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

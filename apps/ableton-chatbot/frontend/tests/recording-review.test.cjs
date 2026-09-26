@@ -1,0 +1,17 @@
+const assert = require('node:assert/strict'), fs = require('node:fs'), Module = require('node:module'), ts = require('typescript');
+const file = require('node:path').resolve(__dirname, '../src/lib/recording-review.ts');
+const mod = new Module(file, module);
+mod._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, file);
+const { reviewMessage } = mod.exports;
+const accepted = { id: 'a', track_name: 'Kick', decision: 'accepted' };
+const pending = { id: 'b', track_name: 'Kick', decision: 'pending', supersedes: 'a' };
+const text = 'Your actual Ableton recording is ready below. Listen and accept it.';
+assert.match(reviewMessage(text, [], ['a'], [accepted]), /Accepted. No further approval/);
+assert.match(reviewMessage(text, [], ['a','b'], [accepted,pending]), /New recording version awaiting review/);
+assert.doesNotMatch(reviewMessage(text, [], ['a','b'], [accepted,pending]), /No further approval/);
+assert.match(reviewMessage(text, [], ['a'], [accepted,pending]), /historical/);
+assert.match(reviewMessage(text, [], ['a'], []), /Checking saved/);
+assert.equal(reviewMessage('Change the bass.', [], ['a'], [accepted]), null);
+assert.match(reviewMessage(text, [{result:{status:'failed',summary:'Listen and approve the current sound'}}], [], [accepted]), /does not represent a current approval request/);
+assert.match(reviewMessage(text, [], ['a'], [{...accepted,decision:'revise'}]), /Changes requested/);
+console.log('Recording review state tests passed.');

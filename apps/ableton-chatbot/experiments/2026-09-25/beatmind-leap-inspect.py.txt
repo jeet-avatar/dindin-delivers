@@ -1,0 +1,55 @@
+import asyncio
+import json
+import socket
+import subprocess
+import sys
+import time
+sys.path.insert(0, '/Users/jeet/doordash-p2p/apps/ableton-chatbot/bridge')
+from bridge import build_osc_message, parse_osc_message
+from live_set import window_title
+
+
+class Local:
+    def __init__(self):
+        ip = subprocess.check_output(['ipconfig', 'getifaddr', 'en0'], text=True).strip()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind((ip, 11001))
+        self.sock.settimeout(8)
+
+    def send(self, address, args=None):
+        self.sock.sendto(build_osc_message(address, args or []), ('127.0.0.1', 11000))
+
+    def get(self, address, args=None):
+        self.send(address, args)
+        deadline = time.monotonic() + 8
+        while time.monotonic() < deadline:
+            a, values = parse_osc_message(self.sock.recvfrom(65535)[0])
+            if a == '/live/error':
+                raise RuntimeError(values)
+            if a == address:
+                return values
+        raise TimeoutError(address)
+
+    def close(self):
+        self.sock.close()
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.bind(('127.0.0.1', 0))
+            s.sendto(build_osc_message('/live/song/get/tempo', []), ('127.0.0.1', 11000))
+
+
+def inspect():
+    print('Window:', asyncio.run(window_title()), flush=True)
+    live = Local()
+    try:
+        names = live.get('/live/song/get/track_names')
+        data = {'tracks': names, 'tempo': live.get('/live/song/get/tempo'),
+                'playing': live.get('/live/song/get/is_playing'), 'locators': live.get('/live/song/get/cue_points')}
+        data['arrangement'] = [{key: live.get('/live/track/get/arrangement_clips/' + key, [i])
+                                for key in ('name', 'length', 'start_time')} for i in range(len(names))]
+        print(json.dumps(data, indent=2))
+    finally:
+        live.close()
+
+
+if __name__ == '__main__':
+    inspect()

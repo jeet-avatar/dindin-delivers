@@ -18,6 +18,7 @@ Prereqs:
 Derived from: main.py::_run_claude_loop + claude_tools.py + bridge/bridge.py (OSC helpers).
 """
 
+import asyncio
 import json
 import os
 import socket
@@ -27,7 +28,8 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from claude_tools import ABLETON_TOOLS, SYSTEM_PROMPT, tool_to_osc  # noqa: E402
+from claude_tools import ABLETON_TOOLS, SYSTEM_PROMPT  # noqa: E402
+from execution import BAD_STATUSES, MAX_PRODUCTION_ROUNDS, execute_verified, response_ids  # noqa: E402
 
 # ---- Config ----
 OSC_HOST = "127.0.0.1"
@@ -36,7 +38,7 @@ OSC_RECV_PORT = 11001
 # Bedrock inference profile (account 134607809447, region us-east-1).
 MODEL = os.getenv("BEATMIND_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-MAX_ITERS = 20
+MAX_ITERS = MAX_PRODUCTION_ROUNDS
 
 
 # ---- OSC protocol (mirrors bridge/bridge.py) ----
@@ -94,6 +96,13 @@ def parse_osc_message(data: bytes) -> tuple[str, list]:
             args.append(data[offset:s_end].decode("utf-8"))
             offset = s_end + 1
             offset += (4 - offset % 4) % 4
+        elif t in ("T", "F", "N"):
+            args.append({"T": True, "F": False, "N": None}[t])
+        elif t in ("h", "d"):
+            args.append(struct.unpack(">q" if t == "h" else ">d", data[offset:offset + 8])[0])
+            offset += 8
+        else:
+            raise ValueError(f"Unsupported OSC type tag: {t}")
     return address, args
 
 
@@ -103,7 +112,6 @@ class OscClient:
     def __init__(self):
         self.send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.recv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.recv_sock.bind((OSC_HOST, OSC_RECV_PORT))
 
     def send(self, address: str, args: list):
@@ -121,45 +129,40 @@ class OscClient:
 
         self.send(address, args)
         self.recv_sock.settimeout(timeout)
-        deadline = time.time() + timeout
-        while time.time() < deadline:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
             try:
+                self.recv_sock.settimeout(max(0.001, deadline - time.monotonic()))
                 data, _ = self.recv_sock.recvfrom(65535)
             except socket.timeout:
                 break
-            resp_addr, resp_args = parse_osc_message(data)
+            try:
+                resp_addr, resp_args = parse_osc_message(data)
+            except (ValueError, UnicodeError, struct.error):
+                continue
             # AbletonOSC echoes the query address on reply.
-            if resp_addr == address or resp_addr.startswith(address.rsplit("/", 1)[0]):
+            ids = response_ids(address, args)
+            if resp_addr == address and resp_args[:len(ids)] == ids:
                 return {"status": "ok", "address": resp_addr, "args": resp_args}
         return {"status": "timeout", "address": address}
 
     def ping(self) -> bool:
-        return self.query("/live/test", [], timeout=1.5).get("status") == "ok"
+        return self.query("/live/song/get/tempo", [], timeout=1.5).get("status") == "ok"
+
+    def close(self):
+        self.send_sock.close()
+        self.recv_sock.close()
 
 
 def execute_tool(tool_name: str, tool_input: dict, osc: OscClient) -> dict:
-    """Local equivalent of main.py::_execute_tool — runs OSC directly."""
-    try:
-        commands = tool_to_osc(tool_name, tool_input)
-    except ValueError as e:
-        return {"error": str(e)}
+    """Use exactly the same validation and readback checks as the web app."""
+    async def send(address, args, query, timeout):
+        if query:
+            return osc.query(address, args, timeout)
+        osc.send(address, args)
+        return {"status": "sent", "address": address}
 
-    results = []
-    for cmd in commands:
-        address = cmd["address"]
-        args = cmd.get("args", [])
-        if cmd.get("query"):
-            results.append(osc.query(address, args, cmd.get("timeout", 5.0)))
-        else:
-            osc.send(address, args)
-            results.append({"status": "sent", "address": address})
-        delay = cmd.get("delay", 0.008)
-        if delay > 0:
-            time.sleep(delay)
-
-    if len(results) == 1:
-        return results[0]
-    return {"results": results}
+    return asyncio.run(execute_verified(tool_name, tool_input, send))
 
 
 def build_tools() -> list[dict]:
@@ -188,17 +191,27 @@ def run_claude_loop(client, messages: list, osc: OscClient) -> str:
 
         messages.append({"role": "assistant", "content": response.content})
         tool_results = []
+        blocked = False
+        if text_parts:
+            print("\n".join(text_parts))
         for tu in tool_uses:
-            result = execute_tool(tu.name, tu.input, osc)
-            print(f"  \033[36m→ {tu.name}\033[0m {json.dumps(tu.input)}  ⇒  {json.dumps(result)[:120]}")
+            result = ({"status": "failed", "error": "Skipped because an earlier action in this batch failed. Inspect and replan.", "steps": []}
+                      if blocked else execute_tool(tu.name, tu.input, osc))
+            blocked = blocked or result.get("status") in {"failed", "partial"}
+            print(f"  [{result['status']}] {tu.name}: {result.get('summary', result.get('error', ''))}")
+            for step in result.get("steps", []):
+                print(f"    {step['number']}. {step['kind']} {step['address']} {json.dumps(step['args'])} [{step['status']}]")
+            if "sound" in result:
+                print(json.dumps(result["sound"], indent=2))
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": tu.id,
                 "content": json.dumps(result),
+                "is_error": result.get("status") in BAD_STATUSES,
             })
         messages.append({"role": "user", "content": tool_results})
 
-    return "\n".join(text_parts) if text_parts else "Reached max iterations."
+    return "Production paused at the action limit. Some requested work may remain; inspect the action results before continuing."
 
 
 def main():
