@@ -1,0 +1,103 @@
+import asyncio
+import base64
+import importlib.util
+import json
+from pathlib import Path
+import shutil
+import sys
+
+spec = importlib.util.spec_from_file_location('bass', '/private/tmp/beatmind-original-bass.py')
+bass = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(bass)
+ROOT = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project')
+
+
+async def main():
+    assert await bass.window_title() == 'Original Groove - Kick Bass Hats'
+    live = bass.Live()
+    try:
+        names = live.get('/live/song/get/track_names')
+        assert names[:3] == ['YOUR Kick', 'YOUR Bass', 'YOUR Closed Hat']
+        assert names[3:] in (['YOUR Synth'], ['YOUR Clap'])
+        assert live.get('/live/song/get/tempo') == [122.0]
+        assert not live.get('/live/song/get/record_mode')[-1]
+        assert not live.get('/live/song/get/session_record')[-1]
+        live.send('/live/song/stop_playing')
+        await asyncio.sleep(0.2)
+        live.send('/live/song/set/current_song_time', [0.0])
+        await asyncio.sleep(0.2)
+        assert live.get('/live/song/get/current_song_time') == [0.0]
+        mode = sys.argv[1]
+        if mode == 'load':
+            assert live.get('/live/track/get/devices/name', [3]) == [3]
+            assert all(v is None for v in live.get('/live/track/get/clips/name', [3])[1:])
+            assert live.get('/live/track/get/arrangement_clips/name', [3]) == [3]
+            backup = ROOT / 'Original Groove - Before Clap.als'
+            assert not backup.exists(), 'Inspect the previous attempt; do not repeat it.'
+            shutil.copy2(ROOT / 'Original Groove - Kick Bass Hats.als', backup)
+            result = await live.tool('load_library_item', {'track': 3, 'kind': 'instrument',
+                'category': 'instruments', 'folders': ['DS Clap']})
+            print(result['summary'], flush=True)
+            result = await live.tool('get_device_control_map', {'track': 3, 'path': [0], 'limit': 32})
+            (ROOT / 'clap-01-initial-map.json').write_text(json.dumps(result, indent=2))
+            print(json.dumps({k: v for k, v in result.items() if k != 'steps'}, indent=2), flush=True)
+        elif mode in ('make', 'resume', 'audition'):
+            assert live.get('/live/track/get/devices/name', [3]) == [3, 'DS Clap']
+            before_notes = [live.get('/live/clip/get/notes', [i, 0]) for i in range(3)]
+            if mode in ('make', 'resume'):
+                assert not live.get('/live/clip_slot/get/has_clip', [3, 0])[-1], 'Inspect existing clip; do not duplicate.'
+                changes = []
+                controls = [('Decay', 24, '%'), ('Sloppy', 12, 'native'),
+                            ('Spread', 45, 'native'), ('Tail', 35, 'native'), ('Tone', 40, 'native'),
+                            ('Volume', -14, 'native')]
+                if mode == 'resume':
+                    mapping = await live.tool('get_device_control_map', {'track': 3, 'path': [0], 'limit': 32})
+                    displays = {p['name']: p['display'] for p in mapping['parameters']}
+                    assert all(displays[k] == v for k,v in {'Decay':'24.0 %', 'Sloppy':'12', 'Spread':'45 %'}.items())
+                    changes.append({'status': 'observed', 'summary': 'Inspected existing settings after rounded Spread readback; no replay.',
+                                    'parameters': mapping['parameters']})
+                    controls = controls[3:]
+                for name, value, unit in controls:
+                    mapping = await live.tool('get_device_control_map', {'track': 3, 'path': [0], 'query': name})
+                    result = await live.tool('set_device_control', {'track': 3, 'path': [0], 'map_id': mapping['map_id'],
+                                          'control': name, 'value': value, 'unit': unit})
+                    changes.append(result)
+                    print(result['summary'], flush=True)
+                live.send('/live/track/set/volume', [3, 0.70])
+                await asyncio.sleep(0.2)
+                assert abs(live.get('/live/track/get/volume', [3])[-1] - 0.70) < 0.001
+                notes = []
+                for bar in range(8):
+                    notes.extend([[36, bar * 4 + 1.012, 0.1, float(80 - bar % 3), 0],
+                                  [36, bar * 4 + 3.012, 0.1, float(86 - bar % 3), 0]])
+                live.send('/live/clip_slot/create_clip', [3, 0, 32.0])
+                await asyncio.sleep(0.3)
+                assert live.get('/live/clip_slot/get/has_clip', [3, 0])[-1]
+                live.send('/live/clip/set/name', [3, 0, 'Clap 01 - Original - Awaiting Review'])
+                live.send('/live/track/set/name', [3, 'YOUR Clap'])
+                live.send('/live/scene/set/name', [0, 'Groove 01 - Rhythm Section'])
+                live.send('/live/clip/add/notes', [3, 0] + [v for note in notes for v in note])
+                await asyncio.sleep(0.3)
+                actual = live.get('/live/clip/get/notes', [3, 0])[2:]
+                expected = [v for note in notes for v in note]
+                assert len(actual) == len(expected) and all(abs(a-b) < 0.0001 for a,b in zip(actual, expected))
+                assert [live.get('/live/clip/get/notes', [i, 0]) for i in range(3)] == before_notes
+                (ROOT / 'clap-01-design.json').write_text(json.dumps({'source': 'Ableton DS Clap synthesis',
+                    'reference_audio_used': False, 'notes': notes, 'controls': changes,
+                    'timing_offset_beats': 0.012, 'timing_offset_ms_at_122_bpm': 0.012 * 60000 / 122,
+                    'approval': 'pending'}, indent=2))
+            assert live.get('/live/clip/get/name', [3, 0])[-1] == 'Clap 01 - Original - Awaiting Review'
+            preview = await bass.capture_part(live, 3, 0, 8)
+            if preview.get('audio_base64'):
+                (ROOT / 'Clap-01-Original.m4a').write_bytes(base64.b64decode(preview.pop('audio_base64')))
+            (ROOT / 'clap-01-audition.json').write_text(json.dumps(preview, indent=2))
+            assert preview['status'] == 'verified', preview.get('summary')
+            print(json.dumps({k:v for k,v in preview['metrics'].items() if k != 'waveform'}), flush=True)
+        else:
+            raise ValueError('Unknown operation')
+    finally:
+        live.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

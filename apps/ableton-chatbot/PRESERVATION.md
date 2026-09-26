@@ -158,3 +158,23 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
   writing/reference checkpoints remain. Bass saturation was left unchanged,
   not marked approved merely because the user requested the next part.
 - Full Arrangement construction remains pending; these are Session clips.
+
+## Fourth Part: Clap
+
+- User approved the hat groove and requested another part. Preserved a
+  before-clap set and used the confirmed empty fourth track for DS Clap.
+- Created 16 hits across eight bars on beats two/four, delayed 0.012 beats
+  (5.9 ms at 122 BPM), velocities 78-86. Existing three parts' MIDI read back
+  unchanged. No reference samples or added delay/reverb were used.
+- Readback settings: Decay 24%, Sloppy native 12, Spread 45%, Tail native 35,
+  Tone 40%. Spread rounded a continuous setter to an integer and the strict
+  native-value verifier rejected it. Inspected the applied value before resuming
+  only remaining controls. No duplicate device or clip was created. This does
+  not fix the general rounded-parameter mapping edge case in the bridge.
+- Initial solo capture was too forward; retained it separately and reduced
+  the clap device output to a read-back -14 dB. New solo capture passed,
+  peak -19.82 dBFS; subjective clap level remains for user review.
+- Combined four-part actual audio capture passed: 8.48 seconds, peak -6.18 dBFS,
+  RMS -17.08 dBFS. All four clips were checked playing.
+- Saved `Original Groove - Rhythm Section.als`. The earlier kick/bass/hat version
+  remains. The current Arrangement is still empty; these are Session auditions.

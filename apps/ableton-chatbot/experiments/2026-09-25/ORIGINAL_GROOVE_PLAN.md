@@ -21,8 +21,14 @@ musical approval are distinct from successful writes or measured signal.
   Overtone 12%, Click On. Awaiting user sound review. No external delay or reverb.
 - Closed hat: DS HH synthesis on track 3, eight bars with 42 notes. Stronger
   offbeats, quieter pickups and selected hits delayed by 7.87 ms. Pink noise,
-  Decay 8.99%, Pitch 45%, Tone 75 native. Dry; awaiting user sound review.
-- The fourth synth placeholder is still empty.
+  Decay 8.99%, Pitch 45%, Tone 75 native. Dry; user said it sounds good and
+  requested the next part.
+- Clap: DS Clap synthesis on the formerly empty fourth track. Eight bars,
+  16 hits on beats two/four with a 5.9 ms offset and small velocity differences.
+  Decay 24%, Sloppy 12 native, Spread 45%, Tail 35 native, Tone 40%.
+  Instrument output reduced from -6 to -14 dB after the initial solo check.
+  No added reverb/delay; awaiting user sound review.
+- All four initial tracks now contain parts; a melodic part needs a new track.
 
 The bass Saturator experiment remains active (Soft Sine, Drive 4 dB, Dry/Wet
 35%, Color Off). The user requested the next part without explicitly choosing
