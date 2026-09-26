@@ -1,0 +1,63 @@
+import asyncio
+import base64
+import importlib.util
+import json
+from pathlib import Path
+import sys
+
+spec = importlib.util.spec_from_file_location('bass', '/private/tmp/beatmind-original-bass.py')
+bass = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(bass)
+ROOT = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project')
+
+
+async def main():
+    assert await bass.window_title() == 'Original Groove - Bass 01'
+    live = bass.Live()
+    try:
+        assert live.get('/live/song/get/track_names') == ['YOUR Kick', 'YOUR Bass', 'YOUR Percussion', 'YOUR Synth']
+        assert live.get('/live/track/get/devices/name', [0]) == [0, 'DS Kick']
+        assert live.get('/live/song/get/tempo') == [122.0]
+        assert not live.get('/live/song/get/record_mode')[-1]
+        assert not live.get('/live/song/get/session_record')[-1]
+        assert not live.get('/live/song/get/is_playing')[-1]
+        changes = []
+        if sys.argv[1] == 'make':
+            assert not live.get('/live/clip_slot/get/has_clip', [0, 0])[-1], 'Inspect existing clip; do not duplicate.'
+            for name, value, unit in [('Decay', 28, '%'), ('Env', 42, '%'),
+                                      ('overdrive', 8, '%'), ('Overtone', 12, '%'), ('Click', 'On', 'label')]:
+                mapping = await live.tool('get_device_control_map', {'track': 0, 'path': [0], 'query': name})
+                result = await live.tool('set_device_control', {'track': 0, 'path': [0], 'map_id': mapping['map_id'],
+                                      'control': name, 'value': value, 'unit': unit})
+                changes.append(result)
+                print(result['summary'], flush=True)
+            live.send('/live/track/set/volume', [0, 0.75])
+            await asyncio.sleep(0.2)
+            assert abs(live.get('/live/track/get/volume', [0])[-1] - 0.75) < 0.001
+            live.send('/live/clip_slot/create_clip', [0, 0, 32.0])
+            await asyncio.sleep(0.3)
+            assert live.get('/live/clip_slot/get/has_clip', [0, 0])[-1]
+            live.send('/live/clip/set/name', [0, 0, 'Kick 01 - Original - Awaiting Review'])
+            live.send('/live/scene/set/name', [0, 'Groove 01 - Kick + Bass'])
+            notes = [[36, float(i), 0.125, float([104, 99, 102, 98][i % 4]), 0] for i in range(32)]
+            live.send('/live/clip/add/notes', [0, 0] + [v for note in notes for v in note])
+            await asyncio.sleep(0.3)
+            actual = live.get('/live/clip/get/notes', [0, 0])[2:]
+            assert actual == [v for note in notes for v in note]
+            (ROOT / 'kick-01-design.json').write_text(json.dumps({'source': 'Ableton DS Kick synthesis; no reference audio',
+                'notes': notes, 'controls': changes, 'approval': 'pending', 'tempo': 122}, indent=2))
+        elif sys.argv[1] != 'audition':
+            raise ValueError('Use make or audition')
+        assert live.get('/live/clip/get/name', [0, 0])[-1] == 'Kick 01 - Original - Awaiting Review'
+        preview = await bass.capture_part(live, 0, 0, 8)
+        if preview.get('audio_base64'):
+            (ROOT / 'Kick-01-Original.m4a').write_bytes(base64.b64decode(preview.pop('audio_base64')))
+        (ROOT / 'kick-01-audition.json').write_text(json.dumps(preview, indent=2))
+        assert preview['status'] == 'verified', preview.get('summary')
+        print(json.dumps({k: v for k, v in preview['metrics'].items() if k != 'waveform'}), flush=True)
+    finally:
+        live.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

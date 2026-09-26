@@ -99,3 +99,25 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
 - Saved the revised set and left its Session bass clip playing for user review.
   The one-off procedure is archived as `beatmind-bass-audibility.py.txt`;
   no automatic app-level speaker compensation has been implemented or deployed.
+
+## Kick and Bass Continuation
+
+- User confirmed the revised bass could be heard and asked to build the song
+  one part at a time, following the previously selected reference's template
+  with original sounds. Added only a DS Kick part, using the discovered installed
+  synth. No extracted reference sample or loop was used.
+- Eight-bar quarter-note pattern: 32 hits with repeating 104/99/102/98 velocity.
+  Verified exposed Decay 28%, Env 42%, overdrive 8.01%, Overtone 12%, Click On.
+  Native track fader 0.75 was independently read back; it is not a dB value.
+- First solo capture had signal but returned partial because restoring a long
+  Session playback position exceeded Live's song length. The error remains in
+  `kick-01-first-audition-partial.json`. Reset the stopped playhead to zero and
+  re-auditioned the existing clip without recreating notes. The repeat passed,
+  peak -10.48 dBFS and RMS -22.50 dBFS. The general restoration edge case is not
+  fixed in application code by this manual recovery.
+- Combined actual Live recording passed: 8.5 seconds, peak -9.09 dBFS,
+  RMS -19.24 dBFS. Both Session clips were checked playing.
+- Saved `Original Groove - Kick and Bass.als` in the existing writing project.
+  The original bass checkpoint and before-kick backup remain preserved.
+- `TRACK-PLAN.md` records the one-part review sequence. Kick approval is pending;
+  hats, other percussion, chords, lead, transitions and Arrangement are not built.
