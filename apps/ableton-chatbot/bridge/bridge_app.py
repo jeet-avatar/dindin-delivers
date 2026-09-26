@@ -9,19 +9,23 @@ import os
 import sys
 import threading
 import tkinter as tk
-from tkinter import font as tkfont
+from tkinter import font as tkfont, ttk
+import webbrowser
 from pathlib import Path
 from urllib.request import Request, urlopen
-from urllib.error import URLError
 
 # Import the bridge core from the same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bridge import AbletonBridge
+from launch_link import register_mac_launch
+from bridge_network import tls_context, connection_error, network_check
 
 # ── Config ──
 CONFIG_PATH = Path.home() / ".beatmind" / "config.json"
 DEFAULT_SERVER = "wss://api.beatmind.io/ws/bridge"
 DEFAULT_API = "https://api.beatmind.io"
+CHAT_URL = "https://www.beatmind.io/dashboard"
+START_LABEL = "Let's make music"
 
 # ── Colors (match BeatMind dark theme) ──
 BG = "#0a0a0a"
@@ -66,6 +70,8 @@ class BeatMindBridgeApp:
         self.bridge_thread = None
         self.loop = None
         self.connected = False
+        self.busy = False
+        self.closing = False
         config = load_config()
 
         # ── Fonts ──
@@ -74,9 +80,26 @@ class BeatMindBridgeApp:
         self.font_small = tkfont.Font(family="Helvetica Neue", size=11)
         self.font_mono = tkfont.Font(family="SF Mono", size=11)
         self.font_btn = tkfont.Font(family="Helvetica Neue", size=14, weight="bold")
+        # Aqua's classic buttons ignore background colors. Clam paints both
+        # foreground and background, including disabled and pressed states.
+        self.style = ttk.Style(self.root)
+        self.style.theme_use('clam')
+        self.style.configure('Music.TButton', font=self.font_btn, padding=(12, 10),
+                             background=ACCENT, foreground=BG, borderwidth=1,
+                             bordercolor=ACCENT, focuscolor=TEXT, relief='flat')
+        self.style.map('Music.TButton',
+                       background=[('disabled', '#242424'), ('pressed', '#e85d00'), ('active', '#ff8533')],
+                       foreground=[('disabled', '#b8b8b8'), ('pressed', BG), ('active', BG)])
+        self.style.configure('Disconnect.TButton', font=self.font_small, padding=(8, 10),
+                             background=BG_CARD, foreground=TEXT, bordercolor=BORDER,
+                             focuscolor=TEXT, relief='flat')
+        self.style.map('Disconnect.TButton', background=[('active', '#303030')],
+                       foreground=[('disabled', TEXT_DIM), ('active', TEXT)])
 
         # ── Build UI ──
         self._build_ui(config)
+        if sys.platform == 'darwin':
+            register_mac_launch(self.root)
 
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -110,6 +133,7 @@ class BeatMindBridgeApp:
                                relief="flat", highlightthickness=1,
                                highlightbackground=BORDER, highlightcolor=ACCENT)
         email_entry.pack(fill="x", ipady=6, pady=(0, 12))
+        self.email_entry = email_entry
 
         # Password
         tk.Label(form, text="Password", font=self.font_small, bg=BG_CARD, fg=TEXT,
@@ -120,6 +144,8 @@ class BeatMindBridgeApp:
                             show="*", relief="flat", highlightthickness=1,
                             highlightbackground=BORDER, highlightcolor=ACCENT)
         pw_entry.pack(fill="x", ipady=6, pady=(0, 4))
+        self.password_entry = pw_entry
+        pw_entry.bind('<Return>', lambda event: self._connect())
 
         # Remember checkbox
         self.remember_var = tk.BooleanVar(value=config.get("remember", True))
@@ -132,13 +158,15 @@ class BeatMindBridgeApp:
         self.btn_frame = tk.Frame(self.root, bg=BG)
         self.btn_frame.pack(pady=(16, 0), fill="x", padx=24)
 
-        self.connect_btn = tk.Button(
-            self.btn_frame, text="Connect", font=self.font_btn,
-            bg=ACCENT, fg="white", activebackground="#cc5500",
-            activeforeground="white", relief="flat", cursor="hand2",
+        self.connect_btn = ttk.Button(
+            self.btn_frame, text=START_LABEL,
+            style='Music.TButton', cursor="hand2", takefocus=True,
             command=self._toggle_connection,
         )
-        self.connect_btn.pack(fill="x", ipady=8)
+        self.connect_btn.pack(side='left', fill="x", expand=True)
+        self.disconnect_btn = ttk.Button(self.btn_frame, text='Disconnect',
+                                         style='Disconnect.TButton', command=self._disconnect,
+                                         takefocus=True)
 
         # ── Status ──
         status_frame = tk.Frame(self.root, bg=BG)
@@ -150,7 +178,7 @@ class BeatMindBridgeApp:
         self.status_dot.pack(side="left", padx=(0, 6))
 
         self.status_label = tk.Label(status_frame, text="Not connected",
-                                     font=self.font_small, bg=BG, fg=TEXT_DIM)
+                                     font=self.font_small, bg=BG, fg=TEXT_DIM, wraplength=340, justify='left')
         self.status_label.pack(side="left")
 
         # ── Footer ──
@@ -165,13 +193,15 @@ class BeatMindBridgeApp:
 
     def _toggle_connection(self):
         if self.connected:
-            self._disconnect()
+            webbrowser.open(CHAT_URL)
         else:
             self._connect()
 
     def _connect(self):
+        if self.busy or self.connected:
+            return
         email = self.email_var.get().strip()
-        password = self.password_var.get().strip()
+        password = self.password_var.get()
 
         if not email or not password:
             self._set_status("Please enter email and password", ERROR)
@@ -182,12 +212,24 @@ class BeatMindBridgeApp:
             save_config({"email": email, "remember": True})
 
         self._set_status("Logging in...", ACCENT)
+        self.busy = True
+        self.root.focus_set()
         self.connect_btn.config(state="disabled", text="Connecting...")
 
         # Do login + bridge in background thread
         thread = threading.Thread(target=self._login_and_connect,
                                   args=(email, password), daemon=True)
         thread.start()
+
+    def _post(self, callback, *args):
+        if not self.closing:
+            self.root.after(0, callback, *args)
+
+    def _login_failed(self, message):
+        self.busy = False
+        self.connect_btn.config(state='normal', text=START_LABEL)
+        self._set_status(message, ERROR)
+        self.connect_btn.focus_set()
 
     def _login_and_connect(self, email: str, password: str):
         api_base = os.environ.get("BEATMIND_API", DEFAULT_API)
@@ -198,16 +240,11 @@ class BeatMindBridgeApp:
             req = Request(f"{api_base}/api/auth/login", data=login_data,
                           headers={"Content-Type": "application/json",
                                    "User-Agent": "BeatMind-Bridge/1.0"})
-            resp = urlopen(req, timeout=10)
-            data = json.loads(resp.read())
+            with urlopen(req, timeout=10, context=tls_context()) as resp:
+                data = json.loads(resp.read())
             token = data["token"]
-        except URLError as e:
-            self.root.after(0, self._set_status, f"Cannot reach server", ERROR)
-            self.root.after(0, lambda: self.connect_btn.config(state="normal", text="Connect"))
-            return
         except Exception as e:
-            self.root.after(0, self._set_status, "Invalid email or password", ERROR)
-            self.root.after(0, lambda: self.connect_btn.config(state="normal", text="Connect"))
+            self._post(self._login_failed, connection_error(e))
             return
 
         # Step 2: Get bridge token
@@ -216,55 +253,82 @@ class BeatMindBridgeApp:
                           headers={"Authorization": f"Bearer {token}",
                                    "Content-Type": "application/json",
                                    "User-Agent": "BeatMind-Bridge/1.0"})
-            resp = urlopen(req, timeout=10)
-            bridge_data = json.loads(resp.read())
+            with urlopen(req, timeout=10, context=tls_context()) as resp:
+                bridge_data = json.loads(resp.read())
             bridge_token = bridge_data["bridge_token"]
         except Exception as e:
-            self.root.after(0, self._set_status, "Could not get bridge token", ERROR)
-            self.root.after(0, lambda: self.connect_btn.config(state="normal", text="Connect"))
+            self._post(self._login_failed, connection_error(e, 'bridge_token'))
             return
 
         # Step 3: Start bridge
         server_url = os.environ.get("BEATMIND_WS", DEFAULT_SERVER)
-        self.root.after(0, self._set_status, "Connecting to Ableton...", ACCENT)
+        if self.closing:
+            return
+        self._post(self._set_status, "Connecting to BeatMind...", ACCENT)
 
-        self.loop = asyncio.new_event_loop()
-        self.bridge = AbletonBridge(server_url=server_url, token=bridge_token)
-
-        self.root.after(0, self._on_connected)
+        loop = asyncio.new_event_loop()
+        bridge = AbletonBridge(server_url=server_url, token=bridge_token,
+                                    on_connection=lambda connected: self._post(self._connection_changed, connected))
+        self.loop, self.bridge = loop, bridge
+        message = 'Disconnected'
 
         try:
-            self.loop.run_until_complete(self.bridge.start())
-        except Exception as e:
-            self.root.after(0, self._set_status, f"Bridge error: {str(e)[:40]}", ERROR)
-            self.root.after(0, self._on_disconnected)
+            loop.run_until_complete(bridge.start())
+        except Exception:
+            message = 'Bridge connection failed. Please try again.'
+        finally:
+            try:
+                loop.run_until_complete(bridge.stop())
+            finally:
+                loop.close()
+                self._post(self._on_disconnected, message)
+
+    def _connection_changed(self, connected):
+        if connected:
+            self._on_connected()
+        elif self.bridge and self.bridge.running:
+            self.connected = False
+            self.busy = True
+            self.connect_btn.config(state='disabled', text='Reconnecting...')
+            self._set_status('Connection interrupted. Reconnecting...', TEXT_DIM)
 
     def _on_connected(self):
         self.connected = True
-        self.connect_btn.config(state="normal", text="Disconnect",
-                                bg="#333", activebackground="#555")
-        self._set_status("Connected to Ableton Live", SUCCESS)
+        self.busy = False
+        self.password_var.set('')
+        self.email_entry.config(state='disabled')
+        self.password_entry.config(state='disabled')
+        self.connect_btn.config(state="normal", text=START_LABEL)
+        self.disconnect_btn.pack(side='right', padx=(8, 0))
+        self.connect_btn.focus_set()
+        self._set_status("Connected to BeatMind", SUCCESS)
 
     def _disconnect(self):
         self._set_status("Disconnecting...", TEXT_DIM)
-        if self.bridge and self.loop:
-            self.loop.call_soon_threadsafe(
-                lambda: asyncio.ensure_future(self.bridge.stop())
-            )
-        self._on_disconnected()
-
-    def _on_disconnected(self):
         self.connected = False
+        self.busy = True
+        self.connect_btn.config(state='disabled', text='Disconnecting...')
+        if self.bridge and self.loop and self.loop.is_running():
+            asyncio.run_coroutine_threadsafe(self.bridge.stop(), self.loop)
+        else:
+            self._on_disconnected()
+
+    def _on_disconnected(self, message='Disconnected'):
+        self.connected = False
+        self.busy = False
         self.bridge = None
-        self.connect_btn.config(state="normal", text="Connect",
-                                bg=ACCENT, activebackground="#cc5500")
-        self._set_status("Disconnected", TEXT_DIM)
+        self.loop = None
+        self.email_entry.config(state='normal')
+        self.password_entry.config(state='normal')
+        self.disconnect_btn.pack_forget()
+        self.connect_btn.config(state="normal", text=START_LABEL)
+        self.connect_btn.focus_set()
+        self._set_status(message, TEXT_DIM if message == 'Disconnected' else ERROR)
 
     def _on_close(self):
-        if self.bridge and self.loop:
-            self.loop.call_soon_threadsafe(
-                lambda: asyncio.ensure_future(self.bridge.stop())
-            )
+        self.closing = True
+        if self.bridge and self.loop and self.loop.is_running():
+            asyncio.run_coroutine_threadsafe(self.bridge.stop(), self.loop)
         self.root.destroy()
 
     def run(self):
@@ -272,5 +336,9 @@ class BeatMindBridgeApp:
 
 
 if __name__ == "__main__":
-    app = BeatMindBridgeApp()
-    app.run()
+    if len(sys.argv) == 3 and sys.argv[1] == '--network-check':
+        result = asyncio.run(network_check())
+        Path(sys.argv[2]).write_text(json.dumps(result))
+    else:
+        app = BeatMindBridgeApp()
+        app.run()

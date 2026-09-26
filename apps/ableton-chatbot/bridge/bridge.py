@@ -20,6 +20,7 @@ import time
 from dataclasses import dataclass
 
 import websockets
+from bridge_network import tls_context
 
 logging.basicConfig(
     level=logging.INFO,
@@ -101,6 +102,13 @@ def parse_osc_message(data: bytes) -> tuple[str, list]:
             args.append(data[offset:s_end].decode("utf-8"))
             offset = s_end + 1
             offset += (4 - offset % 4) % 4
+        elif t in ("T", "F", "N"):
+            args.append({"T": True, "F": False, "N": None}[t])
+        elif t in ("h", "d"):
+            args.append(struct.unpack(">q" if t == "h" else ">d", data[offset:offset + 8])[0])
+            offset += 8
+        else:
+            raise ValueError(f"Unsupported OSC type tag: {t}")
     return address, args
 
 
@@ -111,12 +119,13 @@ class PendingQuery:
     address: str
     future: asyncio.Future
     created_at: float
+    ids: list
 
 
 class AbletonBridge:
     """Bridges WebSocket commands to AbletonOSC UDP."""
 
-    def __init__(self, server_url: str, token: str):
+    def __init__(self, server_url: str, token: str, on_connection=None):
         self.server_url = server_url
         self.token = token
         self.ws = None
@@ -124,6 +133,7 @@ class AbletonBridge:
         self.pending_queries: dict[str, PendingQuery] = {}
         self.running = False
         self._recv_protocol = None
+        self.on_connection = on_connection
 
     async def start(self):
         """Start the bridge — connect to both WebSocket and UDP."""
@@ -153,7 +163,8 @@ class AbletonBridge:
         url = f"{self.server_url}?token={self.token}"
         log.info(f"Connecting to backend: {self.server_url}")
 
-        async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
+        options = {'ssl': tls_context()} if self.server_url.startswith('wss://') else {}
+        async with websockets.connect(url, ping_interval=20, ping_timeout=10, **options) as ws:
             self.ws = ws
             log.info("Connected to backend!")
 
@@ -164,8 +175,15 @@ class AbletonBridge:
                 "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
             }))
 
-            async for message in ws:
-                await self._handle_ws_message(message)
+            try:
+                if self.on_connection:
+                    self.on_connection(True)
+                async for message in ws:
+                    await self._handle_ws_message(message)
+            finally:
+                self.ws = None
+                if self.on_connection:
+                    self.on_connection(False)
 
     async def _handle_ws_message(self, raw: str):
         """Handle a command from the backend."""
@@ -195,6 +213,36 @@ class AbletonBridge:
 
         elif msg_type == "ping":
             await self._reply(request_id, {"status": "pong"})
+
+        elif msg_type == "live_set":
+            from live_set import live_set_operation
+            await self._reply(request_id, await live_set_operation(self, msg.get("operation")))
+
+        elif msg_type == "mixer_preview":
+            from mixer_preview import mixer_preview
+            await self._reply(request_id, await mixer_preview(self, msg.get("operation"), msg.get("data", {})))
+
+        elif msg_type == "capture_part":
+            from audio_preview import capture_part
+            result = await capture_part(self, msg.get("track"), msg.get("scene"), msg.get("seconds", 8))
+            await self._reply(request_id, result)
+
+        elif msg_type == "sample_library":
+            from sample_library import SampleLibrary, load_exact
+            if not hasattr(self, "sample_library"):
+                self.sample_library = SampleLibrary()
+            try:
+                operation, data = msg["operation"], msg.get("data", {})
+                result = (await load_exact(self, self.sample_library, data) if operation == "load_pack_sample"
+                          else await asyncio.to_thread(self.sample_library.read, operation, data))
+                if operation == "list_sample_packs":
+                    capability = await self._query_osc("sample-capability", "/live/browser/beatmind_capabilities", [], 2)
+                    result["exact_loading_ready"] = capability.get("status") == "ok" and "exact_sample_v1" in capability.get("args", [])
+                    if not result["exact_loading_ready"]:
+                        result["setup_required"] = "Reload the updated AbletonOSC control surface before creating a sample track. Exact source loading is not active yet."
+            except Exception as error:
+                result = {"status": "failed", "error": str(error), "summary": str(error), "steps": []}
+            await self._reply(request_id, result)
 
         elif msg_type == "batch":
             # Execute multiple OSC commands in sequence
@@ -238,15 +286,19 @@ class AbletonBridge:
         loop = asyncio.get_event_loop()
         future = loop.create_future()
 
-        # Map the expected response address
-        # AbletonOSC echoes back on the same address for queries
-        response_addr = address.replace("/get/", "/get/").replace("/set/", "/get/")
-
+        ids = []
+        if address.startswith("/live/device/get/parameter/"):
+            ids = args[:3]
+        elif address.startswith(("/live/device/", "/live/clip/", "/live/clip_slot/")) or address == "/live/track/get/send":
+            ids = args[:2]
+        elif address.startswith(("/live/track/", "/live/scene/")):
+            ids = args[:1]
         self.pending_queries[address] = PendingQuery(
             request_id=request_id,
             address=address,
             future=future,
             created_at=time.time(),
+            ids=ids,
         )
 
         self._send_osc(address, args)
@@ -255,25 +307,18 @@ class AbletonBridge:
             result = await asyncio.wait_for(future, timeout=timeout)
             return {"status": "ok", "address": result[0], "args": result[1]}
         except asyncio.TimeoutError:
-            self.pending_queries.pop(address, None)
             return {"status": "timeout", "address": address}
+        finally:
+            self.pending_queries.pop(address, None)
 
     def handle_osc_response(self, address: str, args: list):
         """Called when we receive an OSC message from Ableton."""
         # Check if any pending query matches this response
-        if address in self.pending_queries:
+        if address in self.pending_queries and args[:len(self.pending_queries[address].ids)] == self.pending_queries[address].ids:
             pq = self.pending_queries.pop(address)
             if not pq.future.done():
                 pq.future.set_result((address, args))
             return
-
-        # Also check for /get/ variations
-        for key, pq in list(self.pending_queries.items()):
-            if address.startswith(key.rsplit("/", 1)[0]):
-                self.pending_queries.pop(key, None)
-                if not pq.future.done():
-                    pq.future.set_result((address, args))
-                return
 
         log.debug(f"OSC ← {address} {args} (no pending query)")
 
