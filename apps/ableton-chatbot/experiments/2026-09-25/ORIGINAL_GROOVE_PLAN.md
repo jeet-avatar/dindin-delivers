@@ -53,6 +53,31 @@ the dry or saturated A/B version; do not label the effect approved.
 
 ## Proposed Sequence
 
+### Kick Space Experiment
+
+- Preserved Original Groove - Before Kick Space.als and a before-state snapshot.
+  Used the previously unused A-Reverb and B-Delay returns, feeding only the kick.
+- Reverb: 400 ms decay, 20 ms predelay, input low/high cuts enabled, filter
+  frequency 1 kHz and width 4.6; 100% wet. Delay: linked eighth notes, zero
+  timing offsets, feedback 12%, filter enabled at 1 kHz / width 4, 100% wet.
+- Initial sends were too restrained. Preserved those captures, then increased
+  sends to -10 dB reverb and -18 dB delay (AX linear amplitudes 0.316228 and
+  0.125893; OSC native values 0.75 and 0.55). Dry kick fader unchanged.
+- Individually captured returns with kick temporarily routed Sends Only and
+  other instruments muted. Restored Main routing, all mutes and both sends.
+  Final reverb-only peak -45.70 dBFS; delay-only peak -32.89 dBFS. Reverb is
+  intentionally light; signal detection is not subjective musical approval.
+- Captures and before/after data are in Kick Space 01. No kick/bass/pad
+  sidechain was added. Other instruments' sends remain zero.
+- Final full capture: peak -4.80 dBFS, RMS -16.27 dBFS, 8.50 seconds.
+  Saved Original Groove - Kick Space 01.als; saved note counts remain
+  [32, 30, 42, 16, 50, 12, 16], with no audio clips. Dry comparison capture
+  RMS -16.27 dBFS, so integrated average levels are closely matched naturally;
+  no loudness normalization was applied. All seven Session clips left playing.
+- User asked whether a subtle dub-techno Drum Rack would fit. Suggested sparse
+  woody rim, soft shaker and textured percussion, avoiding another heavy kick
+  or bass loop. No Drum Rack has been added for this suggestion.
+
 ### Seventh Part Checkpoint
 
 - Added YOUR Lead: Drift + Echo, 16 original notes across eight bars. Triangle

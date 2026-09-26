@@ -218,3 +218,27 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
   sidechain were discussed, not applied. Session loops are not a full Arrangement.
 - Archived local scripts as non-executable experimental text, not production
   automation. No application deployment or application regression test claimed.
+
+## Kick Reverb and Delay
+
+- Preserved the dry seven-part checkpoint and before-state data. Used existing
+  unused A-Reverb and B-Delay returns; no other instruments feed these returns.
+- Reverb: decay 400 ms, predelay 20 ms, low/high input cuts enabled, filter
+  frequency 1 kHz / width 4.6. Delay: linked eighth notes, 12% feedback, zero
+  offsets, enabled filter at 1 kHz / width 4. Both returns remain 100% wet.
+- Used AX display-unit controls with independent value readback because the
+  current unit-aware OSC mapper does not support return-track device paths.
+  This local workaround is not a shipped return-track mapping feature.
+- Initial sends were too low; captures preserved. Final sends read back at
+  -10 dB reverb / -18 dB delay via AX linear amplitudes and OSC native 0.75/0.55.
+  Dry kick level unchanged. Return-only captures verified both signal paths
+  separately, restoring Main routing and all temporary mutes afterward.
+- Final return-only peaks: reverb -45.70 dBFS, delay -32.89 dBFS. The room layer
+  remains light; subjective musical improvement is not proven by these tests.
+- Final full actual capture: 8.50 seconds, peak -4.80 dBFS, RMS -16.27 dBFS.
+  All seven clips playing; notes, faders and other instruments' sends unchanged.
+- Saved Original Groove - Kick Space 01.als and verified all 198 MIDI notes,
+  seven Session clips, two return devices and zero audio clips in the saved set.
+  No sidechain or additional Drum Rack added; those remain separate decisions.
+- Archived script syntax checked. This was a local music experiment, not an
+  application deployment, and application regression tests were not rerun.

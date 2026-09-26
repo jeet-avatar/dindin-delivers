@@ -1,0 +1,188 @@
+import asyncio
+import importlib.util
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import time
+
+spec = importlib.util.spec_from_file_location('bass', '/private/tmp/beatmind-original-bass.py')
+bass = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(bass)
+ROOT = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project')
+OUT = ROOT / 'Kick Space 01'
+NAMES = ['YOUR Kick', 'YOUR Bass', 'YOUR Closed Hat', 'YOUR Clap', 'YOUR Plucked Keys', 'YOUR Atmosphere', 'YOUR Lead']
+REVERB_SEND = 0.75
+DELAY_SEND = 0.55
+
+
+def gui(body):
+    script = 'tell application "System Events" to tell process "Live"\nset frontmost to true\n' + body + '\nend tell'
+    return subprocess.check_output(['osascript', '-e', script]).decode().strip()
+
+
+def snapshot(live):
+    return {'notes': [live.get('/live/clip/get/notes', [i, 0]) for i in range(7)],
+            'sends': [[live.get('/live/track/get/send', [i, j])[-1] for j in range(2)] for i in range(7)],
+            'returns': [live.get('/live/return/get/device/parameters/value', [i, 0]) for i in range(2)],
+            'return_names': live.get('/live/song/get/return_track_names'),
+            'volumes': [live.get('/live/track/get/volume', [i])[-1] for i in range(7)],
+            'return_volumes': [live.get('/live/return/get/volume', [i])[-1] for i in range(2)]}
+
+
+async def stop(live):
+    live.send('/live/song/stop_playing')
+    await asyncio.sleep(0.2)
+    assert not live.get('/live/song/get/is_playing')[-1]
+    live.send('/live/song/set/current_song_time', [0.0])
+    await asyncio.sleep(0.2)
+    assert live.get('/live/song/get/current_song_time') == [0.0]
+
+
+async def sends(live, reverb, delay):
+    for j, value in enumerate((reverb, delay)):
+        live.send('/live/track/set/send', [0, j, value])
+    await asyncio.sleep(0.1)
+    assert all(abs(live.get('/live/track/get/send', [0, j])[-1] - v) < 1e-5 for j, v in enumerate((reverb, delay)))
+
+
+def set_slider(device, index, description, typed, expected):
+    target = f'slider {index} of group "{device}" of group "Device Detail" of group 1 of window "Original Groove - Ensemble 01"'
+    assert gui(f'get description of {target}') == description
+    actual = gui(f'set value of attribute "AXFocused" of {target} to true\n'
+                 f'keystroke "{typed}"\nkey code 36\ndelay 0.2\nget value of {target}')
+    assert abs(float(actual) - expected) < 0.01, actual
+    print(device, description, actual, flush=True)
+
+
+async def configure(live):
+    # AX exposes display-unit values on returns; the OSC mapper only covers normal tracks.
+    assert all(v == 0 for row in snapshot(live)['sends'] for v in row)
+    await stop(live)
+    live.get('/live/view/set/selected_return_track', [0])
+    set_slider('Reverb', 16, 'Decay Time', '400', 400)
+    set_slider('Reverb', 14, 'Predelay', '20', 20)
+    set_slider('Reverb', 1, 'Input Filter', '1000', 1000)
+    set_slider('Reverb', 2, 'Input Filter', '4.6', 4.6)
+    live.get('/live/view/set/selected_return_track', [1])
+    names = live.get('/live/return/get/device/parameters/name', [1, 0])[2:]
+    for name, value in [('L 16th', 1), ('R 16th', 1), ('Link', 1), ('Filter On', 1)]:
+        index = names.index(name)
+        live.get('/live/return/set/device/parameter/value', [1, 0, index, value])
+        assert abs(live.get('/live/return/get/device/parameters/value', [1, 0])[index+2] - value) < 1e-5
+    set_slider('Delay', 3, 'Feedback', '12', 0.12)
+    set_slider('Delay', 4, 'Filter Frequency', '1000', 1000)
+    set_slider('Delay', 5, 'Filter Width', '4', 4)
+
+
+async def capture(live, name, kick_only=False):
+    if len(sys.argv) > 2:
+        name += '-' + sys.argv[2]
+    await stop(live)
+    for i in range(1, 7):
+        live.send('/live/track/set/mute', [i, int(kick_only)])
+    await asyncio.sleep(0.15)
+    assert [bool(live.get('/live/track/get/mute', [i])[-1]) for i in range(7)] == [False] + [kick_only] * 6
+    audio, events, errors = [OUT / (name + ext) for ext in ('.m4a', '.jsonl', '.log')]
+    assert not any(p.exists() for p in (audio, events, errors)), 'Capture already exists; inspect before retry.'
+    subprocess.run(['open', '-n', '--stdout', str(events), '--stderr', str(errors),
+        '/Applications/BeatMind Bridge.app/Contents/Helpers/BeatMind Audio.app', '--args', str(audio), '8'], check=True)
+    started, complete = False, None
+    deadline = time.monotonic() + 35
+    try:
+        while time.monotonic() < deadline:
+            for line in events.read_text().splitlines() if events.exists() else []:
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if 'error' in event:
+                    raise RuntimeError(event['error'])
+                if event.get('type') == 'ready' and not started:
+                    live.send('/live/scene/fire', [0])
+                    started = True
+                if event.get('type') == 'complete':
+                    complete = event
+            if complete:
+                break
+            await asyncio.sleep(0.1)
+        assert complete and audio.is_file(), 'Capture did not finish.'
+        metrics = {k: v for k, v in complete['metrics'].items() if k != 'waveform'}
+        assert metrics['has_signal'] and metrics['peak_dbfs'] < -1, metrics
+        assert all(live.get('/live/clip/get/is_playing', [i, 0])[-1] for i in range(7))
+        (OUT / (name + '-metrics.json')).write_text(json.dumps(metrics, indent=2))
+        print(name, json.dumps(metrics), flush=True)
+        return metrics
+    finally:
+        await stop(live)
+        for i in range(1, 7):
+            live.send('/live/track/set/mute', [i, 0])
+
+
+async def main():
+    assert await bass.window_title() == 'Original Groove - Ensemble 01'
+    live = bass.Live()
+    try:
+        assert live.get('/live/song/get/track_names') == NAMES
+        assert live.get('/live/song/get/tempo') == [122.0]
+        assert not live.get('/live/song/get/record_mode')[-1]
+        assert not live.get('/live/song/get/session_record')[-1]
+        assert not any(live.get('/live/track/get/solo', [i])[-1] or live.get('/live/track/get/mute', [i])[-1] for i in range(7))
+        assert live.get('/live/song/get/return_track_names') == ['A-Reverb', 'B-Delay']
+        assert live.get('/live/song/get/return_track_devices', [0]) == ['Reverb']
+        assert live.get('/live/song/get/return_track_devices', [1]) == ['Delay']
+        if sys.argv[1] == 'baseline':
+            assert not OUT.exists(), 'Prior attempt exists; inspect before continuing.'
+            state = snapshot(live)
+            assert all(v == 0 for row in state['sends'] for v in row)
+            OUT.mkdir()
+            (OUT / 'before.json').write_text(json.dumps(state, indent=2))
+            shutil.copy2(ROOT / 'Original Groove - Ensemble 01.als', ROOT / 'Original Groove - Before Kick Space.als')
+            await capture(live, 'Full-Dry')
+            await capture(live, 'Kick-Dry', True)
+        elif sys.argv[1] == 'configure':
+            assert (OUT / 'before.json').is_file()
+            await configure(live)
+        elif sys.argv[1] == 'wet-check':
+            route = live.get('/live/track/get/output_routing_type', [0])[-1]
+            assert route == 'Main'
+            assert 'Sends Only' in live.get('/live/track/get/available_output_routing_types', [0])
+            await stop(live)
+            try:
+                live.send('/live/track/set/output_routing_type', [0, 'Sends Only'])
+                await asyncio.sleep(0.2)
+                assert live.get('/live/track/get/output_routing_type', [0])[-1] == 'Sends Only'
+                await sends(live, REVERB_SEND, 0.0)
+                await capture(live, 'Reverb-Return-Only', True)
+                await sends(live, 0.0, DELAY_SEND)
+                await capture(live, 'Delay-Return-Only', True)
+            finally:
+                await stop(live)
+                live.send('/live/track/set/output_routing_type', [0, route])
+                await sends(live, REVERB_SEND, DELAY_SEND)
+                assert live.get('/live/track/get/output_routing_type', [0])[-1] == route
+            live.send('/live/scene/fire', [0])
+        elif sys.argv[1] == 'check':
+            before = json.loads((OUT / 'before.json').read_text())
+            assert snapshot(live)['notes'] == before['notes']
+            await sends(live, REVERB_SEND, 0.0)
+            await capture(live, 'Kick-Reverb', True)
+            await sends(live, REVERB_SEND, DELAY_SEND)
+            await capture(live, 'Kick-Reverb-Delay', True)
+            await capture(live, 'Full-Reverb-Delay')
+            after = snapshot(live)
+            assert after['notes'] == before['notes'] and after['volumes'] == before['volumes']
+            assert all(row == [0.0, 0.0] for row in after['sends'][1:])
+            (OUT / 'after.json').write_text(json.dumps(after, indent=2))
+            live.send('/live/scene/fire', [0])
+            await asyncio.sleep(0.5)
+            assert all(live.get('/live/clip/get/is_playing', [i, 0])[-1] for i in range(7))
+        else:
+            raise ValueError('Unknown mode')
+    finally:
+        live.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
