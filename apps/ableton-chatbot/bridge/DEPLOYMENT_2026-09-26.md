@@ -39,9 +39,12 @@ No main-branch merge or website/backend deployment was performed.
 
 ## Separate application release
 
-The fresh generated-audio provider test still returned HTTP 401 with
-`invalid_api_key`. No secret value or response body was printed. The user was
-directed to the validating secure-entry helper; lowercase `replace` correctly
-left the stored value unchanged. Successful provider authentication, final clean
-release/container tests and the disposable-set frontend/Ableton audible-preview
-and approval workflow remain prerequisites for the application/audio release.
+The initial generated-audio provider test returned HTTP 401 with `invalid_api_key`.
+After the user stored another replacement through the validating helper, a fresh
+real six-second generated-audio request returned HTTP 200, model `gpt-audio-1.5`,
+finish reason `stop`, and `checks_passed`. No key was printed or written to disk.
+Provider authentication is now verified; production audio enablement was not
+changed by the test. Final clean release/container tests and the disposable-set
+frontend/Ableton audible-preview and approval workflow remain prerequisites for
+the application/audio release. Production health reports zero connected bridges
+after the app restart; the user was asked to sign in again.
