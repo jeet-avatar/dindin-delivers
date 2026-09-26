@@ -1,0 +1,17 @@
+import gzip
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+ROOT=Path('/Users/jeet/Music/BeatMind Projects/Peak Bites - Dark Current 123 Project')
+source=ROOT/'Peak Bites - Dark Current 123.als'
+dest=ROOT/'Peak Bites - Dark Current 123 - Linked.als'
+assert not dest.exists()
+root=ET.fromstring(gzip.decompress(source.read_bytes()))
+for ref in root.findall('.//AudioClip/SampleRef/FileRef'):
+    path=Path(ref.find('Path').get('Value'))
+    assert path.is_relative_to(ROOT/'Samples/Processed') and path.is_file()
+    ref.find('RelativePathType').set('Value','0')
+    ref.find('RelativePath').set('Value','')
+root.find('LiveSet/Transport/CurrentTime').set('Value','0')
+dest.write_bytes(gzip.compress(ET.tostring(root,encoding='utf-8',xml_declaration=True)))
+print(dest)

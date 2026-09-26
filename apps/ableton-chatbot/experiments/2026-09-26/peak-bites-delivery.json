@@ -1,0 +1,58 @@
+{
+  "files": [
+    {
+      "path": "/Users/jeet/Downloads/BeatMind - Dark Current - 123 BPM - v1.wav",
+      "bytes": 67462436,
+      "sha256": "60b5a182aa04959676cb99ff49622637d6bb583f30b59d83db01cfd4f82b0725"
+    },
+    {
+      "path": "/Users/jeet/Downloads/BeatMind - Dark Current - 123 BPM - v1.mp3",
+      "bytes": 15300625,
+      "sha256": "d3d6fac154b637701e764dcd9708928fb1208d95b0f0da0f1a93714dee001962"
+    }
+  ],
+  "duration_seconds": 382.43904761904764,
+  "bpm": 123,
+  "linear_gain_db": 7.09,
+  "raw_mix_loudness": {
+    "input_i": "-21.09",
+    "input_tp": "-8.78",
+    "input_lra": "16.80",
+    "input_thresh": "-31.76",
+    "output_i": "-13.65",
+    "output_tp": "-1.50",
+    "output_lra": "15.10",
+    "output_thresh": "-24.32",
+    "normalization_type": "dynamic",
+    "target_offset": "-0.35"
+  },
+  "wav_loudness": {
+    "input_i": "-14.00",
+    "input_tp": "-1.69",
+    "input_lra": "16.80",
+    "input_thresh": "-24.68",
+    "output_i": "-13.66",
+    "output_tp": "-1.50",
+    "output_lra": "15.10",
+    "output_thresh": "-24.32",
+    "normalization_type": "dynamic",
+    "target_offset": "-0.34"
+  },
+  "mp3_loudness": {
+    "input_i": "-14.00",
+    "input_tp": "-1.67",
+    "input_lra": "16.80",
+    "input_thresh": "-24.68",
+    "output_i": "-13.66",
+    "output_tp": "-1.50",
+    "output_lra": "15.10",
+    "output_thresh": "-24.32",
+    "normalization_type": "dynamic",
+    "target_offset": "-0.34"
+  },
+  "wav_format": "44.1 kHz stereo 16-bit PCM",
+  "mp3_format": "44.1 kHz stereo 320 kbps CBR",
+  "processing": "Linear gain only, constrained by integrated loudness and true peak; no dynamic loudness normalization or limiter.",
+  "rekordbox_import": "Format checked; user library not modified.",
+  "subjective_approval": "pending"
+}

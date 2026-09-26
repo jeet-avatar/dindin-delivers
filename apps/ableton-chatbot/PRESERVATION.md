@@ -319,3 +319,30 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
 - Archived effect setup/generator/check scripts and measured reports as
   experiments, not production entry points. No application deployment or
   application regression run; user review and release mastering remain pending.
+
+## Peak Bites Dark Current 123
+
+- Preserved the previous Original Groove set before starting a separate project.
+  Built 17 editable audio lanes and 2,372 Arrangement clips at 123 BPM, using
+  105 of 162 Peak Bites files. Demo tracks and full-mix loops excluded. Copied
+  original media and retained SHA-256 provenance; no audio or pack assets in Git.
+- Added native filter-swept noise risers, reverse FX swells, accelerating
+  snare/hat rolls, phrase-end repeats, Echo throws, two distinct main sections,
+  a quiet breakdown and DJ intro/outro. 192 musical bars plus four-bar tail.
+- Corrected the default template's older schema for AutoFilter2, established
+  the native Project folder, relinked missing audio, and completed native
+  Collect All and Save. Corrected unwarped clip end markers after native save
+  exposed tail expansion. All 107 processed media files now resolve locally.
+- Current set: Peak Bites - Dark Current 123 - Ready 02.als. Native-saved edges
+  and OSC starts match the plan. Both transitions captured actual audible signal
+  without clipping; rising filters and repeats read back active. Full native
+  render duration 382.439048 seconds, peak -8.82 dBFS, zero clipping, 64 intro
+  kick pulses max relative deviation 0.25 ms, both low-end gaps verified.
+- Version 1 WAV/MP3 delivered directly to Downloads. 44.1 kHz stereo 16-bit PCM
+  WAV and 320 kbps CBR MP3. Linear gain +7.09 dB, measured -14.00 LUFS and true
+  peak -1.69 dBTP WAV / -1.67 dBTP MP3. No limiter/dynamic normalizer applied.
+  Files copied and hash-verified; Rekordbox library not modified. Editable Live
+  set remains separate from delivery files. Subjective approval still pending.
+- Local experiment scripts, manifest and measured reports archived separately
+  from production entry points. No BeatMind application deployment or
+  application regression test run. Licensed media and exports remain local.

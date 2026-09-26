@@ -1,0 +1,25 @@
+{
+  "checks_passed": true,
+  "bpm": 123,
+  "lanes": 17,
+  "clips": 2372,
+  "sources": 105,
+  "all_media_local_and_present": true,
+  "first_transition": {
+    "channels": 2,
+    "duration_seconds": 17.02,
+    "has_signal": true,
+    "peak_dbfs": -8.775456097503715,
+    "rms_dbfs": -21.256493423452376,
+    "sample_rate": 48000
+  },
+  "second_transition": {
+    "channels": 2,
+    "duration_seconds": 17.04,
+    "has_signal": true,
+    "peak_dbfs": -9.282452732326854,
+    "rms_dbfs": -21.349905259107178,
+    "sample_rate": 48000
+  },
+  "subjective_approval": "pending"
+}

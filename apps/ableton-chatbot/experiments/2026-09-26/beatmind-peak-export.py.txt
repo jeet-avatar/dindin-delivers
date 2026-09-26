@@ -1,0 +1,62 @@
+"""Create versioned, level-checked WAV/MP3 deliveries without altering the Live Set."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import numpy as np
+import soundfile as sf
+
+ROOT=Path('/Users/jeet/Music/BeatMind Projects/Peak Bites - Dark Current 123 Project')
+SOURCE=ROOT/'Review/Peak Bites - Dark Current 123.wav'
+OUT=ROOT/'Exports'
+OUT.mkdir(exist_ok=True)
+name='BeatMind - Dark Current - 123 BPM - v1'
+wav=OUT/(name+'.wav');mp3=OUT/(name+'.mp3')
+assert not wav.exists() and not mp3.exists()
+assert json.loads((ROOT/'Review/live-verification.json').read_text())['checks_passed']
+assert json.loads((ROOT/'Review/full-render-audit.json').read_text())['clipped_samples']==0
+
+
+def measure(path):
+    result=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(path),'-af',
+        'loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json','-f','null','-'],capture_output=True,text=True,check=True)
+    return json.JSONDecoder().raw_decode(result.stderr[result.stderr.rfind('{'):])[0]
+
+
+before=measure(SOURCE)
+gain=min(-14-float(before['input_i']),-1.5-float(before['input_tp']))
+subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-n','-i',str(SOURCE),
+    '-af',f'volume={gain:.6f}dB,aresample=dither_method=triangular',
+    '-ar','44100','-ac','2','-c:a','pcm_s16le','-metadata','title=Dark Current (Peak Bites Mix)',
+    '-metadata','genre=Techno','-metadata','comment=123 BPM; version 1; Peak Bites-only arrangement',str(wav)],check=True)
+subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-n','-i',str(wav),
+    '-c:a','libmp3lame','-b:a','320k','-ar','44100','-id3v2_version','3',
+    '-metadata','TBPM=123',str(mp3)],check=True)
+after=measure(wav);encoded=measure(mp3)
+audio,rate=sf.read(wav,dtype='float32',always_2d=True)
+assert rate==44100 and audio.shape[1]==2 and np.isfinite(audio).all()
+assert abs(len(audio)/rate-784*60/123)<1.1/rate
+assert np.max(np.abs(audio))<1 and float(after['input_tp'])<=-1.4
+assert float(encoded['input_tp'])<-.5
+info=sf.info(wav);assert info.subtype=='PCM_16'
+probe=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(mp3)],text=True))
+stream=probe['streams'][0]
+assert stream['codec_name']=='mp3' and stream['sample_rate']=='44100' and stream['channels']==2
+assert int(stream['bit_rate'])==320000
+delivered=[]
+for source in (wav,mp3):
+    dest=Path('/Users/jeet/Downloads')/source.name
+    assert not dest.exists(), 'Do not replace an existing download'
+    shutil.copy2(source,dest)
+    digest=hashlib.sha256(source.read_bytes()).hexdigest()
+    assert hashlib.sha256(dest.read_bytes()).hexdigest()==digest
+    delivered.append({'path':str(dest),'bytes':dest.stat().st_size,'sha256':digest})
+report={'files':delivered,'duration_seconds':len(audio)/rate,'bpm':123,
+        'linear_gain_db':gain,'raw_mix_loudness':before,'wav_loudness':after,'mp3_loudness':encoded,
+        'wav_format':'44.1 kHz stereo 16-bit PCM','mp3_format':'44.1 kHz stereo 320 kbps CBR',
+        'processing':'Linear gain only, constrained by integrated loudness and true peak; no dynamic loudness normalization or limiter.',
+        'rekordbox_import':'Format checked; user library not modified.',
+        'subjective_approval':'pending'}
+(OUT/'delivery-report.json').write_text(json.dumps(report,indent=2))
+print(json.dumps(report,indent=2),flush=True)

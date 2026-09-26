@@ -1,0 +1,112 @@
+{
+  "duration_seconds": 382.43904761904764,
+  "sample_rate": 44100,
+  "channels": 2,
+  "peak_dbfs": -8.820716102371644,
+  "rms_dbfs": -22.06645058753034,
+  "clipped_samples": 0,
+  "sections": [
+    {
+      "start_beat": 0,
+      "end_beat": 64,
+      "name": "Intro - Dark Current",
+      "peak_dbfs": -10.595081505397516,
+      "rms_dbfs": -22.477112694148083
+    },
+    {
+      "start_beat": 64,
+      "end_beat": 128,
+      "name": "Groove In",
+      "peak_dbfs": -10.064068299492932,
+      "rms_dbfs": -21.330589502068754
+    },
+    {
+      "start_beat": 128,
+      "end_beat": 192,
+      "name": "Pressure",
+      "peak_dbfs": -9.860431275484627,
+      "rms_dbfs": -21.1823400890351
+    },
+    {
+      "start_beat": 192,
+      "end_beat": 256,
+      "name": "Build I",
+      "peak_dbfs": -9.305271705687142,
+      "rms_dbfs": -21.34693756504518
+    },
+    {
+      "start_beat": 256,
+      "end_beat": 384,
+      "name": "Drop I - Hypnotic",
+      "peak_dbfs": -8.820716102371644,
+      "rms_dbfs": -21.041842502836495
+    },
+    {
+      "start_beat": 384,
+      "end_beat": 448,
+      "name": "Breakdown - The Vault",
+      "peak_dbfs": -24.09088611167153,
+      "rms_dbfs": -42.725476006604275
+    },
+    {
+      "start_beat": 448,
+      "end_beat": 512,
+      "name": "Build II",
+      "peak_dbfs": -9.160241334935572,
+      "rms_dbfs": -24.36112080218883
+    },
+    {
+      "start_beat": 512,
+      "end_beat": 640,
+      "name": "Drop II - Shift",
+      "peak_dbfs": -9.560468740381886,
+      "rms_dbfs": -21.050934423059545
+    },
+    {
+      "start_beat": 640,
+      "end_beat": 704,
+      "name": "Release",
+      "peak_dbfs": -9.731069796564949,
+      "rms_dbfs": -21.13332588868812
+    },
+    {
+      "start_beat": 704,
+      "end_beat": 768,
+      "name": "DJ Outro",
+      "peak_dbfs": -10.156603208846292,
+      "rms_dbfs": -22.75820807185117
+    },
+    {
+      "start_beat": 768,
+      "end_beat": 784,
+      "name": "Tail",
+      "peak_dbfs": -60.76657360480111,
+      "rms_dbfs": -86.77718199834959
+    }
+  ],
+  "ending_rms_dbfs": -96.36102854078926,
+  "intro_pulse": {
+    "beats_checked": 64,
+    "attack_offset_ms": 37.469512195122064,
+    "max_relative_deviation_ms": 0.24999999999986144,
+    "drift_ms": -0.021018996246905522
+  },
+  "low_end_drop_contrast": [
+    {
+      "drop_beat": 256,
+      "pre_gap_low_rms": -54.30422011819254,
+      "drop_low_rms": -21.69326511008451,
+      "rise_db": 32.61095500810803
+    },
+    {
+      "drop_beat": 512,
+      "pre_gap_low_rms": -59.717827013932634,
+      "drop_low_rms": -21.981816968361294,
+      "rise_db": 37.73601004557134
+    }
+  ],
+  "limits": [
+    "Measured timing, signal and headroom checks, not subjective musical approval.",
+    "Review mix, not a release master. All audio sources from Peak Bites."
+  ]
+}

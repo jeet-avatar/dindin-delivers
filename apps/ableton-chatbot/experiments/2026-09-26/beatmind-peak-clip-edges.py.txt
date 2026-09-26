@@ -1,0 +1,25 @@
+import gzip
+import json
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+ROOT=Path('/Users/jeet/Music/BeatMind Projects/Peak Bites - Dark Current 123 Project')
+source=ROOT/'Peak Bites - Dark Current 123 - Ready.als'
+dest=ROOT/'Peak Bites - Dark Current 123 - Ready 02.als'
+assert not dest.exists()
+manifest=json.loads((ROOT/'composition-manifest.json').read_text())
+root=ET.fromstring(gzip.decompress(source.read_bytes()))
+for i,track in enumerate(root.findall('LiveSet/Tracks/AudioTrack')):
+    clips=track.findall('DeviceChain/MainSequencer/Sample/ArrangerAutomation/Events/AudioClip')
+    plan=sorted([c for c in manifest['clips'] if c['lane']==i],key=lambda c:c['start_beat'])
+    assert len(clips)==len(plan)
+    for clip,row in zip(clips,plan):
+        assert abs(float(clip.get('Time'))-row['start_beat'])<.0001
+        clip.find('CurrentEnd').set('Value',str(row['end_beat']))
+        start=row['source_offset_beats']*60/123
+        end=start+(row['end_beat']-row['start_beat'])*60/123
+        for key,value in [('LoopStart',start),('LoopEnd',end),('OutMarker',end),('HiddenLoopStart',start),('HiddenLoopEnd',end),('StartRelative',0)]:
+            clip.find('Loop/'+key).set('Value',str(value))
+root.find('LiveSet/Transport/CurrentTime').set('Value','0')
+dest.write_bytes(gzip.compress(ET.tostring(root,encoding='utf-8',xml_declaration=True)))
+print(dest)

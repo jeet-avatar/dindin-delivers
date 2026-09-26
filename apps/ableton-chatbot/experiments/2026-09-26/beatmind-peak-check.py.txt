@@ -1,0 +1,97 @@
+import asyncio
+import gzip
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import time
+import xml.etree.ElementTree as ET
+import numpy as np
+
+spec=importlib.util.spec_from_file_location('bass','/private/tmp/beatmind-original-bass.py')
+bass=importlib.util.module_from_spec(spec);spec.loader.exec_module(bass)
+ROOT=Path('/Users/jeet/Music/BeatMind Projects/Peak Bites - Dark Current 123 Project')
+OUT=ROOT/'Review'
+TITLE='Peak Bites - Dark Current 123 - Ready 02'
+
+
+async def capture(live,start,label):
+    live.send('/live/song/set/current_song_time',[float(start)])
+    await asyncio.sleep(.3)
+    assert start<=live.get('/live/song/get/current_song_time')[-1]<start+2
+    audio,events,errors=[OUT/(label+ext) for ext in ('.m4a','.jsonl','.log')]
+    assert not any(p.exists() for p in (audio,events,errors))
+    subprocess.run(['open','-n','--stdout',str(events),'--stderr',str(errors),
+        '/Applications/BeatMind Bridge.app/Contents/Helpers/BeatMind Audio.app','--args',str(audio),'16'],check=True)
+    deadline=time.monotonic()+35;complete=None;readings=[]
+    while time.monotonic()<deadline:
+        beat=live.get('/live/song/get/current_song_time')[-1]
+        freq=live.get('/live/device/get/parameter/value_string',[14,0,1])[-1]
+        repeat=live.get('/live/device/get/parameter/value',[6,0,17])[-1]
+        readings.append({'beat':beat,'riser_filter':freq,'repeat':repeat})
+        for line in events.read_text().splitlines() if events.exists() else []:
+            event=json.loads(line)
+            if 'error' in event:raise RuntimeError(event['error'])
+            if event.get('type')=='complete':complete=event
+        if complete:break
+        await asyncio.sleep(.05)
+    assert complete and audio.is_file()
+    metrics={k:v for k,v in complete['metrics'].items() if k!='waveform'}
+    result={'seek_start_beat':start,'end_beat':live.get('/live/song/get/current_song_time')[-1],
+            'metrics':metrics,'readings':readings}
+    (OUT/(label+'.json')).write_text(json.dumps(result,indent=2))
+    assert metrics['has_signal'] and metrics['peak_dbfs'] < -1,metrics
+    assert any(r['repeat']==1 for r in readings),'No transition repeat readback'
+    print(json.dumps({'capture':label,'metrics':metrics,'end_beat':result['end_beat']}),flush=True)
+    return result
+
+
+async def main():
+    assert await bass.window_title()==TITLE
+    manifest=json.loads((ROOT/'composition-manifest.json').read_text())
+    root=ET.fromstring(gzip.decompress((ROOT/(TITLE+'.als')).read_bytes()))
+    tracks=root.findall('LiveSet/Tracks/AudioTrack');assert len(tracks)==17
+    refs=root.findall('.//AudioClip/SampleRef/FileRef')
+    assert len(refs)==len(manifest['clips'])
+    for ref in refs:
+        relative=ref.find('RelativePath').get('Value')
+        assert ref.find('RelativePathType').get('Value')=='3'
+        assert (ROOT/relative).is_file()
+        assert relative.startswith('Samples/Processed/')
+    live=bass.Live()
+    try:
+        assert live.get('/live/song/get/track_names')==[t['name'] for t in manifest['lanes']]
+        assert live.get('/live/song/get/tempo')[-1]==123
+        assert not live.get('/live/song/get/record_mode')[-1] and not live.get('/live/song/get/session_record')[-1]
+        for i in range(17):
+            assert not live.get('/live/track/get/mute',[i])[-1] and not live.get('/live/track/get/solo',[i])[-1]
+            clips=sorted([c for c in manifest['clips'] if c['lane']==i],key=lambda c:c['start_beat'])
+            starts=live.get('/live/track/get/arrangement_clips/start_time',[i])[1:]
+            saved=tracks[i].findall('DeviceChain/MainSequencer/Sample/ArrangerAutomation/Events/AudioClip')
+            assert len(starts)==len(clips) and len(saved)==len(clips)
+            assert np.allclose(starts,[c['start_beat'] for c in clips],rtol=0,atol=.0001)
+            # LOM Clip.length is undefined for unwarped audio. Check native-saved edges.
+            # https://docs.cycling74.com/apiref/lom/clip/#length-float
+            assert np.allclose([float(c.find('CurrentEnd').get('Value')) for c in saved],
+                               [c['end_beat'] for c in clips],rtol=0,atol=.0001)
+        live.send('/live/song/stop_all_clips')
+        live.send('/live/song/set/back_to_arranger',[0])
+        live.send('/live/song/re_enable_automation')
+        live.send('/live/song/set/loop',[0])
+        live.send('/live/song/start_playing')
+        await asyncio.sleep(.7)
+        assert live.get('/live/song/get/is_playing')[-1]
+        first=await capture(live,240,'Build-I-to-Drop-I-Linked')
+        second=await capture(live,488,'Build-II-to-Drop-II-Linked')
+        assert not live.get('/live/song/get/back_to_arranger')[-1]
+        report={'checks_passed':True,'bpm':123,'lanes':17,'clips':len(refs),
+                'sources':manifest['unique_sources_used'],'all_media_local_and_present':True,
+                'first_transition':first['metrics'],'second_transition':second['metrics'],
+                'subjective_approval':'pending'}
+        (OUT/'live-verification.json').write_text(json.dumps(report,indent=2))
+        print(json.dumps(report),flush=True)
+    finally:
+        live.send('/live/song/stop_playing');live.close()
+
+
+if __name__=='__main__':asyncio.run(main())

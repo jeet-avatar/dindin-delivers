@@ -1,0 +1,63 @@
+import json
+from pathlib import Path
+import subprocess
+import numpy as np
+import soundfile as sf
+from scipy.signal import butter,sosfiltfilt,resample_poly
+from scipy.ndimage import uniform_filter1d
+
+ROOT=Path('/Users/jeet/Music/BeatMind Projects/Peak Bites - Dark Current 123 Project')
+OUT=ROOT/'Review'
+path=OUT/'Peak Bites - Dark Current 123.wav'
+manifest=json.loads((ROOT/'composition-manifest.json').read_text())
+audio,rate=sf.read(path,dtype='float32',always_2d=True)
+assert audio.shape[1]==2 and rate==44100 and np.isfinite(audio).all()
+duration=len(audio)/rate
+assert abs(duration-784*60/123)<1.1/rate
+
+
+def db(value):return float(20*np.log10(max(float(value),1e-12)))
+def rms(a):return db(np.sqrt(np.mean(np.square(a,dtype='float64'))))
+
+
+report={'duration_seconds':duration,'sample_rate':rate,'channels':2,
+        'peak_dbfs':db(np.abs(audio).max()),'rms_dbfs':rms(audio),
+        'clipped_samples':int(np.sum(np.abs(audio)>=1)),'sections':[]}
+assert report['peak_dbfs'] < -1 and report['clipped_samples']==0
+for section in manifest['sections']:
+    a=audio[round(section['start_beat']*60/123*rate):round(section['end_beat']*60/123*rate)]
+    row={**section,'peak_dbfs':db(np.abs(a).max()),'rms_dbfs':rms(a)}
+    report['sections'].append(row)
+    if section['name']!='Tail':assert row['rms_dbfs']>-55,row
+report['ending_rms_dbfs']=rms(audio[-rate:])
+assert report['ending_rms_dbfs']<-75
+
+intro=audio[:round(64*60/123*rate)].mean(axis=1)
+low=resample_poly(intro,20,441)
+low=sosfiltfilt(butter(3,[25,140],btype='bandpass',fs=2000,output='sos'),low)
+energy=uniform_filter1d(low*low,size=16);rise=np.diff(energy,prepend=energy[0]);offsets=[]
+for beat in range(64):
+    expected=beat*60/123;start=round(expected*2000)
+    pos=start+int(np.argmax(rise[start:start+160]));offsets.append(pos/2000-expected)
+center=float(np.median(offsets));deviation=np.abs(np.array(offsets)-center)
+report['intro_pulse']={'beats_checked':64,'attack_offset_ms':center*1000,
+    'max_relative_deviation_ms':float(deviation.max()*1000),
+    'drift_ms':float(np.polyfit(np.arange(64),offsets,1)[0]*63*1000)}
+assert np.percentile(deviation,95)<.015 and abs(report['intro_pulse']['drift_ms'])<5
+report['low_end_drop_contrast']=[]
+for drop in [256,512]:
+    pre=audio[round((drop-2)*60/123*rate):round(drop*60/123*rate)]
+    post=audio[round(drop*60/123*rate):round((drop+4)*60/123*rate)]
+    lp=butter(3,150,btype='lowpass',fs=rate,output='sos')
+    pre_db=rms(sosfiltfilt(lp,pre,axis=0));post_db=rms(sosfiltfilt(lp,post,axis=0))
+    report['low_end_drop_contrast'].append({'drop_beat':drop,'pre_gap_low_rms':pre_db,
+                                          'drop_low_rms':post_db,'rise_db':post_db-pre_db})
+    assert post_db-pre_db>3, 'Low-end gap did not create clear contrast'
+report['limits']=['Measured timing, signal and headroom checks, not subjective musical approval.',
+                 'Review mix, not a release master. All audio sources from Peak Bites.']
+(OUT/'full-render-audit.json').write_text(json.dumps(report,indent=2))
+print(json.dumps(report,indent=2),flush=True)
+meter=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(path),'-af',
+     'ebur128=peak=true:framelog=verbose','-f','null','-'],capture_output=True,text=True,check=True)
+(OUT/'loudness-measurement.txt').write_text(meter.stderr)
+print(meter.stderr[-1200:],flush=True)

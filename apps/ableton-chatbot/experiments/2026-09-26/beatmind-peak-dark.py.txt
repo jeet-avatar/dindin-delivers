@@ -1,0 +1,421 @@
+"""Local Peak Bites-only composition; never overwrites an existing Live Set."""
+from copy import deepcopy
+import gzip
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+import numpy as np
+from scipy.signal import butter, sosfilt, resample_poly
+import soundfile as sf
+
+PACK=Path('/Volumes/SD Card/Peak Bites - Dark Hypnotic Techno Tools by Ra Ph')
+PROJECT=Path('/Users/jeet/Music/BeatMind Projects/Peak Bites - Dark Current 123 Project')
+OLD=Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project')
+APP=Path('/Applications/Ableton Live 12 Suite.app/Contents/App-Resources')
+TITLE='Peak Bites - Dark Current 123'
+BPM=123;RATE=44100;SPB=60/BPM;END=784
+assert not PROJECT.exists() or ('--resume-preparation' in sys.argv and not list(PROJECT.glob('*.als'))), 'Never overwrite a Live Set.'
+assert (OLD/'Original Groove - Preserved Before Peak Bites 123.als').is_file()
+(PROJECT/'Samples/Originals').mkdir(parents=True,exist_ok=True)
+(PROJECT/'Samples/Processed').mkdir(exist_ok=True)
+(PROJECT/'Review').mkdir(exist_ok=True)
+(PROJECT/'Ableton Project Info').mkdir(exist_ok=True)
+
+files=sorted(PACK.rglob('*.wav'))
+assert len(files)==162
+
+
+def pool(folder):
+    return [p for p in files if str(p.relative_to(PACK).parent)==folder]
+
+
+def find(folder,needle):
+    choices=[p for p in pool(folder) if needle in p.name]
+    assert len(choices)==1,(folder,needle,choices)
+    return choices[0]
+
+
+kick=find('DRUMS/KICK/ONE SHOTS','DARKSIDE')
+bass=[p for p in pool('BASS & SUB/LOOPS') if 'DARKSIDE' in p.name]
+sub=next(p for p in bass if 'SUB' in p.name)
+motion=[p for p in bass if p!=sub]
+hatloops=pool('DRUMS/HIHAT/LOOPS')
+ghosts=pool('DRUMS/HIHAT/ONE SHOTS')
+openhats=pool('DRUMS/HAT/ONE SHOTS')
+grooves=pool('DRUMS/HAT/LOOPS')
+rides=pool('DRUMS/RIDE')
+ride_loops=[p for p in rides if sf.info(p).duration>4]
+ride_hits=[p for p in rides if p not in ride_loops]
+snare=find('DRUMS/HAT/ONE SHOTS','DESERT GROOVE SNARE_HAT')
+synths=[p for p in pool('SYNTH/LOOPS') if 'DARKSIDE' in p.name]
+stabs=[p for p in pool('SYNTH/ONE SHOTS') if 'DARKSIDE' in p.name]
+textures=pool('ATMO & TEXTURES')
+fx=pool('FX/ONE SHOT')
+fills=[p for p in pool('DRUMS/KICK/ONE SHOTS') if p!=kick]
+noise=find('ATMO & TEXTURES','TEXTURE NOISE LOOP')
+swell=find('FX/ONE SHOT','TRAIN FX')
+
+lanes=[
+    ('01 PB Kick Foundation',-10,0,[(kick,'kick')]),
+    ('02 PB Sub Pulse',-19,0,[(sub,'sub')]),
+    ('03 PB Bass Motion',-20,0,[(p,'bass') for p in motion]),
+    ('04 PB Closed Hats',-22,0,[(p,'hatloop') for p in hatloops]),
+    ('05 PB Ghost Shuffle',-26,-.13,[(p,'hat') for p in ghosts]),
+    ('06 PB Open Hats',-24,.12,[(p,'hat') for p in openhats]),
+    ('07 PB Percussion Grooves',-24,0,[(p,'groove') for p in grooves]),
+    ('08 PB Ride Lift',-28,.08,[(p,'ride') for p in rides]),
+    ('09 PB Snare Accent',-20,-.04,[(snare,'snare')]),
+    ('10 PB Dark Motif',-20,0,[(p,'synth') for p in synths]),
+    ('11 PB Dub Responses',-24,0,[(p,'stab') for p in stabs]),
+    ('12 PB Atmospheres',-28,0,[(p,'texture') for p in textures]),
+    ('13 PB Transition FX',-23,0,[(p,'fx') for p in fx]),
+    ('14 PB Filtered Kick Fills',-25,0,[(p,'fill') for p in fills]),
+    ('15 PB Noise Risers',-20,0,[(noise,'texture')]),
+    ('16 PB Accelerating Rolls',-23,0,[(snare,'snare')]),
+    ('17 PB Reverse Swells',-22,0,[(swell,'reverse')]),
+]
+selections=sorted(set((p,role) for _,_,_,sources in lanes for p,role in sources),key=lambda x:(str(x[0]),x[1]))
+assets={};catalog=[]
+cache_path=PROJECT/'prepared-assets.json'
+cache=json.loads(cache_path.read_text()) if cache_path.exists() else []
+for i,p in enumerate(files):
+    info=sf.info(p)
+    catalog.append({'id':i,'path':str(p.relative_to(PACK)),'duration_seconds':info.duration,
+                    'sample_rate':info.samplerate,'channels':info.channels})
+catalog_by_path={row['path']:row for row in catalog}
+
+for n,(p,role) in enumerate(selections):
+    info=sf.info(p);rel=str(p.relative_to(PACK));row=catalog_by_path[rel]
+    cached=next((a for a in cache if a['source']==rel and a['role']==role),None)
+    if cached:
+        assert hashlib.sha256(p.read_bytes()).hexdigest()==cached['source_sha256']
+        assert hashlib.sha256((PROJECT/cached['file']).read_bytes()).hexdigest()==cached['processed_sha256']
+        assets[(p,role)]=cached
+        continue
+    original=PROJECT/'Samples/Originals'/p.relative_to(PACK)
+    original.parent.mkdir(parents=True,exist_ok=True)
+    if not original.exists():shutil.copy2(p,original)
+    digest=hashlib.sha256(p.read_bytes()).hexdigest()
+    assert hashlib.sha256(original.read_bytes()).hexdigest()==digest
+    is_loop=role in ('sub','bass','hatloop','groove','synth','texture','reverse') or (role=='ride' and p in ride_loops)
+    beats=16 if role=='reverse' else (64 if is_loop and info.duration>22 else 32)
+    if is_loop:
+        target=round(beats*SPB*RATE)
+        ratio=info.duration/(beats*SPB)
+        command=['ffmpeg','-hide_banner','-loglevel','error','-i',str(p),'-af',
+                 f'rubberband=tempo={ratio}:pitch=1:transients=crisp:channels=together',
+                 '-ar',str(RATE),'-ac','2','-f','f32le','pipe:1']
+        result=subprocess.run(command,check=True,capture_output=True)
+        audio=np.frombuffer(result.stdout,dtype='<f4').reshape(-1,2).copy()
+        discrepancy=len(audio)-target
+        assert abs(discrepancy)<RATE*.12,(p,discrepancy)
+        audio=np.pad(audio[:target],((0,max(0,target-len(audio))),(0,0)))
+    else:
+        audio,sr=sf.read(p,dtype='float32',always_2d=True)
+        if audio.shape[1]==1:audio=np.repeat(audio,2,axis=1)
+        assert audio.shape[1]==2
+        if sr!=RATE:
+            from math import gcd
+            g=gcd(RATE,sr);audio=resample_poly(audio,RATE//g,sr//g,axis=0)
+        discrepancy=0
+    cuts={'kick':(27,8500),'sub':(29,180),'bass':(90,3800),'hatloop':(650,12000),
+          'hat':(700,12500),'groove':(350,11000),'ride':(1200,10500),'snare':(250,10000),
+          'synth':(230,5800),'stab':(300,4500),'texture':(500,5500),'fx':(350,9000),'fill':(220,4500),'reverse':(600,8000)}
+    hp,lp=cuts[role]
+    audio=sosfilt(butter(2,[hp,lp],btype='bandpass',fs=RATE,output='sos'),audio,axis=0).astype('float32')
+    if role=='reverse':audio=audio[::-1].copy()
+    if role in ('kick','sub','bass','fill'):
+        audio[:]=audio.mean(axis=1,keepdims=True)
+    peak=float(np.abs(audio).max());assert peak>.0001,(p,peak)
+    audio*=.85/peak
+    if role in ('sub','bass','synth'):
+        phase=np.arange(len(audio))/RATE%SPB
+        floor=.28 if role=='sub' else (.4 if role=='bass' else .78)
+        duck=floor+(1-floor)*np.minimum(1,phase/.24)**1.6
+        audio*=duck[:,None]
+    fade_in=min(round((.00025 if role=='kick' else .002)*RATE),len(audio)//4)
+    fade_out=min(round((.009 if is_loop else .018)*RATE),len(audio)//4)
+    audio[:fade_in]*=np.linspace(0,1,fade_in)[:,None]
+    audio[-fade_out:]*=np.linspace(1,0,fade_out)[:,None]
+    dest=PROJECT/'Samples/Processed'/f'{row["id"]:03d}-{role}.wav'
+    sf.write(dest,audio,RATE,subtype='PCM_24')
+    assets[(p,role)]={'file':str(dest.relative_to(PROJECT)),'frames':len(audio),'duration':len(audio)/RATE,
+        'loop':is_loop,'beats':beats if is_loop else len(audio)/RATE/SPB,'role':role,'source':rel,
+        'source_sha256':digest,'processed_sha256':hashlib.sha256(dest.read_bytes()).hexdigest(),
+        'highpass_hz':hp,'lowpass_hz':lp,'peak_before_normalization':peak,
+        'stretch_pitch_ratio':1,'stretch_length_correction_frames':discrepancy,
+        'duck_floor':floor if role in ('sub','bass','synth') else None}
+    if n%10==0:print(f'Prepared {n+1}/{len(selections)} assets',flush=True)
+
+cache_path.write_text(json.dumps(list(assets.values()),indent=2))
+
+root=ET.fromstring(gzip.decompress((APP/'Builtin/Templates/DefaultLiveSet.als').read_bytes()))
+live=root.find('LiveSet');tracks=live.find('Tracks')
+template=deepcopy(tracks.find('AudioTrack'));returns=[deepcopy(t) for t in tracks if t.tag=='ReturnTrack']
+tracks.clear()
+clip_source=ET.fromstring(gzip.decompress((APP/'Core Library/Lessons/Sets/Driver Error Compensation.als').read_bytes()))
+clip_template=min(clip_source.iter('AudioClip'),key=lambda c:len(ET.tostring(c)))
+old=ET.fromstring(gzip.decompress((OLD/'Original Groove - Full Arrangement 03.als').read_bytes()))
+# The bundled empty template predates AutoFilter2; use the installed Live schema.
+root.attrib.update(old.attrib)
+oldtracks=old.findall('LiveSet/Tracks/MidiTrack')
+next_id=max(int(e.get('Id','0')) for e in root.iter())+1000
+manifest={'title':TITLE,'bpm':BPM,'bars_of_music':192,'tail_bars':4,'end_beat':END,
+          'duration_seconds':END*SPB,'pack':str(PACK),'catalog':catalog,'assets':list(assets.values()),
+          'lanes':[],'clips':[],'automation':[],'approval':'pending',
+          'source_rule':'Only Peak Bites audio; native effects do not add external sound sources.',
+          'processing':'Pitch-preserving Rubber Band stretch, corrective filters, peak balancing, beat-synced bass ducking. Originals retained.'}
+
+
+def value(node,path,val):
+    element=node.find(path);assert element is not None,path
+    element.set('Value',str(val))
+
+
+def remap(node):
+    global next_id
+    mapping={}
+    for e in node.iter():
+        if 'Id' in e.attrib and (e.tag.endswith('Target') or e.tag=='Pointee'):
+            mapping[e.get('Id')]=str(next_id);e.set('Id',str(next_id));next_id+=1
+    for e in node.iter('PointeeId'):
+        if e.get('Value') in mapping:e.set('Value',mapping[e.get('Value')])
+    return node
+
+
+def envelope(track,param,points,label,boolean=False):
+    target=param.find('AutomationTarget').get('Id')
+    envs=track.find('AutomationEnvelopes/Envelopes')
+    assert not any(e.find('EnvelopeTarget/PointeeId').get('Value')==target for e in envs)
+    env=ET.SubElement(envs,'AutomationEnvelope',Id=str(max([int(e.get('Id')) for e in envs]+[-1])+1))
+    ET.SubElement(ET.SubElement(env,'EnvelopeTarget'),'PointeeId',Value=target)
+    auto=ET.SubElement(env,'Automation');events=ET.SubElement(auto,'Events')
+    for i,(beat,val) in enumerate([(-63072000,points[0][1])]+points):
+        ET.SubElement(events,'BoolEvent' if boolean else 'FloatEvent',Id=str(i),Time=str(beat),Value=str(val).lower())
+    view=ET.SubElement(auto,'AutomationTransformViewState')
+    ET.SubElement(view,'IsTransformPending',Value='false');ET.SubElement(view,'TimeAndValueTransforms')
+    param.find('Manual').set('Value',str(points[0][1]).lower())
+    manifest['automation'].append({'lane':track.find('Name/EffectiveName').get('Value'),'control':label,'points':points})
+
+
+for i,(name,db,pan,sources) in enumerate(lanes):
+    t=remap(deepcopy(template));t.set('Id',str(100+i))
+    for key,val in {'Name/EffectiveName':name,'Name/UserName':name,'Color':[13,16,16,1,2,3,8,9,10,26,25,22,21,14,24,10,23][i],
+         'Name/Annotation':'Peak Bites only. Editable audio clips; exact originals and processing ledger retained.',
+         'DeviceChain/Mixer/Volume/Manual':10**(db/20),'DeviceChain/Mixer/Pan/Manual':pan,
+         'DeviceChain/Mixer/Speaker/Manual':'true'}.items():value(t,key,val)
+    for send in t.findall('DeviceChain/Mixer/Sends/TrackSendHolder/Send/Manual'):send.set('Value','0')
+    tracks.append(t)
+    manifest['lanes'].append({'index':i,'name':name,'fader_db':db,'pan':pan})
+    if i in (10,12):
+        echo=remap(deepcopy(oldtracks[4].find('DeviceChain/DeviceChain/Devices/Echo')))
+        echo.set('Id','0');value(echo,'DryWet/Manual',.22 if i==10 else .14);value(echo,'Feedback/Manual',.27)
+        value(echo,'Filter_HighPassFrequency/Manual',400);value(echo,'Filter_LowPassFrequency/Manual',3800)
+        t.find('DeviceChain/DeviceChain/Devices').append(echo)
+        if i==10:
+            envelope(t,echo.find('DryWet'),[(0,.18),(248,.18),(254,.32),(256,.18),(384,.25),
+                     (440,.25),(510,.35),(512,.22),(632,.22),(638,.36),(640,.18),(768,.18)],'Dotted-eighth echo throws')
+    if i==11:
+        reverb=remap(deepcopy(oldtracks[5].find('DeviceChain/DeviceChain/Devices/Reverb')))
+        reverb.set('Id','0');value(reverb,'MixDirect/Manual',.16);value(reverb,'DecayTime/Manual',2400)
+        t.find('DeviceChain/DeviceChain/Devices').append(reverb)
+    if i==6:
+        repeat=remap(deepcopy(oldtracks[7].find('DeviceChain/DeviceChain/Devices/BeatRepeat')))
+        repeat.set('Id','0');value(repeat,'Chance/Manual',0)
+        t.find('DeviceChain/DeviceChain/Devices').append(repeat)
+        envelope(t,repeat.find('On'),[(0,False),(192,True),(384,False),(448,True),(640,False)],'Repeats in builds and drops',True)
+        envelope(t,repeat.find('InstantRepeat'),[(0,False),(255,True),(256,False),(383,True),(384,False),
+                    (511,True),(512,False),(639,True),(640,False)],'One-beat transition repeats',True)
+    if i in (9,14):
+        filt=remap(ET.fromstring(gzip.decompress((APP/'Core Library/Defaults/Audio Effects/Auto Filter.adv').read_bytes())).find('AutoFilter2'))
+        filt.set('Id','0');value(filt,'Filter_Resonance/Manual',.17 if i==14 else .1)
+        t.find('DeviceChain/DeviceChain/Devices').append(filt)
+        if i==14:
+            points=[(0,700),(224,700),(248,3500),(255.5,8500),(256,700),(448,700),(480,1600),(504,4500),(511.5,11000),(512,700)]
+            envelope(t,t.find('DeviceChain/Mixer/Volume'),[(0,0),(224,.014),(240,.04),(252,.11),(255.5,.16),(256,0),
+                (448,.007),(480,.04),(504,.1),(511.5,.19),(512,0)],'Riser crescendo')
+        else:
+            points=[(0,900),(160,900),(224,2000),(254,4800),(256,3400),(376,4400),(384,800),
+                (432,1000),(480,2200),(510,5400),(512,4400),(576,5600),(640,2800),(704,800)]
+        envelope(t,filt.find('Filter_Frequency'),points,'Opening filter sweep')
+    if i==16:
+        envelope(t,t.find('DeviceChain/Mixer/Volume'),[(0,0),(240,.008),(254,.13),(256,0),
+            (496,.007),(510,.16),(512,0)],'Reverse swell crescendo')
+
+for t in returns:tracks.append(t)
+
+
+def clip(lane,p,role,start,duration=None,gain=1,offset=0,label=None):
+    asset=assets[(p,role)]
+    remaining=asset['duration']/SPB-offset
+    duration=min(duration if duration is not None else remaining,remaining)
+    assert start>=0 and duration>0 and start+duration<=END+.001,(start,duration,p)
+    track=tracks[lane];events=track.find('DeviceChain/MainSequencer/Sample/ArrangerAutomation/Events')
+    c=deepcopy(clip_template);c.set('Id',str(len(events)));c.set('Time',str(start))
+    target=PROJECT/asset['file'];source_start=offset*SPB
+    name=label or re.sub(r'^PB_zerrro_','',p.stem).strip()
+    for path,val in {'Name':name,'CurrentStart':start,'CurrentEnd':start+duration,
+        'Loop/LoopStart':source_start,'Loop/LoopEnd':source_start+duration*SPB,'Loop/StartRelative':0,
+        'Loop/OutMarker':source_start+duration*SPB,'Loop/HiddenLoopStart':source_start,'Loop/HiddenLoopEnd':source_start+duration*SPB,
+        'Loop/LoopOn':'false','IsWarped':'false','Color':track.find('Color').get('Value'),
+        'SampleRef/FileRef/RelativePathType':0,'SampleRef/FileRef/RelativePath':'',
+        'SampleRef/FileRef/Path':str(target),'SampleRef/FileRef/Type':2,
+        'SampleRef/FileRef/LivePackName':'','SampleRef/FileRef/LivePackId':'',
+        'SampleRef/FileRef/OriginalFileSize':target.stat().st_size,'SampleRef/FileRef/OriginalCrc':0,
+        'SampleRef/LastModDate':int(target.stat().st_mtime),'SampleRef/DefaultDuration':asset['frames'],
+        'SampleRef/DefaultSampleRate':RATE,'SampleVolume':gain,'Fade':'true',
+        'Fades/FadeInLength':.001/SPB,'Fades/FadeOutLength':min(.008/SPB,duration/4),
+        'Annotation':f'Peak Bites: {asset["source"]}; pitch preserved; source copied locally.'}.items():value(c,path,val)
+    c.find('Envelopes/Envelopes').clear();c.find('SampleRef/SourceContext').clear()
+    markers=c.find('WarpMarkers');markers.clear()
+    ET.SubElement(markers,'WarpMarker',Id='0',SecTime='0',BeatTime='0')
+    ET.SubElement(markers,'WarpMarker',Id='1',SecTime=str(asset['duration']),BeatTime=str(asset['duration']/SPB))
+    events.append(c)
+    manifest['clips'].append({'lane':lane,'start_beat':start,'end_beat':start+duration,
+        'source_offset_beats':offset,'gain':gain,'source':asset['source'],'file':asset['file'],'name':name})
+
+
+def energy(beat):
+    if beat<64:return .65
+    if beat<128:return .8
+    if beat<192:return .9
+    if beat<256:return .82
+    if beat<384:return 1
+    if beat<448:return .45
+    if beat<512:return .72
+    if beat<640:return 1
+    if beat<704:return .85
+    return .6
+
+
+def low_active(beat):
+    return not (384<=beat<480 or beat>=752 or 254<=beat<256 or 510<=beat<512)
+
+
+# One steady foundation; alternate kick colors are high-passed phrase-end accents.
+for beat in range(752):
+    if low_active(beat):clip(0,kick,'kick',beat,.99,(1 if beat%4==0 else [.98,.91,.96,.9][beat%4])*(.85 if beat<32 else 1))
+for start in range(64,736,32):
+    if 384<=start<480:continue
+    length=30 if start in (224,480) else 32
+    clip(1,sub,'sub',start,length,.9 if start<256 else 1)
+for block,start in enumerate(range(96,704,32)):
+    if 384<=start<480:continue
+    source=motion[(block//2+(1 if start>=512 else 0))%len(motion)]
+    clip(2,source,'bass',start,30 if start in (224,480) else 32,energy(start))
+
+for block,start in enumerate(range(0,768,32)):
+    if 384<=start<448:continue
+    source=hatloops[block%len(hatloops)]
+    clip(3,source,'hatloop',start,32,energy(start)*(.65 if start<32 else 1))
+for bar in range(8,188):
+    start=bar*4
+    if 384<=start<448:continue
+    p=ghosts[(bar//4)%len(ghosts)]
+    times=[.27,1.77,2.27,3.77] if start<512 else [.27,1.27,2.77,3.27]
+    for j,pos in enumerate(times):
+        if bar%4==3 or j%2==0:clip(4,p,'hat',start+pos,.18,(.48+.13*((bar+j)%3))*energy(start))
+for bar in range(16,184):
+    start=bar*4
+    if 384<=start<464:continue
+    p=openhats[(bar//4)%len(openhats)]
+    for j,pos in enumerate([.52,2.52] if start<256 or start>=704 else [.52,1.52,2.52,3.52]):
+        clip(5,p,'hat',start+pos,.46,(.8 if j%2==0 else .62)*energy(start))
+for block,start in enumerate(range(32,752,16)):
+    if 384<=start<432:continue
+    p=grooves[block%len(grooves)]
+    clip(6,p,'groove',start,16,energy(start),offset=16 if block%2 else 0)
+for n,start in enumerate([128,160,192,224,256,288,320,352,480,512,544,576,608,640,672,704]):
+    p=ride_loops[n%len(ride_loops)]
+    clip(7,p,'ride',start,16 if start<256 else 32,.65 if start<256 else .9)
+for n,start in enumerate([120,184,248,312,376,504,568,632,696,744]):
+    p=ride_hits[n%len(ride_hits)]
+    for j in range(4):clip(7,p,'ride',start+j+.55,.44,.7 if j%2==0 else .5)
+for bar in range(24,176):
+    start=bar*4
+    if 384<=start<464:continue
+    for pos in ([1.018,3.018] if bar%4!=3 else [1.018,3.018,3.518]):
+        clip(8,snare,'snare',start+pos,.35,.65 if pos>3.5 else .88*energy(start))
+for n,start in enumerate([160,192,224,256,288,320,352,400,432,464,480,512,544,576,608,640,672]):
+    source=synths[(n//2)%len(synths)]
+    length=16 if start in (400,432,464) else 32
+    clip(9,source,'synth',start,length,.68 if 384<=start<512 else energy(start),
+         offset=16 if start>=512 and n%2 else 0)
+for bar in range(24,184,2):
+    start=bar*4
+    p=stabs[(bar//8)%len(stabs)]
+    for j,pos in enumerate([1.75,6.5] if start<512 else [.75,5.25]):
+        clip(10,p,'stab',start+pos,1.2,.62 if j else .85)
+for n,start in enumerate(range(0,768,32)):
+    p=textures[n%len(textures)]
+    clip(11,p,'texture',start,32,1.1 if 384<=start<448 else .7,offset=16 if assets[(p,'texture')]['beats']==64 and n%2 else 0)
+for n,start in enumerate(range(24,768,32)):
+    p=fx[n%len(fx)]
+    clip(12,p,'fx',start,7.9,.72 if start<128 else .92,label='Transition - '+p.stem.replace('PB_zerrro_',''))
+for n,start in enumerate(range(60,752,32)):
+    p=fills[n%len(fills)]
+    for j,pos in enumerate([1.27,2.5,3.25,3.75] if n%2 else [2.27,3.25,3.75]):
+        clip(13,p,'fill',start+pos,.18,[.55,.7,.85,1][j],label='Filtered fill - '+p.stem.replace('PB_zerrro_',''))
+
+clip(14,noise,'texture',224,31.5,label='Build I - Noise Riser 8 bars')
+clip(14,noise,'texture',448,32,label='Build II - Noise Riser Opening')
+clip(14,noise,'texture',480,31.5,label='Build II - Noise Riser Peak')
+for start in (240,496):
+    for offset,span,step in [(0,8,1),(8,4,.5),(12,2,.25),(14,1.5,.125)]:
+        for pos in np.arange(offset,offset+span,step):
+            clip(15,snare,'snare',start+float(pos),min(step*.88,.3),.32+.58*float(pos)/16,label='Accelerating Peak Bites snare/hat roll')
+clip(16,swell,'reverse',240,15.5,label='Reverse train FX - Drop I swell')
+clip(16,swell,'reverse',496,15.5,label='Reverse train FX - Drop II swell')
+
+# Split overlaps on the ride lane: fills replace, rather than stack over, loops.
+for lane in range(len(lanes)):
+    events=tracks[lane].find('DeviceChain/MainSequencer/Sample/ArrangerAutomation/Events')
+    events[:]=sorted(events,key=lambda c:float(c.get('Time')))
+    rows=sorted([c for c in manifest['clips'] if c['lane']==lane],key=lambda c:c['start_beat'])
+    for i,c in enumerate(events):
+        if i+1<len(events):
+            end=min(float(c.find('CurrentEnd').get('Value')),float(events[i+1].get('Time')))
+            value(c,'CurrentEnd',end);rows[i]['end_beat']=end
+        assert float(c.find('CurrentEnd').get('Value'))>float(c.get('Time'))
+        c.set('Id',str(i))
+
+sections=[(0,'Intro - Dark Current'),(64,'Groove In'),(128,'Pressure'),(192,'Build I'),
+          (256,'Drop I - Hypnotic'),(384,'Breakdown - The Vault'),(448,'Build II'),
+          (512,'Drop II - Shift'),(640,'Release'),(704,'DJ Outro'),(768,'Tail'),(END,'End')]
+locators=live.find('Locators/Locators');locators.clear()
+for i,(beat,name) in enumerate(sections):
+    locator=ET.SubElement(locators,'Locator',Id=str(i))
+    for tag,val in [('LomId',0),('Time',beat),('Name',name),('Annotation','Peak Bites-only original arrangement'),('IsSongStart',str(i==0).lower())]:
+        ET.SubElement(locator,tag,Value=str(val))
+manifest['sections']=[{'start_beat':beat,'end_beat':sections[i+1][0],'name':name} for i,(beat,name) in enumerate(sections[:-1])]
+main=live.find('MainTrack')
+value(main,'DeviceChain/Mixer/Tempo/Manual',BPM)
+tempo_id=main.find('DeviceChain/Mixer/Tempo/AutomationTarget').get('Id')
+for env in main.findall('AutomationEnvelopes/Envelopes/AutomationEnvelope'):
+    if env.find('EnvelopeTarget/PointeeId').get('Value')==tempo_id:
+        for e in env.findall('Automation/Events/FloatEvent'):e.set('Value',str(BPM))
+envelope(main,main.find('DeviceChain/Mixer/Volume'),[(0,1),(768,1),(776,.2),(END,0)],'Final effects tail fade')
+for path,val in {'NextPointeeId':next_id+100,'Transport/LoopStart':0,'Transport/LoopLength':END,
+    'Transport/LoopOn':'false','Transport/CurrentTime':0,'SelectedDocumentViewInMainWindow':0,
+    'SequencerNavigator/BeatTimeHelper/CurrentZoom':1.8,
+    'Annotation':'Peak Bites-only dark groovy techno at 123 BPM. New standalone project. 192 musical bars plus four-bar tail. Original media and processing provenance retained. Review mix; not yet user-approved.'}.items():value(live,path,val)
+used={c['source'] for c in manifest['clips']}
+manifest['unique_sources_used']=len(used)
+manifest['pack_files_total']=len(files)
+manifest['unused_sources']=[r['path'] for r in catalog if r['path'] not in used]
+assert len(used)>len(files)/2,(len(used),len(files))
+assert all('DEMO TRACK' not in s and 'FULL LOOPS' not in s for s in used)
+assert all((PROJECT/c['file']).is_file() for c in manifest['clips'])
+targets=[e.get('Id') for e in root.iter() if 'Id' in e.attrib and (e.tag.endswith('Target') or e.tag=='Pointee')]
+assert len(targets)==len(set(targets)), 'Duplicate device/control IDs'
+destination=PROJECT/(TITLE+'.als')
+destination.write_bytes(gzip.compress(ET.tostring(root,encoding='utf-8',xml_declaration=True)))
+(PROJECT/'composition-manifest.json').write_text(json.dumps(manifest,indent=2))
+print(json.dumps({'set':str(destination),'lanes':len(lanes),'clips':len(manifest['clips']),
+                  'sources':len(used),'pack_total':len(files),'bpm':BPM,'duration_seconds':END*SPB}),flush=True)
