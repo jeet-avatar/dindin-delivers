@@ -19,7 +19,14 @@ musical approval are distinct from successful writes or measured signal.
 - Kick: DS Kick synthesis, eight bars of quarter-note hits at 122 BPM, with
   velocities 104/99/102/98 repeating. Decay 28%, Env 42%, overdrive 8.01%,
   Overtone 12%, Click On. Awaiting user sound review. No external delay or reverb.
-- Remaining two placeholder tracks are still empty.
+- Closed hat: DS HH synthesis on track 3, eight bars with 42 notes. Stronger
+  offbeats, quieter pickups and selected hits delayed by 7.87 ms. Pink noise,
+  Decay 8.99%, Pitch 45%, Tone 75 native. Dry; awaiting user sound review.
+- The fourth synth placeholder is still empty.
+
+The bass Saturator experiment remains active (Soft Sine, Drive 4 dB, Dry/Wet
+35%, Color Off). The user requested the next part without explicitly choosing
+the dry or saturated A/B version; do not label the effect approved.
 
 ## Proposed Sequence
 

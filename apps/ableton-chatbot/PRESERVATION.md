@@ -139,3 +139,22 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
   separate observations, uncertain explanations and the proposed experiment.
 - This remains a manual local study; no automatic effect-detection feature or
   application deployment was performed.
+
+## Third Part: Closed Hat
+
+- User requested the third musical part. Preserved a before-hats set, then
+  loaded the discovered DS HH synth into the previously empty third track.
+- New eight-bar pattern has 42 notes: accented offbeats, quiet pickups and
+  selected offbeats delayed 0.016 beats (7.87 ms at 122 BPM). All notes read back;
+  existing kick/bass MIDI was independently checked unchanged.
+- Verified Pink noise, Decay 8.99%, Pitch 45%, Tone native 75. Track fader native
+  0.72 was read back; no inferred dB conversion. No new sends/effects added.
+- Solo actual audio capture passed: peak -13.68 dBFS, RMS -38.57 dBFS. Short
+  high-frequency transients are not a sustained signal; user audibility and
+  tone approval remain distinct from those measurements.
+- Combined kick/bass/hat capture passed: 8.5 seconds, peak -6.58 dBFS,
+  RMS -17.09 dBFS. The fourth synth placeholder remains empty.
+- Saved `Original Groove - Kick Bass Hats.als` as a new working version. Previous
+  writing/reference checkpoints remain. Bass saturation was left unchanged,
+  not marked approved merely because the user requested the next part.
+- Full Arrangement construction remains pending; these are Session clips.
