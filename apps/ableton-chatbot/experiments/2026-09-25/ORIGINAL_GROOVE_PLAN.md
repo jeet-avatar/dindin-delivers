@@ -53,6 +53,31 @@ the dry or saturated A/B version; do not label the effect approved.
 
 ## Proposed Sequence
 
+### Eighth Part: Sparse Dub Percussion
+
+- Added YOUR Dub Percussion using the installed Drum Essentials preset
+  64 Pads Dub Techno Kit, loaded through its exact discovered browser path.
+- The full nested device-tree response exceeded the OSC UDP size limit after
+  loading. Confirmed one rack/instrument on the new track; did not reload it.
+  Used native saved-set XML to read actual ReceivingNote assignments, not GM.
+- Selected Wood Dub (note 73), Stick Unv Dub (89), A-Shaker 1 (63). Authored
+  30 notes across eight bars: 10 wood hits, four stick accents, 16 quiet shaker
+  hits. Velocities 35-61; timing offsets about 5-9 ms. No additional kick,
+  clap, chord loop or reference recording used in this part.
+- Rack macros read back: cutoff 6.50 kHz, Overdrive minimum 3.00 dB, Glue 10
+  native, Comp 5%, Delay 6%, Reverb 12%. Requested 1 dB Overdrive was rejected
+  before writing as outside the range; inspected and used its actual minimum.
+  New track fader native 0.65; external sends zero. Prior seven parts, faders,
+  sends and kick returns checked unchanged against the before-state snapshot.
+- Solo actual capture: 17.04 seconds, peak -15.10 dBFS, RMS -35.14 dBFS.
+  Eight-part mix: 17.02 seconds, peak -4.84 dBFS, RMS -16.25 dBFS.
+- Saved Original Groove - Dub Percussion 01.als and natively collected all 64
+  rack samples into the project. Saved XML verified eight Session clips,
+  MIDI counts [32, 30, 42, 16, 50, 12, 16, 30], all 64 media paths local and
+  present. Before-dub and earlier dry/effect checkpoints retained.
+- Subjective musical approval remains pending. Full Arrangement and sidechain
+  are still separate work; this is an eight-part Session groove.
+
 ### Kick Space Experiment
 
 - Preserved Original Groove - Before Kick Space.als and a before-state snapshot.

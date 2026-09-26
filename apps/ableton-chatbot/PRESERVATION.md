@@ -242,3 +242,26 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
   No sidechain or additional Drum Rack added; those remain separate decisions.
 - Archived script syntax checked. This was a local music experiment, not an
   application deployment, and application regression tests were not rerun.
+
+## Eighth Part: Dub Percussion
+
+- Added YOUR Dub Percussion with the exact discovered 64 Pads Dub Techno Kit
+  from Drum Essentials. Preserved before-dub checkpoint and state snapshot.
+- Full rack tree exceeded UDP response size after a successful load. Confirmed
+  only one named instrument, then saved natively and parsed actual pad mappings
+  from saved XML. No duplicate load, guessed GM mapping or claim of a general
+  bridge fix. The production device-tree size limitation remains unresolved.
+- Wood Dub / Stick Unv Dub / A-Shaker 1 receive MIDI 73 / 89 / 63. Created
+  30 original notes over eight bars, velocities 35-61, small 5-9 ms offsets.
+  No additional kick or chord loop. Macro readbacks: cutoff 6.50 kHz,
+  Overdrive 3.00 dB (actual minimum), Glue 10 native, Comp 5%, Delay 6%,
+  Reverb 12%. A 1 dB Overdrive request was rejected without writing, then
+  inspected before using the observed minimum. Earlier seven parts unchanged.
+- Solo actual audio: peak -15.10 dBFS, RMS -35.14 dBFS, 17.04 seconds.
+  Eight-part actual audio: peak -4.84 dBFS, RMS -16.25 dBFS, 17.02 seconds.
+- Saved Original Groove - Dub Percussion 01.als, native Collect All and Save
+  including factory media. Verified all 64 referenced rack samples present
+  inside the project, eight Session clips and 228 MIDI notes. All eight clips
+  left playing. No full Arrangement, sidechain or subjective approval claimed.
+- Experiment script syntax checked and archived. No application deployment or
+  application regression test run; local Ableton recordings remain outside Git.

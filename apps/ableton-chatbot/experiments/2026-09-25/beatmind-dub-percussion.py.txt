@@ -1,0 +1,188 @@
+import asyncio
+import base64
+import gzip
+import importlib.util
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import time
+import xml.etree.ElementTree as ET
+
+spec = importlib.util.spec_from_file_location('space', '/private/tmp/beatmind-kick-space.py')
+space = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(space)
+bass = space.bass
+ROOT = space.ROOT
+OUT = ROOT / 'Dub Percussion 01'
+BASE = space.NAMES
+NAME = 'YOUR Dub Percussion'
+SET = ROOT / 'Original Groove - Dub Percussion 01.als'
+
+
+def read_saved_pads():
+    root = ET.fromstring(gzip.decompress(SET.read_bytes()))
+    track = root.find('LiveSet/Tracks').findall('MidiTrack')[7]
+    assert track.find('Name/EffectiveName').get('Value') == NAME
+    rack = track.find('DeviceChain/DeviceChain/Devices')[0]
+    assert rack.find('UserName').get('Value') == '64 Pads Dub Techno Kit'
+    pads = []
+    for branch in rack.findall('.//DrumBranch'):
+        refs = []
+        for sample in branch.findall('.//SampleRef'):
+            ref = sample.find('FileRef')
+            path = ROOT / ref.find('RelativePath').get('Value') if ref.find('RelativePathType').get('Value') == '3' else Path(ref.find('Path').get('Value'))
+            refs.append(path)
+        assert refs and all(p.is_file() for p in refs), 'Missing rack media; stop before writing notes.'
+        pads.append({'name': branch.find('Name/EffectiveName').get('Value'),
+                     'note': int(branch.find('BranchInfo/ReceivingNote').get('Value')),
+                     'samples': [str(p) for p in refs]})
+    assert len(pads) == 64 and len({p['note'] for p in pads}) == 64
+    (OUT / 'saved-pad-map.json').write_text(json.dumps(pads, indent=2))
+    return {p['name']: p for p in pads}
+
+
+async def mix_capture(live):
+    await space.stop(live)
+    assert not any(live.get('/live/track/get/mute', [i])[-1] or live.get('/live/track/get/solo', [i])[-1] for i in range(8))
+    audio, events, errors = [OUT / ('Full-Dub-01' + ext) for ext in ('.m4a', '.jsonl', '.log')]
+    assert not any(p.exists() for p in (audio, events, errors)), 'Preserve prior recordings.'
+    subprocess.run(['open', '-n', '--stdout', str(events), '--stderr', str(errors),
+        '/Applications/BeatMind Bridge.app/Contents/Helpers/BeatMind Audio.app', '--args', str(audio), '16'], check=True)
+    started, complete = False, None
+    deadline = time.monotonic() + 40
+    try:
+        while time.monotonic() < deadline:
+            for line in events.read_text().splitlines() if events.exists() else []:
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if 'error' in event:
+                    raise RuntimeError(event['error'])
+                if event.get('type') == 'ready' and not started:
+                    live.send('/live/scene/fire', [0])
+                    started = True
+                if event.get('type') == 'complete':
+                    complete = event
+            if complete:
+                break
+            await asyncio.sleep(0.1)
+        assert complete and audio.is_file(), 'Audio capture did not finish.'
+        metrics = {k: v for k, v in complete['metrics'].items() if k != 'waveform'}
+        (OUT / 'full-mix-metrics.json').write_text(json.dumps(metrics, indent=2))
+        assert metrics['has_signal'] and metrics['peak_dbfs'] < -1, metrics
+        assert all(live.get('/live/clip/get/is_playing', [i, 0])[-1] for i in range(8))
+        print('Full mix', json.dumps(metrics), flush=True)
+    except BaseException:
+        if started:
+            await space.stop(live)
+        raise
+
+
+async def main():
+    mode = sys.argv[1]
+    expected = 'Original Groove - Kick Space 01' if mode == 'load' else 'Original Groove - Dub Percussion 01'
+    assert await bass.window_title() == expected
+    live = bass.Live()
+    try:
+        assert live.get('/live/song/get/tempo') == [122.0]
+        assert not live.get('/live/song/get/record_mode')[-1]
+        assert not live.get('/live/song/get/session_record')[-1]
+        if mode == 'load':
+            assert live.get('/live/song/get/track_names') == BASE
+            assert not OUT.exists(), 'Inspect the previous attempt before repeating.'
+            assert not any(live.get('/live/track/get/mute', [i])[-1] or live.get('/live/track/get/solo', [i])[-1] for i in range(7))
+            OUT.mkdir()
+            (OUT / 'before.json').write_text(json.dumps(space.snapshot(live), indent=2))
+            shutil.copy2(ROOT / 'Original Groove - Kick Space 01.als', ROOT / 'Original Groove - Before Dub Percussion.als')
+            await space.stop(live)
+            live.send('/live/song/create_midi_track', [-1])
+            await asyncio.sleep(0.3)
+            names = live.get('/live/song/get/track_names')
+            assert names[:7] == BASE and len(names) == 8
+            live.send('/live/track/set/name', [7, NAME])
+            live.send('/live/track/set/volume', [7, 0.65])
+            await asyncio.sleep(0.2)
+            assert live.get('/live/song/get/track_names') == BASE + [NAME]
+            assert live.get('/live/track/get/devices/name', [7]) == [7]
+            try:
+                result = await live.tool('load_library_item', {'track': 7, 'kind': 'instrument',
+                    'category': 'drums', 'folders': ['64 Pads Dub Techno Kit.adg']})
+            except RuntimeError as error:
+                if 'Message too long' not in str(error):
+                    raise
+                # Large rack trees exceed UDP limits. Inspect identity; never repeat the load.
+                assert live.get('/live/track/get/devices/name', [7]) == [7, '64 Pads Dub Techno Kit']
+                assert live.get('/live/track/get/devices/type', [7]) == [7, 1]
+                result = {'status': 'observed', 'summary': 'Rack identity/type confirmed after oversized tree reply.',
+                          'limitation': 'Save natively and inspect pad assignments before writing notes.'}
+            (OUT / 'load.json').write_text(json.dumps(result, indent=2))
+            print(result['summary'], flush=True)
+        elif mode == 'inspect':
+            assert live.get('/live/song/get/track_names') == BASE + [NAME]
+            print(json.dumps(read_saved_pads()), flush=True)
+        elif mode in ('make', 'audition', 'mix'):
+            assert live.get('/live/song/get/track_names') == BASE + [NAME]
+            assert live.get('/live/track/get/devices/name', [7]) == [7, '64 Pads Dub Techno Kit']
+            before = json.loads((OUT / 'before.json').read_text())
+            assert space.snapshot(live) == before, 'Existing parts changed; inspect before continuing.'
+            await space.stop(live)
+            if mode == 'make':
+                assert not live.get('/live/clip_slot/get/has_clip', [7, 0])[-1]
+                pads = read_saved_pads()
+                changes = []
+                for control, value, unit in [('Filter Cutoff', 6500, 'Hz'), ('Overdrive', 0, 'native'),
+                    ('Glue', 10, 'native'), ('Comp', 5, '%'), ('Delay', 6, '%'), ('Reverb', 12, '%')]:
+                    mapping = await live.tool('get_device_control_map', {'track': 7, 'path': [0], 'query': control})
+                    result = await live.tool('set_device_control', {'track': 7, 'path': [0], 'map_id': mapping['map_id'],
+                        'control': control, 'value': value, 'unit': unit})
+                    changes.append(result)
+                    print(result['summary'], flush=True)
+                wood, stick, shaker = [pads[n]['note'] for n in ['Wood Dub', 'Stick Unv Dub', 'A-Shaker 1']]
+                notes = []
+                for bar in range(8):
+                    start = bar * 4
+                    notes.append([wood, start + 1.25 + 0.012, 0.14, float(61 - (bar % 3) * 3), 0])
+                    for offset, velocity in [(0.75, 39), (2.75, 46)]:
+                        notes.append([shaker, start + offset + 0.018, 0.13, float(velocity - bar % 3 * 2), 0])
+                    if bar % 2:
+                        notes.append([stick, start + 3.5 + 0.010, 0.14, float(49 + bar % 3), 0])
+                    if bar in (3, 7):
+                        notes.append([wood, start + 3.25 + 0.012, 0.12, 43.0, 0])
+                assert len(notes) == 30 and all(n[1] + n[2] < 32 for n in notes)
+                live.send('/live/clip_slot/create_clip', [7, 0, 32.0])
+                await asyncio.sleep(0.3)
+                assert live.get('/live/clip_slot/get/has_clip', [7, 0])[-1]
+                live.send('/live/clip/set/name', [7, 0, 'Dub Percussion 01 - Sparse - Awaiting Review'])
+                live.send('/live/clip/add/notes', [7, 0] + [v for n in notes for v in n])
+                await asyncio.sleep(0.3)
+                actual = live.get('/live/clip/get/notes', [7, 0])[2:]
+                actual = sorted([actual[i:i+5] for i in range(0, len(actual), 5)])
+                assert len(actual) == len(notes) and all(all(abs(a-b) < 1e-4 for a,b in zip(x,y)) for x,y in zip(actual,sorted(notes)))
+                assert space.snapshot(live) == before
+                (OUT / 'design.json').write_text(json.dumps({'notes': notes, 'controls': changes,
+                    'selected_pads': [pads[n] for n in ['Wood Dub', 'Stick Unv Dub', 'A-Shaker 1']],
+                    'pattern_origin': 'Newly authored sparse percussion; no reference audio or MIDI used',
+                    'approval': 'pending'}, indent=2))
+            if mode in ('make', 'audition'):
+                output = OUT / 'Dub-Percussion-Solo.m4a'
+                assert not output.exists(), 'Preserve prior capture.'
+                preview = await bass.capture_part(live, 7, 0, 16)
+                if preview.get('audio_base64'):
+                    output.write_bytes(base64.b64decode(preview.pop('audio_base64')))
+                (OUT / 'solo-audition.json').write_text(json.dumps(preview, indent=2))
+                assert preview['status'] == 'verified', preview.get('summary')
+                print('Solo', json.dumps({k:v for k,v in preview['metrics'].items() if k != 'waveform'}), flush=True)
+            else:
+                await mix_capture(live)
+                assert space.snapshot(live) == before
+        else:
+            raise ValueError('Unknown mode')
+    finally:
+        live.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
