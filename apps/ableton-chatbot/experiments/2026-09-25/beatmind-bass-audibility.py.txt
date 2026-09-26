@@ -1,0 +1,53 @@
+import asyncio
+import base64
+import importlib.util
+import json
+from pathlib import Path
+import shutil
+
+spec = importlib.util.spec_from_file_location('bass', '/private/tmp/beatmind-original-bass.py')
+bass = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(bass)
+root = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project')
+
+
+async def main():
+    assert await bass.window_title() == 'Original Groove - Bass 01'
+    backup = root / 'Original Groove - Bass 01 - Before Audibility.als'
+    assert not backup.exists(), 'Inspect the previous attempt; do not replay writes.'
+    shutil.copy2(root / 'Original Groove - Bass 01.als', backup)
+    live = bass.Live()
+    changes = []
+    try:
+        assert live.get('/live/song/get/track_names') == ['YOUR Kick', 'YOUR Bass', 'YOUR Percussion', 'YOUR Synth']
+        assert not live.get('/live/song/get/record_mode')[-1]
+        assert not live.get('/live/song/get/session_record')[-1]
+        assert live.get('/live/clip/get/name', [1, 0])[-1] == 'Bass 01 - Original - Awaiting Review'
+        live.send('/live/song/stop_playing')
+        await asyncio.sleep(0.3)
+        for name, value, unit in [('Osc-A Wave', 'Saw 6', 'label'),
+                                  ('Filter Slope', '12 dB', 'label'),
+                                  ('Filter Freq', 900, 'Hz')]:
+            mapped = await live.tool('get_device_control_map', {'track': 1, 'path': [0], 'query': name})
+            before = next(p for p in mapped['parameters'] if p['name'] == name)
+            result = await live.tool('set_device_control', {'track': 1, 'path': [0], 'map_id': mapped['map_id'],
+                                     'control': name, 'value': value, 'unit': unit})
+            changes.append({'before': before, 'result': result})
+            print(result['summary'], flush=True)
+        preview = await bass.capture_part(live, 1, 0, 8)
+        if preview.get('audio_base64'):
+            (root / 'Bass-01-Audible.m4a').write_bytes(base64.b64decode(preview.pop('audio_base64')))
+        (root / 'bass-01-audibility.json').write_text(json.dumps({'changes': changes, 'preview': preview,
+            'approval': 'pending', 'notes_changed': False}, indent=2))
+        assert preview['status'] == 'verified', preview.get('summary')
+        print(json.dumps({k: v for k, v in preview['metrics'].items() if k != 'waveform'}), flush=True)
+        assert preview['metrics']['peak_dbfs'] < -1, 'Headroom check failed; playback left stopped.'
+        live.send('/live/clip/fire', [1, 0])
+        await asyncio.sleep(0.5)
+        print('Clip playing:', live.get('/live/clip/get/is_playing', [1, 0]), flush=True)
+    finally:
+        live.close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

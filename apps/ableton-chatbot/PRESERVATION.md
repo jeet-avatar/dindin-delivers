@@ -81,3 +81,21 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
   estimated section locators are retained, not a completed arrangement.
 - This continuation did not rerun the application regression suite or deploy
   application/bridge changes. Human approval is still pending before the next part.
+
+## Speaker Audibility Follow-up
+
+- User confirmed the test tone was audible but the bass was not. Session clip
+  playback, Main routing and MacBook speaker selection were verified; switching
+  views was not the observed cause.
+- The first level-check recording had 99.985% of mono spectral energy below
+  120 Hz. Operator volume was independently read back at -14 dB. Signal presence
+  alone had not established speaker audibility.
+- Saved `Original Groove - Bass 01 - Before Audibility.als` before patch changes.
+  Changed the discovered waveform to Saw 6, filter slope to 12 dB and cutoff to
+  899 Hz (900 Hz requested). MIDI notes and rhythm were unchanged.
+- New actual Live capture: 8.52 seconds, stereo 48 kHz, peak -12.08 dBFS,
+  RMS -22.11 dBFS; 14.361% of mono spectral energy above 120 Hz.
+  These are recording measurements, not a guarantee of perceived speaker loudness.
+- Saved the revised set and left its Session bass clip playing for user review.
+  The one-off procedure is archived as `beatmind-bass-audibility.py.txt`;
+  no automatic app-level speaker compensation has been implemented or deployed.
