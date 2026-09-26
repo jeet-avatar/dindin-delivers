@@ -178,3 +178,27 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
   RMS -17.08 dBFS. All four clips were checked playing.
 - Saved `Original Groove - Rhythm Section.als`. The earlier kick/bass/hat version
   remains. The current Arrangement is still empty; these are Session auditions.
+
+## Fifth and Sixth Parts: Keys and Atmosphere
+
+- User requested closer reference-inspired character, then requested a further
+  part while keys verification was finishing. Model listening to Other and mix
+  excerpts at 01:50-02:06 suggested plucked foreground and sustained background
+  textures. These are uncertain interpretations, not recovered notes or plugins.
+- Added track 5: Operator + Echo, 50 newly authored notes across eight bars.
+  Four changing C-minor-compatible voicings support the existing bass. Saw 4,
+  1.80 kHz filter, 6 ms attack, 420 ms decay, -40 dB sustain, 260 ms release.
+  Dotted-eighth ping-pong echo, 24% feedback, 18% wet, 250 Hz-3.50 kHz filtering.
+- Keys solo capture passed: 17.04 seconds, peak -14.31 dBFS. Five-part capture
+  passed at peak -6.21 dBFS. Saved `Original Groove - Rhythm and Keys.als` and
+  verified saved note counts [32, 30, 42, 16, 50] before proceeding to the pad.
+- Added track 6: Drift + Reverb, 12 sustained notes in original supporting
+  voicings. HP 180 Hz, LP 1.40 kHz, attack 420 ms, sustain 65%, release 1.80 s,
+  spread 35%. Reverb predelay 25 ms, decay 3.20 s, wet 24%.
+- Pad solo capture passed: peak -11.76 dBFS, RMS -24.36 dBFS. Six-part capture
+  passed: 17.04 seconds, peak -4.95 dBFS, RMS -16.32 dBFS. Previous parts' MIDI
+  was checked unchanged at each addition; effect controls independently read back.
+- Saved `Original Groove - Keys and Atmosphere.als`. Reference and before-keys /
+  before-pad checkpoints remain. All six parts are Session clips; no Arrangement
+  clips, song completion or exact reference match is claimed. Subjective review
+  remains pending for the two new parts. No application deployment occurred.

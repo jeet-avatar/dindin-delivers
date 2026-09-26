@@ -28,7 +28,24 @@ musical approval are distinct from successful writes or measured signal.
   Decay 24%, Sloppy 12 native, Spread 45%, Tail 35 native, Tone 40%.
   Instrument output reduced from -6 to -14 dB after the initial solo check.
   No added reverb/delay; awaiting user sound review.
-- All four initial tracks now contain parts; a melodic part needs a new track.
+- Plucked keys: new fifth track, Operator + Echo. Original eight-bar phrase
+  with 50 notes and changing C-minor-compatible voicings, not transcribed from
+  the reference. Saw 4, 1.80 kHz low-pass, 6 ms attack, 420 ms decay, -40 dB
+  sustain, 260 ms release. Dotted-eighth ping-pong echo, 24% feedback, 18% wet,
+  echo filtering 250 Hz-3.50 kHz. Awaiting user sound review.
+
+The fifth part was informed by model listening to the reference Other stem and
+full mix at 01:50-02:06. Descriptions of plucked foreground and sustained
+background layers are interpretations, not recovered presets or a transcription.
+- Atmosphere: new sixth track, Drift + Reverb, with 12 sustained notes across
+  four original supporting voicings. 180 Hz high-pass / 1.40 kHz low-pass,
+  420 ms attack, 65% sustain, 1.80 s release, 35% spread. Reverb: 25 ms
+  predelay, 3.20 s decay, 24% wet. Intended as a background layer under the
+  plucked keys; awaiting user review.
+
+The user requested the sixth part while the fifth part's combined verification
+was being completed. Both parts require subjective review; continuation is not
+proof of an exact reference match. Arrangement development remains pending.
 
 The bass Saturator experiment remains active (Soft Sine, Drive 4 dB, Dry/Wet
 35%, Color Off). The user requested the next part without explicitly choosing
