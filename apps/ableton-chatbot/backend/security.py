@@ -22,7 +22,7 @@ def enforce_secrets():
     errors = []
     if not os.getenv("JWT_SECRET"):
         errors.append("JWT_SECRET env var is required")
-    if not os.getenv("ANTHROPIC_API_KEY"):
+    if os.getenv("BEATMIND_AI_PROVIDER", "anthropic").lower() != "bedrock" and not os.getenv("ANTHROPIC_API_KEY"):
         errors.append("ANTHROPIC_API_KEY env var is required")
     if os.getenv("STRIPE_SECRET_KEY") and not os.getenv("STRIPE_WEBHOOK_SECRET"):
         errors.append("STRIPE_WEBHOOK_SECRET is required when STRIPE_SECRET_KEY is set")
@@ -172,16 +172,19 @@ def validate_password(password: str):
 
 # ---- Bridge token store ----
 
-_bridge_tokens: set[str] = set()
+_bridge_tokens: dict[str, int] = {}
 
-def register_bridge_token(token: str):
-    _bridge_tokens.add(token)
+def register_bridge_token(token: str, user_id: int):
+    _bridge_tokens[token] = user_id
 
 def validate_bridge_token(token: str) -> bool:
     return token in _bridge_tokens
 
+def bridge_token_owner(token: str) -> int | None:
+    return _bridge_tokens.get(token)
+
 def revoke_bridge_token(token: str):
-    _bridge_tokens.discard(token)
+    _bridge_tokens.pop(token, None)
 
 
 # ---- Global DoS protection middleware ----
@@ -203,8 +206,10 @@ class DoSProtectionMiddleware(BaseHTTPMiddleware):
 
         # 1. Block obviously oversized bodies early (before parsing)
         content_length = request.headers.get("content-length")
+        # The authenticated reference endpoint enforces this limit while streaming too.
+        max_body = 50 * 1024 * 1024 if request.method == "POST" and request.url.path == "/api/references" else self.MAX_BODY_BYTES
         try:
-            if content_length and int(content_length) > self.MAX_BODY_BYTES:
+            if content_length and int(content_length) > max_body:
                 return JSONResponse({"detail": "Request too large"}, status_code=413)
         except ValueError:
             return JSONResponse({"detail": "Request too large"}, status_code=413)

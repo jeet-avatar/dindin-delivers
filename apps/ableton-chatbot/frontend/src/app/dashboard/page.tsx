@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation";
 import { getUser, getToken, clearAuth, apiFetch, API_URL } from "@/lib/auth";
 import type { User } from "@/lib/auth";
 import Link from "next/link";
+import ProductionLog, { type ProductionAction } from "@/components/ProductionLog";
+import FailedAudition from "@/components/FailedAudition";
+import ReviewMessage from "@/components/ReviewMessage";
+import Recordings, { useRecordings, type Recording } from "@/components/Recordings";
+import ChatTimestamp from "@/components/ChatTimestamp";
+import { messageRecordingIds } from "@/lib/chat-recordings";
+import NewSongDialog from "@/components/NewSongDialog";
+import References from "@/components/References";
+import ChatComparisons from "@/components/ChatComparisons";
+import BridgeLaunch from "@/components/BridgeLaunch";
 
 // ─── Inline icons (avoids prop-type conflicts with existing Icons.tsx) ────────
 function HomeIcon({ size = 20 }: { size?: number }) {
@@ -72,22 +82,46 @@ function AlertIcon({ size = 16 }: { size?: number }) {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface ToolCall {
-  tool: string;
-  input: Record<string, unknown>;
-  result: Record<string, unknown>;
-}
 interface Message {
+  id?: string;
+  createdAt?: string;
   role: "user" | "assistant";
   content: string;
-  toolCalls?: ToolCall[];
+  toolCalls?: ProductionAction[];
 }
-type Nav = "home" | "beatmind" | "mixmind" | "downloads" | "account";
+type Nav = "home" | "beatmind" | "mixmind" | "downloads" | "account" | "recordings" | "references";
+interface SavedChat {
+  messages: Message[]; sessionId: string | null; input: string;
+  running?: boolean; runningId?: string;
+}
+interface ChatEntry { id: string; title: string }
+
+function writeChat(userId: number, id: string, snapshot: SavedChat): ChatEntry[] {
+  const prefix = `beatmind_chats_v2_${userId}`;
+  const index = JSON.parse(localStorage.getItem(prefix) || '{"chats":[]}');
+  const title = snapshot.messages.find(m => m.role === "user")?.content.slice(0, 70) || "New chat";
+  const chats: ChatEntry[] = [...index.chats.filter((c: ChatEntry) => c.id !== id), { id, title }];
+  // Save the conversation before changing the active pointer; failed storage must not erase it.
+  localStorage.setItem(`${prefix}_${id}`, JSON.stringify(snapshot));
+  localStorage.setItem(`beatmind_chat_v1_${userId}`, JSON.stringify(snapshot));
+  localStorage.setItem(prefix, JSON.stringify({ activeId: id, chats }));
+  return chats;
+}
+
+function restoredMessages(saved: SavedChat): Message[] {
+  return (saved.messages || []).filter(m => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string")
+    .map(m => saved.running && m.id === saved.runningId ? {
+      ...m, content: "Connection was interrupted before completion was saved. Some actions may have run. Inspect the action log and Ableton before repeating the command.",
+      toolCalls: m.toolCalls?.map(a => a.result ? a : { ...a, result: { status: "unverified", summary: "No completion was saved. Inspect before retrying." } }),
+    } : m);
+}
 
 const NAV: { id: Nav; label: string; Icon: React.ComponentType<{ size?: number }> }[] = [
   { id: "home",      label: "Home",      Icon: HomeIcon },
   { id: "beatmind",  label: "BeatMind",  Icon: WaveIcon },
   { id: "mixmind",   label: "MixMind",   Icon: DJIcon },
+  { id: "recordings", label: "Recordings", Icon: DJIcon },
+  { id: "references", label: "References", Icon: WaveIcon },
   { id: "downloads", label: "Downloads", Icon: DownloadIcon },
   { id: "account",   label: "Account",   Icon: UserIcon },
 ];
@@ -103,13 +137,25 @@ const PROMPTS = [
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [nav, setNav] = useState<Nav>("home");
+  const [nav, setNav] = useState<Nav>("beatmind");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [songSetup, setSongSetup] = useState<string | null>(null);
+  const [queuedSong, setQueuedSong] = useState<string | null>(null);
+  const [chatId, setChatId] = useState("");
+  const [chats, setChats] = useState<ChatEntry[]>([]);
+  const [serverChats, setServerChats] = useState<ChatEntry[]>([]);
+  const [authStatus, setAuthStatus] = useState("Checking sign-in");
+  const explicitRecordingIds = messageRecordingIds(messages);
+  const recordings = useRecordings(explicitRecordingIds.flat());
+  const recordingIdsByMessage = messageRecordingIds(messages, recordings.items);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pendingContinuation, setPendingContinuation] = useState<{ message: string; session_id: string } | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [bridgeConnected, setBridgeConnected] = useState(false);
-  const [showTools, setShowTools] = useState<string | null>(null);
+  const [historyReady, setHistoryReady] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const requestRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -117,13 +163,110 @@ export default function DashboardPage() {
     const u = getUser();
     if (!u || !getToken()) { router.replace("/login"); return; }
     setUser(u);
+    let active = true;
+    apiFetch("/api/auth/me").then(async response => {
+      if (!active) return;
+      if (response.status === 401) { clearAuth(); router.replace("/login"); return; }
+      if (!response.ok) throw new Error("Sign-in check unavailable");
+      const verified = await response.json();
+      if (verified.id !== u.id) { clearAuth(); router.replace("/login"); return; }
+      if (active) { setUser(verified); setAuthStatus("Signed in"); }
+    }).catch(() => { if (active) setAuthStatus("Sign-in check unavailable"); });
+    try {
+      const prefix = `beatmind_chats_v2_${u.id}`;
+      const index = JSON.parse(localStorage.getItem(prefix) || "null");
+      const id = index?.activeId || crypto.randomUUID();
+      setChatId(id);
+      setChats(index?.chats || []);
+      const raw = localStorage.getItem(`${prefix}_${id}`) || localStorage.getItem(`beatmind_chat_v1_${u.id}`);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (Array.isArray(saved.messages)) setMessages(restoredMessages(saved));
+        if (typeof saved.sessionId === "string") setSessionId(saved.sessionId);
+        if (typeof saved.input === "string") setInput(saved.input);
+      }
+    } catch { setHistoryError("Saved chat could not be restored. Existing Ableton work is unchanged."); }
+    setHistoryReady(true);
+    return () => { active = false; };
   }, [router]);
+
+  useEffect(() => {
+    if (!historyReady || !user || !chatId) return;
+    try {
+      // Recordings retain full command evidence; keep browser history within storage limits.
+      const savedMessages = messages.slice(-50).map(m => ({ ...m,
+        toolCalls: m.toolCalls?.map(a => ({ ...a, result: a.result ? { ...a.result, steps: undefined } : undefined })),
+      }));
+      const snapshot = { messages: savedMessages, sessionId, input, running: loading,
+        runningId: loading ? messages.at(-1)?.id : undefined };
+      let encoded = JSON.stringify(snapshot);
+      while (encoded.length > 2000000 && snapshot.messages.length > 2) {
+        snapshot.messages.splice(0, 2);
+        encoded = JSON.stringify(snapshot);
+      }
+      const savedChats = writeChat(user.id, chatId, JSON.parse(encoded));
+      // Draft saves must not trigger another render of an unchanged chat list.
+      setChats(previous => previous.length === savedChats.length && previous.every((chat, index) =>
+        chat.id === savedChats[index].id && chat.title === savedChats[index].title
+      ) ? previous : savedChats);
+    } catch { setHistoryError("Chat history could not be saved in this browser. Keep this tab open until the request finishes."); }
+  }, [historyReady, user, messages, sessionId, input, loading, chatId]);
+
+  useEffect(() => {
+    if (!user?.id || loading) return;
+    const controller = new AbortController();
+    void apiFetch("/api/chats", { signal: controller.signal }).then(async response => {
+      if (!response.ok) throw new Error("Server chat history is unavailable. Browser history is unchanged.");
+      const data = await response.json();
+      if (!controller.signal.aborted) setServerChats(data.chats || []);
+    }).catch(e => { if (!controller.signal.aborted) setHistoryError(e instanceof Error ? e.message : "Server history unavailable."); });
+    return () => controller.abort();
+  }, [user?.id, loading]);
+
+  const openServerChat = async (id: string) => {
+    if (!user || !historyReady || loading || requestRef.current || pendingContinuation) return;
+    setHistoryReady(false);
+    try {
+      writeChat(user.id, chatId, { messages, sessionId, input, running: false });
+      const response = await apiFetch(`/api/chats/${encodeURIComponent(id)}`);
+      if (!response.ok) throw new Error("Saved conversation could not be loaded. Your current chat is unchanged.");
+      const data = await response.json();
+      const saved: SavedChat = { messages: data.messages, sessionId: data.sessionId, input: "" };
+      const localId = `server-${id}`;
+      setChats(writeChat(user.id, localId, saved));
+      document.querySelectorAll("audio").forEach(audio => audio.pause());
+      setChatId(localId); setMessages(restoredMessages(saved)); setSessionId(saved.sessionId); setInput("");
+      setHistoryError("");
+    } catch (e) { setHistoryError(e instanceof Error ? e.message : "Saved conversation unavailable."); }
+    finally { setHistoryReady(true); }
+  };
+
+  const openChat = (targetId?: string) => {
+    if (!user || !historyReady || loading || requestRef.current || pendingContinuation) return;
+    try {
+      writeChat(user.id, chatId, { messages, sessionId, input, running: false });
+      const id = targetId || crypto.randomUUID();
+      const raw = targetId ? localStorage.getItem(`beatmind_chats_v2_${user.id}_${id}`) : null;
+      if (targetId && !raw) throw new Error("Saved conversation is unavailable.");
+      const saved: SavedChat = raw ? JSON.parse(raw) : { messages: [], sessionId: null, input: "" };
+      const next = { ...saved, messages: restoredMessages(saved), running: false };
+      setChats(writeChat(user.id, id, next));
+      document.querySelectorAll("audio").forEach(audio => audio.pause());
+      setChatId(id); setMessages(next.messages); setSessionId(next.sessionId); setInput(next.input);
+      setPendingContinuation(null); setHistoryError(""); setNav("beatmind");
+      inputRef.current?.focus();
+      return true;
+    } catch { setHistoryError("Could not save or open the conversation. Your current chat is still open."); }
+    return false;
+  };
 
   useEffect(() => {
     const check = async () => {
       try {
-        const data = await (await fetch(`${API_URL}/api/health`)).json();
-        setBridgeConnected(data.bridges_connected > 0);
+        const response = await apiFetch("/api/bridge/status");
+        if (!response.ok) { setBridgeConnected(false); return; }
+        const data = await response.json();
+        setBridgeConnected(data.bridge_connected);
       } catch { setBridgeConnected(false); }
     };
     check();
@@ -131,35 +274,111 @@ export default function DashboardPage() {
     return () => clearInterval(iv);
   }, []);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  useEffect(() => () => requestRef.current?.abort(), []);
 
-  const sendMessage = useCallback(async () => {
-    const text = input.trim();
-    if (!text || loading) return;
-    setMessages(p => [...p, { role: "user", content: text }]);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [messages.length]);
+
+  const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, referenceId?: string) => {
+    const text = (messageOverride ?? input).trim();
+    if (!text || !historyReady || loading || requestRef.current) return;
+    const runId = crypto.randomUUID();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    const createdAt = new Date().toISOString();
+    setMessages(p => [...p, { role: "user", content: text, createdAt }, { id: runId, role: "assistant", createdAt, content: "Planning the next steps...", toolCalls: [] }]);
     setInput("");
     setLoading(true);
     try {
-      const res = await apiFetch("/api/chat", {
+      const res = await apiFetch("/api/chat/stream", {
         method: "POST",
-        body: JSON.stringify({ message: text, session_id: sessionId }),
+        body: JSON.stringify({ message: text, session_id: continuationSession ?? sessionId, reference_id: referenceId }),
+        signal: controller.signal,
       });
       if (res.status === 402) {
         const { url } = await (await apiFetch("/api/stripe/checkout", { method: "POST", body: JSON.stringify({}) })).json();
         if (url) window.location.href = url;
-        return;
+        throw new Error("A subscription is required to continue.");
       }
       if (res.status === 401) { clearAuth(); router.replace("/login"); return; }
-      const data = await res.json();
-      setSessionId(data.session_id);
-      setBridgeConnected(data.bridge_connected);
-      setMessages(p => [...p, { role: "assistant", content: data.response, toolCalls: data.tool_calls }]);
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(typeof error.detail === "string" ? error.detail : `Request failed (${res.status})`);
+      }
+      if (!res.body) throw new Error("Production stream unavailable.");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let completed = false;
+      let narration = "";
+      const consume = (line: string) => {
+        if (!line.trim()) return;
+        const event = JSON.parse(line);
+        if (event.type === "session") {
+          setSessionId(event.session_id);
+          setBridgeConnected(event.bridge_connected);
+        } else if (event.type === "narration") {
+          narration += `${narration ? "\n\n" : ""}${event.text}`;
+          setMessages(p => p.map(m => m.id === runId ? { ...m, content: narration } : m));
+        } else if (event.type === "action_started" || event.type === "action_completed") {
+          const action = event.action as ProductionAction;
+          setMessages(p => p.map(m => {
+            if (m.id !== runId) return m;
+            const actions = [...(m.toolCalls || [])];
+            const index = actions.findIndex(a => a.id === action.id);
+            const now = new Date().toISOString();
+            const timed = { ...actions[index], ...action,
+              ...(event.type === "action_started" ? { startedReceivedAt: now } : { completedReceivedAt: now }) };
+            if (index < 0) actions.push(timed); else actions[index] = timed;
+            return { ...m, toolCalls: actions };
+          }));
+        } else if (event.type === "complete") {
+          completed = true;
+          setMessages(p => p.map(m => m.id === runId ? { ...m, content: event.response,
+            toolCalls: event.tool_calls.map((action: ProductionAction) => ({ ...m.toolCalls?.find(a => a.id === action.id), ...action })) } : m));
+        } else if (event.type === "error") {
+          throw new Error(event.message);
+        }
+      };
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          lines.forEach(consume);
+          if (done) { consume(buffer); break; }
+        }
+        if (!completed) throw new Error("Connection ended before completion. Review the action log before retrying.");
+      } finally {
+        await reader.cancel().catch(() => {});
+        reader.releaseLock();
+      }
     } catch (err) {
-      setMessages(p => [...p, { role: "assistant", content: `Error: ${err instanceof Error ? err.message : "Unknown"}` }]);
-    } finally { setLoading(false); }
-  }, [input, loading, sessionId, router]);
+      setMessages(p => p.map(m => {
+        if (m.id !== runId) return m;
+        const inspectionOnly = !!m.toolCalls?.length && m.toolCalls.every(a => a.result?.status === "observed");
+        const stopped = inspectionOnly
+          ? "Request stopped. Only inspections are recorded in the action log; no completed music changes are shown."
+          : "Request stopped. Any actions already sent may remain in Ableton; inspect the log before continuing.";
+        return { ...m, content: controller.signal.aborted ? stopped : `Production interrupted: ${err instanceof Error ? err.message : "Unknown error"}`,
+          toolCalls: m.toolCalls?.map(a => a.result ? a : { ...a, result: { status: "unverified", summary: "Interrupted before confirmation. Inspect Ableton before repeating this action." } }) };
+      }));
+    } finally { requestRef.current = null; setLoading(false); }
+  }, [input, historyReady, loading, sessionId, router, messages.length]);
+
+  useEffect(() => {
+    if (!queuedSong || loading || requestRef.current) return;
+    setQueuedSong(null);
+    void sendMessage(queuedSong);
+  }, [queuedSong, loading, sendMessage]);
+
+  useEffect(() => {
+    if (!pendingContinuation || loading || requestRef.current) return;
+    setPendingContinuation(null);
+    void sendMessage(pendingContinuation.message, pendingContinuation.session_id);
+  }, [pendingContinuation, loading, sendMessage]);
 
   const openBilling = async () => {
     if (!user) return;
@@ -168,6 +387,14 @@ export default function DashboardPage() {
   };
 
   const logout = () => { clearAuth(); router.push("/"); };
+
+  const reviewRecording = (item: Recording, decision: string) => {
+    if (decision === "accepted" && item.continuation) setPendingContinuation(item.continuation);
+    if (decision === "revise") {
+      setInput(`Change the sound on ${item.track_name}: `);
+      inputRef.current?.focus();
+    }
+  };
 
   // Derived subscription state
   const isSubscribed = user?.subscribed || user?.subscription_status === "active";
@@ -238,7 +465,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="text-xs mb-5 flex-1" style={{ color: "var(--text-secondary)", lineHeight: "1.65" }}>
-            Describe music in plain English. BeatMind generates full tracks, controls BPM and instruments, and executes commands directly in Ableton Live.
+            Develop music one part at a time in Ableton Live, with supported instrument controls and captured auditions to review.
           </p>
           <div className="flex gap-2">
             <button onClick={() => setNav("beatmind")}
@@ -313,27 +540,12 @@ export default function DashboardPage() {
   const renderBeatMind = () => (
     <div className="flex flex-col flex-1 h-full overflow-hidden">
       {/* Bridge offline banner */}
-      {!bridgeConnected && (
-        <div className="mx-6 mt-4 flex-shrink-0 rounded-xl border p-3 flex items-center justify-between gap-3"
-          style={{ background: "#1a1000", borderColor: "#3d2800" }}>
-          <div className="flex items-center gap-2 min-w-0">
-            <span style={{ color: "#f59e0b", flexShrink: 0 }}><AlertIcon size={14} /></span>
-            <p className="text-xs truncate" style={{ color: "#fbbf24" }}>
-              Ableton not connected — open Ableton Live and launch BeatMind Bridge
-            </p>
-          </div>
-          <a href="/BeatMind-Bridge.dmg" download
-            className="flex-shrink-0 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
-            style={{ background: "var(--accent)", color: "#fff" }}>
-            <DownloadIcon size={12} />
-            Download Bridge
-          </a>
-        </div>
-      )}
+      {!bridgeConnected && <BridgeLaunch />}
 
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4" aria-live="polite">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-4" aria-live="polite">
+        {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
+          <div className="flex flex-col items-center justify-center py-8 gap-6 text-center">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "var(--bg-secondary)", color: "var(--accent)" }}>
               <WaveIcon size={28} />
             </div>
@@ -356,30 +568,25 @@ export default function DashboardPage() {
         )}
 
         {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className="max-w-[80%] rounded-2xl px-4 py-3"
+          <div key={i} ref={i === messages.map(m => m.role).lastIndexOf("user") ? messagesEndRef : undefined}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className="min-w-0 max-w-full sm:max-w-[90%] rounded-lg px-4 py-3"
               style={{ background: msg.role === "user" ? "var(--accent)" : "var(--bg-secondary)", color: msg.role === "user" ? "#fff" : "var(--text-primary)" }}>
-              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-              {msg.toolCalls && msg.toolCalls.length > 0 && (
-                <div className="mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.12)" }}>
-                  <button onClick={() => setShowTools(showTools === `${i}` ? null : `${i}`)}
-                    className="text-xs flex items-center gap-1"
-                    style={{ color: msg.role === "user" ? "rgba(255,255,255,0.7)" : "var(--accent)" }}>
-                    {msg.toolCalls.length} Ableton action{msg.toolCalls.length > 1 ? "s" : ""}
-                    <span className="text-[10px]">{showTools === `${i}` ? "▲" : "▼"}</span>
-                  </button>
-                  {showTools === `${i}` && (
-                    <div className="mt-2 space-y-1">
-                      {msg.toolCalls.map((tc, j) => (
-                        <div key={j} className="text-xs font-mono p-2 rounded" style={{ background: "var(--bg-primary)" }}>
-                          <span style={{ color: "var(--accent)" }}>{tc.tool}</span>
-                          <span style={{ color: "var(--text-secondary)" }}>({JSON.stringify(tc.input).slice(0, 80)})</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="mb-2"><ChatTimestamp value={msg.createdAt} label={msg.role === "user" ? "Sent" : "Request started"} /></div>
+              {msg.role === "user" ? <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p> : <>
+                {!!msg.toolCalls?.length && <ProductionLog actions={msg.toolCalls} />}
+                {!!msg.toolCalls?.length && <FailedAudition actions={msg.toolCalls} busy={loading} onInspect={prompt => {
+                  setInput(prompt); inputRef.current?.focus();
+                }} />}
+                <ReviewMessage text={msg.content} actions={msg.toolCalls || []} ids={recordingIdsByMessage[i]} recordings={recordings.items} />
+                <ChatComparisons actions={msg.toolCalls || []} />
+                <Recordings items={recordings.items.filter(item => recordingIdsByMessage[i].includes(item.id))}
+                  missing={recordingIdsByMessage[i].some(id => !recordings.items.some(item => item.id === id))}
+                  initialIds={recordings.initialIds} onDecision={reviewRecording}
+                  supersededIds={new Set(recordings.items.flatMap(item => item.supersedes ? [item.supersedes] : []))}
+                  onPreview={actions => setMessages(previous => [...previous, { id: crypto.randomUUID(), role: "assistant", createdAt: new Date().toISOString(),
+                    content: "Track fader adjusted. Fresh audio recorded from the verified sample.", toolCalls: actions }])} />
+              </>}
             </div>
           </div>
         ))}
@@ -393,19 +600,19 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
-        <div ref={messagesEndRef} />
+        {recordings.error && <p role="alert" className="text-xs text-red-300">{recordings.error}</p>}
       </div>
 
-      <div className="px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
+      <div className="px-3 sm:px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
         <div className="flex gap-3 items-end">
           <label htmlFor="chat-input" className="sr-only">Message BeatMind</label>
           <textarea
             id="chat-input" ref={inputRef} value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            placeholder="Describe what you want to create..."
+            placeholder="Message BeatMind..."
             rows={1}
-            className="flex-1 resize-none rounded-xl px-4 py-3 text-sm outline-none"
+            className="flex-1 min-w-0 resize-none rounded-lg px-4 py-3 text-sm outline-none"
             style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
             onInput={e => {
               const t = e.target as HTMLTextAreaElement;
@@ -413,15 +620,24 @@ export default function DashboardPage() {
               t.style.height = Math.min(t.scrollHeight, 120) + "px";
             }}
           />
-          <button onClick={sendMessage} disabled={loading || !input.trim()}
+          {loading && (
+            <button type="button" onClick={() => requestRef.current?.abort()}
+              aria-label="Stop production" title="Stop production"
+              className="w-12 h-12 flex-shrink-0 rounded-lg border flex items-center justify-center"
+              style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
+              <span className="block w-4 h-4 bg-current" aria-hidden="true" />
+            </button>
+          )}
+          <button type="button" onClick={() => sendMessage()} disabled={loading || !input.trim()}
             aria-label="Send"
+            title="Send"
             className="px-4 py-3 rounded-xl transition-opacity disabled:opacity-30 flex items-center justify-center"
             style={{ background: "var(--accent)", color: "#fff" }}>
             <SendIcon />
           </button>
         </div>
         <p className="text-xs mt-2 text-center" style={{ color: "var(--text-secondary)" }}>
-          Enter to send · Shift+Enter for new line
+          {bridgeConnected ? "Ableton bridge connected" : "Ableton bridge offline"}
         </p>
       </div>
     </div>
@@ -496,7 +712,7 @@ export default function DashboardPage() {
         {[
           {
             name: "BeatMind Bridge",
-            sub: "macOS · 17 MB · Signed app",
+            sub: "macOS 15+ · Apple Silicon · Notarized",
             desc: "Connects BeatMind AI to your live Ableton session. Open DMG, drag to Applications, log in.",
             href: "/BeatMind-Bridge.dmg",
             bg: "var(--accent)",
@@ -622,23 +838,28 @@ export default function DashboardPage() {
   // LAYOUT
   // ──────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-primary)" }}>
+    <div className="flex h-dvh overflow-hidden" style={{ background: "var(--bg-primary)" }}>
+      {songSetup !== null && <NewSongDialog message={songSetup} onCancel={() => setSongSetup(null)}
+        onCurrent={text => { setSongSetup(null); void sendMessage(text); }}
+        onNew={text => {
+          if (openChat()) { setSongSetup(null); setQueuedSong(text); }
+        }} />}
 
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <aside className="flex flex-col w-52 flex-shrink-0 border-r" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+      <aside className="flex flex-col w-14 sm:w-52 flex-shrink-0 border-r" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
 
         {/* Logo */}
-        <div className="px-5 pt-5 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
-          <Link href="/" className="flex items-center gap-2 font-bold text-base">
+        <div className="px-3 sm:px-5 pt-5 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
+          <Link href="/" aria-label="Beatmind home" className="flex items-center gap-2 font-bold text-base">
             <span className="w-7 h-7 rounded flex items-center justify-center text-xs font-black" style={{ background: "var(--accent)", color: "#fff" }}>B</span>
-            beatmind
+            <span className="hidden sm:inline">beatmind</span>
           </Link>
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5" aria-label="Main navigation">
+        <nav className="flex-1 px-1 sm:px-3 py-4 space-y-0.5" aria-label="Main navigation">
           {NAV.map(({ id, label, Icon }) => (
-            <button key={id} onClick={() => setNav(id)}
+            <button key={id} onClick={() => setNav(id)} title={label} aria-label={label}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left"
               style={{
                 background: nav === id ? "var(--bg-primary)" : "transparent",
@@ -646,16 +867,16 @@ export default function DashboardPage() {
               }}
               aria-current={nav === id ? "page" : undefined}>
               <Icon size={16} />
-              {label}
+              <span className="hidden sm:inline">{label}</span>
               {id === "beatmind" && bridgeConnected && (
-                <span className="ml-auto w-2 h-2 rounded-full flex-shrink-0" style={{ background: "#22c55e" }} aria-label="Connected" />
+                <span className="hidden sm:block ml-auto w-2 h-2 rounded-full flex-shrink-0" style={{ background: "#22c55e" }} aria-label="Connected" />
               )}
             </button>
           ))}
         </nav>
 
         {/* Subscription status pill */}
-        <div className="px-3 pb-5">
+        <div className="hidden sm:block px-3 pb-5">
           {isSubscribed ? (
             <div className="rounded-xl p-3 border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
               <p className="text-xs font-semibold mb-0.5" style={{ color: "#4ade80" }}>✓ Pro Plan</p>
@@ -680,13 +901,38 @@ export default function DashboardPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* Top bar */}
-        <header className="flex items-center justify-between px-6 py-3.5 border-b flex-shrink-0"
+        <header className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-6 py-3 border-b flex-shrink-0"
           style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
           <h1 className="text-sm font-semibold">
             {NAV.find(n => n.id === nav)?.label}
           </h1>
-          <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{user?.name}</span>
+          <button type="button" onClick={() => setNav("account")} title="Open your account"
+            aria-label={`Your account: ${user?.email || "Checking sign-in"}`}
+            className="flex items-center gap-2 min-w-0 max-w-full text-left">
+            <span className="shrink-0"><UserIcon size={20} /></span>
+            <span className="min-w-0 text-xs">
+              <span className="block font-medium break-all">{user?.email}</span>
+              <span className="block" style={{ color: authStatus === "Signed in" ? "#86efac" : "var(--text-secondary)" }}>{authStatus}{user?.name ? ` / ${user.name}` : ""}</span>
+            </span>
+          </button>
         </header>
+        {nav === "beatmind" && <div className="flex flex-wrap items-center gap-2 px-3 sm:px-6 py-3 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
+          <label htmlFor="chat-picker" className="text-xs" style={{ color: "var(--text-secondary)" }}>Chats</label>
+          <select id="chat-picker" value={chatId} onChange={event => event.target.value.startsWith("remote:") ? void openServerChat(event.target.value.slice(7)) : openChat(event.target.value)}
+            disabled={!historyReady || loading || !!pendingContinuation}
+            className="min-w-0 flex-1 w-24 h-10 rounded border px-2 text-sm disabled:opacity-50"
+            style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }}>
+            {chats.map(chat => <option key={chat.id} value={chat.id}>{chat.title}</option>)}
+            {!!serverChats.length && <optgroup label="Saved on server">{serverChats.map(chat => <option key={chat.id} value={`remote:${chat.id}`}>{chat.title}</option>)}</optgroup>}
+          </select>
+          <button type="button" onClick={() => openChat()} disabled={!historyReady || loading || !!pendingContinuation}
+            title={loading ? "Wait for production to finish or stop it first" : "Start a new chat; keep existing chats and Ableton work"}
+            className="h-10 px-3 shrink-0 rounded text-sm font-medium disabled:opacity-40"
+            style={{ background: "var(--accent)", color: "white" }}>New chat</button>
+          <button type="button" disabled={!historyReady || loading || !!pendingContinuation}
+            onClick={() => setSongSetup(input)} className="h-10 px-3 shrink-0 rounded border text-sm disabled:opacity-40"
+            style={{ borderColor: "var(--border)" }}>New song</button>
+        </div>}
 
         {/* Content area */}
         <div className="flex-1 overflow-y-auto flex flex-col">
@@ -694,6 +940,19 @@ export default function DashboardPage() {
           {nav === "beatmind"  && renderBeatMind()}
           {nav === "mixmind"   && renderMixMind()}
           {nav === "downloads" && renderDownloads()}
+          {nav === "references" && <References chatBusy={loading || !historyReady} onUse={(id, template) => {
+            setNav("beatmind");
+            void sendMessage(template
+              ? "Use my approved reference template and creative brief to plan an original track. Inspect the current Live Set and discover sources that match my required pack or instrument. Explain the first planned part and ask for my source choice before making music. Do not discard existing work, load sounds, create tracks, or change Ableton yet. Session sections are not an Arrangement timeline."
+              : "Review the selected reference, including saved sound comparisons, listening intervals, coverage, unresolved analysis failures and my musical preferences. Distinguish measurements, model impressions, and unknowns. If sound comparisons exist, identify the recording and ask which measured difference I want to refine first. Otherwise ask what I want for an original track. Do not change Ableton yet.", undefined, id);
+          }} />}
+          {nav === "recordings" && <section className="p-4 sm:p-6 min-w-0">
+            <h2 className="text-lg font-semibold">Saved recordings</h2>
+            {recordings.error && <p role="alert" className="text-sm text-red-300">{recordings.error}</p>}
+            {!recordings.items.length && <p className="text-sm mt-3">No recordings available.</p>}
+            <Recordings items={recordings.items} title="Recording history" allowReview={false}
+              initialIds={new Set(recordings.items.map(item => item.id))} onDecision={() => {}} />
+          </section>}
           {nav === "account"   && renderAccount()}
         </div>
       </div>

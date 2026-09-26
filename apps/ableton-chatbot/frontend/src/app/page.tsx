@@ -7,23 +7,23 @@ import { BoltIcon, SlidersIcon, SparklesIcon, RefreshIcon, CheckIcon } from "@/c
 const FEATURES = [
   {
     Icon: BoltIcon,
-    title: "Instant Track Generation",
-    desc: "Say \u201cAfro House at 122 BPM\u201d and get a full 8-track arrangement \u2014 kick, bass, pads, leads \u2014 in seconds.",
+    title: "One Part at a Time",
+    desc: "Start with a kick, bass or melody. Review each captured audition before choosing the next part.",
   },
   {
     Icon: SlidersIcon,
-    title: "Full Ableton Control",
-    desc: "EQ, compression, reverb, arrangement. BeatMind controls every device parameter inside your existing Ableton setup.",
+    title: "Connected to Ableton",
+    desc: "Load available sounds, build clips and adjust supported device controls in your Live Set. Parameter availability depends on the device.",
   },
   {
     Icon: SparklesIcon,
     title: "Production Knowledge",
-    desc: "Built-in knowledge of 24+ genres, professional mix formulas, and every Ableton device parameter map.",
+    desc: "Develop rhythm, tone and effects around your brief, with inspected controls and recorded previews.",
   },
   {
     Icon: RefreshIcon,
     title: "Iterate Naturally",
-    desc: "\u201cMake the bass warmer\u201d, \u201cAdd a breakdown at bar 64\u201d, \u201cBring the kick down 2dB\u201d. Just talk.",
+    desc: "Ask for a warmer bass, a different kick pattern or a level adjustment. Keep the changes you like and refine the rest.",
   },
 ];
 
@@ -31,7 +31,7 @@ const STEPS = [
   {
     n: "01",
     title: "Connect",
-    desc: "Install the free bridge agent (one command). Open Ableton Live. Bridge connects automatically.",
+    desc: "Install BeatMind Bridge, sign in and connect AbletonOSC in Live. Grant audio permission for captured auditions on supported Macs.",
   },
   {
     n: "02",
@@ -46,10 +46,10 @@ const STEPS = [
 ];
 
 const PRICING_FEATURES = [
-  "Unlimited track generation",
-  "24+ genre templates",
-  "Full Ableton device control",
-  "Mix and arrangement assistance",
+  "Guided part-by-part production",
+  "Genre and reference-based planning",
+  "Supported Ableton device controls",
+  "Clip, scene and mix assistance",
   "Priority support",
   "Mac + Windows bridge agent",
 ];
@@ -61,7 +61,7 @@ const FAQS = [
   },
   {
     q: "What genres does it support?",
-    a: "24+ including Afro House, Dark Melodic Techno, Deep House, Minimal, Drum & Bass, Ambient, and more. New genres added monthly.",
+    a: "Describe your style, mood and sources, including house, techno, minimal, drum and bass or ambient. Genre labels guide the plan rather than selecting a fixed template.",
   },
   {
     q: "Who owns the music I create?",
@@ -69,7 +69,7 @@ const FAQS = [
   },
   {
     q: "Does it work on Mac and Windows?",
-    a: "Yes. The bridge agent runs on macOS and Windows. Anywhere Ableton runs, BeatMind runs.",
+    a: "Bridge downloads are available for macOS and Windows. Captured auditions and automatic Live Set file-menu actions currently require macOS; supported controls depend on Ableton and your installed devices.",
   },
   {
     q: "Can I cancel anytime?",
@@ -122,7 +122,7 @@ export default function LandingPage() {
             <span style={{ color: "var(--accent)" }}>inside Ableton.</span>
           </h1>
           <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)", lineHeight: "1.6" }}>
-            Describe what you want. BeatMind generates full tracks \u2014 drums, bass, pads, effects, mix \u2014 directly inside your Ableton Live project. No audio files. No exports. Just your DAW, ready to play.
+            Develop your music inside Ableton Live, one part at a time. Choose your sources, review captured auditions and refine the rhythm, tone and effects.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/signup" className="px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
@@ -135,7 +135,7 @@ export default function LandingPage() {
           <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>No credit card required for trial · Cancel anytime</p>
 
           {/* Product preview terminal */}
-          <div className="mt-16 rounded-2xl border text-left overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="img" aria-label="BeatMind chat preview: user requests a dark melodic techno loop, BeatMind builds 8 tracks in Ableton">
+          <div className="mt-16 rounded-2xl border text-left overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="img" aria-label="Illustrative BeatMind conversation planning a first kick">
             <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ borderColor: "var(--border)" }} aria-hidden="true">
               <div className="w-3 h-3 rounded-full" style={{ background: "#ff5f57" }} />
               <div className="w-3 h-3 rounded-full" style={{ background: "#febc2e" }} />
@@ -151,11 +151,11 @@ export default function LandingPage() {
               <div className="flex gap-3">
                 <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold mt-1" style={{ background: "var(--bg-tertiary)", color: "var(--accent)" }} aria-hidden="true">B</div>
                 <div className="px-4 py-3 rounded-2xl rounded-tl-sm text-sm" style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)", maxWidth: "75%" }}>
-                  Building your Dark Melodic Techno loop at 126 BPM in Am...<br /><br />
-                  Setting tempo &rarr; Creating 8 tracks &rarr; Loading DS Kick, DS Clap, Wavetable bass, Drift pad, Drift lead &rarr; Programming patterns &rarr; Applying EQ, compression, reverb &rarr; Mixing levels...<br /><br />
-                  ✓ Done. 8-track loop ready in Scene 0. Fire scene to hear it.
+                  Let&apos;s start with the kick at 126 BPM and keep Am for the tonal parts.<br /><br />
+                  I&apos;ll inspect the current set and available sources before making changes.<br /><br />
+                  Do you have a sample pack in mind, or should I suggest an installed sound?
                   <div className="mt-3 pt-3 border-t text-xs" style={{ borderColor: "var(--border)", color: "var(--accent)" }}>
-                    12 Ableton actions executed
+                    Example conversation
                   </div>
                 </div>
               </div>
@@ -166,10 +166,10 @@ export default function LandingPage() {
         {/* Features */}
         <section id="features" className="max-w-6xl mx-auto px-6 py-20" aria-labelledby="features-heading">
           <h2 id="features-heading" className="text-3xl md:text-4xl font-bold text-center mb-4">
-            Everything a producer needs
+            Your next musical idea
           </h2>
           <p className="text-center mb-14" style={{ color: "var(--text-secondary)" }}>
-            Not just chord suggestions. Full production \u2014 inside your DAW.
+            Build, audition and refine supported parts inside your DAW. Session scenes are not a finished Arrangement timeline or exported song.
           </p>
           <div className="grid md:grid-cols-2 gap-6">
             {FEATURES.map((f) => (
@@ -189,7 +189,7 @@ export default function LandingPage() {
           <div className="max-w-4xl mx-auto px-6">
             <h2 id="how-heading" className="text-3xl md:text-4xl font-bold text-center mb-4">How it works</h2>
             <p className="text-center mb-14" style={{ color: "var(--text-secondary)" }}>
-              From zero to a full track in under two minutes.
+              Connect your Live Set, agree on a sound and develop it together.
             </p>
             <ol className="grid md:grid-cols-3 gap-8" aria-label="Steps to get started">
               {STEPS.map((s) => (
@@ -274,7 +274,7 @@ export default function LandingPage() {
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 text-lg font-black" style={{ background: "var(--accent)", color: "#fff" }}>B</div>
                 <h3 className="text-xl font-semibold mb-2">BeatMind</h3>
                 <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
-                  AI music producer that builds full tracks — drums, bass, pads, effects, mix — directly inside your Ableton Live project. Just describe what you want.
+                  Develop drums, bass and melodies inside your Ableton Live project, with captured auditions and one part to review at a time.
                 </p>
                 <div className="text-xs mb-5" style={{ color: "var(--text-secondary)" }}>Web app + bridge agent · Requires Ableton Live 11 or 12</div>
                 <Link href="/signup" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>

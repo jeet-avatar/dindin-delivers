@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict'), fs = require('node:fs'), Module = require('node:module'), ts = require('typescript');
+const file = require('node:path').resolve(__dirname, '../src/lib/failed-audition.ts');
+const mod = new Module(file, module);
+mod._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, file);
+const { failedAudition } = mod.exports;
+const failure = { tool: 'audition_part', input: { track: 1, scene: 8 }, result: { status: 'partial', summary: 'Session restoration needs attention.', error: 'Solo state needs attention.' } };
+assert.equal(failedAudition([]), null);
+assert.equal(failedAudition([{ ...failure, result: undefined }]), null);
+assert.equal(failedAudition([failure]).reason, 'Solo state needs attention.');
+assert.equal(failedAudition([failure]).target, 'Track 2 / Scene 9');
+assert.match(failedAudition([failure]).prompt, /Read-only inspection first/);
+assert.equal(failedAudition([failure, { ...failure, result: { status: 'verified', recording: { id: 'abc' } } }]), null);
+assert.equal(failedAudition([{ ...failure, input: {} }]).target, 'Existing part');
+assert.equal(failedAudition([{ ...failure, result: { status: 'verified' } }]).reason, 'No verified audio file was returned.');
+console.log('Failed audition states passed.');

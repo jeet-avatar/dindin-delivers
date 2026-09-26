@@ -1,0 +1,263 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { apiFetch } from "@/lib/auth";
+import ReferenceTemplate, { type ReferenceTemplateData } from "./ReferenceTemplate";
+import ReferenceReview, { type TimingMap, type StemReview, type StemHealth } from "./ReferenceReview";
+import SoundComparison from "./SoundComparison";
+
+type Report = {
+  duration_seconds: number;
+  tempo: { bpm: number | null };
+  key_candidates: { key: string; correlation: number }[];
+  waveform: number[];
+  possible_change_points_seconds: number[];
+  stems: { name: string; rms_dbfs: number; onset_events_per_second: number }[];
+  limitations: string[];
+  stem_health?: StemHealth;
+};
+type Reference = {
+  id: string; name: string; status: string; created_at: string;
+  stage?: string; error?: string; report?: Report;
+  listening_busy?: boolean;
+  template?: ReferenceTemplateData;
+  timing?: TimingMap; stem_review?: StemReview;
+  listening?: {
+    coverage?: { coverage_percent: number; full_coverage: boolean };
+    excerpts: { id?: string; notes: string; model: string; start_seconds: number; end_seconds: number; layer: string; intent: string; validation?: string;
+      evidence?: { start_rms_dbfs: number; end_rms_dbfs: number; delta_db: number } }[];
+    job?: { status: string; completed: number; total: number; failures: { start: number; end: number; error: string }[] };
+  };
+};
+
+function Listening({ item, available, refresh }: { item: Reference; available: boolean; refresh: () => Promise<void> }) {
+  const [intent, setIntent] = useState("");
+  const [start, setStart] = useState(0);
+  const [duration, setDuration] = useState(20);
+  const [layer, setLayer] = useState("mix");
+  const [consent, setConsent] = useState(false);
+  const [whole, setWhole] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function listen() {
+    setBusy(true); setError("");
+    try {
+      const response = await apiFetch(`/api/references/${item.id}/${whole ? "listen-whole" : "listen"}`, { method: "POST",
+        body: JSON.stringify(whole ? { intent, consent } : { intent, start_seconds: start, duration_seconds: duration, layer, consent }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Check the excerpt range and try again.");
+      await refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "Listening failed."); }
+    finally { setBusy(false); }
+  }
+  return <div className="space-y-3 border-t border-neutral-700 pt-4">
+    <h4 className="text-sm font-medium">AI listening</h4>
+    {!available && <p role="status" className="text-sm text-amber-200">Audio provider setup required on the server.</p>}
+    <label className="block text-sm">What do you want from this reference?
+      <textarea value={intent} maxLength={1000} onChange={e => setIntent(e.target.value)} rows={2}
+        className="mt-2 w-full rounded border border-neutral-600 bg-neutral-900 p-2" />
+    </label>
+    <fieldset className="flex flex-wrap gap-4 text-sm"><legend className="mb-2">Listening scope</legend>
+      <label><input type="radio" name={`scope-${item.id}`} checked={whole} onChange={() => setWhole(true)} /> Whole track</label>
+      <label><input type="radio" name={`scope-${item.id}`} checked={!whole} onChange={() => setWhole(false)} /> Excerpt</label>
+    </fieldset>
+    {!whole && <><div className="grid grid-cols-2 gap-3 text-sm">
+      <label>Start (seconds)<input type="number" min={0} max={Math.max(0, (item.report?.duration_seconds || 5) - 5)} value={start}
+        onChange={e => setStart(Number(e.target.value))} className="mt-1 w-full rounded bg-neutral-900 p-2" /></label>
+      <label>Length (seconds)<input type="number" min={5} max={30} value={duration}
+        onChange={e => setDuration(Number(e.target.value))} className="mt-1 w-full rounded bg-neutral-900 p-2" /></label>
+    </div>
+    <label className="block text-sm">Audio layer<select value={layer} onChange={e => setLayer(e.target.value)}
+      className="ml-3 rounded bg-neutral-900 p-2">{["mix", "drums", "bass", "vocals", "other"].map(s => <option key={s}>{s}</option>)}</select></label></>}
+    <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-1" />
+      Send {whole ? "this whole track" : "this excerpt"} and my intent to OpenAI. Provider charges apply{whole ? ` (up to ${Math.ceil((item.report?.duration_seconds || 0) / 30)} requests)` : ""}.</label>
+    <button type="button" disabled={!available || !consent || !intent.trim() || busy || item.listening_busy}
+      onClick={listen} className="rounded bg-emerald-700 px-4 py-2 text-sm disabled:opacity-40">{busy || item.listening_busy ? "Listening..." : whole ? "Listen to whole track" : "Listen to excerpt"}</button>
+    {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+    {item.listening && <div className="space-y-3 text-sm">
+      <p className="text-neutral-400">Checked mix coverage: {item.listening.coverage?.coverage_percent || 0}% / Musical interpretation still needs your review</p>
+      {item.listening.job && <p role="status">{item.listening.job.status.replaceAll("_", " ")} / {item.listening.job.completed} of {item.listening.job.total} intervals passed checks</p>}
+      {item.listening.job?.status === "running" && <button type="button" className="text-red-300" onClick={async () => {
+        try { const r = await apiFetch(`/api/references/${item.id}/listen-cancel`, { method: "POST" }); if (!r.ok) throw new Error("Could not stop listening."); await refresh(); }
+        catch (e) { setError(e instanceof Error ? e.message : "Could not stop listening."); }
+      }}>Stop listening</button>}
+      {item.listening.job?.failures.map((f, i) => <p key={i} className="text-amber-200">{time(f.start)}-{time(f.end)}: {f.error}</p>)}
+      {item.listening.excerpts.filter(e => e.validation === "checks_passed").map((e, i) => <details key={e.id || i} className="border-t border-neutral-800 pt-2">
+        <summary className="cursor-pointer">{time(e.start_seconds)}-{time(e.end_seconds)} / {e.layer} / {e.validation === "checks_passed" ? "Checks passed" : "Legacy notes: unchecked"}</summary>
+        {e.evidence && <p className="mt-2 text-xs text-neutral-400">Measured level: {e.evidence.start_rms_dbfs} to {e.evidence.end_rms_dbfs} dBFS / Change: {e.evidence.delta_db} dB</p>}
+        <p className="mt-2 whitespace-pre-wrap break-words">{e.notes}</p>
+      </details>)}
+      {item.listening.excerpts.some(e => e.validation !== "checks_passed") && <details className="text-xs text-neutral-400">
+        <summary className="cursor-pointer">Earlier unchecked notes</summary>
+        {item.listening.excerpts.filter(e => e.validation !== "checks_passed").map((e, i) => <p key={e.id || i} className="mt-2 whitespace-pre-wrap break-words">{time(e.start_seconds)}-{time(e.end_seconds)}: {e.notes}</p>)}
+      </details>}
+    </div>}
+  </div>;
+}
+
+const time = (seconds: number) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
+
+function ReferenceAudio({ id, cue }: { id: string; cue: { seconds: number } }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [stem, setStem] = useState("mix");
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.currentTime = cue.seconds;
+  }, [cue]);
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl = "";
+    setUrl(""); setError("");
+    void (async () => {
+      try {
+        const response = await apiFetch(`/api/references/${id}/audio/${stem}`, { signal: controller.signal });
+        if (!response.ok) throw new Error("Audio could not be loaded.");
+        const blob = await response.blob();
+        if (controller.signal.aborted) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      } catch (e) {
+        if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Audio failed.");
+      }
+    })();
+    return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [id, stem]);
+  return <div className="space-y-3">
+    <label className="flex items-center gap-3 text-sm">Audio
+      <select aria-label="Reference audio layer" value={stem} onChange={e => setStem(e.target.value)}
+        className="rounded border border-neutral-600 bg-neutral-900 px-3 py-2">
+        <option value="mix">Original mix</option>
+        {["drums", "bass", "vocals", "other"].map(s => <option key={s} value={s}>{s} (estimated)</option>)}
+      </select>
+    </label>
+    {error ? <p role="alert" className="text-sm text-red-300">{error}</p> :
+      url ? <audio ref={audioRef} key={url} aria-label={`${stem} audio`} controls preload="metadata" src={url}
+        onPlay={event => document.querySelectorAll("audio").forEach(other => { if (other !== event.currentTarget) other.pause(); })}
+        onLoadedMetadata={() => { if (audioRef.current) audioRef.current.currentTime = cue.seconds; }} className="w-full" /> :
+        <p role="status" className="text-sm text-neutral-400">Loading audio...</p>}
+  </div>;
+}
+
+export default function References({ onUse, chatBusy }: { onUse: (id: string, template?: boolean) => void; chatBusy: boolean }) {
+  const [items, setItems] = useState<Reference[]>([]);
+  const [available, setAvailable] = useState(false);
+  const [listeningAvailable, setListeningAvailable] = useState(false);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [rights, setRights] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [stage, setStage] = useState("stems");
+  const [cue, setCue] = useState({ seconds: 0 });
+  const refresh = useCallback(async (signal?: AbortSignal) => {
+    const response = await apiFetch("/api/references", { signal });
+    if (!response.ok) throw new Error(response.status === 401 ? "Sign in again to access references." : "Could not load references.");
+    const data = await response.json();
+    if (signal?.aborted) return;
+    setItems(data.references); setAvailable(data.available); setReason(data.reason || "");
+    setListeningAvailable(Boolean(data.audio_listening?.available));
+  }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try { await refresh(controller.signal); }
+      catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Could not load references."); }
+      if (!controller.signal.aborted) timer = setTimeout(poll, 4000);
+    };
+    void poll();
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [refresh]);
+
+  async function upload() {
+    if (!file || !rights) return;
+    if (file.size > 50 * 1024 * 1024) { setError("Choose a file under 50 MB."); return; }
+    setBusy(true); setError("");
+    try {
+      const response = await apiFetch("/api/references", { method: "POST", body: file,
+        headers: { "Content-Type": "application/octet-stream", "X-Reference-Name": encodeURIComponent(file.name), "X-Rights-Confirmed": "true" } });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Upload failed.");
+      await refresh(); setSelected(data.id); setStage("stems"); setCue({seconds:0});
+    } catch (e) { setError(e instanceof Error ? e.message : "Upload failed."); }
+    finally { setBusy(false); }
+  }
+  async function remove(id: string) {
+    if (!window.confirm("Delete this reference and all its estimated stems?")) return;
+    setError("");
+    try {
+      const response = await apiFetch(`/api/references/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error((await response.json()).detail || "Delete failed.");
+      if (id === selected) setSelected(null);
+      await refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "Delete failed."); }
+  }
+  const item = items.find(i => i.id === selected);
+  return <section className="mx-auto w-full max-w-5xl p-4 sm:p-6 space-y-6">
+    <h2 className="text-xl font-semibold">Reference tracks</h2>
+    {reason && <p role="status" className="text-sm text-amber-200">{reason}</p>}
+    {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+    <div className="space-y-3 border-b border-neutral-700 pb-5">
+      <label className="block text-sm">Audio file <span className="text-neutral-400">(50 MB, 5 seconds to 10 minutes)</span>
+        <input type="file" aria-label="Reference audio file" accept=".wav,.aif,.aiff,.mp3,.m4a,.flac,.ogg"
+          disabled={!available || busy} onChange={e => setFile(e.target.files?.[0] || null)} className="block mt-2 w-full text-sm" />
+      </label>
+      <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={rights} onChange={e => setRights(e.target.checked)} className="mt-1" />
+        I have permission to upload and analyze this audio.</label>
+      <button type="button" onClick={upload} disabled={!available || !file || !rights || busy}
+        className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{busy ? "Uploading..." : "Analyze reference"}</button>
+    </div>
+    <div className="grid gap-6 md:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
+      <div className="space-y-1" aria-label="Saved references">
+        {!items.length && <p className="text-sm text-neutral-400">No reference tracks yet.</p>}
+        {items.map(i => <button key={i.id} type="button" onClick={() => {setSelected(i.id);setStage("stems");setCue({seconds:0});}}
+          aria-pressed={selected === i.id} className={`w-full border-l-2 p-3 text-left ${selected === i.id ? "border-emerald-400 bg-neutral-800" : "border-transparent"}`}>
+          <span className="block break-all text-sm font-medium">{i.name}</span>
+          <span className="text-xs text-neutral-400">{i.stage || i.status}</span>
+        </button>)}
+      </div>
+      {item && <div className="min-w-0 space-y-4">
+        <h3 className="text-base font-semibold break-all">{item.name}</h3>
+        <p className="text-xs text-neutral-400">{new Date(item.created_at).toLocaleString()}</p>
+        {item.error && <p role="alert" className="text-sm text-red-300">{item.error}</p>}
+        {item.status === "processing" && <p role="status">{item.stage || "Processing..."}</p>}
+        {item.report && item.status === "ready" && <>
+          <svg role="img" aria-label="Reference waveform" viewBox="0 0 160 40" className="h-20 w-full" preserveAspectRatio="none">
+            {item.report.waveform.map((v, i) => <line key={i} x1={i} x2={i} y1={20-v*19} y2={20+v*19} stroke="#34d399" strokeWidth="0.6" />)}
+          </svg>
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            <div><dt className="text-neutral-400">Estimated tempo</dt><dd>{item.report.tempo.bpm ?? "Unknown"} BPM</dd></div>
+            <div><dt className="text-neutral-400">Duration</dt><dd>{time(item.report.duration_seconds)}</dd></div>
+            <div className="col-span-2"><dt className="text-neutral-400">Possible keys</dt><dd>{item.report.key_candidates.map(k => k.key).join(" / ") || "Not enough tonal evidence"}</dd></div>
+          </dl>
+          <ReferenceAudio key={item.id} id={item.id} cue={cue} />
+          <div role="tablist" aria-label="Reference workflow" className="flex flex-wrap gap-3 border-b border-neutral-700">
+            {[['stems','1. Stems'],['timing','2. Timing'],['listening','3. Listening'],['template','4. Template'],['compare','5. Compare']].map(([value,label]) =>
+              <button key={value} role="tab" aria-selected={stage===value} onClick={() => setStage(value)} className={`border-b-2 px-1 py-2 text-sm ${stage===value?'border-emerald-400':'border-transparent text-neutral-400'}`}>{label}</button>)}
+          </div>
+          {item.timing && item.stem_review && (["stems", "timing"] as const).map(mode => <div key={mode} hidden={stage!==mode}>
+            <ReferenceReview key={`${item.id}-${mode}-${item.timing!.analysis_id}`} id={item.id} mode={mode} timing={item.timing!} review={item.stem_review!}
+              health={item.report!.stem_health} refresh={refresh} onCue={seconds => setCue({seconds})} /></div>)}
+          <div hidden={stage!=="listening"}><Listening key={item.id} item={item} available={listeningAvailable} refresh={refresh} /></div>
+          {stage === "compare" && <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} />}
+          <div hidden={stage!=="template"}>{item.timing?.status === "confirmed" && item.stem_review?.status === "accepted" ?
+            <ReferenceTemplate key={`template-${item.id}-${item.timing.revision}`} id={item.id} template={item.template} bpm={item.report.tempo.bpm} timing={item.timing}
+              refresh={refresh} onUse={() => onUse(item.id, true)} chatBusy={chatBusy} /> :
+            <p role="status" className="text-sm text-amber-200">Stem review and timing confirmation required.</p>}</div>
+          <details className="text-sm"><summary className="cursor-pointer">Measured audio details</summary>
+          <h4 className="text-sm font-medium">Estimated stem activity</h4>
+          <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="text-neutral-400"><th>Stem</th><th>RMS dBFS</th><th>Onsets/sec</th></tr></thead>
+            <tbody>{item.report.stems.map(s => <tr key={s.name} className="border-t border-neutral-800"><td className="py-2">{s.name}</td><td>{s.rms_dbfs}</td><td>{s.onset_events_per_second}</td></tr>)}</tbody></table></div>
+          <p className="text-sm"><span className="text-neutral-400">Possible energy changes: </span>{item.report.possible_change_points_seconds.map(time).join(", ") || "None detected"}</p>
+          <details className="text-xs text-neutral-400"><summary className="cursor-pointer">Analysis limitations</summary>
+            <ul className="mt-2 space-y-1">{item.report.limitations.map(l => <li key={l}>{l}</li>)}</ul></details>
+          </details>
+          <button type="button" disabled={chatBusy} onClick={() => onUse(item.id)} className="rounded bg-emerald-700 px-4 py-2 text-sm disabled:opacity-40">Discuss reference in chat</button>
+        </>}
+        {!['processing', 'uploading'].includes(item.status) && <button type="button" onClick={() => remove(item.id)} className="block text-sm text-red-300">Delete reference</button>}
+      </div>}
+    </div>
+  </section>;
+}
