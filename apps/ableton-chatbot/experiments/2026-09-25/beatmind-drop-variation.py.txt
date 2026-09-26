@@ -1,0 +1,135 @@
+from copy import deepcopy
+import gzip
+import json
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+ROOT=Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project')
+SOURCE=ROOT/'Original Groove - FX Working Copy.als'
+DEST=ROOT/'Original Groove - Full Arrangement 03.als'
+OUT=ROOT/'Arrangement 03'
+assert not DEST.exists()
+root=ET.fromstring(gzip.decompress(SOURCE.read_bytes()))
+live=root.find('LiveSet')
+tracks=live.find('Tracks').findall('MidiTrack')
+assert len(tracks)==8
+
+
+def clips(track):
+    return track.findall('DeviceChain/MainSequencer/ClipTimeable/ArrangerAutomation/Events/MidiClip')
+
+
+def at(track,beat):
+    found=[c for c in clips(track) if float(c.get('Time'))==beat]
+    assert len(found)==1
+    return found[0]
+
+
+def add_note(clip,pitch,time,duration,velocity):
+    keys=clip.find('Notes/KeyTracks')
+    found=[k for k in keys if int(k.find('MidiKey').get('Value'))==pitch]
+    if found:
+        key=found[0]
+    else:
+        key=ET.SubElement(keys,'KeyTrack',Id=str(max([int(k.get('Id')) for k in keys]+[-1])+1))
+        ET.SubElement(key,'Notes')
+        ET.SubElement(key,'MidiKey',Value=str(pitch))
+    if any(abs(float(n.get('Time'))-time)<.04 for n in key.find('Notes')):
+        return
+    generator=clip.find('Notes/NoteIdGenerator/NextId')
+    noteid=int(generator.get('Value'))
+    ET.SubElement(key.find('Notes'),'MidiNoteEvent',Time=str(time),Duration=str(duration),
+                  Velocity=str(velocity),OffVelocity='64',NoteId=str(noteid))
+    generator.set('Value',str(noteid+1))
+
+
+before_first=[ET.tostring(c) for t in tracks for c in clips(t) if float(c.get('Time'))<352]
+sessions=[ET.tostring(t.find('DeviceChain/MainSequencer/ClipSlotList')) for t in tracks]
+changes=[]
+for start in [352,384]:
+    bass=at(tracks[1],start)
+    for key in bass.findall('Notes/KeyTracks/KeyTrack'):
+        notes=key.find('Notes')
+        for n in list(notes):
+            time=float(n.get('Time'));bar=int(time//4);beat=time%4
+            if bar%2==0 and abs(beat-.5)<.04:
+                n.set('Time',str(time+.25))
+            elif bar%2==1 and 1.7<beat<1.82:
+                n.set('Time',str(time-.25))
+            elif bar%4==2 and 3.2<beat<3.35:
+                notes.remove(n)
+        notes[:]=sorted(notes,key=lambda n:float(n.get('Time')))
+    bass.find('Name').set('Value','Main II - Bass Answer')
+    hat=at(tracks[2],start)
+    pitches={int(k.find('MidiKey').get('Value')) for k in hat.findall('Notes/KeyTracks/KeyTrack')}
+    assert len(pitches)==1
+    for time in [15.25,15.75,31.25,31.75]:
+        add_note(hat,next(iter(pitches)),time+.012,.08,43 if time%1<.5 else 37)
+    hat.find('Name').set('Value','Main II - Hat Pickups')
+    perc=at(tracks[7],start)
+    for key in perc.findall('Notes/KeyTracks/KeyTrack'):
+        pitch=int(key.find('MidiKey').get('Value'))
+        for n in list(key.find('Notes')):
+            time=float(n.get('Time'));bar=int(time//4)
+            if start==352 and time<2:
+                key.find('Notes').remove(n)
+            elif pitch==73 and bar%2==1 and time%4<2:
+                n.set('Time',str(time+.5))
+    add_note(perc,73,31.012,.14,64)
+    perc.find('Name').set('Value','Main II - Dub Response + Repeat Fill')
+    for key in perc.findall('Notes/KeyTracks/KeyTrack'):
+        key.find('Notes')[:]=sorted(key.find('Notes'),key=lambda n:float(n.get('Time')))
+    if start==352:
+        for track,cutoff in [(3,4),(6,8)]:
+            for key in at(tracks[track],start).findall('Notes/KeyTracks/KeyTrack'):
+                for n in list(key.find('Notes')):
+                    if float(n.get('Time'))<cutoff:key.find('Notes').remove(n)
+    changes.append({'start_beat':start,'bass':'alternating syncopation and rests',
+                    'hats':'quiet phrase-end pickups','percussion':'shifted woody answers and one repeat-source hit'})
+
+
+def envelope(track,parameter,points,label,boolean=False):
+    target=parameter.find('AutomationTarget').get('Id')
+    envs=track.find('AutomationEnvelopes/Envelopes')
+    assert not any(e.find('EnvelopeTarget/PointeeId').get('Value')==target for e in envs)
+    env=ET.SubElement(envs,'AutomationEnvelope',Id=str(max([int(e.get('Id')) for e in envs]+[-1])+1))
+    ET.SubElement(ET.SubElement(env,'EnvelopeTarget'),'PointeeId',Value=target)
+    auto=ET.SubElement(env,'Automation');events=ET.SubElement(auto,'Events')
+    for i,(beat,value) in enumerate([(-63072000,points[0][1])]+points):
+        ET.SubElement(events,'BoolEvent' if boolean else 'FloatEvent',Id=str(i),Time=str(beat),
+                      Value=str(value).lower() if boolean else str(value))
+    view=ET.SubElement(auto,'AutomationTransformViewState')
+    ET.SubElement(view,'IsTransformPending',Value='false');ET.SubElement(view,'TimeAndValueTransforms')
+    changes.append({'automation':label,'target':target,'points':points})
+
+
+repeat=tracks[7].find('DeviceChain/DeviceChain/Devices/BeatRepeat')
+assert repeat is not None
+repeat.find('Chance/Manual').set('Value','0')
+repeat.find('On/Manual').set('Value','false')
+repeat.find('InstantRepeat/Manual').set('Value','false')
+envelope(tracks[7],repeat.find('On'),[(0,False),(352,True),(416,False)],'Beat Repeat active only in Main II',True)
+envelope(tracks[7],repeat.find('InstantRepeat'),[(0,False),(383,True),(384,False),(415,True),(416,False)],'Two one-beat manual repeat fills',True)
+echo=tracks[4].find('DeviceChain/DeviceChain/Devices/Echo')
+wet=float(echo.find('DryWet/Manual').get('Value'))
+feedback=float(echo.find('Feedback/Manual').get('Value'))
+envelope(tracks[4],echo.find('DryWet'),[(0,wet),(380.5,wet),(380.74,.34),(381.5,.34),(382.5,wet),
+         (414.5,wet),(414.74,.34),(415.5,.34),(416.5,wet)],'Keys echo throws at phrase endings')
+envelope(tracks[4],echo.find('Feedback'),[(0,feedback),(380.5,feedback),(380.74,.32),(381.5,.32),(383,feedback),
+         (414.5,feedback),(414.74,.32),(415.5,.32),(417,feedback)],'Short echo-tail extension')
+assert before_first==[ET.tostring(c) for t in tracks for c in clips(t) if float(c.get('Time'))<352]
+assert sessions==[ET.tostring(t.find('DeviceChain/MainSequencer/ClipSlotList')) for t in tracks]
+for track in tracks:
+    for clip in clips(track):
+        assert clip.find('GrooveSettings/GrooveId').get('Value')=='4'
+        assert float(clip.find('CurrentEnd').get('Value'))-float(clip.get('Time'))==32
+        for n in clip.findall('.//MidiNoteEvent'):
+            assert 0<=float(n.get('Time'))<32 and float(n.get('Duration'))>0
+live.find('Transport/CurrentTime').set('Value','0')
+live.find('Annotation').set('Value','Full original arrangement, variation 03. First main preserved; second main bass/percussion variation, two Beat Repeat fills and filtered keys echo throws. Original Swing 16ths 66 retained. Review mix, not final mastering.')
+DEST.write_bytes(gzip.compress(ET.tostring(root,encoding='utf-8',xml_declaration=True)))
+(OUT/'variation-manifest.json').write_text(json.dumps({'first_main_unchanged':True,'changes':changes,
+    'note_counts':[[len(c.findall('.//MidiNoteEvent')) for c in clips(t)] for t in tracks],
+    'beat_repeat_times_seconds':[[383*60/122,384*60/122],[415*60/122,416*60/122]],
+    'approval':'pending'},indent=2))
+print(json.dumps({'set':str(DEST),'changes':len(changes),'first_main_unchanged':True}))

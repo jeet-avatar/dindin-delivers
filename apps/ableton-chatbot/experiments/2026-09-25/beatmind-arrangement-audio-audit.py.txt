@@ -1,12 +1,16 @@
 import json
+import argparse
 from pathlib import Path
 import numpy as np
 import soundfile as sf
 from scipy.signal import butter, sosfiltfilt, resample_poly
 from scipy.ndimage import uniform_filter1d
 
-ROOT = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project/Arrangement 02')
-path = ROOT / 'Original Groove - Full Arrangement 02.wav'
+parser = argparse.ArgumentParser()
+parser.add_argument('--version', choices=['02','03'], default='02')
+version = parser.parse_args().version
+ROOT = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project') / f'Arrangement {version}'
+path = ROOT / f'Original Groove - Full Arrangement {version}.wav'
 audio, rate = sf.read(path, dtype='float32', always_2d=True)
 duration = len(audio) / rate
 assert audio.shape[1] == 2 and np.isfinite(audio).all()

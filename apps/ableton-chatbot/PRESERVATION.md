@@ -296,3 +296,26 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
   Arrangement editing into BeatMind chat or fix the production bridge's large
   rack UDP limit. No application regression suite run. Subjective user approval
   and release mastering are not claimed.
+
+## Second Main Variation and Effects
+
+- Saved separate Original Groove - Full Arrangement 03.als, preserving 02.
+  All earlier-section MIDI notes verified unchanged after native save (with
+  float serialization tolerance); 92 clip positions/lengths checked via OSC.
+  Original swing retained. Main II adds bass/percussion responses, hat pickups,
+  and staggered clap/lead entrances; no reference audio introduced.
+- Added native Beat Repeat after the dub rack: 1/16, no triplets/randomness,
+  Insert, decay 35%, filter 1.20 kHz. Enabled only in Main II, with one-beat
+  repeats at beats 383 and 415. Native playback verified both on/off events.
+  Keys Echo wet/feedback throws reach 34%/32% and return to their old values.
+- Corrected test comparisons for native float serialization and Echo feedback
+  scaling: normalized 0.21333 displays 32%. Final live check passes and records
+  actual output, peak -3.10 dBFS, RMS -16.79 dBFS, 17.04 seconds. Earlier test
+  artifacts retained locally; no false subjective approval recorded.
+- Full 132-bar Main WAV: stereo 44.1 kHz, 16-bit triangular dither, no
+  normalization. Duration 259.672154 seconds, peak -3.40 dBFS, no clipping,
+  signal in every musical section, final-second RMS -96.33 dBFS. Intro pulse
+  test passes. MP3 derived without gain changes. Audio and Live sets stay local.
+- Archived effect setup/generator/check scripts and measured reports as
+  experiments, not production entry points. No application deployment or
+  application regression run; user review and release mastering remain pending.

@@ -1,0 +1,102 @@
+{
+  "file": "/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project/Arrangement 03/Original Groove - Full Arrangement 03.wav",
+  "sample_rate": 44100,
+  "channels": 2,
+  "duration_seconds": 259.67215419501133,
+  "peak_dbfs": -3.3987795452553597,
+  "rms_dbfs": -18.47757752654599,
+  "clipped_samples": 0,
+  "sections": [
+    {
+      "name": "Intro",
+      "start_seconds": 0.0,
+      "end_seconds": 31.475409836065573,
+      "peak_dbfs": -8.708019347617324,
+      "rms_dbfs": -22.395594259853056
+    },
+    {
+      "name": "Groove",
+      "start_seconds": 31.475409836065573,
+      "end_seconds": 62.950819672131146,
+      "peak_dbfs": -5.927267555809311,
+      "rms_dbfs": -17.066267642610395
+    },
+    {
+      "name": "Lift",
+      "start_seconds": 62.950819672131146,
+      "end_seconds": 78.68852459016394,
+      "peak_dbfs": -5.28938255726737,
+      "rms_dbfs": -16.639902104663694
+    },
+    {
+      "name": "Build I",
+      "start_seconds": 78.68852459016394,
+      "end_seconds": 94.42622950819673,
+      "peak_dbfs": -4.950552868572006,
+      "rms_dbfs": -16.789911238637078
+    },
+    {
+      "name": "Main I",
+      "start_seconds": 94.42622950819673,
+      "end_seconds": 125.90163934426229,
+      "peak_dbfs": -4.189939799984221,
+      "rms_dbfs": -16.71699249926268
+    },
+    {
+      "name": "Breakdown",
+      "start_seconds": 125.90163934426229,
+      "end_seconds": 157.37704918032787,
+      "peak_dbfs": -10.913227950895582,
+      "rms_dbfs": -25.5257397275589
+    },
+    {
+      "name": "Build II",
+      "start_seconds": 157.37704918032787,
+      "end_seconds": 173.11475409836066,
+      "peak_dbfs": -5.22529050995252,
+      "rms_dbfs": -19.050813316951114
+    },
+    {
+      "name": "Main II",
+      "start_seconds": 173.11475409836066,
+      "end_seconds": 204.59016393442624,
+      "peak_dbfs": -3.3987795452553597,
+      "rms_dbfs": -16.896158881627862
+    },
+    {
+      "name": "Release",
+      "start_seconds": 204.59016393442624,
+      "end_seconds": 220.327868852459,
+      "peak_dbfs": -6.087656314853719,
+      "rms_dbfs": -17.02877377456568
+    },
+    {
+      "name": "Outro",
+      "start_seconds": 220.327868852459,
+      "end_seconds": 251.80327868852459,
+      "peak_dbfs": -6.118698408341739,
+      "rms_dbfs": -20.1090232924755
+    },
+    {
+      "name": "Tail",
+      "start_seconds": 251.80327868852459,
+      "end_seconds": 259.672131147541,
+      "peak_dbfs": -39.834069362963064,
+      "rms_dbfs": -64.77046413861088
+    }
+  ],
+  "last_second_rms_dbfs": -96.33235691349972,
+  "intro_kick_grid": {
+    "beats_checked": 64,
+    "median_attack_offset_ms": 26.545081967213946,
+    "max_deviation_from_median_ms": 2.95491803278769,
+    "drift_over_intro_ms": 0.02349069987383664,
+    "method": "Low-band attack-energy rises; fixed synth attack is not grid error.",
+    "passed": true
+  },
+  "limits": [
+    "This verifies signal, timing structure and measured intro pulse stability, not subjective musical approval.",
+    "All arranged clips retain the original Swing 16ths 66 assignment; intentional microtiming remains.",
+    "This is a review mix with headroom, not a loudness-mastered release."
+  ]
+}

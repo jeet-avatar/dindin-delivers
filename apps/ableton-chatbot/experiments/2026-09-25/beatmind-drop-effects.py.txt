@@ -1,0 +1,52 @@
+import asyncio
+import importlib.util
+import json
+from pathlib import Path
+import sys
+
+spec=importlib.util.spec_from_file_location('dub','/private/tmp/beatmind-dub-percussion.py')
+dub=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dub)
+OUT=dub.ROOT/'Arrangement 03'
+
+
+async def main():
+    assert await dub.bass.window_title()=='Original Groove - FX Working Copy'
+    live=dub.bass.Live()
+    try:
+        assert live.get('/live/song/get/track_names')==dub.BASE+[dub.NAME]
+        assert not live.get('/live/song/get/is_playing')[-1]
+        mode=sys.argv[1]
+        if mode=='load':
+            assert not OUT.exists()
+            OUT.mkdir()
+            assert live.get('/live/track/get/devices/name',[7])==[7,'64 Pads Dub Techno Kit']
+            try:
+                result=await live.tool('load_library_item',{'track':7,'kind':'effect','category':'audio_effects','folders':['Beat Repeat']})
+            except RuntimeError as error:
+                if 'Message too long' not in str(error):raise
+                assert live.get('/live/track/get/devices/name',[7])==[7,'64 Pads Dub Techno Kit','Beat Repeat']
+                result={'summary':'Device identity independently checked after oversized rack-tree response; no duplicate load.'}
+            print(result['summary'],flush=True)
+        elif mode=='map':
+            mapping=await live.tool('get_device_control_map',{'track':7,'path':[1],'limit':32})
+            mapping.pop('steps',None)
+            (OUT/'beat-repeat-map.json').write_text(json.dumps(mapping,indent=2))
+            print(json.dumps(mapping),flush=True)
+        elif mode=='configure':
+            assert live.get('/live/track/get/devices/name',[7])==[7,'64 Pads Dub Techno Kit','Beat Repeat']
+            results=[]
+            for name,value,unit in [('Chance',0,'native'),('Grid',7,'native'),('Gate',3,'native'),
+                ('Block Triplets','On','label'),('Variation',0,'native'),('Decay',35,'%'),
+                ('Mix Type','Ins','label'),('Filter On','On','label'),('Filter Freq',1200,'Hz'),
+                ('Filter Width',3,'native'),('Repeat','Off','label'),('Device On','Off','label')]:
+                mapping=await live.tool('get_device_control_map',{'track':7,'path':[1],'query':name})
+                result=await live.tool('set_device_control',{'track':7,'path':[1],'map_id':mapping['map_id'],
+                    'control':name,'value':value,'unit':unit})
+                results.append(result);print(result['summary'],flush=True)
+            (OUT/'beat-repeat-settings.json').write_text(json.dumps(results,indent=2))
+        else:raise ValueError('Unknown operation')
+    finally:live.close()
+
+
+if __name__=='__main__':asyncio.run(main())

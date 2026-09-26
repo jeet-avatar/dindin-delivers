@@ -1,0 +1,102 @@
+import asyncio
+import gzip
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import time
+import numpy as np
+import xml.etree.ElementTree as ET
+
+spec=importlib.util.spec_from_file_location('dub','/private/tmp/beatmind-dub-percussion.py')
+dub=importlib.util.module_from_spec(spec);spec.loader.exec_module(dub)
+OUT=dub.ROOT/'Arrangement 03'
+
+
+def tracks(version):
+    return ET.fromstring(gzip.decompress((dub.ROOT/f'Original Groove - Full Arrangement {version}.als').read_bytes())).findall('LiveSet/Tracks/MidiTrack')
+
+
+def clips(track):
+    return track.findall('DeviceChain/MainSequencer/ClipTimeable/ArrangerAutomation/Events/MidiClip')
+
+
+def notes(clip):
+    return sorted((int(k.find('MidiKey').get('Value')),int(n.get('NoteId')),
+                   *[float(n.get(field)) for field in ('Time','Duration','Velocity','OffVelocity')])
+                  for k in clip.findall('Notes/KeyTracks/KeyTrack') for n in k.find('Notes'))
+
+
+async def main():
+    assert await dub.bass.window_title()=='Original Groove - Full Arrangement 03'
+    old,new=tracks('02'),tracks('03')
+    assert len(old)==len(new)==8
+    for a,b in zip(old,new):
+        assert len(clips(a))==len(clips(b))
+        for ca,cb in zip(clips(a),clips(b)):
+            assert ca.get('Time')==cb.get('Time')
+            assert cb.find('GrooveSettings/GrooveId').get('Value')=='4'
+            if float(ca.get('Time'))<352:
+                assert len(notes(ca))==len(notes(cb))
+                assert np.allclose(notes(ca),notes(cb),rtol=0,atol=.00001)
+    live=dub.bass.Live()
+    try:
+        assert live.get('/live/song/get/track_names')==dub.BASE+[dub.NAME]
+        assert not live.get('/live/song/get/record_mode')[-1] and not live.get('/live/song/get/session_record')[-1]
+        for i,t in enumerate(new):
+            assert not live.get('/live/track/get/mute',[i])[-1] and not live.get('/live/track/get/solo',[i])[-1]
+            assert live.get('/live/track/get/arrangement_clips/start_time',[i])[1:]==[float(c.get('Time')) for c in clips(t)]
+            assert live.get('/live/track/get/arrangement_clips/length',[i])[1:]==[32.0]*len(clips(t))
+        repeat_names=live.get('/live/device/get/parameters/name',[7,1])[2:]
+        echo_names=live.get('/live/device/get/parameters/name',[4,1])[2:]
+        assert 'Repeat' in repeat_names and 'Dry Wet' in echo_names, (repeat_names,echo_names)
+        live.send('/live/song/stop_all_clips')
+        live.send('/live/song/set/back_to_arranger',[0])
+        live.send('/live/song/re_enable_automation')
+        live.send('/live/song/set/loop',[0])
+        live.send('/live/song/start_playing')
+        await asyncio.sleep(.7)
+        assert live.get('/live/song/get/is_playing')[-1]
+        live.send('/live/song/set/current_song_time',[374.0])
+        await asyncio.sleep(.2)
+        assert 374<=live.get('/live/song/get/current_song_time')[-1]<376
+        audio,events,errors=[OUT/('Effects-Playback-02'+ext) for ext in ('.m4a','.jsonl','.log')]
+        assert not any(p.exists() for p in (audio,events,errors))
+        subprocess.run(['open','-n','--stdout',str(events),'--stderr',str(errors),
+            '/Applications/BeatMind Bridge.app/Contents/Helpers/BeatMind Audio.app','--args',str(audio),'16'],check=True)
+        readings=[];deadline=time.monotonic()+40
+        while True:
+            assert time.monotonic()<deadline, 'Playhead did not complete verification range'
+            beat=live.get('/live/song/get/current_song_time')[-1]
+            rep=dict(zip(repeat_names,live.get('/live/device/get/parameters/value',[7,1])[2:]))
+            echo=dict(zip(echo_names,live.get('/live/device/get/parameters/value',[4,1])[2:]))
+            readings.append({'beat':beat,'device_on':rep['Device On'],'repeat':rep['Repeat'],
+                             'chance':rep['Chance'],'echo_wet':echo['Dry Wet'],'echo_feedback':echo['Feedback']})
+            if echo['Dry Wet']>.33:
+                readings[-1]['feedback_display']=live.get('/live/device/get/parameter/value_string',[4,1,echo_names.index('Feedback')])[-1]
+            if beat>419:break
+            await asyncio.sleep(.025)
+        live.send('/live/song/stop_playing')
+        complete=[json.loads(line) for line in events.read_text().splitlines() if json.loads(line).get('type')=='complete']
+        assert complete
+        metrics={k:v for k,v in complete[-1]['metrics'].items() if k!='waveform'}
+        result={'native_clip_count':sum(len(clips(t)) for t in new),'earlier_sections_notes_unchanged':True,
+                'readings':readings,'capture_metrics':metrics,'approval':'pending'}
+        (OUT/'effects-live-check-02.json').write_text(json.dumps(result,indent=2))
+        assert metrics['has_signal'] and metrics['peak_dbfs'] < -1
+        assert all(r['chance']==0 for r in readings)
+        assert any(r['repeat']==1 and 382<r['beat']<385 for r in readings), 'First repeat did not activate'
+        assert any(r['repeat']==1 and 414<r['beat']<417 for r in readings), 'Second repeat did not activate'
+        assert readings[-1]['device_on']==0 and readings[-1]['repeat']==0
+        assert max(r['echo_wet'] for r in readings)>.33
+        assert any(r.get('feedback_display')=='32 %' for r in readings)
+        result['checks_passed']=True
+        (OUT/'effects-live-check-02.json').write_text(json.dumps(result,indent=2))
+        print(json.dumps({k:v for k,v in result.items() if k!='readings'}),flush=True)
+        print('Repeat active:',[r for r in readings if r['repeat']==1],flush=True)
+    finally:
+        live.send('/live/song/stop_playing')
+        live.close()
+
+
+if __name__=='__main__':asyncio.run(main())

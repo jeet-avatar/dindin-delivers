@@ -1,0 +1,266 @@
+{
+  "first_main_unchanged": true,
+  "changes": [
+    {
+      "start_beat": 352,
+      "bass": "alternating syncopation and rests",
+      "hats": "quiet phrase-end pickups",
+      "percussion": "shifted woody answers and one repeat-source hit"
+    },
+    {
+      "start_beat": 384,
+      "bass": "alternating syncopation and rests",
+      "hats": "quiet phrase-end pickups",
+      "percussion": "shifted woody answers and one repeat-source hit"
+    },
+    {
+      "automation": "Beat Repeat active only in Main II",
+      "target": "37289",
+      "points": [
+        [
+          0,
+          false
+        ],
+        [
+          352,
+          true
+        ],
+        [
+          416,
+          false
+        ]
+      ]
+    },
+    {
+      "automation": "Two one-beat manual repeat fills",
+      "target": "37319",
+      "points": [
+        [
+          0,
+          false
+        ],
+        [
+          383,
+          true
+        ],
+        [
+          384,
+          false
+        ],
+        [
+          415,
+          true
+        ],
+        [
+          416,
+          false
+        ]
+      ]
+    },
+    {
+      "automation": "Keys echo throws at phrase endings",
+      "target": "25184",
+      "points": [
+        [
+          0,
+          0.1796875
+        ],
+        [
+          380.5,
+          0.1796875
+        ],
+        [
+          380.74,
+          0.34
+        ],
+        [
+          381.5,
+          0.34
+        ],
+        [
+          382.5,
+          0.1796875
+        ],
+        [
+          414.5,
+          0.1796875
+        ],
+        [
+          414.74,
+          0.34
+        ],
+        [
+          415.5,
+          0.34
+        ],
+        [
+          416.5,
+          0.1796875
+        ]
+      ]
+    },
+    {
+      "automation": "Short echo-tail extension",
+      "target": "25124",
+      "points": [
+        [
+          0,
+          0.240234375
+        ],
+        [
+          380.5,
+          0.240234375
+        ],
+        [
+          380.74,
+          0.32
+        ],
+        [
+          381.5,
+          0.32
+        ],
+        [
+          383,
+          0.240234375
+        ],
+        [
+          414.5,
+          0.240234375
+        ],
+        [
+          414.74,
+          0.32
+        ],
+        [
+          415.5,
+          0.32
+        ],
+        [
+          417,
+          0.240234375
+        ]
+      ]
+    }
+  ],
+  "note_counts": [
+    [
+      32,
+      32,
+      32,
+      32,
+      32,
+      31,
+      32,
+      31,
+      31,
+      32,
+      32,
+      32,
+      32,
+      16
+    ],
+    [
+      30,
+      30,
+      30,
+      29,
+      30,
+      29,
+      14,
+      28,
+      28,
+      30,
+      30
+    ],
+    [
+      16,
+      16,
+      42,
+      42,
+      42,
+      40,
+      42,
+      42,
+      40,
+      44,
+      44,
+      42,
+      42,
+      42
+    ],
+    [
+      16,
+      16,
+      15,
+      16,
+      16,
+      15,
+      14,
+      16,
+      16,
+      8
+    ],
+    [
+      16,
+      50,
+      50,
+      16,
+      50,
+      16,
+      16,
+      50,
+      16,
+      50,
+      50
+    ],
+    [
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12
+    ],
+    [
+      8,
+      16,
+      8,
+      8,
+      12,
+      8
+    ],
+    [
+      12,
+      12,
+      30,
+      30,
+      12,
+      30,
+      30,
+      12,
+      12,
+      29,
+      31,
+      12,
+      12,
+      12
+    ]
+  ],
+  "beat_repeat_times_seconds": [
+    [
+      188.36065573770492,
+      188.85245901639345
+    ],
+    [
+      204.0983606557377,
+      204.59016393442624
+    ]
+  ],
+  "approval": "pending"
+}

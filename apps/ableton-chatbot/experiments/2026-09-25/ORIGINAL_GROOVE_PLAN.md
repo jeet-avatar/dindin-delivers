@@ -6,11 +6,33 @@ stems are not sources for this composition.
 
 ## Method
 
-Current version: Original Groove - Full Arrangement 02.als. This contains the
+Current version: Original Groove - Full Arrangement 03.als. This contains the
 full original Arrangement, not only Session clips. A 4:19.672 review WAV and
-320 kbps MP3 are in Arrangement 02. Earlier sections below describe historical
+320 kbps MP3 are in Arrangement 03. Earlier sections below describe historical
 checkpoints; their pending-Arrangement notes no longer describe this version.
 Final musical approval and release mastering remain separate from these checks.
+
+### Second Main Variation 03
+
+- Preserved Arrangement 02 and a native FX Working Copy. All notes before beat
+  352 and the original Session clips remain unchanged; 92 Arrangement clips
+  retain their positions, lengths and Swing 16ths 66 groove assignment.
+- Main II (2:53.115): bass syncopation/rest variations, quiet hat pickups,
+  woody percussion responses, and staggered clap/lead entrances.
+- Dub percussion Beat Repeat: 1/16 grid, triplets blocked, variation/chance
+  zero, Insert mode, 35% decay, 1.20 kHz filter / width 3. Only enabled in
+  Main II; manual Repeat triggered for one beat at 3:08.361 and 3:24.098.
+  Native playback readbacks confirm both activations and clean switch-off.
+- Keys Echo throws briefly raise wet 18% to 34% and feedback 24% to 32%.
+  Native display verified 32%; its normalized OSC feedback value is 0.21333,
+  not 0.32. Initial test assumed the wrong mapping, then was corrected and
+  rerun. Original capture/result retained, passing check is effects-live-check-02.
+- Actual output capture: 17.04 seconds, peak -3.10 dBFS, RMS -16.79 dBFS.
+  Full native Main render: 259.672154 seconds, peak -3.40 dBFS, zero clipped
+  samples; all musical sections contain signal, tail fades below -96 dBFS RMS.
+  Intro kick grid test passes. WAV and 320 kbps MP3 are local in Arrangement 03.
+- These are measured checks, not subjective approval or release mastering.
+  No new kick effect, compressor sidechain or extracted reference audio added.
 
 Build and review one musical part at a time. Audition each part alone and with
 the existing groove. After the sound and pattern are approved, refine its tone,
