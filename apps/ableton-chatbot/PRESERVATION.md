@@ -121,3 +121,21 @@ root deployment workflow runs automatically for BeatMind changes on that branch.
   The original bass checkpoint and before-kick backup remain preserved.
 - `TRACK-PLAN.md` records the one-part review sequence. Kick approval is pending;
   hats, other percussion, chords, lead, transitions and Arrangement are not built.
+
+## Reference Effects Study 01
+
+- User said the kick/bass sounded good and requested reference-guided effects
+  comparison. Audio-capable listening completed drums and bass at 00:32-00:44
+  and the reference mix at 01:10-01:22. Observations are model interpretations,
+  not verified effect identities or whole-track coverage.
+- Backed up the current writing set and added one Saturator after Operator:
+  Soft Sine, 4.0 dB drive, 35% wet, Color Off, default output 0.0 dB.
+  Changed controls were independently read back. Kick and MIDI were untouched.
+- Captured fresh dry and processed kick/bass playback from Live. Constant-gain
+  listening copies and the reference drums+bass excerpt measured -23.00 LUFS.
+  All three true peaks remained below -12 dBTP. No comparison limiter was used.
+- Saved the writing set with saturation active, pending the user's A/B choice.
+  Before-effect set and recordings remain available. The effects notes explicitly
+  separate observations, uncertain explanations and the proposed experiment.
+- This remains a manual local study; no automatic effect-detection feature or
+  application deployment was performed.

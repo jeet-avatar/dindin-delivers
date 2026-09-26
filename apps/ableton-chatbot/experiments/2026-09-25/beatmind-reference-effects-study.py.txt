@@ -1,0 +1,66 @@
+import asyncio
+import json
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+sys.path.insert(0, '/Users/jeet/doordash-p2p/apps/ableton-chatbot/backend')
+from dotenv import load_dotenv
+load_dotenv('/Users/jeet/doordash-p2p/apps/ableton-chatbot/backend/.env')
+from audio_listener import ListeningRequest, listen, capability
+
+REF = Path('/private/tmp/beatmind-reference-dev/a6f7f9e6adc94e44851e0d9fa8ffa78b')
+PROJECT = Path('/Users/jeet/Music/BeatMind Projects/Original Groove - Bass 01 Project')
+OUT = PROJECT / 'Effects Study 01'
+
+
+def ffmpeg(args):
+    return subprocess.run(['ffmpeg', '-v', 'info', '-nostdin', *args], check=True, capture_output=True)
+
+
+def matched(source, destination):
+    result = ffmpeg(['-i', str(source), '-af', 'loudnorm=I=-23:TP=-2:LRA=11:print_format=json', '-f', 'null', '-'])
+    meter = json.loads(re.findall(r'\{[^{}]*"input_i"[^{}]*\}', result.stderr.decode())[-1])
+    gain = -23 - float(meter['input_i'])
+    assert float(meter['input_tp']) + gain < -1, 'Cannot match safely with linear gain.'
+    ffmpeg(['-n', '-i', str(source), '-af', f'volume={gain}dB', '-c:a', 'pcm_s16le', str(destination)])
+    return {'integrated_lufs_before': float(meter['input_i']), 'gain_db': gain,
+            'target_lufs': -23, 'method': 'constant gain only; no limiter, compressor or loudness dynamics'}
+
+
+async def main():
+    OUT.mkdir(exist_ok=True)
+    assert capability()['available'], 'Audio listener is not configured.'
+    for layer, start in [('drums', 32), ('bass', 32), ('mix', 70)]:
+        destination = OUT / f'reference-{layer}-{start}s-observations.json'
+        if destination.exists():
+            print('Preserved existing observations:', destination.name, flush=True)
+            continue
+        request = ListeningRequest(consent=True, layer=layer, start_seconds=start, duration_seconds=12,
+            intent='Study audible production characteristics only: transient shape, reverb or delay tails, '
+            'stereo space, harmonic roughness, rhythmic level changes and filter movement. Distinguish '
+            'direct cues from possible processing causes. Never identify an exact plugin or setting. '
+            'A separated stem can contain bleed and artificial tails. Do not infer sidechain compression '
+            'solely from a syncopated arrangement. We want original sounds, not a transcription.')
+        result = await listen(REF / f'{layer}.wav', request)
+        destination.write_text(json.dumps(result, indent=2))
+        print(json.dumps({'layer': layer, 'start': start, 'observations': result['observations']}), flush=True)
+    reference = OUT / 'Reference-Drums-Bass-32s.wav'
+    if not reference.exists():
+        ffmpeg(['-n', '-ss', '32', '-t', '8', '-i', str(REF / 'drums.wav'),
+                '-ss', '32', '-t', '8', '-i', str(REF / 'bass.wav'),
+                '-filter_complex', '[0:a][1:a]amix=inputs=2:normalize=0[a]',
+                '-map', '[a]', '-c:a', 'pcm_f32le', str(reference)])
+    sources = [('Reference', reference), ('Ours-Dry', PROJECT / 'Kick-Bass-01.m4a')]
+    meters = {}
+    for label, source in sources:
+        target = OUT / f'{label}-Matched.wav'
+        assert not target.exists(), 'Preserve existing loudness comparison.'
+        meters[label] = matched(source, target)
+    (OUT / 'loudness-comparison.json').write_text(json.dumps(meters, indent=2))
+    print(json.dumps(meters), flush=True)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

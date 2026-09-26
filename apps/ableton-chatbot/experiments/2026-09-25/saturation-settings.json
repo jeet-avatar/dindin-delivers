@@ -1,0 +1,262 @@
+{
+  "changes": [
+    {
+      "status": "verified",
+      "summary": "Type = Soft Sine",
+      "control": {
+        "index": 3,
+        "name": "Type",
+        "previous": 0.0,
+        "value": 1.0,
+        "display": "Soft Sine",
+        "map_id": "60273a1de591d5b7a424c8f7",
+        "readback_display": "Soft Sine"
+      },
+      "steps": [
+        {
+          "number": 1,
+          "kind": "command",
+          "address": "/live/beatmind/set_control",
+          "args": [
+            {
+              "track": 1,
+              "path": [
+                1
+              ],
+              "map_id": "60273a1de591d5b7a424c8f7",
+              "control": "Type",
+              "value": "Soft Sine",
+              "unit": "label"
+            }
+          ],
+          "result": {
+            "status": "ok",
+            "address": "/live/beatmind/set_control",
+            "args": [
+              "{\"status\": \"verified\", \"summary\": \"Type = Soft Sine\", \"control\": {\"index\": 3, \"name\": \"Type\", \"previous\": 0.0, \"value\": 1.0, \"display\": \"Soft Sine\", \"map_id\": \"60273a1de591d5b7a424c8f7\"}}"
+            ]
+          },
+          "status": "ok",
+          "elapsed_ms": 0
+        },
+        {
+          "number": 2,
+          "kind": "readback",
+          "address": "/live/beatmind/control_map",
+          "args": [
+            {
+              "track": 1,
+              "path": [
+                1
+              ],
+              "query": "Type"
+            }
+          ],
+          "result": {
+            "status": "ok",
+            "address": "/live/beatmind/control_map",
+            "args": [
+              "{\"status\": \"observed\", \"device_name\": \"Saturator\", \"map_id\": \"60273a1de591d5b7a424c8f7\", \"parameters\": [{\"index\": 3, \"name\": \"Type\", \"aliases\": [], \"min\": 0.0, \"max\": 7.0, \"value\": 1.0, \"display\": \"Soft Sine\", \"enabled\": true, \"quantized\": true, \"state\": 0, \"automation_state\": 0, \"choices\": [\"Analog Clip\", \"Soft Sine\", \"Bass Shaper\", \"Medium Curve\", \"Hard Curve\", \"Sinoid Fold\", \"Digital Clip\", \"Waveshaper\"], \"choices_complete\": true}], \"total\": 1, \"next_offset\": null, \"summary\": \"Discovered exposed controls, units, enum choices and automation states.\"}"
+            ]
+          },
+          "status": "ok",
+          "elapsed_ms": 0
+        }
+      ]
+    },
+    {
+      "status": "verified",
+      "summary": "Color On = Off",
+      "control": {
+        "index": 4,
+        "name": "Color On",
+        "previous": 1.0,
+        "value": 0.0,
+        "display": "Off",
+        "map_id": "60273a1de591d5b7a424c8f7",
+        "readback_display": "Off"
+      },
+      "steps": [
+        {
+          "number": 1,
+          "kind": "command",
+          "address": "/live/beatmind/set_control",
+          "args": [
+            {
+              "track": 1,
+              "path": [
+                1
+              ],
+              "map_id": "60273a1de591d5b7a424c8f7",
+              "control": "Color On",
+              "value": "Off",
+              "unit": "label"
+            }
+          ],
+          "result": {
+            "status": "ok",
+            "address": "/live/beatmind/set_control",
+            "args": [
+              "{\"status\": \"verified\", \"summary\": \"Color On = Off\", \"control\": {\"index\": 4, \"name\": \"Color On\", \"previous\": 1.0, \"value\": 0.0, \"display\": \"Off\", \"map_id\": \"60273a1de591d5b7a424c8f7\"}}"
+            ]
+          },
+          "status": "ok",
+          "elapsed_ms": 0
+        },
+        {
+          "number": 2,
+          "kind": "readback",
+          "address": "/live/beatmind/control_map",
+          "args": [
+            {
+              "track": 1,
+              "path": [
+                1
+              ],
+              "query": "Color On"
+            }
+          ],
+          "result": {
+            "status": "ok",
+            "address": "/live/beatmind/control_map",
+            "args": [
+              "{\"status\": \"observed\", \"device_name\": \"Saturator\", \"map_id\": \"60273a1de591d5b7a424c8f7\", \"parameters\": [{\"index\": 4, \"name\": \"Color On\", \"aliases\": [], \"min\": 0.0, \"max\": 1.0, \"value\": 0.0, \"display\": \"Off\", \"enabled\": true, \"quantized\": true, \"state\": 0, \"automation_state\": 0, \"choices\": [\"Off\", \"On\"], \"choices_complete\": true}], \"total\": 1, \"next_offset\": null, \"summary\": \"Discovered exposed controls, units, enum choices and automation states.\"}"
+            ]
+          },
+          "status": "ok",
+          "elapsed_ms": 0
+        }
+      ]
+    },
+    {
+      "status": "verified",
+      "summary": "Drive = 4.0 dB",
+      "control": {
+        "index": 1,
+        "name": "Drive",
+        "previous": 0.5,
+        "value": 0.5556640625,
+        "display": "4.0 dB",
+        "map_id": "60273a1de591d5b7a424c8f7",
+        "readback_display": "4.0 dB"
+      },
+      "steps": [
+        {
+          "number": 1,
+          "kind": "command",
+          "address": "/live/beatmind/set_control",
+          "args": [
+            {
+              "track": 1,
+              "path": [
+                1
+              ],
+              "map_id": "60273a1de591d5b7a424c8f7",
+              "control": "Drive",
+              "value": 4,
+              "unit": "dB"
+            }
+          ],
+          "result": {
+            "status": "ok",
+            "address": "/live/beatmind/set_control",
+            "args": [
+              "{\"status\": \"verified\", \"summary\": \"Drive = 4.0 dB\", \"control\": {\"index\": 1, \"name\": \"Drive\", \"previous\": 0.5, \"value\": 0.5556640625, \"display\": \"4.0 dB\", \"map_id\": \"60273a1de591d5b7a424c8f7\"}}"
+            ]
+          },
+          "status": "ok",
+          "elapsed_ms": 0
+        },
+        {
+          "number": 2,
+          "kind": "readback",
+          "address": "/live/beatmind/control_map",
+          "args": [
+            {
+              "track": 1,
+              "path": [
+                1
+              ],
+              "query": "Drive"
+            }
+          ],
+          "result": {
+            "status": "ok",
+            "address": "/live/beatmind/control_map",
+            "args": [
+              "{\"status\": \"observed\", \"device_name\": \"Saturator\", \"map_id\": \"60273a1de591d5b7a424c8f7\", \"parameters\": [{\"index\": 1, \"name\": \"Drive\", \"aliases\": [\"drive\"], \"min\": 0.0, \"max\": 1.0, \"value\": 0.5556640625, \"display\": \"4.0 dB\", \"enabled\": true, \"quantized\": false, \"state\": 0, \"automation_state\": 0, \"choices\": [], \"choices_complete\": true}, {\"index\": 13, \"name\": \"WS Drive\", \"aliases\": [], \"min\": 0.0, \"max\": 1.0, \"value\": 1.0, \"display\": \"100 %\", \"enabled\": true, \"quantized\": false, \"state\": 1, \"automation_state\": 0, \"choices\": [], \"choices_complete\": true}], \"total\": 2, \"next_offset\": null, \"summary\": \"Discovered exposed controls, units, enum choices and automation states.\"}"
+            ]
+          },
+          "status": "ok",
+          "elapsed_ms": 0
+        }
+      ]
+    },
+    {
+      "status": "verified",
+      "summary": "Dry/Wet = 35 %",
+      "control": {
+        "index": 11,
+        "name": "Dry/Wet",
+        "previous": 1.0,
+        "value": 0.3515625,
+        "display": "35 %",
+        "map_id": "60273a1de591d5b7a424c8f7",
+        "readback_display": "35 %"
+      },
+      "steps": [
+        {
+          "number": 1,
+          "kind": "command",
+          "address": "/live/beatmind/set_control",
+          "args": [
+            {
+              "track": 1,
+              "path": [
+                1
+              ],
+              "map_id": "60273a1de591d5b7a424c8f7",
+              "control": "Dry/Wet",
+              "value": 35,
+              "unit": "%"
+            }
+          ],
+          "result": {
+            "status": "ok",
+            "address": "/live/beatmind/set_control",
+            "args": [
+              "{\"status\": \"verified\", \"summary\": \"Dry/Wet = 35 %\", \"control\": {\"index\": 11, \"name\": \"Dry/Wet\", \"previous\": 1.0, \"value\": 0.3515625, \"display\": \"35 %\", \"map_id\": \"60273a1de591d5b7a424c8f7\"}}"
+            ]
+          },
+          "status": "ok",
+          "elapsed_ms": 0
+        },
+        {
+          "number": 2,
+          "kind": "readback",
+          "address": "/live/beatmind/control_map",
+          "args": [
+            {
+              "track": 1,
+              "path": [
+                1
+              ],
+              "query": "Dry/Wet"
+            }
+          ],
+          "result": {
+            "status": "ok",
+            "address": "/live/beatmind/control_map",
+            "args": [
+              "{\"status\": \"observed\", \"device_name\": \"Saturator\", \"map_id\": \"60273a1de591d5b7a424c8f7\", \"parameters\": [{\"index\": 11, \"name\": \"Dry/Wet\", \"aliases\": [\"dry_wet\"], \"min\": 0.0, \"max\": 1.0, \"value\": 0.3515625, \"display\": \"35 %\", \"enabled\": true, \"quantized\": false, \"state\": 0, \"automation_state\": 0, \"choices\": [], \"choices_complete\": true}], \"total\": 1, \"next_offset\": null, \"summary\": \"Discovered exposed controls, units, enum choices and automation states.\"}"
+            ]
+          },
+          "status": "ok",
+          "elapsed_ms": 0
+        }
+      ]
+    }
+  ],
+  "basis": "Experiment informed by uncertain reference observations, not recovered original effects",
+  "approval": "pending"
+}

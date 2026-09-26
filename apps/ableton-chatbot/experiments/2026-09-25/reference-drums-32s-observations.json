@@ -1,0 +1,24 @@
+{
+  "model": "gpt-audio-1.5",
+  "layer": "drums",
+  "start_seconds": 32.0,
+  "end_seconds": 44.0,
+  "intent": "Study audible production characteristics only: transient shape, reverb or delay tails, stereo space, harmonic roughness, rhythmic level changes and filter movement. Distinguish direct cues from possible processing causes. Never identify an exact plugin or setting. A separated stem can contain bleed and artificial tails. Do not infer sidechain compression solely from a syncopated arrangement. We want original sounds, not a transcription.",
+  "observations": {
+    "rhythm": "The rhythm in this excerpt is steady and driven, with consistent percussive hits that follow a regular pattern. The drum strikes have a clear attack and a relatively uniform spacing, which suggests a programmed or tightly performed sequence without dramatic pauses or complex syncopations.",
+    "bass": "The bass, if present, is subtle and not strongly isolated in this drum-focused stem. Any low-frequency content seems closely tied to the kick drum impact, providing a modest foundation rather than a melodic movement. However, the separation process may have reduced distinct bass lines.",
+    "texture": "The texture is defined by a punchy drum sound where the kick and snare have clear transient edges, while the cymbals or hi-hats add a lighter, more diffuse layer. There may be slight reverb tails on the snare, giving some depth, but overall the sound remains fairly dry and direct.",
+    "changes": "Throughout the segment, the pattern remains fairly consistent with only slight dynamic variations in drum hits and occasional subtle shifts in cymbal intensity. There are no obvious large structural changes or dramatic fills, although minor nuances in the playing or processing can be heard.",
+    "uncertainty": "It is uncertain if additional ambient effects or subtle filters are present, as any such elements might be masked by the stem separation process and the focus on the drum track. It is also unclear if there is harmonic roughness or filter sweeps due to the isolated nature of the track.",
+    "energy_trend": "steady"
+  },
+  "evidence": {
+    "start_rms_dbfs": -9.75,
+    "end_rms_dbfs": -10.19,
+    "delta_db": -0.44,
+    "large_fall": false,
+    "large_rise": false
+  },
+  "validation": "checks_passed",
+  "notes": "Rhythm: The rhythm in this excerpt is steady and driven, with consistent percussive hits that follow a regular pattern. The drum strikes have a clear attack and a relatively uniform spacing, which suggests a programmed or tightly performed sequence without dramatic pauses or complex syncopations.\n\nBass: The bass, if present, is subtle and not strongly isolated in this drum-focused stem. Any low-frequency content seems closely tied to the kick drum impact, providing a modest foundation rather than a melodic movement. However, the separation process may have reduced distinct bass lines.\n\nTexture: The texture is defined by a punchy drum sound where the kick and snare have clear transient edges, while the cymbals or hi-hats add a lighter, more diffuse layer. There may be slight reverb tails on the snare, giving some depth, but overall the sound remains fairly dry and direct.\n\nChanges: Throughout the segment, the pattern remains fairly consistent with only slight dynamic variations in drum hits and occasional subtle shifts in cymbal intensity. There are no obvious large structural changes or dramatic fills, although minor nuances in the playing or processing can be heard.\n\nUncertainty: It is uncertain if additional ambient effects or subtle filters are present, as any such elements might be masked by the stem separation process and the focus on the drum track. It is also unclear if there is harmonic roughness or filter sweeps due to the isolated nature of the track."
+}

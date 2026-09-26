@@ -1,0 +1,24 @@
+{
+  "model": "gpt-audio-1.5",
+  "layer": "bass",
+  "start_seconds": 32.0,
+  "end_seconds": 44.0,
+  "intent": "Study audible production characteristics only: transient shape, reverb or delay tails, stereo space, harmonic roughness, rhythmic level changes and filter movement. Distinguish direct cues from possible processing causes. Never identify an exact plugin or setting. A separated stem can contain bleed and artificial tails. Do not infer sidechain compression solely from a syncopated arrangement. We want original sounds, not a transcription.",
+  "observations": {
+    "rhythm": "The rhythm in this excerpt seems to maintain a steady pulse with consistent attack points, suggesting a regular sequence of note onsets. Transients are present but not aggressively pronounced, giving the impression of a smooth yet articulate rhythm. There is a sense of moderate syncopation without sudden tempo shifts, and the dynamic profile feels stable over the duration.",
+    "bass": "The bass movement is moderately active, with notes that appear to follow a defined pattern and occasionally vary in pitch. It has a rounded tone with moderate low-frequency presence. It does not seem overly distorted, though there is some subtle harmonic coloration that could suggest light saturation. The pitch transitions are smooth, indicating either legato playing or seamless synthesis.",
+    "texture": "The overall texture is relatively dense for a bass stem, featuring a warm core sound possibly accompanied by faint ambience or bleed from other elements. There may be subtle reverberant tails contributing to a sense of space, and the timbre has a consistent fullness with minor harmonic overtones. The stereo field seems largely centered, though some faint width might be present.",
+    "changes": "Over the segment, there are gradual shifts in tone, with slight variations in timbre and level that might reflect filter movement or performance dynamics. The amplitude increases slightly by the end, though no large structural changes occur. There may be subtle changes in harmonic content, potentially from evolving processing or playing technique.",
+    "uncertainty": "Some details are uncertain due to potential artifacts in the separated stem, making it hard to distinguish between intentional reverb tails and bleed from other instruments. It's also unclear whether perceived tonal shifts are due to processing or the natural envelope of the notes, and the exact sources of subtle stereo width cannot be confidently identified.",
+    "energy_trend": "steady"
+  },
+  "evidence": {
+    "start_rms_dbfs": -22.81,
+    "end_rms_dbfs": -18.3,
+    "delta_db": 4.51,
+    "large_fall": false,
+    "large_rise": false
+  },
+  "validation": "checks_passed",
+  "notes": "Rhythm: The rhythm in this excerpt seems to maintain a steady pulse with consistent attack points, suggesting a regular sequence of note onsets. Transients are present but not aggressively pronounced, giving the impression of a smooth yet articulate rhythm. There is a sense of moderate syncopation without sudden tempo shifts, and the dynamic profile feels stable over the duration.\n\nBass: The bass movement is moderately active, with notes that appear to follow a defined pattern and occasionally vary in pitch. It has a rounded tone with moderate low-frequency presence. It does not seem overly distorted, though there is some subtle harmonic coloration that could suggest light saturation. The pitch transitions are smooth, indicating either legato playing or seamless synthesis.\n\nTexture: The overall texture is relatively dense for a bass stem, featuring a warm core sound possibly accompanied by faint ambience or bleed from other elements. There may be subtle reverberant tails contributing to a sense of space, and the timbre has a consistent fullness with minor harmonic overtones. The stereo field seems largely centered, though some faint width might be present.\n\nChanges: Over the segment, there are gradual shifts in tone, with slight variations in timbre and level that might reflect filter movement or performance dynamics. The amplitude increases slightly by the end, though no large structural changes occur. There may be subtle changes in harmonic content, potentially from evolving processing or playing technique.\n\nUncertainty: Some details are uncertain due to potential artifacts in the separated stem, making it hard to distinguish between intentional reverb tails and bleed from other instruments. It's also unclear whether perceived tonal shifts are due to processing or the natural envelope of the notes, and the exact sources of subtle stereo width cannot be confidently identified."
+}
