@@ -134,6 +134,13 @@ class AbletonBridge:
         self.running = False
         self._recv_protocol = None
         self.on_connection = on_connection
+        from local_separation import LocalReferences
+        self.local = LocalReferences(self._send_event)
+
+    async def _send_event(self, event):
+        if not self.ws:
+            raise ConnectionError('Bridge is not connected.')
+        await self.ws.send(json.dumps(event))
 
     async def start(self):
         """Start the bridge — connect to both WebSocket and UDP."""
@@ -169,11 +176,15 @@ class AbletonBridge:
             log.info("Connected to backend!")
 
             # Send capabilities/status
+            from local_separation import available as local_separation_available
             await ws.send(json.dumps({
                 "type": "bridge_hello",
-                "version": "1.0.0",
+                "version": "1.1.0",
                 "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
+                "capabilities": ["local_separation_v1"] if local_separation_available() else [],
             }))
+            # Deliver separation results that finished while the connection was down.
+            await self.local.flush()
 
             try:
                 if self.on_connection:
@@ -243,6 +254,19 @@ class AbletonBridge:
             except Exception as error:
                 result = {"status": "failed", "error": str(error), "summary": str(error), "steps": []}
             await self._reply(request_id, result)
+
+        elif msg_type == "local_reference":
+            await self._reply(request_id, await self.local.start(msg.get("reference_id")))
+
+        elif msg_type == "local_reference_cancel":
+            await self._reply(request_id, await self.local.cancel(msg.get("reference_id")))
+
+        elif msg_type == "local_reference_open":
+            if msg.get("action") == "ableton":
+                from stem_import import import_stems
+                await self._reply(request_id, await import_stems(self, msg.get("reference_id")))
+            else:
+                await self._reply(request_id, await self.local.reveal(msg.get("reference_id")))
 
         elif msg_type == "batch":
             # Execute multiple OSC commands in sequence

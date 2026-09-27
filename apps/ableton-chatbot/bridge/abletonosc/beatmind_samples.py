@@ -6,6 +6,8 @@ from pathlib import Path
 def register(handler, app):
     from .beatmind_automation import register as register_automation
     register_automation(handler, app)
+    from .beatmind_stems import register as register_stems
+    register_stems(handler, app)
     def loaded_sample(params):
         track = handler.song.tracks[int(params[0])]
         instruments = [device for device in track.devices if device.type == 1]

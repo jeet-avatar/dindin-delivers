@@ -108,11 +108,16 @@ def analyze(directory, measure_only=False):
                     '.m4a': 'mov', '.flac': 'flac', '.ogg': 'ogg'}[source.suffix.lower()]
     if not measure_only:
         progress('Decoding audio')
-        subprocess.run([
-        'ffmpeg', '-nostdin', '-v', 'error', '-y', '-protocol_whitelist', 'file,pipe',
-        '-f', audio_format, '-i', str(source), '-t', str(MAX_SECONDS + 1), '-vn', '-ac', '2', '-ar', '44100',
-        '-c:a', 'pcm_s24le', str(directory / 'mix.wav'),
-        ], check=True, timeout=60)
+        if os.getenv('BEATMIND_DECODER') == 'afconvert':
+            # macOS Core Audio decoder: the local Bridge needs no bundled ffmpeg.
+            subprocess.run(['/usr/bin/afconvert', '-f', 'WAVE', '-d', 'LEI24@44100', '-c', '2',
+                            str(source), str(directory / 'mix.wav')], check=True, timeout=600)
+        else:
+            subprocess.run([
+            'ffmpeg', '-nostdin', '-v', 'error', '-y', '-protocol_whitelist', 'file,pipe',
+            '-f', audio_format, '-i', str(source), '-t', str(MAX_SECONDS + 1), '-vn', '-ac', '2', '-ar', '44100',
+            '-c:a', 'pcm_s24le', str(directory / 'mix.wav'),
+            ], check=True, timeout=60)
     info = sf.info(directory / 'mix.wav')
     if not 5 <= info.duration <= MAX_SECONDS:
         raise ValueError('Reference must be between 5 seconds and 10 minutes.')

@@ -11,6 +11,8 @@ import { listeningFinished, type ListeningData } from "@/lib/reference-listening
 import ReferenceTemplate, { type ReferenceTemplateData } from "./ReferenceTemplate";
 import ReferenceReview, { type TimingMap, type StemReview, type StemHealth } from "./ReferenceReview";
 import SoundComparison from "./SoundComparison";
+import LocalSeparation from "./LocalSeparation";
+import LocalStemActions from "./LocalStemActions";
 import ReferenceWorkflow from "./ReferenceWorkflow";
 
 type Report = {
@@ -26,12 +28,21 @@ type Report = {
 type Reference = {
   id: string; name: string; status: string; created_at: string;
   stage?: string; error?: string; report?: Report;
+  storage?: "local"; local_folder?: string;
   listening_busy?: boolean;
   template?: ReferenceTemplateData;
   timing?: TimingMap; stem_review?: StemReview;
   listening?: ListeningData;
 };
 
+
+function LocalOnlyNote({ onNext }: { onNext?: () => void }) {
+  return <div role="status" className="space-y-2 border-t border-neutral-700 pt-4 text-sm">
+    <p>This reference's audio stays on your computer, so AI listening and sound comparison, which need the audio on BeatMind, are off.
+      Listen to the stems in Ableton or Finder instead.</p>
+    {onNext && <button type="button" onClick={onNext} className="underline">Continue to template</button>}
+  </div>;
+}
 
 const time = (seconds: number) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
 
@@ -85,6 +96,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [items, setItems] = useState<Reference[]>([]);
   const [available, setAvailable] = useState(false);
   const [listeningAvailable, setListeningAvailable] = useState(false);
+  const [localAvailable, setLocalAvailable] = useState(false);
   const [reason, setReason] = useState("");
   const [pollError, setPollError] = useState("");
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
@@ -132,12 +144,13 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     if (signal?.aborted) return;
     setPollError("");
     setCheckedAt(Date.now());
-    const activeJob = data.references.find((item: Reference) => ["uploading", "processing"].includes(item.status));
+    const activeJob = data.references.find((item: Reference) => ["choosing", "uploading", "processing"].includes(item.status));
     pollDelay.current = activeJob || data.processing?.busy || data.references.some((item: Reference) => item.listening_busy || item.listening?.job?.status === "running") ? 4000 : 15000;
     if (activeJob) setObservedJobId(activeJob.id);
     setItems(data.references); setAvailable(data.available); setReason(data.reason || "");
     setProcessingBusy(Boolean(data.processing?.busy));
     setListeningAvailable(Boolean(data.audio_listening?.available));
+    setLocalAvailable(Boolean(data.local_separation?.available));
     if (Number.isFinite(data.max_bytes) && data.max_bytes > 0 && Number.isFinite(data.max_seconds) && data.max_seconds > 0) {
       setLimits({ maxBytes: data.max_bytes, minSeconds: data.min_seconds ?? 5, maxSeconds: data.max_seconds });
     } else { setLimits(null); }
@@ -244,7 +257,11 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       {file && !uploadedReference ? " Your selected file has not been uploaded or queued. Keep this tab open; upload will become available when processing finishes." : " New uploads are paused until it finishes."}
     </p>}
     {!processingBusy && file && waitedForProcessing && !uploadedReference && <p role="status" className="text-sm text-emerald-300">Processing is available. Your selected file is ready to upload.</p>}
+    <LocalSeparation available={localAvailable} disabled={busy || chatBusy} onStarted={async reference => {
+      setObservedJobId(reference.id); await refresh(); await select(reference.id);
+    }} />
     <div className="space-y-3 border-b border-neutral-700 pb-5">
+      <h3 className="text-sm font-medium">Or upload to BeatMind</h3>
       <label className="block text-sm">Audio file <span className="text-neutral-400">{limits ? `(${Math.floor(limits.maxBytes / (1024 * 1024))} MB, ${limits.minSeconds} seconds to ${limits.maxSeconds / 60} minutes)` : "(Checking upload limits...)"}</span>
         <input ref={fileInput} type="file" aria-label="Reference audio file" accept=".wav,.aif,.aiff,.mp3,.m4a,.flac,.ogg"
           disabled={!available || !limits || busy || chatBusy} onChange={e => void chooseFile(e.target.files?.[0] || null)}
@@ -272,13 +289,14 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       {item && <div className="min-w-0 space-y-4">
         <h3 className="text-base font-semibold break-all">{item.name}</h3>
         <p className="text-xs text-neutral-400">{new Date(item.created_at).toLocaleString()}</p>
+        {item.storage === "local" && <LocalStemActions key={`local-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh} />}
         {item.report && item.status === "ready" && <>
           {guided && <div className="border-l-2 border-emerald-400 pl-3 space-y-2 text-sm">
-            {!listeningFinished(item.listening) ? <>
+            {item.storage !== "local" && !listeningFinished(item.listening) ? <>
               <p>{item.listening?.job?.status === "running" ? "Listening is in progress. Completed notes will appear in the Listening step." : "Would you like me to listen to this track? What stands out to you?"}</p>
               {stage !== "listening" && <button className="underline" onClick={() => setStage("listening")}>Review listening consent</button>}
             </> : <>
-              <p>Listening notes ready. What would you like to borrow: the groove, bass, atmosphere, or structure?</p>
+              <p>{item.storage === "local" ? "Your stems are ready on this computer." : "Listening notes ready."} What would you like to borrow: the groove, bass, atmosphere, or structure?</p>
               <button disabled={chatBusy || busy} onClick={() => onUse(item.id)} className="underline disabled:opacity-40">Discuss what I like</button>
               <div className="flex flex-wrap gap-3">
                 <button onClick={() => setStage("stems")} className="underline">{item.stem_review?.status === "accepted" ? "Stems reviewed" : "Review estimated stems"}</button>
@@ -295,18 +313,21 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
             <div><dt className="text-neutral-400">Duration</dt><dd>{time(item.report.duration_seconds)}</dd></div>
             <div className="col-span-2"><dt className="text-neutral-400">Possible keys</dt><dd>{item.report.key_candidates.map(k => k.key).join(" / ") || "Not enough tonal evidence"}</dd></div>
           </dl>
-          <div ref={audioSection}><ReferenceAudio key={item.id} id={item.id} cue={cue} stems={audioStems(item.report)} /></div>
+          {item.storage !== "local" && <div ref={audioSection}><ReferenceAudio key={item.id} id={item.id} cue={cue} stems={audioStems(item.report)} /></div>}
           <ReferenceWorkflow stage={stage} onStage={setStage} review={item.stem_review} timing={item.timing} listening={item.listening} listeningBusy={item.listening_busy}
             template={item.template} onOpenChat={onOpenChat} />
           {item.timing && item.stem_review && (["stems", "timing"] as const).map(mode => <div key={mode} hidden={stage!==mode}>
             <ReferenceReview key={`${item.id}-${mode}-${item.timing!.analysis_id}`} id={item.id} name={item.name} mode={mode} timing={item.timing!} review={item.stem_review!}
-              health={item.report!.stem_health} stems={reviewStems(item.report)} refresh={refresh} onCue={seconds => setCue({seconds})}
+              health={item.report!.stem_health} stems={reviewStems(item.report)} local={item.storage === "local"} refresh={refresh} onCue={seconds => setCue({seconds})}
               onStemSaved={review => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, stem_review: review } : reference))}
               onTimingSaved={timing => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, timing } : reference))}
               onNext={() => setStage(mode === "stems" ? "timing" : "listening")} /></div>)}
-          <div hidden={stage!=="listening"}><ReferenceListening key={item.id} item={item} available={listeningAvailable} refresh={refresh}
-            checkedAt={checkedAt} pollError={pollError} onNext={() => setStage("template")} onDiscuss={chatBusy || busy ? undefined : () => onUse(item.id)} /></div>
-          {stage === "compare" && <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} stems={audioStems(item.report)} />}
+          <div hidden={stage!=="listening"}>{item.storage === "local"
+            ? <LocalOnlyNote onNext={() => setStage("template")} />
+            : <ReferenceListening key={item.id} item={item} available={listeningAvailable} refresh={refresh}
+              checkedAt={checkedAt} pollError={pollError} onNext={() => setStage("template")} onDiscuss={chatBusy || busy ? undefined : () => onUse(item.id)} />}</div>
+          {stage === "compare" && (item.storage === "local" ? <LocalOnlyNote />
+            : <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} stems={audioStems(item.report)} />)}
           <div hidden={stage!=="template"}>{item.timing?.status === "confirmed" && item.stem_review?.status === "accepted" ?
             <ReferenceTemplate key={`template-${item.id}-${item.timing.revision}`} id={item.id} template={item.template} bpm={item.report.tempo.bpm} timing={item.timing}
               refresh={refresh} onUse={() => onUse(item.id, true)} chatBusy={chatBusy} onApproved={onTemplateApproved}

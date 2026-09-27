@@ -10,6 +10,7 @@ import re
 import shutil
 import signal
 import sys
+from typing import Literal
 import uuid
 from urllib.parse import unquote
 
@@ -34,6 +35,10 @@ LISTENING = set()
 LISTEN_TASKS = {}
 SUGGESTING = set()
 COMPARING = set()
+LOCAL_CAPABILITY = 'local_separation_v1'
+MAX_LOCAL_REFERENCES = 50
+MAX_LOCAL_REPORT_BYTES = 4 * 1024 * 1024
+LOCAL_ONLY = 'Audio for this reference stays on your computer. Open its stems folder or place the stems in Ableton to listen.'
 
 
 def operation_lease():
@@ -183,7 +188,12 @@ def _recover_interrupted():
     for path in ROOT.glob('*/meta.json'):
         try:
             item = json.loads(path.read_text())
-            if item['status'] in ('uploading', 'processing'):
+            if item.get('storage') == 'local' and item['status'] == 'processing':
+                continue  # Runs on the user's computer; the Bridge delivers the result after reconnecting.
+            if item['status'] == 'choosing':
+                item.update(status='failed', error='No file was chosen. Start again from BeatMind.')
+                write_json(path, item)
+            elif item['status'] in ('uploading', 'processing'):
                 item.update(status='failed', error='Processing was interrupted. Delete this reference and upload again.')
                 write_json(path, item)
         except (OSError, ValueError, KeyError):
@@ -275,6 +285,42 @@ async def create_comparison(reference_id, request, user_id):
         COMPARING.discard(reference_id)
 
 
+def valid_local_report(report):
+    if not isinstance(report, dict) or len(json.dumps(report)) > MAX_LOCAL_REPORT_BYTES:
+        return False
+    names = [stem.get('name') for stem in report.get('stems') or [] if isinstance(stem, dict)]
+    duration = report.get('duration_seconds')
+    return (bool(names) and len(set(names)) == len(names) and set(names) <= set(stem_sets.ALL_STEMS)
+            and isinstance(duration, (int, float)) and MIN_SECONDS <= duration <= MAX_SECONDS
+            and isinstance(report.get('tempo'), dict) and isinstance(report.get('stem_health'), dict))
+
+
+def local_event(user_id, event):
+    """Apply a Bridge progress or result event to a reference separated on the user's computer."""
+    reference_id = str(event.get('reference_id', ''))
+    try:
+        directory, item = owned(reference_id, user_id)
+    except HTTPException:
+        return  # Deleted, or not this user's reference.
+    if item.get('storage') != 'local' or item['status'] not in ('processing', 'choosing'):
+        return  # Late or repeated events after the final state are ignored.
+    status = event.get('status')
+    if status == 'processing' and isinstance(event.get('stage'), str):
+        write_json(directory / 'progress.json', {'stage': event['stage'][:120]})
+        return
+    if status == 'ready' and valid_local_report(event.get('report')):
+        write_json(directory / 'report.json', event['report'])
+        item.update(status='ready', local_folder=str(event.get('folder', ''))[:500])
+    elif status == 'ready':
+        item.update(status='failed', error='The analysis from your computer was incomplete. Try separating again.')
+    elif status == 'failed':
+        item.update(status='failed', error=str(event.get('error') or 'Separation failed on your computer.')[:300])
+    else:
+        return
+    (directory / 'progress.json').unlink(missing_ok=True)
+    write_json(directory / 'meta.json', item)
+
+
 def reference_context(reference_id, user_id):
     directory, item = owned(reference_id, user_id)
     if item['status'] != 'ready':
@@ -323,9 +369,11 @@ def reference_context(reference_id, user_id):
             'Follow the guided one-part workflow. Never claim to have listened to these measurements.')
 
 
-def router_for(get_user, require_subscription):
+def router_for(get_user, require_subscription, bridge_for=lambda user_id, capability: None):
     async def guard(request: Request, user=Depends(get_user)):
-        if request.method not in {'POST', 'DELETE'} or request.url.path.endswith('/listen-cancel'):
+        # Local separation runs on the user's computer and never takes the server processing lease.
+        last = request.url.path.rstrip('/').rsplit('/', 1)[-1]
+        if request.method not in {'POST', 'DELETE'} or last in ('listen-cancel', 'local', 'local-open', 'local-cancel'):
             yield
             return
         # Verify ownership before revealing whether another worker is busy.
@@ -361,6 +409,7 @@ def router_for(get_user, require_subscription):
                 continue
         return {'references': sorted(items, key=lambda i: i['created_at'], reverse=True),
                 'processing': {'busy': processing_busy()},
+                'local_separation': {'available': bool(bridge_for(user['id'], LOCAL_CAPABILITY))},
                 'audio_listening': audio_listener.capability(), 'sound_comparison': sound_comparison.capability(), **capability()}
 
     @router.get('/{reference_id}/comparisons')
@@ -408,6 +457,8 @@ def router_for(get_user, require_subscription):
             raise HTTPException(400, 'Confirm sending this excerpt and intent to OpenAI.')
         if item['status'] != 'ready':
             raise HTTPException(409, 'Reference analysis is not ready.')
+        if item.get('storage') == 'local':
+            raise HTTPException(409, LOCAL_ONLY)
         if not (directory / (request.layer + '.wav')).is_file():
             raise HTTPException(404, 'This reference has no such layer.')
         if not audio_listener.capability()['available']:
@@ -586,6 +637,8 @@ def router_for(get_user, require_subscription):
     async def refresh_analysis(reference_id: str, http_request: Request, user=Depends(require_subscription)):
         from security import rate_limit
         directory, item = owned(reference_id, user['id'])
+        if item.get('storage') == 'local':
+            raise HTTPException(409, 'This reference was separated on your computer. Separate it again there to refresh it.')
         if item['status'] != 'ready' or ACTIVE.locked() or reference_id in LISTENING or reference_id in SUGGESTING or reference_id in COMPARING:
             raise HTTPException(409, 'Wait for active processing to finish.')
         if not capability()['available']:
@@ -627,8 +680,8 @@ def router_for(get_user, require_subscription):
         suffix = Path(name).suffix.lower()
         if suffix not in EXTENSIONS or len(name) > 200:
             raise HTTPException(400, 'Choose a WAV, AIFF, MP3, M4A, FLAC or OGG file.')
-        if len((await listing(user))['references']) >= 5:
-            raise HTTPException(409, 'Delete an older reference first. Limit: five references per account.')
+        if sum(item.get('storage') != 'local' for item in (await listing(user))['references']) >= 5:
+            raise HTTPException(409, 'Delete an older reference first. Limit: five uploaded references per account.')
         if ACTIVE.locked():
             raise HTTPException(409, 'A reference is processing. Please try again after it finishes.')
         await ACTIVE.acquire()
@@ -679,9 +732,78 @@ def router_for(get_user, require_subscription):
     @router.delete('/{reference_id}')
     async def delete(reference_id: str, user=Depends(get_user)):
         directory, item = owned(reference_id, user['id'])
-        if item['status'] in ('uploading', 'processing') or reference_id in LISTENING or reference_id in SUGGESTING or reference_id in COMPARING:
+        busy = item['status'] in ('uploading', 'processing') and item.get('storage') != 'local'
+        if busy or reference_id in LISTENING or reference_id in SUGGESTING or reference_id in COMPARING:
             raise HTTPException(409, 'Wait for processing to finish before deleting.')
         shutil.rmtree(directory)
-        return {'deleted': reference_id}
+        # Local stems are the user's own files; only BeatMind's saved analysis is removed.
+        return {'deleted': reference_id, 'local_files_kept': item.get('storage') == 'local'}
+
+    def local_bridge(user):
+        bridge = bridge_for(user['id'], LOCAL_CAPABILITY)
+        if not bridge:
+            raise HTTPException(409, 'Open the latest BeatMind Bridge on your computer to separate tracks there.')
+        return bridge
+
+    async def await_file_choice(bridge, directory, item):
+        try:
+            # The Bridge shows a file picker on the user's computer; allow time to choose.
+            result = await bridge.local_operation('local_reference', {'reference_id': item['id']}, timeout=600)
+        except Exception:
+            result = {'status': 'failed', 'error': 'The Bridge connection was lost before a file was chosen.'}
+        status = result.get('status')
+        if status == 'cancelled':
+            shutil.rmtree(directory, ignore_errors=True)
+            return
+        if status == 'started':
+            item.update(name=Path(str(result.get('name') or 'Reference')).name[:200], bytes=result.get('bytes'),
+                        status='processing', local_folder=str(result.get('folder') or '')[:500])
+        else:
+            item.update(status='failed', error=str(result.get('error') or result.get('summary')
+                                                   or 'The Bridge could not start separation.')[:300])
+        if directory.is_dir():
+            write_json(directory / 'meta.json', item)
+
+    @router.post('/local', status_code=202)
+    async def separate_locally(user=Depends(require_subscription)):
+        from security import rate_limit
+        bridge = local_bridge(user)
+        if sum(item.get('storage') == 'local' for item in (await listing(user))['references']) >= MAX_LOCAL_REFERENCES:
+            raise HTTPException(409, f'Delete an older reference first. Limit: {MAX_LOCAL_REFERENCES} local references per account.')
+        if any(item.get('storage') == 'local' and item['status'] == 'choosing' for item in (await listing(user))['references']):
+            raise HTTPException(409, 'A file window is already open on your computer. Choose a track there first.')
+        rate_limit(f"reference-local:{user['id']}", max_requests=30, window_seconds=3600)
+        reference_id = uuid.uuid4().hex
+        directory = ROOT / reference_id
+        directory.mkdir(parents=True, mode=0o700)
+        item = {'id': reference_id, 'user_id': user['id'], 'name': 'Choosing a file', 'storage': 'local',
+                'created_at': datetime.now(timezone.utc).isoformat(), 'status': 'choosing'}
+        write_json(directory / 'meta.json', item)
+        # Respond now: the load balancer closes requests idle for 60 seconds, and choosing a file can take longer.
+        task = asyncio.create_task(await_file_choice(bridge, directory, item))
+        TASKS.add(task)
+        task.add_done_callback(TASKS.discard)
+        return public(directory, item)
+
+    class LocalOpen(BaseModel):
+        action: Literal['finder', 'ableton']
+
+    @router.post('/{reference_id}/local-open')
+    async def open_locally(reference_id: str, request: LocalOpen, user=Depends(require_subscription)):
+        directory, item = owned(reference_id, user['id'])
+        if item.get('storage') != 'local' or item['status'] != 'ready':
+            raise HTTPException(409, 'This reference has no finished stems on your computer.')
+        result = await local_bridge(user).local_operation('local_reference_open',
+                                                          {'reference_id': reference_id, 'action': request.action}, timeout=60)
+        if result.get('status') not in ('opened', 'verified'):
+            raise HTTPException(409, str(result.get('error') or result.get('summary') or 'The Bridge could not open the stems.'))
+        return result
+
+    @router.post('/{reference_id}/local-cancel')
+    async def cancel_locally(reference_id: str, user=Depends(get_user)):
+        directory, item = owned(reference_id, user['id'])
+        if item.get('storage') != 'local' or item['status'] != 'processing':
+            raise HTTPException(409, 'This reference is not separating on your computer.')
+        return await local_bridge(user).local_operation('local_reference_cancel', {'reference_id': reference_id}, timeout=30)
 
     return router

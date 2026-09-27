@@ -60,6 +60,7 @@ class BridgeConnection:
         self.lock = asyncio.Lock()
         self.connected_at = datetime.now(timezone.utc)
         self.pending: dict[str, asyncio.Future] = {}
+        self.capabilities: set[str] = set()
 
     async def send_command(self, address: str, args: list, query: bool = False, timeout: float = 5.0) -> dict:
         request_id = str(uuid.uuid4())
@@ -94,18 +95,18 @@ class BridgeConnection:
     async def capture_part(self, track, scene, seconds):
         return await self.local_operation("capture_part", {"track": track, "scene": scene, "seconds": seconds})
 
-    async def local_operation(self, operation, payload):
+    async def local_operation(self, operation, payload, timeout=55):
         request_id = str(uuid.uuid4())
         future = asyncio.get_running_loop().create_future()
         self.pending[request_id] = future
         try:
             await self.ws.send_json({"type": operation, "request_id": request_id, **payload})
             try:
-                return await asyncio.wait_for(asyncio.shield(future), timeout=55)
+                return await asyncio.wait_for(asyncio.shield(future), timeout=timeout)
             except asyncio.CancelledError:
                 # Keep the session locked until the bridge has restored playback state.
                 with suppress(asyncio.TimeoutError):
-                    await asyncio.wait_for(asyncio.shield(future), timeout=55)
+                    await asyncio.wait_for(asyncio.shield(future), timeout=timeout)
                 raise
         except asyncio.TimeoutError:
             return {"status": "unverified", "summary": "Local bridge operation timed out. Inspect Ableton before continuing."}
@@ -986,7 +987,11 @@ async def bridge_ws(ws: WebSocket):
     try:
         async for message in ws.iter_text():
             data = json.loads(message)
-            if data.get("type") != "bridge_hello":
+            if data.get("type") == "bridge_hello":
+                bridge.capabilities = {str(c) for c in data.get("capabilities") or []}
+            elif data.get("type") == "local_reference_event":
+                references.local_event(bridge.user_id, data)
+            else:
                 bridge.handle_response(data)
     except WebSocketDisconnect:
         pass
@@ -1004,7 +1009,11 @@ async def bridge_status(user: dict = Depends(get_current_user)):
     return {"bridge_connected": any(b.user_id == user["id"] for b in bridges.values())}
 
 
-app.include_router(references.router_for(get_current_user, require_subscription))
+def bridge_for(user_id, capability):
+    return next((b for b in bridges.values() if b.user_id == user_id and capability in b.capabilities), None)
+
+
+app.include_router(references.router_for(get_current_user, require_subscription, bridge_for))
 
 # ---- Health ----
 

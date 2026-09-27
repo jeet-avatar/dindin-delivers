@@ -7,8 +7,8 @@ import type { StemHealth, StemReview } from "./ReferenceReview";
 import ReferenceStemAudio from "./ReferenceStemAudio";
 import { CORE_STEMS, isDetailed, stemLabel } from "@/lib/stems";
 
-export default function ReferenceStemReview({ id, name, analysisId, review, health, refresh, onSaved, onNext, stems = CORE_STEMS }: {
-  id: string; name: string; analysisId: string; review: StemReview; health?: StemHealth; refresh: () => Promise<void>; stems?: string[];
+export default function ReferenceStemReview({ id, name, analysisId, review, health, refresh, onSaved, onNext, stems = CORE_STEMS, local = false }: {
+  id: string; name: string; analysisId: string; review: StemReview; health?: StemHealth; refresh: () => Promise<void>; stems?: string[]; local?: boolean;
   onSaved?: (review: StemReview) => void; onNext?: () => void;
 }) {
   const same = (a: Record<string, string>, b: Record<string, string>) => stems.every(stem => (a[stem] || "") === (b[stem] || ""));
@@ -151,7 +151,7 @@ export default function ReferenceStemReview({ id, name, analysisId, review, heal
       <div className="flex flex-wrap items-baseline justify-between gap-2"><h5 className="text-sm font-medium">{stemLabel(stem)}</h5>
         {health?.stems[stem] && <span className="text-xs text-neutral-400">{health.stems[stem].rms_dbfs} dBFS RMS{health.stems[stem].quiet ? " / Very quiet" : ""}{health.stems[stem].clipped_sample_fraction > 0.001 ? " / Possible clipping" : ""}</span>}
       </div>
-      <ReferenceStemAudio id={id} stem={stem} name={name} />
+      {local ? <p className="text-xs text-neutral-400">On your computer: {stem}.wav. Listen in Ableton or Finder.</p> : <ReferenceStemAudio id={id} stem={stem} name={name} />}
       <label className="block text-sm">Reference choice<select aria-label={`${stem} reference decision`} value={decisions[stem] || ""} disabled={busy || uncertain}
         onChange={e => { setDecisions({ ...decisions, [stem]: e.target.value }); setHeard(false); setError(""); setNotice(""); }}
         className="mt-1 w-full min-w-0 rounded border border-neutral-600 bg-neutral-900 p-2 text-sm">

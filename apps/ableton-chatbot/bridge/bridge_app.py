@@ -339,6 +339,10 @@ if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == '--network-check':
         result = asyncio.run(network_check())
         Path(sys.argv[2]).write_text(json.dumps(result))
+    elif len(sys.argv) == 3 and sys.argv[1] == '--separate':
+        # The packaged app re-runs itself as the separation worker (see local_separation.worker_command).
+        import reference_worker
+        reference_worker.analyze(Path(sys.argv[2]))
     else:
         app = BeatMindBridgeApp()
         app.run()

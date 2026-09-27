@@ -12,7 +12,9 @@ from .beatmind_automation import register as register_automation
 register_automation(self, Live.Application.get_application())
 ```
 
-Also copy `beatmind_mixer.py` and `beatmind_automation.py` beside `browser.py`. Their mapping returns Live's
+Also copy `beatmind_mixer.py`, `beatmind_automation.py` and `beatmind_stems.py` beside `browser.py`.
+`beatmind_stems.py` places reference stems on new audio tracks at the start of the Arrangement (Live 12).
+The mixer mapping returns Live's
 native fader values and actual display strings; no guessed dB conversion is used.
 Writes reject stale track/sample identities, changed faders and automation.
 
