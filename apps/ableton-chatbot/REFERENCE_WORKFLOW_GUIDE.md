@@ -12,6 +12,8 @@ The reference tabs show saved progress and pending prerequisites. You can revisi
 
 The reference's audio files are saved after successful processing. Saving your creative choices is a separate step.
 
+The on-screen Next step action follows your current review: the next undecided layer, listening confirmation, saving choices, then Timing. It moves focus without choosing or confirming on your behalf. A missing save receipt instead offers Check save status; a saved review needing attention returns to the relevant layer.
+
 1. Audition each stem using its play button. The adjacent download button saves its WAV to your computer.
 2. Choose Use as reference, Exclude from my track or Separation needs work for each of the four groups.
 3. Confirm that you listened, then select Save stem review.

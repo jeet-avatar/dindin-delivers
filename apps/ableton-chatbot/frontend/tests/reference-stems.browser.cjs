@@ -63,18 +63,27 @@ function wave() {
       const choice = stem => section().getByLabel(`${stem} reference decision`, { exact: true });
       const posts = () => calls.filter(c => c.path.endsWith('/stem-review') && c.method === 'POST');
       const confirm = () => section().getByLabel('I listened and reviewed each stem choice.');
+      const next = name => section().getByLabel('Next stem review action', { exact: true }).getByRole('button', { name, exact: true });
       await page.goto((process.env.BEATMIND_UI_URL || 'http://localhost:3014') + '/dashboard'); await open();
+      await next('Check stem files').waitFor();
       await save().click(); await section().getByRole('alert').filter({ hasText: 'Stem file integrity is not confirmed' }).waitFor();
       assert.equal(posts().length, 0);
       await section().getByRole('button', { name: 'Refresh stem checks', exact: true }).click();
       await section().getByText('4 separated audio files saved with this reference', { exact: true }).waitFor();
       assert.equal(calls.filter(c => c.path.endsWith('/refresh-analysis')).length, 1);
+      await next('Review drums').click();
+      assert.equal(await choice('drums').evaluate(el => document.activeElement === el), true);
+      assert.equal(await choice('drums').inputValue(), '', 'Navigation must not make a choice');
+      await section().getByText('Review not saved: 0 of 4 layer choices made', { exact: true }).waitFor();
+      await section().scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `/tmp/beatmind-stems-next-${width}.png` });
       await save().click(); await section().getByRole('alert').filter({ hasText: 'A choice is required for:' }).waitFor();
       assert.equal(posts().length, 0);
       await choice('drums').selectOption('keep');
       await page.reload(); await open();
       assert.equal(await choice('drums').inputValue(), 'keep', 'Unfinished choices survive reload');
       assert.equal(await confirm().isChecked(), false);
+      await next('Review bass').waitFor();
       await section().getByRole('button', { name: 'Audition drums', exact: true }).click();
       await section().getByRole('alert').filter({ hasText: 'drums audio could not be loaded' }).waitFor();
       for (const stem of ['drums', 'bass', 'vocals', 'other']) {
@@ -88,9 +97,12 @@ function wave() {
         assert.equal((await download).suggestedFilename(), `My saved song-${stem}.wav`);
         await choice(stem).selectOption(stem === 'vocals' ? 'ignore' : 'keep');
       }
+      await next('Confirm listening review').click();
+      assert.equal(await confirm().evaluate(el => document.activeElement === el), true);
+      assert.equal(await confirm().isChecked(), false, 'Navigation must not confirm listening');
       await save().click(); await section().getByRole('alert').filter({ hasText: 'Listening confirmation is required' }).waitFor();
       assert.equal(posts().length, 0);
-      await confirm().check(); reject = true; await save().click();
+      await confirm().check(); reject = true; await next('Save choices').click();
       await section().getByRole('alert').filter({ hasText: 'Reference processing is busy' }).waitFor();
       assert.equal(await choice('bass').inputValue(), 'keep'); assert.equal(await confirm().isChecked(), true);
       reject = false; hold = new Promise(resolve => { release = resolve; }); await save().click();
@@ -100,6 +112,7 @@ function wave() {
       failPoll = true; release(); hold = null;
       await section().getByText('Stem choices saved. The overview could not refresh; your save succeeded.', { exact: true }).waitFor();
       await section().getByRole('button', { name: 'Continue to timing', exact: true }).waitFor();
+      await next('Next: Timing').waitFor();
       await section().scrollIntoViewIfNeeded(); await page.screenshot({ path: `/tmp/beatmind-stems-${width}.png` });
       assert.equal(await section().getByRole('button', { name: 'Stem choices saved', exact: true }).isDisabled(), true);
       failPoll = false;
@@ -109,8 +122,11 @@ function wave() {
       await choice('drums').selectOption('needs_work'); await confirm().check(); await save().click();
       await section().getByText('Saved review: needs review', { exact: true }).waitFor();
       assert.equal(await section().getByRole('button', { name: 'Continue to timing', exact: true }).count(), 0);
+      await next('Revisit drums').click();
+      assert.equal(await choice('drums').evaluate(el => document.activeElement === el), true);
       await choice('drums').selectOption('keep'); await confirm().check(); loseResponse = true; await save().click();
       await section().getByText('Save not confirmed', { exact: true }).waitFor();
+      await next('Check save status').waitFor();
       const beforeReload = posts().length;
       await page.reload(); await open();
       await section().getByRole('button', { name: 'Continue to timing', exact: true }).waitFor();
@@ -118,7 +134,7 @@ function wave() {
       loseResponse = false;
       await section().getByRole('button', { name: 'Check saved choices', exact: true }).click();
       await section().getByText('Stem choices saved. Ready for timing review.', { exact: true }).waitFor();
-      await section().getByRole('button', { name: 'Continue to timing', exact: true }).click();
+      await next('Next: Timing').click();
       await page.getByRole('heading', { name: 'Confirm reference timing', exact: true }).waitFor();
       await page.getByRole('button', { name: 'Split section', exact: true }).click();
       await page.getByRole('button', { name: 'Merge with previous', exact: true }).nth(1).click();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, RefreshCw, Save } from "lucide-react";
+import { ArrowRight, Check, RefreshCw, Save } from "lucide-react";
 import { apiFetch, getUser } from "@/lib/auth";
 import type { StemHealth, StemReview } from "./ReferenceReview";
 import ReferenceStemAudio from "./ReferenceStemAudio";
@@ -30,6 +30,20 @@ export default function ReferenceStemReview({ id, name, analysisId, review, heal
   const missing = stems.filter(stem => !decisions[stem]);
   const needsWork = stems.filter(stem => decisions[stem] === "needs_work");
   const kept = stems.filter(stem => decisions[stem] === "keep");
+  const stemName = (stem: string) => stem === "other" ? "other instruments" : stem;
+  function focusChoice(stem: string) {
+    const control = section.current?.querySelector<HTMLSelectElement>(`select[aria-label="${stem} reference decision"]`);
+    control?.focus({ preventScroll: true });
+    control?.closest("[data-stem]")?.scrollIntoView({ block: "center" });
+  }
+  const next = busy ? { label: "Updating review...", action: () => {} }
+    : uncertain ? { label: "Check save status", action: () => void checkSaved() }
+    : !health?.checks_passed ? { label: "Check stem files", action: () => void refreshChecks() }
+    : ready ? { label: "Next: Timing", action: () => onNext?.() }
+    : missing.length ? { label: `Review ${stemName(missing[0])}`, action: () => focusChoice(missing[0]) }
+    : savedChoices ? { label: needsWork.length ? `Revisit ${stemName(needsWork[0])}` : "Choose a reference layer", action: () => focusChoice(needsWork[0] || stems[0]) }
+    : !heard ? { label: "Confirm listening review", action: () => confirmation.current?.focus() }
+    : { label: "Save choices", action: () => void save() };
 
   useEffect(() => {
     try {
@@ -122,10 +136,17 @@ export default function ReferenceStemReview({ id, name, analysisId, review, heal
       <p className={health?.checks_passed ? "text-emerald-300" : "text-amber-200"}>{health?.checks_passed ? "4 separated audio files saved with this reference" : "Stem file integrity has not passed checks"}</p>
       <p className="text-xs text-neutral-400">Drums / Bass / Vocals / Other instruments. Estimated separation; bleed and artifacts may remain.</p>
       <p className="text-xs text-neutral-400">Drums contains kick, snare, hi-hat and other percussion together. Individual drum stems are not available in this model.</p>
-      <p role="status">{ready ? "Choices saved for the next step" : savedChoices ? "Choices saved; review needs attention" : uncertain ? "Save not confirmed" : `Choices not saved / ${stems.length - missing.length} of ${stems.length} selected`}</p>
+      <p role="status">{ready ? "Choices saved for the next step" : savedChoices ? "Choices saved; review needs attention" : uncertain ? "Save not confirmed" : `Review not saved: ${stems.length - missing.length} of ${stems.length} layer choices made`}</p>
       {!health?.checks_passed && <button type="button" disabled={busy} onClick={() => void refreshChecks()} className="inline-flex items-center gap-2 rounded border border-neutral-600 px-3 py-2 text-sm"><RefreshCw size={16} />Refresh stem checks</button>}
     </div>
-    {stems.map(stem => <div key={stem} className="space-y-3 border-b border-neutral-800 pb-4">
+    <div aria-label="Next stem review action" className="flex flex-wrap items-center justify-between gap-3 border-y border-neutral-700 py-3">
+      <span className="text-sm font-medium">Next step</span>
+      <button type="button" disabled={busy || (ready && !onNext)} onClick={next.action}
+        className="inline-flex max-w-full items-center gap-2 rounded bg-emerald-700 px-3 py-2 text-left text-sm text-white disabled:opacity-50">
+        <span>{next.label}</span><ArrowRight size={16} className="shrink-0" aria-hidden="true" />
+      </button>
+    </div>
+    {stems.map(stem => <div key={stem} data-stem={stem} className="space-y-3 border-b border-neutral-800 pb-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2"><h5 className="text-sm font-medium capitalize">{stem === "other" ? "Other instruments" : stem}</h5>
         {health?.stems[stem] && <span className="text-xs text-neutral-400">{health.stems[stem].rms_dbfs} dBFS RMS{health.stems[stem].quiet ? " / Very quiet" : ""}{health.stems[stem].clipped_sample_fraction > 0.001 ? " / Possible clipping" : ""}</span>}
       </div>
