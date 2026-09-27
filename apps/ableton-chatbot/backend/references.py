@@ -17,6 +17,7 @@ from urllib.parse import unquote
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 import audio_listener
+import billing
 import cloud_separation
 import reference_listening
 import reference_templates
@@ -220,6 +221,13 @@ def _recover_interrupted():
             continue
 
 
+def require_credits(user_id, mode):
+    try:
+        billing.check(user_id, mode)
+    except billing.NoCredits as error:
+        raise HTTPException(402, str(error)) from error
+
+
 async def process(directory, item, measure_only=False):
     child = None
     try:
@@ -249,6 +257,8 @@ async def process(directory, item, measure_only=False):
             await child.wait()
         try:
             write_json(directory / 'meta.json', item)
+            if item['status'] == 'failed' and not measure_only:
+                billing.refund(item['id'])
         finally:
             ACTIVE.release()
 
@@ -328,6 +338,8 @@ def local_event(user_id, event):
         item.update(status='failed', error=str(event.get('error') or 'Separation failed on your computer.')[:300])
     else:
         return
+    if item['status'] == 'failed':
+        billing.refund(reference_id)
     (directory / 'progress.json').unlink(missing_ok=True)
     write_json(directory / 'meta.json', item)
 
@@ -356,6 +368,7 @@ def sync_cloud(directory, item, now):
     if status == 'FAILED':
         item.update(status='failed', error=cloud_separation.failure_message(item['id'], reason))
         write_json(directory / 'meta.json', item)
+        billing.refund(item['id'])
         return False
     write_json(directory / 'progress.json', {'stage': CLOUD_STAGES.get(status, 'Queued for a BeatMind GPU')})
     return False
@@ -732,6 +745,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
             raise HTTPException(503, capability()['reason'])
         if request.headers.get('X-Rights-Confirmed') != 'true':
             raise HTTPException(400, 'Confirm you have permission to upload this audio.')
+        require_credits(user['id'], 'server')
         name = Path(unquote(request.headers.get('X-Reference-Name', ''))).name
         suffix = Path(name).suffix.lower()
         if suffix not in EXTENSIONS or len(name) > 200:
@@ -762,6 +776,10 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
                 raise HTTPException(400, 'The uploaded file is empty.')
             item.update(status='processing', bytes=size)
             write_json(directory / 'meta.json', item)
+            try:
+                billing.charge(user['id'], reference_id, 'server')
+            except billing.NoCredits as error:
+                raise HTTPException(402, str(error)) from error
             task = asyncio.create_task(process(directory, item))
             request.state.reference_lease.transfer(task)
             TASKS.add(task)
@@ -822,6 +840,15 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         if status == 'started':
             item.update(name=Path(str(result.get('name') or 'Reference')).name[:200], bytes=result.get('bytes'),
                         status='processing', local_folder=str(result.get('folder') or '')[:500])
+            try:
+                billing.charge(item['user_id'], item['id'], 'local')
+            except billing.NoCredits as error:
+                # Credits were spent elsewhere while the file window was open: stop the job on the computer.
+                item.update(status='failed', error=str(error))
+                try:
+                    await bridge.local_operation('local_reference_cancel', {'reference_id': item['id']}, timeout=30)
+                except Exception:
+                    pass
         else:
             item.update(status='failed', error=str(result.get('error') or result.get('summary')
                                                    or 'The Bridge could not start separation.')[:300])
@@ -832,6 +859,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
     async def separate_locally(user=Depends(require_subscription)):
         from security import rate_limit
         bridge = local_bridge(user)
+        require_credits(user['id'], 'local')
         if sum(item.get('storage') == 'local' for item in (await listing(user))['references']) >= MAX_LOCAL_REFERENCES:
             raise HTTPException(409, f'Delete an older reference first. Limit: {MAX_LOCAL_REFERENCES} local references per account.')
         if any(item.get('storage') == 'local' and item['status'] == 'choosing' for item in (await listing(user))['references']):
@@ -867,6 +895,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
             raise HTTPException(400, 'Choose a WAV, AIFF, MP3, M4A, FLAC or OGG file.')
         if request.bytes > MAX_BYTES:
             raise HTTPException(413, f'Reference exceeds {MAX_BYTES // (1024 * 1024)} MB.')
+        require_credits(user['id'], 'cloud')
         if sum(item.get('storage') != 'local' for item in (await listing(user))['references']) >= 5:
             raise HTTPException(409, 'Delete an older reference first. Limit: five uploaded references per account.')
         rate_limit(f"reference-cloud:{user['id']}", max_requests=10, window_seconds=3600)
@@ -887,7 +916,15 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         size = await asyncio.to_thread(cloud_separation.uploaded_bytes, reference_id, item['source_suffix'])
         if not size:
             raise HTTPException(409, 'The upload has not reached BeatMind Cloud yet. Upload the file again.')
-        job_id = await asyncio.to_thread(cloud_separation.submit, reference_id, item['source_suffix'])
+        try:
+            billing.charge(user['id'], reference_id, 'cloud')
+        except billing.NoCredits as error:
+            raise HTTPException(402, str(error)) from error
+        try:
+            job_id = await asyncio.to_thread(cloud_separation.submit, reference_id, item['source_suffix'])
+        except Exception as error:
+            billing.refund(reference_id)
+            raise HTTPException(503, 'BeatMind Cloud could not start a GPU job. Your credits were returned.') from error
         item.update(status='processing', bytes=size, job_id=job_id)
         write_json(directory / 'meta.json', item)
         write_json(directory / 'progress.json', {'stage': CLOUD_STAGES['SUBMITTED']})

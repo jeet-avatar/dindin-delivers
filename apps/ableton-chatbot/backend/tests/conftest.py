@@ -1,0 +1,17 @@
+import tempfile
+from pathlib import Path
+
+import pytest
+
+import database
+
+
+@pytest.fixture(autouse=True, scope="session")
+def isolated_database():
+    """Every test run uses a throwaway database with the production schema, never a file in the repo."""
+    with tempfile.TemporaryDirectory() as folder:
+        original = database.DB_PATH
+        database.DB_PATH = str(Path(folder) / "test.db")
+        database.init_db()
+        yield
+        database.DB_PATH = original

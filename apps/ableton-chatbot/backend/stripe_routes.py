@@ -4,6 +4,7 @@ Stripe routes for BeatMind subscriptions.
 
 import logging
 import os
+import time
 
 import stripe
 from fastapi import APIRouter, HTTPException, Header, Request, Depends
@@ -69,6 +70,70 @@ async def create_checkout_session(request: Request):
         return {"url": session.url}
     except stripe.StripeError as e:
         log.error("Stripe checkout error for user %s: %s", user["id"], type(e).__name__)
+        raise HTTPException(400, "Payment processing failed. Please try again.")
+
+
+def _authenticated_user(request: Request) -> dict:
+    from beatmind_auth import decode_token
+    from database import get_user_by_id
+    from jose import JWTError
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(401, "Unauthorized")
+    try:
+        user = get_user_by_id(int(decode_token(auth[7:])["sub"]))
+    except JWTError:
+        raise HTTPException(401, "Unauthorized")
+    if not user:
+        raise HTTPException(401, "Unauthorized")
+    return user
+
+
+_prices: dict[str, tuple[float, dict]] = {}
+
+
+def _price(price_id: str) -> dict | None:
+    """Amount and currency as configured in Stripe, cached for ten minutes."""
+    cached = _prices.get(price_id)
+    if cached and time.monotonic() - cached[0] < 600:
+        return cached[1]
+    try:
+        price = stripe.Price.retrieve(price_id)
+        value = {"amount": price["unit_amount"], "currency": price["currency"]}
+    except stripe.StripeError:
+        return None
+    _prices[price_id] = (time.monotonic(), value)
+    return value
+
+
+@router.get("/usage")
+async def usage(request: Request):
+    """Tracks left this month, purchased credits, recent separations and packages for sale."""
+    import billing
+    user = _authenticated_user(request)
+    packs = [{"id": p["id"], "kind": p["kind"], "credits": p["credits"], "price": _price(p["price_id"])} for p in billing.packs()]
+    return {**billing.summary(user["id"]), "packs": [p for p in packs if p["price"]]}
+
+
+@router.post("/packs/{pack_id}/checkout")
+async def buy_pack(pack_id: str, request: Request):
+    """One-time Checkout for a track or cloud-credit package. Credits come from server config, not the request."""
+    import billing
+    user = _authenticated_user(request)
+    item = billing.pack(pack_id)
+    if not item:
+        raise HTTPException(404, "Unknown package")
+    if not stripe.api_key:
+        raise HTTPException(500, "Payment system not configured")
+    customer = {"customer": user["stripe_customer_id"]} if user.get("stripe_customer_id") else {"customer_email": user["email"]}
+    try:
+        session = stripe.checkout.Session.create(
+            mode="payment", line_items=[{"price": item["price_id"], "quantity": 1}],
+            success_url=f"{FRONTEND_URL}/dashboard?purchase=complete", cancel_url=f"{FRONTEND_URL}/dashboard",
+            metadata={"user_id": str(user["id"]), "pack_id": item["id"]}, **customer)
+        return {"url": session.url}
+    except stripe.StripeError as e:
+        log.error("Stripe package checkout error for user %s: %s", user["id"], type(e).__name__)
         raise HTTPException(400, "Payment processing failed. Please try again.")
 
 
@@ -144,7 +209,15 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         except (KeyError, TypeError):
             return default
 
-    if event_type == "checkout.session.completed":
+    if event_type == "checkout.session.completed" and _field(_field(data, "metadata") or {}, "pack_id"):
+        # A track or cloud-credit package: add credits once, never touch the subscription.
+        import billing
+        metadata = _field(data, "metadata")
+        if _field(data, "mode") == "payment" and _field(data, "payment_status") == "paid":
+            granted = billing.grant(int(_field(metadata, "user_id")), _field(metadata, "pack_id"), _field(data, "id"))
+            log.info("Package %s for user_id=%s granted=%s", _field(metadata, "pack_id"), _field(metadata, "user_id"), granted)
+
+    elif event_type == "checkout.session.completed":
         metadata = _field(data, "metadata") or {}
         user_id = _field(metadata, "user_id")
         customer_id = _field(data, "customer")

@@ -183,6 +183,23 @@ class LocalReferenceTests(unittest.TestCase):
         self.assertEqual(json.loads((self.root / processing / 'meta.json').read_text())['status'], 'processing')
         self.assertEqual(json.loads((self.root / choosing / 'meta.json').read_text())['status'], 'failed')
 
+    def test_track_allowance_is_charged_on_start_and_refunded_on_failure(self):
+        import os
+        import billing
+        from database import db
+        with db() as conn:
+            conn.execute("DELETE FROM separations WHERE user_id=1")
+            conn.execute("DELETE FROM credit_ledger WHERE user_id=1")  # Other tests may have bought tracks for user 1.
+        with patch.dict(os.environ, {'BEATMIND_INCLUDED_TRACKS': '1', 'BEATMIND_PACKS': ''}):
+            first = self.start()
+            self.bridge = FakeBridge({'status': 'started', 'name': 'b.mp3', 'bytes': 1, 'folder': '/f'})
+            response = self.client.post('/api/references/local', headers=USER)
+            self.assertEqual(response.status_code, 402)
+            self.assertIn('track package', response.json()['detail'])
+            references.local_event(1, {'reference_id': first, 'status': 'failed', 'error': 'Out of memory'})
+            self.assertEqual(billing.summary(1)['allowance_left'], 1)
+            self.assertIsNotNone(self.start())
+
 
 if __name__ == '__main__':
     unittest.main()
