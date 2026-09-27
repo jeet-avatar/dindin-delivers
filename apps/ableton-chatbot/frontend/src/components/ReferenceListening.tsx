@@ -36,6 +36,7 @@ export default function ReferenceListening({ item, available, refresh, checkedAt
   const stale = Boolean(pollError || (checkedAt && now - checkedAt > 30000));
   const total = item.report?.duration_seconds || 0;
   const rangeError = whole ? "" : excerptRangeError(start, duration, total);
+  const permissionError = error.startsWith("Your permission to send this audio");
 
   useEffect(() => {
     try {
@@ -146,8 +147,14 @@ export default function ReferenceListening({ item, available, refresh, checkedAt
         </select></label>
         {rangeError && <p className="text-amber-200">{rangeError}</p>}
       </fieldset>}
-      <label className="flex items-start gap-2 text-sm"><input ref={consentInput} type="checkbox" disabled={locked || !available} checked={consent} onChange={e => { setConsent(e.target.checked); setError(""); }} className="mt-1" />
-        Send {whole ? "this whole track" : "this excerpt"} and my intent to OpenAI. Provider charges apply (up to {whole ? Math.ceil(total / 30) : 1} requests).</label>
+      <div className={`space-y-2 border-l-2 pl-3 ${permissionError ? "border-amber-400" : consent ? "border-emerald-500" : "border-neutral-600"}`}>
+        <label className="flex cursor-pointer items-start gap-3 text-sm"><input ref={consentInput} type="checkbox" disabled={locked || !available} checked={consent}
+          aria-invalid={permissionError || undefined} aria-describedby={permissionError ? `listening-permission-${item.id}` : undefined}
+          onChange={e => { setConsent(e.target.checked); setError(""); }} className="mt-1 h-5 w-5 shrink-0 accent-emerald-600" />
+          <span><span className="block font-medium">Allow audio analysis</span>
+            <span className="mt-1 block text-xs text-neutral-300">Send {whole ? "this whole track" : "this excerpt"} and my intent to OpenAI. Provider charges apply (up to {whole ? Math.ceil(total / 30) : 1} requests).</span></span></label>
+        {permissionError && <p id={`listening-permission-${item.id}`} role="alert" className="text-sm text-amber-200">{error} No listening request was sent.</p>}
+      </div>
       <div ref={composer} className="space-y-3 scroll-my-20">
         <label className="block text-sm">What do you want from this reference?
           <textarea ref={intentInput} value={intent} maxLength={1000} disabled={locked} onChange={e => { setIntent(e.target.value); setError(""); }} rows={3}
@@ -160,7 +167,7 @@ export default function ReferenceListening({ item, available, refresh, checkedAt
         <p className="text-xs text-neutral-300">{!available ? "Audio listening is unavailable on the server." : busy ? "Waiting for the server to confirm your request." : uncertain ? "Submission unconfirmed. Sending again is paused to avoid duplicate charges." : running ? "Your submitted intent is being processed." : !intent.trim() ? "Your listening intent is empty." : intent.trim() === latestIntent?.trim() ? "This intent was already submitted. Sending again requires fresh permission." : !consent ? "Draft not sent. Audio-sharing permission is required." : "Ready to send. Your intent has not been submitted yet."}</p>
       </div>
     </form>
-    {error && <p role="alert" className="text-sm text-red-300 break-words">{error}</p>}
+    {error && !permissionError && <p role="alert" className="text-sm text-red-300 break-words">{error}</p>}
     {notice && <p role="status" className="text-sm text-emerald-200">{notice}</p>}
     {(job || newestExcerpt || uncertain) && <div className="space-y-2 border-l-2 border-emerald-500 pl-3 text-sm">
       <h5 className="font-medium">{uncertain ? "Awaiting confirmation" : "Submitted listening intent"}</h5>

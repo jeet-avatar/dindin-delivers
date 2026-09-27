@@ -103,6 +103,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [selected, setSelected] = useState<string | null>(selectedId || null);
   const [showSaved, setShowSaved] = useState(false);
   const [stage, setStage] = useState(guided ? "listening" : "stems");
+  const pollDelay = useRef(4000);
   useEffect(() => {
     if (stage !== "stems") document.querySelectorAll<HTMLAudioElement>('audio[aria-label$="stem player"]').forEach(audio => audio.pause());
   }, [stage]);
@@ -129,6 +130,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     setPollError("");
     setCheckedAt(Date.now());
     const activeJob = data.references.find((item: Reference) => ["uploading", "processing"].includes(item.status));
+    pollDelay.current = activeJob || data.processing?.busy || data.references.some((item: Reference) => item.listening_busy || item.listening?.job?.status === "running") ? 4000 : 15000;
     if (activeJob) setObservedJobId(activeJob.id);
     setItems(data.references); setAvailable(data.available); setReason(data.reason || "");
     setProcessingBusy(Boolean(data.processing?.busy));
@@ -146,9 +148,9 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       clearTimeout(timer);
       inFlight = true;
       try { if (backgroundPollingAllowed()) await refresh(controller.signal); }
-      catch (e) { if (!controller.signal.aborted) setPollError(e instanceof Error ? e.message : "Could not update reference status."); }
+      catch (e) { pollDelay.current = 4000; if (!controller.signal.aborted) setPollError(e instanceof Error ? e.message : "Could not update reference status."); }
       finally { inFlight = false; }
-      if (!controller.signal.aborted) timer = setTimeout(poll, 4000);
+      if (!controller.signal.aborted) timer = setTimeout(poll, pollDelay.current);
     };
     const visible = () => { if (document.visibilityState === "visible") void poll(); };
     document.addEventListener("visibilitychange", visible);

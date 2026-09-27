@@ -102,8 +102,14 @@ async function main() {
       await send().click(); await page.getByRole('alert').filter({ hasText: 'Tell me what you want' }).waitFor();
       await input().fill('Keep the warm bass, but use my own sounds.');
       await send().click(); await page.getByRole('alert').filter({ hasText: 'Your permission' }).waitFor();
+      await page.getByText('Allow audio analysis', { exact: true }).waitFor();
+      assert.equal(await consent().getAttribute('aria-invalid'), 'true');
+      assert.equal(await consent().evaluate(el => document.activeElement === el), true);
+      assert.equal(await page.getByRole('alert').filter({ hasText: 'Your permission' }).count(), 1, 'Show one consent error beside the permission checkbox');
       assert.equal(posts().length, 0);
       await consent().check();
+      assert.equal(await consent().getAttribute('aria-invalid'), null);
+      assert.equal(posts().length, 0, 'Checking consent must not send audio automatically');
       await page.reload(); await open();
       assert.equal(await input().inputValue(), 'Keep the warm bass, but use my own sounds.', 'Draft survives reload');
       assert.equal(await consent().isChecked(), false, 'Consent never survives reload');

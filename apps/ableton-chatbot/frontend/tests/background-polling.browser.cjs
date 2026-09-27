@@ -38,6 +38,9 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await visibility('visible');
     await page.waitForFunction(() => document.querySelector('[aria-label="Reference audio file"]')?.disabled === false);
     assert.ok(Object.values(counts).every(n => n > 0));
+    const idleReferences = counts['/api/references'];
+    await page.waitForTimeout(6500);
+    assert.equal(counts['/api/references'], idleReferences, 'Idle references must not keep polling every four seconds');
     limited = true;
     await page.getByText(/Status updates are paused briefly/).waitFor();
     await page.waitForTimeout(300);
@@ -53,6 +56,6 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.waitForTimeout(5500);
     assert.deepEqual(counts, hidden);
     assert.deepEqual(errors, []);
-    console.log('PASS: hidden tabs stop polling; visibility resumes; 429 pauses all pollers and clears after recovery.');
+    console.log('PASS: hidden tabs stop polling; visibility resumes; idle references poll less often; 429 pauses all pollers and clears after recovery.');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
