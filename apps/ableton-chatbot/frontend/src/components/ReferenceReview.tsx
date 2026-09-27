@@ -13,8 +13,8 @@ export type StemHealth = { checks_passed: boolean; stems: Record<string, { align
 const field = "mt-1 w-full min-w-0 rounded border border-neutral-600 bg-neutral-900 p-2 text-sm";
 const stamp = (n: number) => `${Math.floor(n / 60)}:${(n % 60).toFixed(2).padStart(5, '0')}`;
 
-export default function ReferenceReview({ id, name = "reference", mode, timing, review, health, refresh, onCue, onStemSaved, onTimingSaved, onNext }: {
-  id: string; mode: "stems" | "timing"; timing: TimingMap; review: StemReview; health?: StemHealth;
+export default function ReferenceReview({ id, name = "reference", mode, timing, review, health, stems, refresh, onCue, onStemSaved, onTimingSaved, onNext }: {
+  id: string; mode: "stems" | "timing"; timing: TimingMap; review: StemReview; health?: StemHealth; stems?: string[];
   refresh: () => Promise<void>; onCue: (time: number) => void;
   name?: string; onStemSaved?: (review: StemReview) => void; onNext?: () => void;
   onTimingSaved?: (timing: TimingMap) => void;
@@ -40,7 +40,7 @@ export default function ReferenceReview({ id, name = "reference", mode, timing, 
   }
   function changeMap(next: TimingMap) {setMap(next);setDirty(true);setConfirmed(false);}
   if (mode === "stems") return <ReferenceStemReview id={id} name={name} analysisId={timing.analysis_id} review={review} health={health}
-    refresh={refresh} onSaved={onStemSaved} onNext={onNext} />;
+    stems={stems} refresh={refresh} onSaved={onStemSaved} onNext={onNext} />;
   return <fieldset disabled={busy} className="min-w-0 space-y-4 border-t border-neutral-700 pt-4">
     <h4 className="font-medium">Confirm reference timing</h4>
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}

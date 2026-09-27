@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/auth";
+import { CORE_STEMS, stemLabel } from "@/lib/stems";
 import { RefreshIcon } from "./Icons";
 import type { Recording } from "./Recordings";
 
@@ -47,7 +48,7 @@ export function ComparisonPreview({ base, side, label }: { base: string; side: s
   </div>;
 }
 
-export default function SoundComparison({ id, duration }: { id: string; duration: number }) {
+export default function SoundComparison({ id, duration, stems = CORE_STEMS }: { id: string; duration: number; stems?: string[] }) {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [history, setHistory] = useState<Comparison[]>([]);
   const [selected, setSelected] = useState("");
@@ -124,7 +125,7 @@ export default function SoundComparison({ id, duration }: { id: string; duration
           {recordings.map(item => <option key={item.id} value={item.id}>{item.track_name} | {item.created_at ? new Date(item.created_at).toLocaleString() : item.id.slice(0, 8)} | {item.decision}</option>)}
         </select></label>
         <label className="block">Reference layer<select value={layer} onChange={e => setLayer(e.target.value)} className={inputStyle}>
-          {["bass", "drums", "other", "vocals", "mix"].map(name => <option key={name}>{name}</option>)}
+          {[...stems, "mix"].map(name => <option key={name} value={name}>{stemLabel(name)}</option>)}
         </select></label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <label>Reference start (s)<input type="number" min={0} max={Math.max(0, duration - Number(length))} step="0.1" required value={referenceStart} onChange={e => setReferenceStart(e.target.value)} className={inputStyle} /></label>

@@ -5,14 +5,14 @@ import { ArrowRight, Check, RefreshCw, Save } from "lucide-react";
 import { apiFetch, getUser } from "@/lib/auth";
 import type { StemHealth, StemReview } from "./ReferenceReview";
 import ReferenceStemAudio from "./ReferenceStemAudio";
+import { CORE_STEMS, isDetailed, stemLabel } from "@/lib/stems";
 
-const stems = ["drums", "bass", "vocals", "other"] as const;
-const same = (a: Record<string, string>, b: Record<string, string>) => stems.every(stem => (a[stem] || "") === (b[stem] || ""));
-
-export default function ReferenceStemReview({ id, name, analysisId, review, health, refresh, onSaved, onNext }: {
-  id: string; name: string; analysisId: string; review: StemReview; health?: StemHealth; refresh: () => Promise<void>;
+export default function ReferenceStemReview({ id, name, analysisId, review, health, refresh, onSaved, onNext, stems = CORE_STEMS }: {
+  id: string; name: string; analysisId: string; review: StemReview; health?: StemHealth; refresh: () => Promise<void>; stems?: string[];
   onSaved?: (review: StemReview) => void; onNext?: () => void;
 }) {
+  const same = (a: Record<string, string>, b: Record<string, string>) => stems.every(stem => (a[stem] || "") === (b[stem] || ""));
+  const detailed = isDetailed(stems);
   const [decisions, setDecisions] = useState(review.decisions);
   const [saved, setSaved] = useState(review);
   const [heard, setHeard] = useState(review.status === "accepted");
@@ -30,7 +30,7 @@ export default function ReferenceStemReview({ id, name, analysisId, review, heal
   const missing = stems.filter(stem => !decisions[stem]);
   const needsWork = stems.filter(stem => decisions[stem] === "needs_work");
   const kept = stems.filter(stem => decisions[stem] === "keep");
-  const stemName = (stem: string) => stem === "other" ? "other instruments" : stem;
+  const stemName = (stem: string) => stemLabel(stem).toLowerCase();
   function focusChoice(stem: string) {
     const control = section.current?.querySelector<HTMLSelectElement>(`select[aria-label="${stem} reference decision"]`);
     control?.focus({ preventScroll: true });
@@ -133,9 +133,10 @@ export default function ReferenceStemReview({ id, name, analysisId, review, heal
   return <section ref={section} aria-label="Stem review" className="min-w-0 space-y-4 border-t border-neutral-700 pt-4">
     <h4 className="font-medium">Review separated stems</h4>
     <div className="space-y-1 text-sm">
-      <p className={health?.checks_passed ? "text-emerald-300" : "text-amber-200"}>{health?.checks_passed ? "4 separated audio files saved with this reference" : "Stem file integrity has not passed checks"}</p>
-      <p className="text-xs text-neutral-400">Drums / Bass / Vocals / Other instruments. Estimated separation; bleed and artifacts may remain.</p>
-      <p className="text-xs text-neutral-400">Drums contains kick, snare, hi-hat and other percussion together. Individual drum stems are not available in this model.</p>
+      <p className={health?.checks_passed ? "text-emerald-300" : "text-amber-200"}>{health?.checks_passed ? `${stems.length} separated stems saved with this reference` : "Stem file integrity has not passed checks"}</p>
+      <p className="text-xs text-neutral-400">{stems.map(stemLabel).join(" / ")}. Estimated separation; bleed and artifacts may remain.</p>
+      <p className="text-xs text-neutral-400">{detailed ? "Kick, snare, toms and cymbals are estimated from the drums stem. Hi-hat stays with cymbals, and some bleed between drum parts is possible."
+        : "Drums contains kick, snare, hi-hat and other percussion together. Individual drum stems are not available for this reference."}</p>
       <p role="status">{ready ? "Choices saved for the next step" : savedChoices ? "Choices saved; review needs attention" : uncertain ? "Save not confirmed" : `Review not saved: ${stems.length - missing.length} of ${stems.length} layer choices made`}</p>
       {!health?.checks_passed && <button type="button" disabled={busy} onClick={() => void refreshChecks()} className="inline-flex items-center gap-2 rounded border border-neutral-600 px-3 py-2 text-sm"><RefreshCw size={16} />Refresh stem checks</button>}
     </div>
@@ -147,7 +148,7 @@ export default function ReferenceStemReview({ id, name, analysisId, review, heal
       </button>
     </div>
     {stems.map(stem => <div key={stem} data-stem={stem} className="space-y-3 border-b border-neutral-800 pb-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2"><h5 className="text-sm font-medium capitalize">{stem === "other" ? "Other instruments" : stem}</h5>
+      <div className="flex flex-wrap items-baseline justify-between gap-2"><h5 className="text-sm font-medium">{stemLabel(stem)}</h5>
         {health?.stems[stem] && <span className="text-xs text-neutral-400">{health.stems[stem].rms_dbfs} dBFS RMS{health.stems[stem].quiet ? " / Very quiet" : ""}{health.stems[stem].clipped_sample_fraction > 0.001 ? " / Possible clipping" : ""}</span>}
       </div>
       <ReferenceStemAudio id={id} stem={stem} name={name} />

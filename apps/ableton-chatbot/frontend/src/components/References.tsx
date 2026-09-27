@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
+import { audioStems, reviewStems, stemLabel } from "@/lib/stems";
 import { backgroundPollingAllowed } from "@/lib/background-polling";
 import { uploadReference, UploadConfirmationError, type UploadProgress } from "@/lib/reference-upload";
 import ReferenceStatus from "./ReferenceStatus";
@@ -34,7 +35,7 @@ type Reference = {
 
 const time = (seconds: number) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
 
-function ReferenceAudio({ id, cue }: { id: string; cue: { seconds: number } }) {
+function ReferenceAudio({ id, cue, stems }: { id: string; cue: { seconds: number }; stems: string[] }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [stem, setStem] = useState("mix");
   const [url, setUrl] = useState("");
@@ -65,7 +66,7 @@ function ReferenceAudio({ id, cue }: { id: string; cue: { seconds: number } }) {
       <select aria-label="Reference audio layer" value={stem} onChange={e => setStem(e.target.value)}
         className="rounded border border-neutral-600 bg-neutral-900 px-3 py-2">
         <option value="mix">Original mix</option>
-        {["drums", "bass", "vocals", "other"].map(s => <option key={s} value={s}>{s} (estimated)</option>)}
+        {stems.map(s => <option key={s} value={s}>{stemLabel(s)} (estimated)</option>)}
       </select>
     </label>
     {error ? <p role="alert" className="text-sm text-red-300">{error}</p> :
@@ -294,18 +295,18 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
             <div><dt className="text-neutral-400">Duration</dt><dd>{time(item.report.duration_seconds)}</dd></div>
             <div className="col-span-2"><dt className="text-neutral-400">Possible keys</dt><dd>{item.report.key_candidates.map(k => k.key).join(" / ") || "Not enough tonal evidence"}</dd></div>
           </dl>
-          <div ref={audioSection}><ReferenceAudio key={item.id} id={item.id} cue={cue} /></div>
+          <div ref={audioSection}><ReferenceAudio key={item.id} id={item.id} cue={cue} stems={audioStems(item.report)} /></div>
           <ReferenceWorkflow stage={stage} onStage={setStage} review={item.stem_review} timing={item.timing} listening={item.listening} listeningBusy={item.listening_busy}
             template={item.template} onOpenChat={onOpenChat} />
           {item.timing && item.stem_review && (["stems", "timing"] as const).map(mode => <div key={mode} hidden={stage!==mode}>
             <ReferenceReview key={`${item.id}-${mode}-${item.timing!.analysis_id}`} id={item.id} name={item.name} mode={mode} timing={item.timing!} review={item.stem_review!}
-              health={item.report!.stem_health} refresh={refresh} onCue={seconds => setCue({seconds})}
+              health={item.report!.stem_health} stems={reviewStems(item.report)} refresh={refresh} onCue={seconds => setCue({seconds})}
               onStemSaved={review => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, stem_review: review } : reference))}
               onTimingSaved={timing => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, timing } : reference))}
               onNext={() => setStage(mode === "stems" ? "timing" : "listening")} /></div>)}
           <div hidden={stage!=="listening"}><ReferenceListening key={item.id} item={item} available={listeningAvailable} refresh={refresh}
             checkedAt={checkedAt} pollError={pollError} onNext={() => setStage("template")} onDiscuss={chatBusy || busy ? undefined : () => onUse(item.id)} /></div>
-          {stage === "compare" && <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} />}
+          {stage === "compare" && <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} stems={audioStems(item.report)} />}
           <div hidden={stage!=="template"}>{item.timing?.status === "confirmed" && item.stem_review?.status === "accepted" ?
             <ReferenceTemplate key={`template-${item.id}-${item.timing.revision}`} id={item.id} template={item.template} bpm={item.report.tempo.bpm} timing={item.timing}
               refresh={refresh} onUse={() => onUse(item.id, true)} chatBusy={chatBusy} onApproved={onTemplateApproved}

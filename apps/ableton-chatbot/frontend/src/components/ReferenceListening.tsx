@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, getUser } from "@/lib/auth";
+import { audioStems, stemLabel } from "@/lib/stems";
 import { excerptRangeError, latestListening, listeningCoverage, requestWasSaved, type ListeningData, type ListeningExcerpt, type ListeningRequestReceipt } from "@/lib/reference-listening";
 
 const stamp = (seconds: number) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
 const field = "mt-2 w-full min-w-0 rounded border border-neutral-600 bg-neutral-900 p-2";
 
 export default function ReferenceListening({ item, available, refresh, checkedAt, pollError, onDiscuss, onNext }: {
-  item: { id: string; listening?: ListeningData; listening_busy?: boolean; report?: { duration_seconds: number } };
+  item: { id: string; listening?: ListeningData; listening_busy?: boolean; report?: { duration_seconds: number; stems?: { name: string }[] } };
   available: boolean; refresh: () => Promise<void>; checkedAt: number | null; pollError: string; onDiscuss?: () => void;
   onNext?: () => void;
 }) {
@@ -50,7 +51,7 @@ export default function ReferenceListening({ item, available, refresh, checkedAt
       if (typeof saved?.whole === "boolean") setWhole(saved.whole);
       if (Number.isFinite(saved?.start)) setStart(saved.start);
       if (Number.isFinite(saved?.duration)) setDuration(saved.duration);
-      if (["mix", "drums", "bass", "vocals", "other"].includes(saved?.layer)) setLayer(saved.layer);
+      if (["mix", ...audioStems(item.report)].includes(saved?.layer)) setLayer(saved.layer);
       if (typeof saved?.pending?.intent === "string" && Number.isFinite(saved.pending.sentAt)) setUncertain(saved.pending);
     } catch { /* Storage can be unavailable in private browsing. */ }
   }, [item.id]);
@@ -144,7 +145,7 @@ export default function ReferenceListening({ item, available, refresh, checkedAt
           <label>Length (seconds)<input type="number" min={5} max={Math.min(30, total - start)} step="any" value={duration} onChange={e => { setDuration(Number(e.target.value)); setConsent(false); setError(""); }} className={field} /></label>
         </div>
         <label className="block">Audio layer<select aria-label="Listening audio layer" value={layer} onChange={e => { setLayer(e.target.value); setConsent(false); }} className={field}>
-          {["mix", "drums", "bass", "vocals", "other"].map(s => <option key={s}>{s}</option>)}
+          {["mix", ...audioStems(item.report)].map(s => <option key={s} value={s}>{stemLabel(s)}</option>)}
         </select></label>
         {rangeError && <p className="text-amber-200">{rangeError}</p>}
       </fieldset>}
