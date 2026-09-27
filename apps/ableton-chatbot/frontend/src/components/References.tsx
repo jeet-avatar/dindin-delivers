@@ -139,7 +139,10 @@ function ReferenceAudio({ id, cue }: { id: string; cue: { seconds: number } }) {
   </div>;
 }
 
-export default function References({ onUse, chatBusy }: { onUse: (id: string, template?: boolean) => void; chatBusy: boolean }) {
+export default function References({ onUse, chatBusy, selectedId, onSelect, guided = false }: {
+  onUse: (id: string, template?: boolean) => void; chatBusy: boolean;
+  selectedId?: string | null; onSelect?: (id: string | null) => Promise<void>; guided?: boolean;
+}) {
   const [items, setItems] = useState<Reference[]>([]);
   const [available, setAvailable] = useState(false);
   const [listeningAvailable, setListeningAvailable] = useState(false);
@@ -148,9 +151,18 @@ export default function References({ onUse, chatBusy }: { onUse: (id: string, te
   const [busy, setBusy] = useState(false);
   const [rights, setRights] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [stage, setStage] = useState("stems");
+  const [selected, setSelected] = useState<string | null>(selectedId || null);
+  const [stage, setStage] = useState(guided ? "listening" : "stems");
   const [cue, setCue] = useState({ seconds: 0 });
+  useEffect(() => { setSelected(selectedId || null); }, [selectedId]);
+  async function select(id: string | null) {
+    setBusy(true); setError("");
+    try {
+      await onSelect?.(id);
+      setSelected(id); setStage(guided ? "listening" : "stems"); setCue({seconds:0});
+    } catch (error) { setError(error instanceof Error ? error.message : "Could not attach this reference to the song."); }
+    finally { setBusy(false); }
+  }
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const response = await apiFetch("/api/references", { signal });
     if (!response.ok) throw new Error(response.status === 401 ? "Sign in again to access references." : "Could not load references.");
@@ -180,7 +192,7 @@ export default function References({ onUse, chatBusy }: { onUse: (id: string, te
         headers: { "Content-Type": "application/octet-stream", "X-Reference-Name": encodeURIComponent(file.name), "X-Rights-Confirmed": "true" } });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || "Upload failed.");
-      await refresh(); setSelected(data.id); setStage("stems"); setCue({seconds:0});
+      await refresh(); await select(data.id);
     } catch (e) { setError(e instanceof Error ? e.message : "Upload failed."); }
     finally { setBusy(false); }
   }
@@ -190,29 +202,30 @@ export default function References({ onUse, chatBusy }: { onUse: (id: string, te
     try {
       const response = await apiFetch(`/api/references/${id}`, { method: "DELETE" });
       if (!response.ok) throw new Error((await response.json()).detail || "Delete failed.");
-      if (id === selected) setSelected(null);
+      if (id === selected) await select(null);
       await refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Delete failed."); }
   }
   const item = items.find(i => i.id === selected);
   return <section className="mx-auto w-full max-w-5xl p-4 sm:p-6 space-y-6">
-    <h2 className="text-xl font-semibold">Reference tracks</h2>
+    <h2 className="text-xl font-semibold">{guided ? "Your song reference" : "Reference tracks"}</h2>
+    {guided && !selected && <p className="text-sm">Which track would you like to use as inspiration?</p>}
     {reason && <p role="status" className="text-sm text-amber-200">{reason}</p>}
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
     <div className="space-y-3 border-b border-neutral-700 pb-5">
       <label className="block text-sm">Audio file <span className="text-neutral-400">(50 MB, 5 seconds to 10 minutes)</span>
         <input type="file" aria-label="Reference audio file" accept=".wav,.aif,.aiff,.mp3,.m4a,.flac,.ogg"
-          disabled={!available || busy} onChange={e => setFile(e.target.files?.[0] || null)} className="block mt-2 w-full text-sm" />
+          disabled={!available || busy || chatBusy} onChange={e => setFile(e.target.files?.[0] || null)} className="block mt-2 w-full text-sm" />
       </label>
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={rights} onChange={e => setRights(e.target.checked)} className="mt-1" />
         I have permission to upload and analyze this audio.</label>
-      <button type="button" onClick={upload} disabled={!available || !file || !rights || busy}
+      <button type="button" onClick={upload} disabled={!available || !file || !rights || busy || chatBusy}
         className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{busy ? "Uploading..." : "Analyze reference"}</button>
     </div>
     <div className="grid gap-6 md:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
       <div className="space-y-1" aria-label="Saved references">
         {!items.length && <p className="text-sm text-neutral-400">No reference tracks yet.</p>}
-        {items.map(i => <button key={i.id} type="button" onClick={() => {setSelected(i.id);setStage("stems");setCue({seconds:0});}}
+        {items.map(i => <button key={i.id} type="button" disabled={busy || chatBusy} onClick={() => void select(i.id)}
           aria-pressed={selected === i.id} className={`w-full border-l-2 p-3 text-left ${selected === i.id ? "border-emerald-400 bg-neutral-800" : "border-transparent"}`}>
           <span className="block break-all text-sm font-medium">{i.name}</span>
           <span className="text-xs text-neutral-400">{i.stage || i.status}</span>
@@ -224,6 +237,20 @@ export default function References({ onUse, chatBusy }: { onUse: (id: string, te
         {item.error && <p role="alert" className="text-sm text-red-300">{item.error}</p>}
         {item.status === "processing" && <p role="status">{item.stage || "Processing..."}</p>}
         {item.report && item.status === "ready" && <>
+          {guided && <div className="border-l-2 border-emerald-400 pl-3 space-y-2 text-sm">
+            {!item.listening?.coverage?.full_coverage ? <>
+              <p>Would you like me to listen to this track? What stands out to you?</p>
+              {stage !== "listening" && <button className="underline" onClick={() => setStage("listening")}>Review listening consent</button>}
+            </> : <>
+              <p>Listening notes ready. What would you like to borrow: the groove, bass, atmosphere, or structure?</p>
+              <button disabled={chatBusy || busy} onClick={() => onUse(item.id)} className="underline disabled:opacity-40">Discuss what I like</button>
+              <div className="flex flex-wrap gap-3">
+                <button onClick={() => setStage("stems")} className="underline">{item.stem_review?.status === "accepted" ? "Stems reviewed" : "Review estimated stems"}</button>
+                <button onClick={() => setStage("timing")} className="underline">{item.timing?.status === "confirmed" ? "Timing confirmed" : "Confirm section timing"}</button>
+                <button onClick={() => setStage("template")} className="underline">{item.template?.status === "approved" ? "Template approved" : "Shape my original template"}</button>
+              </div>
+            </>}
+          </div>}
           <svg role="img" aria-label="Reference waveform" viewBox="0 0 160 40" className="h-20 w-full" preserveAspectRatio="none">
             {item.report.waveform.map((v, i) => <line key={i} x1={i} x2={i} y1={20-v*19} y2={20+v*19} stroke="#34d399" strokeWidth="0.6" />)}
           </svg>
@@ -254,7 +281,7 @@ export default function References({ onUse, chatBusy }: { onUse: (id: string, te
           <details className="text-xs text-neutral-400"><summary className="cursor-pointer">Analysis limitations</summary>
             <ul className="mt-2 space-y-1">{item.report.limitations.map(l => <li key={l}>{l}</li>)}</ul></details>
           </details>
-          <button type="button" disabled={chatBusy} onClick={() => onUse(item.id)} className="rounded bg-emerald-700 px-4 py-2 text-sm disabled:opacity-40">Discuss reference in chat</button>
+          {!guided && <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id)} className="rounded bg-emerald-700 px-4 py-2 text-sm disabled:opacity-40">Discuss reference in chat</button>}
         </>}
         {!['processing', 'uploading'].includes(item.status) && <button type="button" onClick={() => remove(item.id)} className="block text-sm text-red-300">Delete reference</button>}
       </div>}

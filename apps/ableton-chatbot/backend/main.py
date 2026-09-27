@@ -29,6 +29,7 @@ from session_context import matching_recordings, context_note
 from model_history import bounded_history
 import references
 import chat_store
+import song_projects
 import chat_tools
 from sections import SECTION_TOOL, get_brief, set_brief, source_error
 from recordings import ROOT as RECORDINGS_ROOT, save_recording, list_recordings, owned_recording, decide_recording, attach_evidence
@@ -128,6 +129,7 @@ class ChatSession:
         self.bridge: BridgeConnection | None = None
         self.actions: list[dict] = []
         self.ui_messages: list[dict] = []
+        self.project: dict | None = None
 
 
 sessions: dict[str, ChatSession] = {}
@@ -456,7 +458,8 @@ os.execl(sys.executable, sys.executable, bridge_path, "--server", "{ws_url}", "-
 # ---- Chat endpoint ----
 
 class LiveSetRequest(BaseModel):
-    operation: str = Field(pattern="^(activate|save|new|inspect)$")
+    operation: str = Field(pattern="^(activate|save|new|inspect|confirm_current|confirm_new)$")
+    session_id: str | None = Field(default=None, pattern=r'^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$')
 
 
 @app.post("/api/live-set")
@@ -468,8 +471,78 @@ async def live_set_action(req: LiveSetRequest, user: dict = Depends(require_subs
     bridge = owned[0]
     if bridge.lock.locked():
         raise HTTPException(409, "Finish or stop the current production request first.")
-    async with bridge.lock:
-        return await bridge.local_operation("live_set", {"operation": req.operation})
+    async with AsyncExitStack() as stack:
+        session = None
+        if req.session_id:
+            stack.enter_context(chat_store.acquire(user['id'], req.session_id))
+            session, saved = saved_project(user['id'], req.session_id)
+        stack.enter_context(chat_store.acquire(user['id'], '_production'))
+        await stack.enter_async_context(bridge.lock)
+        confirming = req.operation.startswith('confirm_')
+        if confirming and session is None:
+            raise HTTPException(422, 'Choose a song before confirming its Live Set.')
+        result = await bridge.local_operation("live_set", {"operation": 'inspect' if confirming else req.operation})
+        if confirming:
+            if result.get('status') not in {'observed', 'verified'} or not result.get('title'):
+                raise HTTPException(409, 'Could not verify the current Live Set. Check Ableton and retry.')
+            if req.operation == 'confirm_new' and result.get('new_set_ready') is not True:
+                raise HTTPException(409, 'The new set is not confirmed. Complete any save prompt in Ableton and check again.')
+            session.project['live_set'] = {'title': result['title'], 'choice': req.operation,
+                                           'confirmed_at': datetime.now(timezone.utc).isoformat()}
+            chat_store.save(session, saved['status'])
+            result['project'] = session.project
+        return result
+
+
+def saved_project(user_id, session_id):
+    saved = chat_store.load(user_id, session_id)
+    if not saved or not saved.get('project'):
+        raise HTTPException(404, 'Song project not found.')
+    session = ChatSession(session_id, user_id)
+    session.messages = saved['messages']
+    session.ui_messages = saved.get('ui_messages', [])
+    session.actions = saved.get('actions', [])
+    session.reference_id = saved.get('reference_id')
+    session.project = saved['project']
+    return session, saved
+
+
+class SongProjectRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=70)
+    starting_point: str | None = Field(default=None, pattern='^(reference|idea)$')
+    reference_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
+
+
+@app.post('/api/chats')
+async def create_song_project(user: dict = Depends(get_current_user)):
+    rate_limit(f"new-song:{user['id']}", max_requests=20, window_seconds=60)
+    session = ChatSession(str(uuid.uuid4()), user['id'])
+    session.project = {'title': 'New song', 'starting_point': None, 'live_set': None,
+                       'created_at': datetime.now(timezone.utc).isoformat()}
+    with chat_store.acquire(user['id'], session.session_id):
+        chat_store.save(session, 'complete')
+    return {'sessionId': session.session_id, 'messages': [], 'referenceId': None, 'project': session.project}
+
+
+@app.patch('/api/chats/{session_id}/project')
+async def update_song_project(session_id: str, req: SongProjectRequest, user: dict = Depends(get_current_user)):
+    with chat_store.acquire(user['id'], session_id):
+        session, saved = saved_project(user['id'], session_id)
+        if req.title is not None:
+            if not req.title.strip():
+                raise HTTPException(422, 'Give your song a name.')
+            session.project['title'] = req.title.strip()
+        if req.starting_point is not None:
+            session.project['starting_point'] = req.starting_point
+            if req.starting_point == 'idea':
+                session.reference_id = None
+        if 'reference_id' in req.model_fields_set:
+            if req.reference_id:
+                references.owned(req.reference_id, user['id'])
+                session.project['starting_point'] = 'reference'
+            session.reference_id = req.reference_id
+        chat_store.save(session, saved['status'])
+        return {'project': session.project, 'referenceId': session.reference_id}
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=12000)
@@ -506,8 +579,9 @@ def prepare_chat(req: ChatRequest, user: dict):
         session.messages = chat_store.recover_messages(saved)
         session.actions = saved.get('actions', [])
         session.reference_id = saved.get('reference_id')
+        session.project = saved.get('project')
     reference_id = req.reference_id if 'reference_id' in req.model_fields_set else getattr(session, 'reference_id', None)
-    reference_note = references.reference_context(reference_id, user['id']) if reference_id else ''
+    reference_note = song_projects.reference_note(reference_id, user['id'])
     session.reference_id = reference_id
     session.reference_note = reference_note
     return session, bridge
@@ -526,21 +600,29 @@ async def produce_chat(req, session, bridge, emit=None):
             session.messages = chat_store.recover_messages(saved)
             session.ui_messages = chat_store.visible_messages(saved)
             session.reference_id = saved.get('reference_id')
+            session.project = saved.get('project')
         if 'reference_id' in req.model_fields_set:
             session.reference_id = req.reference_id
         reference_id = getattr(session, 'reference_id', None)
-        session.reference_note = references.reference_context(reference_id, session.user_id) if reference_id else ''
-        session.planning_only = req.planning_only
+        session.reference_note = song_projects.reference_note(reference_id, session.user_id)
+        session.project_note = song_projects.planning_reason(session.project, reference_id, session.user_id)
+        session.planning_only = req.planning_only or bool(session.project_note)
         session.pending_review = False
         session.current_track_names = []
         session.current_recordings = []
         if bridge:
             await stack.enter_async_context(bridge.lock)
+            if session.project and not session.planning_only:
+                live = await bridge.local_operation('live_set', {'operation': 'inspect'})
+                if live.get('status') not in {'observed', 'verified'} or live.get('title') != session.project['live_set']['title']:
+                    raise HTTPException(409, 'The open Ableton set no longer matches this song. Use Choose Live Set before making changes. Nothing was changed.')
             state = await bridge.send_command("/live/song/get/track_names", [], True)
             if state.get("status") != "ok" or not isinstance(state.get("args"), list):
                 raise HTTPException(409, "Unable to inspect the current Live Set. Reconnect the bridge before continuing.")
             session.current_track_names = state["args"]
-            session.current_recordings = matching_recordings(list_recordings(session.user_id), state["args"])
+            # A new song's planning must not inherit approvals from the old open set.
+            session.current_recordings = [] if session.project and not session.project.get('live_set') else matching_recordings(
+                list_recordings(session.user_id, session.session_id) if session.project else list_recordings(session.user_id), state["args"])
             session.pending_review = any(item["decision"] == "pending" for item in session.current_recordings)
         session.messages.append({"role": "user", "content": req.message})
         now = datetime.now(timezone.utc).isoformat()
@@ -592,6 +674,7 @@ async def chat_details(session_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(404, 'Conversation not found.')
     visible = chat_store.visible_messages(data)
     return {'sessionId': session_id, 'messages': visible, 'referenceId': data.get('reference_id'),
+            'project': data.get('project'),
             'status': data['status'], 'updatedAt': data['updated_at']}
 
 
@@ -676,10 +759,11 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     messages = session.messages
     bridge_note = "" if bridge else "\n\nNOTE: No Ableton bridge connected. No live music changes are possible. Server-side saved-audio discovery and comparison remain available."
     bridge_note += getattr(session, 'reference_note', '')
+    bridge_note += '\n' + getattr(session, 'project_note', '')
     planning_only = getattr(session, 'planning_only', False)
     if planning_only:
         bridge_note += "\nThis turn is discussion only. Ask one next question. Do not play, audition, change music or create a production plan; only read-only discovery is available."
-    if bridge:
+    if bridge and (not session.project or session.project.get('live_set')):
         previous_section = get_brief(session.user_id, session.session_id)
         if previous_section:
             bridge_note += "\nPrevious requested section brief (historical intent, not evidence of completed music): " + json.dumps(previous_section) + ". For a section continuation or same-pack request, inspect current scenes and call set_section_brief to confirm the source for this request."
@@ -755,7 +839,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                     if previous_id:
                         from recordings import link_revision
                         link_revision(result["recording"]["id"], previous_id, session.user_id)
-                    result["recording"] = attach_evidence(result["recording"]["id"], session.user_id, tool_calls_log)
+                    result["recording"] = attach_evidence(result["recording"]["id"], session.user_id, tool_calls_log,
+                                                          **({'session_id': session.session_id} if session.project else {}))
                 tool_results.append({"type": "tool_result", "tool_use_id": tu.id,
                                      "content": json.dumps(result), "is_error": result.get("status") in BAD_STATUSES})
                 if emit:

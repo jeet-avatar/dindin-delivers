@@ -99,13 +99,19 @@ type Nav = "home" | "beatmind" | "mixmind" | "downloads" | "account" | "recordin
 interface SavedChat {
   messages: Message[]; sessionId: string | null; input: string;
   running?: boolean; runningId?: string;
+  project?: SongProject | null; referenceId?: string | null;
+}
+interface SongProject {
+  title: string; starting_point: "reference" | "idea" | null;
+  live_set: { title: string; choice: string } | null;
 }
 
 function writeChat(userId: number, id: string, snapshot: SavedChat): ChatEntry[] {
   const prefix = `beatmind_chats_v2_${userId}`;
   const index = JSON.parse(localStorage.getItem(prefix) || '{"chats":[]}');
-  const title = snapshot.messages.find(m => m.role === "user")?.content.slice(0, 70) || "New chat";
+  const title = snapshot.project?.title || snapshot.messages.find(m => m.role === "user")?.content.slice(0, 70) || "New song";
   const restored = restoreChatIndex(index.chats, chatId => localStorage.getItem(`${prefix}_${chatId}`));
+  if (!snapshot.sessionId && !snapshot.messages.length && !snapshot.input.trim() && !snapshot.project) return restored;
   const chats: ChatEntry[] = [...restored.filter(c => c.id !== id), { id, title, sessionId: snapshot.sessionId }];
   // Save the conversation before changing the active pointer; failed storage must not erase it.
   localStorage.setItem(`${prefix}_${id}`, JSON.stringify(snapshot));
@@ -146,7 +152,10 @@ export default function DashboardPage() {
   const [nav, setNav] = useState<Nav>("beatmind");
   const [messages, setMessages] = useState<Message[]>([]);
   const [songSetup, setSongSetup] = useState<string | null>(null);
-  const [queuedSong, setQueuedSong] = useState<string | null>(null);
+  const [project, setProject] = useState<SongProject | null>(null);
+  const [referenceId, setReferenceId] = useState<string | null>(null);
+  const [projectBusy, setProjectBusy] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [chatId, setChatId] = useState("");
   const [chats, setChats] = useState<ChatEntry[]>([]);
   const [serverChats, setServerChats] = useState<ChatEntry[]>([]);
@@ -191,6 +200,7 @@ export default function DashboardPage() {
         if (Array.isArray(saved.messages)) setMessages(restoredMessages(saved));
         if (typeof saved.sessionId === "string") setSessionId(saved.sessionId);
         if (typeof saved.input === "string") setInput(saved.input);
+        setProject(saved.project || null); setReferenceId(saved.referenceId || null);
       }
     } catch { setHistoryError("Saved chat could not be restored. Existing Ableton work is unchanged."); }
     setHistoryReady(true);
@@ -204,7 +214,7 @@ export default function DashboardPage() {
       const savedMessages = messages.slice(-50).map(m => ({ ...m,
         toolCalls: m.toolCalls?.map(a => ({ ...a, result: a.result ? { ...a.result, steps: undefined } : undefined })),
       }));
-      const snapshot = { messages: savedMessages, sessionId, input, running: loading,
+      const snapshot = { messages: savedMessages, sessionId, input, project, referenceId, running: loading,
         runningId: loading ? messages.at(-1)?.id : undefined };
       let encoded = JSON.stringify(snapshot);
       while (encoded.length > 2000000 && snapshot.messages.length > 2) {
@@ -217,7 +227,7 @@ export default function DashboardPage() {
         chat.id === savedChats[index].id && chat.title === savedChats[index].title && chat.sessionId === savedChats[index].sessionId
       ) ? previous : savedChats);
     } catch { setHistoryError("Chat history could not be saved in this browser. Keep this tab open until the request finishes."); }
-  }, [historyReady, user, messages, sessionId, input, loading, chatId]);
+  }, [historyReady, user, messages, sessionId, input, loading, chatId, project, referenceId]);
 
   useEffect(() => {
     if (!user?.id || loading) return;
@@ -234,15 +244,16 @@ export default function DashboardPage() {
     if (!user || !historyReady || loading || requestRef.current) return;
     setHistoryReady(false);
     try {
-      writeChat(user.id, chatId, { messages, sessionId, input, running: false });
+      writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: false });
       const response = await apiFetch(`/api/chats/${encodeURIComponent(id)}`);
       if (!response.ok) throw new Error("Saved conversation could not be loaded. Your current chat is unchanged.");
       const data = await response.json();
-      const saved: SavedChat = { messages: data.messages, sessionId: data.sessionId, input: "" };
+      const saved: SavedChat = { messages: data.messages, sessionId: data.sessionId, input: "", project: data.project, referenceId: data.referenceId };
       const localId = `server-${id}`;
       setChats(writeChat(user.id, localId, saved));
       document.querySelectorAll("audio").forEach(audio => audio.pause());
       setChatId(localId); setMessages(restoredMessages(saved)); setSessionId(saved.sessionId); setInput("");
+      setProject(saved.project || null); setReferenceId(saved.referenceId || null); setNav("beatmind"); setHistoryOpen(false);
       setHistoryError("");
     } catch (e) { setHistoryError(e instanceof Error ? e.message : "Saved conversation unavailable."); }
     finally { setHistoryReady(true); }
@@ -251,7 +262,7 @@ export default function DashboardPage() {
   const openChat = (targetId?: string) => {
     if (!user || !historyReady || loading || requestRef.current) return;
     try {
-      writeChat(user.id, chatId, { messages, sessionId, input, running: false });
+      writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: false });
       const id = targetId || crypto.randomUUID();
       const raw = targetId ? localStorage.getItem(`beatmind_chats_v2_${user.id}_${id}`) : null;
       if (targetId && !raw) throw new Error("Saved conversation is unavailable.");
@@ -260,6 +271,7 @@ export default function DashboardPage() {
       setChats(writeChat(user.id, id, next));
       document.querySelectorAll("audio").forEach(audio => audio.pause());
       setChatId(id); setMessages(next.messages); setSessionId(next.sessionId); setInput(next.input);
+      setProject(next.project || null); setReferenceId(next.referenceId || null); setHistoryOpen(false);
       setHistoryError(""); setNav("beatmind");
       inputRef.current?.focus();
       return true;
@@ -267,26 +279,71 @@ export default function DashboardPage() {
     return false;
   };
 
+  const createProject = useCallback(async (fresh = false) => {
+    if (!user) throw new Error("Sign in before starting a song.");
+    if (!fresh && sessionId) return sessionId;
+    writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: false });
+    const response = await apiFetch("/api/chats", { method: "POST" });
+    if (!response.ok) throw new Error("Your new song could not be saved. The current song is unchanged.");
+    const data = await response.json();
+    const id = `server-${data.sessionId}`;
+    const snapshot: SavedChat = { messages: [], sessionId: data.sessionId, input: "", project: data.project, referenceId: null };
+    setChats(writeChat(user.id, id, snapshot));
+    document.querySelectorAll("audio").forEach(audio => audio.pause());
+    setChatId(id); setSessionId(data.sessionId); setMessages([]); setInput("");
+    setProject(data.project); setReferenceId(null); setHistoryError(""); setHistoryOpen(false); setNav("beatmind");
+    return data.sessionId as string;
+  }, [user, sessionId, chatId, messages, input, project, referenceId]);
+
+  async function newSong() {
+    if (projectBusy || loading || !historyReady) return;
+    setProjectBusy(true);
+    try { await createProject(true); }
+    catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not start a new song."); }
+    finally { setProjectBusy(false); }
+  }
+
+  async function updateProject(change: { title?: string; starting_point?: "reference" | "idea"; reference_id?: string | null }) {
+    const id = await createProject();
+    const response = await apiFetch(`/api/chats/${id}/project`, { method: "PATCH", body: JSON.stringify(change) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Could not save the song choice.");
+    setProject(data.project); setReferenceId(data.referenceId || null);
+    return id;
+  }
+
+  async function chooseStart(starting_point: "reference" | "idea") {
+    if (projectBusy || loading) return;
+    setProjectBusy(true);
+    try {
+      const id = await updateProject({ starting_point });
+      if (starting_point === "reference") setNav("references");
+      else await sendMessage("I'd like to start from my own idea, without a reference.", id, null, true);
+    } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not save your choice."); }
+    finally { setProjectBusy(false); }
+  }
+
   useEffect(() => () => requestRef.current?.abort(), []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [messages.length]);
 
-  const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, referenceId?: string, planningOnly = false) => {
+  const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, selectedReference?: string | null, planningOnly = false) => {
     const text = (messageOverride ?? input).trim();
     if (!text || !historyReady || loading || requestRef.current) return;
     const runId = crypto.randomUUID();
     const controller = new AbortController();
     requestRef.current = controller;
     const createdAt = new Date().toISOString();
-    setMessages(p => [...p, { role: "user", content: text, createdAt }, { id: runId, role: "assistant", createdAt, content: "Planning the next steps...", toolCalls: [] }]);
-    setInput("");
     setLoading(true);
     try {
+      const activeSession = continuationSession ?? sessionId ?? await createProject();
+      setMessages(p => [...p, { role: "user", content: text, createdAt }, { id: runId, role: "assistant", createdAt, content: "Planning the next steps...", toolCalls: [] }]);
+      setInput("");
       const res = await apiFetch("/api/chat/stream", {
         method: "POST",
-        body: JSON.stringify({ message: text, session_id: continuationSession ?? sessionId, reference_id: referenceId, planning_only: planningOnly }),
+        body: JSON.stringify({ message: text, session_id: activeSession, reference_id: selectedReference, planning_only: planningOnly }),
         signal: controller.signal,
       });
       if (res.status === 402) {
@@ -349,6 +406,7 @@ export default function DashboardPage() {
         reader.releaseLock();
       }
     } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : "Request failed.");
       setMessages(p => p.map(m => {
         if (m.id !== runId) return m;
         const inspectionOnly = !!m.toolCalls?.length && m.toolCalls.every(a => a.result?.status === "observed");
@@ -359,13 +417,7 @@ export default function DashboardPage() {
           toolCalls: m.toolCalls?.map(a => a.result ? a : { ...a, result: { status: "unverified", summary: "Interrupted before confirmation. Inspect Ableton before repeating this action." } }) };
       }));
     } finally { requestRef.current = null; setLoading(false); }
-  }, [input, historyReady, loading, sessionId, router, messages.length, refreshBridge]);
-
-  useEffect(() => {
-    if (!queuedSong || loading || requestRef.current) return;
-    setQueuedSong(null);
-    void sendMessage(queuedSong);
-  }, [queuedSong, loading, sendMessage]);
+  }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject]);
 
   const openBilling = async () => {
     if (!user) return;
@@ -525,7 +577,7 @@ export default function DashboardPage() {
 
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-4" aria-live="polite">
         {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
-        {messages.length === 0 && (
+        {(messages.length === 0 || (project && !project.starting_point)) && (
           <div className="flex flex-col items-center justify-center py-8 gap-6 text-center">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "var(--bg-secondary)", color: "var(--accent)" }}>
               <WaveIcon size={28} />
@@ -534,10 +586,9 @@ export default function DashboardPage() {
               <h2 className="text-xl font-semibold mb-1">How would you like to start?</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
-              <button type="button" onClick={() => setNav("references")} className="rounded border p-3 text-sm"
+              <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("reference")} className="rounded border p-3 text-sm disabled:opacity-40"
                 style={{ borderColor: "var(--border)" }}>Use a reference track</button>
-              <button type="button" disabled={loading || !historyReady} onClick={() => void sendMessage(
-                "I'd like to start from my own idea, without a reference.", undefined, undefined, true)}
+              <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("idea")}
                 className="rounded border p-3 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>Start from an idea</button>
             </div>
           </div>
@@ -818,14 +869,11 @@ export default function DashboardPage() {
   // ──────────────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-dvh overflow-hidden" style={{ background: "var(--bg-primary)" }}>
-      {songSetup !== null && <NewSongDialog message={songSetup} onCancel={() => setSongSetup(null)}
-        onCurrent={text => { setSongSetup(null); void sendMessage(text); }}
-        onNew={text => {
-          if (openChat()) { setSongSetup(null); setQueuedSong(text); }
-        }} />}
+      {songSetup !== null && sessionId && <NewSongDialog sessionId={sessionId} onCancel={() => setSongSetup(null)}
+        onReady={updated => { setProject(updated); setSongSetup(null); }} />}
 
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <aside className="flex flex-col w-14 sm:w-52 flex-shrink-0 border-r" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+      <aside className="flex flex-col w-14 sm:w-60 flex-shrink-0 border-r" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
 
         {/* Logo */}
         <div className="px-3 sm:px-5 pt-5 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
@@ -836,7 +884,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 px-1 sm:px-3 py-4 space-y-0.5" aria-label="Main navigation">
+        <nav className="shrink-0 px-1 sm:px-3 py-4 space-y-0.5" aria-label="Main navigation">
           {NAV.map(({ id, label, Icon }) => (
             <button key={id} onClick={() => setNav(id)} title={label} aria-label={label}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left"
@@ -853,6 +901,25 @@ export default function DashboardPage() {
             </button>
           ))}
         </nav>
+
+        <section aria-label="Saved songs" className={`${historyOpen ? "fixed inset-y-0 left-14 right-0 z-40 shadow-xl" : "hidden"} sm:static sm:flex sm:shadow-none flex-col min-h-0 flex-1 border-t p-3 overflow-y-auto`}
+          style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold">Saved songs</h2>
+            <button className="sm:hidden text-sm p-2" onClick={() => setHistoryOpen(false)}>Close</button>
+          </div>
+          <div className="space-y-1">
+            {[...chats].reverse().map(chat => <button key={chat.id} type="button" disabled={!historyReady || loading || projectBusy}
+              aria-label={`Open saved song: ${chat.title}`}
+              onClick={() => chat.sessionId && (chat.id.startsWith("server-") || serverChats.some(item => item.id === chat.sessionId)) ? void openServerChat(chat.sessionId) : openChat(chat.id)}
+              aria-current={chat.id === chatId ? "true" : undefined}
+              className="block w-full border-l-2 px-3 py-2 text-left text-sm break-words disabled:opacity-40"
+              style={{ borderColor: chat.id === chatId ? "#34d399" : "transparent", background: chat.id === chatId ? "var(--bg-primary)" : "transparent" }}>{chat.title}</button>)}
+            {remoteChats.map(chat => <button key={`remote:${chat.id}`} type="button" disabled={!historyReady || loading || projectBusy}
+              aria-label={`Open saved song: ${chat.title}`}
+              onClick={() => void openServerChat(chat.id)} className="block w-full border-l-2 border-transparent px-3 py-2 text-left text-sm break-words disabled:opacity-40">{chat.title}</button>)}
+          </div>
+        </section>
 
         {/* Subscription status pill */}
         <div className="hidden sm:block px-3 pb-5">
@@ -896,21 +963,24 @@ export default function DashboardPage() {
           </button>
         </header>
         {nav === "beatmind" && <div className="flex flex-wrap items-center gap-2 px-3 sm:px-6 py-3 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
-          <label htmlFor="chat-picker" className="text-xs" style={{ color: "var(--text-secondary)" }}>Chats</label>
-          <select id="chat-picker" value={chatId} onChange={event => event.target.value.startsWith("remote:") ? void openServerChat(event.target.value.slice(7)) : openChat(event.target.value)}
-            disabled={!historyReady || loading}
-            className="min-w-0 flex-1 w-24 h-10 rounded border px-2 text-sm disabled:opacity-50"
-            style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }}>
-            {chats.map(chat => <option key={chat.id} value={chat.id}>{chat.title}</option>)}
-            {!!remoteChats.length && <optgroup label="Saved on server">{remoteChats.map(chat => <option key={chat.id} value={`remote:${chat.id}`}>{chat.title}</option>)}</optgroup>}
-          </select>
-          <button type="button" onClick={() => openChat()} disabled={!historyReady || loading}
-            title={loading ? "Wait for production to finish or stop it first" : "Start a new chat; keep existing chats and Ableton work"}
+          <button type="button" className="sm:hidden h-10 px-2 text-sm" onClick={() => setHistoryOpen(true)}>Saved songs</button>
+          {project ? <input key={`${chatId}-${project.title}`} aria-label="Song name" defaultValue={project.title} maxLength={70}
+            disabled={!historyReady || loading || projectBusy} onBlur={async event => {
+              const title = event.target.value.trim();
+              if (!title || title === project.title) return;
+              setProjectBusy(true);
+              try { await updateProject({ title }); } catch (error) { setHistoryError(error instanceof Error ? error.message : "Name could not be saved."); }
+              finally { setProjectBusy(false); }
+            }} className="order-first basis-full sm:order-none sm:basis-auto min-w-0 flex-1 w-32 h-10 bg-transparent border-b px-1 text-sm" style={{ borderColor: "var(--border)" }} /> :
+            <p className="min-w-0 flex-1 text-sm break-words">{chats.find(chat => chat.id === chatId)?.title || "New song"}</p>}
+          <button type="button" onClick={() => void newSong()} disabled={!historyReady || loading || projectBusy}
             className="h-10 px-3 shrink-0 rounded text-sm font-medium disabled:opacity-40"
-            style={{ background: "var(--accent)", color: "white" }}>New chat</button>
-          <button type="button" disabled={!historyReady || loading}
-            onClick={() => setSongSetup(input)} className="h-10 px-3 shrink-0 rounded border text-sm disabled:opacity-40"
-            style={{ borderColor: "var(--border)" }}>New song</button>
+            style={{ background: "var(--accent)", color: "white" }}>New song</button>
+          {project && <div className="w-full flex flex-wrap items-center gap-3 text-xs">
+            <span style={{ color: "var(--text-secondary)" }}>{project.live_set ? `Selected set: ${project.live_set.title}` : "Planning / No Live Set selected"}</span>
+            <button disabled={loading || projectBusy || !bridgeConnected} onClick={() => setSongSetup("")} className="underline disabled:opacity-40">Choose Live Set</button>
+            {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
+          </div>}
         </div>}
 
         {/* Content area */}
@@ -919,11 +989,18 @@ export default function DashboardPage() {
           {nav === "beatmind"  && renderBeatMind()}
           {nav === "mixmind"   && renderMixMind()}
           {nav === "downloads" && renderDownloads()}
-          {nav === "references" && <References chatBusy={loading || !historyReady} onUse={(id, template) => {
+          {nav === "references" && <References key={chatId} selectedId={referenceId} guided={project?.starting_point === "reference"}
+            onSelect={async id => {
+              if (!project) { setReferenceId(id); return; }
+              setProjectBusy(true);
+              try { await updateProject({ reference_id: id }); }
+              finally { setProjectBusy(false); }
+            }} chatBusy={loading || projectBusy || !historyReady} onUse={(id, template) => {
+            setReferenceId(id);
             setNav("beatmind");
             void sendMessage(template
-              ? "Let's plan an original track from my approved reference template. Help me choose the first sound."
-              : "Let's use this reference to shape an original track with my own sounds. What should we decide first?", undefined, id, true);
+              ? "Let's choose the first sound for my reference-inspired track."
+              : "Let's talk about what I like in this reference and what I'd change.", undefined, id, true);
           }} />}
           {nav === "recordings" && <section className="p-4 sm:p-6 min-w-0">
             <h2 className="text-lg font-semibold">Saved recordings</h2>

@@ -38,9 +38,9 @@ def owned_recording(recording_id, user_id):
     return item if item.get("user_id") == user_id else None
 
 
-def list_recordings(user_id):
+def list_recordings(user_id, session_id=None):
     items = [owned_recording(path.stem, user_id) for path in ROOT.glob("*.json")]
-    ordered = sorted((item for item in items if item), key=lambda item: item["created_at"], reverse=True)[:20]
+    ordered = sorted((item for item in items if item and (session_id is None or item.get('session_id') == session_id)), key=lambda item: item["created_at"], reverse=True)[:20]
     return [{key: value for key, value in item.items() if key != "production_log"} for item in ordered]
 
 
@@ -55,10 +55,12 @@ def link_revision(recording_id, previous_id, user_id):
     (ROOT / f"{recording_id}.json").write_text(json.dumps(item))
 
 
-def attach_evidence(recording_id, user_id, actions):
+def attach_evidence(recording_id, user_id, actions, session_id=None):
     item = owned_recording(recording_id, user_id)
     if item is None:
         raise ValueError("Recording not found")
+    if session_id is not None:
+        item['session_id'] = session_id
     item["production_log"] = [
         {**action, "result": {key: value for key, value in action.get("result", {}).items()
                              if key not in {"recording", "audio_base64"}}} for action in actions]

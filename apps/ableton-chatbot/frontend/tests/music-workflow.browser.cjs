@@ -19,6 +19,7 @@ async function main() {
       const context = await browser.newContext({ viewport: { width, height: 900 } });
       const id = 'a'.repeat(32);
       let available = false, initialRead = false, decisions = 0, chats = [];
+      let project = { title: 'New song', starting_point: null, live_set: null };
       let recording = { id, track_name: 'Kick', track: 0, scene: 0, source: 'QA fixture',
         created_at: '2099-01-01T00:00:00Z', decision: 'pending', metrics: { duration_seconds: 1, peak_dbfs: -12, waveform: [0.1, 0.2] } };
       await context.addInitScript(({ id }) => {
@@ -39,7 +40,12 @@ async function main() {
         const reply = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
         if (path === '/api/auth/me') return reply({ id: 987654, email: 'fixture@example.invalid', subscribed: true });
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });
-        if (path === '/api/chats') return reply({ chats: [] });
+        if (path === '/api/chats') return reply(route.request().method() === 'POST'
+          ? { sessionId: 'new-song', messages: [], project, referenceId: null } : { chats: [] });
+        if (path === '/api/chats/new-song/project') {
+          project = { ...project, ...route.request().postDataJSON() };
+          return reply({ project, referenceId: null });
+        }
         if (path === '/api/references') return reply({ references: [], available: true, audio_listening: { available: true } });
         if (path === '/api/recordings') { initialRead = true; return reply({ recordings: available ? [recording] : [] }); }
         if (path === `/api/recordings/${id}/audio`) return route.fulfill({ contentType: 'audio/wav', body: wave() });
@@ -51,7 +57,7 @@ async function main() {
         if (path === '/api/chat/stream') {
           chats.push(route.request().postDataJSON());
           return route.fulfill({ contentType: 'application/x-ndjson', body:
-            JSON.stringify({ type: 'session', session_id: 'qa' }) + '\n' +
+            JSON.stringify({ type: 'session', session_id: route.request().postDataJSON().session_id }) + '\n' +
             JSON.stringify({ type: 'complete', response: 'Which part would you like next?', tool_calls: [] }) + '\n' });
         }
         throw Error('Unexpected API request: ' + route.request().method() + ' ' + path);
@@ -86,7 +92,7 @@ async function main() {
       assert.equal(chats[0].planning_only, true);
       assert.equal(chats[0].message, 'Keep Kick as it is. Which part should we choose next?');
       await page.getByText('Which part would you like next?', { exact: true }).waitFor();
-      await page.getByRole('button', { name: 'New chat', exact: true }).click();
+      await page.getByRole('button', { name: 'New song', exact: true }).click();
       await page.getByRole('heading', { name: 'How would you like to start?' }).waitFor();
       await page.getByRole('button', { name: 'Use a reference track', exact: true }).click();
       await page.getByLabel('Reference audio file').waitFor();

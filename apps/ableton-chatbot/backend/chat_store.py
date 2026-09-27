@@ -41,6 +41,7 @@ def save(session, status, error=None):
     data = {'user_id': session.user_id, 'session_id': session.session_id,
             'updated_at': datetime.now(timezone.utc).isoformat(), 'status': status,
             'reference_id': getattr(session, 'reference_id', None), 'messages': session.messages,
+            'project': getattr(session, 'project', None),
             'actions': getattr(session, 'actions', []),
             'ui_messages': getattr(session, 'ui_messages', []), 'error': error}
     encoded = json.dumps(data, default=as_dict, allow_nan=False)
@@ -108,5 +109,6 @@ def listing(user_id):
     for path in (ROOT / str(int(user_id))).glob('*/state.json'):
         data = load(user_id, path.parent.name)
         title = next((m['content'][:70] for m in data['messages'] if m['role'] == 'user' and isinstance(m['content'], str)), 'Chat')
+        title = (data.get('project') or {}).get('title') or title
         items.append({'id': data['session_id'], 'title': title, 'updated_at': data['updated_at'], 'status': data['status']})
     return sorted(items, key=lambda item: item['updated_at'], reverse=True)[:100]
