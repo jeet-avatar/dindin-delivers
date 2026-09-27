@@ -1,0 +1,28 @@
+const assert = require('node:assert/strict'), fs = require('node:fs'), Module = require('node:module'), ts = require('typescript');
+const path = require('node:path'), React = require('react'), { renderToStaticMarkup } = require('react-dom/server');
+const file = path.resolve(__dirname, '../src/components/ReferenceStatus.tsx');
+const mod = new Module(file, module);
+mod.paths = Module._nodeModulePaths(path.dirname(file));
+mod._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: {
+  module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017, jsx: ts.JsxEmit.ReactJSX,
+} }).outputText, file);
+const now = Date.now();
+const reference = { name: 'My reference.mp3', status: 'processing', stage: 'Estimating drums, bass, vocals and other stems', created_at: new Date(now - 300000).toISOString() };
+const render = props => renderToStaticMarkup(React.createElement(mod.exports.default, { reference, checkedAt: now, ...props }));
+assert.match(render({}), /Separating stems/);
+assert.match(render({ checkedAt: now - 35000 }), /Current status not confirmed/);
+assert.match(render({ checkedAt: null }), /Waiting for a server check/);
+assert.match(render({ pollError: 'Connection lost' }), /Current status not confirmed/);
+const ready = render({ reference: { ...reference, status: 'ready', stage: undefined }, onListen: () => {} });
+assert.match(ready, /Ready to listen/);
+assert.equal((ready.match(/>Done</g) || []).length, 4);
+assert.doesNotMatch(ready, /In progress/);
+assert.match(ready, /Listen to stems/);
+const failed = render({ reference: { ...reference, status: 'failed', error: 'Worker timed out' } });
+assert.match(failed, /Processing failed/);
+assert.match(failed, /Worker timed out/);
+assert.doesNotMatch(failed, /In progress/);
+const sent = render({ reference: { ...reference, status: 'uploading' }, transfer: { loaded: 100, total: 100, sent: true } });
+assert.match(sent, /Confirming upload/);
+assert.doesNotMatch(sent, /Ready to listen/);
+console.log('Reference status: fresh, stale, unknown, ready, failed and 100%-sent-but-unconfirmed passed.');
