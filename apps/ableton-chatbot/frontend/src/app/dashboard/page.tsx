@@ -15,6 +15,8 @@ import NewSongDialog from "@/components/NewSongDialog";
 import References from "@/components/References";
 import ChatComparisons from "@/components/ChatComparisons";
 import BridgeLaunch from "@/components/BridgeLaunch";
+import { useBridgeStatus } from "@/lib/use-bridge-status";
+import { bridgeStatusLabel } from "@/lib/bridge-status";
 
 // ─── Inline icons (avoids prop-type conflicts with existing Icons.tsx) ────────
 function HomeIcon({ size = 20 }: { size?: number }) {
@@ -152,7 +154,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [pendingContinuation, setPendingContinuation] = useState<{ message: string; session_id: string } | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [bridgeConnected, setBridgeConnected] = useState(false);
+  const { status: bridgeStatus, refresh: refreshBridge } = useBridgeStatus(user?.id);
+  const bridgeConnected = bridgeStatus === "connected";
   const [historyReady, setHistoryReady] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const requestRef = useRef<AbortController | null>(null);
@@ -260,20 +263,6 @@ export default function DashboardPage() {
     return false;
   };
 
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const response = await apiFetch("/api/bridge/status");
-        if (!response.ok) { setBridgeConnected(false); return; }
-        const data = await response.json();
-        setBridgeConnected(data.bridge_connected);
-      } catch { setBridgeConnected(false); }
-    };
-    check();
-    const iv = setInterval(check, 5000);
-    return () => clearInterval(iv);
-  }, []);
-
   useEffect(() => () => requestRef.current?.abort(), []);
 
   useEffect(() => {
@@ -317,7 +306,7 @@ export default function DashboardPage() {
         const event = JSON.parse(line);
         if (event.type === "session") {
           setSessionId(event.session_id);
-          setBridgeConnected(event.bridge_connected);
+          refreshBridge();
         } else if (event.type === "narration") {
           narration += `${narration ? "\n\n" : ""}${event.text}`;
           setMessages(p => p.map(m => m.id === runId ? { ...m, content: narration } : m));
@@ -366,7 +355,7 @@ export default function DashboardPage() {
           toolCalls: m.toolCalls?.map(a => a.result ? a : { ...a, result: { status: "unverified", summary: "Interrupted before confirmation. Inspect Ableton before repeating this action." } }) };
       }));
     } finally { requestRef.current = null; setLoading(false); }
-  }, [input, historyReady, loading, sessionId, router, messages.length]);
+  }, [input, historyReady, loading, sessionId, router, messages.length, refreshBridge]);
 
   useEffect(() => {
     if (!queuedSong || loading || requestRef.current) return;
@@ -457,28 +446,17 @@ export default function DashboardPage() {
               </div>
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Music producer for Ableton Live</p>
             </div>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <div className="w-2 h-2 rounded-full" style={{ background: bridgeConnected ? "#22c55e" : "#ef4444" }} />
-              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                {bridgeConnected ? "Live" : "Offline"}
-              </span>
-            </div>
           </div>
           <p className="text-xs mb-5 flex-1" style={{ color: "var(--text-secondary)", lineHeight: "1.65" }}>
             Develop music one part at a time in Ableton Live, with supported instrument controls and captured auditions to review.
           </p>
+          <div className="mb-3"><BridgeLaunch status={bridgeStatus} onRetry={refreshBridge} /></div>
           <div className="flex gap-2">
             <button onClick={() => setNav("beatmind")}
               className="flex-1 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-              style={{ background: "var(--accent)", color: "#fff" }}>
-              Open chat →
+              style={{ background: "var(--accent)", color: "#0a0a0a" }}>
+              {bridgeConnected ? "Let's make music" : "Open chat"}
             </button>
-            <a href="/BeatMind-Bridge.dmg" download
-              className="px-3 py-2 rounded-xl text-xs border flex items-center gap-1.5 transition-opacity hover:opacity-70"
-              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
-              <DownloadIcon size={13} />
-              Bridge
-            </a>
           </div>
         </div>
 
@@ -540,7 +518,7 @@ export default function DashboardPage() {
   const renderBeatMind = () => (
     <div className="flex flex-col flex-1 h-full overflow-hidden">
       {/* Bridge offline banner */}
-      {!bridgeConnected && <BridgeLaunch />}
+      <div className="mx-3 sm:mx-6 mt-4 shrink-0"><BridgeLaunch status={bridgeStatus} onRetry={refreshBridge} /></div>
 
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-4" aria-live="polite">
         {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
@@ -637,7 +615,7 @@ export default function DashboardPage() {
           </button>
         </div>
         <p className="text-xs mt-2 text-center" style={{ color: "var(--text-secondary)" }}>
-          {bridgeConnected ? "Ableton bridge connected" : "Ableton bridge offline"}
+          {bridgeStatusLabel[bridgeStatus]}
         </p>
       </div>
     </div>
@@ -708,16 +686,14 @@ export default function DashboardPage() {
       <h2 className="text-xl font-bold mb-1">Downloads</h2>
       <p className="text-sm mb-7" style={{ color: "var(--text-secondary)" }}>All apps included with your subscription.</p>
 
+      <section aria-label="BeatMind Bridge" className="mb-6 border-b pb-5" style={{ borderColor: "var(--border)" }}>
+        <h3 className="font-semibold text-sm">BeatMind Bridge</h3>
+        <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>macOS 15+ · Apple Silicon · Notarized</p>
+        <BridgeLaunch status={bridgeStatus} onRetry={refreshBridge} />
+        {bridgeConnected && <button onClick={() => setNav("beatmind")} className="mt-2 rounded px-4 py-2 text-sm font-semibold" style={{ background: "var(--accent)", color: "#0a0a0a" }}>Let&apos;s make music</button>}
+      </section>
       <div className="space-y-4">
         {[
-          {
-            name: "BeatMind Bridge",
-            sub: "macOS 15+ · Apple Silicon · Notarized",
-            desc: "Connects BeatMind AI to your live Ableton session. Open DMG, drag to Applications, log in.",
-            href: "/BeatMind-Bridge.dmg",
-            bg: "var(--accent)",
-            icon: <WaveIcon size={20} />,
-          },
           {
             name: "MixMind for Mac",
             sub: "macOS 12+ · Apple Silicon + Intel",
