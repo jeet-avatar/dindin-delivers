@@ -18,6 +18,7 @@ import BridgeLaunch from "@/components/BridgeLaunch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
 import { bridgeStatusLabel } from "@/lib/bridge-status";
 import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/chat-index";
+import { acceptedSound, type MusicChoice } from "@/lib/music-workflow";
 
 // ─── Inline icons (avoids prop-type conflicts with existing Icons.tsx) ────────
 function HomeIcon({ size = 20 }: { size?: number }) {
@@ -91,6 +92,8 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   toolCalls?: ProductionAction[];
+  choices?: MusicChoice[];
+  event?: "sound-accepted";
 }
 type Nav = "home" | "beatmind" | "mixmind" | "downloads" | "account" | "recordings" | "references";
 interface SavedChat {
@@ -153,7 +156,6 @@ export default function DashboardPage() {
   const recordingIdsByMessage = messageRecordingIds(messages, recordings.items);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [pendingContinuation, setPendingContinuation] = useState<{ message: string; session_id: string } | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
   const { status: bridgeStatus, refresh: refreshBridge } = useBridgeStatus(user?.id);
@@ -229,7 +231,7 @@ export default function DashboardPage() {
   }, [user?.id, loading]);
 
   const openServerChat = async (id: string) => {
-    if (!user || !historyReady || loading || requestRef.current || pendingContinuation) return;
+    if (!user || !historyReady || loading || requestRef.current) return;
     setHistoryReady(false);
     try {
       writeChat(user.id, chatId, { messages, sessionId, input, running: false });
@@ -247,7 +249,7 @@ export default function DashboardPage() {
   };
 
   const openChat = (targetId?: string) => {
-    if (!user || !historyReady || loading || requestRef.current || pendingContinuation) return;
+    if (!user || !historyReady || loading || requestRef.current) return;
     try {
       writeChat(user.id, chatId, { messages, sessionId, input, running: false });
       const id = targetId || crypto.randomUUID();
@@ -258,7 +260,7 @@ export default function DashboardPage() {
       setChats(writeChat(user.id, id, next));
       document.querySelectorAll("audio").forEach(audio => audio.pause());
       setChatId(id); setMessages(next.messages); setSessionId(next.sessionId); setInput(next.input);
-      setPendingContinuation(null); setHistoryError(""); setNav("beatmind");
+      setHistoryError(""); setNav("beatmind");
       inputRef.current?.focus();
       return true;
     } catch { setHistoryError("Could not save or open the conversation. Your current chat is still open."); }
@@ -271,7 +273,7 @@ export default function DashboardPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [messages.length]);
 
-  const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, referenceId?: string) => {
+  const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, referenceId?: string, planningOnly = false) => {
     const text = (messageOverride ?? input).trim();
     if (!text || !historyReady || loading || requestRef.current) return;
     const runId = crypto.randomUUID();
@@ -284,7 +286,7 @@ export default function DashboardPage() {
     try {
       const res = await apiFetch("/api/chat/stream", {
         method: "POST",
-        body: JSON.stringify({ message: text, session_id: continuationSession ?? sessionId, reference_id: referenceId }),
+        body: JSON.stringify({ message: text, session_id: continuationSession ?? sessionId, reference_id: referenceId, planning_only: planningOnly }),
         signal: controller.signal,
       });
       if (res.status === 402) {
@@ -365,12 +367,6 @@ export default function DashboardPage() {
     void sendMessage(queuedSong);
   }, [queuedSong, loading, sendMessage]);
 
-  useEffect(() => {
-    if (!pendingContinuation || loading || requestRef.current) return;
-    setPendingContinuation(null);
-    void sendMessage(pendingContinuation.message, pendingContinuation.session_id);
-  }, [pendingContinuation, loading, sendMessage]);
-
   const openBilling = async () => {
     if (!user) return;
     const { url } = await (await apiFetch("/api/stripe/portal", { method: "POST", body: JSON.stringify({ email: user.email }) })).json();
@@ -380,7 +376,12 @@ export default function DashboardPage() {
   const logout = () => { clearAuth(); router.push("/"); };
 
   const reviewRecording = (item: Recording, decision: string) => {
-    if (decision === "accepted" && item.continuation) setPendingContinuation(item.continuation);
+    if (decision === "accepted") {
+      const id = `accepted-${item.id}`;
+      setMessages(previous => previous.some(message => message.id === id) ? previous : [...previous, {
+        id, role: "assistant", event: "sound-accepted", createdAt: new Date().toISOString(), ...acceptedSound(item.track_name),
+      }]);
+    }
     if (decision === "revise") {
       setInput(`Change the sound on ${item.track_name}: `);
       inputRef.current?.focus();
@@ -530,19 +531,14 @@ export default function DashboardPage() {
               <WaveIcon size={28} />
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-1">What do you want to create?</h2>
-              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                Describe your track and I&apos;ll build it in Ableton Live
-              </p>
+              <h2 className="text-xl font-semibold mb-1">How would you like to start?</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
-              {PROMPTS.map(p => (
-                <button key={p} onClick={() => { setInput(p); inputRef.current?.focus(); }}
-                  className="text-left text-sm p-3 rounded-xl border transition-colors hover:border-blue-500"
-                  style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-secondary)" }}>
-                  {p}
-                </button>
-              ))}
+              <button type="button" onClick={() => setNav("references")} className="rounded border p-3 text-sm"
+                style={{ borderColor: "var(--border)" }}>Use a reference track</button>
+              <button type="button" disabled={loading || !historyReady} onClick={() => void sendMessage(
+                "Start an original track from my own idea, without a reference. Ask me one question at a time, starting with the style or mood. Do not change Ableton yet.", undefined, undefined, true)}
+                className="rounded border p-3 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>Start from an idea</button>
             </div>
           </div>
         )}
@@ -552,13 +548,18 @@ export default function DashboardPage() {
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className="min-w-0 max-w-full sm:max-w-[90%] rounded-lg px-4 py-3"
               style={{ background: msg.role === "user" ? "var(--accent)" : "var(--bg-secondary)", color: msg.role === "user" ? "#fff" : "var(--text-primary)" }}>
-              <div className="mb-2"><ChatTimestamp value={msg.createdAt} label={msg.role === "user" ? "Sent" : "Request started"} /></div>
+              <div className="mb-2"><ChatTimestamp value={msg.createdAt} label={msg.role === "user" ? "Sent" : msg.event === "sound-accepted" ? "Decision saved" : "Request started"} /></div>
               {msg.role === "user" ? <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p> : <>
                 {!!msg.toolCalls?.length && <ProductionLog actions={msg.toolCalls} />}
                 {!!msg.toolCalls?.length && <FailedAudition actions={msg.toolCalls} busy={loading} onInspect={prompt => {
                   setInput(prompt); inputRef.current?.focus();
                 }} />}
                 <ReviewMessage text={msg.content} actions={msg.toolCalls || []} ids={recordingIdsByMessage[i]} recordings={recordings.items} />
+                {i === messages.length - 1 && !!msg.choices?.length && <div className="mt-3 flex flex-wrap gap-2">
+                  {msg.choices.map(choice => <button key={choice.label} type="button" disabled={loading || !historyReady}
+                    onClick={() => void sendMessage(choice.message, undefined, undefined, true)}
+                    className="rounded border px-3 py-2 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>{choice.label}</button>)}
+                </div>}
                 <ChatComparisons actions={msg.toolCalls || []} />
                 <Recordings items={recordings.items.filter(item => recordingIdsByMessage[i].includes(item.id))}
                   missing={recordingIdsByMessage[i].some(id => !recordings.items.some(item => item.id === id))}
@@ -897,17 +898,17 @@ export default function DashboardPage() {
         {nav === "beatmind" && <div className="flex flex-wrap items-center gap-2 px-3 sm:px-6 py-3 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
           <label htmlFor="chat-picker" className="text-xs" style={{ color: "var(--text-secondary)" }}>Chats</label>
           <select id="chat-picker" value={chatId} onChange={event => event.target.value.startsWith("remote:") ? void openServerChat(event.target.value.slice(7)) : openChat(event.target.value)}
-            disabled={!historyReady || loading || !!pendingContinuation}
+            disabled={!historyReady || loading}
             className="min-w-0 flex-1 w-24 h-10 rounded border px-2 text-sm disabled:opacity-50"
             style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }}>
             {chats.map(chat => <option key={chat.id} value={chat.id}>{chat.title}</option>)}
             {!!remoteChats.length && <optgroup label="Saved on server">{remoteChats.map(chat => <option key={chat.id} value={`remote:${chat.id}`}>{chat.title}</option>)}</optgroup>}
           </select>
-          <button type="button" onClick={() => openChat()} disabled={!historyReady || loading || !!pendingContinuation}
+          <button type="button" onClick={() => openChat()} disabled={!historyReady || loading}
             title={loading ? "Wait for production to finish or stop it first" : "Start a new chat; keep existing chats and Ableton work"}
             className="h-10 px-3 shrink-0 rounded text-sm font-medium disabled:opacity-40"
             style={{ background: "var(--accent)", color: "white" }}>New chat</button>
-          <button type="button" disabled={!historyReady || loading || !!pendingContinuation}
+          <button type="button" disabled={!historyReady || loading}
             onClick={() => setSongSetup(input)} className="h-10 px-3 shrink-0 rounded border text-sm disabled:opacity-40"
             style={{ borderColor: "var(--border)" }}>New song</button>
         </div>}
@@ -922,7 +923,7 @@ export default function DashboardPage() {
             setNav("beatmind");
             void sendMessage(template
               ? "Use my approved reference template and creative brief to plan an original track. Inspect the current Live Set and discover sources that match my required pack or instrument. Explain the first planned part and ask for my source choice before making music. Do not discard existing work, load sounds, create tracks, or change Ableton yet. Session sections are not an Arrangement timeline."
-              : "Review the selected reference, including saved sound comparisons, listening intervals, coverage, unresolved analysis failures and my musical preferences. Distinguish measurements, model impressions, and unknowns. If sound comparisons exist, identify the recording and ask which measured difference I want to refine first. Otherwise ask what I want for an original track. Do not change Ableton yet.", undefined, id);
+              : "Review the selected reference, including saved sound comparisons, listening intervals, coverage, unresolved analysis failures and my musical preferences. Distinguish measurements, model impressions, and unknowns. Ask only the next missing reference-workflow question: my inspiration, stem review, listening consent, timing, or my original sound choices. Do not skip unfinished stages or change Ableton yet.", undefined, id, true);
           }} />}
           {nav === "recordings" && <section className="p-4 sm:p-6 min-w-0">
             <h2 className="text-lg font-semibold">Saved recordings</h2>

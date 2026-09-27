@@ -7,6 +7,7 @@ import ProductionLog, { type ProductionAction } from "@/components/ProductionLog
 import ChatTimestamp from "@/components/ChatTimestamp";
 import TrackLevel from "@/components/TrackLevel";
 import { levelHint } from "@/lib/audio-level";
+import { claimPreviewAutoplay } from "@/lib/music-workflow";
 import { publishRecordingDecision, RECORDING_CHANGED, RECORDING_STORAGE_KEY } from "@/lib/recording-review";
 
 export interface Recording {
@@ -23,8 +24,8 @@ export interface Recording {
   continuation?: { message: string; session_id: string } | null;
 }
 
-function RecordingPlayer({ item, autoPlay, onDecision, allowReview, onPreview, superseded }: {
-  item: Recording; autoPlay: boolean; onDecision: (item: Recording, decision: string) => void; allowReview: boolean;
+function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPreview, superseded }: {
+  item: Recording; claimAutoplay: () => boolean; onDecision: (item: Recording, decision: string) => void; allowReview: boolean;
   onPreview?: (actions: ProductionAction[]) => void;
   superseded: boolean;
 }) {
@@ -44,7 +45,10 @@ function RecordingPlayer({ item, autoPlay, onDecision, allowReview, onPreview, s
   const waveformPeak = Math.max(0.000001, ...item.metrics.waveform);
   const hint = levelHint(item.metrics.peak_dbfs, item.metrics.rms_dbfs);
 
-  useEffect(() => { setDecision(item.decision); }, [item.decision]);
+  useEffect(() => {
+    setDecision(item.decision);
+    if (item.decision !== "pending") audio.current?.pause();
+  }, [item.decision]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -82,6 +86,7 @@ function RecordingPlayer({ item, autoPlay, onDecision, allowReview, onPreview, s
       });
       if (!response.ok) throw new Error("Your decision was not saved. Please retry.");
       const saved = await response.json();
+      audio.current?.pause();
       setDecision(saved.decision);
       publishRecordingDecision(saved);
       onDecision(saved, saved.decision);
@@ -109,7 +114,7 @@ function RecordingPlayer({ item, autoPlay, onDecision, allowReview, onPreview, s
       </span>
     </div>
     <ChatTimestamp value={item.created_at} label="Captured" />
-    {item.supersedes && <p className="text-xs mt-1 text-emerald-200">New recording version</p>}
+    {item.supersedes && <p className="text-xs mt-1 text-emerald-200">Updated preview. Your earlier recording and its decision are saved.</p>}
     {superseded && <p className="text-xs mt-1">Historical version. A newer recording is available.</p>}
     <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
       Ableton reference at capture: {typeof item.track === "number" && item.track >= 0 ? `Track ${item.track + 1}` : "Track not recorded"}
@@ -137,7 +142,7 @@ function RecordingPlayer({ item, autoPlay, onDecision, allowReview, onPreview, s
     {src ? <audio ref={audio} controls preload="auto" src={src} className="w-full min-w-0 h-10" aria-label={`Play ${item.track_name}`}
       onCanPlay={() => {
         setAudioReady(true);
-        if (autoPlay && !attempted.current && audio.current) {
+        if (decision === "pending" && !superseded && !attempted.current && audio.current && claimAutoplay()) {
           attempted.current = true;
           audio.current.scrollIntoView({ behavior: "smooth", block: "center" });
           void playSound();
@@ -260,7 +265,7 @@ export default function Recordings({ items, onDecision, initialIds, title = "Sou
     <h2 className="text-sm font-semibold mt-3">{title}</h2>
     {missing && <p role="status" className="text-xs mt-2">A linked recording is not available yet.</p>}
     {items.map(item => <RecordingPlayer key={item.id} item={item}
-      autoPlay={!initialIds.has(item.id)} onDecision={onDecision} allowReview={allowReview}
+      claimAutoplay={() => claimPreviewAutoplay(item.id, item.decision, historical.has(item.id), initialIds)} onDecision={onDecision} allowReview={allowReview}
       superseded={historical.has(item.id)} onPreview={historical.has(item.id) ? undefined : onPreview} />)}
   </section>;
 }

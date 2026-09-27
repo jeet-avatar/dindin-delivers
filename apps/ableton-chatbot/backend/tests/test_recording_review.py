@@ -32,7 +32,7 @@ class RecordingReviewTests(unittest.IsolatedAsyncioTestCase):
             {"status": "awaiting_review", "recording_id": item["id"]}, {"status": "planned", "role": "Next"}]})
         first = await main.recording_decision(item["id"], main.RecordingDecision(decision="accepted"), {"id": 1})
         again = await main.recording_decision(item["id"], main.RecordingDecision(decision="accepted"), {"id": 1})
-        self.assertIsNotNone(first["continuation"])
+        self.assertIsNone(first["continuation"])
         self.assertIsNone(again["continuation"])
         self.assertEqual(recordings.list_recordings(1)[0]["decision"], "accepted")
         recordings.attach_evidence(item["id"], 1, [])
@@ -45,6 +45,28 @@ class RecordingReviewTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotEqual(old["id"], new["id"])
         self.assertEqual(new["decision"], "pending")
         self.assertEqual(recordings.owned_recording(old["id"], 1)["decision"], "accepted")
+
+    async def test_revision_links_saved_versions_without_resetting_approval(self):
+        old = self.capture()
+        recordings.decide_recording(old["id"], 1, "accepted")
+        new = self.capture()
+        recordings.link_revision(new["id"], old["id"], 1)
+        updated = recordings.attach_evidence(new["id"], 1, [])
+        self.assertEqual(updated["supersedes"], old["id"])
+        self.assertEqual(updated["decision"], "pending")
+        self.assertEqual(recordings.owned_recording(old["id"], 1)["decision"], "accepted")
+
+    async def test_revision_cannot_link_another_account_or_part(self):
+        old = self.capture()
+        new = self.capture()
+        recordings.link_revision(new["id"], old["id"], 2)
+        self.assertNotIn("supersedes", recordings.owned_recording(new["id"], 1))
+        item = recordings.owned_recording(old["id"], 1)
+        item['track'] = 3
+        import json
+        (recordings.ROOT / (old['id'] + '.json')).write_text(json.dumps(item))
+        recordings.link_revision(new["id"], old["id"], 1)
+        self.assertNotIn("supersedes", recordings.owned_recording(new["id"], 1))
 
     async def test_other_account_cannot_read_or_accept(self):
         item = self.capture()

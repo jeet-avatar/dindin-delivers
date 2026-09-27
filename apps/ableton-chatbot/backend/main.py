@@ -475,6 +475,7 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=12000)
     session_id: str | None = Field(default=None, pattern=r'^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$')
     reference_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+    planning_only: bool = False
 
 
 def prepare_chat(req: ChatRequest, user: dict):
@@ -529,6 +530,7 @@ async def produce_chat(req, session, bridge, emit=None):
             session.reference_id = req.reference_id
         reference_id = getattr(session, 'reference_id', None)
         session.reference_note = references.reference_context(reference_id, session.user_id) if reference_id else ''
+        session.planning_only = req.planning_only
         session.pending_review = False
         session.current_track_names = []
         session.current_recordings = []
@@ -647,6 +649,14 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(require_subscriptio
 
 MODEL = model_name()
 
+DISCUSSION_TOOLS = {
+    tool['name'] for tool in ABLETON_TOOLS
+    if tool['name'].startswith('get_') or tool['name'] in {
+        'list_browser', 'inspect_track', 'list_sample_packs',
+        'search_pack_samples', 'inspect_pack_sample',
+    }
+} | {'list_reference_sounds'}
+
 
 def _build_system(bridge_note: str) -> list[dict]:
     return [{"type": "text", "text": SYSTEM_PROMPT + bridge_note, "cache_control": {"type": "ephemeral"}}]
@@ -666,6 +676,9 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     messages = session.messages
     bridge_note = "" if bridge else "\n\nNOTE: No Ableton bridge connected. No live music changes are possible. Server-side saved-audio discovery and comparison remain available."
     bridge_note += getattr(session, 'reference_note', '')
+    planning_only = getattr(session, 'planning_only', False)
+    if planning_only:
+        bridge_note += "\nThis turn is discussion only. Ask one next question. Do not play, audition, change music or create a production plan; only read-only discovery is available."
     if bridge:
         previous_section = get_brief(session.user_id, session.session_id)
         if previous_section:
@@ -681,7 +694,7 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
             model=MODEL,
             max_tokens=4096,
             system=_build_system(bridge_note),
-            tools=_build_tools(),
+            tools=[tool for tool in _build_tools() if not planning_only or tool['name'] in DISCUSSION_TOOLS],
             messages=bounded_history(messages),
         )
 
@@ -710,7 +723,9 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                 if emit:
                     await emit({"type": "action_started", "action": action})
                 constraint = source_error(section_brief, tu.name, tu.input)
-                if tu.name in chat_tools.NAMES and not blocked and not audition_ready:
+                if planning_only and tu.name not in DISCUSSION_TOOLS:
+                    result = {"status": "failed", "summary": "Discussion only: no playback or music changes were authorized. Ask for the user's next choice.", "steps": []}
+                elif tu.name in chat_tools.NAMES and not blocked and not audition_ready:
                     result = await chat_tools.execute(tu.name, tu.input, session.user_id)
                 elif tu.name == "set_section_brief" and not blocked and not audition_ready:
                     result = await set_brief(session.user_id, session.session_id, tu.input, bridge)
@@ -736,7 +751,10 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                 action["result"] = result
                 tool_calls_log.append(action)
                 if result.get("recording"):
-                    link_audition(session.user_id, session.session_id, result["recording"])
+                    previous_id = link_audition(session.user_id, session.session_id, result["recording"])
+                    if previous_id:
+                        from recordings import link_revision
+                        link_revision(result["recording"]["id"], previous_id, session.user_id)
                     result["recording"] = attach_evidence(result["recording"]["id"], session.user_id, tool_calls_log)
                 tool_results.append({"type": "tool_result", "tool_use_id": tu.id,
                                      "content": json.dumps(result), "is_error": result.get("status") in BAD_STATUSES})
@@ -752,7 +770,10 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
         if any(action['result'].get('comparison') for action in tool_calls_log):
             return 'The saved sounds have been compared. Play A and B below at matched RMS levels. These measurements are not a match percentage. Which difference would you like to refine?', tool_calls_log
         if audition_ready:
-            return "Your actual Ableton recording is ready below. Listen and accept it, or request changes before building the next part.", tool_calls_log
+            revised = any(action.get('result', {}).get('recording', {}).get('supersedes') for action in tool_calls_log)
+            if revised:
+                return "Your updated preview is ready. The earlier recording and its decision remain saved. Listen to this version, then accept it or request a change.", tool_calls_log
+            return "Your first preview of this part is ready. Listen, then accept the sound or request a change. Nothing else will be built until you choose the next step.", tool_calls_log
         if any(action["tool"] == "audition_part" for action in tool_calls_log):
             return "The part remains in Ableton, but its audition did not pass verification. No recording is ready for approval. Review the audition details before retrying; do not recreate the track or notes.", tool_calls_log
 

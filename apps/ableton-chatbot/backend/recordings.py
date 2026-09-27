@@ -44,6 +44,17 @@ def list_recordings(user_id):
     return [{key: value for key, value in item.items() if key != "production_log"} for item in ordered]
 
 
+def link_revision(recording_id, previous_id, user_id):
+    item = owned_recording(recording_id, user_id)
+    previous = owned_recording(previous_id, user_id)
+    if not item or not previous or recording_id == previous_id:
+        return
+    if any(item.get(key) != previous.get(key) for key in ("track", "scene", "track_name")):
+        return
+    item["supersedes"] = previous_id
+    (ROOT / f"{recording_id}.json").write_text(json.dumps(item))
+
+
 def attach_evidence(recording_id, user_id, actions):
     item = owned_recording(recording_id, user_id)
     if item is None:

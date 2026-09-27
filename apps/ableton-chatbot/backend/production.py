@@ -72,8 +72,10 @@ def link_audition(user_id, session_id, recording):
     if part is None:
         part = next((part for part in plan["parts"] if part["status"] in {"planned", "revise"}), None)
     if part:
+        previous_id = part.get("recording_id")
         part.update(status="awaiting_review", recording_id=recording["id"], track=recording["track"], scene=recording["scene"])
         save(plan)
+        return previous_id
 
 
 def review_part(user_id, recording_id, decision):
@@ -90,14 +92,8 @@ def review_part(user_id, recording_id, decision):
                 return None
             part["status"] = decision
             save(plan)
-            next_part = next((part for part in plan["parts"] if part["status"] == "planned"), None)
-            if decision == "accepted" and next_part:
-                return {"session_id": plan["session_id"],
-                        "message": "I accepted the current sound. Do not create the next part or change any music yet. "
-                                   "Follow the guided one-part workflow: ask one question about refining the accepted "
-                                   "part's feel or optional effects, with a keep-as-is option. Do not repeat refinements "
-                                   "already approved. If I already explicitly finished this part, ask whether to choose "
-                                   "the next planned part: " + json.dumps(next_part) + ". Wait for my choice before building it."}
+            # Saving a decision is not authorization to run another model/tool turn.
+            return None
     return None
 
 
