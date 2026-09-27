@@ -1,6 +1,15 @@
 # Listening Submission and Accuracy Audit
 
-## Deployed Release
+## Submit Visibility Fix, September 27
+
+- Runtime `2e0de8989e618a2179b717e3ab0a6acfa254bdf9`, pushed to `release/beatmind-audio-20260926`, archived at `s3://beatmind-frontend/releases/web/2e0de898/` and deployed. CloudFront invalidation `IBGK66ZQWXJ44X4LN5SCE1S79J` completed; public manifest verified. Backend and Bridge unchanged.
+- Reproduced the sticky action area overlapping the textarea and clipping at a 390x500 viewport. Earlier click-based tests auto-scrolled to the button and did not catch this discoverability problem.
+- Removed the sticky footer. Scope and sharing consent precede the answer composer; Send listening request sits directly below the answer. Focusing the answer centers the composer; visual-viewport resize preserves visibility while it is focused.
+- Production build, listening unit tests and complete listening browser contracts passed locally and against deployed assets at 1440px and 390px. Added geometry and hit-testing assertions at 900px, 500px and 360px heights, without scrolling the submit button into view. Verified shrinking the viewport while the answer remains focused. This is browser viewport coverage, not a claim of testing every physical mobile keyboard.
+- Separate authenticated production check loaded the actual Full Moon reference and confirmed the answer/button were visible, non-overlapping and unobscured at 1440x900, 390x844, 390x500 and 390x360. No-consent submission stayed blocked. Zero mutating requests, provider calls or page errors; the original user's browser tab and draft were not changed. Screenshots inspected.
+- Source/test changes mirrored to the original workspace after baseline checks.
+
+## Previous Deployed Release
 
 - Frontend runtime: `03b2babe35d66bb6b85527c86ae2acf980cf043a`, pushed to `release/beatmind-audio-20260926`.
 - Archive: `s3://beatmind-frontend/releases/web/03b2babe/`.
