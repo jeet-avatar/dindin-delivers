@@ -20,7 +20,7 @@ BANDS = ((25, 80), (80, 200), (200, 800), (800, 2500), (2500, 8000), (8000, 2000
 class ComparisonRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     recording_id: str = Field(pattern=r'^[a-f0-9]{32}$')
-    layer: Literal['mix', 'drums', 'bass', 'vocals', 'other'] = 'bass'
+    layer: Literal['mix', 'drums', 'bass', 'vocals', 'other', 'kick', 'snare', 'toms', 'cymbals'] = 'bass'
     reference_start_seconds: float = Field(default=0, ge=0, le=600, allow_inf_nan=False)
     recording_start_seconds: float = Field(default=0, ge=0, le=30, allow_inf_nan=False)
     duration_seconds: float = Field(default=8, ge=2, le=16, allow_inf_nan=False)

@@ -5,9 +5,11 @@ import hashlib
 import math
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
+
+import separation
+from stems import CORE_STEMS
 
 # Separation quality knobs. Defaults preserve the original CPU behaviour; a GPU
 # deployment raises quality by overriding these (e.g. htdemucs_ft / cuda / shifts).
@@ -17,6 +19,19 @@ DEMUCS_SHIFTS = os.getenv('DEMUCS_SHIFTS', '0')
 DEMUCS_OVERLAP = os.getenv('DEMUCS_OVERLAP', '0.25')
 DEMUCS_SEGMENT = os.getenv('DEMUCS_SEGMENT', '7')
 MAX_SECONDS = int(os.getenv('REFERENCE_MAX_SECONDS', '600'))
+# Set to the reviewed drumsep checkpoint to add kick, snare, toms and cymbals stems.
+DRUMSEP_CHECKPOINT = os.getenv('BEATMIND_DRUMSEP_CHECKPOINT') or None
+
+
+def models_ready():
+    return separation.demucs_model_cached(DEMUCS_MODEL) and (
+        not DRUMSEP_CHECKPOINT or separation.drumsep_ready(DRUMSEP_CHECKPOINT))
+
+
+def write_json(path, data):
+    temporary = path.with_suffix('.tmp')
+    temporary.write_text(json.dumps(data, allow_nan=False))
+    temporary.replace(path)
 
 
 def has_tonal_evidence(stems):
@@ -48,12 +63,12 @@ def structure_candidates(y, sr, beat_seconds, duration):
             'labels_verified': False, 'downbeats_verified': False}
 
 
-def stem_health(directory):
+def stem_health(directory, names=CORE_STEMS):
     import numpy as np
     import soundfile as sf
     original = sf.info(directory / 'mix.wav')
     result = {}
-    for stem in ('drums', 'bass', 'vocals', 'other'):
+    for stem in names:
         path = directory / (stem + '.wav')
         info = sf.info(path)
         count, clipped, square, peak, finite = 0, 0, 0.0, 0.0, True
@@ -80,14 +95,13 @@ def analyze(directory, measure_only=False):
     import numpy as np
     import soundfile as sf
     import torch
-    from demucs.separate import main as separate
 
     def progress(stage):
         path = directory / 'progress.tmp'
         path.write_text(json.dumps({'stage': stage}))
         path.replace(directory / 'progress.json')
 
-    torch.set_num_threads(2)
+    torch.set_num_threads(int(os.getenv('BEATMIND_TORCH_THREADS', '2')))
     meta = json.loads((directory / 'meta.json').read_text())
     source = directory / meta['source_file']
     audio_format = {'.wav': 'wav', '.aif': 'aiff', '.aiff': 'aiff', '.mp3': 'mp3',
@@ -103,17 +117,14 @@ def analyze(directory, measure_only=False):
     if not 5 <= info.duration <= MAX_SECONDS:
         raise ValueError('Reference must be between 5 seconds and 10 minutes.')
     if not measure_only:
-        progress('Estimating drums, bass, vocals and other stems')
-        from references import cached_model_ready
-        if not cached_model_ready():
+        if os.getenv('BEATMIND_REQUIRE_CACHED_MODEL') == '1' and not models_ready():
             raise RuntimeError('The packaged separation model is unavailable. No runtime download is permitted.')
-        separate(['-n', DEMUCS_MODEL, '-d', DEMUCS_DEVICE, '--shifts', DEMUCS_SHIFTS,
-              '--overlap', DEMUCS_OVERLAP, '-j', '0', '--segment', DEMUCS_SEGMENT,
-              '--int24', '--clip-mode', 'clamp',
-              '-o', str(directory / 'separated'), str(directory / 'mix.wav')])
-        for stem in ('drums', 'bass', 'vocals', 'other'):
-            shutil.move(str(directory / 'separated' / DEMUCS_MODEL / 'mix' / (stem + '.wav')), str(directory / (stem + '.wav')))
-        shutil.rmtree(directory / 'separated')
+        names, provenance = separation.separate(
+            directory / 'mix.wav', directory, model=DEMUCS_MODEL, device=DEMUCS_DEVICE, shifts=DEMUCS_SHIFTS,
+            overlap=DEMUCS_OVERLAP, segment=DEMUCS_SEGMENT, drumsep_checkpoint=DRUMSEP_CHECKPOINT, progress=progress)
+        write_json(directory / 'separation.json', {'stems': names, **provenance})
+    saved = json.loads((directory / 'separation.json').read_text()) if (directory / 'separation.json').is_file() else None
+    names = saved['stems'] if saved else list(CORE_STEMS)
     progress('Measuring tempo, tonal centre and energy changes')
     y, sr = librosa.load(directory / 'mix.wav', sr=22050)
     if np.max(np.abs(y)) < 0.0001:
@@ -142,7 +153,7 @@ def analyze(directory, measure_only=False):
     boundaries = [energy[i]['start'] for i in range(1, len(energy))
                   if abs(energy[i]['rms_dbfs'] - energy[i-1]['rms_dbfs']) >= 4]
     stems = []
-    for name in ('drums', 'bass', 'vocals', 'other'):
+    for name in names:
         stem_y, _ = librosa.load(directory / (name + '.wav'), sr=sr)
         rms = float(np.sqrt(np.mean(stem_y ** 2)))
         onsets = librosa.onset.onset_detect(y=stem_y, sr=sr)
@@ -153,17 +164,20 @@ def analyze(directory, measure_only=False):
     waveform = [round(float(np.max(np.abs(chunk))), 4) for chunk in np.array_split(y, 160)]
     beat_seconds = [float(t) for t in librosa.frames_to_time(beats, sr=sr)]
     report = {
-        'duration_seconds': info.duration, 'model': DEMUCS_MODEL,
+        'duration_seconds': info.duration, 'model': saved['model'] if saved else DEMUCS_MODEL,
+        'separation': saved or {'model': DEMUCS_MODEL, 'stem_set': 'core'},
         'tempo': {'bpm': round(bpm, 1) if bpm > 0 else None, 'estimated': True,
                   'half_double_ambiguity': True},
         'key_candidates': candidates[:3], 'stems': stems, 'energy_windows': energy,
         'possible_change_points_seconds': boundaries, 'waveform': waveform,
         'beat_times_seconds': [round(t, 6) for t in beat_seconds],
         'structure': structure_candidates(y, sr, beat_seconds, info.duration),
-        'stem_health': stem_health(directory),
+        'stem_health': stem_health(directory, names),
         'limitations': [
             'Separated stems are estimates, not original multitracks; bleed and artifacts are possible.',
-            'Other combines instruments. Drums does not isolate individual kicks, snares or hats.',
+            'Other combines instruments.' + (' Kick, snare, toms and cymbals are estimated from the drums stem; '
+                'hi-hat stays with cymbals and bleed between drum parts is possible.' if saved and saved.get('stem_set') == 'detailed'
+                else ' Drums does not isolate individual kicks, snares or hats.'),
             'Tempo may be half or double time. Key candidates are correlations, not confidence probabilities.',
             'Energy change points do not identify intro, build, drop or chorus without listening.',
             'Exact instruments, presets, effects, genre and original MIDI cannot be recovered from these measurements.',
@@ -172,9 +186,7 @@ def analyze(directory, measure_only=False):
     if not has_tonal_evidence(stems):
         report['key_candidates'] = []
         report['limitations'].append('Not enough separated tonal energy for a useful key estimate.')
-    temporary = directory / 'report.tmp'
-    temporary.write_text(json.dumps(report, allow_nan=False))
-    temporary.replace(directory / 'report.json')
+    write_json(directory / 'report.json', report)
 
 
 if __name__ == '__main__':

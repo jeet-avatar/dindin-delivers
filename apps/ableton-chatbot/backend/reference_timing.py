@@ -44,7 +44,8 @@ class TimingReview(BaseModel):
 
 class StemReview(BaseModel):
     analysis_id: str = Field(pattern=r'^[a-f0-9]{64}$')
-    decisions: dict[Literal['drums', 'bass', 'vocals', 'other'], Literal['keep', 'ignore', 'needs_work']]
+    decisions: dict[Literal['drums', 'bass', 'vocals', 'other', 'kick', 'snare', 'toms', 'cymbals'],
+                    Literal['keep', 'ignore', 'needs_work']]
     heard: bool = False
 
 

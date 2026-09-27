@@ -17,7 +17,7 @@ class ListeningRequest(BaseModel):
     intent: str = Field(min_length=1, max_length=1000)
     start_seconds: float = Field(default=0, ge=0, le=600, allow_inf_nan=False)
     duration_seconds: float = Field(default=20, ge=5, le=30, allow_inf_nan=False)
-    layer: Literal['mix', 'drums', 'bass', 'vocals', 'other'] = 'mix'
+    layer: Literal['mix', 'drums', 'bass', 'vocals', 'other', 'kick', 'snare', 'toms', 'cymbals'] = 'mix'
 
 
 class AudioObservations(BaseModel):

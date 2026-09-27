@@ -24,9 +24,9 @@ import recordings
 from file_lock import Lease, Busy
 from pydantic import BaseModel, Field
 from reference_limits import MAX_BYTES, MIN_SECONDS, MAX_SECONDS, UPLOAD_TIMEOUT_SECONDS
+import stems as stem_sets
 
 ROOT = Path(os.getenv('BEATMIND_REFERENCES_DIR', '/tmp/beatmind-references'))
-STEMS = ('drums', 'bass', 'vocals', 'other')
 EXTENSIONS = {'.wav', '.aif', '.aiff', '.mp3', '.m4a', '.flac', '.ogg'}
 ACTIVE = asyncio.Lock()
 TASKS = set()
@@ -55,18 +55,12 @@ def processing_busy():
 def cached_model_ready():
     if os.getenv('BEATMIND_REQUIRE_CACHED_MODEL') != '1':
         return True
-    cache = Path(os.getenv('TORCH_HOME', '/opt/beatmind-models')) / 'hub' / 'checkpoints'
-    # The installed Demucs manifest, not a guessed model filename, defines the cache.
-    try:
-        import yaml
-        from demucs.pretrained import REMOTE_ROOT, _parse_remote_files
-        from urllib.parse import urlparse
-        model_name = os.getenv('DEMUCS_MODEL', 'htdemucs')
-        names = yaml.safe_load((REMOTE_ROOT / f'{model_name}.yaml').read_text())['models']
-        urls = _parse_remote_files(REMOTE_ROOT / 'files.txt')
-        return all((cache / Path(urlparse(urls[str(name)]).path).name).is_file() for name in names)
-    except (ImportError, OSError, KeyError, ValueError):
-        return False
+    import reference_worker
+    return reference_worker.models_ready()
+
+
+def report_of(directory):
+    return json.loads((directory / 'report.json').read_text())
 
 
 def saved_comparisons(directory):
@@ -414,6 +408,8 @@ def router_for(get_user, require_subscription):
             raise HTTPException(400, 'Confirm sending this excerpt and intent to OpenAI.')
         if item['status'] != 'ready':
             raise HTTPException(409, 'Reference analysis is not ready.')
+        if not (directory / (request.layer + '.wav')).is_file():
+            raise HTTPException(404, 'This reference has no such layer.')
         if not audio_listener.capability()['available']:
             raise HTTPException(503, audio_listener.capability()['reason'])
         if LISTENING:
@@ -560,10 +556,10 @@ def router_for(get_user, require_subscription):
             raise HTTPException(409, 'Reload the completed reference analysis before reviewing.')
         if reference_id in SUGGESTING:
             raise HTTPException(409, 'Wait for template generation before changing stem decisions.')
-        health = json.loads((directory / 'report.json').read_text()).get('stem_health', {})
-        if not health.get('checks_passed'):
+        report = report_of(directory)
+        if not report.get('stem_health', {}).get('checks_passed'):
             raise HTTPException(409, 'Stem integrity checks are missing or failed. Refresh the analysis first.')
-        if not request.heard or set(request.decisions) != set(STEMS):
+        if not request.heard or set(request.decisions) != set(stem_sets.review_stems(report)):
             raise HTTPException(422, 'Listen to the stems and choose keep, exclude or needs work for each one.')
         result = {**request.model_dump(), 'status': 'accepted' if 'needs_work' not in request.decisions.values()
                   and 'keep' in request.decisions.values() else 'needs_review'}
@@ -673,7 +669,7 @@ def router_for(get_user, require_subscription):
     @router.get('/{reference_id}/audio/{stem}')
     async def audio(reference_id: str, stem: str, user=Depends(get_user)):
         directory, item = owned(reference_id, user['id'])
-        if item['status'] != 'ready' or stem not in ('mix', *STEMS):
+        if item['status'] != 'ready' or stem not in ('mix', *stem_sets.audio_stems(report_of(directory))):
             raise HTTPException(404, 'Audio not available')
         path = directory / (stem + '.wav')
         if not path.is_file():
