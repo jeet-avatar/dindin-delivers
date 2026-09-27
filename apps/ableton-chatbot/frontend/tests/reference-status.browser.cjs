@@ -86,6 +86,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       await page.getByLabel('I have permission to upload and analyze this audio.').check();
       await page.getByRole('button', { name: 'Upload and analyze', exact: true }).click();
       await page.getByText(/Upload result unknown/).waitFor();
+      assert.equal(await page.getByLabel('Reference audio file').inputValue(), '', 'Allow deliberate selection of the same file after inspecting saved references');
       assert.equal(await page.getByRole('button', { name: 'Upload and analyze', exact: true }).isDisabled(), true);
       assert.equal(await page.getByText(/Not uploaded yet/).count(), 0);
       assert.equal(await page.getByRole('heading', { name: 'Ready to listen', exact: true }).count(), 0, 'An old ready job must not replace an unknown new upload');

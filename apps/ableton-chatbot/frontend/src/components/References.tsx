@@ -267,7 +267,10 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     } catch (e) {
       if (!controller.signal.aborted) {
         setError(e instanceof Error ? e.message : "Upload failed.");
-        if (e instanceof UploadConfirmationError) { setUploadUnconfirmed(true); setShowSaved(true); }
+        if (e instanceof UploadConfirmationError) {
+          setUploadUnconfirmed(true); setShowSaved(true);
+          if (fileInput.current) fileInput.current.value = "";
+        }
       }
     }
     finally { uploadController.current = null; setTransfer(null); setBusy(false); }
