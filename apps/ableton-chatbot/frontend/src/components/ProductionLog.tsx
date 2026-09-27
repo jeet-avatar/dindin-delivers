@@ -82,9 +82,9 @@ function NoteTable({ notes, label = "MIDI notes" }: { notes: MidiNote[]; label?:
   );
 }
 
-export default function ProductionLog({ actions }: { actions: ProductionAction[] }) {
+export default function ProductionLog({ actions, requestStatus }: { actions: ProductionAction[]; requestStatus?: import("@/lib/production-status").RequestStatus }) {
   if (!actions.length) return null;
-  const summary = summarizeProduction(actions);
+  const summary = summarizeProduction(actions, requestStatus);
   const tracks = trackOutcomes(actions);
   const section = actions.map(action => action.result?.section_brief).filter(Boolean).at(-1);
   return (
@@ -109,6 +109,7 @@ export default function ProductionLog({ actions }: { actions: ProductionAction[]
       {tracks.length > 0 && <ul className="text-xs divide-y mb-3" aria-label="Part results">
         {tracks.map(track => <li key={track.track} className="py-2 min-w-0" style={{ borderColor: "var(--border)" }}>
           <p className="font-semibold break-words">{track.name}</p>
+          <p className="mt-1" style={{ color: "var(--text-secondary)" }}>Ableton Track {track.track + 1}</p>
           {track.source && <p className="mt-1 break-words" style={{ color: "var(--text-secondary)" }}>Device/source: {track.source}</p>}
           <p className="mt-1" style={{ color: "var(--text-secondary)" }}>{[track.noteCount != null ? `${track.noteCount} MIDI notes ${track.notesVerified ? "checked" : "present"}` : "", track.recording ? "Recording available" : ""].filter(Boolean).join(" / ")}</p>
         </li>)}

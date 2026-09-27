@@ -94,6 +94,7 @@ interface Message {
   toolCalls?: ProductionAction[];
   choices?: MusicChoice[];
   event?: "sound-accepted";
+  requestStatus?: import("@/lib/production-status").RequestStatus;
 }
 type Nav = "home" | "beatmind" | "mixmind" | "downloads" | "account" | "recordings" | "references";
 interface SavedChat {
@@ -123,7 +124,7 @@ function writeChat(userId: number, id: string, snapshot: SavedChat): ChatEntry[]
 function restoredMessages(saved: SavedChat): Message[] {
   return (saved.messages || []).filter(m => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string")
     .map(m => saved.running && m.id === saved.runningId ? {
-      ...m, content: "Connection was interrupted before completion was saved. Some actions may have run. Inspect the action log and Ableton before repeating the command.",
+      ...m, requestStatus: "interrupted", content: "Connection was interrupted before completion was saved. Some actions may have run. Inspect the action log and Ableton before repeating the command.",
       toolCalls: m.toolCalls?.map(a => a.result ? a : { ...a, result: { status: "unverified", summary: "No completion was saved. Inspect before retrying." } }),
     } : m);
 }
@@ -139,10 +140,10 @@ const NAV: { id: Nav; label: string; Icon: React.ComponentType<{ size?: number }
 ];
 
 const PROMPTS = [
-  "Make me an Afro House track at 122 BPM",
-  "Create a dark melodic techno loop in Am",
-  "Build a deep house groove with warm bass",
-  "Get the current session state",
+  { text: "Make me an Afro House track at 122 BPM", newSong: true },
+  { text: "Create a dark melodic techno loop in Am", newSong: true },
+  { text: "Build a deep house groove with warm bass", newSong: true },
+  { text: "Get the current session state", newSong: false },
 ];
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
@@ -295,10 +296,10 @@ export default function DashboardPage() {
     return data.sessionId as string;
   }, [user, sessionId, chatId, messages, input, project, referenceId]);
 
-  async function newSong() {
+  async function newSong(prompt?: string) {
     if (projectBusy || loading || !historyReady) return;
     setProjectBusy(true);
-    try { await createProject(true); }
+    try { await createProject(true); if (prompt) setInput(prompt); }
     catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not start a new song."); }
     finally { setProjectBusy(false); }
   }
@@ -339,7 +340,7 @@ export default function DashboardPage() {
     setLoading(true);
     try {
       const activeSession = continuationSession ?? sessionId ?? await createProject();
-      setMessages(p => [...p, { role: "user", content: text, createdAt }, { id: runId, role: "assistant", createdAt, content: "Planning the next steps...", toolCalls: [] }]);
+      setMessages(p => [...p, { role: "user", content: text, createdAt }, { id: runId, role: "assistant", createdAt, requestStatus: "running", content: "Planning the next steps...", toolCalls: [] }]);
       setInput("");
       const res = await apiFetch("/api/chat/stream", {
         method: "POST",
@@ -367,6 +368,8 @@ export default function DashboardPage() {
         const event = JSON.parse(line);
         if (event.type === "session") {
           setSessionId(event.session_id);
+          if ("project" in event) setProject(event.project);
+          if ("referenceId" in event) setReferenceId(event.referenceId);
           refreshBridge();
         } else if (event.type === "narration") {
           narration += `${narration ? "\n\n" : ""}${event.text}`;
@@ -385,7 +388,7 @@ export default function DashboardPage() {
           }));
         } else if (event.type === "complete") {
           completed = true;
-          setMessages(p => p.map(m => m.id === runId ? { ...m, content: event.response,
+          setMessages(p => p.map(m => m.id === runId ? { ...m, requestStatus: "complete", content: event.response,
             toolCalls: event.tool_calls.map((action: ProductionAction) => ({ ...m.toolCalls?.find(a => a.id === action.id), ...action })) } : m));
         } else if (event.type === "error") {
           throw new Error(event.message);
@@ -413,7 +416,7 @@ export default function DashboardPage() {
         const stopped = inspectionOnly
           ? "Request stopped. Only inspections are recorded in the action log; no completed music changes are shown."
           : "Request stopped. Any actions already sent may remain in Ableton; inspect the log before continuing.";
-        return { ...m, content: controller.signal.aborted ? stopped : `Production interrupted: ${err instanceof Error ? err.message : "Unknown error"}`,
+        return { ...m, requestStatus: "interrupted", content: controller.signal.aborted ? stopped : `Production interrupted: ${err instanceof Error ? err.message : "Unknown error"}`,
           toolCalls: m.toolCalls?.map(a => a.result ? a : { ...a, result: { status: "unverified", summary: "Interrupted before confirmation. Inspect Ableton before repeating this action." } }) };
       }));
     } finally { requestRef.current = null; setLoading(false); }
@@ -556,10 +559,13 @@ export default function DashboardPage() {
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {PROMPTS.map(p => (
-            <button key={p} onClick={() => { setInput(p); setNav("beatmind"); }}
+            <button key={p.text} disabled={projectBusy || loading || !historyReady} onClick={() => {
+              if (p.newSong) void newSong(p.text);
+              else { setInput(p.text); setNav("beatmind"); }
+            }}
               className="text-left text-sm p-3 rounded-xl border transition-colors hover:border-blue-500"
               style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-secondary)" }}>
-              {p}
+              {p.text}
             </button>
           ))}
         </div>
@@ -601,7 +607,7 @@ export default function DashboardPage() {
               style={{ background: msg.role === "user" ? "var(--accent)" : "var(--bg-secondary)", color: msg.role === "user" ? "#fff" : "var(--text-primary)" }}>
               <div className="mb-2"><ChatTimestamp value={msg.createdAt} label={msg.role === "user" ? "Sent" : msg.event === "sound-accepted" ? "Decision saved" : "Request started"} /></div>
               {msg.role === "user" ? <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p> : <>
-                {!!msg.toolCalls?.length && <ProductionLog actions={msg.toolCalls} />}
+                {!!msg.toolCalls?.length && <ProductionLog actions={msg.toolCalls} requestStatus={msg.requestStatus} />}
                 {!!msg.toolCalls?.length && <FailedAudition actions={msg.toolCalls} busy={loading} onInspect={prompt => {
                   setInput(prompt); inputRef.current?.focus();
                 }} />}

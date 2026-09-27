@@ -517,8 +517,7 @@ class SongProjectRequest(BaseModel):
 async def create_song_project(user: dict = Depends(get_current_user)):
     rate_limit(f"new-song:{user['id']}", max_requests=20, window_seconds=60)
     session = ChatSession(str(uuid.uuid4()), user['id'])
-    session.project = {'title': 'New song', 'starting_point': None, 'live_set': None,
-                       'created_at': datetime.now(timezone.utc).isoformat()}
+    session.project = song_projects.new_project()
     with chat_store.acquire(user['id'], session.session_id):
         chat_store.save(session, 'complete')
     return {'sessionId': session.session_id, 'messages': [], 'referenceId': None, 'project': session.project}
@@ -580,6 +579,8 @@ def prepare_chat(req: ChatRequest, user: dict):
         session.actions = saved.get('actions', [])
         session.reference_id = saved.get('reference_id')
         session.project = saved.get('project')
+    elif not session.messages and not session.project:
+        session.project = song_projects.new_project()
     reference_id = req.reference_id if 'reference_id' in req.model_fields_set else getattr(session, 'reference_id', None)
     reference_note = song_projects.reference_note(reference_id, user['id'])
     session.reference_id = reference_id
@@ -601,6 +602,9 @@ async def produce_chat(req, session, bridge, emit=None):
             session.ui_messages = chat_store.visible_messages(saved)
             session.reference_id = saved.get('reference_id')
             session.project = saved.get('project')
+        elif not session.messages and not session.project:
+            # Older clients can send a first message without POST /api/chats.
+            session.project = song_projects.new_project()
         if 'reference_id' in req.model_fields_set:
             session.reference_id = req.reference_id
         reference_id = getattr(session, 'reference_id', None)
@@ -628,7 +632,7 @@ async def produce_chat(req, session, bridge, emit=None):
         now = datetime.now(timezone.utc).isoformat()
         session.ui_messages.extend([
             {'id': str(uuid.uuid4()), 'createdAt': now, 'role': 'user', 'content': req.message},
-            {'id': str(uuid.uuid4()), 'createdAt': now, 'role': 'assistant', 'content': '', 'pending': True, 'toolCalls': []},
+            {'id': str(uuid.uuid4()), 'createdAt': now, 'role': 'assistant', 'content': '', 'pending': True, 'requestStatus': 'running', 'toolCalls': []},
         ])
         session.actions = []
         chat_store.save(session, 'running')
@@ -646,18 +650,21 @@ async def produce_chat(req, session, bridge, emit=None):
 
         try:
             if emit:
-                await emit({"type": "session", "session_id": session.session_id, "bridge_connected": bridge is not None})
+                await emit({"type": "session", "session_id": session.session_id, "bridge_connected": bridge is not None,
+                            "project": session.project, "referenceId": reference_id})
             response_text, tool_calls_log = await _run_claude_loop(session, bridge, progress)
             session.messages.append({"role": "assistant", "content": response_text})
             session.actions = tool_calls_log
-            session.ui_messages[-1].update(content=response_text, toolCalls=tool_calls_log, pending=False)
+            session.ui_messages[-1].update(content=response_text, toolCalls=tool_calls_log, pending=False, requestStatus='complete')
             chat_store.save(session, 'complete')
             return {"session_id": session.session_id, "response": response_text,
-                    "tool_calls": tool_calls_log, "bridge_connected": bridge is not None}
+                    "tool_calls": tool_calls_log, "bridge_connected": bridge is not None,
+                    "project": session.project, "referenceId": reference_id}
         except BaseException:
             for action in session.actions:
                 if not action.get('result'):
                     action['result'] = {'status': 'unverified', 'summary': 'Interrupted before confirmation. Inspect before retrying.'}
+            session.ui_messages[-1]['requestStatus'] = 'interrupted'
             chat_store.save(session, 'interrupted', 'Request interrupted; inspect the saved action log before retrying.')
             raise
 

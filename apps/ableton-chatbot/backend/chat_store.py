@@ -87,7 +87,8 @@ def visible_messages(saved):
         for action in actions:
             if not action.get('result'):
                 action['result'] = {'status': 'unverified', 'summary': 'No durable completion. Inspect before retrying.'}
-        warning = {'role': 'assistant', 'content': 'This saved request has no confirmed completion. Inspect the action log before retrying.', 'toolCalls': actions}
+        warning = {'role': 'assistant', 'content': 'This saved request has no confirmed completion. Inspect the action log before retrying.',
+                   'requestStatus': 'interrupted', 'toolCalls': actions}
         if visible and visible[-1].get('pending'):
             visible[-1].update(warning, pending=False)
         else:

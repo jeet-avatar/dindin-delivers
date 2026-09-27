@@ -67,22 +67,29 @@ export function actionOutcomes(actions: ProductionAction[]): ActionOutcome[] {
   });
 }
 
-export function summarizeProduction(actions: ProductionAction[]) {
+export type RequestStatus = "running" | "complete" | "interrupted";
+
+export function summarizeProduction(actions: ProductionAction[], requestStatus?: RequestStatus) {
   const outcomes = actionOutcomes(actions);
   const issues = outcomes.flatMap((o, index) => o.kind === "issue" ? [index] : []);
   const repairs = outcomes.filter(o => o.kind === "repaired").length;
   const waiting = outcomes.some(o => o.kind === "waiting");
-  const running = outcomes.some(o => o.kind === "running");
+  const interrupted = requestStatus === "interrupted";
+  const running = !interrupted && (requestStatus === "running" || outcomes.some(o => o.kind === "running"));
   const done = outcomes.filter(o => o.kind === "done").length;
   const checked = outcomes.filter(o => o.kind === "checked").length;
   const lastWrite = actions.reduce((last, a, i) => a.result?.status === "verified" && !isInspection(a) ? i : last, -1);
   const audioReady = lastWrite >= 0 && AUDIO.has(actions[lastWrite].tool);
-  const title = issues.length ? "Needs attention" : running ? "Working in Ableton" : waiting ? "Earlier production pause"
-    : audioReady ? "Audio ready" : done ? "Changes checked" : checked ? "Inspection complete" : "No changes made";
-  const detail = issues.length ? `${issues.length} unresolved ${issues.length === 1 ? "issue" : "issues"}. Inspect before repeating a command.`
+  const setupOnly = actions.some(a => a.tool === "create_midi_track" && a.result?.status === "verified")
+    && !actions.some(a => ["add_notes", "duplicate_clip", "load_pack_sample", ...AUDIO].includes(a.tool) && a.result?.status === "verified");
+  const title = interrupted ? "Request interrupted" : issues.length ? "Needs attention" : running ? "Working in Ableton" : waiting ? "Earlier production pause"
+    : audioReady ? "Audio ready" : setupOnly ? "Instrument setup only" : done ? "Changes checked" : checked ? "Inspection complete" : "No changes made";
+  const detail = interrupted ? `The request did not finish. ${audioReady ? "A recording was captured before interruption." : "No current audio preview was captured in this request."} Completed changes remain in Ableton; inspect before retrying.`
+    : running ? "Your request is still running."
+    : issues.length ? `${issues.length} unresolved ${issues.length === 1 ? "issue" : "issues"}. Inspect before repeating a command.`
     : waiting ? "This request stopped at a review checkpoint. Current decisions are shown on the recordings."
     : audioReady ? "An Ableton recording was captured. Its saved review status is shown below."
-    : running ? "Your request is still running."
+    : setupOnly ? "A MIDI track was created, but no MIDI pattern or audio preview was verified in this request. There is no new sound ready to approve."
     : done ? "Requested state changes were read back. This does not prove the full track is finished."
     : "Only inspections are recorded; no music changes were made.";
   return { outcomes, issues, repairs, waiting, running, done, checked, title, detail, audioReady };

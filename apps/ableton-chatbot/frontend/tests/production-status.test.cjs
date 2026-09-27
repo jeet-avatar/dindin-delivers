@@ -34,3 +34,19 @@ assert.equal(actionOutcomes([failed, action('delete_track', 'verified', { track:
 console.log('Production outcome tests passed.');
 assert.equal(trackOutcomes([action('get_clip_notes', 'observed', clip, { notes: [{ pitch: 60 }] })])[0].notesVerified, false);
 assert.equal(trackOutcomes([action('add_notes', 'verified', clip, { notes: [{ pitch: 60 }] }), failed])[0].noteCount, undefined);
+
+const bassSetup = [action('get_session_state', 'observed'), action('create_midi_track', 'verified', { index: 1 }),
+  action('set_track_name', 'verified', { track: 0, name: 'Bass' }),
+  action('load_library_item', 'verified', { track: 1, kind: 'instrument', folders: ['Wavetable'] }),
+  action('set_track_name', 'verified', { track: 1, name: 'Bass' }),
+  action('set_device_parameter', 'verified', { track: 1, parameter: 39, value: .15 })];
+assert.equal(summarizeProduction(bassSetup, 'interrupted').title, 'Request interrupted');
+assert.match(summarizeProduction(bassSetup, 'interrupted').detail, /No current audio preview/);
+assert.equal(summarizeProduction(bassSetup, 'running').title, 'Working in Ableton');
+assert.equal(summarizeProduction(bassSetup, 'complete').title, 'Instrument setup only');
+assert.equal(summarizeProduction(bassSetup).title, 'Instrument setup only');
+assert.deepEqual(trackOutcomes(bassSetup).map(t => [t.track, t.name]), [[0, 'Bass'], [1, 'Bass']]);
+assert.equal(summarizeProduction([action('set_track_volume', 'verified')], 'complete').title, 'Changes checked');
+assert.equal(summarizeProduction([...bassSetup, action('audition_part', 'verified', { track: 1 })], 'complete').title, 'Audio ready');
+assert.match(summarizeProduction([...bassSetup, action('audition_part', 'verified', { track: 1 })], 'interrupted').detail, /recording was captured before interruption/);
+assert.equal(summarizeProduction([failed], 'interrupted').issues.length, 1);

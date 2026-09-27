@@ -137,6 +137,11 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse((await main.chats_list({'id': 2}))['chats'])
 
     async def test_interrupted_turn_restores_without_replaying_action(self):
+        # Resume a real pre-project conversation; new conversations cannot write yet.
+        legacy = main.ChatSession('recover', 1)
+        legacy.messages = [{'role': 'user', 'content': 'Continue my existing song'},
+                           {'role': 'assistant', 'content': 'Ready to edit the existing part.'}]
+        main.chat_store.save(legacy, 'complete')
         self.client.messages.create.return_value = response(tool('add_notes', 'interrupted'))
         with patch.object(main, '_execute_tool', AsyncMock(side_effect=asyncio.CancelledError)) as execute:
             with self.assertRaises(asyncio.CancelledError):
@@ -144,6 +149,7 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
             saved = await main.chat_details('recover', {'id': 1})
             self.assertEqual(execute.await_count, 1)
         self.assertEqual(saved['status'], 'interrupted')
+        self.assertEqual(saved['messages'][-1]['requestStatus'], 'interrupted')
         self.assertIn('no confirmed completion', saved['messages'][-1]['content'])
         self.assertEqual(saved['messages'][-1]['toolCalls'][0]['result']['status'], 'unverified')
 

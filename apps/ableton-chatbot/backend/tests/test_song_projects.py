@@ -90,6 +90,44 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         main.bridges['test'] = bridge
         return bridge
 
+    async def test_raw_first_message_cannot_bypass_song_setup(self):
+        for session_id in (None, 'old-client-new-session'):
+            with self.subTest(session_id=session_id):
+                tool = SimpleNamespace(type='tool_use', name='set_track_name', id='rename', input={'track': 0, 'name': 'Bass'})
+                client = SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(side_effect=[
+                    SimpleNamespace(stop_reason='tool_use', content=[tool]),
+                    SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text='Reference or own idea?')]),
+                ])))
+                bridge = self.bridge()
+                with patch.object(main, 'claude_client', client), patch.object(main, '_execute_tool', AsyncMock()) as execute:
+                    stream = await main.chat_stream(main.ChatRequest(message='Build a deep house groove with warm bass', session_id=session_id), self.user)
+                    events = [json.loads(chunk) async for chunk in stream.body_iterator]
+                execute.assert_not_awaited()
+                bridge.local_operation.assert_not_awaited()
+                project = events[0]['project']
+                self.assertIsNone(project['starting_point'])
+                self.assertIsNone(project['live_set'])
+                self.assertEqual(events[-1]['tool_calls'][0]['result']['status'], 'failed')
+                saved = await main.chat_details(events[0]['session_id'], self.user)
+                self.assertEqual(saved['project'], project)
+                self.assertEqual(saved['messages'][-1]['requestStatus'], 'complete')
+
+    async def test_saved_legacy_chat_is_not_reset_as_a_new_song(self):
+        legacy = main.ChatSession('legacy-song', 42)
+        legacy.messages = [{'role': 'user', 'content': 'Existing song'}, {'role': 'assistant', 'content': 'Saved.'}]
+        main.chat_store.save(legacy, 'complete')
+        with patch.object(main, 'claude_client', SimpleNamespace()):
+            restored, _ = main.prepare_chat(main.ChatRequest(message='Inspect it', session_id='legacy-song'), self.user)
+        self.assertIsNone(restored.project)
+        self.assertEqual(restored.messages, legacy.messages)
+
+    async def test_direct_producer_initializes_new_session_under_lease(self):
+        session = main.ChatSession('direct-new', 42)
+        with patch.object(main, '_run_claude_loop', AsyncMock(return_value=('Reference or idea?', []))):
+            await main.produce_chat(main.ChatRequest(message='New song'), session, None)
+        self.assertTrue(session.planning_only)
+        self.assertIsNone(session.project['starting_point'])
+
     async def test_confirmation_only_inspects_and_never_sends_music(self):
         bridge = self.bridge()
         result = await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id=self.id), self.user)

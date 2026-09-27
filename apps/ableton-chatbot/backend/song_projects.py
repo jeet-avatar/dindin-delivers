@@ -1,6 +1,13 @@
 """New-song planning gates. Legacy conversations remain readable and unchanged."""
 
+from datetime import datetime, timezone
+
 import references
+
+
+def new_project():
+    return {'title': 'New song', 'starting_point': None, 'live_set': None,
+            'created_at': datetime.now(timezone.utc).isoformat()}
 
 
 def reference_note(reference_id, user_id):
