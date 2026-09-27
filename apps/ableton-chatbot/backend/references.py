@@ -61,7 +61,8 @@ def cached_model_ready():
         import yaml
         from demucs.pretrained import REMOTE_ROOT, _parse_remote_files
         from urllib.parse import urlparse
-        names = yaml.safe_load((REMOTE_ROOT / 'htdemucs.yaml').read_text())['models']
+        model_name = os.getenv('DEMUCS_MODEL', 'htdemucs')
+        names = yaml.safe_load((REMOTE_ROOT / f'{model_name}.yaml').read_text())['models']
         urls = _parse_remote_files(REMOTE_ROOT / 'files.txt')
         return all((cache / Path(urlparse(urls[str(name)]).path).name).is_file() for name in names)
     except (ImportError, OSError, KeyError, ValueError):

@@ -9,8 +9,10 @@ RUN pip install --no-cache-dir torch==2.5.1+cpu torchaudio==2.5.1+cpu --index-ur
     && pip install --no-cache-dir -r requirements-reference.txt
 
 # Ship weights in the image; user requests must not trigger model downloads.
+# Override at build time for higher quality, e.g. --build-arg DEMUCS_MODEL=htdemucs_ft
+ARG DEMUCS_MODEL=htdemucs
 ENV TORCH_HOME=/opt/beatmind-models
-RUN python -c "from demucs.pretrained import get_model; get_model('htdemucs')" \
+RUN python -c "from demucs.pretrained import get_model; get_model('${DEMUCS_MODEL}')" \
     && chmod -R a+rX /opt/beatmind-models
 
 RUN groupadd -g 1000 appgroup && useradd -u 1000 -g appgroup appuser

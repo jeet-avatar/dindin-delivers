@@ -3,10 +3,20 @@
 import json
 import hashlib
 import math
+import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+
+# Separation quality knobs. Defaults preserve the original CPU behaviour; a GPU
+# deployment raises quality by overriding these (e.g. htdemucs_ft / cuda / shifts).
+DEMUCS_MODEL = os.getenv('DEMUCS_MODEL', 'htdemucs')
+DEMUCS_DEVICE = os.getenv('DEMUCS_DEVICE', 'cpu')
+DEMUCS_SHIFTS = os.getenv('DEMUCS_SHIFTS', '0')
+DEMUCS_OVERLAP = os.getenv('DEMUCS_OVERLAP', '0.25')
+DEMUCS_SEGMENT = os.getenv('DEMUCS_SEGMENT', '7')
+MAX_SECONDS = int(os.getenv('REFERENCE_MAX_SECONDS', '600'))
 
 
 def has_tonal_evidence(stems):
@@ -86,21 +96,23 @@ def analyze(directory, measure_only=False):
         progress('Decoding audio')
         subprocess.run([
         'ffmpeg', '-nostdin', '-v', 'error', '-y', '-protocol_whitelist', 'file,pipe',
-        '-f', audio_format, '-i', str(source), '-t', '601', '-vn', '-ac', '2', '-ar', '44100',
-        '-c:a', 'pcm_s16le', str(directory / 'mix.wav'),
+        '-f', audio_format, '-i', str(source), '-t', str(MAX_SECONDS + 1), '-vn', '-ac', '2', '-ar', '44100',
+        '-c:a', 'pcm_s24le', str(directory / 'mix.wav'),
         ], check=True, timeout=60)
     info = sf.info(directory / 'mix.wav')
-    if not 5 <= info.duration <= 600:
+    if not 5 <= info.duration <= MAX_SECONDS:
         raise ValueError('Reference must be between 5 seconds and 10 minutes.')
     if not measure_only:
         progress('Estimating drums, bass, vocals and other stems')
         from references import cached_model_ready
         if not cached_model_ready():
             raise RuntimeError('The packaged separation model is unavailable. No runtime download is permitted.')
-        separate(['-n', 'htdemucs', '-d', 'cpu', '--shifts', '0', '-j', '0', '--segment', '7',
-              '--clip-mode', 'clamp', '-o', str(directory / 'separated'), str(directory / 'mix.wav')])
+        separate(['-n', DEMUCS_MODEL, '-d', DEMUCS_DEVICE, '--shifts', DEMUCS_SHIFTS,
+              '--overlap', DEMUCS_OVERLAP, '-j', '0', '--segment', DEMUCS_SEGMENT,
+              '--int24', '--clip-mode', 'clamp',
+              '-o', str(directory / 'separated'), str(directory / 'mix.wav')])
         for stem in ('drums', 'bass', 'vocals', 'other'):
-            shutil.move(str(directory / 'separated/htdemucs/mix' / (stem + '.wav')), str(directory / (stem + '.wav')))
+            shutil.move(str(directory / 'separated' / DEMUCS_MODEL / 'mix' / (stem + '.wav')), str(directory / (stem + '.wav')))
         shutil.rmtree(directory / 'separated')
     progress('Measuring tempo, tonal centre and energy changes')
     y, sr = librosa.load(directory / 'mix.wav', sr=22050)
@@ -141,7 +153,7 @@ def analyze(directory, measure_only=False):
     waveform = [round(float(np.max(np.abs(chunk))), 4) for chunk in np.array_split(y, 160)]
     beat_seconds = [float(t) for t in librosa.frames_to_time(beats, sr=sr)]
     report = {
-        'duration_seconds': info.duration, 'model': 'htdemucs',
+        'duration_seconds': info.duration, 'model': DEMUCS_MODEL,
         'tempo': {'bpm': round(bpm, 1) if bpm > 0 else None, 'estimated': True,
                   'half_double_ambiguity': True},
         'key_candidates': candidates[:3], 'stems': stems, 'energy_windows': energy,
