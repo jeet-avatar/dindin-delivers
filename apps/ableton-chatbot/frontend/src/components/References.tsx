@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { backgroundPollingAllowed } from "@/lib/background-polling";
+import { uploadReference, UploadConfirmationError, type UploadProgress } from "@/lib/reference-upload";
+import ReferenceStatus from "./ReferenceStatus";
 import ReferenceTemplate, { type ReferenceTemplateData } from "./ReferenceTemplate";
 import ReferenceReview, { type TimingMap, type StemReview, type StemHealth } from "./ReferenceReview";
 import SoundComparison from "./SoundComparison";
@@ -149,6 +151,10 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [listeningAvailable, setListeningAvailable] = useState(false);
   const [reason, setReason] = useState("");
   const [pollError, setPollError] = useState("");
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
+  const [observedJobId, setObservedJobId] = useState<string | null>(null);
+  const [transfer, setTransfer] = useState<(UploadProgress & { startedAt: number }) | null>(null);
+  const [uploadUnconfirmed, setUploadUnconfirmed] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [rights, setRights] = useState(false);
@@ -171,6 +177,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     try {
       await onSelect?.(id);
       setSelected(id); setFile(null); setRights(false); setUploadReady(false); setUploadedReference(null); setWaitedForProcessing(false);
+      setUploadUnconfirmed(false);
       if (fileInput.current) fileInput.current.value = "";
       setStage(guided ? "listening" : "stems"); setCue({seconds:0});
     } catch (error) { setError(error instanceof Error ? error.message : "Could not attach this reference to the song."); }
@@ -184,6 +191,9 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     const data = await response.json();
     if (signal?.aborted) return;
     setPollError("");
+    setCheckedAt(Date.now());
+    const activeJob = data.references.find((item: Reference) => ["uploading", "processing"].includes(item.status));
+    if (activeJob) setObservedJobId(activeJob.id);
     setItems(data.references); setAvailable(data.available); setReason(data.reason || "");
     setProcessingBusy(Boolean(data.processing?.busy));
     setListeningAvailable(Boolean(data.audio_listening?.available));
@@ -213,6 +223,8 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   async function chooseFile(next: File | null) {
     if (!next) return;
     setFile(next); setRights(false); setSelected(null); setShowSaved(false);
+    setObservedJobId(null);
+    setUploadUnconfirmed(false);
     setWaitedForProcessing(processingBusy);
     setUploadReady(false); setUploadedReference(null); setError(""); setBusy(true);
     try {
@@ -225,17 +237,19 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     } finally { setBusy(false); }
   }
   async function upload() {
-    if (!file || !rights || !uploadReady || !limits || busy || chatBusy) return;
+    if (!file || !rights || !uploadReady || !limits || busy || chatBusy || uploadUnconfirmed) return;
     if (uploadedReference) { await select(uploadedReference); return; }
     if (processingBusy) return;
     if (file.size > limits.maxBytes) { setError(`${file.name} was not uploaded. Choose a file up to ${Math.floor(limits.maxBytes / (1024 * 1024))} MB. No reference is selected.`); return; }
     setBusy(true); setError("");
     const controller = new AbortController();
     uploadController.current = controller;
+    const startedAt = Date.now();
+    setTransfer({ loaded: 0, total: file.size, sent: false, startedAt });
     try {
-      const response = await apiFetch("/api/references", { method: "POST", body: file,
-        signal: controller.signal,
-        headers: { "Content-Type": "application/octet-stream", "X-Reference-Name": encodeURIComponent(file.name), "X-Rights-Confirmed": "true" } });
+      const response = await uploadReference(file, controller.signal, progress => {
+        if (!controller.signal.aborted) setTransfer({ ...progress, startedAt });
+      });
       const data = await response.json();
       if (controller.signal.aborted) return;
       if (!response.ok) {
@@ -246,11 +260,17 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
         throw new Error(typeof data.detail === "string" ? data.detail : data.detail?.message || "Upload failed.");
       }
       setUploadedReference(data.id);
+      setTransfer(null); setCheckedAt(Date.now()); setObservedJobId(data.id);
       setItems(previous => [data, ...previous.filter(item => item.id !== data.id)]);
       await select(data.id);
       await refresh();
-    } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Upload failed."); }
-    finally { uploadController.current = null; setBusy(false); }
+    } catch (e) {
+      if (!controller.signal.aborted) {
+        setError(e instanceof Error ? e.message : "Upload failed.");
+        if (e instanceof UploadConfirmationError) { setUploadUnconfirmed(true); setShowSaved(true); }
+      }
+    }
+    finally { uploadController.current = null; setTransfer(null); setBusy(false); }
   }
   async function remove(id: string) {
     if (!window.confirm("Delete this reference and all its estimated stems?")) return;
@@ -263,6 +283,8 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     } catch (e) { setError(e instanceof Error ? e.message : "Delete failed."); }
   }
   const item = file ? undefined : items.find(i => i.id === selected);
+  const observedJob = items.find(i => i.id === observedJobId && i.id !== selected && ["uploading", "processing", "ready", "failed"].includes(i.status));
+  const audioSection = useRef<HTMLDivElement>(null);
   const activeReference = items.find(i => ["uploading", "processing"].includes(i.status) || i.listening_busy || i.listening?.job?.status === "running");
   return <section className="mx-auto w-full max-w-5xl p-4 sm:p-6 space-y-6">
     <h2 className="text-xl font-semibold">{guided ? "Your song reference" : "Reference tracks"}</h2>
@@ -270,8 +292,11 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     {reason && <p role="status" className="text-sm text-amber-200">{reason}</p>}
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
     {pollError && <p role="status" className="text-sm text-amber-200">{pollError}</p>}
-    {processingBusy && <p role="status" className="text-sm break-words text-amber-200">
-      {activeReference ? `Processing ${activeReference.name}${activeReference.stage ? `: ${activeReference.stage}` : "."}` : "Another reference operation is running."}
+    {transfer && file ? <ReferenceStatus reference={{ name: file.name, status: "uploading", created_at: new Date(transfer.startedAt).toISOString() }} checkedAt={checkedAt} transfer={transfer} startedAt={transfer.startedAt} />
+      : item && <ReferenceStatus reference={item} checkedAt={checkedAt} pollError={pollError} onListen={() => { setStage("stems"); audioSection.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }} />}
+    {observedJob && !transfer && <ReferenceStatus reference={observedJob} checkedAt={checkedAt} pollError={pollError} onOpen={() => { if (!busy && !chatBusy) void select(observedJob.id); }} />}
+    {processingBusy && !transfer && <p role="status" className="text-sm break-words text-amber-200">
+      {activeReference ? "Reference processing is in progress." : "Another reference operation is running."}
       {file && !uploadedReference ? " Your selected file has not been uploaded or queued. Keep this tab open; upload will become available when processing finishes." : " New uploads are paused until it finishes."}
     </p>}
     {!processingBusy && file && waitedForProcessing && !uploadedReference && <p role="status" className="text-sm text-emerald-300">Processing is available. Your selected file is ready to upload.</p>}
@@ -281,11 +306,11 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
           disabled={!available || !limits || busy || chatBusy} onChange={e => void chooseFile(e.target.files?.[0] || null)}
           className="block mt-2 w-full min-w-0 rounded border border-neutral-600 bg-neutral-900 p-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-emerald-700 file:px-4 file:py-3 file:font-medium file:text-white disabled:opacity-40" />
       </label>
-      {file && <p role="status" className="text-sm break-words">Selected file: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB). {uploadedReference ? "Uploaded; not attached to this song yet." : "Not uploaded yet."}</p>}
+      {file && <p role="status" className="text-sm break-words">Selected file: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB). {transfer ? "Upload in progress." : uploadUnconfirmed ? "Upload result unknown. Check saved references before choosing the file again." : uploadedReference ? "Uploaded; not attached to this song yet." : "Not uploaded yet."}</p>}
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={rights} disabled={busy || chatBusy} onChange={e => setRights(e.target.checked)} className="mt-1" />
         I have permission to upload and analyze this audio.</label>
-      <button type="button" onClick={upload} disabled={!available || !file || !rights || !uploadReady || !limits || file.size > limits.maxBytes || busy || chatBusy || (processingBusy && !uploadedReference)}
-        className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{busy ? "Working..." : uploadedReference ? "Attach uploaded reference" : processingBusy ? "Waiting for processing" : "Upload and analyze"}</button>
+      <button type="button" onClick={upload} disabled={!available || !file || !rights || !uploadReady || !limits || file.size > limits.maxBytes || busy || chatBusy || uploadUnconfirmed || (processingBusy && !uploadedReference)}
+        className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{transfer ? transfer.sent ? "Confirming upload..." : "Uploading..." : busy ? "Saving selection..." : uploadedReference ? "Attach uploaded reference" : processingBusy ? "Waiting for processing" : "Upload and analyze"}</button>
     </div>
     {guided && <button type="button" aria-expanded={showSaved} aria-controls="saved-reference-library"
       onClick={() => setShowSaved(value => !value)} className="text-sm underline">
@@ -303,8 +328,6 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       {item && <div className="min-w-0 space-y-4">
         <h3 className="text-base font-semibold break-all">{item.name}</h3>
         <p className="text-xs text-neutral-400">{new Date(item.created_at).toLocaleString()}</p>
-        {item.error && <p role="alert" className="text-sm text-red-300">{item.error}</p>}
-        {item.status === "processing" && <p role="status">{item.stage || "Processing..."}</p>}
         {item.report && item.status === "ready" && <>
           {guided && <div className="border-l-2 border-emerald-400 pl-3 space-y-2 text-sm">
             {!item.listening?.coverage?.full_coverage ? <>
@@ -328,7 +351,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
             <div><dt className="text-neutral-400">Duration</dt><dd>{time(item.report.duration_seconds)}</dd></div>
             <div className="col-span-2"><dt className="text-neutral-400">Possible keys</dt><dd>{item.report.key_candidates.map(k => k.key).join(" / ") || "Not enough tonal evidence"}</dd></div>
           </dl>
-          <ReferenceAudio key={item.id} id={item.id} cue={cue} />
+          <div ref={audioSection}><ReferenceAudio key={item.id} id={item.id} cue={cue} /></div>
           <div role="tablist" aria-label="Reference workflow" className="flex flex-wrap gap-3 border-b border-neutral-700">
             {[['stems','1. Stems'],['timing','2. Timing'],['listening','3. Listening'],['template','4. Template'],['compare','5. Compare']].map(([value,label]) =>
               <button key={value} role="tab" aria-selected={stage===value} onClick={() => setStage(value)} className={`border-b-2 px-1 py-2 text-sm ${stage===value?'border-emerald-400':'border-transparent text-neutral-400'}`}>{label}</button>)}
