@@ -1,5 +1,16 @@
 # Listening Submission and Accuracy Audit
 
+## Consent and Polling Follow-Up, September 27
+
+- Runtime `20ce264ed4a71b87f268ff8063d76b2606f2b33f`, pushed and deployed; archive `s3://beatmind-frontend/releases/web/20ce264e/`. CloudFront invalidation `IAMI93OXML5PVNMHB31MCCQ9D5` completed and public manifest verified. Backend and Bridge unchanged.
+- User's pasted screen showed missing provider consent, not failed upload or attempted provider processing. Upload permission remains separate from permission to send audio and intent to OpenAI. No consent is silently enabled or persisted.
+- Larger checkbox with explicit Allow audio analysis label, associated inline validation, error focus and a single permission error. Checking permission does not automatically send a request.
+- Thirty-second passive observation of the existing live browser saw seven recordings requests, seven reference requests and six bridge-status requests, with no 429 responses. The earlier rate-limit cause was not established; no claim is made that the global limit can never recur.
+- Finished/idle references now poll every 15 seconds instead of 4. Active upload/processing/listening jobs retain 4-second polling. Shared rate-limit cooldown and hidden-tab pause remain enforced. Errors retain faster recovery checks, still subject to cooldown.
+- Production build, focused unit suites, desktop/mobile listening and reference-status browser suites, and hidden-tab/idle-poll/rate-limit recovery browser tests passed. Listening contracts also passed against deployed assets.
+- Authenticated real-production check on The Story We Tell verified visible submit controls, prominent consent, focused validation and no automatic submission on consent. Zero mutating requests/provider calls/page errors. Original user's tab and draft unchanged. Screenshot inspected.
+- Source changes preserved in the original workspace after baseline checks.
+
 ## Submit Visibility Fix, September 27
 
 - Runtime `2e0de8989e618a2179b717e3ab0a6acfa254bdf9`, pushed to `release/beatmind-audio-20260926`, archived at `s3://beatmind-frontend/releases/web/2e0de898/` and deployed. CloudFront invalidation `IBGK66ZQWXJ44X4LN5SCE1S79J` completed; public manifest verified. Backend and Bridge unchanged.
