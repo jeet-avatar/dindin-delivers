@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
+import { backgroundPollingAllowed } from "@/lib/background-polling";
 import ReferenceTemplate, { type ReferenceTemplateData } from "./ReferenceTemplate";
 import ReferenceReview, { type TimingMap, type StemReview, type StemHealth } from "./ReferenceReview";
 import SoundComparison from "./SoundComparison";
@@ -147,6 +148,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [available, setAvailable] = useState(false);
   const [listeningAvailable, setListeningAvailable] = useState(false);
   const [reason, setReason] = useState("");
+  const [pollError, setPollError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [rights, setRights] = useState(false);
@@ -176,9 +178,12 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   }
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const response = await apiFetch("/api/references", { signal });
-    if (!response.ok) throw new Error(response.status === 401 ? "Sign in again to access references." : "Could not load references.");
+    if (!response.ok) throw new Error(response.status === 401 ? "Sign in again to access references." : response.status === 429
+      ? "Status updates are paused briefly because too many requests were received. Uploaded audio can continue processing."
+      : "Could not update reference status. Retrying shortly.");
     const data = await response.json();
     if (signal?.aborted) return;
+    setPollError("");
     setItems(data.references); setAvailable(data.available); setReason(data.reason || "");
     setProcessingBusy(Boolean(data.processing?.busy));
     setListeningAvailable(Boolean(data.audio_listening?.available));
@@ -189,13 +194,20 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
+    let inFlight = false;
     const poll = async () => {
-      try { await refresh(controller.signal); }
-      catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Could not load references."); }
+      if (inFlight || controller.signal.aborted) return;
+      clearTimeout(timer);
+      inFlight = true;
+      try { if (backgroundPollingAllowed()) await refresh(controller.signal); }
+      catch (e) { if (!controller.signal.aborted) setPollError(e instanceof Error ? e.message : "Could not update reference status."); }
+      finally { inFlight = false; }
       if (!controller.signal.aborted) timer = setTimeout(poll, 4000);
     };
+    const visible = () => { if (document.visibilityState === "visible") void poll(); };
+    document.addEventListener("visibilitychange", visible);
     void poll();
-    return () => { controller.abort(); clearTimeout(timer); };
+    return () => { controller.abort(); clearTimeout(timer); document.removeEventListener("visibilitychange", visible); };
   }, [refresh]);
 
   async function chooseFile(next: File | null) {
@@ -257,6 +269,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     {guided && !selected && <h3 className="text-base font-medium">Upload your reference track</h3>}
     {reason && <p role="status" className="text-sm text-amber-200">{reason}</p>}
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+    {pollError && <p role="status" className="text-sm text-amber-200">{pollError}</p>}
     {processingBusy && <p role="status" className="text-sm break-words text-amber-200">
       {activeReference ? `Processing ${activeReference.name}${activeReference.stage ? `: ${activeReference.stage}` : "."}` : "Another reference operation is running."}
       {file && !uploadedReference ? " Your selected file has not been uploaded or queued. Keep this tab open; upload will become available when processing finishes." : " New uploads are paused until it finishes."}

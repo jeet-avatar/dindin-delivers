@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "./auth";
+import { backgroundPollingAllowed } from "./background-polling";
 import { bridgeStatusFromResponse, type BridgeStatus } from "./bridge-status";
 
 export function useBridgeStatus(userId: number | undefined) {
@@ -16,7 +17,7 @@ export function useBridgeStatus(userId: number | undefined) {
     let controller: AbortController | null = null;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const check = async () => {
-      if (!active || inFlight) return;
+      if (!active || inFlight || !backgroundPollingAllowed()) return;
       inFlight = true;
       controller = new AbortController();
       timeout = setTimeout(() => controller?.abort(), 8000);

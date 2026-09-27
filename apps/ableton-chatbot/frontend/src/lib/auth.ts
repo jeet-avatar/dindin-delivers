@@ -1,3 +1,5 @@
+import { observePollingResponse } from "./background-polling";
+
 const TOKEN_KEY = "beatmind_token";
 const USER_KEY = "beatmind_user";
 
@@ -46,5 +48,6 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const url = path.startsWith("/") ? `${API_URL}${path}` : path;
   const res = await fetch(url, { ...options, headers });
+  observePollingResponse(res);
   return res;
 }

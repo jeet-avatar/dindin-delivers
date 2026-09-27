@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/auth";
+import { backgroundPollingAllowed } from "@/lib/background-polling";
 import ProductionLog, { type ProductionAction } from "@/components/ProductionLog";
 import ChatTimestamp from "@/components/ChatTimestamp";
 import TrackLevel from "@/components/TrackLevel";
@@ -204,7 +205,7 @@ export function useRecordings(recordingIds: string[]) {
     let generation = 0;
     const controller = new AbortController();
     const refresh = async () => {
-      if (refreshing) return;
+      if (refreshing || !backgroundPollingAllowed()) return;
       refreshing = true;
       const started = generation;
       try {
@@ -241,12 +242,15 @@ export function useRecordings(recordingIds: string[]) {
       void refresh();
     };
     const storageChanged = (event: StorageEvent) => { if (event.key === RECORDING_STORAGE_KEY) invalidate(); };
+    const visibilityChanged = () => { if (document.visibilityState === "visible") invalidate(); };
     window.addEventListener(RECORDING_CHANGED, changed);
     window.addEventListener("storage", storageChanged);
     window.addEventListener("focus", invalidate);
+    document.addEventListener("visibilitychange", visibilityChanged);
     refresh();
     const timer = setInterval(refresh, 4000);
     return () => { active = false; controller.abort(); clearInterval(timer);
+      document.removeEventListener("visibilitychange", visibilityChanged);
       window.removeEventListener(RECORDING_CHANGED, changed); window.removeEventListener("storage", storageChanged); window.removeEventListener("focus", invalidate); };
   }, [idsKey]);
 
