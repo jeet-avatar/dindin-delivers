@@ -33,6 +33,7 @@ async function main() {
           status: 'interrupted', messages: [{ role: 'user', content: 'Build a deep house groove with warm bass' },
             { role: 'assistant', content: 'This saved request has no confirmed completion. Inspect the action log before retrying.',
               requestStatus: 'interrupted', toolCalls: actions }] });
+        if (path === '/api/chats/fresh-song') return reply({ project, referenceId: null });
         if (path === '/api/chat/stream') return route.fulfill({ contentType: 'application/x-ndjson', body:
           [ { type: 'session', session_id: 'fresh-song', project, referenceId: null },
             ...actions.map(action => ({ type: 'action_completed', action })) ].map(e => JSON.stringify(e)).join('\n') + '\n' });

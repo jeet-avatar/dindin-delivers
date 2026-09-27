@@ -189,6 +189,8 @@ export default function DashboardPage() {
       if (verified.id !== u.id) { clearAuth(); router.replace("/login"); return; }
       if (active) { setUser(verified); setAuthStatus("Signed in"); }
     }).catch(() => { if (active) setAuthStatus("Sign-in check unavailable"); });
+    let restoreProject: string | null = null;
+    const restoreController = new AbortController();
     try {
       const prefix = `beatmind_chats_v2_${u.id}`;
       const index = JSON.parse(localStorage.getItem(prefix) || "null");
@@ -201,11 +203,20 @@ export default function DashboardPage() {
         if (Array.isArray(saved.messages)) setMessages(restoredMessages(saved));
         if (typeof saved.sessionId === "string") setSessionId(saved.sessionId);
         if (typeof saved.input === "string") setInput(saved.input);
-        setProject(saved.project || null); setReferenceId(saved.referenceId || null);
+        setProject(saved.project || null);
+        if (saved.project && saved.sessionId) restoreProject = saved.sessionId;
+        else setReferenceId(saved.referenceId || null);
       }
     } catch { setHistoryError("Saved chat could not be restored. Existing Ableton work is unchanged."); }
-    setHistoryReady(true);
-    return () => { active = false; };
+    if (restoreProject) {
+      void apiFetch(`/api/chats/${encodeURIComponent(restoreProject)}`, { signal: restoreController.signal }).then(async response => {
+        if (!response.ok) throw new Error("Could not refresh this song's reference. Reload before continuing.");
+        const saved = await response.json();
+        if (active) { setProject(saved.project || null); setReferenceId(saved.referenceId || null); }
+      }).catch(error => { if (active) setHistoryError(error instanceof Error ? error.message : "Song reference unavailable."); })
+        .finally(() => { if (active) setHistoryReady(true); });
+    } else setHistoryReady(true);
+    return () => { active = false; restoreController.abort(); };
   }, [router]);
 
   useEffect(() => {

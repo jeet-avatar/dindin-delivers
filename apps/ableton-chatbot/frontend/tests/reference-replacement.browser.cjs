@@ -29,6 +29,7 @@ async function main() {
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });
         if (path === '/api/recordings') return reply({ recordings: [] });
         if (path === '/api/chats') return reply({ chats: [] });
+        if (path === '/api/chats/replacement-song') return reply({ project, referenceId: attached });
         if (path.endsWith('/project')) {
           const body = req.postDataJSON();
           if (body.reference_id === newId && rejectAttachment) { rejectAttachment = false; return reply({ detail: 'Attachment unavailable' }, 503); }
@@ -71,8 +72,16 @@ async function main() {
       assert.equal(await page.getByRole('button', { name: 'Discuss what I like', exact: true }).count(), 0);
       assert.equal(await page.locator('audio').count(), 0);
       assert.equal(calls.filter(c => c.path === '/api/references' && c.method === 'POST').length, 0);
+      await page.evaluate(oldId => {
+        for (const key of Object.keys(localStorage)) {
+          if (!key.startsWith('beatmind_chat')) continue;
+          const data = JSON.parse(localStorage.getItem(key));
+          if (data?.sessionId === 'replacement-song') { data.referenceId = oldId; localStorage.setItem(key, JSON.stringify(data)); }
+        }
+      }, oldId);
       await page.reload(); await references();
-      assert.equal(await page.getByRole('heading', { name: oldRef.name, exact: true }).count(), 0, 'Detached QA must not return on reload');
+      await page.waitForFunction(() => !document.querySelector('[aria-label="Reference audio file"]').disabled);
+      assert.equal(await page.getByRole('heading', { name: oldRef.name, exact: true }).count(), 0, 'Server detachment must override stale local QA selection on reload');
       await choose('My replacement.wav', 60);
       const consent = page.getByLabel('I have permission to upload and analyze this audio.');
       assert.equal(await consent.isChecked(), false);
