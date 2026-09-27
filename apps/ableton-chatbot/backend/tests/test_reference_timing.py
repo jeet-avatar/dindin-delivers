@@ -133,6 +133,41 @@ class TimingRouteTests(unittest.TestCase):
         self.assertEqual(self.client.post(self.base + '/template/approve', json={'revision': draft['revision'] + 1}, headers=self.headers).status_code, 409)
         self.assertEqual(self.client.get(self.base + '/template/download', headers=self.headers).status_code, 409)
 
+    def test_stem_choices_persist_in_file_and_fresh_listing(self):
+        directory = self.prepare()
+        decisions = dict(drums='keep', bass='keep', vocals='ignore', other='keep')
+        body = {'analysis_id': self.payload['analysis_id'], 'decisions': decisions, 'heard': True}
+        response = self.client.post(self.base + '/stem-review', json=body, headers=self.headers)
+        self.assertEqual(response.status_code, 200)
+        saved = response.json()
+        self.assertEqual(saved['status'], 'accepted')
+        self.assertEqual(json.loads((directory / 'stem-review.json').read_text()), saved)
+        listing = self.client.get('/api/references', headers=self.headers).json()
+        reopened = next(item for item in listing['references'] if item['id'] == self.id)
+        self.assertEqual(reopened['stem_review'], saved)
+        self.assertEqual(reopened['stem_review']['decisions'], decisions)
+
+    def test_unfinished_review_is_saved_without_template_approval(self):
+        directory = self.prepare()
+        for decisions in [dict(drums='needs_work', bass='keep', vocals='ignore', other='keep'),
+                          dict.fromkeys(('drums', 'bass', 'vocals', 'other'), 'ignore')]:
+            body = {'analysis_id': self.payload['analysis_id'], 'decisions': decisions, 'heard': True}
+            response = self.client.post(self.base + '/stem-review', json=body, headers=self.headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()['status'], 'needs_review')
+            self.assertEqual(json.loads((directory / 'stem-review.json').read_text())['decisions'], decisions)
+            with self.assertRaises(HTTPException):
+                timing.require_review(directory)
+
+    def test_missing_choices_or_listening_confirmation_do_not_save(self):
+        directory = self.prepare()
+        for decisions, heard in [({'drums': 'keep'}, True),
+                                 (dict.fromkeys(('drums', 'bass', 'vocals', 'other'), 'keep'), False)]:
+            body = {'analysis_id': self.payload['analysis_id'], 'decisions': decisions, 'heard': heard}
+            response = self.client.post(self.base + '/stem-review', json=body, headers=self.headers)
+            self.assertIn(response.status_code, (409, 422))
+            self.assertFalse((directory / 'stem-review.json').exists())
+
     def test_failed_integrity_blocks_review(self):
         directory = self.prepare()
         report = json.loads((directory / 'report.json').read_text())

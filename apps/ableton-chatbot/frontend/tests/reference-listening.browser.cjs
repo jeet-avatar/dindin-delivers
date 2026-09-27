@@ -142,7 +142,8 @@ async function main() {
 
       // Complete the actual UI path from listening to reviewed stems, timing, approved plan and chat.
       await page.getByRole('tab', { name: '1. Stems', exact: true }).click();
-      assert.equal(await page.getByRole('button', { name: 'Save stem review', exact: true }).isDisabled(), true);
+      await page.getByRole('button', { name: 'Save stem review', exact: true }).click();
+      await page.getByRole('alert').filter({ hasText: 'A choice is required for:' }).waitFor();
       for (const stem of ['drums', 'bass', 'vocals', 'other']) {
         await page.getByLabel('Reference audio layer').selectOption(stem);
         const audio = page.getByLabel(`${stem} audio`, { exact: true }); await audio.waitFor();

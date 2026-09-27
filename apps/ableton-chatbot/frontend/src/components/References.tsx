@@ -103,6 +103,9 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [selected, setSelected] = useState<string | null>(selectedId || null);
   const [showSaved, setShowSaved] = useState(false);
   const [stage, setStage] = useState(guided ? "listening" : "stems");
+  useEffect(() => {
+    if (stage !== "stems") document.querySelectorAll<HTMLAudioElement>('audio[aria-label$="stem player"]').forEach(audio => audio.pause());
+  }, [stage]);
   const [cue, setCue] = useState({ seconds: 0 });
   useEffect(() => { setSelected(selectedId || null); }, [selectedId]);
   async function select(id: string | null) {
@@ -293,8 +296,11 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
               <button key={value} role="tab" aria-selected={stage===value} onClick={() => setStage(value)} className={`border-b-2 px-1 py-2 text-sm ${stage===value?'border-emerald-400':'border-transparent text-neutral-400'}`}>{label}</button>)}
           </div>
           {item.timing && item.stem_review && (["stems", "timing"] as const).map(mode => <div key={mode} hidden={stage!==mode}>
-            <ReferenceReview key={`${item.id}-${mode}-${item.timing!.analysis_id}`} id={item.id} mode={mode} timing={item.timing!} review={item.stem_review!}
-              health={item.report!.stem_health} refresh={refresh} onCue={seconds => setCue({seconds})} /></div>)}
+            <ReferenceReview key={`${item.id}-${mode}-${item.timing!.analysis_id}`} id={item.id} name={item.name} mode={mode} timing={item.timing!} review={item.stem_review!}
+              health={item.report!.stem_health} refresh={refresh} onCue={seconds => setCue({seconds})}
+              onStemSaved={review => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, stem_review: review } : reference))}
+              onTimingSaved={timing => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, timing } : reference))}
+              onNext={() => setStage(mode === "stems" ? "timing" : "listening")} /></div>)}
           <div hidden={stage!=="listening"}><ReferenceListening key={item.id} item={item} available={listeningAvailable} refresh={refresh}
             checkedAt={checkedAt} pollError={pollError} onDiscuss={chatBusy || busy ? undefined : () => onUse(item.id)} /></div>
           {stage === "compare" && <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} />}
