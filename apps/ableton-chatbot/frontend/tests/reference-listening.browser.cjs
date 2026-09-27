@@ -35,6 +35,10 @@ async function main() {
         if (path.startsWith('/api/chats/')) return reply({ project, referenceId: id, sessionId: 'listen-song', messages: [] });
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });
         if (path === '/api/recordings') return reply({ recordings: [] });
+        if (path === '/api/live-set') {
+          assert.deepEqual(body, { operation: 'activate' });
+          return reply({ status: 'observed', summary: 'Ableton brought forward. No set was changed.' });
+        }
         if (path === '/api/references') return failPoll ? reply({ detail: 'Temporarily unavailable' }, 503) : reply({ references: [item()], available: true, audio_listening: { available: true }, max_bytes: 262144000, min_seconds: 5, max_seconds: 600 });
         if (path.includes('/audio/')) {
           const wav = Buffer.alloc(44 + 16000); wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8);
@@ -52,6 +56,7 @@ async function main() {
         }
         if (path.endsWith('/listen')) { const result = note(body.intent, body.layer); listening.excerpts.push(result); return reply(result); }
         if (path.endsWith('/listen-cancel')) { listening.job.status = 'interrupted'; return reply({ status: 'interrupted' }); }
+        if (path.endsWith('/comparisons')) return reply({ comparisons: [], available: true });
         if (path.endsWith('/stem-review')) { review = { ...review, decisions: body.decisions, status: 'accepted' }; return reply(review); }
         if (path.endsWith('/timing')) { timing = { ...body, status: 'confirmed', revision: timing.revision + 1 }; return reply(timing); }
         if (path.endsWith('/template/approve')) { template.status = 'approved'; return reply(template); }
@@ -75,6 +80,11 @@ async function main() {
       const consent = () => page.getByLabel(/Send this (whole track|excerpt) and my intent to OpenAI/);
       const posts = () => calls.filter(c => /\/listen(-whole)?$/.test(c.path) && c.method === 'POST');
       await page.goto((process.env.BEATMIND_UI_URL || 'http://localhost:3014') + '/dashboard'); await open();
+      await page.getByRole('tab', { name: '4. Template', exact: true }).click();
+      await page.getByText('Template prerequisites pending: stem review, timing confirmation.', { exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Review stems', exact: true }).click();
+      assert.equal(await page.getByRole('tab', { name: '1. Stems', exact: true }).getAttribute('aria-selected'), 'true');
+      await page.getByRole('tab', { name: '3. Listening', exact: true }).click();
       // Locator.click auto-scrolls, so explicitly check discoverability while the answer has focus.
       for (const height of [900, 500]) {
         await page.setViewportSize({ width, height });
@@ -193,16 +203,32 @@ async function main() {
       await page.getByLabel('Style', { exact: true }).fill('Deep house');
       await page.getByLabel('Mood', { exact: true }).fill('Warm, spacious');
       await page.getByRole('tab', { name: 'Sections', exact: true }).click();
+      failPoll = true;
       await page.getByRole('button', { name: 'Save template draft', exact: true }).click();
+      await page.getByText('Template saved. The overview could not refresh; your save succeeded.', { exact: true }).waitFor();
+      failPoll = false;
+      assert.equal(calls.filter(c => c.path === '/api/live-set').length, 0, 'Draft saves must not launch Ableton');
+      if (width === 390) await page.getByLabel('Open Ableton after approval', { exact: true }).uncheck();
       await page.getByRole('button', { name: 'Approve planning brief', exact: true }).click();
+      await page.getByRole('button', { name: 'Plan first part in chat', exact: true }).waitFor();
+      if (width === 1440) await page.getByText('Ableton brought forward. No set was changed.', { exact: true }).waitFor();
+      assert.equal(calls.filter(c => c.path === '/api/live-set').length, width === 1440 ? 1 : 0);
+      if (width === 390) {
+        await page.getByRole('region', { name: 'Bridge connection', exact: true }).getByRole('button', { name: 'Open Ableton', exact: true }).click();
+        await page.getByText('Ableton brought forward. No set was changed.', { exact: true }).waitFor();
+      }
       const download = page.waitForEvent('download');
       await page.getByRole('button', { name: 'Download timing guide and blueprint', exact: true }).click();
       assert.equal((await download).suggestedFilename(), 'beatmind-reference-template.zip');
+      await page.getByRole('button', { name: 'Continue to comparison', exact: true }).click();
+      await page.getByText('No saved Ableton auditions yet.', { exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Open music chat', exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Back to template', exact: true }).click();
       await page.getByRole('button', { name: 'Plan first part in chat', exact: true }).click();
       await page.getByText('Let us choose your first original kick.', { exact: true }).waitFor();
       const chat = calls.find(c => c.path === '/api/chat/stream');
       assert.equal(chat.body.reference_id, id); assert.equal(chat.body.planning_only, true);
-      assert.equal(calls.filter(c => c.path === '/api/live-set').length, 0);
+      assert.equal(calls.filter(c => c.path === '/api/live-set').length, 1, 'Navigation/download never repeat activation');
       assert.equal(calls.filter(c => c.path.endsWith('/template/suggest')).length, 0, 'Manual planning needs no paid suggestion');
       assert.deepEqual(errors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

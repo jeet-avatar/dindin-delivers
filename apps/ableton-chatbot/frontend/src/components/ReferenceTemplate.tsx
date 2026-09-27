@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import type { TimingMap } from "./ReferenceReview";
 
@@ -21,16 +21,25 @@ export type ReferenceTemplateData = {
 
 const field = "mt-1 w-full min-w-0 rounded border border-neutral-600 bg-neutral-900 p-2 text-sm";
 
-export default function ReferenceTemplate({ id, template, bpm, timing, refresh, onUse, chatBusy }: {
+export default function ReferenceTemplate({ id, template: remoteTemplate, bpm, timing, refresh, onUse, chatBusy, onApproved, onSaved, onCompare }: {
   id: string; template?: ReferenceTemplateData; bpm: number | null;
   refresh: () => Promise<void>; onUse: () => void; chatBusy: boolean;
   timing: TimingMap;
+  onApproved?: () => void; onSaved?: (template: ReferenceTemplateData) => void; onCompare?: () => void;
 }) {
+  const [template, setTemplate] = useState(remoteTemplate);
   const [step, setStep] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [consent, setConsent] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [openAfterApproval, setOpenAfterApproval] = useState(true);
+  const sending = useRef(false);
+  useEffect(() => {
+    if (remoteTemplate) setTemplate(previous => !previous || remoteTemplate.revision > previous.revision ||
+      (remoteTemplate.revision === previous.revision && (previous.status !== "approved" || remoteTemplate.status === "approved")) ? remoteTemplate : previous);
+  }, [remoteTemplate]);
   const [brief, setBrief] = useState<Brief>(() => template?.brief || {
     title: "My reference-inspired track", style: "", mood: "", borrow: "", avoid: "",
     bpm: timing.bpm || bpm || 120, key: "Choose after audition", numerator: timing.numerator, denominator: timing.denominator,
@@ -54,7 +63,8 @@ export default function ReferenceTemplate({ id, template, bpm, timing, refresh, 
     setBrief(previous => ({ ...previous, [key]: value })); setDirty(true);
   }
   async function save(approve = false) {
-    setBusy(true); setError("");
+    if (sending.current) return;
+    sending.current = true; setBusy(true); setError(""); setNotice("");
     try {
       const response = await apiFetch(`/api/references/${id}/template${approve ? "/approve" : ""}`, {
         method: "POST", body: JSON.stringify(approve ? { revision: template?.revision } : effectiveBrief),
@@ -64,19 +74,26 @@ export default function ReferenceTemplate({ id, template, bpm, timing, refresh, 
         const message = Array.isArray(result.detail) ? result.detail.map((e: { loc: string[]; msg: string }) => `${e.loc.slice(1).join(".")}: ${e.msg}`).join("; ") : result.detail;
         throw new Error(message || "Template could not be saved.");
       }
-      setBrief(result.brief); await refresh(); setDirty(false);
+      if (!result.brief || !Number.isFinite(result.revision) || (approve && result.status !== "approved")) throw new Error("Template save was not confirmed. Check saved state before retrying.");
+      setTemplate(result); setBrief(result.brief); setDirty(false); onSaved?.(result);
+      setNotice(approve ? "Planning brief approved. No musical parts have been built." : "Template draft saved.");
+      if (approve && openAfterApproval) onApproved?.();
+      try { await refresh(); } catch { setNotice("Template saved. The overview could not refresh; your save succeeded."); }
     } catch (e) { setError(e instanceof Error ? e.message : "Template failed."); }
-    finally { setBusy(false); }
+    finally { sending.current = false; setBusy(false); }
   }
   async function suggest() {
-    setBusy(true); setError("");
+    if (sending.current) return;
+    sending.current = true; setBusy(true); setError(""); setNotice("");
     try {
       const response = await apiFetch(`/api/references/${id}/template/suggest`, { method: "POST", body: JSON.stringify({ consent, brief: effectiveBrief }) });
       const result = await response.json();
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Complete your taste, style and mood before generating a template.");
-      setBrief(result.brief); setDirty(false); setStep(3); await refresh();
+      setTemplate(result); setBrief(result.brief); setDirty(false); setStep(3); onSaved?.(result); setConsent(false);
+      setNotice("Template proposal saved. Approval pending.");
+      try { await refresh(); } catch { setNotice("Template proposal saved. The overview could not refresh; your save succeeded."); }
     } catch (e) { setError(e instanceof Error ? e.message : "Template suggestion failed."); }
-    finally { setBusy(false); }
+    finally { sending.current = false; setBusy(false); }
   }
   async function download() {
     setBusy(true); setError("");
@@ -156,6 +173,7 @@ export default function ReferenceTemplate({ id, template, bpm, timing, refresh, 
     <button type="button" disabled={busy || !consent || !brief.borrow.trim() || !brief.style.trim() || !brief.mood.trim()}
       onClick={suggest} className="rounded bg-neutral-700 px-3 py-2 text-sm disabled:opacity-40">{busy ? "Working..." : "Suggest template from my taste"}</button>
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+    {notice && <p role="status" className="text-sm text-emerald-200">{notice}</p>}
     {template && <div className="space-y-3 border-t border-neutral-700 pt-3 text-sm">
       <h5 className="font-medium">{template.brief.title} / Revision {template.revision} / {dirty ? "Unsaved changes" : template.status}</h5>
       <p>{template.brief.style} / {template.brief.bpm} BPM / {Number(template.total_bars.toFixed(3))} bars / {template.duration_seconds.toFixed(3)} seconds</p>
@@ -164,9 +182,12 @@ export default function ReferenceTemplate({ id, template, bpm, timing, refresh, 
       <p><span className="text-neutral-400">Parts: </span>{template.brief.parts.map(p => p.role).join(", ")}</p>
       <ol className="space-y-1">{template.sections.map((s, i) => <li key={i}>{s.start_seconds.toFixed(3)}s{s.end_seconds != null ? `-${s.end_seconds.toFixed(3)}s` : ''}: {s.name} / {s.direction}</li>)}</ol>
       <p className="text-amber-200">Sources not verified. No musical parts built.</p>
+      {onApproved && template.status !== "approved" && <label className="flex items-start gap-2"><input type="checkbox" checked={openAfterApproval}
+        onChange={event => setOpenAfterApproval(event.target.checked)} className="mt-1 h-4 w-4" />Open Ableton after approval</label>}
       {template.status !== "approved" ? <button type="button" disabled={busy || dirty || template.status === "needs_review"} onClick={() => save(true)} className="rounded bg-emerald-700 px-3 py-2 disabled:opacity-40">Approve planning brief</button> :
         <button type="button" disabled={chatBusy || dirty || busy} onClick={onUse} className="rounded bg-emerald-700 px-3 py-2 disabled:opacity-40">Plan first part in chat</button>}
       {template.status === "approved" && <button type="button" disabled={dirty || busy} onClick={download} className="block rounded bg-neutral-700 px-3 py-2 disabled:opacity-40">Download timing guide and blueprint</button>}
+      {template.status === "approved" && onCompare && <button type="button" onClick={onCompare} className="rounded border border-neutral-600 px-3 py-2">Continue to comparison</button>}
       <details className="text-xs text-neutral-400"><summary>Template limits</summary>{template.limitations.map(l => <p key={l} className="mt-2">{l}</p>)}</details>
     </div>}
   </fieldset>;

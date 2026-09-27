@@ -10,12 +10,22 @@ async function main() {
       let state = 'hold', releaseFirst;
       const firstResponse = new Promise(resolve => { releaseFirst = resolve; });
       const errors = [];
+      const launches = [];
+      let launchFailed = false;
       await context.addInitScript(() => {
         localStorage.setItem('beatmind_token', 'fixture-not-a-token');
         localStorage.setItem('beatmind_user', JSON.stringify({ id: 987654, email: 'fixture@example.invalid', subscribed: true }));
       });
       await context.route('**/api/**', async route => {
         const path = new URL(route.request().url()).pathname;
+        if (path === '/api/live-set') {
+          assert.equal(route.request().method(), 'POST');
+          assert.deepEqual(route.request().postDataJSON(), { operation: 'activate' });
+          launches.push('activate');
+          return route.fulfill({ contentType: 'application/json', body: JSON.stringify(launchFailed
+            ? { status: 'failed', summary: 'Unable to open Ableton: finish the current dialog.' }
+            : { status: 'observed', summary: 'Ableton brought forward. No set was changed.' }) });
+        }
         assert.equal(route.request().method(), 'GET');
         if (path === '/api/bridge/status') {
           if (state === 'hold') await firstResponse;
@@ -45,13 +55,29 @@ async function main() {
         await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name, exact: true }).click();
         await label('Bridge connected');
         await noInstaller();
-        assert.equal(await region.getByRole('link', { name: 'Open BeatMind Bridge', exact: true }).count(), 0);
+        assert.equal(await region.getByRole('link', { name: 'Open BeatMind Bridge', exact: true }).count(), 1);
+        assert.equal(await region.getByRole('button', { name: 'Open Ableton', exact: true }).count(), 1);
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
         await page.screenshot({ path: '/tmp/beatmind-bridge-connected-' + name + '-' + viewport.width + '.png' });
       }
+      assert.equal(launches.length, 0, 'Navigation must not launch Ableton');
+      await region.getByRole('button', { name: 'Open Ableton', exact: true }).click();
+      await label('Ableton brought forward. No set was changed.');
+      assert.equal(launches.length, 1);
+      launchFailed = true;
+      await region.getByRole('button', { name: 'Open Ableton', exact: true }).click();
+      await region.getByRole('alert').filter({ hasText: 'Unable to open Ableton' }).waitFor();
+      assert.equal(launches.length, 2);
+      launchFailed = false;
       state = 'disconnected';
       await page.clock.runFor(6000);
       await label('Bridge not connected');
+      await region.getByRole('button', { name: 'Open Ableton', exact: true }).click();
+      await label('Ableton launch waiting for Bridge connection.');
+      assert.equal(launches.length, 2, 'Disconnected launch must wait without an API write');
+      await region.getByRole('button', { name: 'Cancel pending Ableton launch', exact: true }).click();
+      await label('Ableton launch canceled.');
+      await region.getByRole('button', { name: 'Open Ableton', exact: true }).click();
       const link = region.getByRole('link', { name: 'Open BeatMind Bridge', exact: true });
       assert.equal(await link.getAttribute('href'), 'beatmind-bridge://open');
       await noInstaller();
@@ -70,6 +96,8 @@ async function main() {
       state = 'connected';
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
       await label('Bridge connected');
+      await label('Ableton brought forward. No set was changed.');
+      assert.equal(launches.length, 3, 'Pending activation runs once after reconnect');
       await noInstaller();
       for (const failure of ['error', 'malformed', 'network-error']) {
         state = failure;
@@ -88,7 +116,8 @@ async function main() {
       await page.clock.runFor(6000);
       await label('Bridge connected');
       assert.deepEqual(errors, []);
-      console.log('PASS ' + viewport.width + 'px: checking, connected across all views, disconnected launch, optional installer, focus refresh, errors/retry, session expiry; no music commands');
+      assert.equal(launches.length, 3, 'Status polling must not repeat activation');
+      console.log('PASS ' + viewport.width + 'px: persistent Bridge/Ableton controls, verified activation, failed activation, queued/canceled launch, once-only reconnect, optional installer, connection recovery; activate only, no Live Set edits');
       await context.close();
     }
   } finally { await browser.close(); }

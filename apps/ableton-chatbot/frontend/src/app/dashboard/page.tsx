@@ -15,6 +15,7 @@ import NewSongDialog from "@/components/NewSongDialog";
 import References from "@/components/References";
 import ChatComparisons from "@/components/ChatComparisons";
 import BridgeLaunch from "@/components/BridgeLaunch";
+import { useAbletonLaunch } from "@/lib/use-ableton-launch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
 import { bridgeStatusLabel } from "@/lib/bridge-status";
 import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/chat-index";
@@ -170,6 +171,7 @@ export default function DashboardPage() {
   const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
   const { status: bridgeStatus, refresh: refreshBridge } = useBridgeStatus(user?.id);
   const bridgeConnected = bridgeStatus === "connected";
+  const ableton = useAbletonLaunch(bridgeStatus, user?.id);
   const [historyReady, setHistoryReady] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const requestRef = useRef<AbortController | null>(null);
@@ -519,7 +521,6 @@ export default function DashboardPage() {
           <p className="text-xs mb-5 flex-1" style={{ color: "var(--text-secondary)", lineHeight: "1.65" }}>
             Develop music one part at a time in Ableton Live, with supported instrument controls and captured auditions to review.
           </p>
-          <div className="mb-3"><BridgeLaunch status={bridgeStatus} onRetry={refreshBridge} /></div>
           <div className="flex gap-2">
             <button onClick={() => setNav("beatmind")}
               className="flex-1 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
@@ -590,7 +591,6 @@ export default function DashboardPage() {
   const renderBeatMind = () => (
     <div className="flex flex-col flex-1 h-full overflow-hidden">
       {/* Bridge offline banner */}
-      <div className="mx-3 sm:mx-6 mt-4 shrink-0"><BridgeLaunch status={bridgeStatus} onRetry={refreshBridge} /></div>
 
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-4" aria-live="polite">
         {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
@@ -760,7 +760,6 @@ export default function DashboardPage() {
       <section aria-label="BeatMind Bridge" className="mb-6 border-b pb-5" style={{ borderColor: "var(--border)" }}>
         <h3 className="font-semibold text-sm">BeatMind Bridge</h3>
         <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>macOS 15+ · Apple Silicon · Notarized</p>
-        <BridgeLaunch status={bridgeStatus} onRetry={refreshBridge} />
         {bridgeConnected && <button onClick={() => setNav("beatmind")} className="mt-2 rounded px-4 py-2 text-sm font-semibold" style={{ background: "var(--accent)", color: "#0a0a0a" }}>Let&apos;s make music</button>}
       </section>
       <div className="space-y-4">
@@ -979,6 +978,9 @@ export default function DashboardPage() {
             </span>
           </button>
         </header>
+        <div className="shrink-0 border-b px-3 sm:px-6" style={{ borderColor: "var(--border)" }}>
+          <BridgeLaunch status={bridgeStatus} onRetry={refreshBridge} ableton={ableton} />
+        </div>
         {nav === "beatmind" && <div className="flex flex-wrap items-center gap-2 px-3 sm:px-6 py-3 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
           <button type="button" className="sm:hidden h-10 px-2 text-sm" onClick={() => setHistoryOpen(true)}>Saved songs</button>
           {project ? <input key={`${chatId}-${project.title}`} aria-label="Song name" defaultValue={project.title} maxLength={70}
@@ -1009,7 +1011,7 @@ export default function DashboardPage() {
           {nav === "beatmind"  && renderBeatMind()}
           {nav === "mixmind"   && renderMixMind()}
           {nav === "downloads" && renderDownloads()}
-          {nav === "references" && <References key={chatId} selectedId={referenceId} guided={Boolean(project)}
+          {nav === "references" && <References key={chatId} selectedId={referenceId} guided={Boolean(project)} onTemplateApproved={() => void ableton.open()} onOpenChat={() => setNav("beatmind")}
             onSelect={async id => {
               if (!project) { setReferenceId(id); return; }
               setProjectBusy(true);

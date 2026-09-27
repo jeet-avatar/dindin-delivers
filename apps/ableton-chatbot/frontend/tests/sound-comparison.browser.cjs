@@ -130,7 +130,8 @@ async function main() {
       await panel.getByLabel('Saved comparisons').waitFor({ state: 'detached' });
       assert.equal(await panel.getByLabel('Saved comparisons').count(), 0);
       await page.getByRole('button', { name: 'BeatMind', exact: true }).click();
-      await page.getByLabel('Chats', { exact: true }).selectOption('remote:saved-test');
+      if (viewport.width < 640) await page.getByRole('button', { name: 'Saved songs', exact: true }).click();
+      await page.getByRole('button', { name: 'Open saved song: Restored comparison', exact: true }).click();
       await page.getByText('The saved A/B comparison is ready.').waitFor();
       const chatComparison = page.getByRole('region', { name: 'Chat sound comparison' });
       await assertPlaybackProgress(chatComparison.getByLabel('B - Ableton recording (RMS matched)', { exact: true }));

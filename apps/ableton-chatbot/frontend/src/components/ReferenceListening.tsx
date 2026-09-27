@@ -7,9 +7,10 @@ import { excerptRangeError, latestListening, listeningCoverage, requestWasSaved,
 const stamp = (seconds: number) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
 const field = "mt-2 w-full min-w-0 rounded border border-neutral-600 bg-neutral-900 p-2";
 
-export default function ReferenceListening({ item, available, refresh, checkedAt, pollError, onDiscuss }: {
+export default function ReferenceListening({ item, available, refresh, checkedAt, pollError, onDiscuss, onNext }: {
   item: { id: string; listening?: ListeningData; listening_busy?: boolean; report?: { duration_seconds: number } };
   available: boolean; refresh: () => Promise<void>; checkedAt: number | null; pollError: string; onDiscuss?: () => void;
+  onNext?: () => void;
 }) {
   const [intent, setIntent] = useState("");
   const [start, setStart] = useState(0);
@@ -169,6 +170,7 @@ export default function ReferenceListening({ item, available, refresh, checkedAt
     </form>
     {error && !permissionError && <p role="alert" className="text-sm text-red-300 break-words">{error}</p>}
     {notice && <p role="status" className="text-sm text-emerald-200">{notice}</p>}
+    {onNext && !locked && <button type="button" onClick={onNext} className="rounded border border-emerald-500 px-3 py-2 text-sm">{notes.length ? "Continue to template" : "Use a manual brief"}</button>}
     {(job || newestExcerpt || uncertain) && <div className="space-y-2 border-l-2 border-emerald-500 pl-3 text-sm">
       <h5 className="font-medium">{uncertain ? "Awaiting confirmation" : "Submitted listening intent"}</h5>
       <p className="whitespace-pre-wrap break-words">{uncertain?.intent || latestIntent}</p>
