@@ -95,10 +95,12 @@ async function main() {
       assert.equal(await page.locator('[aria-label="Saved references"] [aria-pressed="true"]').count(), 0);
       assert.equal(await page.locator('audio').count(), 0, 'Opening the library must not select a reference');
       await page.getByRole('button', { name: 'Hide saved references', exact: true }).click();
-      await page.getByLabel('Reference audio file').setInputFiles({ name: 'Original reference.wav', mimeType: 'audio/wav', buffer: wave() });
-      assert.equal(await page.getByRole('button', { name: 'Analyze reference', exact: true }).isDisabled(), true);
+      const fileChooser = page.waitForEvent('filechooser');
+      await page.getByLabel('Reference audio file').click();
+      await (await fileChooser).setFiles({ name: 'Original reference.wav', mimeType: 'audio/wav', buffer: wave() });
+      assert.equal(await page.getByRole('button', { name: 'Upload and analyze', exact: true }).isDisabled(), true);
       await page.getByLabel('I have permission to upload and analyze this audio.').check();
-      await page.getByRole('button', { name: 'Analyze reference', exact: true }).click();
+      await page.getByRole('button', { name: 'Upload and analyze', exact: true }).click();
       await page.getByText('Would you like me to listen to this track? What stands out to you?', { exact: true }).waitFor();
       assert.equal(songs['song-1'].referenceId, refId, 'Only the uploaded file becomes this song reference');
       await page.getByRole('heading', { name: 'Original reference.wav', exact: true }).waitFor();
@@ -141,6 +143,9 @@ async function main() {
       await page.getByRole('button', { name: 'Reference review', exact: true }).click();
       await page.getByRole('button', { name: 'Discuss what I like', exact: true }).waitFor();
       assert.equal(calls.filter(c => c.path.endsWith('/listen-whole')).length, 1, 'Restoring history must not send audio again');
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
+      await page.getByRole('button', { name: 'Upload song', exact: true }).click();
+      await page.getByLabel('Reference audio file').waitFor();
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'Choose Live Set', exact: true }).click();
       assert.equal(await page.getByRole('button', { name: 'Use inspected set instead', exact: true }).isDisabled(), true);

@@ -216,12 +216,13 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     <div className="space-y-3 border-b border-neutral-700 pb-5">
       <label className="block text-sm">Audio file <span className="text-neutral-400">(50 MB, 5 seconds to 10 minutes)</span>
         <input type="file" aria-label="Reference audio file" accept=".wav,.aif,.aiff,.mp3,.m4a,.flac,.ogg"
-          disabled={!available || busy || chatBusy} onChange={e => setFile(e.target.files?.[0] || null)} className="block mt-2 w-full text-sm" />
+          disabled={!available || busy || chatBusy} onChange={e => setFile(e.target.files?.[0] || null)}
+          className="block mt-2 w-full min-w-0 rounded border border-neutral-600 bg-neutral-900 p-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-emerald-700 file:px-4 file:py-3 file:font-medium file:text-white disabled:opacity-40" />
       </label>
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={rights} onChange={e => setRights(e.target.checked)} className="mt-1" />
         I have permission to upload and analyze this audio.</label>
       <button type="button" onClick={upload} disabled={!available || !file || !rights || busy || chatBusy}
-        className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{busy ? "Uploading..." : "Analyze reference"}</button>
+        className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{busy ? "Uploading..." : "Upload and analyze"}</button>
     </div>
     {guided && <button type="button" aria-expanded={showSaved} aria-controls="saved-reference-library"
       onClick={() => setShowSaved(value => !value)} className="text-sm underline">

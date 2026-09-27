@@ -982,6 +982,9 @@ export default function DashboardPage() {
           <button type="button" onClick={() => void newSong()} disabled={!historyReady || loading || projectBusy}
             className="h-10 px-3 shrink-0 rounded text-sm font-medium disabled:opacity-40"
             style={{ background: "var(--accent)", color: "white" }}>New song</button>
+          {project && <button type="button" onClick={() => void chooseStart("reference")} disabled={!historyReady || loading || projectBusy}
+            className="h-10 px-3 shrink-0 rounded border text-sm font-medium disabled:opacity-40"
+            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>Upload song</button>}
           {project && <div className="w-full flex flex-wrap items-center gap-3 text-xs">
             <span style={{ color: "var(--text-secondary)" }}>{project.live_set ? `Selected set: ${project.live_set.title}` : "Planning / No Live Set selected"}</span>
             <button disabled={loading || projectBusy || !bridgeConnected} onClick={() => setSongSetup("")} className="underline disabled:opacity-40">Choose Live Set</button>
