@@ -17,5 +17,5 @@ assert.equal(claimPreviewAutoplay('new', 'accepted', false, seen), false);
 const followup = acceptedSound('Kick');
 assert.equal(followup.content, 'Kick accepted. What would you like to do next?');
 assert.equal(followup.choices.length, 3);
-assert.match(followup.choices[0].message, /do not replay or change/);
+assert.equal(followup.choices[0].message, 'Keep Kick as it is. Which part should we choose next?');
 console.log('Accepted sound acknowledgment and once-only pending-preview autoplay passed.');

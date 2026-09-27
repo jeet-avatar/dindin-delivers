@@ -84,7 +84,7 @@ async function main() {
       await page.waitForFunction(() => !document.querySelector('button[aria-label="Stop production"]'));
       assert.equal(chats.length, 1);
       assert.equal(chats[0].planning_only, true);
-      assert.match(chats[0].message, /do not replay or change/);
+      assert.equal(chats[0].message, 'Keep Kick as it is. Which part should we choose next?');
       await page.getByText('Which part would you like next?', { exact: true }).waitFor();
       await page.getByRole('button', { name: 'New chat', exact: true }).click();
       await page.getByRole('heading', { name: 'How would you like to start?' }).waitFor();

@@ -537,7 +537,7 @@ export default function DashboardPage() {
               <button type="button" onClick={() => setNav("references")} className="rounded border p-3 text-sm"
                 style={{ borderColor: "var(--border)" }}>Use a reference track</button>
               <button type="button" disabled={loading || !historyReady} onClick={() => void sendMessage(
-                "Start an original track from my own idea, without a reference. Ask me one question at a time, starting with the style or mood. Do not change Ableton yet.", undefined, undefined, true)}
+                "I'd like to start from my own idea, without a reference.", undefined, undefined, true)}
                 className="rounded border p-3 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>Start from an idea</button>
             </div>
           </div>
@@ -922,8 +922,8 @@ export default function DashboardPage() {
           {nav === "references" && <References chatBusy={loading || !historyReady} onUse={(id, template) => {
             setNav("beatmind");
             void sendMessage(template
-              ? "Use my approved reference template and creative brief to plan an original track. Inspect the current Live Set and discover sources that match my required pack or instrument. Explain the first planned part and ask for my source choice before making music. Do not discard existing work, load sounds, create tracks, or change Ableton yet. Session sections are not an Arrangement timeline."
-              : "Review the selected reference, including saved sound comparisons, listening intervals, coverage, unresolved analysis failures and my musical preferences. Distinguish measurements, model impressions, and unknowns. Ask only the next missing reference-workflow question: my inspiration, stem review, listening consent, timing, or my original sound choices. Do not skip unfinished stages or change Ableton yet.", undefined, id, true);
+              ? "Let's plan an original track from my approved reference template. Help me choose the first sound."
+              : "Let's use this reference to shape an original track with my own sounds. What should we decide first?", undefined, id, true);
           }} />}
           {nav === "recordings" && <section className="p-4 sm:p-6 min-w-0">
             <h2 className="text-lg font-semibold">Saved recordings</h2>
