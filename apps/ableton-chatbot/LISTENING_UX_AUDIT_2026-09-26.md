@@ -1,5 +1,16 @@
 # Listening Submission and Accuracy Audit
 
+## Deployed Release
+
+- Frontend runtime: `03b2babe35d66bb6b85527c86ae2acf980cf043a`, pushed to `release/beatmind-audio-20260926`.
+- Archive: `s3://beatmind-frontend/releases/web/03b2babe/`.
+- CloudFront invalidation `I3U6P6GCYFT8XNPA14RWBUCDL0` completed. Public release manifest verified.
+- Backend remains `beatmind-api:27`, source `86796f6a48fe2ca49f22761a0bfa77e530b3f056`; no restart.
+- New listening browser contracts passed against deployed assets at 1440px and 390px, using intercepted API fixtures with no paid provider calls.
+- Separate authenticated production check loaded the real Full Moon reference, verified the visible send action and explicit accuracy limits, and confirmed submission without consent made zero mutating API requests. Desktop/mobile screenshots inspected.
+- Existing reference-status and replacement browser suites also passed at both widths locally.
+- All seven release files mirrored to the original workspace with identical Git hashes; unrelated changes preserved.
+
 ## Scope
 
 Frontend-only repair of reference listening submission and result presentation. No model, backend, source audio, saved analysis or Ableton project was changed. No paid provider request was made during this audit.
@@ -67,3 +78,13 @@ Recommended next engineering work, not claimed implemented by this UI release:
 6. Rendered arrangement playback and timing checks before declaring a template usable. Proposed effects for a new track must remain proposals, not claims about the reference's original production.
 
 The objective is complete accountability for every published claim, not an unsupported 100% musical-accuracy badge.
+
+## Established Engine Candidates
+
+Research only; no dependency or analysis-engine replacement was deployed in this release.
+
+- [Essentia KeyExtractor](https://essentia.upf.edu/reference/std_KeyExtractor.html): HPCP-based key/scale extraction, tuning correction and selectable key profiles. [Repository](https://github.com/MTG/essentia), [licensing information](https://essentia.upf.edu/licensing_information.html).
+- [Mixxx libkeyfinder](https://github.com/mixxxdj/libkeyfinder): C++ musical-key estimator used by Mixxx, GPL-3.0-or-later. Candidate for independent comparison, subject to deployment/license review.
+- [librosa 0.11 beat tracker](https://librosa.org/doc/0.11.0/generated/librosa.beat.beat_track.html): already used by BeatMind; outputs estimated tempo and beat locations and accepts time-varying tempo. The immediate gap is refinement and full-track validation, not the absence of a standard library. [ISC license](https://github.com/librosa/librosa/blob/main/LICENSE.md).
+
+The current Full Moon key profile scores are F major 0.679, F minor 0.627 and C major 0.458. These are correlations, not probabilities or a verified key. Benchmarking should distinguish tonic errors, major/minor ambiguity, relative keys, modulations and weak tonal evidence. Cross-engine agreement is corroboration, not proof.
