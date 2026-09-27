@@ -46,7 +46,7 @@ async function main() {
           project = { ...project, ...route.request().postDataJSON() };
           return reply({ project, referenceId: null });
         }
-        if (path === '/api/references') return reply({ references: [], available: true, audio_listening: { available: true } });
+        if (path === '/api/references') return reply({ references: [], available: true, max_bytes: 250 * 1024 * 1024, min_seconds: 5, max_seconds: 600, audio_listening: { available: true } });
         if (path === '/api/recordings') { initialRead = true; return reply({ recordings: available ? [recording] : [] }); }
         if (path === `/api/recordings/${id}/audio`) return route.fulfill({ contentType: 'audio/wav', body: wave() });
         if (path === `/api/recordings/${id}/decision`) {

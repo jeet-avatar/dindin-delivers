@@ -53,9 +53,9 @@ async function main() {
           return reply(song);
         }
         if (path === '/api/references') {
-          if (request.method() === 'POST') { uploaded = true; return reply({ id: refId }); }
+          if (request.method() === 'POST') { uploaded = true; return reply(ref()); }
           const oldReference = { ...ref(), id: 'd'.repeat(32), name: 'QA - Earlier reference.wav' };
-          return reply({ available: true, audio_listening: { available: true }, references: uploaded ? [oldReference, ref()] : [oldReference] });
+          return reply({ available: true, max_bytes: 250 * 1024 * 1024, min_seconds: 5, max_seconds: 600, audio_listening: { available: true }, references: uploaded ? [oldReference, ref()] : [oldReference] });
         }
         if (path.includes('/audio/')) return route.fulfill({ contentType: 'audio/wav', body: wave() });
         if (path.endsWith('/listen-whole')) { assert.equal(body.consent, true); listened = true; return reply({ status: 'complete' }); }

@@ -9,6 +9,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.testclient import TestClient
 
 import references
+from reference_limits import MAX_BYTES
 from reference_worker import has_tonal_evidence
 from security import DoSProtectionMiddleware, _rate_store
 
@@ -135,7 +136,29 @@ class ReferenceTests(unittest.TestCase):
 
     def test_reference_body_limit_does_not_relax_chat_limit(self):
         self.assertEqual(self.client.post('/api/chat', content=b'x' * 65537).status_code, 413)
-        self.assertEqual(self.client.post('/api/references', headers={'content-length': str(51*1024*1024)}).status_code, 413)
+        self.assertEqual(self.client.post('/api/references', headers={'content-length': str(MAX_BYTES + 1)}).status_code, 413)
+
+    def test_upload_limits_are_reported_and_shared_with_ingress(self):
+        from security import MAX_REFERENCE_BYTES
+        self.assertEqual(MAX_BYTES, MAX_REFERENCE_BYTES)
+        self.assertEqual(MAX_BYTES, 250 * 1024 * 1024)
+        response = self.client.get('/api/references', headers={'x-user': '1'}).json()
+        self.assertEqual(response['max_bytes'], MAX_BYTES)
+        self.assertEqual(response['min_seconds'], 5)
+        self.assertEqual(response['max_seconds'], 600)
+
+    def test_upload_over_old_limit_streams_without_relaxing_auth_or_duration(self):
+        async def finish(directory, item):
+            self.assertEqual((directory / 'source.wav').stat().st_size, 51 * 1024 * 1024)
+            references.ACTIVE.release()
+        headers = {'x-user': '1', 'x-reference-name': 'large.wav', 'x-rights-confirmed': 'true'}
+        with patch.object(references, 'capability', return_value={'available': True}), \
+             patch.object(references, 'process', side_effect=finish):
+            with self.client as client:
+                response = client.post('/api/references', headers=headers, content=b'x' * (51 * 1024 * 1024))
+                self.assertEqual(response.status_code, 202)
+                self.assertEqual(response.json()['bytes'], 51 * 1024 * 1024)
+        self.assertEqual(self.client.post('/api/references', headers={'content-length': str(51 * 1024 * 1024)}).status_code, 401)
 
 
 if __name__ == '__main__':

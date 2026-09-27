@@ -13,6 +13,7 @@ from collections import defaultdict
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+from reference_limits import MAX_BYTES as MAX_REFERENCE_BYTES
 
 log = logging.getLogger("beatmind.security")
 
@@ -207,7 +208,7 @@ class DoSProtectionMiddleware(BaseHTTPMiddleware):
         # 1. Block obviously oversized bodies early (before parsing)
         content_length = request.headers.get("content-length")
         # The authenticated reference endpoint enforces this limit while streaming too.
-        max_body = 50 * 1024 * 1024 if request.method == "POST" and request.url.path == "/api/references" else self.MAX_BODY_BYTES
+        max_body = MAX_REFERENCE_BYTES if request.method == "POST" and request.url.path == "/api/references" else self.MAX_BODY_BYTES
         try:
             if content_length and int(content_length) > max_body:
                 return JSONResponse({"detail": "Request too large"}, status_code=413)

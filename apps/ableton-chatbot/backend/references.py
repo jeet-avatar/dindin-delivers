@@ -23,9 +23,9 @@ import sound_comparison
 import recordings
 from file_lock import Lease, Busy
 from pydantic import BaseModel, Field
+from reference_limits import MAX_BYTES, MIN_SECONDS, MAX_SECONDS, UPLOAD_TIMEOUT_SECONDS
 
 ROOT = Path(os.getenv('BEATMIND_REFERENCES_DIR', '/tmp/beatmind-references'))
-MAX_BYTES = 50 * 1024 * 1024
 STEMS = ('drums', 'bass', 'vocals', 'other')
 EXTENSIONS = {'.wav', '.aif', '.aiff', '.mp3', '.m4a', '.flac', '.ogg'}
 ACTIVE = asyncio.Lock()
@@ -126,7 +126,7 @@ def capability():
     enabled = os.getenv('BEATMIND_REFERENCE_ENABLED') == '1'
     available = bool(shutil.which('ffmpeg') and all(importlib.util.find_spec(name)
                      for name in ('librosa', 'demucs', 'torch', 'soundfile')) and cached_model_ready())
-    return {'available': enabled and available, 'max_bytes': MAX_BYTES, 'max_seconds': 600,
+    return {'available': enabled and available, 'max_bytes': MAX_BYTES, 'min_seconds': MIN_SECONDS, 'max_seconds': MAX_SECONDS,
             'reason': None if enabled and available else 'Reference analysis is not enabled on this server.'}
 
 
@@ -626,12 +626,12 @@ def router_for(get_user, require_subscription):
                     'source_file': 'source' + suffix}
             write_json(directory / 'meta.json', item)
             size = 0
-            async with asyncio.timeout(120):
+            async with asyncio.timeout(UPLOAD_TIMEOUT_SECONDS):
                 with (directory / item['source_file']).open('wb') as out:
                     async for chunk in request.stream():
                         size += len(chunk)
                         if size > MAX_BYTES:
-                            raise HTTPException(413, 'Reference exceeds 50 MB.')
+                            raise HTTPException(413, f'Reference exceeds {MAX_BYTES // (1024 * 1024)} MB.')
                         out.write(chunk)
             if not size:
                 raise HTTPException(400, 'The uploaded file is empty.')

@@ -1002,7 +1002,7 @@ export default function DashboardPage() {
             onSelect={async id => {
               if (!project) { setReferenceId(id); return; }
               setProjectBusy(true);
-              try { await updateProject({ reference_id: id }); }
+              try { await updateProject({ starting_point: "reference", reference_id: id }); }
               finally { setProjectBusy(false); }
             }} chatBusy={loading || projectBusy || !historyReady} onUse={(id, template) => {
             setReferenceId(id);

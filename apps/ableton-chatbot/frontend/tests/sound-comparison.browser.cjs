@@ -65,7 +65,7 @@ async function main() {
         const json = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
         if (request.method() === 'OPTIONS') return route.fulfill({ status: 204 });
         if (url === '/api/auth/me') return json(user);
-        if (url === '/api/references') return json({ references: [reference], available: true, audio_listening: { available: false } });
+        if (url === '/api/references') return json({ references: [reference], available: true, max_bytes: 250 * 1024 * 1024, min_seconds: 5, max_seconds: 600, audio_listening: { available: false } });
         if (url === '/api/recordings') return json({ recordings: [recording] });
         if (url.endsWith('/comparisons')) {
           if (request.method() === 'GET') return json({ comparisons: saved, available: true });
