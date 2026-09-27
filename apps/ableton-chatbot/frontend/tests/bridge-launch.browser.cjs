@@ -58,7 +58,12 @@ async function main() {
       await link.evaluate(node => node.addEventListener('click', event => event.preventDefault()));
       await link.click();
       await label('Open request sent. Waiting for the bridge to connect...');
-      await page.clock.runFor(16000);
+      // Let mocked network promises settle between clock ticks; a single large
+      // jump can otherwise trigger request timeouts before responses resolve.
+      for (let second = 0; second < 16; second++) {
+        await page.clock.runFor(1000);
+        await new Promise(resolve => setTimeout(resolve, 30));
+      }
       await region.getByText(/No connection detected yet/).waitFor();
       await region.getByText('Need to install the bridge?', { exact: true }).click();
       assert.equal(await region.getByRole('link', { name: 'Download for Mac' }).getAttribute('href'), '/BeatMind-Bridge.dmg');

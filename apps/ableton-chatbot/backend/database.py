@@ -12,7 +12,6 @@ DB_PATH = os.getenv("DB_PATH", "beatmind.db")
 def get_conn():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
 
@@ -30,6 +29,18 @@ def db():
 
 
 def init_db():
+    # Production stores this database on EFS. WAL's shared-memory index is not
+    # supported across network filesystems; set journaling only at startup.
+    mode = os.getenv("DB_JOURNAL_MODE", "DELETE" if os.getenv("ENV") == "production" else "WAL").upper()
+    if mode not in {"DELETE", "WAL"}:
+        raise ValueError("DB_JOURNAL_MODE must be DELETE or WAL")
+    conn = get_conn()
+    try:
+        actual = conn.execute(f"PRAGMA journal_mode={mode}").fetchone()[0]
+        if actual.upper() != mode:
+            raise RuntimeError("Database journal mode could not be configured")
+    finally:
+        conn.close()
     with db() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
