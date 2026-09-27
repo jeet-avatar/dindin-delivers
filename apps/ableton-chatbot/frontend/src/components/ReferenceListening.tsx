@@ -26,6 +26,7 @@ export default function ReferenceListening({ item, available, refresh, checkedAt
   const [storageKey, setStorageKey] = useState("");
   const [now, setNow] = useState(Date.now());
   const intentInput = useRef<HTMLTextAreaElement>(null);
+  const composer = useRef<HTMLDivElement>(null);
   const consentInput = useRef<HTMLInputElement>(null);
   const sending = useRef(false);
   const listening = latestListening(item.listening, accepted);
@@ -61,6 +62,14 @@ export default function ReferenceListening({ item, available, refresh, checkedAt
     }
   }, [item.listening, uncertain]);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 5000); return () => clearInterval(timer); }, []);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const keepComposerVisible = () => {
+      if (document.activeElement === intentInput.current) composer.current?.scrollIntoView({ block: "center" });
+    };
+    viewport?.addEventListener("resize", keepComposerVisible);
+    return () => viewport?.removeEventListener("resize", keepComposerVisible);
+  }, []);
   useEffect(() => {
     if (!pollError) setNotice(previous => previous.startsWith("Request accepted, but status updates") ? "Your listening request is saved." : previous);
   }, [checkedAt, pollError]);
@@ -123,10 +132,6 @@ export default function ReferenceListening({ item, available, refresh, checkedAt
   return <section aria-label="AI listening" className="min-w-0 space-y-4 border-t border-neutral-700 pt-4">
     <h4 className="text-sm font-medium">AI listening</h4>
     <form noValidate onSubmit={event => { event.preventDefault(); void listen(); }} className="space-y-3">
-      <label className="block text-sm">What do you want from this reference?
-        <textarea ref={intentInput} value={intent} maxLength={1000} disabled={locked} onChange={e => { setIntent(e.target.value); setError(""); }} rows={3}
-          placeholder="I like the warm bass and gradual build. Keep that energy, with my own sounds." className={field} />
-      </label>
       <fieldset disabled={locked} className="flex flex-wrap gap-4 text-sm"><legend className="mb-2">Listening scope</legend>
         <label><input type="radio" name={`scope-${item.id}`} checked={whole} onChange={() => { setWhole(true); setConsent(false); setError(""); }} /> Whole track</label>
         <label><input type="radio" name={`scope-${item.id}`} checked={!whole} onChange={() => { setWhole(false); setConsent(false); setError(""); }} /> Excerpt</label>
@@ -143,7 +148,12 @@ export default function ReferenceListening({ item, available, refresh, checkedAt
       </fieldset>}
       <label className="flex items-start gap-2 text-sm"><input ref={consentInput} type="checkbox" disabled={locked || !available} checked={consent} onChange={e => { setConsent(e.target.checked); setError(""); }} className="mt-1" />
         Send {whole ? "this whole track" : "this excerpt"} and my intent to OpenAI. Provider charges apply (up to {whole ? Math.ceil(total / 30) : 1} requests).</label>
-      <div className="sticky bottom-0 z-10 border-t border-neutral-700 bg-neutral-950 py-3 space-y-2">
+      <div ref={composer} className="space-y-3 scroll-my-20">
+        <label className="block text-sm">What do you want from this reference?
+          <textarea ref={intentInput} value={intent} maxLength={1000} disabled={locked} onChange={e => { setIntent(e.target.value); setError(""); }} rows={3}
+            onFocus={() => composer.current?.scrollIntoView({ block: "center" })}
+            placeholder="I like the warm bass and gradual build. Keep that energy, with my own sounds." className={`${field} resize-y`} />
+        </label>
         <button type="submit" disabled={!available || locked} className="w-full rounded bg-emerald-700 px-4 py-3 text-sm font-medium text-white disabled:opacity-50 sm:w-auto">
           {busy ? "Sending listening request..." : uncertain ? "Checking request status" : running ? "Listening in progress" : "Send listening request"}
         </button>

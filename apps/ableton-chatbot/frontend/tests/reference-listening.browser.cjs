@@ -75,6 +75,30 @@ async function main() {
       const consent = () => page.getByLabel(/Send this (whole track|excerpt) and my intent to OpenAI/);
       const posts = () => calls.filter(c => /\/listen(-whole)?$/.test(c.path) && c.method === 'POST');
       await page.goto((process.env.BEATMIND_UI_URL || 'http://localhost:3014') + '/dashboard'); await open();
+      // Locator.click auto-scrolls, so explicitly check discoverability while the answer has focus.
+      for (const height of [900, 500]) {
+        await page.setViewportSize({ width, height });
+        await input().focus();
+        const button = await send().boundingBox(), answer = await input().boundingBox();
+        assert.ok(button && answer && answer.y >= 56 && answer.y + answer.height <= height && button.y >= answer.y + answer.height && button.y + button.height <= height,
+          `Answer and send button must fit without overlap at ${width}x${height}: ${JSON.stringify({ answer, button })}`);
+        assert.equal(await send().evaluate(button => {
+          const box = button.getBoundingClientRect();
+          return button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+        }), true, 'Send action must not be covered by a sticky header or another control');
+        await page.screenshot({ path: `/tmp/beatmind-listening-submit-${width}-${height}.png` });
+        await input().blur();
+      }
+      await input().focus();
+      await page.setViewportSize({ width, height: 360 });
+      await page.waitForFunction(() => {
+        const form = document.querySelector('section[aria-label="AI listening"] form');
+        const answer = form.querySelector('textarea').getBoundingClientRect();
+        const action = form.querySelector('button[type="submit"]').getBoundingClientRect();
+        return answer.y >= 56 && action.y >= answer.bottom && action.bottom <= innerHeight;
+      });
+      await page.screenshot({ path: `/tmp/beatmind-listening-submit-${width}-360.png` });
+      await page.setViewportSize({ width, height: 900 });
       await send().click(); await page.getByRole('alert').filter({ hasText: 'Tell me what you want' }).waitFor();
       await input().fill('Keep the warm bass, but use my own sounds.');
       await send().click(); await page.getByRole('alert').filter({ hasText: 'Your permission' }).waitFor();
