@@ -59,6 +59,7 @@ async function main() {
         if (path.includes('/audio/')) return route.fulfill({ contentType: 'audio/wav', body: wave() });
         if (path.endsWith('/listen-whole')) { assert.equal(body.consent, true); listened = true; return reply({ status: 'complete' }); }
         if (path === '/api/live-set') {
+          if (body.operation === 'save') return reply({ status: 'failed', summary: 'System Events: osascript is not allowed assistive access. (-25211)' });
           const result = { status: 'observed', title: 'Disposable QA set', tracks: ['MIDI'], new_set_ready: true };
           if (body.operation.startsWith('confirm_')) {
             songs[body.session_id].project.live_set = { title: result.title, choice: body.operation };
@@ -116,11 +117,14 @@ async function main() {
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'Choose Live Set', exact: true }).click();
       assert.equal(await page.getByRole('button', { name: 'Use inspected set instead', exact: true }).isDisabled(), true);
+      await page.getByRole('button', { name: '1. Save current set', exact: true }).click();
+      await page.getByRole('alert').filter({ hasText: 'macOS blocked bridge control.' }).waitFor();
+      assert.equal(await page.getByRole('button', { name: 'Use this new set', exact: true }).isDisabled(), true);
       await page.getByRole('button', { name: '3. Inspect open set', exact: true }).click();
       await page.getByRole('button', { name: 'Use inspected set instead', exact: true }).click();
       await page.getByText('Selected set: Disposable QA set', { exact: true }).waitFor();
       assert.equal(calls.filter(c => c.path === '/api/chat/stream').length, 1, 'Set selection must not start production');
-      assert.deepEqual(calls.filter(c => c.path === '/api/live-set').map(c => c.body.operation), ['inspect', 'confirm_current']);
+      assert.deepEqual(calls.filter(c => c.path === '/api/live-set').map(c => c.body.operation), ['save', 'inspect', 'confirm_current']);
       assert.deepEqual(errors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: `/tmp/beatmind-song-projects-${width}.png` });

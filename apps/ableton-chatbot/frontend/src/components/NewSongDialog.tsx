@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
+import { liveSetMessage } from "@/lib/live-set-status";
 
 export default function NewSongDialog({ sessionId, onCancel, onReady }: {
   sessionId: string; onCancel: () => void;
@@ -55,7 +56,8 @@ export default function NewSongDialog({ sessionId, onCancel, onReady }: {
         <button disabled={busy} onClick={() => step("inspect")} className={button}>3. Inspect open set</button>
       </div>
       <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>Existing chats and sound reviews stay saved. Any save-location prompt must be completed in Ableton.</p>
-      {summary && <p role={error ? "alert" : "status"} className={`text-sm mt-3 ${error ? "text-red-300" : "text-emerald-200"}`}>{summary}</p>}
+      {summary && <p role={error ? "alert" : "status"} className={`text-sm mt-3 ${error ? "text-red-300" : "text-emerald-200"}`}>{liveSetMessage(summary)}</p>}
+      {liveSetMessage(summary) !== summary && <details className="mt-2 text-xs break-words"><summary>Technical details</summary>{summary}</details>}
       {title && <p className="text-sm mt-2 break-words">{title}</p>}
       {!!tracks.length && <details className="text-xs mt-2"><summary>Tracks in this set ({tracks.length})</summary>
         <ol className="mt-2 space-y-1">{tracks.map((track, i) => <li key={i}>{i + 1}. {track}</li>)}</ol></details>}
