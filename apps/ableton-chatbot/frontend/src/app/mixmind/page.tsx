@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon } from "@/components/Icons";
 import { isLoggedIn, apiFetch } from "@/lib/auth";
+import { MIXMIND_FAQS } from "@/lib/faqs";
 
 const MAC_DOWNLOAD = "/MixMind-mac.dmg";
 const WIN_DOWNLOAD = "/MixMind-Setup-win.exe";
@@ -59,29 +60,6 @@ const PRICING_FEATURES = [
   "Priority support",
 ];
 
-const FAQS = [
-  {
-    q: "Do I need Rekordbox?",
-    a: "Yes — MixMind reads your Rekordbox library (XML or database). It works with Rekordbox 6 and 7. You don't need Rekordbox open while using MixMind.",
-  },
-  {
-    q: "Does it modify my Rekordbox library?",
-    a: "No. MixMind is read-only by default. Duplicate cleanup marks tracks as hidden inside MixMind — it does not delete or modify your Rekordbox files.",
-  },
-  {
-    q: "Mac or Windows?",
-    a: "Both. The Mac DMG runs natively on Apple Silicon (M1/M2/M3/M4). Intel Macs need Rosetta 2 — if you don't have it, macOS will prompt you to install it free. The EXE installer works on Windows 10/11.",
-  },
-  {
-    q: "Is this the same as BeatMind?",
-    a: "No — they're separate tools. BeatMind makes music inside Ableton Live. MixMind organizes your existing DJ library. Both are $19/month.",
-  },
-  {
-    q: "Can I cancel anytime?",
-    a: "Yes. Cancel from your account with one click. No questions, no lock-in.",
-  },
-];
-
 export default function MixMindPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const router = useRouter();
@@ -127,6 +105,7 @@ export default function MixMindPage() {
           <a href="#features" className="hover:text-white transition-colors duration-150">Features</a>
           <a href="#how" className="hover:text-white transition-colors duration-150">How it works</a>
           <a href="#pricing" className="hover:text-white transition-colors duration-150">Pricing</a>
+          <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
           <Link href="/" className="hover:text-white transition-colors duration-150">BeatMind ↗</Link>
         </div>
         <a
@@ -229,6 +208,16 @@ export default function MixMindPage() {
           </div>
         </section>
 
+        {/* What is MixMind? — concise definition for search and answer engines */}
+        <section className="max-w-3xl mx-auto px-6 pb-4" aria-labelledby="what-is-heading">
+          <div className="border-l-2 pl-5 py-1" style={{ borderColor: "var(--accent)" }}>
+            <h2 id="what-is-heading" className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>What is MixMind?</h2>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              MixMind is a desktop DJ library manager for Mac and Windows that reads your Rekordbox 6 or 7 collection. It gives you a fast, searchable library browser, an AI playlist builder that picks from tracks you already own, a duplicate finder and Pioneer USB drive browsing, without modifying your Rekordbox files. MixMind is made by the BeatMind team and costs $19/month after a 7-day free trial with no credit card required.
+            </p>
+          </div>
+        </section>
+
         {/* Features */}
         <section id="features" className="max-w-6xl mx-auto px-6 py-20" aria-labelledby="features-heading">
           <h2 id="features-heading" className="text-3xl md:text-4xl font-bold text-center mb-4">
@@ -306,7 +295,7 @@ export default function MixMindPage() {
             <Link href="/" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
               Check out BeatMind →
             </Link>
-            {" "}— our AI that builds full tracks inside Ableton Live.
+            {" "}— our AI that builds drums, bass and melodies part by part inside your Ableton Live Set.
           </div>
         </section>
 
@@ -314,7 +303,7 @@ export default function MixMindPage() {
         <section className="max-w-2xl mx-auto px-6 pb-20" aria-labelledby="faq-heading">
           <h2 id="faq-heading" className="text-3xl font-bold text-center mb-10">Frequently asked</h2>
           <div className="space-y-3">
-            {FAQS.map((faq, i) => (
+            {MIXMIND_FAQS.map((faq, i) => (
               <div key={i} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
@@ -378,6 +367,7 @@ export default function MixMindPage() {
             </div>
             <nav aria-label="Footer links">
               <div className="flex items-center gap-6 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
                 <Link href="/privacy" className="hover:text-white transition-colors duration-150">Privacy</Link>
                 <Link href="/terms" className="hover:text-white transition-colors duration-150">Terms</Link>
                 <a href="mailto:support@beatmind.io" className="hover:text-white transition-colors duration-150">Support</a>

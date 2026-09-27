@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/JsonLd";
+import { MIXMIND_FAQS } from "@/lib/faqs";
+import { BASE_URL, OG_IMAGE_MIXMIND, OG_IMAGE_SIZE, SITE_NAME } from "@/lib/site";
+import { breadcrumbSchema, faqPageSchema, mixmindAppSchema } from "@/lib/structured-data";
 
-const BASE_URL = "https://www.beatmind.io";
+const TITLE = "MixMind — AI DJ Library Manager for Rekordbox";
 
 export const metadata: Metadata = {
-  title: "MixMind — AI DJ Library Manager for Rekordbox",
+  title: TITLE,
   description:
     "MixMind reads your Rekordbox collection and gives you a fast library browser, an AI playlist builder, and a one-click duplicate cleaner. Mac + Windows desktop app.",
   keywords: [
@@ -20,66 +24,34 @@ export const metadata: Metadata = {
     canonical: `${BASE_URL}/mixmind`,
   },
   openGraph: {
-    title: "MixMind — AI DJ Library Manager for Rekordbox",
+    title: TITLE,
     description:
       "Browse your Rekordbox library, find duplicates, and build AI playlists from music you already own. Mac + Windows desktop app. 7-day free trial.",
     url: `${BASE_URL}/mixmind`,
-    siteName: "BeatMind",
+    siteName: SITE_NAME,
     type: "website",
     locale: "en_US",
-    images: [
-      {
-        url: "/og-mixmind.svg",
-        width: 1200,
-        height: 630,
-        alt: "MixMind — AI DJ Library Manager for Rekordbox",
-      },
-    ],
+    images: [{ url: OG_IMAGE_MIXMIND, ...OG_IMAGE_SIZE, alt: TITLE }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MixMind — AI DJ Library Manager for Rekordbox",
+    title: TITLE,
     description:
       "Browse every track in your Rekordbox library, kill duplicates, and build AI playlists. Mac + Windows. 7-day free trial.",
-    images: ["/og-mixmind.svg"],
+    images: [OG_IMAGE_MIXMIND],
   },
-};
-
-const mixmindSchema = {
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: "MixMind",
-  applicationCategory: "MusicApplication",
-  operatingSystem: "macOS, Windows",
-  url: `${BASE_URL}/mixmind`,
-  description:
-    "DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, and build AI playlists from music you already own.",
-  offers: {
-    "@type": "Offer",
-    price: "19.00",
-    priceCurrency: "USD",
-    priceSpecification: {
-      "@type": "UnitPriceSpecification",
-      price: "19.00",
-      priceCurrency: "USD",
-      unitText: "MONTH",
-    },
-  },
-  featureList: [
-    "Full Rekordbox library browser",
-    "AI playlist builder",
-    "Duplicate track detection and cleanup",
-    "Pioneer USB drive support",
-    "Mac and Windows native app",
-  ],
 };
 
 export default function MixMindLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(mixmindSchema) }}
+      <JsonLd data={mixmindAppSchema()} />
+      <JsonLd data={faqPageSchema(MIXMIND_FAQS)} />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "BeatMind", path: "/" },
+          { name: "MixMind", path: "/mixmind" },
+        ])}
       />
       {children}
     </>
