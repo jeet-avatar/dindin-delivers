@@ -102,8 +102,8 @@ async function main() {
       assert.equal(chat.body.reference_id, refId);
       assert.equal(chat.body.planning_only, true);
       await page.getByRole('button', { name: 'New song', exact: true }).click();
-      assert.equal(await page.getByRole('button', { name: 'Reference review', exact: true }).count(), 0);
       await page.getByRole('heading', { name: 'How would you like to start?', exact: true }).waitFor();
+      assert.equal(await page.getByRole('button', { name: 'Reference review', exact: true }).count(), 0);
       if (width < 640) await page.getByRole('button', { name: 'Saved songs', exact: true }).click();
       await page.getByRole('region', { name: 'Saved songs', exact: true }).getByRole('button', { name: 'Open saved song: Minimal reference study', exact: true }).click();
       await page.getByText('What do you like most about the groove?', { exact: true }).waitFor();

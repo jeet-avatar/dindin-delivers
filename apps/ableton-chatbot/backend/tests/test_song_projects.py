@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
+from fastapi.testclient import TestClient
 
 import main
 import recordings
@@ -149,3 +150,13 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
 
     def test_legacy_conversations_have_no_new_project_gate(self):
         self.assertEqual(song_projects.planning_reason(None, None, 42), '')
+
+    def test_browser_can_preflight_song_update(self):
+        client = TestClient(main.app)
+        response = client.options(f'/api/chats/{self.id}/project', headers={
+            'Origin': main.ALLOWED_ORIGINS[0],
+            'Access-Control-Request-Method': 'PATCH',
+            'Access-Control-Request-Headers': 'authorization,content-type',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('PATCH', response.headers['access-control-allow-methods'])

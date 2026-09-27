@@ -98,7 +98,7 @@ async function main() {
       await page.getByLabel('Reference audio file').waitFor();
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'Start from an idea', exact: true }).click();
-      await page.waitForFunction(() => !document.querySelector('button[aria-label="Stop production"]'));
+      await page.getByText('Which part would you like next?', { exact: true }).waitFor();
       assert.equal(chats.length, 2);
       assert.equal(chats[1].planning_only, true);
       assert.match(chats[1].message, /without a reference/);
