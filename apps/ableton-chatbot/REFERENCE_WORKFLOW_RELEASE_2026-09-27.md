@@ -1,5 +1,13 @@
 # Guided Reference Workflow Release
 
+## Stem Next-Action Follow-Up
+
+- Frontend `9af96653acf9cf742f328af01c6a47674b7bcb97` adds an on-screen Next step action for the current stem review state. Audio persistence and unsaved review choices are labeled separately.
+- The action focuses the next undecided layer, listening confirmation, save, or Timing. Missing integrity checks, uncertain saves and saved reviews needing attention have separate recovery actions. Navigation never chooses or confirms for the user.
+- Archived under `s3://beatmind-frontend/releases/web/9af96653/`; CloudFront invalidation `I105HGNPOBUUOU6JRQC8YK0B50` requested. Public manifest confirmed the new frontend revision.
+- Production build and all 13 frontend unit files passed. Expanded stem browser tests passed at 1440px and 390px both locally and against deployed assets, using API/audio fixtures. Screenshots inspected for both widths. This did not process real user audio or alter Ableton.
+- Source, tests and guide mirrored to the original workspace; backend and Bridge unchanged.
+
 ## Deployment
 
 - Frontend source: `a3cbd6184635c6e3bc881af88d07f659c220aa81`.
