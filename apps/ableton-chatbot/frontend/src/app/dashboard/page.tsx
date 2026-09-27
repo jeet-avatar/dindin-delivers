@@ -17,6 +17,7 @@ import ChatComparisons from "@/components/ChatComparisons";
 import BridgeLaunch from "@/components/BridgeLaunch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
 import { bridgeStatusLabel } from "@/lib/bridge-status";
+import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/chat-index";
 
 // ─── Inline icons (avoids prop-type conflicts with existing Icons.tsx) ────────
 function HomeIcon({ size = 20 }: { size?: number }) {
@@ -96,13 +97,13 @@ interface SavedChat {
   messages: Message[]; sessionId: string | null; input: string;
   running?: boolean; runningId?: string;
 }
-interface ChatEntry { id: string; title: string }
 
 function writeChat(userId: number, id: string, snapshot: SavedChat): ChatEntry[] {
   const prefix = `beatmind_chats_v2_${userId}`;
   const index = JSON.parse(localStorage.getItem(prefix) || '{"chats":[]}');
   const title = snapshot.messages.find(m => m.role === "user")?.content.slice(0, 70) || "New chat";
-  const chats: ChatEntry[] = [...index.chats.filter((c: ChatEntry) => c.id !== id), { id, title }];
+  const restored = restoreChatIndex(index.chats, chatId => localStorage.getItem(`${prefix}_${chatId}`));
+  const chats: ChatEntry[] = [...restored.filter(c => c.id !== id), { id, title, sessionId: snapshot.sessionId }];
   // Save the conversation before changing the active pointer; failed storage must not erase it.
   localStorage.setItem(`${prefix}_${id}`, JSON.stringify(snapshot));
   localStorage.setItem(`beatmind_chat_v1_${userId}`, JSON.stringify(snapshot));
@@ -154,6 +155,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [pendingContinuation, setPendingContinuation] = useState<{ message: string; session_id: string } | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
   const { status: bridgeStatus, refresh: refreshBridge } = useBridgeStatus(user?.id);
   const bridgeConnected = bridgeStatus === "connected";
   const [historyReady, setHistoryReady] = useState(false);
@@ -180,7 +182,7 @@ export default function DashboardPage() {
       const index = JSON.parse(localStorage.getItem(prefix) || "null");
       const id = index?.activeId || crypto.randomUUID();
       setChatId(id);
-      setChats(index?.chats || []);
+      setChats(restoreChatIndex(index?.chats || [], chatId => localStorage.getItem(`${prefix}_${chatId}`)));
       const raw = localStorage.getItem(`${prefix}_${id}`) || localStorage.getItem(`beatmind_chat_v1_${u.id}`);
       if (raw) {
         const saved = JSON.parse(raw);
@@ -210,7 +212,7 @@ export default function DashboardPage() {
       const savedChats = writeChat(user.id, chatId, JSON.parse(encoded));
       // Draft saves must not trigger another render of an unchanged chat list.
       setChats(previous => previous.length === savedChats.length && previous.every((chat, index) =>
-        chat.id === savedChats[index].id && chat.title === savedChats[index].title
+        chat.id === savedChats[index].id && chat.title === savedChats[index].title && chat.sessionId === savedChats[index].sessionId
       ) ? previous : savedChats);
     } catch { setHistoryError("Chat history could not be saved in this browser. Keep this tab open until the request finishes."); }
   }, [historyReady, user, messages, sessionId, input, loading, chatId]);
@@ -899,7 +901,7 @@ export default function DashboardPage() {
             className="min-w-0 flex-1 w-24 h-10 rounded border px-2 text-sm disabled:opacity-50"
             style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-primary)" }}>
             {chats.map(chat => <option key={chat.id} value={chat.id}>{chat.title}</option>)}
-            {!!serverChats.length && <optgroup label="Saved on server">{serverChats.map(chat => <option key={chat.id} value={`remote:${chat.id}`}>{chat.title}</option>)}</optgroup>}
+            {!!remoteChats.length && <optgroup label="Saved on server">{remoteChats.map(chat => <option key={chat.id} value={`remote:${chat.id}`}>{chat.title}</option>)}</optgroup>}
           </select>
           <button type="button" onClick={() => openChat()} disabled={!historyReady || loading || !!pendingContinuation}
             title={loading ? "Wait for production to finish or stop it first" : "Start a new chat; keep existing chats and Ableton work"}
