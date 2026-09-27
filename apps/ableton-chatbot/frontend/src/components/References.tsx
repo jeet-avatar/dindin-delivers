@@ -13,6 +13,8 @@ import ReferenceReview, { type TimingMap, type StemReview, type StemHealth } fro
 import SoundComparison from "./SoundComparison";
 import LocalSeparation from "./LocalSeparation";
 import LocalStemActions from "./LocalStemActions";
+import TrackCredits from "./TrackCredits";
+import { uploadToCloud } from "@/lib/cloud-upload";
 import ReferenceWorkflow from "./ReferenceWorkflow";
 
 type Report = {
@@ -97,6 +99,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [available, setAvailable] = useState(false);
   const [listeningAvailable, setListeningAvailable] = useState(false);
   const [localAvailable, setLocalAvailable] = useState(false);
+  const [cloudAvailable, setCloudAvailable] = useState(false);
   const [reason, setReason] = useState("");
   const [pollError, setPollError] = useState("");
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
@@ -144,13 +147,14 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     if (signal?.aborted) return;
     setPollError("");
     setCheckedAt(Date.now());
-    const activeJob = data.references.find((item: Reference) => ["choosing", "uploading", "processing"].includes(item.status));
+    const activeJob = data.references.find((item: Reference) => ["choosing", "uploading", "processing", "importing"].includes(item.status));
     pollDelay.current = activeJob || data.processing?.busy || data.references.some((item: Reference) => item.listening_busy || item.listening?.job?.status === "running") ? 4000 : 15000;
     if (activeJob) setObservedJobId(activeJob.id);
     setItems(data.references); setAvailable(data.available); setReason(data.reason || "");
     setProcessingBusy(Boolean(data.processing?.busy));
     setListeningAvailable(Boolean(data.audio_listening?.available));
     setLocalAvailable(Boolean(data.local_separation?.available));
+    setCloudAvailable(Boolean(data.cloud_separation?.available));
     if (Number.isFinite(data.max_bytes) && data.max_bytes > 0 && Number.isFinite(data.max_seconds) && data.max_seconds > 0) {
       setLimits({ maxBytes: data.max_bytes, minSeconds: data.min_seconds ?? 5, maxSeconds: data.max_seconds });
     } else { setLimits(null); }
@@ -193,7 +197,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   async function upload() {
     if (!file || !rights || !uploadReady || !limits || busy || chatBusy || uploadUnconfirmed) return;
     if (uploadedReference) { await select(uploadedReference); return; }
-    if (processingBusy) return;
+    if (processingBusy && !cloudAvailable) return;
     if (file.size > limits.maxBytes) { setError(`${file.name} was not uploaded. Choose a file up to ${Math.floor(limits.maxBytes / (1024 * 1024))} MB. No reference is selected.`); return; }
     setBusy(true); setError("");
     const controller = new AbortController();
@@ -201,6 +205,24 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     const startedAt = Date.now();
     setTransfer({ loaded: 0, total: file.size, sent: false, startedAt });
     try {
+      if (cloudAvailable) {
+        // BeatMind Cloud: the file goes straight to S3, then a GPU job separates it.
+        const created = await apiFetch("/api/references/cloud", { method: "POST", body: JSON.stringify({ name: file.name, bytes: file.size, rights }) });
+        const form = await created.json();
+        if (!created.ok) throw new Error(typeof form.detail === "string" ? form.detail : "BeatMind Cloud could not accept this file.");
+        await uploadToCloud(form.upload, file, controller.signal, progress => {
+          if (!controller.signal.aborted) setTransfer({ ...progress, startedAt });
+        });
+        const started = await apiFetch(`/api/references/${form.reference.id}/cloud-start`, { method: "POST", body: "{}" });
+        const data = await started.json();
+        if (!started.ok) throw new Error(typeof data.detail === "string" ? data.detail : "The GPU separation could not start.");
+        setUploadedReference(data.id);
+        setTransfer(null); setCheckedAt(Date.now()); setObservedJobId(data.id);
+        setItems(previous => [data, ...previous.filter(item => item.id !== data.id)]);
+        await select(data.id);
+        await refresh();
+        return;
+      }
       const response = await uploadReference(file, controller.signal, progress => {
         if (!controller.signal.aborted) setTransfer({ ...progress, startedAt });
       });
@@ -257,11 +279,13 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       {file && !uploadedReference ? " Your selected file has not been uploaded or queued. Keep this tab open; upload will become available when processing finishes." : " New uploads are paused until it finishes."}
     </p>}
     {!processingBusy && file && waitedForProcessing && !uploadedReference && <p role="status" className="text-sm text-emerald-300">Processing is available. Your selected file is ready to upload.</p>}
+    <TrackCredits refreshKey={items.length} />
     <LocalSeparation available={localAvailable} disabled={busy || chatBusy} onStarted={async reference => {
       setObservedJobId(reference.id); await refresh(); await select(reference.id);
     }} />
     <div className="space-y-3 border-b border-neutral-700 pb-5">
-      <h3 className="text-sm font-medium">Or upload to BeatMind</h3>
+      <h3 className="text-sm font-medium">{cloudAvailable ? "Or let BeatMind separate it on a GPU (pay as you go)" : "Or upload to BeatMind"}</h3>
+      {cloudAvailable && <p className="text-sm text-neutral-400">Highest quality with detailed drums, for computers that separate slowly. BeatMind deletes the uploaded file after separation.</p>}
       <label className="block text-sm">Audio file <span className="text-neutral-400">{limits ? `(${Math.floor(limits.maxBytes / (1024 * 1024))} MB, ${limits.minSeconds} seconds to ${limits.maxSeconds / 60} minutes)` : "(Checking upload limits...)"}</span>
         <input ref={fileInput} type="file" aria-label="Reference audio file" accept=".wav,.aif,.aiff,.mp3,.m4a,.flac,.ogg"
           disabled={!available || !limits || busy || chatBusy} onChange={e => void chooseFile(e.target.files?.[0] || null)}
@@ -270,7 +294,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       {file && <p role="status" className="text-sm break-words">Selected file: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB). {transfer ? "Upload in progress." : uploadUnconfirmed ? "Upload result unknown. Check saved references before choosing the file again." : uploadedReference ? "Uploaded; not attached to this song yet." : "Not uploaded yet."}</p>}
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={rights} disabled={busy || chatBusy} onChange={e => setRights(e.target.checked)} className="mt-1" />
         I have permission to upload and analyze this audio.</label>
-      <button type="button" onClick={upload} disabled={!available || !file || !rights || !uploadReady || !limits || file.size > limits.maxBytes || busy || chatBusy || uploadUnconfirmed || (processingBusy && !uploadedReference)}
+      <button type="button" onClick={upload} disabled={!available || !file || !rights || !uploadReady || !limits || file.size > limits.maxBytes || busy || chatBusy || uploadUnconfirmed || (processingBusy && !cloudAvailable && !uploadedReference)}
         className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{transfer ? transfer.sent ? "Confirming upload..." : "Uploading..." : busy ? "Saving selection..." : uploadedReference ? "Attach uploaded reference" : processingBusy ? "Waiting for processing" : "Upload and analyze"}</button>
     </div>
     {guided && <button type="button" aria-expanded={showSaved} aria-controls="saved-reference-library"

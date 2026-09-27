@@ -67,7 +67,7 @@ if [[ "$(aws batch describe-compute-environments --compute-environments $NAME --
       \"instanceTypes\":[\"g4dn.xlarge\",\"g5.xlarge\"],\"subnets\":[\"${SUBNETS/,/\",\"}\"],\"securityGroupIds\":[\"$SG\"],
       \"instanceRole\":\"arn:aws:iam::$ACCOUNT:instance-profile/BeatMindBatchInstanceRole\",
       \"launchTemplate\":{\"launchTemplateName\":\"$NAME\",\"version\":\"\$Latest\"},
-      \"ec2Configuration\":[{\"imageType\":\"ECS_AL2_NVIDIA\"}],\"tags\":{\"app\":\"beatmind\"}}" >/dev/null
+      \"ec2Configuration\":[{\"imageType\":\"ECS_AL2023_NVIDIA\"}],\"tags\":{\"app\":\"beatmind\"}}" >/dev/null
   until [[ "$(aws batch describe-compute-environments --compute-environments $NAME --query 'computeEnvironments[0].status' --output text)" == "VALID" ]]; do sleep 5; done
 fi
 if [[ "$(aws batch describe-job-queues --job-queues $NAME --query 'length(jobQueues)')" == "0" ]]; then
