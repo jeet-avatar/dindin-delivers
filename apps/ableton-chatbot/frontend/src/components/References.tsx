@@ -156,6 +156,8 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   useEffect(() => () => { uploadController.current?.abort(); }, []);
   const [uploadReady, setUploadReady] = useState(false);
   const [uploadedReference, setUploadedReference] = useState<string | null>(null);
+  const [processingBusy, setProcessingBusy] = useState(false);
+  const [waitedForProcessing, setWaitedForProcessing] = useState(false);
   const [limits, setLimits] = useState<{ maxBytes: number; minSeconds: number; maxSeconds: number } | null>(null);
   const [selected, setSelected] = useState<string | null>(selectedId || null);
   const [showSaved, setShowSaved] = useState(false);
@@ -166,7 +168,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     setBusy(true); setError("");
     try {
       await onSelect?.(id);
-      setSelected(id); setFile(null); setRights(false); setUploadReady(false); setUploadedReference(null);
+      setSelected(id); setFile(null); setRights(false); setUploadReady(false); setUploadedReference(null); setWaitedForProcessing(false);
       if (fileInput.current) fileInput.current.value = "";
       setStage(guided ? "listening" : "stems"); setCue({seconds:0});
     } catch (error) { setError(error instanceof Error ? error.message : "Could not attach this reference to the song."); }
@@ -178,6 +180,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     const data = await response.json();
     if (signal?.aborted) return;
     setItems(data.references); setAvailable(data.available); setReason(data.reason || "");
+    setProcessingBusy(Boolean(data.processing?.busy));
     setListeningAvailable(Boolean(data.audio_listening?.available));
     if (Number.isFinite(data.max_bytes) && data.max_bytes > 0 && Number.isFinite(data.max_seconds) && data.max_seconds > 0) {
       setLimits({ maxBytes: data.max_bytes, minSeconds: data.min_seconds ?? 5, maxSeconds: data.max_seconds });
@@ -198,6 +201,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   async function chooseFile(next: File | null) {
     if (!next) return;
     setFile(next); setRights(false); setSelected(null); setShowSaved(false);
+    setWaitedForProcessing(processingBusy);
     setUploadReady(false); setUploadedReference(null); setError(""); setBusy(true);
     try {
       // A replacement is a new reference decision, even if its upload fails.
@@ -211,6 +215,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   async function upload() {
     if (!file || !rights || !uploadReady || !limits || busy || chatBusy) return;
     if (uploadedReference) { await select(uploadedReference); return; }
+    if (processingBusy) return;
     if (file.size > limits.maxBytes) { setError(`${file.name} was not uploaded. Choose a file up to ${Math.floor(limits.maxBytes / (1024 * 1024))} MB. No reference is selected.`); return; }
     setBusy(true); setError("");
     const controller = new AbortController();
@@ -221,7 +226,13 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
         headers: { "Content-Type": "application/octet-stream", "X-Reference-Name": encodeURIComponent(file.name), "X-Rights-Confirmed": "true" } });
       const data = await response.json();
       if (controller.signal.aborted) return;
-      if (!response.ok) throw new Error(data.detail || "Upload failed.");
+      if (!response.ok) {
+        if (response.status === 409 && data.detail?.code === "reference_processing_busy") {
+          setProcessingBusy(true); setWaitedForProcessing(true);
+          return;
+        }
+        throw new Error(typeof data.detail === "string" ? data.detail : data.detail?.message || "Upload failed.");
+      }
       setUploadedReference(data.id);
       setItems(previous => [data, ...previous.filter(item => item.id !== data.id)]);
       await select(data.id);
@@ -240,11 +251,17 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     } catch (e) { setError(e instanceof Error ? e.message : "Delete failed."); }
   }
   const item = file ? undefined : items.find(i => i.id === selected);
+  const activeReference = items.find(i => ["uploading", "processing"].includes(i.status) || i.listening_busy || i.listening?.job?.status === "running");
   return <section className="mx-auto w-full max-w-5xl p-4 sm:p-6 space-y-6">
     <h2 className="text-xl font-semibold">{guided ? "Your song reference" : "Reference tracks"}</h2>
     {guided && !selected && <h3 className="text-base font-medium">Upload your reference track</h3>}
     {reason && <p role="status" className="text-sm text-amber-200">{reason}</p>}
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+    {processingBusy && <p role="status" className="text-sm break-words text-amber-200">
+      {activeReference ? `Processing ${activeReference.name}${activeReference.stage ? `: ${activeReference.stage}` : "."}` : "Another reference operation is running."}
+      {file && !uploadedReference ? " Your selected file has not been uploaded or queued. Keep this tab open; upload will become available when processing finishes." : " New uploads are paused until it finishes."}
+    </p>}
+    {!processingBusy && file && waitedForProcessing && !uploadedReference && <p role="status" className="text-sm text-emerald-300">Processing is available. Your selected file is ready to upload.</p>}
     <div className="space-y-3 border-b border-neutral-700 pb-5">
       <label className="block text-sm">Audio file <span className="text-neutral-400">{limits ? `(${Math.floor(limits.maxBytes / (1024 * 1024))} MB, ${limits.minSeconds} seconds to ${limits.maxSeconds / 60} minutes)` : "(Checking upload limits...)"}</span>
         <input ref={fileInput} type="file" aria-label="Reference audio file" accept=".wav,.aif,.aiff,.mp3,.m4a,.flac,.ogg"
@@ -254,8 +271,8 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       {file && <p role="status" className="text-sm break-words">Selected file: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB). {uploadedReference ? "Uploaded; not attached to this song yet." : "Not uploaded yet."}</p>}
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={rights} disabled={busy || chatBusy} onChange={e => setRights(e.target.checked)} className="mt-1" />
         I have permission to upload and analyze this audio.</label>
-      <button type="button" onClick={upload} disabled={!available || !file || !rights || !uploadReady || !limits || file.size > limits.maxBytes || busy || chatBusy}
-        className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{busy ? "Working..." : uploadedReference ? "Attach uploaded reference" : "Upload and analyze"}</button>
+      <button type="button" onClick={upload} disabled={!available || !file || !rights || !uploadReady || !limits || file.size > limits.maxBytes || busy || chatBusy || (processingBusy && !uploadedReference)}
+        className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{busy ? "Working..." : uploadedReference ? "Attach uploaded reference" : processingBusy ? "Waiting for processing" : "Upload and analyze"}</button>
     </div>
     {guided && <button type="button" aria-expanded={showSaved} aria-controls="saved-reference-library"
       onClick={() => setShowSaved(value => !value)} className="text-sm underline">

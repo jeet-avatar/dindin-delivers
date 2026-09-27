@@ -105,6 +105,50 @@ class ReferenceTests(unittest.TestCase):
         references.recover_interrupted()
         self.assertEqual(references.owned(self.id, 1)[1]['status'], 'failed')
 
+    def test_busy_upload_is_not_persisted_and_status_recovers(self):
+        self.seed('processing')
+        headers = {'x-user': '2', 'x-reference-name': 'next.wav', 'x-rights-confirmed': 'true'}
+        with references.operation_lease():
+            status = self.client.get('/api/references', headers=headers).json()
+            self.assertTrue(status['processing']['busy'])
+            self.assertEqual(status['references'], [], 'Do not reveal another account\'s job')
+            self.assertNotIn('Reference.wav', json.dumps(status))
+            response = self.client.post('/api/references', headers=headers, content=b'audio')
+            self.assertEqual(response.status_code, 409)
+            self.assertEqual(response.json()['detail']['code'], 'reference_processing_busy')
+            self.assertEqual(response.headers['retry-after'], '4')
+            self.assertEqual(len(list(self.root.glob('*/meta.json'))), 1)
+            self.assertTrue(references.processing_busy(), 'Status probes must not release the worker lease')
+        self.assertFalse(self.client.get('/api/references', headers=headers).json()['processing']['busy'])
+        with references.operation_lease():
+            pass
+
+    def test_active_task_holds_lease_after_upload_response(self):
+        async def processing(directory, item):
+            try:
+                await asyncio.Event().wait()
+            finally:
+                references.ACTIVE.release()
+
+        async def stop():
+            tasks = list(references.TASKS)
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.sleep(0)
+
+        headers = {'x-user': '1', 'x-reference-name': 'first.wav', 'x-rights-confirmed': 'true'}
+        with patch.object(references, 'capability', return_value={'available': True}), \
+             patch.object(references, 'process', side_effect=processing), self.client as client:
+            try:
+                self.assertEqual(client.post('/api/references', headers=headers, content=b'audio').status_code, 202)
+                self.assertTrue(client.get('/api/references', headers=headers).json()['processing']['busy'])
+                self.assertEqual(client.post('/api/references', headers=headers, content=b'audio').status_code, 409)
+                self.assertEqual(len(list(self.root.glob('*/meta.json'))), 1)
+            finally:
+                client.portal.call(stop)
+            self.assertFalse(client.get('/api/references', headers=headers).json()['processing']['busy'])
+
     def test_reference_context_is_owner_scoped_and_cautious(self):
         self.seed()
         with self.assertRaises(HTTPException):

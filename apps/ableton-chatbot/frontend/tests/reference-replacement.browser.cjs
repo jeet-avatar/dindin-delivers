@@ -8,6 +8,7 @@ async function main() {
       const context = await browser.newContext({ viewport: { width, height: 900 } });
       const oldId = 'a'.repeat(32), newId = 'b'.repeat(32), calls = [], errors = [];
       let attached = oldId, uploaded = false, rejectUpload = true, rejectAttachment = true;
+      let processingBusy = false, busyOnUpload = false;
       let delayUpload = false, releaseUpload;
       const delayedUpload = new Promise(resolve => { releaseUpload = resolve; });
       const project = { title: 'Reference replacement', starting_point: 'reference', live_set: null };
@@ -38,11 +39,16 @@ async function main() {
         }
         if (path === '/api/references') {
           if (req.method() === 'POST') {
+            if (busyOnUpload) {
+              busyOnUpload = false; processingBusy = true;
+              return reply({ detail: { code: 'reference_processing_busy', message: 'Another reference operation is running.' } }, 409);
+            }
             if (delayUpload) await delayedUpload;
             if (rejectUpload) { rejectUpload = false; return reply({ detail: 'Upload service unavailable' }, 503); }
             uploaded = true; return reply(newRef, 202);
           }
           return reply({ references: uploaded ? [oldRef, newRef] : [oldRef], available: true,
+            processing: { busy: processingBusy },
             max_bytes: 250 * 1024 * 1024, min_seconds: 5, max_seconds: 600, audio_listening: { available: true } });
         }
         if (path.includes('/audio/')) return route.fulfill({ status: 404 });
@@ -92,6 +98,23 @@ async function main() {
       assert.equal(attached, null);
       assert.equal(await page.locator('audio').count(), 0);
       assert.equal(await page.getByRole('heading', { name: oldRef.name, exact: true }).count(), 0);
+      busyOnUpload = true;
+      await submit.click();
+      await page.getByRole('button', { name: 'Waiting for processing', exact: true }).waitFor();
+      assert.equal(await page.getByRole('button', { name: 'Waiting for processing', exact: true }).isDisabled(), true);
+      await page.getByText(/Your selected file has not been uploaded or queued/).waitFor();
+      assert.deepEqual(await page.locator('section').filter({ has: page.getByRole('heading', { name: 'Your song reference', exact: true }) }).getByRole('alert').allTextContents(), [], 'A busy worker is a waiting state, not a stale failure');
+      assert.equal(await consent.isChecked(), true);
+      assert.equal(await page.getByLabel('Reference audio file').evaluate(input => input.files[0].name), 'My replacement.wav');
+      assert.equal(attached, null);
+      const postsWhileBusy = calls.filter(c => c.path === '/api/references' && c.method === 'POST').length;
+      await page.waitForTimeout(4500);
+      assert.equal(calls.filter(c => c.path === '/api/references' && c.method === 'POST').length, postsWhileBusy, 'Do not automatically re-upload');
+      processingBusy = false;
+      await page.getByText('Processing is available. Your selected file is ready to upload.', { exact: true }).waitFor();
+      assert.equal(await submit.isEnabled(), true);
+      assert.equal(await page.locator('audio').count(), 0);
+      await page.screenshot({ path: `/tmp/beatmind-reference-available-${width}.png` });
       await submit.click();
       await page.getByRole('alert').filter({ hasText: 'Attachment unavailable' }).waitFor();
       await page.getByText(/Uploaded; not attached to this song yet/).waitFor();
@@ -100,7 +123,7 @@ async function main() {
       await page.getByRole('button', { name: 'Attach uploaded reference', exact: true }).click();
       await page.getByRole('heading', { name: newRef.name, exact: true }).waitFor();
       assert.equal(attached, newId);
-      assert.equal(calls.filter(c => c.path === '/api/references' && c.method === 'POST').length, 2, 'Attachment retry must not upload twice');
+      assert.equal(calls.filter(c => c.path === '/api/references' && c.method === 'POST').length, 3, 'Attachment retry must not upload twice');
       assert.equal(await page.getByRole('heading', { name: oldRef.name, exact: true }).count(), 0);
       assert.equal(await page.getByRole('button', { name: 'Discuss what I like', exact: true }).count(), 0, 'Old listening approval must not transfer');
       await choose('Leaving upload.wav', 60);
@@ -117,7 +140,7 @@ async function main() {
       assert.deepEqual(errors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: `/tmp/beatmind-reference-replacement-${width}.png` });
-      console.log(`PASS ${width}px: selected QA detached, oversize rejection and reload stay empty, >50MB selection, failed upload isolation, attachment retry without duplicate upload, late result canceled on navigation`);
+      console.log(`PASS ${width}px: selected QA detached, oversize rejection and reload stay empty, >50MB selection, failed upload isolation, busy worker preserves file/consent, polling enables manual retry without duplicate upload, attachment retry, late result canceled on navigation`);
       await context.close();
     }
   } finally { await browser.close(); }

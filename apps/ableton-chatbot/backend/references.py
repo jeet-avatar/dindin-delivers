@@ -43,6 +43,15 @@ def operation_lease():
         raise HTTPException(409, 'Reference processing is busy on another request or worker. Please wait.')
 
 
+def processing_busy():
+    # Probe the same cross-worker lease used by writes, not just this process's lock.
+    try:
+        with Lease(ROOT / '.operations.lock'):
+            return ACTIVE.locked()
+    except Busy:
+        return True
+
+
 def cached_model_ready():
     if os.getenv('BEATMIND_REQUIRE_CACHED_MODEL') != '1':
         return True
@@ -327,7 +336,16 @@ def router_for(get_user, require_subscription):
         # Verify ownership before revealing whether another worker is busy.
         if request.path_params.get('reference_id'):
             owned(request.path_params['reference_id'], user['id'])
-        lease = operation_lease()
+        try:
+            lease = operation_lease()
+        except HTTPException as error:
+            if error.status_code == 409 and request.method == 'POST' and request.url.path.rstrip('/') == '/api/references':
+                raise HTTPException(409, {
+                    'code': 'reference_processing_busy',
+                    'message': 'Another reference operation is running. This file was not uploaded. Retry when processing finishes.',
+                    'retry_after_seconds': 4,
+                }, headers={'Retry-After': '4'}) from error
+            raise
         request.state.reference_lease = lease
         try:
             yield
@@ -347,6 +365,7 @@ def router_for(get_user, require_subscription):
             except (HTTPException, OSError, ValueError):
                 continue
         return {'references': sorted(items, key=lambda i: i['created_at'], reverse=True),
+                'processing': {'busy': processing_busy()},
                 'audio_listening': audio_listener.capability(), 'sound_comparison': sound_comparison.capability(), **capability()}
 
     @router.get('/{reference_id}/comparisons')

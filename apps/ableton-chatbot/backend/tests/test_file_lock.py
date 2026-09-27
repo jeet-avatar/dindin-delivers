@@ -11,6 +11,21 @@ import references
 
 
 class LeaseTests(unittest.IsolatedAsyncioTestCase):
+    async def test_background_success_and_failure_release_lease(self):
+        for fails in (False, True):
+            with tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / '.lock'
+                lease = Lease(path)
+                async def finish():
+                    if fails:
+                        raise RuntimeError('Worker failed')
+                task = asyncio.create_task(finish())
+                lease.transfer(task)
+                await asyncio.gather(task, return_exceptions=True)
+                await asyncio.sleep(0)
+                with Lease(path):
+                    pass
+
     async def test_other_process_excluded_until_owner_closes(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / '.lock'
