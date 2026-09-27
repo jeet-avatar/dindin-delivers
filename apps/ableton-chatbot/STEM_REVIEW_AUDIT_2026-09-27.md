@@ -1,5 +1,16 @@
 # Stem Review Persistence and Drum Separation
 
+## Deployed Release
+
+- Frontend runtime `37611bc42935956cf644e6c18571ee953cab2cb6`, pushed to `release/beatmind-audio-20260926` and archived at `s3://beatmind-frontend/releases/web/37611bc4/`.
+- CloudFront invalidation `I8XHJCPDZW1VJHK3M9YU8MUV0X` completed; public release manifest verified.
+- Backend remains `beatmind-api:27`, source `86796f6a48fe2ca49f22761a0bfa77e530b3f056`; Bridge unchanged.
+- Stem-review and listening browser contracts passed against deployed assets at both 1440px and 390px using intercepted API fixtures.
+- Separate authenticated real-production test used Full Moon, actual API reads and actual audio. All four players decoded and advanced playback, with only one active at a time. Tests were muted and are not a claim of human audition or perceptual approval.
+- All four real WAV download buttons succeeded: 70,097,356 bytes each, 397.377052 seconds. Downloaded drums hash exactly matched the source used for the local separation. Bass, vocals and other were saved beside the four new drum estimates, producing seven distinct full-length files in Downloads.
+- Validation and saved-choice readback worked on the real reference. Zero mutating production requests, zero page errors; user's review and Ableton set unchanged. Desktop/mobile screenshots inspected.
+- Changed files mirrored to the original workspace after baseline checks; unrelated local changes preserved.
+
 ## Scope
 
 Repair saving and navigation for the existing four-source reference workflow. Replace the previous inline stem review rather than retain competing implementations. No production audio, creative approvals, reference timing or Ableton sets are changed by this release.
