@@ -94,7 +94,7 @@ async function main() {
       await page.getByText('Which part would you like next?', { exact: true }).waitFor();
       await page.getByRole('button', { name: 'New song', exact: true }).click();
       await page.getByRole('heading', { name: 'How would you like to start?' }).waitFor();
-      await page.getByRole('button', { name: 'Use a reference track', exact: true }).click();
+      await page.getByRole('button', { name: 'Upload a reference track', exact: true }).click();
       await page.getByLabel('Reference audio file').waitFor();
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'Start from an idea', exact: true }).click();

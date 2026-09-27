@@ -593,7 +593,7 @@ export default function DashboardPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
               <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("reference")} className="rounded border p-3 text-sm disabled:opacity-40"
-                style={{ borderColor: "var(--border)" }}>Use a reference track</button>
+                style={{ borderColor: "var(--border)" }}>Upload a reference track</button>
               <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("idea")}
                 className="rounded border p-3 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>Start from an idea</button>
             </div>
@@ -995,7 +995,7 @@ export default function DashboardPage() {
           {nav === "beatmind"  && renderBeatMind()}
           {nav === "mixmind"   && renderMixMind()}
           {nav === "downloads" && renderDownloads()}
-          {nav === "references" && <References key={chatId} selectedId={referenceId} guided={project?.starting_point === "reference"}
+          {nav === "references" && <References key={chatId} selectedId={referenceId} guided={Boolean(project)}
             onSelect={async id => {
               if (!project) { setReferenceId(id); return; }
               setProjectBusy(true);

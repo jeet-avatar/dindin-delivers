@@ -152,6 +152,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [rights, setRights] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [selected, setSelected] = useState<string | null>(selectedId || null);
+  const [showSaved, setShowSaved] = useState(false);
   const [stage, setStage] = useState(guided ? "listening" : "stems");
   const [cue, setCue] = useState({ seconds: 0 });
   useEffect(() => { setSelected(selectedId || null); }, [selectedId]);
@@ -209,7 +210,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const item = items.find(i => i.id === selected);
   return <section className="mx-auto w-full max-w-5xl p-4 sm:p-6 space-y-6">
     <h2 className="text-xl font-semibold">{guided ? "Your song reference" : "Reference tracks"}</h2>
-    {guided && !selected && <p className="text-sm">Which track would you like to use as inspiration?</p>}
+    {guided && !selected && <h3 className="text-base font-medium">Upload your reference track</h3>}
     {reason && <p role="status" className="text-sm text-amber-200">{reason}</p>}
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
     <div className="space-y-3 border-b border-neutral-700 pb-5">
@@ -222,15 +223,19 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       <button type="button" onClick={upload} disabled={!available || !file || !rights || busy || chatBusy}
         className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{busy ? "Uploading..." : "Analyze reference"}</button>
     </div>
-    <div className="grid gap-6 md:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
-      <div className="space-y-1" aria-label="Saved references">
+    {guided && <button type="button" aria-expanded={showSaved} aria-controls="saved-reference-library"
+      onClick={() => setShowSaved(value => !value)} className="text-sm underline">
+      {showSaved ? "Hide saved references" : "Choose a saved reference"}
+    </button>}
+    <div className={`grid gap-6 ${!guided || showSaved ? "md:grid-cols-[minmax(0,240px)_minmax(0,1fr)]" : "grid-cols-1"}`}>
+      {(!guided || showSaved) && <div id="saved-reference-library" className="space-y-1" aria-label="Saved references">
         {!items.length && <p className="text-sm text-neutral-400">No reference tracks yet.</p>}
         {items.map(i => <button key={i.id} type="button" disabled={busy || chatBusy} onClick={() => void select(i.id)}
           aria-pressed={selected === i.id} className={`w-full border-l-2 p-3 text-left ${selected === i.id ? "border-emerald-400 bg-neutral-800" : "border-transparent"}`}>
           <span className="block break-all text-sm font-medium">{i.name}</span>
           <span className="text-xs text-neutral-400">{i.stage || i.status}</span>
         </button>)}
-      </div>
+      </div>}
       {item && <div className="min-w-0 space-y-4">
         <h3 className="text-base font-semibold break-all">{item.name}</h3>
         <p className="text-xs text-neutral-400">{new Date(item.created_at).toLocaleString()}</p>

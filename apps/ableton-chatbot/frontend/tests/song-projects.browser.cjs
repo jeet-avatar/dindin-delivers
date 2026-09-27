@@ -54,7 +54,8 @@ async function main() {
         }
         if (path === '/api/references') {
           if (request.method() === 'POST') { uploaded = true; return reply({ id: refId }); }
-          return reply({ available: true, audio_listening: { available: true }, references: uploaded ? [ref()] : [] });
+          const oldReference = { ...ref(), id: 'd'.repeat(32), name: 'QA - Earlier reference.wav' };
+          return reply({ available: true, audio_listening: { available: true }, references: uploaded ? [oldReference, ref()] : [oldReference] });
         }
         if (path.includes('/audio/')) return route.fulfill({ contentType: 'audio/wav', body: wave() });
         if (path.endsWith('/listen-whole')) { assert.equal(body.consent, true); listened = true; return reply({ status: 'complete' }); }
@@ -84,12 +85,23 @@ async function main() {
       await page.getByLabel('Song name').fill('Minimal reference study');
       await page.getByLabel('Song name').press('Tab');
       await page.waitForFunction(() => document.querySelector('input[aria-label="Song name"]')?.disabled === false);
-      await page.getByRole('button', { name: 'Use a reference track', exact: true }).click();
+      await page.getByRole('button', { name: 'Upload a reference track', exact: true }).click();
+      await page.getByRole('heading', { name: 'Upload your reference track', exact: true }).waitFor();
+      assert.equal(await page.getByText('QA - Earlier reference.wav', { exact: true }).count(), 0);
+      assert.equal(await page.locator('audio').count(), 0, 'New song must not load old audio');
+      assert.equal(songs['song-1'].referenceId, null);
+      await page.getByRole('button', { name: 'Choose a saved reference', exact: true }).click();
+      await page.getByText('QA - Earlier reference.wav', { exact: true }).waitFor();
+      assert.equal(await page.locator('[aria-label="Saved references"] [aria-pressed="true"]').count(), 0);
+      assert.equal(await page.locator('audio').count(), 0, 'Opening the library must not select a reference');
+      await page.getByRole('button', { name: 'Hide saved references', exact: true }).click();
       await page.getByLabel('Reference audio file').setInputFiles({ name: 'Original reference.wav', mimeType: 'audio/wav', buffer: wave() });
       assert.equal(await page.getByRole('button', { name: 'Analyze reference', exact: true }).isDisabled(), true);
       await page.getByLabel('I have permission to upload and analyze this audio.').check();
       await page.getByRole('button', { name: 'Analyze reference', exact: true }).click();
       await page.getByText('Would you like me to listen to this track? What stands out to you?', { exact: true }).waitFor();
+      assert.equal(songs['song-1'].referenceId, refId, 'Only the uploaded file becomes this song reference');
+      await page.getByRole('heading', { name: 'Original reference.wav', exact: true }).waitFor();
       assert.equal(listened, false);
       assert.equal(calls.filter(c => c.path === '/api/live-set').length, 0, 'Planning must not open or change a Live Set');
       await page.getByLabel('What do you want from this reference?').fill('I like the restrained groove, but want my own bass and pads.');
@@ -105,6 +117,21 @@ async function main() {
       await page.getByRole('button', { name: 'New song', exact: true }).click();
       await page.getByRole('heading', { name: 'How would you like to start?', exact: true }).waitFor();
       assert.equal(await page.getByRole('button', { name: 'Reference review', exact: true }).count(), 0);
+      assert.equal(await page.getByLabel('Song name').inputValue(), 'New song');
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'References', exact: true }).click();
+      await page.getByRole('heading', { name: 'Upload your reference track', exact: true }).waitFor();
+      assert.equal(await page.getByText('QA - Earlier reference.wav', { exact: true }).count(), 0);
+      assert.equal(await page.locator('audio').count(), 0);
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
+      await page.getByRole('button', { name: 'Upload a reference track', exact: true }).click();
+      await page.getByRole('heading', { name: 'Upload your reference track', exact: true }).waitFor();
+      assert.equal(songs['song-2'].referenceId, null);
+      assert.equal(await page.locator('audio').count(), 0);
+      assert.equal(await page.getByLabel('Reference audio file').inputValue(), '');
+      assert.equal(await page.getByLabel('I have permission to upload and analyze this audio.').isChecked(), false);
+      assert.equal(await page.getByText('QA - Earlier reference.wav', { exact: true }).count(), 0);
+      assert.equal(await page.getByRole('heading', { name: 'Original reference.wav', exact: true }).count(), 0);
+      await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       if (width < 640) await page.getByRole('button', { name: 'Saved songs', exact: true }).click();
       await page.getByRole('region', { name: 'Saved songs', exact: true }).getByRole('button', { name: 'Open saved song: Minimal reference study', exact: true }).click();
       await page.getByText('What do you like most about the groove?', { exact: true }).waitFor();
