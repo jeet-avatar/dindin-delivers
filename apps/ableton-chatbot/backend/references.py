@@ -17,6 +17,7 @@ from urllib.parse import unquote
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 import audio_listener
+import cloud_separation
 import reference_listening
 import reference_templates
 import reference_timing
@@ -38,6 +39,11 @@ COMPARING = set()
 LOCAL_CAPABILITY = 'local_separation_v1'
 MAX_LOCAL_REFERENCES = 50
 MAX_LOCAL_REPORT_BYTES = 4 * 1024 * 1024
+CLOUD_CHECK_SECONDS = 10
+CLOUD_STAGES = {'SUBMITTED': 'Queued for a BeatMind GPU', 'PENDING': 'Queued for a BeatMind GPU',
+                'RUNNABLE': 'Starting a BeatMind GPU (can take a few minutes)', 'STARTING': 'Starting a BeatMind GPU (can take a few minutes)',
+                'RUNNING': 'Separating on a BeatMind GPU: highest quality with detailed drums'}
+_cloud_checked = {}
 LOCAL_ONLY = 'Audio for this reference stays on your computer. Open its stems folder or place the stems in Ableton to listen.'
 
 
@@ -165,7 +171,7 @@ def public(directory, item):
         result['report'] = json.loads((directory / 'report.json').read_text())
         result['timing'] = reference_timing.read(directory)
         result['stem_review'] = reference_timing.stem_review(directory)
-    elif item['status'] == 'processing':
+    elif item['status'] in ('processing', 'importing'):
         try:
             result['stage'] = json.loads((directory / 'progress.json').read_text())['stage']
         except (OSError, ValueError):
@@ -190,6 +196,11 @@ def _recover_interrupted():
             item = json.loads(path.read_text())
             if item.get('storage') == 'local' and item['status'] == 'processing':
                 continue  # Runs on the user's computer; the Bridge delivers the result after reconnecting.
+            if item.get('storage') == 'cloud' and item['status'] in ('processing', 'importing', 'awaiting_upload'):
+                if item['status'] == 'importing':
+                    item['status'] = 'processing'  # Re-import from S3 on the next status check.
+                    write_json(path, item)
+                continue  # The GPU job runs in AWS Batch, independent of this API process.
             if item['status'] == 'choosing':
                 item.update(status='failed', error='No file was chosen. Start again from BeatMind.')
                 write_json(path, item)
@@ -321,6 +332,35 @@ def local_event(user_id, event):
     write_json(directory / 'meta.json', item)
 
 
+def import_cloud(directory, item):
+    try:
+        cloud_separation.import_results(item['id'], directory)
+        item.update(status='ready')
+    except Exception:
+        item.update(status='processing')  # Retried on the next status check.
+    if directory.is_dir():
+        write_json(directory / 'meta.json', item)
+
+
+def sync_cloud(directory, item, now):
+    """Advance a cloud reference from its AWS Batch job. Returns True when results should be imported."""
+    if now - _cloud_checked.get(item['id'], 0) < CLOUD_CHECK_SECONDS:
+        return False
+    _cloud_checked[item['id']] = now
+    status, reason = cloud_separation.job_state(item['job_id'])
+    if status == 'SUCCEEDED':
+        item['status'] = 'importing'
+        write_json(directory / 'meta.json', item)
+        write_json(directory / 'progress.json', {'stage': 'Copying your stems from the GPU'})
+        return True
+    if status == 'FAILED':
+        item.update(status='failed', error=cloud_separation.failure_message(item['id'], reason))
+        write_json(directory / 'meta.json', item)
+        return False
+    write_json(directory / 'progress.json', {'stage': CLOUD_STAGES.get(status, 'Queued for a BeatMind GPU')})
+    return False
+
+
 def reference_context(reference_id, user_id):
     directory, item = owned(reference_id, user_id)
     if item['status'] != 'ready':
@@ -373,7 +413,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
     async def guard(request: Request, user=Depends(get_user)):
         # Local separation runs on the user's computer and never takes the server processing lease.
         last = request.url.path.rstrip('/').rsplit('/', 1)[-1]
-        if request.method not in {'POST', 'DELETE'} or last in ('listen-cancel', 'local', 'local-open', 'local-cancel'):
+        if request.method not in {'POST', 'DELETE'} or last in ('listen-cancel', 'local', 'local-open', 'local-cancel', 'cloud', 'cloud-start'):
             yield
             return
         # Verify ownership before revealing whether another worker is busy.
@@ -400,6 +440,21 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
 
     @router.get('')
     async def listing(user=Depends(get_user)):
+        import time
+        for path in ROOT.glob('*/meta.json'):
+            try:
+                directory, item = owned(path.parent.name, user['id'])
+            except (HTTPException, OSError, ValueError):
+                continue
+            if item.get('storage') == 'cloud' and item['status'] == 'processing' and item.get('job_id'):
+                try:
+                    ready = await asyncio.to_thread(sync_cloud, directory, item, time.monotonic())
+                except Exception:
+                    ready = False  # AWS unavailable; the job keeps running and is checked again.
+                if ready:
+                    task = asyncio.create_task(asyncio.to_thread(import_cloud, directory, item))
+                    TASKS.add(task)
+                    task.add_done_callback(TASKS.discard)
         items = []
         for path in ROOT.glob('*/meta.json'):
             try:
@@ -410,6 +465,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         return {'references': sorted(items, key=lambda i: i['created_at'], reverse=True),
                 'processing': {'busy': processing_busy()},
                 'local_separation': {'available': bool(bridge_for(user['id'], LOCAL_CAPABILITY))},
+                'cloud_separation': {'available': cloud_separation.available()},
                 'audio_listening': audio_listener.capability(), 'sound_comparison': sound_comparison.capability(), **capability()}
 
     @router.get('/{reference_id}/comparisons')
@@ -732,9 +788,17 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
     @router.delete('/{reference_id}')
     async def delete(reference_id: str, user=Depends(get_user)):
         directory, item = owned(reference_id, user['id'])
-        busy = item['status'] in ('uploading', 'processing') and item.get('storage') != 'local'
+        # Only server CPU jobs block deletion; local jobs run on the user's computer and cloud jobs are cancelled.
+        busy = item['status'] in ('uploading', 'processing') and 'storage' not in item
         if busy or reference_id in LISTENING or reference_id in SUGGESTING or reference_id in COMPARING:
             raise HTTPException(409, 'Wait for processing to finish before deleting.')
+        if item.get('storage') == 'cloud':
+            if item.get('job_id') and item['status'] in ('processing', 'importing'):
+                await asyncio.to_thread(cloud_separation.cancel, item['job_id'])
+            try:
+                await asyncio.to_thread(cloud_separation.delete_objects, reference_id)
+            except Exception:
+                pass  # The bucket lifecycle rule removes leftovers within a day.
         shutil.rmtree(directory)
         # Local stems are the user's own files; only BeatMind's saved analysis is removed.
         return {'deleted': reference_id, 'local_files_kept': item.get('storage') == 'local'}
@@ -783,6 +847,50 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         task = asyncio.create_task(await_file_choice(bridge, directory, item))
         TASKS.add(task)
         task.add_done_callback(TASKS.discard)
+        return public(directory, item)
+
+    class CloudUpload(BaseModel):
+        name: str = Field(min_length=1, max_length=200)
+        bytes: int = Field(gt=0)
+        rights: bool = False
+
+    @router.post('/cloud', status_code=201)
+    async def cloud_upload(request: CloudUpload, user=Depends(require_subscription)):
+        from security import rate_limit
+        if not cloud_separation.available():
+            raise HTTPException(503, 'BeatMind Cloud separation is not available right now.')
+        if not request.rights:
+            raise HTTPException(400, 'Confirm you have permission to upload this audio.')
+        name = Path(request.name).name
+        suffix = Path(name).suffix.lower()
+        if suffix not in EXTENSIONS:
+            raise HTTPException(400, 'Choose a WAV, AIFF, MP3, M4A, FLAC or OGG file.')
+        if request.bytes > MAX_BYTES:
+            raise HTTPException(413, f'Reference exceeds {MAX_BYTES // (1024 * 1024)} MB.')
+        if sum(item.get('storage') != 'local' for item in (await listing(user))['references']) >= 5:
+            raise HTTPException(409, 'Delete an older reference first. Limit: five uploaded references per account.')
+        rate_limit(f"reference-cloud:{user['id']}", max_requests=10, window_seconds=3600)
+        reference_id = uuid.uuid4().hex
+        directory = ROOT / reference_id
+        directory.mkdir(parents=True, mode=0o700)
+        item = {'id': reference_id, 'user_id': user['id'], 'name': name, 'storage': 'cloud', 'source_suffix': suffix,
+                'created_at': datetime.now(timezone.utc).isoformat(), 'status': 'awaiting_upload'}
+        write_json(directory / 'meta.json', item)
+        form = await asyncio.to_thread(cloud_separation.upload_form, reference_id, suffix, MAX_BYTES)
+        return {'reference': public(directory, item), 'upload': form}
+
+    @router.post('/{reference_id}/cloud-start')
+    async def cloud_start(reference_id: str, user=Depends(require_subscription)):
+        directory, item = owned(reference_id, user['id'])
+        if item.get('storage') != 'cloud' or item['status'] != 'awaiting_upload':
+            raise HTTPException(409, 'This reference is not waiting for an upload.')
+        size = await asyncio.to_thread(cloud_separation.uploaded_bytes, reference_id, item['source_suffix'])
+        if not size:
+            raise HTTPException(409, 'The upload has not reached BeatMind Cloud yet. Upload the file again.')
+        job_id = await asyncio.to_thread(cloud_separation.submit, reference_id, item['source_suffix'])
+        item.update(status='processing', bytes=size, job_id=job_id)
+        write_json(directory / 'meta.json', item)
+        write_json(directory / 'progress.json', {'stage': CLOUD_STAGES['SUBMITTED']})
         return public(directory, item)
 
     class LocalOpen(BaseModel):

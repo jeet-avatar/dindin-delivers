@@ -8,18 +8,24 @@ if [[ "$MODE" != "release" && "$MODE" != "--local-test" ]]; then
   echo "Usage: $0 [--local-test]" >&2
   exit 2
 fi
-if [[ "$MODE" == "release" ]]; then
-  : "${NOTARY_PROFILE:?Set a notarytool keychain profile}"
+if [[ "$MODE" == "release" && -z "${NOTARY_PROFILE:-}" && -z "${NOTARY_KEY:-}" ]]; then
+  echo "Set NOTARY_PROFILE, or NOTARY_KEY with NOTARY_KEY_ID and NOTARY_ISSUER (App Store Connect API key)" >&2
+  exit 2
 fi
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/beatmind-build.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 "${PYTHON:-python3}" -m venv "$WORK/venv"
-"$WORK/venv/bin/pip" install -r requirements-build.txt
+"$WORK/venv/bin/pip" install -r requirements-build.txt -r requirements-separation.txt
+# The on-device separation worker is the backend's own reference_worker/separation code.
 "$WORK/venv/bin/pyinstaller" --noconfirm --windowed --onedir \
   --name "BeatMind Bridge" --osx-bundle-identifier com.zietra.beatmind-bridge \
-  --codesign-identity "$SIGNING_ID" --target-arch arm64 \
+  --codesign-identity "$SIGNING_ID" --osx-entitlements-file entitlements.plist --target-arch arm64 \
+  --paths ../backend \
   --hidden-import audio_preview --hidden-import live_set \
   --hidden-import mixer_preview --hidden-import sample_library \
+  --hidden-import local_separation --hidden-import stem_import \
+  --hidden-import reference_worker --hidden-import separation --hidden-import stems \
+  --collect-data demucs --collect-submodules demucs --collect-data librosa \
   --distpath "$WORK/dist" --workpath "$WORK/work" --specpath "$WORK" bridge_app.py
 APP="$WORK/dist/BeatMind Bridge.app"
 "$WORK/venv/bin/python" - "$APP/Contents/Info.plist" <<'PY'
@@ -40,8 +46,25 @@ xcrun swiftc native/Capture.swift -parse-as-library -O -target arm64-apple-macos
   -framework ScreenCaptureKit -framework AVFoundation -framework CoreGraphics \
   -o "$HELPER/Contents/MacOS/BeatMindAudio"
 codesign --force --options runtime --timestamp --sign "$SIGNING_ID" "$HELPER"
-codesign --force --options runtime --timestamp --sign "$SIGNING_ID" "$APP"
+codesign --force --options runtime --timestamp --entitlements entitlements.plist --sign "$SIGNING_ID" "$APP"
 codesign --verify --deep --strict "$APP"
+# Separation smoke test inside the signed bundle: real models, a generated tone, no network credentials.
+"$WORK/venv/bin/python" - "$APP" "$WORK/separation-check" <<'PY'
+import json, math, subprocess, sys, wave, struct
+from pathlib import Path
+app, work = Path(sys.argv[1]), Path(sys.argv[2])
+work.mkdir()
+with wave.open(str(work / 'tone.wav'), 'wb') as out:
+    out.setnchannels(2); out.setsampwidth(2); out.setframerate(44100)
+    out.writeframes(b''.join(struct.pack('<hh', *(int(8000 * math.sin(2 * math.pi * f * i / 44100)) for f in (110, 220)))
+                             for i in range(44100 * 8)))
+(work / 'meta.json').write_text(json.dumps({'id': 'check', 'name': 'tone.wav', 'source_file': str(work / 'tone.wav')}))
+subprocess.run([str(app / 'Contents/MacOS/BeatMind Bridge'), '--separate', str(work)], check=True, timeout=1800,
+               env={'DEMUCS_MODEL': 'htdemucs', 'DEMUCS_DEVICE': 'cpu', 'BEATMIND_DECODER': 'afconvert', 'HOME': str(Path.home())})
+report = json.loads((work / 'report.json').read_text())
+assert report['stem_health']['checks_passed'], report['stem_health']
+print('Packaged separation check passed:', [s['name'] for s in report['stems']])
+PY
 "$APP/Contents/MacOS/BeatMind Bridge" --network-check "$WORK/network-check.json"
 "$WORK/venv/bin/python" - "$WORK/network-check.json" <<'PY'
 import json
@@ -63,7 +86,11 @@ cp abletonosc/*.py abletonosc/README.md "$WORK/image/AbletonOSC-Extensions/"
 ln -s /Applications "$WORK/image/Applications"
 hdiutil create -volname "BeatMind Bridge" -srcfolder "$WORK/image" -format UDZO "$WORK/BeatMind-Bridge.dmg"
 codesign --sign "$SIGNING_ID" --timestamp "$WORK/BeatMind-Bridge.dmg"
-xcrun notarytool submit "$WORK/BeatMind-Bridge.dmg" --keychain-profile "$NOTARY_PROFILE" --wait
+if [[ -n "${NOTARY_PROFILE:-}" ]]; then
+  xcrun notarytool submit "$WORK/BeatMind-Bridge.dmg" --keychain-profile "$NOTARY_PROFILE" --wait
+else
+  xcrun notarytool submit "$WORK/BeatMind-Bridge.dmg" --key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --wait
+fi
 xcrun stapler staple "$WORK/BeatMind-Bridge.dmg"
 hdiutil verify "$WORK/BeatMind-Bridge.dmg"
 mkdir -p dist
