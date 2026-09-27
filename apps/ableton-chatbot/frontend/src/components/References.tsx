@@ -5,6 +5,8 @@ import { apiFetch } from "@/lib/auth";
 import { backgroundPollingAllowed } from "@/lib/background-polling";
 import { uploadReference, UploadConfirmationError, type UploadProgress } from "@/lib/reference-upload";
 import ReferenceStatus from "./ReferenceStatus";
+import ReferenceListening from "./ReferenceListening";
+import { listeningFinished, type ListeningData } from "@/lib/reference-listening";
 import ReferenceTemplate, { type ReferenceTemplateData } from "./ReferenceTemplate";
 import ReferenceReview, { type TimingMap, type StemReview, type StemHealth } from "./ReferenceReview";
 import SoundComparison from "./SoundComparison";
@@ -25,78 +27,9 @@ type Reference = {
   listening_busy?: boolean;
   template?: ReferenceTemplateData;
   timing?: TimingMap; stem_review?: StemReview;
-  listening?: {
-    coverage?: { coverage_percent: number; full_coverage: boolean };
-    excerpts: { id?: string; notes: string; model: string; start_seconds: number; end_seconds: number; layer: string; intent: string; validation?: string;
-      evidence?: { start_rms_dbfs: number; end_rms_dbfs: number; delta_db: number } }[];
-    job?: { status: string; completed: number; total: number; failures: { start: number; end: number; error: string }[] };
-  };
+  listening?: ListeningData;
 };
 
-function Listening({ item, available, refresh }: { item: Reference; available: boolean; refresh: () => Promise<void> }) {
-  const [intent, setIntent] = useState("");
-  const [start, setStart] = useState(0);
-  const [duration, setDuration] = useState(20);
-  const [layer, setLayer] = useState("mix");
-  const [consent, setConsent] = useState(false);
-  const [whole, setWhole] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function listen() {
-    setBusy(true); setError("");
-    try {
-      const response = await apiFetch(`/api/references/${item.id}/${whole ? "listen-whole" : "listen"}`, { method: "POST",
-        body: JSON.stringify(whole ? { intent, consent } : { intent, start_seconds: start, duration_seconds: duration, layer, consent }) });
-      const result = await response.json();
-      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Check the excerpt range and try again.");
-      await refresh();
-    } catch (e) { setError(e instanceof Error ? e.message : "Listening failed."); }
-    finally { setBusy(false); }
-  }
-  return <div className="space-y-3 border-t border-neutral-700 pt-4">
-    <h4 className="text-sm font-medium">AI listening</h4>
-    {!available && <p role="status" className="text-sm text-amber-200">Audio provider setup required on the server.</p>}
-    <label className="block text-sm">What do you want from this reference?
-      <textarea value={intent} maxLength={1000} onChange={e => setIntent(e.target.value)} rows={2}
-        className="mt-2 w-full rounded border border-neutral-600 bg-neutral-900 p-2" />
-    </label>
-    <fieldset className="flex flex-wrap gap-4 text-sm"><legend className="mb-2">Listening scope</legend>
-      <label><input type="radio" name={`scope-${item.id}`} checked={whole} onChange={() => setWhole(true)} /> Whole track</label>
-      <label><input type="radio" name={`scope-${item.id}`} checked={!whole} onChange={() => setWhole(false)} /> Excerpt</label>
-    </fieldset>
-    {!whole && <><div className="grid grid-cols-2 gap-3 text-sm">
-      <label>Start (seconds)<input type="number" min={0} max={Math.max(0, (item.report?.duration_seconds || 5) - 5)} value={start}
-        onChange={e => setStart(Number(e.target.value))} className="mt-1 w-full rounded bg-neutral-900 p-2" /></label>
-      <label>Length (seconds)<input type="number" min={5} max={30} value={duration}
-        onChange={e => setDuration(Number(e.target.value))} className="mt-1 w-full rounded bg-neutral-900 p-2" /></label>
-    </div>
-    <label className="block text-sm">Audio layer<select value={layer} onChange={e => setLayer(e.target.value)}
-      className="ml-3 rounded bg-neutral-900 p-2">{["mix", "drums", "bass", "vocals", "other"].map(s => <option key={s}>{s}</option>)}</select></label></>}
-    <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-1" />
-      Send {whole ? "this whole track" : "this excerpt"} and my intent to OpenAI. Provider charges apply{whole ? ` (up to ${Math.ceil((item.report?.duration_seconds || 0) / 30)} requests)` : ""}.</label>
-    <button type="button" disabled={!available || !consent || !intent.trim() || busy || item.listening_busy}
-      onClick={listen} className="rounded bg-emerald-700 px-4 py-2 text-sm disabled:opacity-40">{busy || item.listening_busy ? "Listening..." : whole ? "Listen to whole track" : "Listen to excerpt"}</button>
-    {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
-    {item.listening && <div className="space-y-3 text-sm">
-      <p className="text-neutral-400">Checked mix coverage: {item.listening.coverage?.coverage_percent || 0}% / Musical interpretation still needs your review</p>
-      {item.listening.job && <p role="status">{item.listening.job.status.replaceAll("_", " ")} / {item.listening.job.completed} of {item.listening.job.total} intervals passed checks</p>}
-      {item.listening.job?.status === "running" && <button type="button" className="text-red-300" onClick={async () => {
-        try { const r = await apiFetch(`/api/references/${item.id}/listen-cancel`, { method: "POST" }); if (!r.ok) throw new Error("Could not stop listening."); await refresh(); }
-        catch (e) { setError(e instanceof Error ? e.message : "Could not stop listening."); }
-      }}>Stop listening</button>}
-      {item.listening.job?.failures.map((f, i) => <p key={i} className="text-amber-200">{time(f.start)}-{time(f.end)}: {f.error}</p>)}
-      {item.listening.excerpts.filter(e => e.validation === "checks_passed").map((e, i) => <details key={e.id || i} className="border-t border-neutral-800 pt-2">
-        <summary className="cursor-pointer">{time(e.start_seconds)}-{time(e.end_seconds)} / {e.layer} / {e.validation === "checks_passed" ? "Checks passed" : "Legacy notes: unchecked"}</summary>
-        {e.evidence && <p className="mt-2 text-xs text-neutral-400">Measured level: {e.evidence.start_rms_dbfs} to {e.evidence.end_rms_dbfs} dBFS / Change: {e.evidence.delta_db} dB</p>}
-        <p className="mt-2 whitespace-pre-wrap break-words">{e.notes}</p>
-      </details>)}
-      {item.listening.excerpts.some(e => e.validation !== "checks_passed") && <details className="text-xs text-neutral-400">
-        <summary className="cursor-pointer">Earlier unchecked notes</summary>
-        {item.listening.excerpts.filter(e => e.validation !== "checks_passed").map((e, i) => <p key={e.id || i} className="mt-2 whitespace-pre-wrap break-words">{time(e.start_seconds)}-{time(e.end_seconds)}: {e.notes}</p>)}
-      </details>}
-    </div>}
-  </div>;
-}
 
 const time = (seconds: number) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
 
@@ -333,8 +266,8 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
         <p className="text-xs text-neutral-400">{new Date(item.created_at).toLocaleString()}</p>
         {item.report && item.status === "ready" && <>
           {guided && <div className="border-l-2 border-emerald-400 pl-3 space-y-2 text-sm">
-            {!item.listening?.coverage?.full_coverage ? <>
-              <p>Would you like me to listen to this track? What stands out to you?</p>
+            {!listeningFinished(item.listening) ? <>
+              <p>{item.listening?.job?.status === "running" ? "Listening is in progress. Completed notes will appear in the Listening step." : "Would you like me to listen to this track? What stands out to you?"}</p>
               {stage !== "listening" && <button className="underline" onClick={() => setStage("listening")}>Review listening consent</button>}
             </> : <>
               <p>Listening notes ready. What would you like to borrow: the groove, bass, atmosphere, or structure?</p>
@@ -362,7 +295,8 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
           {item.timing && item.stem_review && (["stems", "timing"] as const).map(mode => <div key={mode} hidden={stage!==mode}>
             <ReferenceReview key={`${item.id}-${mode}-${item.timing!.analysis_id}`} id={item.id} mode={mode} timing={item.timing!} review={item.stem_review!}
               health={item.report!.stem_health} refresh={refresh} onCue={seconds => setCue({seconds})} /></div>)}
-          <div hidden={stage!=="listening"}><Listening key={item.id} item={item} available={listeningAvailable} refresh={refresh} /></div>
+          <div hidden={stage!=="listening"}><ReferenceListening key={item.id} item={item} available={listeningAvailable} refresh={refresh}
+            checkedAt={checkedAt} pollError={pollError} onDiscuss={chatBusy || busy ? undefined : () => onUse(item.id)} /></div>
           {stage === "compare" && <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} />}
           <div hidden={stage!=="template"}>{item.timing?.status === "confirmed" && item.stem_review?.status === "accepted" ?
             <ReferenceTemplate key={`template-${item.id}-${item.timing.revision}`} id={item.id} template={item.template} bpm={item.report.tempo.bpm} timing={item.timing}

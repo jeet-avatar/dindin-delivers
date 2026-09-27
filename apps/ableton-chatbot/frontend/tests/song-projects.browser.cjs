@@ -21,7 +21,8 @@ async function main() {
       const ref = () => ({ id: refId, name: 'Original reference.wav', status: 'ready', created_at: '2026-09-26',
         report: { duration_seconds: 6, tempo: { bpm: 123 }, key_candidates: [], waveform: [0.1, 0.2, 0.5],
           possible_change_points_seconds: [], stems: [], limitations: [] },
-        listening: { excerpts: [], coverage: { full_coverage: listened, coverage_percent: listened ? 100 : 0 } } });
+        listening: { excerpts: [], coverage: { full_coverage: listened, coverage_percent: listened ? 100 : 0 },
+          ...(listened ? { job: { status: 'complete', completed: 1, total: 1, failures: [], intent: 'I like the restrained groove, but want my own bass and pads.', started_at: '2026-09-26T20:00:00Z' } } : {}) } });
       await context.addInitScript(() => {
         localStorage.setItem('beatmind_token', 'fixture');
         localStorage.setItem('beatmind_user', JSON.stringify({ id: 987655, email: 'songs@example.invalid', subscribed: true }));
@@ -58,7 +59,7 @@ async function main() {
           return reply({ available: true, max_bytes: 250 * 1024 * 1024, min_seconds: 5, max_seconds: 600, audio_listening: { available: true }, references: uploaded ? [oldReference, ref()] : [oldReference] });
         }
         if (path.includes('/audio/')) return route.fulfill({ contentType: 'audio/wav', body: wave() });
-        if (path.endsWith('/listen-whole')) { assert.equal(body.consent, true); listened = true; return reply({ status: 'complete' }); }
+        if (path.endsWith('/listen-whole')) { assert.equal(body.consent, true); listened = true; return reply(ref().listening); }
         if (path === '/api/live-set') {
           if (body.operation === 'save') return reply({ status: 'failed', summary: 'System Events: osascript is not allowed assistive access. (-25211)' });
           const result = { status: 'observed', title: 'Disposable QA set', tracks: ['MIDI'], new_set_ready: true };
@@ -107,8 +108,10 @@ async function main() {
       assert.equal(listened, false);
       assert.equal(calls.filter(c => c.path === '/api/live-set').length, 0, 'Planning must not open or change a Live Set');
       await page.getByLabel('What do you want from this reference?').fill('I like the restrained groove, but want my own bass and pads.');
-      const listen = page.getByRole('button', { name: 'Listen to whole track', exact: true });
-      assert.equal(await listen.isDisabled(), true);
+      const listen = page.getByRole('button', { name: 'Send listening request', exact: true });
+      await listen.click();
+      await page.getByRole('alert').filter({ hasText: 'Your permission to send this audio' }).waitFor();
+      assert.equal(listened, false, 'Validation must never send audio without consent');
       await page.getByLabel(/Send this whole track and my intent to OpenAI/).check();
       await listen.click();
       await page.getByRole('button', { name: 'Discuss what I like', exact: true }).click();
