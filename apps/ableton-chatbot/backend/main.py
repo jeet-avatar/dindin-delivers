@@ -316,13 +316,8 @@ def _create_reset_token(user_id: int, email: str) -> str:
 
 
 def _send_reset_email(to_email: str, reset_url: str) -> None:
-    import smtplib
     from html import escape
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.text import MIMEText
 
-    smtp_user = os.getenv("SMTP_USER", "support@beatmind.io")
-    smtp_pass = os.getenv("SMTP_PASSWORD", "")
     safe_url = escape(reset_url, quote=True)
     plain = (
         "Reset your BeatMind password\n\n"
@@ -347,26 +342,9 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
     </div>
     """
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Reset your BeatMind password"
-    msg["From"] = f"BeatMind <{smtp_user}>"
-    msg["To"] = to_email
-    msg.attach(MIMEText(plain, "plain", "utf-8"))
-    msg.attach(MIMEText(html, "html", "utf-8"))
-
-    provider = os.getenv("BEATMIND_EMAIL_PROVIDER", "smtp")
-    if provider == "ses":
-        import boto3
-        result = boto3.client("ses", region_name=os.getenv("AWS_REGION", "us-east-1")).send_raw_email(
-            Source=smtp_user, Destinations=[to_email], RawMessage={"Data": msg.as_bytes()})
-        log.warning("Password-reset email accepted by SES: %s", result["MessageId"])
-        return
-    if provider != "smtp":
-        raise RuntimeError("Unsupported email provider")
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
-        server.starttls()
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, to_email, msg.as_string())
+    from email_transport import send_email
+    message_id = send_email(to_email, "Reset your BeatMind password", plain, html)
+    log.warning("Password-reset email accepted: %s", message_id)
 
 
 @app.post("/api/auth/forgot-password")
@@ -1014,6 +992,19 @@ async def bridge_ws(ws: WebSocket):
                 future.set_result({"status": "disconnected"})
         bridge.pending.clear()
         log.info("Bridge disconnected: %s", session_id)
+
+
+@app.api_route("/api/email/unsubscribe", methods=["GET", "POST"])
+async def email_unsubscribe(token: str = ""):
+    """One-click unsubscribe from product-update emails (GET from the link, POST from mail clients)."""
+    import product_updates
+    from fastapi.responses import HTMLResponse
+    done = product_updates.unsubscribe(token)
+    message = ("You are unsubscribed from BeatMind product updates. Account and billing emails still arrive."
+               if done else "This unsubscribe link is not valid. Email support@beatmind.io and we will remove you.")
+    return HTMLResponse(f'<!doctype html><meta name="viewport" content="width=device-width"><title>BeatMind</title>'
+                        f'<body style="font-family:sans-serif;background:#0d0d0d;color:#eee;padding:48px;max-width:560px;margin:auto">'
+                        f'<h2>BeatMind</h2><p>{message}</p></body>', status_code=200 if done else 400)
 
 
 @app.get("/api/bridge/status")
