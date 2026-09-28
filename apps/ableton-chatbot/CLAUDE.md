@@ -67,8 +67,13 @@ Never say "done" without proof: tests + real runs + production checks (see the r
   checks `www.beatmind.io/bridge/latest.json` (launch + every 6 h), installs on click only (sha256 + Team
   PRKZ4UVCD7 + Gatekeeper), never during a separation. The dashboard `UpdateBanner` compares
   `/release.json` `frontend_commit` with the build-time `NEXT_PUBLIC_RELEASE_COMMIT` (always set both) and
-  never reloads by itself. Product-update email: `backend/send_product_update.py` as an ECS one-off task;
-  SES is in sandbox, so only verified addresses receive mail until production access is granted.
+  never reloads by itself. Product-update email: `backend/send_product_update.py` as an ECS one-off task.
+- **Email (2026-09-28, api :37):** all mail goes out as support@beatmind.io through Gmail/Workspace SMTP
+  (`BEATMIND_EMAIL_PROVIDER=smtp`; app password labelled "beatmindmixmind" in Google, stored as SMTP_PASSWORD in
+  `beatmind/production/app`). Google SPF + DKIM are in DNS; Workspace limit ~2,000 mails/day. SES (beatmind.io
+  DKIM verified, still sandbox) is an unused fallback. beatmind.io DNS is at GoDaddy: `www` CNAME →
+  d1ikpclsck3bgu.cloudfront.net, `api` CNAME → dollor-api-alb-1385848600.us-east-1.elb.amazonaws.com. GoDaddy's
+  "invalid records" error once wiped both; verify them on ns09/ns10.domaincontrol.com after any DNS edit.
 - **Secrets:** JWT_SECRET, ANTHROPIC_API_KEY, SMTP_PASSWORD come from Secrets Manager
   `beatmind/production/app` (task-def `secrets`). Start new task defs from the live revision. Stripe keys are
   still env vars (owned by the pricing session).
@@ -79,7 +84,7 @@ Never say "done" without proof: tests + real runs + production checks (see the r
 
 1. **User must provide prices** (track packs, cloud per-track, included tracks/month) → create Stripe
    products/prices → set the two env vars → deploy → verify a real purchase.
-2. Request SES production access before emailing all users (`send_product_update.py --campaign bridge-1.2.0`).
+2. Send the Bridge 1.2.0 update email to all users when Jeet says go (`send_product_update.py --campaign bridge-1.2.0`, 58 planned).
 3. Real in-Ableton test of "Place stems in Ableton" in a disposable Live set (not run: it writes to
    the user's open set and needs the extension installed + Live restart).
 4. Windows Bridge has no local separation yet (macOS only).
