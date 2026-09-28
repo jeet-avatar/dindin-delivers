@@ -220,7 +220,7 @@ def get_account_user(authorization: str = Header(None)) -> dict:
 
 def require_subscription(user: dict = Depends(get_current_user)) -> dict:
     if not is_subscribed(user):
-        raise HTTPException(402, "Subscription required")
+        raise HTTPException(402, "Your free trial has ended. Choose a plan to keep going.")
     return user
 
 
@@ -244,7 +244,7 @@ async def register(req: RegisterRequest, request: Request):
     validate_password(req.password)
 
     if get_user_by_email(req.email):
-        raise HTTPException(409, "Email already registered")
+        raise HTTPException(409, "An account with this email already exists. Sign in or reset your password.")
 
     trial_ends = (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat()
     user = create_user(
@@ -354,12 +354,12 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
     html = f"""
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0d0d0d;color:#fff;border-radius:12px;">
         <div style="font-size:20px;font-weight:900;margin-bottom:24px;">
-            <span style="background:#7c3aed;color:#fff;padding:4px 10px;border-radius:6px;margin-right:8px;">B</span>
+            <span style="background:#ff6b00;color:#fff;padding:4px 10px;border-radius:6px;margin-right:8px;">B</span>
             beatmind
         </div>
         <h2 style="margin:0 0 12px;">Reset your password</h2>
         <p style="color:#aaa;margin:0 0 24px;">Click the button below to set a new password. This link expires in 30 minutes.</p>
-        <a href="{safe_url}" style="display:inline-block;background:#7c3aed;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;">Reset password →</a>
+        <a href="{safe_url}" style="display:inline-block;background:#ff6b00;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;">Reset password →</a>
         <p style="color:#ccc;font-size:14px;margin-top:24px;">If the button does not work, copy this entire link into your browser:</p>
         <p style="overflow-wrap:anywhere;word-break:break-all;font-size:13px;"><a href="{safe_url}" style="color:#a5b4fc;">{safe_url}</a></p>
         <p style="color:#555;font-size:12px;margin-top:32px;">If you didn't request this, you can ignore this email.</p>

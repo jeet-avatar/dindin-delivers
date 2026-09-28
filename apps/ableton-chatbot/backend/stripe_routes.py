@@ -218,7 +218,7 @@ async def buy_pack(pack_id: str, request: Request):
     if not stripe.api_key:
         raise HTTPException(500, "Payment system not configured")
     if not subscription_access(user):
-        raise HTTPException(402, "Track packs top up a paid plan. Choose a plan first.")
+        raise HTTPException(402, "Packs top up a paid plan.")
     metadata = {"user_id": str(user["id"]), "app": APP, "pack_id": item["id"],
                 "kind": item["kind"], "credits": str(item["credits"])}
     try:
@@ -240,7 +240,7 @@ async def customer_portal(request: Request):
     """Create Stripe Customer Portal session for authenticated user."""
     user = _authenticated_user(request)
     if not user.get("stripe_customer_id"):
-        raise HTTPException(404, "No billing account yet. Choose a plan or buy a pack first.")
+        raise HTTPException(404, "Choose a plan first.")
     try:
         session = await asyncio.to_thread(
             stripe.billing_portal.Session.create,
