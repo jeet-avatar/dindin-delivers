@@ -4,6 +4,26 @@ import Link from "next/link";
 import { useState } from "react";
 import { BoltIcon, SlidersIcon, SparklesIcon, RefreshIcon, CheckIcon } from "@/components/Icons";
 import { BEATMIND_FAQS } from "@/lib/faqs";
+import {
+  ANNUAL_DISCOUNT_LABEL,
+  CLOUD_HQ_PACKS,
+  FOUNDING_CODE,
+  FOUNDING_DISCOUNT_PERCENT,
+  FOUNDING_SEATS,
+  LOWEST_MONTHLY_USD,
+  MIXMIND_COMBOS,
+  MIXMIND_PRICE,
+  PACK_TERMS,
+  PLANS,
+  TRACK_DEFINITION,
+  TRACK_PACKS,
+  type BillingInterval,
+  type Pack,
+  formatUsd,
+  planById,
+  signupHref,
+} from "@/lib/pricing";
+import { TRIAL_TERMS } from "@/lib/site";
 
 const FEATURES = [
   {
@@ -46,17 +66,16 @@ const STEPS = [
   },
 ];
 
-const PRICING_FEATURES = [
-  "Guided part-by-part production",
-  "Genre and reference-based planning",
-  "Supported Ableton device controls",
-  "Clip, scene and mix assistance",
-  "Priority support",
-  "Mac + Windows bridge agent",
-];
+function packList(packs: Pack[]): string {
+  return packs.map((pack) => `${pack.quantity} for ${formatUsd(pack.price)}`).join(" · ");
+}
+
+const STUDIO_MONTHLY = planById("studio").monthly;
+const COMBO_FROM_MONTHLY = Math.min(...MIXMIND_COMBOS.map((combo) => combo.monthly));
 
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>("month");
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
@@ -147,7 +166,7 @@ export default function LandingPage() {
           <div className="border-l-2 pl-5 py-1" style={{ borderColor: "var(--accent)" }}>
             <h2 id="what-is-heading" className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>What is BeatMind?</h2>
             <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              BeatMind is an AI music-production assistant that works inside Ableton Live 11 and 12. Through the local BeatMind Bridge and AbletonOSC, it builds drums, bass and melodies one part at a time as Session-view clips and scenes in your own Live Set, with a captured audition to review before the next part. You keep control of the arrangement; BeatMind costs $19/month after a 7-day free trial with no credit card required.
+              BeatMind is an AI music-production assistant that works inside Ableton Live 11 and 12. Through the local BeatMind Bridge and AbletonOSC, it builds drums, bass and melodies one part at a time as Session-view clips and scenes in your own Live Set, with a captured audition to review before the next part. You keep control of the arrangement. Plans start at {formatUsd(LOWEST_MONTHLY_USD)}/month, and every plan includes a 7-day free trial with no credit card required.
             </p>
           </div>
         </section>
@@ -193,29 +212,110 @@ export default function LandingPage() {
         </section>
 
         {/* Pricing */}
-        <section id="pricing" className="max-w-2xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
-          <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Simple pricing</h2>
-          <p className="mb-12" style={{ color: "var(--text-secondary)" }}>
-            One plan. Everything included. Cancel anytime.
+        <section id="pricing" className="max-w-6xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
+          <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Pricing</h2>
+          <p className="mb-8 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>
+            Every plan includes the AI producer inside Ableton Live. Pick how many reference tracks you separate each month. {TRIAL_TERMS}
           </p>
-          <div className="rounded-2xl border p-8 relative overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--accent)" }}>
-            <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "#fff" }}>
-              7-DAY FREE TRIAL
+
+          {/* Billing interval toggle */}
+          <div className="inline-flex p-1 rounded-xl border mb-10" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="group" aria-label="Billing interval">
+            {(["month", "year"] as const).map((option) => {
+              const selected = billingInterval === option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setBillingInterval(option)}
+                  aria-pressed={selected}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150"
+                  style={{ background: selected ? "var(--accent)" : "transparent", color: selected ? "#fff" : "var(--text-secondary)" }}
+                >
+                  {option === "month" ? "Monthly" : `Yearly · ${ANNUAL_DISCOUNT_LABEL}`}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Founding Member banner */}
+          <div className="rounded-2xl border p-5 mb-10 text-sm text-left md:text-center" style={{ background: "var(--bg-secondary)", borderColor: "var(--accent)" }}>
+            <span className="font-semibold" style={{ color: "var(--accent)" }}>Founding Member offer: </span>
+            the first {FOUNDING_SEATS} annual subscribers get {FOUNDING_DISCOUNT_PERCENT}% off for life with code{" "}
+            <code className="px-2 py-0.5 rounded font-mono font-semibold" style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}>{FOUNDING_CODE}</code>.{" "}
+            <span style={{ color: "var(--text-secondary)" }}>Annual plans only.</span>
+          </div>
+
+          {/* Tier cards */}
+          <div className="grid gap-6 md:grid-cols-3 text-left">
+            {PLANS.map((plan) => {
+              const price = billingInterval === "month" ? plan.monthly : plan.yearly;
+              const unit = billingInterval === "month" ? "month" : "year";
+              return (
+                <div
+                  key={plan.id}
+                  className="rounded-2xl border p-8 relative overflow-hidden flex flex-col"
+                  style={{ background: "var(--bg-secondary)", borderColor: plan.highlight ? "var(--accent)" : "var(--border)" }}
+                >
+                  {plan.highlight && (
+                    <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "#fff" }}>
+                      MOST POPULAR
+                    </div>
+                  )}
+                  <h3 className="text-xl font-semibold mb-4">{plan.name}</h3>
+                  <div className="text-5xl font-black mb-2" aria-label={`${price} dollars per ${unit}`}>{formatUsd(price)}</div>
+                  <div className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
+                    per {unit}
+                    {billingInterval === "year" ? ` · ${ANNUAL_DISCOUNT_LABEL}` : " · cancel anytime"}
+                  </div>
+                  <ul className="text-sm space-y-3 mb-8 flex-1">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2">
+                        <span className="mt-0.5 flex-shrink-0"><CheckIcon size={16} color="var(--accent)" /></span>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href={signupHref(plan.id, billingInterval)}
+                    className={plan.highlight
+                      ? "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
+                      : "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-colors duration-150 border hover:border-white"}
+                    style={plan.highlight ? { background: "var(--accent)", color: "#fff" } : { borderColor: "var(--border)", color: "var(--text-primary)" }}
+                  >
+                    Start free trial &rarr;
+                  </Link>
+                  <p className="text-xs mt-3 text-center" style={{ color: "var(--text-secondary)" }}>No credit card required for trial</p>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="text-xs mt-6 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>{TRACK_DEFINITION}</p>
+
+          {/* Packs */}
+          <div className="mt-10 rounded-2xl border p-6 text-left" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+            <h3 className="text-lg font-semibold mb-4">Need more? Track packs &amp; Cloud HQ packs</h3>
+            <div className="grid gap-4 md:grid-cols-2 text-sm">
+              <div>
+                <div className="font-medium mb-1">Track packs</div>
+                <div style={{ color: "var(--text-secondary)" }}>{packList(TRACK_PACKS)}</div>
+              </div>
+              <div>
+                <div className="font-medium mb-1">Cloud HQ packs</div>
+                <div style={{ color: "var(--text-secondary)" }}>{packList(CLOUD_HQ_PACKS)}</div>
+              </div>
             </div>
-            <div className="text-6xl font-black mb-2" aria-label="19 dollars per month">$19</div>
-            <div className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>per month · billed monthly · cancel anytime</div>
-            <ul className="text-sm space-y-3 text-left mb-8 max-w-xs mx-auto">
-              {PRICING_FEATURES.map((item) => (
-                <li key={item} className="flex items-center gap-2">
-                  <CheckIcon size={16} color="var(--accent)" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Link href="/signup" className="block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
-              Start free trial &rarr;
+            <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>{PACK_TERMS}</p>
+          </div>
+
+          {/* MixMind coming soon */}
+          <div className="mt-6 p-5 rounded-xl border text-sm text-left" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
+            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>MixMind: </span>
+            included in Studio as early access today. Standalone MixMind ({formatUsd(MIXMIND_PRICE.monthly)}/month) and BeatMind + MixMind combos (from {formatUsd(COMBO_FROM_MONTHLY)}/month) are{" "}
+            <span className="font-semibold" style={{ color: "var(--accent)" }}>coming soon</span>.{" "}
+            <Link href="/mixmind" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
+              About MixMind &rarr;
             </Link>
-            <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>No credit card required for trial</p>
           </div>
         </section>
 
@@ -252,7 +352,7 @@ export default function LandingPage() {
           <div className="max-w-4xl mx-auto px-6">
             <h2 id="products-heading" className="text-3xl font-bold text-center mb-4">Two tools. One workflow.</h2>
             <p className="text-center mb-12" style={{ color: "var(--text-secondary)" }}>
-              Both $19/month. Both built for working musicians and DJs.
+              Built for working musicians and DJs.
             </p>
             <div className="grid md:grid-cols-2 gap-6">
               {/* BeatMind */}
@@ -265,7 +365,8 @@ export default function LandingPage() {
                 <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
                   Develop drums, bass and melodies inside your Ableton Live project, with captured auditions and one part to review at a time.
                 </p>
-                <div className="text-xs mb-5" style={{ color: "var(--text-secondary)" }}>Web app + bridge agent · Requires Ableton Live 11 or 12</div>
+                <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>Web app + bridge agent · Requires Ableton Live 11 or 12</div>
+                <div className="text-sm font-semibold mb-5">From {formatUsd(LOWEST_MONTHLY_USD)}/mo</div>
                 <Link href="/signup" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
                   Start free trial →
                 </Link>
@@ -278,7 +379,8 @@ export default function LandingPage() {
                 <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
                   DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, and build AI playlists from music you already own.
                 </p>
-                <div className="text-xs mb-5" style={{ color: "var(--text-secondary)" }}>Desktop app · Mac + Windows · Requires Rekordbox 6 or 7</div>
+                <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>Desktop app · Mac + Windows · Requires Rekordbox 6 or 7</div>
+                <div className="text-sm font-semibold mb-5">Included in Studio ({formatUsd(STUDIO_MONTHLY)}/mo) today · {formatUsd(MIXMIND_PRICE.monthly)}/mo standalone coming soon</div>
                 <Link href="/mixmind" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-colors duration-150 border hover:border-white" style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
                   See MixMind →
                 </Link>

@@ -78,8 +78,8 @@ function PostCta({ product }: { product: BlogPost["product"] }) {
       </h2>
       <p className="text-sm mb-6 max-w-md mx-auto" style={{ color: "var(--text-secondary)" }}>
         {isMixMind
-          ? "MixMind browses, de-duplicates and builds AI playlists from the Rekordbox collection you already own. Mac + Windows. $19/month."
-          : "BeatMind builds drums, bass and melodies part by part in your own Live Set, with captured auditions to review. Ableton Live 11 or 12. $19/month."}
+          ? "MixMind browses, de-duplicates and builds AI playlists from the Rekordbox collection you already own. Mac + Windows. Early access with BeatMind Studio; standalone MixMind $12/month coming soon."
+          : "BeatMind builds drums, bass and melodies part by part in your own Live Set, with captured auditions to review. Ableton Live 11 or 12. Plans from $19/month."}
       </p>
       <Link href={isMixMind ? "/mixmind" : "/signup"} className="inline-block px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
         {isMixMind ? "See MixMind →" : "Start free trial →"}

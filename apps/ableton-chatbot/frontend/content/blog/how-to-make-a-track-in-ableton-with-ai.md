@@ -15,7 +15,7 @@ This guide walks through the whole process, from a blank Set to a loop you can a
 ## What you need before you start
 
 - **Ableton Live 11 or 12** (Standard or Suite). BeatMind controls Live directly, so it will not work with another DAW or with Live 10.
-- **A BeatMind account.** The plan is $19/month, and new accounts get a 7-day free trial with no credit card required.
+- **A BeatMind account.** Plans start at $19/month (Starter, with 10 tracks a month), and every plan has a 7-day free trial with no credit card required.
 - **BeatMind Bridge**, a small desktop app available for macOS and Windows. It runs on your computer and relays instructions between the BeatMind web app and Ableton.
 - **AbletonOSC**, an open-source Live remote script that lets other software talk to Live over OSC (Open Sound Control).
 

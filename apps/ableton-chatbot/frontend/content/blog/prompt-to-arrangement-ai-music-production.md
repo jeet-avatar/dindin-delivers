@@ -127,7 +127,7 @@ This is where the idea becomes a track with your fingerprints on it, and it is t
 
 ## Get started
 
-Write one specific prompt, hear one part, decide. That loop is the whole method. BeatMind is $19/month with a [7-day free trial, no credit card required](/signup). New to the setup? Follow the [step-by-step walkthrough](/blog/how-to-make-a-track-in-ableton-with-ai), or see [where in-DAW AI fits among other tools](/blog/ai-for-ableton-live-2026).
+Write one specific prompt, hear one part, decide. That loop is the whole method. BeatMind plans start at $19/month, with a [7-day free trial, no credit card required](/signup). New to the setup? Follow the [step-by-step walkthrough](/blog/how-to-make-a-track-in-ableton-with-ai), or see [where in-DAW AI fits among other tools](/blog/ai-for-ableton-live-2026).
 
 ## FAQ
 

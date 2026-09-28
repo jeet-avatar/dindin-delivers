@@ -1,11 +1,20 @@
 import type { Faq } from "@/lib/faqs";
 import {
+  ANNUAL_DISCOUNT_LABEL,
+  HIGHEST_MONTHLY_USD,
+  LOWEST_MONTHLY_USD,
+  MIXMIND_PRICE,
+  PLANS,
+  type Plan,
+  planById,
+  signupHref,
+} from "@/lib/pricing";
+import {
   BASE_URL,
   HOME_DESCRIPTION,
   LEGAL_NAME,
   OG_IMAGE,
   OG_IMAGE_MIXMIND,
-  PRICE_MONTHLY_USD,
   SITE_NAME,
   SOCIAL_PROFILES,
   SUPPORT_EMAIL,
@@ -20,21 +29,57 @@ const WEBSITE_ID = `${BASE_URL}/#website`;
 
 export const ORGANIZATION_REF = { "@id": ORGANIZATION_ID };
 
-function monthlyOffer(url: string): JsonLdObject {
+function usd(amount: number): string {
+  return amount.toFixed(2);
+}
+
+function unitPrice(amount: number, unitText: "MONTH" | "YEAR", unitCode: "MON" | "ANN"): JsonLdObject {
+  return {
+    "@type": "UnitPriceSpecification",
+    price: usd(amount),
+    priceCurrency: "USD",
+    unitText,
+    referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode },
+  };
+}
+
+function planOffer(plan: Plan, description: string): JsonLdObject {
   return {
     "@type": "Offer",
-    url,
-    price: PRICE_MONTHLY_USD,
+    name: `BeatMind ${plan.name}`,
+    url: absoluteUrl(signupHref(plan.id, "month")),
+    price: usd(plan.monthly),
     priceCurrency: "USD",
-    description: `$19/month subscription. ${TRIAL_TERMS}`,
-    priceSpecification: {
-      "@type": "UnitPriceSpecification",
-      price: PRICE_MONTHLY_USD,
-      priceCurrency: "USD",
-      unitText: "MONTH",
-      referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
-    },
+    availability: "https://schema.org/InStock",
+    description,
+    priceSpecification: [unitPrice(plan.monthly, "MONTH", "MON"), unitPrice(plan.yearly, "YEAR", "ANN")],
   };
+}
+
+function beatmindOffers(): JsonLdObject {
+  return {
+    "@type": "AggregateOffer",
+    lowPrice: usd(LOWEST_MONTHLY_USD),
+    highPrice: usd(HIGHEST_MONTHLY_USD),
+    priceCurrency: "USD",
+    offerCount: PLANS.length,
+    offers: PLANS.map((plan) =>
+      planOffer(
+        plan,
+        `$${plan.monthly}/month or $${plan.yearly}/year (${ANNUAL_DISCOUNT_LABEL}). ${plan.features.join(", ")}. ${TRIAL_TERMS}`,
+      ),
+    ),
+  };
+}
+
+// MixMind has no standalone checkout yet, so the only purchasable offer is
+// early access through BeatMind Studio. Standalone pricing is described, not offered.
+function mixmindOffer(): JsonLdObject {
+  const studio = planById("studio");
+  return planOffer(
+    studio,
+    `MixMind early access is included with BeatMind Studio ($${studio.monthly}/month). Standalone MixMind ($${MIXMIND_PRICE.monthly}/month) is coming soon. ${TRIAL_TERMS}`,
+  );
 }
 
 export function organizationSchema(): JsonLdObject {
@@ -81,7 +126,7 @@ export function beatmindAppSchema(): JsonLdObject {
     description: HOME_DESCRIPTION,
     softwareRequirements: "Ableton Live 11 or 12 (Standard or Suite), BeatMind Bridge, AbletonOSC",
     publisher: ORGANIZATION_REF,
-    offers: monthlyOffer(absoluteUrl("/signup")),
+    offers: beatmindOffers(),
     featureList: [
       "Part-by-part production of drums, bass and melodies",
       "Session-view clips and scenes in your own Live Set",
@@ -102,10 +147,10 @@ export function mixmindAppSchema(): JsonLdObject {
     url: absoluteUrl("/mixmind"),
     image: absoluteUrl(OG_IMAGE_MIXMIND),
     description:
-      "DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, and build AI playlists from music you already own.",
+      "DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, and build AI playlists from music you already own. In early access, included with BeatMind Studio; standalone MixMind is coming soon.",
     softwareRequirements: "Rekordbox 6 or 7",
     publisher: ORGANIZATION_REF,
-    offers: monthlyOffer(absoluteUrl("/mixmind")),
+    offers: mixmindOffer(),
     featureList: [
       "Full Rekordbox library browser",
       "AI playlist builder",

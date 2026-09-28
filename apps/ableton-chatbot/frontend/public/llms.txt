@@ -15,11 +15,23 @@
 - [MixMind](https://www.beatmind.io/mixmind): desktop DJ library manager for Mac (Apple Silicon native; Intel via Rosetta 2) and Windows 10/11 that reads Rekordbox 6 and 7 libraries (XML or database).
 - Features: fast searchable library browser (BPM, key, genre, duration), AI playlist builder using tracks the DJ already owns, exact and near-duplicate finder, Pioneer USB drive browsing.
 - Safety: read-only by default; duplicate cleanup hides tracks inside MixMind and does not delete or modify Rekordbox files.
+- Availability: early access for BeatMind Studio members; standalone MixMind is coming soon.
 
 ## Pricing
 
-- BeatMind: $19/month, billed monthly, 7-day free trial, no credit card required, cancel anytime.
-- MixMind: $19/month, billed monthly, 7-day free trial, no credit card required, cancel anytime.
+All BeatMind plans: 7-day free trial, no credit card required, cancel anytime. Annual billing = 2 months free. Switch plans anytime from billing settings. Full details: https://www.beatmind.io/#pricing
+
+- BeatMind Starter: $19/month or $190/year. 10 tracks/month, AI producer inside Ableton Live (fair use).
+- BeatMind Pro (most popular): $39/month or $390/year. 30 tracks/month + 5 cloud HQ separations/month, AI producer (fair use).
+- BeatMind Studio: $79/month or $790/year. 80 tracks/month + 20 cloud HQ separations/month, MixMind included (early access), priority support, AI producer (fair use).
+- What a "track" is: one stem separation of a reference track. High-quality separation runs on the user's own computer via the BeatMind Bridge. Monthly allowances reset each month and do not roll over.
+- Cloud HQ separations: high-quality stem separation on BeatMind's cloud GPU, for computers that can't run HQ separation locally.
+- Extra track packs (never expire): 10 for $9, 25 for $19, 60 for $39.
+- Cloud HQ packs (never expire): 10 for $7.99, 50 for $34.99.
+- Packs are used after the monthly allowance and require an active plan or trial.
+- Founding Member offer: the first 100 annual subscribers get 40% off for life with code FOUNDING100 (annual plans only).
+- MixMind: currently in early access, included with BeatMind Studio. Standalone MixMind ($12/month or $120/year) is coming soon and cannot be purchased yet.
+- Coming soon: BeatMind Starter + MixMind ($25/month) and BeatMind Pro + MixMind ($45/month), each saving $6/month.
 
 ## Blog
 

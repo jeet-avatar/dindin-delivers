@@ -3,7 +3,6 @@ export const SITE_NAME = "BeatMind";
 export const LEGAL_NAME = "Zietra Technologies Inc.";
 export const SUPPORT_EMAIL = "support@beatmind.io";
 
-export const PRICE_MONTHLY_USD = "19.00";
 export const TRIAL_DAYS = 7;
 export const TRIAL_TERMS = `${TRIAL_DAYS}-day free trial, no credit card required. Cancel anytime.`;
 
@@ -18,7 +17,7 @@ export const SOCIAL_PROFILES: string[] = [];
 
 export const HOME_TITLE = "BeatMind — AI Music Producer for Ableton";
 export const HOME_DESCRIPTION =
-  "BeatMind is an AI music producer that works inside Ableton Live — describe a sound and build drums, bass and melodies part by part in your own Live Set. 7-day free trial.";
+  "BeatMind is an AI music producer that works inside Ableton Live — describe a sound and build drums, bass and melodies part by part in your own Live Set. Plans from $19/month, 7-day free trial.";
 
 export function absoluteUrl(path: string): string {
   return path === "/" ? `${BASE_URL}/` : `${BASE_URL}${path}`;
