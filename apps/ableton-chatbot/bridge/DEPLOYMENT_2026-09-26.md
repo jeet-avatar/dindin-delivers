@@ -48,3 +48,18 @@ changed by the test. Final clean release/container tests and the disposable-set
 frontend/Ableton audible-preview and approval workflow remain prerequisites for
 the application/audio release. Production health reports zero connected bridges
 after the app restart; the user was asked to sign in again.
+
+## 2026-09-27: on-device separation release (bridge commit ae5dd800)
+
+- Public installer https://www.beatmind.io/BeatMind-Bridge.dmg, 310,714,556 bytes,
+  SHA-256 `13f33f0104f916885830b266092f8fde6cc9278877886351bae81b2678db632d` (public download verified).
+- Immutable copy `s3://beatmind-frontend/releases/bridge/ae5dd800/BeatMind-Bridge.dmg`; previous installer
+  preserved at `s3://beatmind-frontend/releases/bridge/20260927-before-ae5dd800/`. Invalidation
+  `IDMXEM34S1Y3OZ8LLH0D7DN8NI` (DMG only).
+- Notarized with the App Store Connect API key (status Accepted), stapled; Gatekeeper: Notarized Developer ID.
+- Build checks: packaged separation inside the signed app, HTTPS/WSS network check. Separately, the
+  packaged app ran htdemucs_ft + drumsep on the Apple GPU (eight stems, checks passed), and the new
+  Bridge code completed a production web -> API -> Bridge -> Apple GPU -> report round trip in 49 s
+  with no audio stored on the server (file picker automated for that run).
+- Includes Third-Party Notices and `AbletonOSC-Extensions/beatmind_stems.py` (Live 12 stem placement,
+  not yet exercised in a real Live set).

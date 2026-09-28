@@ -20,80 +20,56 @@ Code lives here: `backend/`, `bridge/`, `frontend/`.
 
 ## Deployment Topology — READ BEFORE YOU PANIC
 
-- BeatMind ships from **RELEASE branches, NOT `main`.**
-- Deployed release = `origin/release/beatmind-audio-20260926` (head `f5180dc9`).
-- This working folder (`apps/ableton-chatbot`) sits on **stale `main`**. The clean
-  deploy checkout is the worktree `/tmp/beatmind-audio-release-20260926`.
-- **The ~228 "untracked" files here are NOT unsaved work** — they are committed and
-  pushed on the release branch; they only look untracked because the working dir is
-  on `main`. Do not "rescue" them, do not `git add -A`, do not commit them to main.
-- The stem-quality changes are on branch **`feat/stem-quality`** (commit `305e98e4`,
-  PUSHED to origin, off `origin/release/beatmind-audio-20260926`). Fetch/checkout
-  from origin — no longer `/tmp`-dependent.
+- BeatMind ships from **RELEASE branches, NOT `main`.** Deployed release =
+  `origin/release/beatmind-audio-20260926`. Records: `STEM24_RELEASE_2026-09-27.md`,
+  `DETAILED_STEMS_RELEASE_2026-09-27.md`.
+- Backend: ECS `dollor-production/beatmind-api-service`, task def **29**
+  (`musai-api:beatmind-stems-d0fdd7aa`). Rollback = task def 28. Deploys stop the old task first
+  (min healthy 0%) — expect ~7 min of 503 (300 s target-group drain). Deploy in quiet windows.
+- Frontend: `s3://beatmind-frontend` root + CloudFront `E3F24X4TEVJ9X2`. The bucket root also holds
+  installers, `models/` and `releases/` — **never `aws s3 sync --delete` to the root.**
+- Untracked files in `/Users/jeet/doordash-p2p/apps/ableton-chatbot` (stale `main`) are NOT unsaved work.
 
 ## Verification Protocol — MANDATORY
 
-**Never say "done" / "complete" / "works" without proof.**
-- Backend: grep showing the route/field exists + actual run output (curl/pytest/CLI).
-- "I edited the file" and "should work" are NOT proof. Run it, show the output.
-- The quality upgrade is committed but **NOT runtime-verified** — a real
-  `htdemucs_ft` separation must be run and its output confirmed BEFORE any deploy.
-  CPU test run is ~30+ min; do it on GPU.
+Never say "done" without proof: tests + real runs + production checks (see the release records).
 
 ## Safety Rules
 
-- **Do NOT push or deploy without explicit user OK.** Local edits/commits/tests are fine.
-- Do not merge `feat/stem-quality` into a release branch without user approval.
-- No hardcoded secrets. There are none in the repo today — keep it that way.
-- This account: AWS `134607809447`, region `us-east-1`, IAM user `CRMaccesskey`.
+- Do NOT push or deploy without explicit user OK. No hardcoded secrets.
+- Stripe is **live**: never create prices or enable billing without the user's amounts.
+- AWS `134607809447`, `us-east-1`.
 
-## Current State of the Stem-Quality Upgrade (committed on `feat/stem-quality`)
+## What Is Live (2026-09-27)
 
-All quality knobs are **env-driven; defaults preserve current behavior** (safe/reversible):
+- **Stem set v2 (detailed):** `htdemucs_ft` (shifts 2, overlap 0.5, 24-bit) + reviewed drumsep
+  (MIT, checkpoint SHA-256 `aefaa854…423f`, hosted at `www.beatmind.io/models/`) → vocals, bass,
+  other, kick, snare, toms, cymbals(+hi-hat), plus parent drums. Engine: `backend/separation.py`;
+  taxonomy `backend/stems.py` / `frontend/src/lib/stems.ts`. Stem lists come from each report.
+- **Local (default, no hosting):** Bridge `local_separation.py` — file picker on the user's Mac,
+  Apple GPU, stems to `~/Music/BeatMind Stems/`, only the report goes to the API. Bridge stack:
+  `bridge/requirements-separation.txt` (torch 2.14 + demucs 4.1; torch 2.5 can't run htdemucs on MPS).
+  Placing stems in Ableton needs `abletonosc/beatmind_stems.py` installed + Live 12.
+- **BeatMind Cloud (paid lane):** browser → S3 presigned POST → AWS Batch GPU (`beatmind-cloud-separation`,
+  g4dn/g5, scales to 0) → API imports stems. Infra: `infra/cloud-separation/provision.sh`; job image
+  `backend/Dockerfile.gpu`. Cold start ~5 min.
+- Standard CPU server upload still exists (four stems) as fallback when Cloud is unavailable.
+- **Billing (dormant):** `backend/billing.py`. Enable by setting on the task def
+  `BEATMIND_INCLUDED_TRACKS=<n per month>` and
+  `BEATMIND_PACKS=[{"id":"tracks_10","kind":"track","credits":10,"price_id":"price_…"},{"id":"cloud_10","kind":"cloud",…}]`
+  after creating one-time Prices in Stripe. Webhook grants packs once per Checkout session and never
+  activates a subscription.
 
-| Env var | Default | GPU deploy value |
-|---------|---------|------------------|
-| `DEMUCS_MODEL` | `htdemucs` | `htdemucs_ft` |
-| `DEMUCS_DEVICE` | `cpu` | `cuda` |
-| `DEMUCS_SHIFTS` | `0` | `2` |
-| `DEMUCS_OVERLAP` | `0.25` | `0.5` |
-| `DEMUCS_SEGMENT` | `7` | `7` |
-| `REFERENCE_MAX_SECONDS` | `600` | `600` |
+## Pending / Next Steps
 
-Also: 24-bit output (`pcm_s24le` decode + Demucs `--int24`), `--clip-mode clamp`,
-Dockerfile `ARG DEMUCS_MODEL` for build-time model selection, and
-`cached_model_ready()` now checks the *selected* model's manifest. `py_compile` passes.
-
-## Pending / Next Steps (most important first)
-
-1. **BLOCKING user decision:** flat per-track charge (e.g. $0.75) vs credit/quota
-   bundle (e.g. 50 stems/mo included, then $X). Shapes the Stripe metered setup.
-   Do NOT build billing until this is answered.
-2. **Build pay-per-track GPU pipeline** (AWS Batch GPU, keeps audio in-account):
-   decouple `reference_worker.py` into a containerized Batch job — Fargate API uploads
-   mix to S3, submits Batch job (g5/g4dn, scale-to-zero), job runs `htdemucs_ft`,
-   writes stems to S3, updates status. Note ~2–4 min cold-start.
-3. **Wire per-track metering + Stripe usage-based billing**; add a `separations`
-   usage log per user for the audit trail.
-4. **Runtime-verify** the quality upgrade on GPU before deploy (see protocol above).
-5. **Decide drumsep timing** — fold into the same GPU job (`htdemucs_ft` then a
-   drumsep pass on the drums stem) or ship as a follow-on. drumsep (inagoy/drumsep)
-   is **MIT — commercial-safe**. LarsNet is noncommercial — do NOT use it. Full
-   drumsep also needs a derived-stem catalog + parent/child review rules + frontend UI.
-6. **Deploy path when approved:** build ft image
-   (`--build-arg DEMUCS_MODEL=htdemucs_ft`), set env
-   (`DEMUCS_MODEL=htdemucs_ft`, `DEMUCS_DEVICE=cuda`, `DEMUCS_SHIFTS=2`,
-   `DEMUCS_OVERLAP=0.5`), then merge/push. **Only with user OK.**
-
-## Cost Economics (pay-per-track)
-
-- g5.xlarge $1.006/hr, g4dn.xlarge $0.526/hr (us-east-1).
-- `htdemucs_ft` + shifts ≈ 2–3 min GPU/track.
-- All-in ~$0.10–0.25/track (warm ~$0.05, cold ~$0.15–0.20 + S3/egress ~$0.06).
-- Suggested user price $0.50–1.00/track = 3–5x margin.
-- **Constraint:** `beatmind-api` runs on **Fargate (2 vCPU/8GB, no GPU)** → GPU
-  separation MUST be a separate scale-to-zero job. User explicitly wants usage-based
-  (per-track) billing that scales to zero, NOT a fixed monthly GPU fee.
+1. **User must provide prices** (track packs, cloud per-track, included tracks/month) → create Stripe
+   products/prices → set the two env vars → deploy → verify a real purchase.
+2. Publish the notarized Bridge DMG (build: `bridge/build_app.sh` with `NOTARY_KEY*` API-key vars).
+3. Real in-Ableton test of "Place stems in Ableton" in a disposable Live set (not run: it writes to
+   the user's open set and needs the extension installed + Live restart).
+4. Windows Bridge has no local separation yet (macOS only).
+5. Security debt: STRIPE/JWT/ANTHROPIC/SMTP secrets are plain task-def env vars → move to Secrets Manager.
+6. Production brain is `claude-haiku-4-5`; Opus 5.5 is enabled on Bedrock if quality is preferred over cost.
 
 ## AI Model Config
 
