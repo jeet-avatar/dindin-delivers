@@ -1,7 +1,8 @@
 """Every model call's token usage and estimated cost, and a monthly fair-use cap on that cost.
 
 The estimate is for monitoring, not invoicing. Rates are USD per million tokens:
-- Claude Haiku 4.5: $1 input, $5 output, cache read 0.1x input, cache write 1.25x input.
+- Claude (Anthropic list rates; cache read 0.1x input, cache write 1.25x input): Haiku 4.5 $1/$5, Sonnet 4.6 $3/$15,
+  Opus 5 $5/$25, Opus 5.5 $4/$20 input/output. Bedrock partner pricing may differ, so these stay estimates.
 - OpenAI models (templates, audio listening): PLACEHOLDER rates until set from OpenAI's price list with
   OPENAI_INPUT_USD_PER_MTOK, OPENAI_CACHED_INPUT_USD_PER_MTOK, OPENAI_AUDIO_INPUT_USD_PER_MTOK and
   OPENAI_OUTPUT_USD_PER_MTOK. Rows record which basis was used; token counts are logged regardless.
@@ -10,6 +11,8 @@ The estimate is for monitoring, not invoicing. Rates are USD per million tokens:
 
 Paid plans: a monthly cap (AI_FAIR_USE_USD_STARTER/PRO/STUDIO, default $8/$15/$30 per UTC month) blocks AI
 features only when AI_FAIR_USE_ENFORCED=true (429); otherwise usage is only logged.
+MixMind AI (the desktop app's proxy, feature 'mixmind'): its own monthly cap MIXMIND_AI_CAP_USD (default $10 per UTC
+month), enforced only when MIXMIND_AI_FAIR_USE_ENFORCED=true (429); otherwise over-cap calls are logged.
 Free trial: always capped at TRIAL_CHAT_MESSAGES (default 50) chat messages or TRIAL_AI_USD (default $2) of
 estimated spend over the whole trial, whichever comes first (402: choose a plan).
 """
@@ -26,6 +29,10 @@ from database import add_columns, db
 log = logging.getLogger("beatmind.ai_usage")
 
 CLAUDE_HAIKU_45 = {'input': 1.0, 'output': 5.0, 'cache_read': 0.1, 'cache_write': 1.25, 'audio_input': 1.0}
+# Published list rates (input, output) by model-id fragment; the most specific fragment comes first.
+CLAUDE_LIST_RATES = (('opus-5-5', 4.0, 20.0), ('opus-5', 5.0, 25.0), ('sonnet-4-6', 3.0, 15.0), ('haiku-4-5', 1.0, 5.0))
+MIXMIND_AI_CAP_USD = 10.0
+MIXMIND_CAP_MESSAGE = "Monthly MixMind AI allowance reached"
 # PLACEHOLDERS, not OpenAI's prices: deliberately round numbers so an unconfigured estimate is visibly provisional.
 OPENAI_PLACEHOLDER = {'input': 5.0, 'cached_input': 0.5, 'audio_input': 40.0, 'output': 20.0}
 # PLACEHOLDER for Claude models other than Haiku 4.5 (e.g. BEATMIND_MODEL switched to a larger model).
@@ -84,11 +91,15 @@ def rates(provider, model):
                     'audio_input': OPENAI_PLACEHOLDER['audio_input'], 'output': OPENAI_PLACEHOLDER['output']}
         basis = 'configured' if all(os.getenv(name) for name in names.values()) else 'placeholder'
         return {'cache_write': 0.0, **{kind: _env_float(names[kind], defaults[kind]) for kind in names}}, basis
-    if 'haiku-4-5' in model:
-        return CLAUDE_HAIKU_45, 'published'
-    base = CLAUDE_PLACEHOLDER
-    return {'input': base['input'], 'output': base['output'], 'cache_read': base['input'] * 0.1,
-            'cache_write': base['input'] * 1.25, 'audio_input': base['input']}, 'placeholder'
+    for fragment, input_rate, output_rate in CLAUDE_LIST_RATES:
+        if fragment in model:
+            return _claude_rates(input_rate, output_rate), 'published'
+    return _claude_rates(CLAUDE_PLACEHOLDER['input'], CLAUDE_PLACEHOLDER['output']), 'placeholder'
+
+
+def _claude_rates(input_rate, output_rate):
+    return {'input': input_rate, 'output': output_rate, 'cache_read': input_rate * 0.1,
+            'cache_write': input_rate * 1.25, 'audio_input': input_rate}
 
 
 def anthropic_tokens(response):
@@ -161,6 +172,34 @@ def month_to_date(user_id, tier):
 def over_cap(user_id, tier):
     """True only when the cap is enforced and this month's estimated spend has reached it."""
     return fair_use_enforced() and month_to_date(user_id, tier)['over_fair_use']
+
+
+def mixmind_cap_usd():
+    return _env_float('MIXMIND_AI_CAP_USD', MIXMIND_AI_CAP_USD)
+
+
+def mixmind_fair_use_enforced():
+    return os.getenv('MIXMIND_AI_FAIR_USE_ENFORCED', 'false').lower() == 'true'
+
+
+def mixmind_month_usd(user_id):
+    """This UTC month's estimated spend on MixMind AI only (feature 'mixmind')."""
+    with db() as conn:
+        row = conn.execute("""SELECT COALESCE(SUM(estimated_usd), 0) AS usd FROM ai_usage
+                              WHERE user_id=? AND feature='mixmind' AND substr(created_at, 1, 7)=?""",
+                           (user_id, datetime.now(timezone.utc).strftime('%Y-%m'))).fetchone()
+    return row['usd']
+
+
+def mixmind_over_cap(user_id):
+    """True when the MixMind cap is enforced and reached. Unenforced, reaching it is only logged."""
+    spent, cap = mixmind_month_usd(user_id), mixmind_cap_usd()
+    if spent < cap:
+        return False
+    if not mixmind_fair_use_enforced():
+        log.warning("MixMind AI user %s is over the monthly cap ($%.4f of $%.2f); not enforced", user_id, spent, cap)
+        return False
+    return True
 
 
 def trial_limits():

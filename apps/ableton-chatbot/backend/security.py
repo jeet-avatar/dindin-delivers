@@ -17,6 +17,11 @@ from reference_limits import MAX_BYTES as MAX_REFERENCE_BYTES
 
 log = logging.getLogger("beatmind.security")
 
+# The MixMind AI proxy carries whole Anthropic Messages requests (tool schemas, track lists); the endpoint
+# enforces the same limit while reading a body sent without Content-Length.
+MIXMIND_AI_PATH = "/api/mixmind/ai/v1/messages"
+MIXMIND_AI_MAX_BODY_BYTES = 2 * 1024 * 1024
+
 # ---- Startup enforcement ----
 
 def enforce_secrets():
@@ -171,24 +176,29 @@ def validate_password(password: str):
         raise HTTPException(400, "Password must contain at least one number")
 
 
-# ---- Bridge tokens ----
-# Signed and recorded in the database, so a signed-in Bridge survives deploys and restarts.
-# A revoked row ends a token early; tokens are never usable as web login tokens.
+# ---- Bridge and MixMind tokens ----
+# Signed and recorded in the database, so a signed-in Bridge or MixMind app survives deploys and restarts.
+# A revoked row ends a token early. Each kind carries its own `typ` claim and table, so a token of one kind
+# never works as the other, and neither works as a web login token.
 
 BRIDGE_TOKEN_DAYS = 180
-_bridge_table_ready = False
+MIXMIND_TOKEN_DAYS = 365
+_TOKEN_TABLES = {"bridge": "bridge_tokens", "mixmind": "mixmind_tokens"}
+_TOKEN_DAYS = {"bridge": BRIDGE_TOKEN_DAYS, "mixmind": MIXMIND_TOKEN_DAYS}
+_token_tables_ready: set[str] = set()
 
 
-def _bridge_table(conn):
-    global _bridge_table_ready
-    if not _bridge_table_ready:
-        conn.execute("""CREATE TABLE IF NOT EXISTS bridge_tokens (
+def _token_table(conn, kind: str) -> str:
+    table = _TOKEN_TABLES[kind]
+    if table not in _token_tables_ready:
+        conn.execute(f"""CREATE TABLE IF NOT EXISTS {table} (
             jti TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TEXT DEFAULT (datetime('now')),
             last_seen TEXT, revoked INTEGER NOT NULL DEFAULT 0)""")
-        _bridge_table_ready = True
+        _token_tables_ready.add(table)
+    return table
 
 
-def create_bridge_token(user_id: int) -> str:
+def _create_app_token(kind: str, user_id: int) -> str:
     import uuid
     from datetime import datetime, timedelta, timezone
     from jose import jwt
@@ -197,34 +207,50 @@ def create_bridge_token(user_id: int) -> str:
     jti = uuid.uuid4().hex
     now = datetime.now(timezone.utc)
     with db() as conn:
-        _bridge_table(conn)
-        conn.execute("INSERT INTO bridge_tokens (jti, user_id) VALUES (?, ?)", (jti, user_id))
-    return jwt.encode({"sub": str(user_id), "typ": "bridge", "jti": jti, "iat": now,
-                       "exp": now + timedelta(days=BRIDGE_TOKEN_DAYS)}, _get_secret(), algorithm=ALGORITHM)
+        conn.execute(f"INSERT INTO {_token_table(conn, kind)} (jti, user_id) VALUES (?, ?)", (jti, user_id))
+    return jwt.encode({"sub": str(user_id), "typ": kind, "jti": jti, "iat": now,
+                       "exp": now + timedelta(days=_TOKEN_DAYS[kind])}, _get_secret(), algorithm=ALGORITHM)
 
 
-def _bridge_claims(token: str):
+def _app_token_claims(kind: str, token: str):
     from jose import JWTError
     from beatmind_auth import decode_token
     try:
         claims = decode_token(token)
     except (JWTError, RuntimeError):
         return None
-    return claims if claims.get("typ") == "bridge" and claims.get("jti") else None
+    return claims if claims.get("typ") == kind and claims.get("jti") else None
 
 
-def bridge_token_owner(token: str) -> int | None:
-    claims = _bridge_claims(token or "")
+def _app_token_owner(kind: str, token: str) -> int | None:
+    claims = _app_token_claims(kind, token or "")
     if not claims:
         return None
     from database import db
     with db() as conn:
-        _bridge_table(conn)
-        row = conn.execute("SELECT user_id, revoked FROM bridge_tokens WHERE jti=?", (claims["jti"],)).fetchone()
+        table = _token_table(conn, kind)
+        row = conn.execute(f"SELECT user_id, revoked FROM {table} WHERE jti=?", (claims["jti"],)).fetchone()
         if not row or row[1] or str(row[0]) != claims["sub"]:
             return None
-        conn.execute("UPDATE bridge_tokens SET last_seen=datetime('now') WHERE jti=?", (claims["jti"],))
+        conn.execute(f"UPDATE {table} SET last_seen=datetime('now') WHERE jti=?", (claims["jti"],))
         return int(row[0])
+
+
+def _revoke_app_token(kind: str, token: str):
+    claims = _app_token_claims(kind, token or "")
+    if not claims:
+        return
+    from database import db
+    with db() as conn:
+        conn.execute(f"UPDATE {_token_table(conn, kind)} SET revoked=1 WHERE jti=?", (claims["jti"],))
+
+
+def create_bridge_token(user_id: int) -> str:
+    return _create_app_token("bridge", user_id)
+
+
+def bridge_token_owner(token: str) -> int | None:
+    return _app_token_owner("bridge", token)
 
 
 def validate_bridge_token(token: str) -> bool:
@@ -232,13 +258,20 @@ def validate_bridge_token(token: str) -> bool:
 
 
 def revoke_bridge_token(token: str):
-    claims = _bridge_claims(token or "")
-    if not claims:
-        return
-    from database import db
-    with db() as conn:
-        _bridge_table(conn)
-        conn.execute("UPDATE bridge_tokens SET revoked=1 WHERE jti=?", (claims["jti"],))
+    _revoke_app_token("bridge", token)
+
+
+def create_mixmind_token(user_id: int) -> str:
+    """The MixMind desktop app's long-lived sign-in (365 days, revocable)."""
+    return _create_app_token("mixmind", user_id)
+
+
+def mixmind_token_owner(token: str) -> int | None:
+    return _app_token_owner("mixmind", token)
+
+
+def revoke_mixmind_token(token: str):
+    _revoke_app_token("mixmind", token)
 
 
 # ---- Global DoS protection middleware ----
@@ -261,7 +294,11 @@ class DoSProtectionMiddleware(BaseHTTPMiddleware):
         # 1. Block obviously oversized bodies early (before parsing)
         content_length = request.headers.get("content-length")
         # The authenticated reference endpoint enforces this limit while streaming too.
-        max_body = MAX_REFERENCE_BYTES if request.method == "POST" and request.url.path == "/api/references" else self.MAX_BODY_BYTES
+        max_body = self.MAX_BODY_BYTES
+        if request.method == "POST" and request.url.path == "/api/references":
+            max_body = MAX_REFERENCE_BYTES
+        elif request.method == "POST" and request.url.path == MIXMIND_AI_PATH:
+            max_body = MIXMIND_AI_MAX_BODY_BYTES
         try:
             if content_length and int(content_length) > max_body:
                 return JSONResponse({"detail": "Request too large"}, status_code=413)

@@ -19,7 +19,7 @@ class BridgeTokenTests(unittest.TestCase):
     def test_token_survives_a_server_restart(self):
         token = security.create_bridge_token(7)
         # A deploy starts a new process: nothing about the token may live in memory.
-        security._bridge_table_ready = False
+        security._token_tables_ready.clear()
         self.assertFalse(hasattr(security, '_bridge_tokens'))
         self.assertEqual(security.bridge_token_owner(token), 7)
 
@@ -52,7 +52,7 @@ class BridgeTokenTests(unittest.TestCase):
     def test_bridge_websocket_accepts_a_persisted_token(self):
         import main
         token = security.create_bridge_token(11)
-        security._bridge_table_ready = False
+        security._token_tables_ready.clear()
         with TestClient(main.app).websocket_connect(f"/ws/bridge?token={token}") as ws:
             ws.send_json({"type": "bridge_hello", "version": "1.2.0", "capabilities": []})
         with self.assertRaises(Exception):
