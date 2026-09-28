@@ -7,7 +7,7 @@ import time
 
 from jsonschema import Draft202012Validator
 
-from claude_tools import ABLETON_TOOLS, tool_to_osc
+from claude_tools import ABLETON_TOOLS, tool_to_osc, fader_from_db
 
 
 VALIDATORS = {t["name"]: Draft202012Validator(t["input_schema"]) for t in ABLETON_TOOLS}
@@ -285,7 +285,7 @@ class VerifiedExecutor:
         setters = {"set_tempo": ("/live/song/get/tempo", [], data.get("bpm")),
                    "play": ("/live/song/get/is_playing", [], 1), "stop": ("/live/song/get/is_playing", [], 0),
                    "set_track_name": ("/live/track/get/name", [t], data.get("name")),
-                   "set_track_volume": ("/live/track/get/volume", [t], data.get("volume")),
+                   "set_track_volume": ("/live/track/get/volume", [t], fader_from_db(data["volume_db"]) if "volume_db" in data else data.get("volume")),
                    "set_track_pan": ("/live/track/get/panning", [t], data.get("pan")),
                    "set_track_mute": ("/live/track/get/mute", [t], data.get("muted")),
                    "set_track_send": ("/live/track/get/send", [t, data.get("send")], data.get("value")),

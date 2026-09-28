@@ -171,21 +171,74 @@ def validate_password(password: str):
         raise HTTPException(400, "Password must contain at least one number")
 
 
-# ---- Bridge token store ----
+# ---- Bridge tokens ----
+# Signed and recorded in the database, so a signed-in Bridge survives deploys and restarts.
+# A revoked row ends a token early; tokens are never usable as web login tokens.
 
-_bridge_tokens: dict[str, int] = {}
+BRIDGE_TOKEN_DAYS = 180
+_bridge_table_ready = False
 
-def register_bridge_token(token: str, user_id: int):
-    _bridge_tokens[token] = user_id
 
-def validate_bridge_token(token: str) -> bool:
-    return token in _bridge_tokens
+def _bridge_table(conn):
+    global _bridge_table_ready
+    if not _bridge_table_ready:
+        conn.execute("""CREATE TABLE IF NOT EXISTS bridge_tokens (
+            jti TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TEXT DEFAULT (datetime('now')),
+            last_seen TEXT, revoked INTEGER NOT NULL DEFAULT 0)""")
+        _bridge_table_ready = True
+
+
+def create_bridge_token(user_id: int) -> str:
+    import uuid
+    from datetime import datetime, timedelta, timezone
+    from jose import jwt
+    from beatmind_auth import ALGORITHM, _get_secret
+    from database import db
+    jti = uuid.uuid4().hex
+    now = datetime.now(timezone.utc)
+    with db() as conn:
+        _bridge_table(conn)
+        conn.execute("INSERT INTO bridge_tokens (jti, user_id) VALUES (?, ?)", (jti, user_id))
+    return jwt.encode({"sub": str(user_id), "typ": "bridge", "jti": jti, "iat": now,
+                       "exp": now + timedelta(days=BRIDGE_TOKEN_DAYS)}, _get_secret(), algorithm=ALGORITHM)
+
+
+def _bridge_claims(token: str):
+    from jose import JWTError
+    from beatmind_auth import decode_token
+    try:
+        claims = decode_token(token)
+    except (JWTError, RuntimeError):
+        return None
+    return claims if claims.get("typ") == "bridge" and claims.get("jti") else None
+
 
 def bridge_token_owner(token: str) -> int | None:
-    return _bridge_tokens.get(token)
+    claims = _bridge_claims(token or "")
+    if not claims:
+        return None
+    from database import db
+    with db() as conn:
+        _bridge_table(conn)
+        row = conn.execute("SELECT user_id, revoked FROM bridge_tokens WHERE jti=?", (claims["jti"],)).fetchone()
+        if not row or row[1] or str(row[0]) != claims["sub"]:
+            return None
+        conn.execute("UPDATE bridge_tokens SET last_seen=datetime('now') WHERE jti=?", (claims["jti"],))
+        return int(row[0])
+
+
+def validate_bridge_token(token: str) -> bool:
+    return bridge_token_owner(token) is not None
+
 
 def revoke_bridge_token(token: str):
-    _bridge_tokens.pop(token, None)
+    claims = _bridge_claims(token or "")
+    if not claims:
+        return
+    from database import db
+    with db() as conn:
+        _bridge_table(conn)
+        conn.execute("UPDATE bridge_tokens SET revoked=1 WHERE jti=?", (claims["jti"],))
 
 
 # ---- Global DoS protection middleware ----

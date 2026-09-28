@@ -40,7 +40,7 @@ from beatmind_auth import hash_password, verify_password, create_token, decode_t
 from stripe_routes import router as stripe_router
 from security import (
     enforce_secrets, rate_limit, get_client_ip,
-    validate_password, register_bridge_token, validate_bridge_token, bridge_token_owner,
+    validate_password, create_bridge_token, revoke_bridge_token, validate_bridge_token, bridge_token_owner,
     check_credential_stuffing, check_bot_ua, check_prompt_injection,
     watermark_response, DoSProtectionMiddleware,
 )
@@ -182,6 +182,8 @@ def get_current_user(authorization: str = Header(None)) -> dict:
     token = authorization[7:]
     try:
         payload = decode_token(token)
+        if payload.get("typ") == "bridge":
+            raise HTTPException(401, "Unauthorized")  # Bridge tokens only open the bridge WebSocket.
         user = get_user_by_id(int(payload["sub"]))
         if not user:
             raise HTTPException(401, "Unauthorized")
@@ -402,10 +404,18 @@ async def reset_password(req: ResetPasswordRequest):
 
 @app.post("/api/auth/bridge-token")
 async def get_bridge_token(user: dict = Depends(require_subscription)):
-    """Generate a short-lived token for the local bridge agent."""
-    token = str(uuid.uuid4())
-    register_bridge_token(token, user["id"])
-    return {"bridge_token": token}
+    """A long-lived Bridge sign-in that survives deploys; the Bridge keeps it in the macOS Keychain."""
+    return {"bridge_token": create_bridge_token(user["id"])}
+
+
+class BridgeSignOut(BaseModel):
+    bridge_token: str = Field(min_length=20, max_length=2000)
+
+
+@app.post("/api/auth/bridge-token/revoke")
+async def sign_out_bridge(req: BridgeSignOut):
+    revoke_bridge_token(req.bridge_token)
+    return {"revoked": True}
 
 
 @app.get("/api/bridge/install-script")
@@ -990,6 +1000,7 @@ async def bridge_ws(ws: WebSocket):
             data = json.loads(message)
             if data.get("type") == "bridge_hello":
                 bridge.capabilities = {str(c) for c in data.get("capabilities") or []}
+                bridge.version = str(data.get("version") or "")[:32]
             elif data.get("type") == "local_reference_event":
                 references.local_event(bridge.user_id, data)
             else:
@@ -1007,7 +1018,8 @@ async def bridge_ws(ws: WebSocket):
 
 @app.get("/api/bridge/status")
 async def bridge_status(user: dict = Depends(get_current_user)):
-    return {"bridge_connected": any(b.user_id == user["id"] for b in bridges.values())}
+    mine = [b for b in bridges.values() if b.user_id == user["id"]]
+    return {"bridge_connected": bool(mine), "bridge_version": getattr(mine[0], "version", "") if mine else None}
 
 
 def bridge_for(user_id, capability):

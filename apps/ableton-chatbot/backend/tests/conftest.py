@@ -1,9 +1,13 @@
+import os
 import tempfile
 from pathlib import Path
 
 import pytest
 
 import database
+
+# Token signing needs a key; tests never use the production secret.
+os.environ.setdefault("JWT_SECRET", "test-only-signing-key-" + "x" * 24)
 
 
 @pytest.fixture(autouse=True, scope="session")

@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
 import main
-from security import bridge_token_owner, register_bridge_token, revoke_bridge_token
+from security import bridge_token_owner, create_bridge_token, revoke_bridge_token
 
 
 def response(*blocks):
@@ -109,10 +109,10 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(bridge.pending, {})
 
     async def test_bridge_token_has_owner(self):
-        register_bridge_token("test-token", 42)
-        self.assertEqual(bridge_token_owner("test-token"), 42)
-        revoke_bridge_token("test-token")
-        self.assertIsNone(bridge_token_owner("test-token"))
+        token = create_bridge_token(42)
+        self.assertEqual(bridge_token_owner(token), 42)
+        revoke_bridge_token(token)
+        self.assertIsNone(bridge_token_owner(token))
 
     async def test_restore_retains_every_turns_actions_and_timestamps(self):
         self.client.messages.create.side_effect = [

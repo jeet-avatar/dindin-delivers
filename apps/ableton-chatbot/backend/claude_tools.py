@@ -71,14 +71,15 @@ ABLETON_TOOLS = [
     },
     {
         "name": "set_track_volume",
-        "description": "Set track volume fader in Live's native 0.0-1.0 range, NOT dB. Never convert native values to dB by guessing. The chat's mapped fader shows Live's actual dB display.",
+        "description": "Set a track fader. Prefer volume_db (for example -6 or +3); BeatMind converts it with Live's measured fader curve (exact from -18 to +6 dB, approximate below). volume is Live's native 0.0-1.0 value (0.85 = 0 dB). Give exactly one of them; never pass a linear gain as volume.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "track": {"type": "integer", "description": "Track index"},
-                "volume": {"type": "number", "description": "Volume 0.0-1.0"},
+                "volume_db": {"type": "number", "minimum": -60, "maximum": 6, "description": "Fader level in dB, -60 to +6"},
+                "volume": {"type": "number", "minimum": 0, "maximum": 1, "description": "Native fader value 0.0-1.0"},
             },
-            "required": ["track", "volume"],
+            "required": ["track"],
         },
     },
     {
@@ -506,6 +507,17 @@ for tool in ABLETON_TOOLS:
     _constrain_schema(tool["input_schema"])
 
 
+EMPTY_RACKS = {"drum rack", "instrument rack", "audio effect rack", "midi effect rack"}
+
+
+def fader_from_db(db: float) -> float:
+    """Live's volume fader for a dB level. Measured in Live 12: 0.85 = 0 dB and 40 dB per unit from 0.4 (-18 dB)
+    to 1.0 (+6 dB); below -18 dB the curve is approximated."""
+    if db >= -18:
+        return round(min(1.0, 0.85 + db / 40), 4)
+    return round(max(0.0, 0.4 * 10 ** ((db + 18) / 40)), 4)
+
+
 def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
     """
     Convert a Claude tool call into one or more OSC commands.
@@ -532,7 +544,12 @@ def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
         case "set_track_name":
             return [{"address": "/live/track/set/name", "args": [tool_input["track"], tool_input["name"]]}]
         case "set_track_volume":
-            return [{"address": "/live/track/set/volume", "args": [tool_input["track"], tool_input["volume"]]}]
+            if ("volume" in tool_input) == ("volume_db" in tool_input):
+                raise ValueError("Give exactly one of volume_db (dB) or volume (Live's native 0.0-1.0 fader value).")
+            level = fader_from_db(tool_input["volume_db"]) if "volume_db" in tool_input else tool_input["volume"]
+            if not 0 <= level <= 1:
+                raise ValueError("Fader value must be between 0.0 and 1.0 (0.85 is 0 dB). Use volume_db for dB levels.")
+            return [{"address": "/live/track/set/volume", "args": [tool_input["track"], level]}]
         case "set_track_pan":
             return [{"address": "/live/track/set/panning", "args": [tool_input["track"], tool_input["pan"]]}]
         case "set_track_mute":
@@ -545,6 +562,9 @@ def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
         case "load_instrument" | "load_effect":
             uri = tool_input.get("instrument_uri") or tool_input.get("effect_uri") or ""
             device_name = uri.split("/")[-1]
+            if tool_name == "load_instrument" and device_name.strip().casefold() in EMPTY_RACKS:
+                raise ValueError(f"An empty {device_name} makes no sound. Load a kit or preset instead, for example "
+                                 "'909 Core Kit' or '808 Core Kit' from Drums, then audition it.")
             track = tool_input["track"]
             return [
                 {"address": "/live/view/set/selected_track", "args": [track]},
@@ -711,6 +731,9 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 - Pending preview decisions do not block a new explicit edit. Never accept a sound on the user's behalf.
 - An edit to one part does not authorize rebuilding other parts or opening a new Live Set.
 - Opening a new Live Set requires the explicit New song workflow; never discard unsaved work.
+- When the user wants to start a new track or song, first ask whether to save or close the Live Set that is open now,
+  and point them to New song > Choose Live Set, which saves it before opening a new set. Never start the new track
+  in the current set without that answer.
 
 ### Mix Guidelines
 - Do not assign fixed native fader values as a loudness target. Sample gain, envelopes,
