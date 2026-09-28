@@ -8,19 +8,31 @@ export interface Faq {
 export const BEATMIND_FAQS: Faq[] = [
   {
     q: "Do I need Ableton Live?",
-    a: "Yes — BeatMind directly controls Ableton Live 11 or 12 (Standard or Suite). It’s the bridge between AI and your DAW.",
+    a: "Yes — BeatMind directly controls Ableton Live 11 or 12 (Standard or Suite).",
+  },
+  {
+    q: "What do I need to run BeatMind?",
+    a: "Ableton Live 11 or 12 (Standard or Suite), AbletonOSC, and the BeatMind Bridge on a Mac with Apple Silicon (M1 or later) and macOS 15 or later. BeatMind itself runs in your browser. Placing separated stems into your Live Set also needs Live 12 and the BeatMind extension that comes with the Bridge.",
   },
   {
     q: "What genres does it support?",
-    a: "Describe your style, mood and sources, including house, techno, minimal, drum and bass or ambient. Genre labels guide the plan rather than selecting a fixed template.",
+    a: "Any electronic style — house, techno, minimal, drum & bass, ambient and more. Genre guides the plan; there are no fixed templates.",
   },
   {
     q: "Who owns the music I create?",
-    a: "You do. 100%. Everything BeatMind generates in your Ableton project is yours to release, sell, or license.",
+    a: "You do. We claim no rights to what you make. Samples and presets you load stay under their own licences.",
   },
   {
     q: "Does it work on Mac and Windows?",
     a: "BeatMind runs in your browser, and the BeatMind Bridge that connects it to Ableton Live currently runs on Macs with Apple Silicon (M1 or later) and macOS 15 or later. Windows support isn't available yet — join the list at support@beatmind.io and we'll email you when it is.",
+  },
+  {
+    q: "What happens to the audio I upload?",
+    a: "Reference tracks you upload are stored on our AWS servers (cloud separations pass through Amazon S3) until you delete them or close your account. Captured auditions (recordings of Ableton's output) are also stored on our servers. When the Bridge separates a track on your Mac, the audio stays on your Mac and only a report is sent to us.",
+  },
+  {
+    q: "Which AI does BeatMind use?",
+    a: "BeatMind chat uses Anthropic Claude models through Amazon Bedrock. The optional \"listen to reference\" step sends a short audio excerpt and your brief to OpenAI, only when you choose it. Under their API terms, these providers do not use this data to train their models.",
   },
   {
     q: "How much does BeatMind cost?",
@@ -57,6 +69,14 @@ export const BEATMIND_FAQS: Faq[] = [
   {
     q: "Can I cancel anytime?",
     a: "Yes. Go to Dashboard → Account → Billing → Cancel subscription, or use Manage billing (Stripe) or email support@beatmind.io. Your access continues until the end of the period you've paid for, and you won't be charged again.",
+  },
+  {
+    q: "Can I get a refund?",
+    a: "We don't give refunds for partial billing periods, except where the law requires it. If you think you were charged in error, email support@beatmind.io within 30 days of the charge and we'll look into it.",
+  },
+  {
+    q: "How do I delete my account?",
+    a: "Email support@beatmind.io from the address on your account and we'll delete your account and the data tied to it. Billing and tax records we must keep by law are kept.",
   },
 ];
 
