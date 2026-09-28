@@ -14,7 +14,8 @@
 
 - [MixMind](https://www.beatmind.io/mixmind): desktop DJ library manager for Mac (requires Apple silicon, M1 or later) that reads Rekordbox 6 and 7 libraries (database or XML). A Windows version of MixMind is coming soon.
 - Features: fast searchable library browser (BPM, key, genre, duration), AI playlist builder using tracks the DJ already owns, exact and near-duplicate finder, Pioneer USB drive browsing.
-- Safety: read-only by default; duplicate cleanup hides tracks inside MixMind and does not delete or modify Rekordbox files.
+- Safety: browsing, searching and finding duplicates never change the Rekordbox library (duplicate cleanup hides tracks inside MixMind). MixMind only writes to Rekordbox when the user clicks Add to Rekordbox in the Set Builder, which adds the set as a playlist after backing up the library; Rekordbox must be closed.
+- Set Builder: techno and minimal sets today, more genres coming. The AI playlist chat works across the whole library.
 - Availability: early access for BeatMind Studio members; standalone MixMind is coming soon.
 
 ## Pricing

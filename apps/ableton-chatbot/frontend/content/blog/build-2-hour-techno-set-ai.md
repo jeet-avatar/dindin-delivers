@@ -41,7 +41,7 @@ If you open a night, keep the energy lower and hand over a floor that still has 
 
 ## Step 2: Plan the tempo curve
 
-Techno spans a wide range, roughly 125 to 140 BPM for most styles, with harder styles higher. Hypnotic and deep material often sits in the 130s, while some peak-time records are closer to 128 to 132. Check what your own crate actually contains rather than assuming.
+Techno spans a wide range. Deep and hypnotic material often sits around 125–132 BPM, while peak-time and harder styles push 133–140+. Check what your own crate actually contains rather than assuming.
 
 Practical rules:
 
@@ -94,7 +94,7 @@ Once you have a shortlist, put it in order. MixMind's Set Builder panel lets you
 - **OK:** usable, but either the key move or the tempo change is less smooth.
 - **Clash:** incompatible keys, or a BPM jump of 6% or more.
 
-It also shows a BPM arc across the set and the total running time, and it can export the set as a CSV. Reorder until your warm-up and build are mostly green, then look hard at every clash. Sometimes a clash is a deliberate reset, such as a breakdown track that changes key. Usually it is a sign to swap a track.
+It also shows a BPM arc across the set and the total running time, and it can export the set as a CSV. On a Mac, **Add to Rekordbox** adds the finished set to Rekordbox as a playlist, after backing up your library (Rekordbox must be closed). The Set Builder builds techno and minimal sets today, with more genres coming; the AI playlist chat works across your whole library. Reorder until your warm-up and build are mostly green, then look hard at every clash. Sometimes a clash is a deliberate reset, such as a breakdown track that changes key. Usually it is a sign to swap a track.
 
 Then listen. A spreadsheet cannot tell you that two perfectly compatible tracks have the same hook, or that one mixdown is much quieter than the other.
 
@@ -144,4 +144,4 @@ AI playlist tools can shortlist and suggest an order from your own library quick
 
 ### Does MixMind change my Rekordbox library?
 
-No. MixMind is read-only by default. Playlists it builds for Rekordbox are saved as XML files that you choose to import.
+Only when you ask it to. Browsing, searching and finding duplicates never change your Rekordbox library. MixMind only writes to Rekordbox when you click Add to Rekordbox in the Set Builder, which adds the set to Rekordbox as a playlist after backing up your library — close Rekordbox first.

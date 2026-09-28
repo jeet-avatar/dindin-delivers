@@ -63,7 +63,7 @@ That last row matters. A duplicate finder should *suggest* pairs; a human should
 
 **How MixMind finds them:** MixMind's Duplicate Finder compares title and artist with fuzzy matching and checks that durations are within a few seconds of each other, then surfaces likely pairs. That catches near-duplicates like small spelling differences, while the duration check keeps an extended mix and a radio edit from being flagged as the same track.
 
-**What it does not do:** MixMind is read-only by default. Resolving a pair marks the copy you do not want as hidden inside MixMind; it does not delete files or modify your Rekordbox library. When you are ready to remove tracks from Rekordbox itself, do it in Rekordbox, after your backup.
+**What it does not do:** finding and resolving duplicates never changes your Rekordbox library. Resolving a pair marks the copy you do not want as hidden inside MixMind; it does not delete files. MixMind only writes to Rekordbox when you click Add to Rekordbox in the Set Builder, which adds a set as a playlist after backing up your library (close Rekordbox first). When you are ready to remove tracks from Rekordbox itself, do it in Rekordbox, after your backup.
 
 ## Step 4: Fill in missing genres, keys and BPMs
 
@@ -117,11 +117,11 @@ Yes. File → Display All Missing Files opens Rekordbox's missing file manager, 
 
 ### Will MixMind delete tracks from my Rekordbox library?
 
-No. MixMind is read-only by default. Duplicate cleanup marks tracks as hidden inside MixMind and does not delete or modify your Rekordbox files. Playlists it builds are saved as Rekordbox XML that you choose to import.
+No. Duplicate cleanup marks tracks as hidden inside MixMind and never deletes files. Browsing, searching and finding duplicates never change your Rekordbox library. MixMind only writes to Rekordbox when you click Add to Rekordbox in the Set Builder, which adds the set to Rekordbox as a playlist after backing up your library — close Rekordbox first.
 
 ### Do I need to close Rekordbox while using MixMind?
 
-You do not need Rekordbox open to use MixMind. When MixMind reads the Rekordbox database directly, close Rekordbox first, because an open Rekordbox locks its database.
+Yes. Close Rekordbox while MixMind reads or writes your library: an open Rekordbox locks its database, and MixMind won't add a set to Rekordbox while it is running.
 
 ### Should I delete an extended mix if I also have the radio edit?
 

@@ -63,11 +63,15 @@ export const BEATMIND_FAQS: Faq[] = [
 export const MIXMIND_FAQS: Faq[] = [
   {
     q: "Do I need Rekordbox?",
-    a: "Yes — MixMind reads your Rekordbox library (XML or database). It works with Rekordbox 6 and 7. You don't need Rekordbox open while using MixMind.",
+    a: "Yes — MixMind reads your Rekordbox library (database or XML). It works with Rekordbox 6 and 7. Close Rekordbox while MixMind reads or writes your library.",
   },
   {
     q: "Does it modify my Rekordbox library?",
-    a: "No. MixMind is read-only by default. Duplicate cleanup marks tracks as hidden inside MixMind — it does not delete or modify your Rekordbox files.",
+    a: "Only when you ask it to. Browsing, searching and finding duplicates never change your Rekordbox library (duplicate cleanup just hides tracks inside MixMind). MixMind only writes to Rekordbox when you click Add to Rekordbox in the Set Builder, which adds the set to Rekordbox as a playlist after backing up your library. Rekordbox must be closed.",
+  },
+  {
+    q: "What kinds of sets can the Set Builder make?",
+    a: "Set Builder: techno and minimal sets today; more genres coming. The AI playlist chat works across your whole library.",
   },
   {
     q: "Mac or Windows?",
