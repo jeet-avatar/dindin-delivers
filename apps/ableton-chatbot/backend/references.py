@@ -98,7 +98,7 @@ def save_listening(directory, data):
     write_json(directory / 'listening.json', data)
 
 
-async def listen_whole(directory, reference_id, request):
+async def listen_whole(directory, reference_id, request, user_id=None):
     data = reference_listening.read(directory)
     job = data['job']
     try:
@@ -111,7 +111,7 @@ async def listen_whole(directory, reference_id, request):
                 continue
             try:
                 result = await audio_listener.listen(directory / 'mix.wav', audio_listener.ListeningRequest(
-                    consent=True, intent=request.intent, start_seconds=start, duration_seconds=length))
+                    consent=True, intent=request.intent, start_seconds=start, duration_seconds=length), user_id)
                 result.update(created_at=datetime.now(timezone.utc).isoformat(), id=uuid.uuid4().hex)
                 data['excerpts'].append(result)
                 job['completed'] += 1
@@ -540,7 +540,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         rate_limit(f"reference-listen:{user['id']}", max_requests=10, window_seconds=3600)
         LISTENING.add(reference_id)
         try:
-            result = await audio_listener.listen(directory / (request.layer + '.wav'), request)
+            result = await audio_listener.listen(directory / (request.layer + '.wav'), request, user['id'])
             result['created_at'] = datetime.now(timezone.utc).isoformat()
             result['id'] = uuid.uuid4().hex
             data['excerpts'].append(result)
@@ -570,7 +570,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
                        'intent': request.intent, 'failures': [], 'started_at': datetime.now(timezone.utc).isoformat()}
         save_listening(directory, data)
         LISTENING.add(reference_id)
-        task = asyncio.create_task(listen_whole(directory, reference_id, request))
+        task = asyncio.create_task(listen_whole(directory, reference_id, request, user['id']))
         http_request.state.reference_lease.transfer(task)
         LISTEN_TASKS[reference_id] = task
         TASKS.add(task)
@@ -636,7 +636,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
             if timing:
                 aligned = reference_timing.align_template(reference_templates.build(request.brief), timing)
                 request.brief = reference_templates.CreativeBrief.model_validate(aligned['brief'])
-            proposal = await reference_templates.suggest(request.brief, analysis)
+            proposal = await reference_templates.suggest(request.brief, analysis, user['id'])
             path = directory / 'template.json'
             previous = json.loads(path.read_text()) if path.exists() else None
             result = reference_templates.build(proposal, previous)

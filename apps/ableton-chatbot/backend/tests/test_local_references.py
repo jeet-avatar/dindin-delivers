@@ -190,12 +190,15 @@ class LocalReferenceTests(unittest.TestCase):
         with db() as conn:
             conn.execute("DELETE FROM separations WHERE user_id=1")
             conn.execute("DELETE FROM credit_ledger WHERE user_id=1")  # Other tests may have bought tracks for user 1.
+            # A subscriber from before plans existed: BEATMIND_INCLUDED_TRACKS is their monthly allowance.
+            conn.execute("INSERT OR IGNORE INTO users (id, email, password_hash, name) VALUES (1, 'user1@example.com', 'x', 'One')")
+            conn.execute("UPDATE users SET subscription_status='active', included_tracks=NULL, plan_tier=NULL WHERE id=1")
         with patch.dict(os.environ, {'BEATMIND_INCLUDED_TRACKS': '1', 'BEATMIND_PACKS': ''}):
             first = self.start()
             self.bridge = FakeBridge({'status': 'started', 'name': 'b.mp3', 'bytes': 1, 'folder': '/f'})
             response = self.client.post('/api/references/local', headers=USER)
             self.assertEqual(response.status_code, 402)
-            self.assertIn('track package', response.json()['detail'])
+            self.assertIn('track pack', response.json()['detail'])
             references.local_event(1, {'reference_id': first, 'status': 'failed', 'error': 'Out of memory'})
             self.assertEqual(billing.summary(1)['allowance_left'], 1)
             self.assertIsNotNone(self.start())

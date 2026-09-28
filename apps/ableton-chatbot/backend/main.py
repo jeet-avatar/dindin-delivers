@@ -27,13 +27,16 @@ from automation import AUTOMATION_TOOLS, execute_automation
 from production import create_plan, get_plan, link_audition, review_part, replace_audition
 from session_context import matching_recordings, context_note
 from model_history import bounded_history
+import ai_usage
+import billing
+import catalog
 import references
 import chat_store
 import song_projects
 import chat_tools
 from sections import SECTION_TOOL, get_brief, set_brief, source_error
 from recordings import ROOT as RECORDINGS_ROOT, save_recording, list_recordings, owned_recording, decide_recording, attach_evidence
-from database import init_db, get_user_by_email, get_user_by_id, create_user, is_subscribed, update_user_password
+from database import init_db, get_user_by_email, get_user_by_id, create_user, is_subscribed, mixmind_access, update_user_password
 from beatmind_auth import hash_password, verify_password, create_token, decode_token
 from stripe_routes import router as stripe_router
 from security import (
@@ -47,6 +50,9 @@ logging.basicConfig(level=logging.WARNING)
 log = logging.getLogger("beatmind")
 
 TRIAL_DAYS = 7
+FAIR_USE_MESSAGE = ("You've reached this month's fair-use limit for BeatMind AI on your plan. "
+                    "Upgrade your plan to keep chatting, or wait until the 1st of next month (UTC). "
+                    "Your songs, stems and track packs are unaffected.")
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")]
 
 
@@ -146,6 +152,7 @@ async def lifespan(app: FastAPI):
         enforce_secrets()
     init_db()
     references.recover_interrupted()
+    await asyncio.to_thread(catalog.resolve)  # Warm the Stripe plan catalog; billing stays unmetered if it fails.
     claude_client = create_client()
     if not claude_client:
         log.warning("AI provider is not configured")
@@ -227,14 +234,7 @@ async def register(req: RegisterRequest, request: Request):
     token = create_token(user["id"], user["email"])
     return {
         "token": token,
-        "user": {
-            "id": user["id"],
-            "email": user["email"],
-            "name": user["name"],
-            "subscription_status": user["subscription_status"],
-            "trial_ends_at": user["trial_ends_at"],
-            "subscribed": is_subscribed(user),
-        },
+        "user": user_payload(user),
     }
 
 
@@ -252,19 +252,11 @@ async def login(req: LoginRequest, request: Request):
     token = create_token(user["id"], user["email"])
     return {
         "token": token,
-        "user": {
-            "id": user["id"],
-            "email": user["email"],
-            "name": user["name"],
-            "subscription_status": user["subscription_status"],
-            "trial_ends_at": user["trial_ends_at"],
-            "subscribed": is_subscribed(user),
-        },
+        "user": user_payload(user),
     }
 
 
-@app.get("/api/auth/me")
-async def me(user: dict = Depends(get_current_user)):
+def user_payload(user: dict) -> dict:
     return {
         "id": user["id"],
         "email": user["email"],
@@ -272,7 +264,14 @@ async def me(user: dict = Depends(get_current_user)):
         "subscription_status": user["subscription_status"],
         "trial_ends_at": user["trial_ends_at"],
         "subscribed": is_subscribed(user),
+        "plan": user.get("plan"),
+        "mixmind_access": mixmind_access(user),
     }
+
+
+@app.get("/api/auth/me")
+async def me(user: dict = Depends(get_current_user)):
+    return user_payload(user)
 
 
 @app.get("/api/auth/verify")
@@ -287,6 +286,8 @@ async def verify_token(user: dict = Depends(get_current_user)):
     subscriptions = []
     if is_subscribed(user):
         subscriptions.append("beatmind")
+    if mixmind_access(user):
+        subscriptions.append("mixmind")
 
     return {
         "user_id": str(user["id"]),
@@ -561,6 +562,9 @@ def prepare_chat(req: ChatRequest, user: dict):
     # Block prompt injection attempts
     check_prompt_injection(req.message)
 
+    if ai_usage.fair_use_enforced() and ai_usage.over_cap(user["id"], billing.allowance(user)["tier"]):
+        raise HTTPException(429, FAIR_USE_MESSAGE)
+
     session_id = req.session_id or str(uuid.uuid4())
     if session_id not in sessions:
         sessions[session_id] = ChatSession(session_id, user["id"])
@@ -789,6 +793,7 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
             tools=[tool for tool in _build_tools() if not planning_only or tool['name'] in DISCUSSION_TOOLS],
             messages=bounded_history(messages),
         )
+        ai_usage.record(session.user_id, 'chat', provider_name(), MODEL, ai_usage.anthropic_tokens(response))
 
         text_parts = []
         tool_uses = []

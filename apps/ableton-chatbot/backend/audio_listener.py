@@ -11,6 +11,8 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Literal
 
+import ai_usage
+
 
 class ListeningRequest(BaseModel):
     consent: bool = False
@@ -87,7 +89,7 @@ def excerpt(path, request):
     return base64.b64encode(buffer.getvalue()).decode('ascii'), count / rate
 
 
-async def listen(path, request):
+async def listen(path, request, user_id=None):
     if os.getenv('ENV') == 'production' and not capability()['available']:
         raise HTTPException(503, 'Audio listening is disabled until production credentials and rotation are confirmed.')
     encoded, duration = excerpt(path, request)
@@ -120,7 +122,9 @@ async def listen(path, request):
                         {'type': 'text', 'text': 'My musical intent: ' + request.intent},
                         {'type': 'input_audio', 'input_audio': {'data': encoded, 'format': 'wav'}}]}]})
         response.raise_for_status()
-        choice = response.json()['choices'][0]
+        payload = response.json()
+        ai_usage.record(user_id, 'listening', 'openai', model, ai_usage.openai_tokens(payload))
+        choice = payload['choices'][0]
         notes = choice['message'].get('content')
         if choice.get('finish_reason') != 'stop' or not isinstance(notes, str) or not notes.strip():
             raise ValueError('Incomplete listening result')

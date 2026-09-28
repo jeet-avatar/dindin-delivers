@@ -5,6 +5,7 @@ SQLite database for BeatMind — user accounts and subscriptions.
 import os
 import sqlite3
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 
 DB_PATH = os.getenv("DB_PATH", "beatmind.db")
 
@@ -55,8 +56,44 @@ def init_db():
                 created_at TEXT DEFAULT (datetime('now'))
             )
         """)
+        add_columns(conn, "users", USER_PLAN_COLUMNS)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS stripe_events (
+                id TEXT PRIMARY KEY,
+                type TEXT NOT NULL,
+                processed_at TEXT DEFAULT (datetime('now'))
+            )""")
         import billing
+        import ai_usage
         billing.init(conn)
+        ai_usage.init(conn)
+
+
+# The subscriber's plan, copied from Stripe by the webhook. Rows from before plans existed keep NULLs.
+USER_PLAN_COLUMNS = {
+    "plan": "TEXT",
+    "plan_tier": "TEXT",
+    "plan_lookup_key": "TEXT",
+    "plan_interval": "TEXT",
+    "included_tracks": "INTEGER",
+    "included_cloud": "INTEGER",
+    "mixmind": "INTEGER",
+    "current_period_end": "TEXT",
+    "past_due_since": "TEXT",
+}
+
+
+def add_columns(conn, table: str, columns: dict[str, str]) -> None:
+    """Additive, repeatable migration: add each missing nullable column. Never drops or rewrites data."""
+    existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+    for name, kind in columns.items():
+        if name in existing:
+            continue
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
+        except sqlite3.OperationalError as error:
+            if "duplicate column" not in str(error).lower():  # Another task added it first.
+                raise
 
 
 def get_user_by_email(email: str) -> dict | None:
@@ -101,20 +138,53 @@ def update_user_password(user_id: int, password_hash: str) -> None:
         conn.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash, user_id))
 
 
-def is_subscribed(user: dict) -> bool:
-    """Return True if user has active subscription or is in trial."""
-    from datetime import datetime, timezone
+PAST_DUE_GRACE_DAYS = 7
 
-    if user["subscription_status"] == "active":
+
+def past_due_grace_days() -> int:
+    try:
+        return max(0, int(os.getenv("BILLING_PAST_DUE_GRACE_DAYS") or PAST_DUE_GRACE_DAYS))
+    except ValueError:
+        return PAST_DUE_GRACE_DAYS
+
+
+def _utc(value: str | None):
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _paid_status(user: dict) -> bool:
+    """active/trialing: yes. past_due: yes for a grace period after the first failed renewal while Stripe
+    retries the card (BILLING_PAST_DUE_GRACE_DAYS, default 7). unpaid, canceled, incomplete: no."""
+    status = user.get("subscription_status")
+    if status in ("active", "trialing"):
         return True
-
-    trial = user.get("trial_ends_at")
-    if trial:
-        try:
-            trial_dt = datetime.fromisoformat(trial).replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) < trial_dt:
-                return True
-        except ValueError:
-            pass
-
+    if status == "past_due":
+        since = _utc(user.get("past_due_since"))
+        return since is None or datetime.now(timezone.utc) < since + timedelta(days=past_due_grace_days())
     return False
+
+
+def subscription_access(user: dict) -> bool:
+    """BeatMind access from a Stripe subscription. A MixMind-only plan does not include BeatMind."""
+    return user.get("plan_tier") != "mixmind" and _paid_status(user)
+
+
+def mixmind_access(user: dict) -> bool:
+    """MixMind is included in Studio, MixMind and the combo plans; not in Starter, Pro, legacy plans or the trial."""
+    return bool(user.get("mixmind")) and _paid_status(user)
+
+
+def trial_active(user: dict) -> bool:
+    trial = _utc(user.get("trial_ends_at"))
+    return bool(trial and datetime.now(timezone.utc) < trial)
+
+
+def is_subscribed(user: dict) -> bool:
+    """Return True if user has BeatMind access through a subscription or the app's free trial."""
+    return subscription_access(user) or trial_active(user)
