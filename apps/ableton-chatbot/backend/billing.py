@@ -84,7 +84,7 @@ def trial_allowance():
 def allowance(user):
     """This user's monthly plan allowance and where it comes from."""
     none = {'source': 'none', 'plan': None, 'tier': None, 'interval': None, 'status': None,
-            'included_tracks': 0, 'included_cloud': 0, 'mixmind': False, 'current_period_end': None}
+            'included_tracks': 0, 'included_cloud': 0, 'mixmind': False, 'current_period_end': None, 'cancel_at': None}
     if not user:
         return none
     if subscription_access(user):
@@ -92,7 +92,8 @@ def allowance(user):
             return {**none, 'source': 'subscription', 'plan': user.get('plan'), 'tier': user.get('plan_tier'),
                     'interval': user.get('plan_interval'), 'status': user['subscription_status'],
                     'included_tracks': user['included_tracks'], 'included_cloud': user.get('included_cloud') or 0,
-                    'mixmind': bool(user.get('mixmind')), 'current_period_end': user.get('current_period_end')}
+                    'mixmind': bool(user.get('mixmind')), 'current_period_end': user.get('current_period_end'),
+                    'cancel_at': user.get('cancel_at')}
         # Subscribed before plans existed and not yet synced from Stripe: Starter.
         return {**none, 'source': 'legacy', 'plan': 'starter', 'tier': 'starter', 'status': user['subscription_status'],
                 'included_tracks': _env_int('BEATMIND_INCLUDED_TRACKS', LEGACY_INCLUDED_TRACKS)}

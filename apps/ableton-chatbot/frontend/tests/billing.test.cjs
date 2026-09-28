@@ -35,4 +35,21 @@ assert.match(html, /Your free trial includes 3 tracks/);
 assert.match(html, /Subscribing ends your free trial/);
 assert.match(html, /Loading plans/);
 assert.doesNotMatch(html, /Unlimited/);
+assert.equal(billing.renewalTerms({ amount: 3900, currency: 'usd', interval: 'month' }),
+  'Your plan renews automatically at $39/month until you cancel. Cancel anytime in Dashboard → Account → Billing — you keep access until the end of the paid period. Taxes may apply.');
+
+// Billing controls: renewal date and a visible cancel button; a pending cancellation shows its end date and resume.
+const SubscriptionControls = require('../src/components/SubscriptionControls.tsx').default;
+const usage = { plan: { plan: 'pro', source: 'subscription', interval: 'month', cancel_at: null, current_period_end: '2030-01-01T00:00:00+00:00' },
+  plan_price: { amount: 3900, currency: 'usd' }, renewal_terms: 'Your plan renews automatically at $39/month until you cancel.' };
+const active = renderToStaticMarkup(React.createElement(SubscriptionControls, { usage, onChanged() {}, onManage() {} }));
+assert.match(active, /Pro<\/span>.*\$39 \/ month/);
+assert.match(active, /Renews automatically on/);
+assert.match(active, />Cancel subscription</);
+assert.match(active, />Manage billing</);
+const cancelled = renderToStaticMarkup(React.createElement(SubscriptionControls, {
+  usage: { ...usage, plan: { ...usage.plan, cancel_at: '2030-01-01T00:00:00+00:00' } }, onChanged() {}, onManage() {} }));
+assert.match(cancelled, /Cancelled — your plan ends on .*You won&#x27;t be charged again/);
+assert.match(cancelled, />Resume subscription</);
+assert.doesNotMatch(cancelled, />Cancel subscription</);
 console.log('billing helpers ok');

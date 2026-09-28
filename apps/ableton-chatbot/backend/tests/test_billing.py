@@ -389,12 +389,14 @@ class CheckoutTests(CatalogCase):
                     self.assertEqual(params["metadata"]["plan"], plan)
                     self.assertEqual(params["subscription_data"]["metadata"]["app"], "beatmind")
 
-    PROMOS = {
+    PROMOS = {  # code: (promotion code id, coupon id, products, coupon terms)
         "FOUNDING100": ("promo_founding", "cp_founding", [f"prod_{p}" for p in (
-            "beatmind_starter", "beatmind_pro", "beatmind_studio", "mixmind", "beatmind_starter_mixmind", "beatmind_pro_mixmind")]),
-        "CREATOR60": ("promo_creator", "cp_creator", ["prod_beatmind_pro"]),
-        "STUDIOONLY": ("promo_studio", "cp_studio", ["prod_beatmind_studio"]),
-        "ANYPLAN": ("promo_any", "cp_any", None),
+            "beatmind_starter", "beatmind_pro", "beatmind_studio", "mixmind", "beatmind_starter_mixmind", "beatmind_pro_mixmind")],
+            {"duration": "forever", "percent_off": 40}),
+        "CREATOR60": ("promo_creator", "cp_creator", ["prod_beatmind_pro"],
+                      {"duration": "repeating", "duration_in_months": 2, "percent_off": 100}),
+        "STUDIOONLY": ("promo_studio", "cp_studio", ["prod_beatmind_studio"], {"duration": "once", "amount_off": 1000}),
+        "ANYPLAN": ("promo_any", "cp_any", None, {"duration": "forever", "percent_off": 10}),
     }
 
     def with_promos(self, redeemed=0, valid=True):
@@ -402,8 +404,8 @@ class CheckoutTests(CatalogCase):
             match = self.PROMOS.get(code.upper())
             return {"data": [{"id": match[0], "code": code.upper(), "promotion": {"type": "coupon", "coupon": match[1]},
                               "max_redemptions": 100, "times_redeemed": redeemed, "expires_at": None}] if match else []}
-        coupons = {c: {"id": c, "valid": valid, "applies_to": {"products": products} if products else None}
-                   for _, c, products in self.PROMOS.values()}
+        coupons = {c: {"id": c, "valid": valid, "applies_to": {"products": products} if products else None, **terms}
+                   for _, c, products, terms in self.PROMOS.values()}
         self.stack.enter_context(patch.object(self.routes.stripe.PromotionCode, "list", side_effect=listing))
         self.stack.enter_context(patch.object(self.routes.stripe.Coupon, "retrieve", side_effect=lambda cid, **kw: coupons[cid]))
 
@@ -445,6 +447,41 @@ class CheckoutTests(CatalogCase):
         self.with_promos(redeemed=100)
         self.assertEqual(self.checkout(new_user(), plan="pro", promo_code="CREATOR60").json()["detail"], catalog.PROMO_USED_UP)
         self.create.assert_not_called()
+
+    def test_checkout_shows_renewal_terms_and_requires_terms_consent(self):
+        self.checkout(new_user(), plan="pro", interval="month")
+        params = self.create.call_args.kwargs
+        self.assertEqual(params["consent_collection"], {"terms_of_service": "required"})
+        self.assertIn("https://www.beatmind.io/terms", params["custom_text"]["terms_of_service_acceptance"]["message"])
+        self.assertEqual(params["custom_text"]["submit"]["message"],
+                         "Your plan renews automatically at $39/month until you cancel. Cancel anytime in Dashboard → Account → "
+                         "Billing — you keep access until the end of the paid period. Taxes may apply.")
+        self.with_promos()
+        self.checkout(new_user(), plan="pro", interval="month", promo_code="CREATOR60")
+        self.assertTrue(self.create.call_args.kwargs["custom_text"]["submit"]["message"].startswith(
+            "Promotional price applies for 2 months; then your plan renews automatically at $39/month unless cancelled."))
+        self.checkout(new_user(), plan="studio", interval="year", promo_code="FOUNDING100")
+        self.assertIn("renews automatically at $474/year (FOUNDING100 price)", self.create.call_args.kwargs["custom_text"]["submit"]["message"])
+
+    def test_promo_preview_lists_where_a_code_applies(self):
+        self.with_promos()
+        user = new_user()
+        monthly = self.client.get("/api/stripe/promo", params={"code": "FOUNDING100", "interval": "month"}, headers=auth(user)).json()
+        self.assertEqual({plan: v["ok"] for plan, v in monthly["plans"].items()}, {"starter": False, "pro": False, "studio": False})
+        yearly = self.client.get("/api/stripe/promo", params={"code": "FOUNDING100", "interval": "year"}, headers=auth(user)).json()
+        self.assertEqual(yearly["plans"]["pro"]["first_amount"], 23400)
+        creator = self.client.get("/api/stripe/promo", params={"code": "creator60"}, headers=auth(user)).json()["plans"]
+        self.assertEqual((creator["pro"]["ok"], creator["pro"]["first_amount"], creator["starter"]["ok"]), (True, 0, False))
+        self.assertIn("2 months", creator["pro"]["terms"])
+        self.assertEqual(self.client.get("/api/stripe/promo", params={"code": "NOPE"}, headers=auth(user)).status_code, 400)
+        self.assertEqual(self.client.get("/api/stripe/promo", params={"code": "CREATOR60"}).status_code, 401)
+
+    def test_portal_uses_the_beatmind_configuration(self):
+        user = subscriber("pro", stripe_customer_id="cus_portal")
+        with patch.object(self.routes, "STRIPE_PORTAL_CONFIGURATION", "bpc_test_beatmind"), \
+             patch.object(self.routes.stripe.billing_portal.Session, "create", return_value=Session()) as portal:
+            self.client.post("/api/stripe/portal", headers=auth(user))
+        self.assertEqual(portal.call_args.kwargs["configuration"], "bpc_test_beatmind")
 
     def test_first_time_only_codes_rejected_by_stripe_are_a_clear_400(self):
         self.with_promos()
@@ -547,7 +584,7 @@ def stripe_subscription(sub_id, customer, plan, interval="month", status="active
                         items={"data": [{"price": price, "current_period_end": period_end}]})
 
 
-class WebhookTests(CatalogCase):
+class WebhookCase(CatalogCase):
     def setUp(self):
         super().setUp()
         import main
@@ -574,6 +611,9 @@ class WebhookTests(CatalogCase):
                           "payment_status": "paid" if paid else "unpaid", "customer": "cus_" + uuid.uuid4().hex[:8],
                           "metadata": metadata})
 
+
+
+class WebhookTests(WebhookCase):
     def test_signature_is_verified(self):
         response = self.client.post("/api/stripe/webhook", content=b"{}", headers={"stripe-signature": "t=1,v1=bad"})
         self.assertEqual(response.status_code, 400)
@@ -690,6 +730,80 @@ class WebhookTests(CatalogCase):
         self.subscriptions["sub_other_app"]["metadata"] = {"user_id": str(victim["id"])}  # Another app's id, no BeatMind tag.
         self.assertEqual(self.deliver(self.event("customer.subscription.created", {"id": "sub_other_app"})).status_code, 200)
         self.assertEqual(get_user_by_id(victim["id"]), victim)
+
+
+class CancelTests(WebhookCase):
+    """One-click cancel at period end and resume, without the billing portal."""
+
+    def setUp(self):
+        super().setUp()
+        self.modify = self.stack.enter_context(patch.object(self.routes.stripe.Subscription, "modify", side_effect=self.fake_modify))
+
+    def fake_modify(self, sub_id, expand=None, **change):
+        sub = self.subscriptions[sub_id]
+        if "cancel_at_period_end" in change:
+            sub["cancel_at_period_end"] = change["cancel_at_period_end"]
+            sub["cancel_at"] = sub["items"]["data"][0]["current_period_end"] if change["cancel_at_period_end"] else None
+        if change.get("cancel_at") == "":
+            sub["cancel_at"] = None
+        return sub
+
+    def pro_user(self):
+        user = subscriber("pro", stripe_customer_id="cus_" + uuid.uuid4().hex[:8])
+        self.subscriptions[user["subscription_id"]] = stripe_subscription(user["subscription_id"], user["stripe_customer_id"], "pro")
+        return user
+
+    def post(self, user, action):
+        return self.client.post(f"/api/stripe/subscription/{action}", headers=auth(user) if user else {})
+
+    def test_cancel_keeps_access_until_period_end_and_is_idempotent(self):
+        user = self.pro_user()
+        for _ in range(2):
+            response = self.post(user, "cancel")
+            self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self.modify.call_count, 1, "a repeated click changes nothing")
+        body = response.json()
+        self.assertEqual((body["cancel_at_period_end"], body["cancel_at"], body["current_period_end"]),
+                         (True, "2030-01-01T00:00:00+00:00", "2030-01-01T00:00:00+00:00"))
+        stored = get_user_by_id(user["id"])
+        self.assertEqual(stored["cancel_at"], "2030-01-01T00:00:00+00:00")
+        self.assertTrue(is_subscribed(stored), "access continues until the period ends")
+        self.assertEqual(billing.summary(user["id"])["plan"]["cancel_at"], "2030-01-01T00:00:00+00:00")
+
+    def test_resume_undoes_a_pending_cancellation(self):
+        user = self.pro_user()
+        self.post(user, "cancel")
+        for _ in range(2):
+            body = self.post(user, "resume").json()
+        self.assertEqual(self.modify.call_count, 2)
+        self.assertEqual((body["cancel_at_period_end"], body["cancel_at"]), (False, None))
+        self.assertIsNone(get_user_by_id(user["id"])["cancel_at"])
+
+    def test_portal_cancellation_arrives_by_webhook(self):
+        user = self.pro_user()
+        self.subscriptions[user["subscription_id"]]["cancel_at_period_end"] = True
+        self.deliver(self.event("customer.subscription.updated", {"id": user["subscription_id"]}))
+        self.assertEqual(get_user_by_id(user["id"])["cancel_at"], "2030-01-01T00:00:00+00:00")
+
+    def test_cancel_needs_auth_and_the_users_own_open_subscription(self):
+        self.assertEqual(self.post(None, "cancel").status_code, 401)
+        self.assertEqual(self.post(new_user(trial_days=5), "cancel").status_code, 404)
+        self.assertEqual(self.post(subscriber("pro", status="canceled"), "resume").status_code, 404)
+        mallory = subscriber("pro", stripe_customer_id="cus_mallory")
+        victim = self.pro_user()
+        with db() as conn:  # Even pointing at someone else's subscription id does not reach it.
+            conn.execute("UPDATE users SET subscription_id=? WHERE id=?", (victim["subscription_id"], mallory["id"]))
+        self.assertEqual(self.post(get_user_by_id(mallory["id"]), "cancel").status_code, 404)
+        self.modify.assert_not_called()
+
+
+class RenewalTermsTests(unittest.TestCase):
+    def test_disclosure_names_price_interval_and_where_to_cancel(self):
+        entry = {"amount": 79000, "interval": "year", "plan": "studio"}
+        self.assertEqual(catalog.renewal_terms(entry), "Your plan renews automatically at $790/year until you cancel. Cancel "
+                         "anytime in Dashboard → Account → Billing — you keep access until the end of the paid period. Taxes may apply.")
+        once = catalog.renewal_terms({**entry, "amount": 799, "interval": "month"}, {"code": "X", "duration": "once", "amount_off": 100})
+        self.assertTrue(once.startswith("Promotional price applies for the first month; then your plan renews automatically at $7.99/month"))
 
 
 class FairUseTests(unittest.TestCase):

@@ -211,8 +211,8 @@ class PromoError(Exception):
     """A promotion code the user cannot use; the message is shown to them."""
 
 
-def promotion(code, entry, now=None):
-    """The Stripe promotion code ID for `code` on a plan entry, or PromoError explaining why not."""
+def find_promotion(code, now=None):
+    """(promotion code, coupon) for an active, redeemable code, or PromoError."""
     code = (code or '').strip()
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', code):
         raise PromoError(PROMO_INVALID)
@@ -220,9 +220,6 @@ def promotion(code, entry, now=None):
     if not found:
         raise PromoError(PROMO_INVALID)
     promo = found[0]
-    rule = PROMO_RULES.get(str(promo['code']).upper(), {})
-    if entry['interval'] not in rule.get('intervals', INTERVALS) or entry['plan'] not in rule.get('plans', PLANS):
-        raise PromoError(rule['message'])
     if _field(promo, 'expires_at') and promo['expires_at'] <= (now or time.time()):
         raise PromoError(PROMO_INVALID)
     if _field(promo, 'max_redemptions') and _field(promo, 'times_redeemed', 0) >= promo['max_redemptions']:
@@ -233,7 +230,63 @@ def promotion(code, entry, now=None):
     coupon = stripe.Coupon.retrieve(coupon_id, expand=['applies_to'])
     if not _field(coupon, 'valid', False):
         raise PromoError(PROMO_USED_UP)
+    return promo, coupon
+
+
+def check_promotion(promo, coupon, entry):
+    """PromoError when this code cannot be used on this plan and billing period."""
+    rule = PROMO_RULES.get(str(promo['code']).upper(), {})
+    if entry['interval'] not in rule.get('intervals', INTERVALS) or entry['plan'] not in rule.get('plans', PLANS):
+        raise PromoError(rule['message'])
     products = _field(_field(coupon, 'applies_to', {}), 'products', [])
     if products and entry['product_id'] not in products:
         raise PromoError(f"That code doesn't apply to the {entry['name']} plan.")
-    return promo['id']
+
+
+def discount_of(promo, coupon):
+    return {'id': promo['id'], 'code': promo['code'], 'duration': coupon['duration'],
+            'duration_in_months': _field(coupon, 'duration_in_months'), 'percent_off': _field(coupon, 'percent_off'),
+            'amount_off': _field(coupon, 'amount_off')}
+
+
+def promotion(code, entry, now=None):
+    """The discount a code gives on a plan entry, or PromoError explaining why not."""
+    promo, coupon = find_promotion(code, now)
+    check_promotion(promo, coupon, entry)
+    return discount_of(promo, coupon)
+
+
+def _money(cents):
+    return f"${cents / 100:,.0f}" if cents % 100 == 0 else f"${cents / 100:,.2f}"
+
+
+def price_text(entry, cents=None):
+    return f"{_money(entry['amount'] if cents is None else cents)}/{entry['interval']}"
+
+
+def discounted_amount(entry, discount):
+    if discount.get('percent_off'):
+        return round(entry['amount'] * (100 - discount['percent_off']) / 100)
+    return max(0, entry['amount'] - (discount.get('amount_off') or 0))
+
+
+def promo_period(discount, interval):
+    """How long a discount lasts, in words; None when it lasts as long as the subscription."""
+    if discount['duration'] == 'once':
+        return f"the first {interval}"
+    if discount['duration'] == 'repeating':
+        months = discount['duration_in_months'] or 1
+        return f"{months} month{'s' if months != 1 else ''}"
+    return None
+
+
+def renewal_terms(entry, discount=None):
+    """The auto-renewal disclosure shown next to the checkout button and on Stripe Checkout."""
+    renews_at = price_text(entry)
+    period = promo_period(discount, entry['interval']) if discount else None
+    if discount and not period:  # A forever discount: every renewal is at the discounted price.
+        renews_at = f"{price_text(entry, discounted_amount(entry, discount))} ({discount['code']} price)"
+    renewal = (f"Promotional price applies for {period}; then your plan renews automatically at {renews_at} unless cancelled."
+               if period else f"Your plan renews automatically at {renews_at} until you cancel.")
+    return (renewal + " Cancel anytime in Dashboard → Account → Billing — you keep access until the end of the paid period."
+            " Taxes may apply.")

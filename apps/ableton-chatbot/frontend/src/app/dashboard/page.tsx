@@ -15,6 +15,7 @@ import NewSongDialog from "@/components/NewSongDialog";
 import References from "@/components/References";
 import ChatComparisons from "@/components/ChatComparisons";
 import PlanPicker from "@/components/PlanPicker";
+import SubscriptionControls from "@/components/SubscriptionControls";
 import BridgeLaunch from "@/components/BridgeLaunch";
 import { useAbletonLaunch } from "@/lib/use-ableton-launch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
@@ -168,9 +169,11 @@ export default function DashboardPage() {
   const { usage, reload: reloadUsage } = useUsage(user?.id);
 
   // Back from Stripe Checkout: the webhook can land a few seconds after the redirect.
+  const [justSubscribed, setJustSubscribed] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (!params.has("subscribed") && !params.has("purchase")) return;
+    setJustSubscribed(params.has("subscribed"));
     const timers = [3000, 10000].map(ms => setTimeout(() => { void reloadUsage().catch(() => undefined); }, ms));
     return () => timers.forEach(clearTimeout);
   }, [reloadUsage]);
@@ -518,6 +521,14 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      {justSubscribed && usage && hasPaidPlan(usage.plan) && (
+        <div role="status" className="mb-8 rounded-2xl border p-5 text-sm" style={{ background: "#052e16", borderColor: "#166534" }}>
+          <p className="font-semibold" style={{ color: "#4ade80" }}>You&apos;re subscribed to {currentPlan}.</p>
+          {usage.renewal_terms && <p className="mt-1" style={{ color: "var(--text-primary)" }}>{usage.renewal_terms}</p>}
+          <button type="button" onClick={() => setNav("account")} className="mt-2 underline">Open Billing</button>
+        </div>
+      )}
+
       {/* Subscription CTA banner */}
       {!isSubscribed && (
         <div className="mb-8 rounded-2xl p-5 border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -861,7 +872,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="rounded-2xl border p-5 mb-4" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-secondary)" }}>Subscription</p>
+        <h3 id="billing" className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-secondary)" }}>Billing</h3>
         {isSubscribed ? (
           <>
             <div className="flex items-center gap-2 mb-3">
@@ -876,11 +887,10 @@ export default function DashboardPage() {
             {usage && <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
               {usage.tracks_used} of {usage.included_per_month} tracks{usage.included_cloud_per_month > 0 ? ` · ${usage.cloud_used} of ${usage.included_cloud_per_month} Cloud tracks` : ""} used this month · {usage.track_credits} purchased tracks · {usage.cloud_credits} purchased Cloud tracks
             </p>}
-            <button onClick={openBilling}
-              className="text-xs px-4 py-2 rounded-lg border transition-opacity hover:opacity-70"
-              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
-              Manage billing · change plan →
-            </button>
+            {usage
+              ? <SubscriptionControls usage={usage} onChanged={reloadUsage} onManage={openBilling} />
+              : <button onClick={openBilling} className="text-xs px-4 py-2 rounded-lg border transition-opacity hover:opacity-70"
+                  style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>Manage billing</button>}
           </>
         ) : (
           <>

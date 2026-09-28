@@ -34,6 +34,8 @@ export interface PlanState {
   included_cloud: number;
   mixmind: boolean;
   current_period_end: string | null;
+  /** Set when the plan is cancelled and ends at this time instead of renewing. */
+  cancel_at: string | null;
 }
 
 export interface Pack { id: string; kind: "track" | "cloud"; credits: number; price: { amount: number; currency: string } }
@@ -54,6 +56,8 @@ export interface Usage {
   mixmind_access: boolean;
   can_buy_packs: boolean;
   billing_account: boolean;
+  plan_price: { amount: number; currency: string } | null;
+  renewal_terms: string | null;
   ai_usage: {
     estimated_usd: number;
     fair_use_cap_usd: number;
@@ -91,6 +95,16 @@ export function formatPrice(amount: number, currency: string): string {
   }).format(amount / 100);
 }
 
+/** The auto-renewal disclosure shown next to every checkout button (the server sends the same text to Stripe). */
+export function renewalTerms(option: Pick<PlanOption, "amount" | "currency" | "interval">): string {
+  return `Your plan renews automatically at ${formatPrice(option.amount, option.currency)}/${option.interval} until you cancel. `
+    + "Cancel anytime in Dashboard → Account → Billing — you keep access until the end of the paid period. Taxes may apply.";
+}
+
+export function formatDate(iso: string | null | undefined): string {
+  return iso ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : "";
+}
+
 export function daysLeft(iso: string | null | undefined): number | null {
   if (!iso) return null;
   return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000));
@@ -126,6 +140,28 @@ export async function openBillingPortal(): Promise<boolean> {
   if (!response.ok || !body.url) throw new Error(typeof body.detail === "string" ? body.detail : "Billing could not open.");
   window.location.assign(body.url);
   return true;
+}
+
+export interface PromoPreview {
+  code: string;
+  interval: Interval;
+  plans: Partial<Record<PlanId, { ok: true; first_amount: number; terms: string } | { ok: false; message: string }>>;
+}
+
+/** Which plans a code applies to for this billing period. Throws with the reason for an unknown code. */
+export async function previewPromo(code: string, interval: Interval): Promise<PromoPreview> {
+  const response = await apiFetch(`/api/stripe/promo?code=${encodeURIComponent(code.trim())}&interval=${interval}`);
+  if (!response.ok) throw new Error(await errorDetail(response, "That code couldn't be checked."));
+  return response.json();
+}
+
+export interface SubscriptionState { status: string; cancel_at_period_end: boolean; cancel_at: string | null; current_period_end: string | null }
+
+/** Cancel at period end (cancel = true) or resume a pending cancellation. */
+export async function setCancellation(cancel: boolean): Promise<SubscriptionState> {
+  const response = await apiFetch(`/api/stripe/subscription/${cancel ? "cancel" : "resume"}`, { method: "POST", body: "{}" });
+  if (!response.ok) throw new Error(await errorDetail(response, cancel ? "Cancellation failed." : "Resuming failed."));
+  return response.json();
 }
 
 export function useUsage(refreshKey?: unknown) {

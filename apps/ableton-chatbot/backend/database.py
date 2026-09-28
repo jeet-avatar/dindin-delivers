@@ -80,6 +80,7 @@ USER_PLAN_COLUMNS = {
     "mixmind": "INTEGER",
     "current_period_end": "TEXT",
     "past_due_since": "TEXT",
+    "cancel_at": "TEXT",  # When a pending cancellation ends the plan; NULL when it renews.
 }
 
 

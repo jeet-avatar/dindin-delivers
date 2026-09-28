@@ -25,6 +25,9 @@ log = logging.getLogger("beatmind.stripe")
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+# BeatMind's own Customer Portal configuration (cancel at period end, plan switching); the account default serves other apps.
+STRIPE_PORTAL_CONFIGURATION = os.getenv("STRIPE_PORTAL_CONFIGURATION", "")
+TERMS_URL = "https://www.beatmind.io/terms"
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 APP = "beatmind"  # Tags BeatMind's Stripe objects; the Stripe account also serves other apps.
 # Statuses in which the user still has a subscription to manage rather than buy again.
@@ -113,10 +116,10 @@ async def create_checkout_session(request: Request, body: CheckoutRequest | None
         raise HTTPException(409, "You already have a BeatMind plan. Change it or update your card from Manage billing.")
 
     # Codes are checked here, not with allow_promotion_codes: a coupon cannot tell monthly from yearly prices.
-    discounts = {}
+    discount = None
     if body.promo_code and body.promo_code.strip():
         try:
-            discounts = {"discounts": [{"promotion_code": await asyncio.to_thread(catalog.promotion, body.promo_code, entry)}]}
+            discount = await asyncio.to_thread(catalog.promotion, body.promo_code, entry)
         except catalog.PromoError as error:
             raise HTTPException(400, str(error))
         except stripe.StripeError as e:
@@ -134,19 +137,49 @@ async def create_checkout_session(request: Request, body: CheckoutRequest | None
             payment_method_types=["card"],
             line_items=[{"price": entry["price_id"], "quantity": 1}],
             subscription_data=subscription_data,
+            # Automatic-renewal disclosure and affirmative consent on the payment page itself.
+            consent_collection={"terms_of_service": "required"},
+            custom_text={"terms_of_service_acceptance": {"message": f"I agree to the [BeatMind Terms]({TERMS_URL})."},
+                         "submit": {"message": catalog.renewal_terms(entry, discount)}},
             success_url=f"{FRONTEND_URL}/dashboard?subscribed=true",
             cancel_url=f"{FRONTEND_URL}/dashboard?checkout=cancelled",
             metadata={"user_id": str(user["id"]), "app": APP, "plan": body.plan, "interval": body.interval},
-            **discounts,
+            **({"discounts": [{"promotion_code": discount["id"]}]} if discount else {}),
         )
         return {"url": session.url}
     except stripe.InvalidRequestError as e:
         log.error("Stripe checkout rejected for user %s: %s", user["id"], type(e).__name__)
         # e.g. a first-time-only code on a customer who has paid before.
-        raise HTTPException(400, "That code can't be used on this account." if discounts else "Payment processing failed. Please try again.")
+        raise HTTPException(400, "That code can't be used on this account." if discount else "Payment processing failed. Please try again.")
     except stripe.StripeError as e:
         log.error("Stripe checkout error for user %s: %s", user["id"], type(e).__name__)
         raise HTTPException(400, "Payment processing failed. Please try again.")
+
+
+@router.get("/promo")
+async def preview_promo(code: str, request: Request, interval: Literal["month", "year"] = "month"):
+    """Which plans a code applies to for this billing period, with the renewal terms to show before checkout."""
+    _authenticated_user(request)
+    try:
+        promo, coupon = await asyncio.to_thread(catalog.find_promotion, code)
+    except catalog.PromoError as error:
+        raise HTTPException(400, str(error))
+    except stripe.StripeError:
+        raise HTTPException(503, "Codes can't be checked right now. Please try again shortly.")
+    plans = {}
+    for item in await asyncio.to_thread(catalog.public_plans):
+        if item["interval"] != interval or not item["available"]:
+            continue
+        entry = catalog.plan(item["plan"], interval)
+        try:
+            catalog.check_promotion(promo, coupon, entry)
+        except catalog.PromoError as error:
+            plans[item["plan"]] = {"ok": False, "message": str(error)}
+            continue
+        discount = catalog.discount_of(promo, coupon)
+        plans[item["plan"]] = {"ok": True, "first_amount": catalog.discounted_amount(entry, discount),
+                               "terms": catalog.renewal_terms(entry, discount)}
+    return {"code": promo["code"], "interval": interval, "plans": plans}
 
 
 _prices: dict[str, tuple[float, dict]] = {}
@@ -173,7 +206,10 @@ async def usage(request: Request):
     packs = [{"id": p["id"], "kind": p["kind"], "credits": p["credits"], "price": p["price"] or _price(p["price_id"])}
              for p in billing.packs()]
     summary = billing.summary(user["id"])
+    entry = catalog.resolve()["plans"].get(user.get("plan_lookup_key") or "")
     return {**summary, "packs": [p for p in packs if p["price"]],
+            "plan_price": {"amount": entry["amount"], "currency": entry["currency"]} if entry else None,
+            "renewal_terms": catalog.renewal_terms(entry) if entry else None,
             "subscribed": is_subscribed(user), "mixmind_access": mixmind_access(user),
             # Packages top up a paid plan: they are not sold during the free trial or without a plan.
             "packs_require_plan": True, "can_buy_packs": subscription_access(user),
@@ -219,11 +255,67 @@ async def customer_portal(request: Request):
             stripe.billing_portal.Session.create,
             customer=user["stripe_customer_id"],
             return_url=f"{FRONTEND_URL}/dashboard",
+            **({"configuration": STRIPE_PORTAL_CONFIGURATION} if STRIPE_PORTAL_CONFIGURATION else {}),
         )
         return {"url": session.url}
     except stripe.StripeError as e:
         log.error("Stripe portal error for user %s: %s", user["id"], type(e).__name__)
         raise HTTPException(400, "Unable to open billing portal. Please contact support.")
+
+
+# ---- One-click cancel and resume ----
+
+EXPAND = ["items.data.price.product"]
+
+
+def _own_subscription(user: dict):
+    """The user's open subscription, re-read from Stripe; 404 when there is none or it isn't theirs."""
+    if not user.get("subscription_id") or user["subscription_status"] not in OPEN_STATUSES:
+        raise HTTPException(404, "You don't have an active subscription.")
+    subscription = stripe.Subscription.retrieve(user["subscription_id"], expand=EXPAND)
+    owner = _field(_field(subscription, "metadata", {}), "user_id")
+    if _id(_field(subscription, "customer")) != user.get("stripe_customer_id") and owner != str(user["id"]):
+        raise HTTPException(404, "You don't have an active subscription.")
+    return subscription
+
+
+def _subscription_state(subscription) -> dict:
+    fields = _plan_fields(subscription)
+    return {"status": subscription["status"], "cancel_at_period_end": bool(_field(subscription, "cancel_at_period_end")),
+            "cancel_at": fields["cancel_at"], "current_period_end": fields["current_period_end"]}
+
+
+def _set_cancellation(user: dict, cancel: bool) -> dict:
+    subscription = _own_subscription(user)
+    pending = bool(_field(subscription, "cancel_at_period_end") or _field(subscription, "cancel_at"))
+    if pending != cancel:  # Repeated clicks change nothing.
+        change = {"cancel_at_period_end": True} if cancel else (
+            {"cancel_at_period_end": False} if _field(subscription, "cancel_at_period_end") else {"cancel_at": ""})
+        subscription = stripe.Subscription.modify(subscription["id"], expand=EXPAND, **change)
+    apply_subscription(subscription, user["id"])  # Show the change now; the webhook confirms it.
+    return _subscription_state(subscription)
+
+
+@router.post("/subscription/cancel")
+async def cancel_subscription(request: Request):
+    """Cancel at the end of the paid period: no further charges, access until then."""
+    user = _authenticated_user(request)
+    try:
+        return await asyncio.to_thread(_set_cancellation, user, True)
+    except stripe.StripeError as e:
+        log.error("Stripe cancel error for user %s: %s", user["id"], type(e).__name__)
+        raise HTTPException(502, "Your subscription could not be cancelled right now. Please try again or use Manage billing.")
+
+
+@router.post("/subscription/resume")
+async def resume_subscription(request: Request):
+    """Undo a pending cancellation before the period ends."""
+    user = _authenticated_user(request)
+    try:
+        return await asyncio.to_thread(_set_cancellation, user, False)
+    except stripe.StripeError as e:
+        log.error("Stripe resume error for user %s: %s", user["id"], type(e).__name__)
+        raise HTTPException(502, "Your subscription could not be resumed right now. Please try again or use Manage billing.")
 
 
 # ---- Webhook ----
@@ -261,7 +353,8 @@ def _plan_fields(subscription):
     # API versions from 2025-03-31 moved the billing period from the subscription to its items.
     period_end = _field(subscription, "current_period_end") or _field(item, "current_period_end")
     included = included or {}
-    return {"plan": plan, "plan_tier": included.get("tier"), "plan_lookup_key": key,
+    cancel_at = _field(subscription, "cancel_at") or (period_end if _field(subscription, "cancel_at_period_end") else None)
+    return {"plan": plan, "cancel_at": _iso(cancel_at), "plan_tier": included.get("tier"), "plan_lookup_key": key,
             "plan_interval": _field(_field(price, "recurring", {}), "interval"),
             "included_tracks": included.get("included_tracks"), "included_cloud": included.get("included_cloud"),
             "mixmind": None if "mixmind" not in included else int(included["mixmind"]),
@@ -300,7 +393,7 @@ def apply_subscription(subscription, user_id=None) -> bool:
 
 def sync_subscription(subscription_id, user_id=None):
     """Apply Stripe's current state of a subscription (not the event's snapshot, which may be out of order)."""
-    subscription = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price.product"])
+    subscription = stripe.Subscription.retrieve(subscription_id, expand=EXPAND)
     return apply_subscription(subscription, user_id)
 
 

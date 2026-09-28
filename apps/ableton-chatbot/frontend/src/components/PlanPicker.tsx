@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import {
-  BEATMIND_PLANS, MIXMIND_PLANS, fetchPlans, formatPrice, startCheckout,
-  type Catalog, type Interval, type PlanId, type PlanOption,
+  BEATMIND_PLANS, MIXMIND_PLANS, fetchPlans, formatPrice, previewPromo, renewalTerms, startCheckout,
+  type Catalog, type Interval, type PlanId, type PlanOption, type PromoPreview,
 } from "@/lib/billing";
 
 type Props = {
@@ -24,7 +24,9 @@ function features(option: PlanOption): string[] {
   return list;
 }
 
-function PlanCard({ option, busy, onChoose }: { option: PlanOption; busy: boolean; onChoose: (plan: PlanId) => void }) {
+type CardProps = { option: PlanOption; busy: boolean; promo?: PromoPreview["plans"][PlanId]; onChoose: (plan: PlanId) => void };
+
+function PlanCard({ option, busy, promo, onChoose }: CardProps) {
   const perMonth = option.interval === "year" ? ` (${formatPrice(Math.round(option.amount / 12), option.currency)}/mo)` : "";
   return <div className="flex flex-col rounded-2xl border p-5" style={{ background: "var(--bg-primary)", borderColor: option.plan === "pro" ? "var(--accent)" : "var(--border)" }}>
     <div className="flex items-baseline justify-between gap-2">
@@ -41,6 +43,12 @@ function PlanCard({ option, busy, onChoose }: { option: PlanOption; busy: boolea
       style={{ background: option.available ? "var(--accent)" : "var(--bg-secondary)", color: option.available ? "#fff" : "var(--text-secondary)" }}>
       {option.available ? `Choose ${option.name}` : "Coming soon"}
     </button>
+    {option.available && <>
+      {promo && !promo.ok && <p role="status" className="mt-2 text-sm text-amber-200">{promo.message}</p>}
+      {promo?.ok && <p className="mt-2 text-sm font-semibold" style={{ color: "var(--accent)" }}>First {option.interval}: {formatPrice(promo.first_amount, option.currency)}</p>}
+      {/* Automatic-renewal disclosure, next to the button it applies to. */}
+      <p className="mt-2 text-sm" style={{ color: "var(--text-primary)" }}>{promo?.ok ? promo.terms : renewalTerms(option)}</p>
+    </>}
   </div>;
 }
 
@@ -51,6 +59,9 @@ export default function PlanPicker({ onClose, reason, inTrial }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [promoCode, setPromoCode] = useState("");
+  const [promo, setPromo] = useState<PromoPreview | null>(null);
+  const [promoError, setPromoError] = useState("");
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -64,6 +75,20 @@ export default function PlanPicker({ onClose, reason, inTrial }: Props) {
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
+
+  async function applyCode(code = promoCode, period = interval) {
+    setPromo(null); setPromoError("");
+    if (!code.trim()) return;
+    setChecking(true);
+    try { setPromo(await previewPromo(code, period)); }
+    catch (e) { setPromoError(e instanceof Error ? e.message : "That code couldn't be checked."); }
+    finally { setChecking(false); }
+  }
+
+  function changeInterval(value: Interval) {
+    setIntervalChoice(value);
+    if (promo) void applyCode(promoCode, value);  // Whether a code fits depends on the billing period.
+  }
 
   async function choose(plan: PlanId) {
     setBusy(true); setError("");
@@ -91,33 +116,37 @@ export default function PlanPicker({ onClose, reason, inTrial }: Props) {
 
       <div role="radiogroup" aria-label="Billing interval" className="mt-5 inline-flex rounded-xl border p-1" style={{ borderColor: "var(--border)" }}>
         {(["month", "year"] as Interval[]).map(value => <button key={value} type="button" role="radio" aria-checked={interval === value}
-          onClick={() => setIntervalChoice(value)} className="rounded-lg px-4 py-1.5 text-sm font-medium"
+          onClick={() => changeInterval(value)} className="rounded-lg px-4 py-1.5 text-sm font-medium"
           style={interval === value ? { background: "var(--accent)", color: "#fff" } : { color: "var(--text-secondary)" }}>
           {value === "month" ? "Monthly" : "Yearly · 2 months free"}
         </button>)}
       </div>
-      <label className="mt-4 block text-sm" style={{ color: "var(--text-secondary)" }}>Have a code?
-        <input value={promoCode} onChange={event => setPromoCode(event.target.value)} maxLength={64} autoComplete="off"
-          placeholder="Promo code" aria-describedby="promo-help"
-          className="ml-3 rounded-lg px-3 py-1.5 text-sm uppercase outline-none"
+      <form className="mt-4 flex flex-wrap items-center gap-2 text-sm" onSubmit={event => { event.preventDefault(); void applyCode(); }}>
+        <label htmlFor="promo-code" style={{ color: "var(--text-secondary)" }}>Have a code?</label>
+        <input id="promo-code" value={promoCode} maxLength={64} autoComplete="off" placeholder="Promo code"
+          onChange={event => { setPromoCode(event.target.value); setPromo(null); setPromoError(""); }}
+          className="rounded-lg px-3 py-1.5 text-sm uppercase outline-none"
           style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-      </label>
-      <p id="promo-help" className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>Applied when you choose a plan. We&apos;ll tell you if it doesn&apos;t fit that plan or billing period.</p>
+        <button type="submit" disabled={checking || !promoCode.trim()} className="rounded-lg border px-3 py-1.5 disabled:opacity-50"
+          style={{ borderColor: "var(--border)" }}>{checking ? "Checking..." : "Apply"}</button>
+        {promo && <span role="status" className="text-emerald-300">{promo.code} checked: see each plan below.</span>}
+        {promoError && <span role="alert" className="text-red-300">{promoError}</span>}
+      </form>
 
       {!catalog && !error && <p role="status" className="mt-6 text-sm" style={{ color: "var(--text-secondary)" }}>Loading plans...</p>}
       {catalog && beatmind.length === 0 && <p role="status" className="mt-6 text-sm text-amber-200">Plans are unavailable right now. Please try again shortly.</p>}
       {beatmind.length > 0 && <div className="mt-5 grid gap-4 md:grid-cols-3">
-        {beatmind.map(option => <PlanCard key={option.plan} option={option} busy={busy} onChoose={choose} />)}
+        {beatmind.map(option => <PlanCard key={option.plan} option={option} busy={busy} promo={promo?.plans[option.plan]} onChoose={choose} />)}
       </div>}
 
       {mixmind.length > 0 && <>
         <h3 className="mt-7 text-sm font-semibold">MixMind{mixmind.every(p => !p.available) && " · coming soon"}</h3>
         <div className="mt-3 grid gap-4 md:grid-cols-3">
-          {mixmind.map(option => <PlanCard key={option.plan} option={option} busy={busy} onChoose={choose} />)}
+          {mixmind.map(option => <PlanCard key={option.plan} option={option} busy={busy} promo={promo?.plans[option.plan]} onChoose={choose} />)}
         </div>
       </>}
 
-      <p className="mt-5 text-xs" style={{ color: "var(--text-secondary)" }}>Each separation uses one track; BeatMind Cloud also uses one cloud track. Failed separations are refunded. Need more? Track packs top up any paid plan. Cancel any time from Manage billing.</p>
+      <p className="mt-5 text-xs" style={{ color: "var(--text-secondary)" }}>Each separation uses one track; BeatMind Cloud also uses one cloud track. Failed separations are refunded. Need more? Track packs top up any paid plan.</p>
       {error && <p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
     </div>
   </div>;
