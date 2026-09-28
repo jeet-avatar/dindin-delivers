@@ -54,11 +54,11 @@ Never say "done" without proof: tests + real runs + production checks (see the r
   g4dn/g5, scales to 0) → API imports stems. Infra: `infra/cloud-separation/provision.sh`; job image
   `backend/Dockerfile.gpu`. Cold start ~5 min.
 - Standard CPU server upload still exists (four stems) as fallback when Cloud is unavailable.
-- **Billing (dormant):** `backend/billing.py`. Enable by setting on the task def
-  `BEATMIND_INCLUDED_TRACKS=<n per month>` and
-  `BEATMIND_PACKS=[{"id":"tracks_10","kind":"track","credits":10,"price_id":"price_…"},{"id":"cloud_10","kind":"cloud",…}]`
-  after creating one-time Prices in Stripe. Webhook grants packs once per Checkout session and never
-  activates a subscription.
+- **Billing (branch `feat/beatmind-pricing-tiers`, not yet deployed):** plans and packs resolve from Stripe
+  lookup keys + product metadata (`backend/catalog.py`); per-plan monthly track/cloud allowances and packs
+  (`billing.py`); no-card 7-day app trial with 3 local tracks and an AI cap; webhook re-reads subscriptions from
+  Stripe and stores processed event ids (`stripe_events`); one-click cancel/resume; AI usage log + fair-use cap
+  (`ai_usage.py`). Env knobs are listed in `backend/.env.example`.
 
 ## Pending / Next Steps
 
