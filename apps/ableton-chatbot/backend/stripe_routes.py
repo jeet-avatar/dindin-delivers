@@ -27,6 +27,11 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 # BeatMind's own Customer Portal configuration (cancel at period end, plan switching); the account default serves other apps.
 STRIPE_PORTAL_CONFIGURATION = os.getenv("STRIPE_PORTAL_CONFIGURATION", "")
+# Founding subscribers' customers stay on the previous Stripe account until moved; everything new uses the primary one.
+STRIPE_LEGACY_SECRET_KEY = os.getenv("STRIPE_LEGACY_SECRET_KEY", "")
+STRIPE_LEGACY_WEBHOOK_SECRET = os.getenv("STRIPE_LEGACY_WEBHOOK_SECRET", "")
+STRIPE_LEGACY_PORTAL_CONFIGURATION = os.getenv("STRIPE_LEGACY_PORTAL_CONFIGURATION", "")
+PRIMARY = "primary"  # users.stripe_account for customers on the primary account; NULL means the legacy account.
 TERMS_URL = "https://www.beatmind.io/terms"
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 APP = "beatmind"  # Tags BeatMind's Stripe objects; the Stripe account also serves other apps.
@@ -62,16 +67,33 @@ def _id(value):
     return value if isinstance(value, str) or value is None else _field(value, "id")
 
 
+def _account_tag(legacy: bool = False):
+    """users.stripe_account for a new customer. Untagged until a legacy account is configured, so rows written
+    before the move are read as legacy afterwards."""
+    return PRIMARY if STRIPE_LEGACY_SECRET_KEY and not legacy else None
+
+
+def _on_legacy(user: dict) -> bool:
+    """Whether the user's Stripe customer is on the legacy account."""
+    return bool(STRIPE_LEGACY_SECRET_KEY and user.get("stripe_customer_id") and user.get("stripe_account") != PRIMARY)
+
+
+def _options(user: dict) -> dict:
+    """Request options for Stripe calls about the user's own customer and subscription."""
+    return {"api_key": STRIPE_LEGACY_SECRET_KEY} if _on_legacy(user) else {}
+
+
 def _ensure_customer(user: dict) -> str:
-    """The user's Stripe Customer, created once and saved so the billing portal works without a subscription."""
-    if user.get("stripe_customer_id"):
+    """The user's Stripe Customer on the primary account, created once and saved so the billing portal works
+    without a subscription. A legacy customer is replaced, so only call this when the user has no open plan there."""
+    if user.get("stripe_customer_id") and not _on_legacy(user):
         return user["stripe_customer_id"]
     customer = stripe.Customer.create(
         email=user["email"], name=user["name"], metadata={"user_id": str(user["id"]), "app": APP},
         idempotency_key=f"beatmind-customer-{user['id']}")
     with db() as conn:
-        conn.execute("UPDATE users SET stripe_customer_id=? WHERE id=? AND stripe_customer_id IS NULL",
-                     (customer["id"], user["id"]))
+        conn.execute("UPDATE users SET stripe_customer_id=?, stripe_account=? WHERE id=? AND stripe_customer_id IS ?",
+                     (customer["id"], _account_tag(), user["id"], user.get("stripe_customer_id")))
         return conn.execute("SELECT stripe_customer_id FROM users WHERE id=?", (user["id"],)).fetchone()[0]
 
 
@@ -222,10 +244,12 @@ async def buy_pack(pack_id: str, request: Request):
     metadata = {"user_id": str(user["id"]), "app": APP, "pack_id": item["id"],
                 "kind": item["kind"], "credits": str(item["credits"])}
     try:
-        customer = await asyncio.to_thread(_ensure_customer, user)
+        # A founding subscriber's customer is on the legacy account, where the packs aren't sold: check out as a guest.
+        buyer = {"customer_email": user["email"]} if _on_legacy(user) else \
+            {"customer": await asyncio.to_thread(_ensure_customer, user)}
         session = await asyncio.to_thread(
             stripe.checkout.Session.create,
-            mode="payment", customer=customer, line_items=[{"price": item["price_id"], "quantity": 1}],
+            mode="payment", **buyer, line_items=[{"price": item["price_id"], "quantity": 1}],
             payment_intent_data={"metadata": metadata},
             success_url=f"{FRONTEND_URL}/dashboard?purchase=complete", cancel_url=f"{FRONTEND_URL}/dashboard",
             metadata=metadata)
@@ -241,12 +265,14 @@ async def customer_portal(request: Request):
     user = _authenticated_user(request)
     if not user.get("stripe_customer_id"):
         raise HTTPException(404, "Choose a plan first.")
+    configuration = STRIPE_LEGACY_PORTAL_CONFIGURATION if _on_legacy(user) else STRIPE_PORTAL_CONFIGURATION
     try:
         session = await asyncio.to_thread(
             stripe.billing_portal.Session.create,
             customer=user["stripe_customer_id"],
             return_url=f"{FRONTEND_URL}/dashboard",
-            **({"configuration": STRIPE_PORTAL_CONFIGURATION} if STRIPE_PORTAL_CONFIGURATION else {}),
+            **({"configuration": configuration} if configuration else {}),
+            **_options(user),
         )
         return {"url": session.url}
     except stripe.StripeError as e:
@@ -263,7 +289,7 @@ def _own_subscription(user: dict):
     """The user's open subscription, re-read from Stripe; 404 when there is none or it isn't theirs."""
     if not user.get("subscription_id") or user["subscription_status"] not in OPEN_STATUSES:
         raise HTTPException(404, "You don't have an active subscription.")
-    subscription = stripe.Subscription.retrieve(user["subscription_id"], expand=EXPAND)
+    subscription = stripe.Subscription.retrieve(user["subscription_id"], expand=EXPAND, **_options(user))
     owner = _field(_field(subscription, "metadata", {}), "user_id")
     if _id(_field(subscription, "customer")) != user.get("stripe_customer_id") and owner != str(user["id"]):
         raise HTTPException(404, "You don't have an active subscription.")
@@ -282,8 +308,8 @@ def _set_cancellation(user: dict, cancel: bool) -> dict:
     if pending != cancel:  # Repeated clicks change nothing.
         change = {"cancel_at_period_end": True} if cancel else (
             {"cancel_at_period_end": False} if _field(subscription, "cancel_at_period_end") else {"cancel_at": ""})
-        subscription = stripe.Subscription.modify(subscription["id"], expand=EXPAND, **change)
-    apply_subscription(subscription, user["id"])  # Show the change now; the webhook confirms it.
+        subscription = stripe.Subscription.modify(subscription["id"], expand=EXPAND, **change, **_options(user))
+    apply_subscription(subscription, user["id"], legacy=_on_legacy(user))  # Show the change now; the webhook confirms it.
     return _subscription_state(subscription)
 
 
@@ -372,7 +398,7 @@ def _plan_fields(subscription):
             "current_period_end": _iso(period_end)}
 
 
-def apply_subscription(subscription, user_id=None) -> bool:
+def apply_subscription(subscription, user_id=None, legacy=False) -> bool:
     """Copy a subscription's status and plan onto its user. Returns False when it belongs to no user or is stale."""
     status = subscription["status"]
     with db() as conn:
@@ -396,19 +422,21 @@ def apply_subscription(subscription, user_id=None) -> bool:
             fields["past_due_since"] = None
         fields.update(subscription_status=status, subscription_id=subscription["id"])
         conn.execute(f"UPDATE users SET {', '.join(f'{name}=?' for name in fields)}, "
+                     "stripe_account=CASE WHEN stripe_customer_id IS NULL THEN ? ELSE stripe_account END, "
                      "stripe_customer_id=COALESCE(stripe_customer_id, ?) WHERE id=?",
-                     (*fields.values(), _id(_field(subscription, "customer")), user["id"]))
+                     (*fields.values(), _account_tag(legacy), _id(_field(subscription, "customer")), user["id"]))
     log.info("Subscription %s: user_id=%s status=%s plan=%s", subscription["id"], user["id"], status, fields["plan"])
     return True
 
 
-def sync_subscription(subscription_id, user_id=None):
+def sync_subscription(subscription_id, user_id=None, legacy=False):
     """Apply Stripe's current state of a subscription (not the event's snapshot, which may be out of order)."""
-    subscription = stripe.Subscription.retrieve(subscription_id, expand=EXPAND)
-    return apply_subscription(subscription, user_id)
+    options = {"api_key": STRIPE_LEGACY_SECRET_KEY} if legacy else {}
+    subscription = stripe.Subscription.retrieve(subscription_id, expand=EXPAND, **options)
+    return apply_subscription(subscription, user_id, legacy)
 
 
-def _grant_pack(session):
+def _grant_pack(session, legacy=False):
     metadata = _field(session, "metadata", {})
     if _field(metadata, "app") != APP:
         log.warning("Ignoring package session %s without the BeatMind tag", _field(session, "id"))
@@ -425,7 +453,8 @@ def _grant_pack(session):
     customer = _id(_field(session, "customer"))
     if customer:
         with db() as conn:
-            conn.execute("UPDATE users SET stripe_customer_id=? WHERE id=? AND stripe_customer_id IS NULL", (customer, user_id))
+            conn.execute("UPDATE users SET stripe_customer_id=?, stripe_account=? WHERE id=? AND stripe_customer_id IS NULL",
+                         (customer, _account_tag(legacy), user_id))
     log.info("Package %s for user_id=%s granted=%s", pack_id, user_id, granted)
 
 
@@ -435,22 +464,38 @@ def _invoice_subscription(invoice):
     return _id(_field(invoice, "subscription") or _field(details, "subscription"))
 
 
-def handle_event(event):
+def handle_event(event, legacy=False):
+    """legacy: the event came from the legacy account, so its objects are read with that account's key."""
     event_type = event["type"]
     data = event["data"]["object"]
     metadata = _field(data, "metadata", {})
     if event_type in ("checkout.session.completed", "checkout.session.async_payment_succeeded") and _field(metadata, "pack_id"):
-        _grant_pack(data)
+        _grant_pack(data, legacy)
     elif event_type == "checkout.session.completed" and _field(data, "mode") == "subscription":
         user_id = _field(metadata, "user_id") if _field(metadata, "app") == APP else None
         if _field(data, "subscription"):
-            sync_subscription(_id(data["subscription"]), user_id)
+            sync_subscription(_id(data["subscription"]), user_id, legacy)
     elif event_type in ("customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"):
-        sync_subscription(data["id"])
+        sync_subscription(data["id"], legacy=legacy)
     elif event_type in ("invoice.payment_succeeded", "invoice.payment_failed"):
         subscription_id = _invoice_subscription(data)
         if subscription_id:
-            sync_subscription(subscription_id)
+            sync_subscription(subscription_id, legacy=legacy)
+
+
+def _verified_event(body: bytes, signature: str):
+    """The event and whether it was signed by the legacy account's endpoint secret."""
+    for secret, legacy in ((STRIPE_WEBHOOK_SECRET, False), (STRIPE_LEGACY_WEBHOOK_SECRET, True)):
+        if not secret:
+            continue
+        try:
+            return stripe.Webhook.construct_event(body, signature, secret), legacy
+        except stripe.SignatureVerificationError:
+            continue
+        except Exception:
+            raise HTTPException(400, "Invalid webhook payload")
+    log.warning("Stripe webhook signature verification failed")
+    raise HTTPException(400, "Invalid signature")
 
 
 @router.post("/webhook")
@@ -465,21 +510,15 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
     body = await request.body()
 
-    try:
-        event = stripe.Webhook.construct_event(body, stripe_signature, STRIPE_WEBHOOK_SECRET)
-    except stripe.SignatureVerificationError:
-        log.warning("Stripe webhook signature verification failed")
-        raise HTTPException(400, "Invalid signature")
-    except Exception:
-        raise HTTPException(400, "Invalid webhook payload")
+    event, legacy = _verified_event(body, stripe_signature)
 
     event_id = event["id"]
     with db() as conn:
         if conn.execute("SELECT 1 FROM stripe_events WHERE id=?", (event_id,)).fetchone():
             return {"received": True, "duplicate": True}
-    log.info("Stripe webhook: %s", event["type"])
+    log.info("Stripe webhook: %s%s", event["type"], " (legacy account)" if legacy else "")
     try:
-        await asyncio.to_thread(handle_event, event)
+        await asyncio.to_thread(handle_event, event, legacy)
     except Exception:
         log.exception("Stripe webhook %s (%s) failed; Stripe will retry", event_id, event["type"])
         raise HTTPException(500, "Webhook handling failed")

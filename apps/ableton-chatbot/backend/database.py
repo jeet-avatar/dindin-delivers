@@ -81,6 +81,7 @@ USER_PLAN_COLUMNS = {
     "current_period_end": "TEXT",
     "past_due_since": "TEXT",
     "cancel_at": "TEXT",  # When a pending cancellation ends the plan; NULL when it renews.
+    "stripe_account": "TEXT",  # "primary" when stripe_customer_id is on the primary Stripe account; NULL = legacy.
 }
 
 
