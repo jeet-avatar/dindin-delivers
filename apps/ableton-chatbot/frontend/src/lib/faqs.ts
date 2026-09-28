@@ -56,7 +56,7 @@ export const BEATMIND_FAQS: Faq[] = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Cancel from your dashboard with one click. No questions, no lock-in.",
+    a: "Yes. Go to Dashboard → Billing → Cancel subscription. Your access continues until the end of the period you've paid for, and you won't be charged again.",
   },
 ];
 
@@ -83,6 +83,6 @@ export const MIXMIND_FAQS: Faq[] = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Cancel from your account with one click. No questions, no lock-in.",
+    a: "Yes. Go to Dashboard → Billing → Cancel subscription. Your access continues until the end of the period you've paid for, and you won't be charged again.",
   },
 ];
