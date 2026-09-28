@@ -100,3 +100,19 @@ class ListeningTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(caught.exception.status_code, 503)
                 self.assertIn(phrase, caught.exception.detail)
                 self.assertNotIn('fixture-private-value', caught.exception.detail)
+
+
+class TwentyFourBitExcerptTests(unittest.TestCase):
+    def test_24_bit_mix_yields_a_16_bit_excerpt_the_listener_accepts(self):
+        import tempfile, numpy as np, soundfile as sf
+        from pathlib import Path
+        import audio_listener
+        with tempfile.TemporaryDirectory() as folder:
+            mix = Path(folder) / 'mix.wav'
+            t = np.arange(44100 * 12) / 44100
+            sf.write(mix, np.stack([0.5 * np.sin(2 * np.pi * 110 * t)] * 2, axis=1), 44100, subtype='PCM_24')
+            request = audio_listener.ListeningRequest(consent=True, intent='Check the groove', start_seconds=2, duration_seconds=6)
+            encoded, seconds = audio_listener.excerpt(mix, request)
+            self.assertAlmostEqual(seconds, 6, places=3)
+            evidence = audio_listener.energy_evidence(encoded)
+            self.assertAlmostEqual(evidence['start_rms_dbfs'], -9.03, delta=0.1)

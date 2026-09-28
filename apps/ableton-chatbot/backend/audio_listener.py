@@ -72,18 +72,18 @@ def api_key():
 
 
 def excerpt(path, request):
-    with wave.open(str(path), 'rb') as source:
-        rate = source.getframerate()
-        start = round(request.start_seconds * rate)
-        remaining = source.getnframes() - start
-        if remaining < 5 * rate:
-            raise HTTPException(422, 'Select an excerpt with at least five seconds remaining.')
-        count = min(round(request.duration_seconds * rate), remaining)
-        source.setpos(start)
-        buffer = io.BytesIO()
-        with wave.open(buffer, 'wb') as target:
-            target.setparams(source.getparams())
-            target.writeframes(source.readframes(count))
+    """A 16-bit WAV excerpt for the audio model, whatever the stored mix's bit depth (mixes are 24-bit)."""
+    import soundfile as sf
+    info = sf.info(str(path))
+    rate = info.samplerate
+    start = round(request.start_seconds * rate)
+    remaining = info.frames - start
+    if remaining < 5 * rate:
+        raise HTTPException(422, 'Select an excerpt with at least five seconds remaining.')
+    count = min(round(request.duration_seconds * rate), remaining)
+    audio, _ = sf.read(str(path), start=start, frames=count, dtype='float32', always_2d=True)
+    buffer = io.BytesIO()
+    sf.write(buffer, audio, rate, format='WAV', subtype='PCM_16')
     return base64.b64encode(buffer.getvalue()).decode('ascii'), count / rate
 
 
