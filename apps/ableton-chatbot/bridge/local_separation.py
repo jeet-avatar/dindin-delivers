@@ -82,10 +82,13 @@ def download_drum_model():
 
 
 async def choose_file():
-    script = ('POSIX path of (choose file with prompt "Choose a reference track for BeatMind. '
-              'It stays on this computer." of type {"public.audio"})')
+    # Finder hosts the dialog: macOS lets it come to the front even while the browser has focus,
+    # whereas a dialog owned by a background process can open hidden behind the browser.
+    lines = ['tell application "Finder"', 'activate',
+             'set chosen to POSIX path of (choose file with prompt "Choose a reference track for BeatMind. '
+             'It stays on this computer." of type {"public.audio"})', 'end tell', 'return chosen']
     process = await asyncio.create_subprocess_exec(
-        '/usr/bin/osascript', '-e', 'activate', '-e', script,
+        '/usr/bin/osascript', *[arg for line in lines for arg in ('-e', line)],
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     out, _ = await process.communicate()
     # A cancelled dialog exits non-zero; that is a normal choice, not an error.
