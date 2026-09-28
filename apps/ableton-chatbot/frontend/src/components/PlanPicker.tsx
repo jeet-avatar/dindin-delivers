@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BEATMIND_PLANS, MIXMIND_PLANS, fetchPlans, formatPrice, previewPromo, renewalTerms, startCheckout,
-  type Catalog, type Interval, type PlanId, type PlanOption, type PromoPreview,
+  planIntentNote, type Catalog, type Interval, type PlanId, type PlanIntent, type PlanOption, type PromoPreview,
 } from "@/lib/billing";
 
 type Props = {
@@ -12,6 +12,8 @@ type Props = {
   reason?: string;
   /** The user is on the free trial: subscribing ends it and starts the plan today. */
   inTrial?: boolean;
+  /** A plan picked on the public site: preselects its interval and highlights its card. Never starts checkout. */
+  intent?: PlanIntent | null;
 };
 
 function features(option: PlanOption): string[] {
@@ -24,14 +26,27 @@ function features(option: PlanOption): string[] {
   return list;
 }
 
-type CardProps = { option: PlanOption; busy: boolean; promo?: PromoPreview["plans"][PlanId]; onChoose: (plan: PlanId) => void };
+type CardProps = {
+  option: PlanOption; busy: boolean; promo?: PromoPreview["plans"][PlanId]; onChoose: (plan: PlanId) => void; picked?: boolean;
+};
 
-function PlanCard({ option, busy, promo, onChoose }: CardProps) {
+function PlanCard({ option, busy, promo, onChoose, picked = false }: CardProps) {
   const perMonth = option.interval === "year" ? ` (${formatPrice(Math.round(option.amount / 12), option.currency)}/mo)` : "";
-  return <div className="flex flex-col rounded-2xl border p-5" style={{ background: "var(--bg-primary)", borderColor: option.plan === "pro" ? "var(--accent)" : "var(--border)" }}>
+  const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (picked) cardRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [picked]);
+  let badge: string | null = null;
+  if (picked) badge = "Your pick";
+  else if (option.plan === "pro") badge = "Most popular";
+  return <div ref={cardRef} data-picked={picked || undefined} className="flex flex-col rounded-2xl border p-5"
+    style={{
+      background: "var(--bg-primary)", borderColor: picked || option.plan === "pro" ? "var(--accent)" : "var(--border)",
+      boxShadow: picked ? "0 0 0 2px var(--accent)" : undefined,
+    }}>
     <div className="flex items-baseline justify-between gap-2">
       <h3 className="font-semibold">{option.name}</h3>
-      {option.plan === "pro" && <span className="text-xs font-semibold" style={{ color: "var(--accent)" }}>Most popular</span>}
+      {badge && <span className="text-xs font-semibold" style={{ color: "var(--accent)" }}>{badge}</span>}
     </div>
     <p className="mt-2 text-2xl font-bold">{formatPrice(option.amount, option.currency)}
       <span className="text-sm font-normal" style={{ color: "var(--text-secondary)" }}> / {option.interval}{perMonth}</span></p>
@@ -53,9 +68,9 @@ function PlanCard({ option, busy, promo, onChoose }: CardProps) {
 }
 
 // Plan picker with a monthly/yearly toggle. MixMind plans show as "Coming soon" while their sales are closed.
-export default function PlanPicker({ onClose, reason, inTrial }: Props) {
+export default function PlanPicker({ onClose, reason, inTrial, intent = null }: Props) {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
-  const [interval, setIntervalChoice] = useState<Interval>("month");
+  const [interval, setIntervalChoice] = useState<Interval>(intent?.interval ?? "month");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [promoCode, setPromoCode] = useState("");
@@ -109,6 +124,7 @@ export default function PlanPicker({ onClose, reason, inTrial }: Props) {
         <div>
           <h2 id="plan-picker-title" className="text-xl font-bold">Choose your plan</h2>
           {reason && <p role="status" className="mt-1 text-sm text-amber-200">{reason}</p>}
+          {intent && <p className="mt-1 text-sm" style={{ color: "var(--text-primary)" }}>{planIntentNote(intent)}</p>}
           {inTrial && <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>Subscribing ends your free trial and starts your plan today with its full allowance.</p>}
         </div>
         <button type="button" onClick={onClose} aria-label="Close plans" className="rounded px-2 text-lg" style={{ color: "var(--text-secondary)" }}>×</button>
@@ -136,13 +152,15 @@ export default function PlanPicker({ onClose, reason, inTrial }: Props) {
       {!catalog && !error && <p role="status" className="mt-6 text-sm" style={{ color: "var(--text-secondary)" }}>Loading plans...</p>}
       {catalog && beatmind.length === 0 && <p role="status" className="mt-6 text-sm text-amber-200">Plans are unavailable right now. Please try again shortly.</p>}
       {beatmind.length > 0 && <div className="mt-5 grid gap-4 md:grid-cols-3">
-        {beatmind.map(option => <PlanCard key={option.plan} option={option} busy={busy} promo={promo?.plans[option.plan]} onChoose={choose} />)}
+        {beatmind.map(option => <PlanCard key={option.plan} option={option} busy={busy} promo={promo?.plans[option.plan]} onChoose={choose}
+          picked={intent?.plan === option.plan} />)}
       </div>}
 
       {mixmind.length > 0 && <>
         <h3 className="mt-7 text-sm font-semibold">MixMind{mixmind.every(p => !p.available) && " · coming soon"}</h3>
         <div className="mt-3 grid gap-4 md:grid-cols-3">
-          {mixmind.map(option => <PlanCard key={option.plan} option={option} busy={busy} promo={promo?.plans[option.plan]} onChoose={choose} />)}
+          {mixmind.map(option => <PlanCard key={option.plan} option={option} busy={busy} promo={promo?.plans[option.plan]} onChoose={choose}
+            picked={intent?.plan === option.plan} />)}
         </div>
       </>}
 

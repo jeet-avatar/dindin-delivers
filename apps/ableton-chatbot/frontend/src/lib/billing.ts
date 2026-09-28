@@ -89,6 +89,38 @@ export function hasPaidPlan(plan: PlanState | null | undefined): boolean {
   return plan?.source === "subscription" || plan?.source === "legacy";
 }
 
+/** A plan chosen on the public site, carried through signup/login to the dashboard plan picker. */
+export interface PlanIntent { plan: PlanId; interval: Interval }
+
+const PLAN_INTENT_PARAMS = ["plan", "interval", "upgrade"];
+
+/** Reads ?plan=<id>&interval=<month|year> (or the older ?upgrade=<id>). Unknown plan ids are ignored. */
+export function parsePlanIntent(search: string): PlanIntent | null {
+  const params = new URLSearchParams(search);
+  const plan = params.get("plan") ?? params.get("upgrade");
+  const known: string[] = [...BEATMIND_PLANS, ...MIXMIND_PLANS];
+  if (!plan || !known.includes(plan)) return null;
+  return { plan: plan as PlanId, interval: params.get("interval") === "year" ? "year" : "month" };
+}
+
+/** "?plan=<id>&interval=<i>" for a valid intent, or "" so links stay clean. */
+export function planIntentQuery(intent: PlanIntent | null): string {
+  return intent ? `?plan=${intent.plan}&interval=${intent.interval}` : "";
+}
+
+/** The search string with the plan-intent params removed, so a refresh doesn't reopen the picker. */
+export function withoutPlanIntent(search: string): string {
+  const params = new URLSearchParams(search);
+  PLAN_INTENT_PARAMS.forEach(name => params.delete(name));
+  const rest = params.toString();
+  return rest ? `?${rest}` : "";
+}
+
+export function planIntentNote(intent: PlanIntent): string {
+  return `You picked ${PLAN_NAMES[intent.plan]}. BeatMind plans include the 7-day free trial first — start the plan any time; `
+    + "MixMind plans need a paid plan to unlock the app.";
+}
+
 export function formatPrice(amount: number, currency: string): string {
   const whole = amount % 100 === 0;
   return new Intl.NumberFormat(undefined, {

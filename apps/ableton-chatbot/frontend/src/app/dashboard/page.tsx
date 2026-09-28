@@ -23,7 +23,10 @@ import { useBridgeStatus } from "@/lib/use-bridge-status";
 import { bridgeStatusLabel } from "@/lib/bridge-status";
 import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/chat-index";
 import { acceptedSound, type MusicChoice } from "@/lib/music-workflow";
-import { daysLeft, hasMixMindAccess, hasPaidPlan, openBillingPortal, planName, useUsage } from "@/lib/billing";
+import {
+  daysLeft, hasMixMindAccess, hasPaidPlan, openBillingPortal, parsePlanIntent, planIntentQuery, planName, useUsage, withoutPlanIntent,
+  type PlanIntent,
+} from "@/lib/billing";
 
 // ─── Inline icons (avoids prop-type conflicts with existing Icons.tsx) ────────
 function HomeIcon({ size = 20 }: { size?: number }) {
@@ -167,6 +170,7 @@ export default function DashboardPage() {
   const [serverChats, setServerChats] = useState<ChatEntry[]>([]);
   const [authStatus, setAuthStatus] = useState("Checking sign-in");
   const [planReason, setPlanReason] = useState<string | null>(null);
+  const [planIntent, setPlanIntent] = useState<PlanIntent | null>(null);
   const { usage, reload: reloadUsage } = useUsage(user?.id);
 
   // Back from Stripe Checkout: the webhook can land a few seconds after the redirect.
@@ -196,15 +200,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const u = getUser();
-    if (!u || !getToken()) { router.replace("/login"); return; }
+    // Keep a plan picked on the public site through a sign-in redirect.
+    const loginHref = `/login${planIntentQuery(parsePlanIntent(window.location.search))}`;
+    if (!u || !getToken()) { router.replace(loginHref); return; }
     setUser(u);
     let active = true;
     apiFetch("/api/auth/me").then(async response => {
       if (!active) return;
-      if (response.status === 401) { clearAuth(); router.replace("/login"); return; }
+      if (response.status === 401) { clearAuth(); router.replace(loginHref); return; }
       if (!response.ok) throw new Error("Sign-in check unavailable");
       const verified = await response.json();
-      if (verified.id !== u.id) { clearAuth(); router.replace("/login"); return; }
+      if (verified.id !== u.id) { clearAuth(); router.replace(loginHref); return; }
       if (active) { setUser(verified); setAuthStatus("Signed in"); }
     }).catch(() => { if (active) setAuthStatus("Sign-in check unavailable"); });
     let restoreProject: string | null = null;
@@ -236,6 +242,17 @@ export default function DashboardPage() {
     } else setHistoryReady(true);
     return () => { active = false; restoreController.abort(); };
   }, [router]);
+
+  // A plan picked on the public site (?plan=&interval=, or the older ?upgrade=): open the picker on it once.
+  // Checkout still needs the user's click; BeatMind plans keep the free trial until then.
+  useEffect(() => {
+    if (!getToken()) return;
+    const intent = parsePlanIntent(window.location.search);
+    if (!intent) return;
+    window.history.replaceState(null, "", `${window.location.pathname}${withoutPlanIntent(window.location.search)}${window.location.hash}`);
+    setPlanIntent(intent);
+    setPlanReason("");
+  }, []);
 
   useEffect(() => {
     if (!historyReady || !user || !chatId) return;
@@ -948,7 +965,8 @@ export default function DashboardPage() {
     <div className="flex h-dvh overflow-hidden" style={{ background: "var(--bg-primary)" }}>
       {songSetup !== null && sessionId && <NewSongDialog sessionId={sessionId} onCancel={() => setSongSetup(null)}
         onReady={updated => { setProject(updated); setSongSetup(null); }} />}
-      {planReason !== null && <PlanPicker reason={planReason || undefined} inTrial={trialActive} onClose={() => setPlanReason(null)} />}
+      {planReason !== null && <PlanPicker reason={planReason || undefined} inTrial={trialActive} intent={planIntent}
+        onClose={() => { setPlanReason(null); setPlanIntent(null); }} />}
 
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside className="flex flex-col w-14 sm:w-60 flex-shrink-0 border-r" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
