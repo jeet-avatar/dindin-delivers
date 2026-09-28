@@ -21,7 +21,9 @@ def model_name():
 
 def create_client():
     if provider_name() == "bedrock":
-        return anthropic.AsyncAnthropicBedrock(aws_region=os.getenv("AWS_REGION", "us-east-1"))
+        # Bedrock returns transient 503s under load; the SDK retries them with exponential backoff.
+        return anthropic.AsyncAnthropicBedrock(aws_region=os.getenv("AWS_REGION", "us-east-1"),
+                                               max_retries=int(os.getenv("BEATMIND_AI_MAX_RETRIES", "6")))
     key = os.getenv("ANTHROPIC_API_KEY")
     return anthropic.AsyncAnthropic(api_key=key) if key else None
 

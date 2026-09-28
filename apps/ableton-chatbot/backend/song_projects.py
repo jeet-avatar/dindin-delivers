@@ -31,7 +31,8 @@ def planning_reason(project, reference_id, user_id):
         data = references.public(directory, item)
         if data['status'] != 'ready':
             return 'The reference is not ready. Check Reference review before continuing.'
-        if not (data.get('listening') or {}).get('coverage', {}).get('full_coverage'):
+        # Local references keep their audio on the user's computer, so AI listening is not available for them.
+        if data.get('storage') != 'local' and not (data.get('listening') or {}).get('coverage', {}).get('full_coverage'):
             return 'Ask the user to consent to AI listening in Reference review. Do not claim to have heard the whole track.'
         if (data.get('stem_review') or {}).get('status') != 'accepted':
             return 'Listening notes are available. Ask one question about what the user likes: groove, bass, atmosphere or structure. Estimated stems still need user review in Reference review.'

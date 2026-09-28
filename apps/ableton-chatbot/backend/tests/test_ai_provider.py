@@ -18,7 +18,7 @@ class ProviderTests(unittest.TestCase):
     def test_explicit_bedrock_uses_aws_client_and_profile(self):
         with patch("ai_provider.anthropic.AsyncAnthropicBedrock") as client:
             self.assertIs(create_client(), client.return_value)
-            client.assert_called_once_with(aws_region="us-east-1")
+            client.assert_called_once_with(aws_region="us-east-1", max_retries=6)
         self.assertEqual(model_name(), "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 
     @patch.dict(os.environ, {"BEATMIND_AI_PROVIDER": "unknown"}, clear=True)
@@ -41,3 +41,12 @@ class ProviderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BedrockRetryTests(unittest.TestCase):
+    def test_bedrock_client_retries_transient_errors(self):
+        import os
+        from unittest.mock import patch
+        import ai_provider
+        with patch.dict(os.environ, {"BEATMIND_AI_PROVIDER": "bedrock"}):
+            self.assertEqual(ai_provider.create_client().max_retries, 6)

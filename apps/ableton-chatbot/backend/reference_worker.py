@@ -34,6 +34,31 @@ def write_json(path, data):
     temporary.replace(path)
 
 
+def refine_tempo(y, sr, bpm):
+    """Refine a frame-quantized beat-tracker tempo (e.g. 129.2 for a 128 BPM track) to 0.01 BPM.
+
+    Autocorrelates a fine-hop onset envelope at 32 beat multiples within 4% of the estimate.
+    """
+    import librosa
+    import numpy as np
+    if not bpm or bpm <= 0:
+        return bpm
+    hop = 64
+    envelope = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop)
+    envelope = envelope - envelope.mean()
+    correlation = np.correlate(envelope, envelope, 'full')[len(envelope) - 1:]
+    lags = np.arange(len(correlation)) * hop / sr
+    best, best_score = bpm, -np.inf
+    for candidate in np.arange(bpm * 0.96, bpm * 1.04, 0.01):
+        beats = np.arange(1, 33) * 60 / candidate
+        if beats[-1] >= lags[-1]:
+            continue
+        score = float(np.interp(beats, lags, correlation).sum())
+        if score > best_score:
+            best, best_score = float(candidate), score
+    return best
+
+
 def has_tonal_evidence(stems):
     energy = {s['name']: 10 ** (s['rms_dbfs'] / 10) for s in stems}
     harmonic = sum(energy.get(name, 0) for name in ('bass', 'vocals', 'other'))
@@ -136,7 +161,7 @@ def analyze(directory, measure_only=False):
         raise ValueError('The reference has no usable signal.')
     onset = librosa.onset.onset_strength(y=y, sr=sr)
     tempo, beats = librosa.beat.beat_track(onset_envelope=onset, sr=sr)
-    bpm = float(np.asarray(tempo).reshape(-1)[0])
+    bpm = refine_tempo(y, sr, float(np.asarray(tempo).reshape(-1)[0]))
     chroma = librosa.feature.chroma_stft(y=y, sr=sr).mean(axis=1)
     profiles = {
         'major': np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]),
