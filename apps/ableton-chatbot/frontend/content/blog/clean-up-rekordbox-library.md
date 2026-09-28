@@ -103,7 +103,7 @@ When your playlists are ready, exporting them to USB has its own set of pitfalls
 
 ## Try MixMind on your own library
 
-MixMind reads your Rekordbox 6 or 7 collection, shows every track in one fast table, surfaces duplicates and builds AI playlists from tracks you own, on Mac and Windows. MixMind is in early access, included with the BeatMind Studio plan; standalone MixMind at $12/month is coming soon. [See MixMind](/mixmind).
+MixMind reads your Rekordbox 6 or 7 collection, shows every track in one fast table, surfaces duplicates and builds AI playlists from tracks you own, on Mac (Apple silicon; Windows coming soon). MixMind is in early access, included with the BeatMind Studio plan; standalone MixMind at $12/month is coming soon. [See MixMind](/mixmind).
 
 ## FAQ
 

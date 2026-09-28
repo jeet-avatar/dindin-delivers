@@ -122,7 +122,7 @@ The exact numbers matter less than the shape: gradual tempo change, keys that wa
 
 ## Try MixMind on your own crate
 
-MixMind reads your Rekordbox library, finds duplicates and builds AI playlists from music you already own, on Mac and Windows. MixMind is in early access, included with the BeatMind Studio plan; standalone MixMind at $12/month is coming soon. [See MixMind](/mixmind).
+MixMind reads your Rekordbox library, finds duplicates and builds AI playlists from music you already own, on Mac (Apple silicon; Windows coming soon). MixMind is in early access, included with the BeatMind Studio plan; standalone MixMind at $12/month is coming soon. [See MixMind](/mixmind).
 
 ## FAQ
 
