@@ -52,4 +52,25 @@ const cancelled = renderToStaticMarkup(React.createElement(SubscriptionControls,
 assert.match(cancelled, /Cancelled — your plan ends on .*You won&#x27;t be charged again/);
 assert.match(cancelled, />Resume subscription</);
 assert.doesNotMatch(cancelled, />Cancel subscription</);
+// Plan intent from the public site: ?plan=<id>&interval=<i>, or the older ?upgrade=<id>. Unknown ids are ignored.
+assert.deepEqual(billing.parsePlanIntent('?plan=pro_mixmind&interval=year'), { plan: 'pro_mixmind', interval: 'year' });
+assert.deepEqual(billing.parsePlanIntent('?plan=starter'), { plan: 'starter', interval: 'month' });
+assert.deepEqual(billing.parsePlanIntent('?plan=mixmind&interval=weekly'), { plan: 'mixmind', interval: 'month' });
+assert.deepEqual(billing.parsePlanIntent('?upgrade=mixmind'), { plan: 'mixmind', interval: 'month' });
+assert.deepEqual(billing.parsePlanIntent('?upgrade=studio'), { plan: 'studio', interval: 'month' });
+for (const search of ['', '?plan=enterprise', '?plan=trial', '?upgrade=', '?interval=year', '?plan=STUDIO'])
+  assert.equal(billing.parsePlanIntent(search), null, search);
+assert.equal(billing.planIntentQuery({ plan: 'starter_mixmind', interval: 'year' }), '?plan=starter_mixmind&interval=year');
+assert.equal(billing.planIntentQuery(null), '');
+assert.equal(billing.withoutPlanIntent('?plan=pro&interval=year&subscribed=1'), '?subscribed=1');
+assert.equal(billing.withoutPlanIntent('?upgrade=mixmind'), '');
+assert.match(billing.planIntentNote({ plan: 'pro_mixmind', interval: 'month' }), /^You picked Pro \+ MixMind\. BeatMind plans include the 7-day free trial first/);
+// The ids the public pricing page links to are exactly the ids the dashboard accepts.
+const pricing = require('../src/lib/pricing.ts');
+assert.deepEqual([...pricing.PLANS.map(p => p.id), pricing.MIXMIND_PRICE.id, ...pricing.MIXMIND_COMBOS.map(c => c.id)].sort(),
+  [...billing.BEATMIND_PLANS, ...billing.MIXMIND_PLANS].sort());
+const picked = renderToStaticMarkup(React.createElement(PlanPicker, { onClose() {}, intent: { plan: 'mixmind', interval: 'year' } }));
+assert.match(picked, /You picked MixMind\./);
+assert.match(picked, /aria-checked="true"[^>]*>Yearly/);
+
 console.log('billing helpers ok');

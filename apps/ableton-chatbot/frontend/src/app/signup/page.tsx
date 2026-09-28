@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveAuth, API_URL } from "@/lib/auth";
+import { parsePlanIntent, planIntentQuery } from "@/lib/billing";
 import { EyeIcon, EyeOffIcon } from "@/components/Icons";
 
 export default function SignupPage() {
@@ -12,6 +13,9 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // A plan picked on the public site (?plan=&interval=) is carried to the dashboard plan picker.
+  const [planQuery, setPlanQuery] = useState("");
+  useEffect(() => { setPlanQuery(planIntentQuery(parsePlanIntent(window.location.search))); }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +31,7 @@ export default function SignupPage() {
       if (!res.ok) throw new Error(data.detail || "Registration failed");
       saveAuth(data.token, data.user);
       // The free trial needs no card: go straight to the app. Plans are chosen from the dashboard.
-      router.push("/dashboard");
+      router.push(`/dashboard${planQuery}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -129,7 +133,7 @@ export default function SignupPage() {
 
         <p className="text-center text-sm mt-6" style={{ color: "var(--text-secondary)" }}>
           Already have an account?{" "}
-          <Link href="/login" className="font-medium" style={{ color: "var(--accent)" }}>Sign in</Link>
+          <Link href={`/login${planQuery}`} className="font-medium" style={{ color: "var(--accent)" }}>Sign in</Link>
         </p>
 
         <p className="text-xs text-center mt-4" style={{ color: "var(--text-secondary)" }}>
