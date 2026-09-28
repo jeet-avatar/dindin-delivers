@@ -15,6 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: absoluteUrl("/"), lastModified: buildDate, changeFrequency: "weekly", priority: 1 },
     { url: absoluteUrl("/mixmind"), lastModified: buildDate, changeFrequency: "weekly", priority: 0.9 },
+    { url: absoluteUrl("/guide"), lastModified: buildDate, changeFrequency: "monthly", priority: 0.8 },
     { url: absoluteUrl("/blog"), lastModified: latestPost ?? buildDate, changeFrequency: "weekly", priority: 0.8 },
     ...posts.map((post) => ({
       url: absoluteUrl(`/blog/${post.slug}`),

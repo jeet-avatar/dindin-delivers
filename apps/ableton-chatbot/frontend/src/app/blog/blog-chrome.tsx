@@ -12,6 +12,7 @@ export function BlogNav() {
       <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: "var(--text-secondary)" }}>
         <Link href="/" className="hover:text-white transition-colors duration-150">BeatMind</Link>
         <Link href="/mixmind" className="hover:text-white transition-colors duration-150">MixMind</Link>
+        <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
         <Link href="/blog" className="hover:text-white transition-colors duration-150" style={{ color: "var(--text-primary)" }}>Blog</Link>
       </div>
       <div className="flex items-center gap-3">
@@ -40,6 +41,7 @@ export function BlogFooter() {
         <nav aria-label="Footer links">
           <div className="flex items-center gap-6 text-xs" style={{ color: "var(--text-secondary)" }}>
             <Link href="/mixmind" className="hover:text-white transition-colors duration-150">MixMind</Link>
+            <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
             <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
             <Link href="/privacy" className="hover:text-white transition-colors duration-150">Privacy</Link>
             <Link href="/terms" className="hover:text-white transition-colors duration-150">Terms</Link>

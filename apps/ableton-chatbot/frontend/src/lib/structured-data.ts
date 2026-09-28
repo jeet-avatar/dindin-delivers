@@ -225,3 +225,32 @@ export function breadcrumbSchema(items: { name: string; path: string }[]): JsonL
     })),
   };
 }
+
+export function howToSchema(options: {
+  name: string;
+  description: string;
+  path: string;
+  steps: { id: string; name: string; text: string }[];
+  supply?: string[];
+  tool?: string[];
+}): JsonLdObject {
+  const url = absoluteUrl(options.path);
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: options.name,
+    description: options.description,
+    url,
+    inLanguage: "en-US",
+    publisher: ORGANIZATION_REF,
+    ...(options.supply ? { supply: options.supply.map((name) => ({ "@type": "HowToSupply", name })) } : {}),
+    ...(options.tool ? { tool: options.tool.map((name) => ({ "@type": "HowToTool", name })) } : {}),
+    step: options.steps.map((step, index) => ({
+      "@type": "HowToStep",
+      position: index + 1,
+      name: step.name,
+      text: step.text,
+      url: `${url}#${step.id}`,
+    })),
+  };
+}

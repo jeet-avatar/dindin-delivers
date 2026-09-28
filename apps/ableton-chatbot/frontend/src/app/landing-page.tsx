@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Showcase } from "@/components/Showcase";
 import { SocialLinks } from "@/components/SocialLinks";
 import { useState } from "react";
 import { BoltIcon, SlidersIcon, SparklesIcon, RefreshIcon, CheckIcon } from "@/components/Icons";
@@ -93,6 +94,7 @@ export default function LandingPage() {
           <a href="#features" className="hover:text-white transition-colors duration-150">Features</a>
           <a href="#how" className="hover:text-white transition-colors duration-150">How it works</a>
           <a href="#pricing" className="hover:text-white transition-colors duration-150">Pricing</a>
+          <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
           <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
           <Link href="/mixmind" className="hover:text-white transition-colors duration-150" style={{ color: "var(--accent)" }}>MixMind ↗</Link>
         </div>
@@ -206,8 +208,15 @@ export default function LandingPage() {
                 </li>
               ))}
             </ol>
+            <p className="text-center text-sm mt-12">
+              <Link href="/guide" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
+                New to BeatMind? Read the 5-minute guide &rarr;
+              </Link>
+            </p>
           </div>
         </section>
+
+        <Showcase product="beatmind" />
 
         {/* Pricing */}
         <section id="pricing" className="max-w-6xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
@@ -403,6 +412,11 @@ export default function LandingPage() {
           <Link href="/signup" className="inline-block px-10 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
             Get started free &rarr;
           </Link>
+          <p className="text-sm mt-6">
+            <Link href="/guide" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
+              New to BeatMind? Read the 5-minute guide &rarr;
+            </Link>
+          </p>
         </section>
       </main>
 
@@ -419,6 +433,7 @@ export default function LandingPage() {
             </div>
             <nav aria-label="Footer links">
               <div className="flex items-center gap-6 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
                 <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
                 <Link href="/privacy" className="hover:text-white transition-colors duration-150">Privacy</Link>
                 <Link href="/terms" className="hover:text-white transition-colors duration-150">Terms</Link>

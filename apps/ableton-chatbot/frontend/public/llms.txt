@@ -37,6 +37,10 @@ Paid plans: cancel anytime. Annual billing = 2 months free. Switch plans anytime
 - BeatMind Studio ($79/month or $790/year) also includes MixMind.
 - MixMind pricing details: https://www.beatmind.io/mixmind#pricing
 
+## Guide
+
+- [How to use BeatMind & MixMind](https://www.beatmind.io/guide): quick-start guide. BeatMind: requirements, install BeatMind Bridge, enable AbletonOSC as a Control Surface (Settings/Preferences, Link/Tempo/MIDI), sign in to the Bridge, first prompt, review each captured audition, then arrange Session scenes yourself; example prompts, tips, reference tracks and stems, current limits and troubleshooting. MixMind: sign in with the BeatMind account, duplicates, AI playlists, Set Builder, adding a set to Rekordbox (Rekordbox closed; library backed up first) and USB.
+
 ## Blog
 
 - [Blog index](https://www.beatmind.io/blog): guides on AI music production in Ableton Live and Rekordbox library management.

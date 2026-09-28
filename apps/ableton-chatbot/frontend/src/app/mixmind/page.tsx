@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Showcase } from "@/components/Showcase";
 import { SocialLinks } from "@/components/SocialLinks";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -172,6 +173,7 @@ export default function MixMindPage() {
           <a href="#features" className="hover:text-white transition-colors duration-150">Features</a>
           <a href="#how" className="hover:text-white transition-colors duration-150">How it works</a>
           <a href="#pricing" className="hover:text-white transition-colors duration-150">Pricing</a>
+          <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
           <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
           <Link href="/" className="hover:text-white transition-colors duration-150">BeatMind ↗</Link>
         </div>
@@ -328,8 +330,15 @@ export default function MixMindPage() {
                 </li>
               ))}
             </ol>
+            <p className="text-center text-sm mt-12">
+              <Link href="/guide#mixmind" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
+                Step-by-step MixMind guide &rarr;
+              </Link>
+            </p>
           </div>
         </section>
+
+        <Showcase product="mixmind" />
 
         {/* Pricing */}
         <section id="pricing" className="max-w-6xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
@@ -503,6 +512,7 @@ export default function MixMindPage() {
             </div>
             <nav aria-label="Footer links">
               <div className="flex items-center gap-6 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
                 <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
                 <Link href="/privacy" className="hover:text-white transition-colors duration-150">Privacy</Link>
                 <Link href="/terms" className="hover:text-white transition-colors duration-150">Terms</Link>
