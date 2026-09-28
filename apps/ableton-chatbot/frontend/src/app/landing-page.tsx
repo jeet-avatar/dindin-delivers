@@ -12,7 +12,7 @@ import {
   FOUNDING_DISCOUNT_PERCENT,
   FOUNDING_SEATS,
   LOWEST_MONTHLY_USD,
-  MIXMIND_COMBOS,
+  MIXMIND_COMBO_FROM_MONTHLY,
   MIXMIND_PRICE,
   PACK_TERMS,
   PLANS,
@@ -21,7 +21,6 @@ import {
   type BillingInterval,
   type Pack,
   formatUsd,
-  planById,
   signupHref,
 } from "@/lib/pricing";
 import { TRIAL_DETAILS, TRIAL_SHORT, TRIAL_TERMS } from "@/lib/site";
@@ -71,8 +70,6 @@ function packList(packs: Pack[]): string {
   return packs.map((pack) => `${pack.quantity} for ${formatUsd(pack.price)}`).join(" · ");
 }
 
-const STUDIO_MONTHLY = planById("studio").monthly;
-const COMBO_FROM_MONTHLY = Math.min(...MIXMIND_COMBOS.map((combo) => combo.monthly));
 
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -314,11 +311,13 @@ export default function LandingPage() {
             <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>{PACK_TERMS}</p>
           </div>
 
-          {/* MixMind coming soon */}
+          {/* MixMind for DJs */}
           <div className="mt-6 p-5 rounded-xl border text-sm text-left" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
-            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>MixMind: </span>
-            included in Studio as early access today. Standalone MixMind ({formatUsd(MIXMIND_PRICE.monthly)}/month) and BeatMind + MixMind combos (from {formatUsd(COMBO_FROM_MONTHLY)}/month) are{" "}
-            <span className="font-semibold" style={{ color: "var(--accent)" }}>coming soon</span>.{" "}
+            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>MixMind for DJs: </span>
+            {formatUsd(MIXMIND_PRICE.monthly)}/month, or save with BeatMind + MixMind from {formatUsd(MIXMIND_COMBO_FROM_MONTHLY)}/month. Studio includes MixMind.{" "}
+            <Link href="/mixmind#pricing" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
+              MixMind pricing &rarr;
+            </Link>{" "}
             <Link href="/mixmind" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
               About MixMind &rarr;
             </Link>
@@ -383,10 +382,10 @@ export default function LandingPage() {
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 text-lg font-black" style={{ background: "var(--bg-tertiary)", color: "var(--accent)" }}>M</div>
                 <h3 className="text-xl font-semibold mb-2">MixMind</h3>
                 <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
-                  DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, and build AI playlists from music you already own.
+                  DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, and build AI playlists and full sets from music you already own.
                 </p>
                 <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>Desktop app · Mac + Windows · Requires Rekordbox 6 or 7</div>
-                <div className="text-sm font-semibold mb-5">Included in Studio ({formatUsd(STUDIO_MONTHLY)}/mo) today · {formatUsd(MIXMIND_PRICE.monthly)}/mo standalone coming soon</div>
+                <div className="text-sm font-semibold mb-5">{formatUsd(MIXMIND_PRICE.monthly)}/mo · or included in Studio</div>
                 <Link href="/mixmind" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-colors duration-150 border hover:border-white" style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
                   See MixMind →
                 </Link>

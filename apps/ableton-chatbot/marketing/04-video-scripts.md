@@ -7,7 +7,7 @@ Style: **MIX**. Mostly faceless screen recordings of Ableton, BeatMind or MixMin
 2. **No mock UI.** If a feature doesn't work on camera, cut it. Don't fake it.
 3. **Audio = our own.** The music in each video is the loop you just built with BeatMind, or a track you have the rights to. Don't use copyrighted trending audio. On a TikTok Business account you only get the Commercial Music Library anyway (see `01-handles-and-accounts.md`). For MixMind videos that show a DJ library, **mute the track audio** or use your own/licensed tracks. Library *titles* on screen are fine, but blur any you don't want public.
 4. **Captions burned in** (most people watch muted), plus platform auto-captions switched on.
-5. **CTA** is always one of these: "link in bio", "7-day free trial, 3 tracks, no card", or "beatmind.io". Pick one per video. **MixMind videos:** never sell MixMind on its own (standalone isn't purchasable yet). Use "link in bio" or "early access in BeatMind Studio". Don't quote a MixMind price.
+5. **CTA** is always one of these: "link in bio", "7-day free trial, 3 tracks, no card", or "beatmind.io". Pick one per video. **MixMind videos:** use "link in bio" or "MixMind from $12/mo". Never say MixMind has a free trial (the trial is BeatMind only).
 
 Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage · **[V]** = founder voice
 
@@ -114,7 +114,7 @@ Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage ·
 - **Length:** 40 s
 - **Hook:** On-screen: **"Why I built an AI that lives inside Ableton."** VO: "I kept opening Ableton and closing it an hour later with nothing."
 - **Shot list:** b-roll only, no face: late-night desk, hands on keys, the Live Session view, a coffee cup, the Bridge window connecting, a first loop playing, then a DJ USB/decks shot for the MixMind mention.
-- **VO (write it in your own words; this is a starting draft, keep only what's true for you):** "I kept opening Ableton and closing it an hour later with nothing. Not because I didn't have ideas. Getting from idea to first loop just took forever. So I built BeatMind: you describe the sound, and it builds the part in your own Live Set, one piece at a time, and you keep full control. Then I did the same for my DJ library, which became MixMind. BeatMind is live now, and MixMind is in early access with the Studio plan. Free seven-day trial with three tracks, no card. I'm reading every message at support@beatmind.io."
+- **VO (write it in your own words; this is a starting draft, keep only what's true for you):** "I kept opening Ableton and closing it an hour later with nothing. Not because I didn't have ideas. Getting from idea to first loop just took forever. So I built BeatMind: you describe the sound, and it builds the part in your own Live Set, one piece at a time, and you keep full control. Then I did the same for my DJ library, which became MixMind. BeatMind is live now, and so is MixMind, from twelve dollars a month. BeatMind has a free seven-day trial with three tracks, no card. I'm reading every message at support@beatmind.io."
 - **Captions:** key phrases only.
 - **CTA:** "support@beatmind.io, I read every one."
 - **Audio:** a quiet original pad/loop from BeatMind.
@@ -131,7 +131,7 @@ Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage ·
   - 0:22–0:25 Card: "Your Rekordbox files aren't touched. Duplicates are hidden in MixMind."
 - **VO (optional, text-only works too):** "MixMind finds exact and near-duplicate tracks in your Rekordbox library. One click per pair. And it doesn't delete or change your Rekordbox files."
 - **Captions:** "before: [N] duplicates" → "keep · hide · next" → "after: 0" → "Rekordbox files untouched"
-- **CTA:** "MixMind is in early access with BeatMind Studio. Link in bio."
+- **CTA:** "MixMind is $12 a month. Link in bio."
 - **Audio:** original minimal beat from BeatMind + click SFX. **Don't play library tracks.**
 - **Product:** MixMind
 
@@ -198,7 +198,7 @@ Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage ·
 | 4:50–5:50 | Part 3: melody/stab | Script 12 prompt 3 | then **you** take over: play or edit notes by hand |
 | 5:50–6:50 | Reference workflow (optional chapter) | your own reference track → stems → timing → template | stems are estimates; optional AI listening is opt-in and sends audio to OpenAI; the goal is original parts |
 | 6:50–7:30 | Limits (build trust) | text slide | Session view, not Arrangement; supported devices only; Windows bridge without auditions; you finish the song |
-| 7:30–8:00 | Wrap + CTA | end screen | Plans from $19/mo; free 7-day trial with 3 tracks, no card; FOUNDING100 (first 100 annual subscribers, 40% off for life) in the description; blog link; MixMind (early access in Studio) mention for DJs |
+| 7:30–8:00 | Wrap + CTA | end screen | Plans from $19/mo; free 7-day trial with 3 tracks, no card; FOUNDING100 (first 100 annual subscribers, 40% off for life) in the description; blog link; MixMind ($12/mo, or included in Studio) mention for DJs |
 
 **Description template:**
 ```

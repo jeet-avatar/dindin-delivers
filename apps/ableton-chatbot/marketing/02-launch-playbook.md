@@ -3,9 +3,9 @@
 Budget: organic only. Owner: founder. Contact on everything: **support@beatmind.io**.
 
 ## Pricing to quote (live in Stripe; full one-pager in 05)
-- **BeatMind Starter $19/mo** ($190/yr): 10 tracks/month. **Pro $39/mo** ($390/yr, most popular): 30 tracks + 5 cloud HQ separations/month. **Studio $79/mo** ($790/yr): 80 tracks + 20 cloud HQ/month + MixMind early access + priority support. Annual = 2 months free. Cancel anytime.
+- **BeatMind Starter $19/mo** ($190/yr): 10 tracks/month. **Pro $39/mo** ($390/yr, most popular): 30 tracks + 5 cloud HQ separations/month. **Studio $79/mo** ($790/yr): 80 tracks + 20 cloud HQ/month + MixMind + priority support. Annual = 2 months free. Cancel anytime.
 - **Free trial:** 7 days, **no card**, includes **3 tracks** (processed on your own computer) and limited AI (**about 50 messages**). Cloud HQ separations and packs need a paid plan. **Nobody is ever charged unless they choose a plan**; starting a plan during the trial ends the trial and starts the plan immediately. Never say "cancel before the trial ends" (there's nothing to cancel).
-- **MixMind is early access inside Studio.** Standalone MixMind ($12/mo) and combos (Starter + MixMind $25/mo, Pro + MixMind $45/mo) are **coming soon**. Never tell anyone they can buy MixMind on its own yet.
+- **MixMind is on sale.** MixMind **$12/mo** ($120/yr). Combos: **Starter + MixMind $25/mo** ($250/yr) and **Pro + MixMind $45/mo** ($450/yr), each saving $6/mo vs buying separately. Studio ($79/mo) includes MixMind. **The free trial is BeatMind only**: never say MixMind has a free trial.
 - Short form for posts: **"Plans from $19/mo. Free 7-day trial with 3 tracks, no card."**
 
 ## Founding Member offer (launch campaign)
@@ -34,7 +34,7 @@ Rule quotes were read from each sub's sidebar/rules (logged out) on 2026-09-27. 
 **Karma / account age:** none of the seven subs publishes a threshold, but hidden AutoModerator filters are common. **Post from an aged personal account** with disclosure, or build u/beatmindio up with 1–2 weeks of genuinely helpful comments first.
 
 **Modmail template (r/DJs, r/Rekordbox, WATMM exception request):**
-> Hi mods, I'm the founder of MixMind, a paid desktop app (currently in early access with our BeatMind Studio plan; standalone $12/mo coming soon) that reads Rekordbox 6/7 libraries and finds duplicates without modifying Rekordbox files. I'd like to post a genuinely useful duplicate-cleanup checklist and mention the app once, with clear disclosure. Would that be OK? If not, is there a thread where it's allowed? Happy to follow whatever you prefer. Thanks, u/[name]
+> Hi mods, I'm the founder of MixMind, a paid desktop app ($12/mo, or bundled with our BeatMind plans) that reads Rekordbox 6/7 libraries and finds duplicates without modifying Rekordbox files. I'd like to post a genuinely useful duplicate-cleanup checklist and mention the app once, with clear disclosure. Would that be OK? If not, is there a thread where it's allowed? Happy to follow whatever you prefer. Thanks, u/[name]
 
 ### Other communities
 - **KVR Audio:** there are no product-announcement subforums, and Sell & Buy is "NOT product announcements". **The right channel is a free KVR Developer Account (kvraudio.com/devs)**: list BeatMind and MixMind as products, submit news, and post deals. In forums, take part as yourself and disclose.
@@ -140,9 +140,9 @@ Rule quotes were read from each sub's sidebar/rules (logged out) on 2026-09-27. 
 > *If you'd rather not hear from me again, just say so and I won't follow up.*
 
 **MixMind variant:** swap paragraph 2 for:
-> MixMind (by BeatMind) is a desktop app that reads your Rekordbox 6/7 library. It has a fast searchable browser, a duplicate finder (it hides dupes inside MixMind and never touches your Rekordbox files), and an AI playlist builder that only picks tracks you already own. Mac + Windows. It's in early access right now (included with our Studio plan; standalone MixMind is coming soon), so your feedback would shape it.
+> MixMind (by BeatMind) is a desktop app that reads your Rekordbox 6/7 library. It has a fast searchable browser, a duplicate finder (it hides dupes inside MixMind and never touches your Rekordbox files), and an AI playlist builder that only picks tracks you already own. Mac + Windows. It's $12/mo (or bundled with BeatMind from $25/mo), and it's new, so your feedback would shape it.
 
-*(MixMind variant: **CREATOR60 covers Pro, which does not include MixMind** (only Studio does). Don't send CREATOR60 to MixMind-only creators. Hold MixMind creator outreach until a Studio creator code exists in Stripe, and drop the FOUNDING100 paragraph unless they also produce in Ableton.)*
+*(MixMind variant: **CREATOR60 covers Pro, which does not include MixMind** (MixMind is in the MixMind, Starter + MixMind, Pro + MixMind and Studio plans). Don't send CREATOR60 to MixMind-only creators. Hold MixMind creator outreach until a creator code that applies to a MixMind plan exists in Stripe, and drop the FOUNDING100 paragraph unless they also produce in Ableton.)*
 
 **Follow-up (once, 5–7 days later):**
 > Hi [First name], just bumping this in case it got buried. The 2 free months of Pro (code CREATOR60; card at checkout, renews at $39/mo unless cancelled) are still yours if you want them. No worries if it's not for you. [Name]
@@ -223,7 +223,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 >
 > **What it isn't:** it doesn't generate a finished, exported song. It builds editable Session-view parts, and you finish the track. Everything you make is 100% yours.
 >
-> **For DJs:** MixMind (same brand) reads your Rekordbox 6/7 library: fast browser, duplicate finder (it never touches your Rekordbox files), and an AI playlist builder that only picks tracks you own. It's in early access inside our Studio plan; standalone MixMind is coming soon.
+> **For DJs:** MixMind (same brand) reads your Rekordbox 6/7 library: fast browser, duplicate finder (it never touches your Rekordbox files), and an AI playlist builder that only picks tracks you own. It's $12/mo on its own, $25/mo with BeatMind Starter, or included in Studio. (The free trial covers BeatMind, not MixMind.)
 >
 > **Pricing:** Starter $19/mo, Pro $39/mo, Studio $79/mo (annual = 2 months free). The free trial is 7 days with 3 tracks and no card, and you're never charged unless you pick a plan. **Founding Member:** the first 100 annual subscribers get 40% off for life with code **FOUNDING100**.
 >
@@ -235,7 +235,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 3. **Audition review:** the audition player with keep / change groove / change tone. Overlay: "You approve every part."
 4. **Iteration:** device parameters highlighted after "make it warmer". Overlay: "Plain-English tweaks to supported controls."
 5. **Reference workflow:** stems panel (4 stems) + timing map. Overlay: "Study a reference. Build original parts." Small print: "stems are estimates".
-6. **MixMind:** library table + duplicates view. Overlay: "MixMind for Rekordbox DJs: early access in Studio."
+6. **MixMind:** library table + duplicates view. Overlay: "MixMind for Rekordbox DJs: from $12/mo."
 7. (Optional) the demo video: the YouTube walkthrough or S01.
 
 **Common-question replies (prep):**
@@ -245,7 +245,8 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 - *Which AI model?* It's powered by Claude (the site says "Powered by Claude AI + AbletonOSC"). Optional AI listening for reference tracks is opt-in and sends the selected audio to OpenAI. We say that up front.
 - *Who owns the output?* You do, 100%.
 - *What's a "track"?* One stem separation of a reference track. HQ separation runs on your own computer via the Bridge. Cloud HQ (Pro/Studio) is for machines that can't run it locally. The AI producer is fair-use on every plan.
-- *Can I buy MixMind on its own?* Not yet. It's early access inside Studio today; standalone ($12/mo) and combos are coming soon.
+- *Can I buy MixMind on its own?* Yes: $12/mo or $120/yr. Or bundle it: Starter + MixMind $25/mo, Pro + MixMind $45/mo (each saves $6/mo). Studio includes it.
+- *Is MixMind in the free trial?* No. The 7-day trial is for BeatMind. MixMind needs a MixMind, combo or Studio plan.
 - *What's in the free trial?* 7 days, 3 tracks (processed on your computer), about 50 AI messages, no card. Cloud HQ and packs need a paid plan.
 - *Will I be charged after the trial?* No. We never take a card for the trial; you only pay if you choose a plan.
 - *Is FOUNDING100 for monthly plans?* No, annual plans only, first 100 subscribers, 40% off for life.
@@ -367,7 +368,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 >
 > It doesn't make finished songs for you. It gets you from blank set to first loop, and the track stays 100% yours.
 >
-> **For DJs:** MixMind (same brand) reads your Rekordbox library, finds duplicates without touching your files, and builds AI playlists from tracks you own. It's in early access, included with the Studio plan.
+> **For DJs:** MixMind (same brand) reads your Rekordbox library, finds duplicates without touching your files, and builds AI playlists and full sets from tracks you own. It's $12/month, or $25/month bundled with BeatMind Starter, and included with Studio.
 >
 > 👉 **Try it free for 7 days with 3 tracks, no card:** https://www.beatmind.io/?utm_source=email&utm_medium=email&utm_campaign=launch
 >
@@ -383,3 +384,33 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 > support@beatmind.io
 >
 > *[Marketing sends only: You're receiving this because you signed up at beatmind.io. Unsubscribe: [link] · Zietra Technologies Inc., [postal address, required by CAN-SPAM]]*
+
+### MixMind launch post (paid sales live)
+
+Use when MixMind sales open. Keep it honest: MixMind is paid (no free trial), the trial is BeatMind only. Show real screens from your own library only. Link: `https://www.beatmind.io/mixmind?utm_source=[instagram|x]&utm_medium=social&utm_campaign=mixmind_launch`.
+
+**Instagram caption** (carousel: library table → duplicates view → Set Builder with a warm-up set → "Add to Rekordbox" → pricing card):
+> MixMind is live. 🎧
+>
+> It reads your Rekordbox 6/7 library and gives you:
+> • a fast library browser (BPM, key, genre, duration)
+> • a duplicate finder that hides dupes in MixMind and never deletes your files
+> • an AI playlist builder that only picks tracks you own
+> • a Set Builder: warm-up, peak-time or closing sets, your BPM range, smooth key flow, skip what you played recently, then add the set to Rekordbox as a playlist
+>
+> Mac + Windows. $12/month, or $25/month with BeatMind Starter (save $6/mo). Included in BeatMind Studio.
+> Link in bio.
+>
+> #rekordbox #djtips #djlife #pioneerdj #djset
+
+**Alt text:** "Five screenshots of the MixMind desktop app: a Rekordbox library table, a duplicate-track view, the Set Builder with a warm-up set, the Add to Rekordbox dialog, and the MixMind pricing card."
+
+**X post** (under 280 characters; attach the Set Builder screenshot):
+> MixMind is live: a desktop DJ library manager for Rekordbox 6/7.
+>
+> Duplicate finder, AI playlists from tracks you own, and a Set Builder for warm-up, peak or closing sets that writes back to Rekordbox.
+>
+> Mac + Windows · $12/mo
+> beatmind.io/mixmind
+
+**Reply prep:** *Free trial?* Not for MixMind; the 7-day trial is BeatMind only. *Does it touch my library?* Browsing and duplicate cleanup don't. Adding a set writes one playlist, only when you choose to, with Rekordbox closed, after a backup.

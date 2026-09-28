@@ -122,7 +122,7 @@ The exact numbers matter less than the shape: gradual tempo change, keys that wa
 
 ## Try MixMind on your own crate
 
-MixMind reads your Rekordbox library, finds duplicates and builds AI playlists from music you already own, on Mac and Windows. MixMind is in early access, included with the BeatMind Studio plan; standalone MixMind at $12/month is coming soon. [See MixMind](/mixmind).
+MixMind reads your Rekordbox library, finds duplicates and builds AI playlists from music you already own, on Mac and Windows. MixMind is $12/month ($120/year), or bundled with BeatMind from $25/month and included in BeatMind Studio. [See MixMind](/mixmind).
 
 ## FAQ
 
@@ -144,4 +144,4 @@ AI playlist tools can shortlist and suggest an order from your own library quick
 
 ### Does MixMind change my Rekordbox library?
 
-No. MixMind is read-only by default. Playlists it builds for Rekordbox are saved as XML files that you choose to import.
+No. MixMind is read-only by default. Playlists it builds for Rekordbox are saved as XML files that you choose to import. The Set Builder can also add a finished set to Rekordbox as a playlist, but only when you choose to: Rekordbox must be closed, and MixMind backs up your library first.

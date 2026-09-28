@@ -24,11 +24,11 @@ export const BEATMIND_FAQS: Faq[] = [
   },
   {
     q: "How much does BeatMind cost?",
-    a: "Plans start at $19/month. Starter is $19/month ($190/year) with 10 tracks a month; Pro is $39/month ($390/year) with 30 tracks and 5 cloud HQ separations a month; Studio is $79/month ($790/year) with 80 tracks, 20 cloud HQ separations, MixMind early access and priority support. You can start with a 7-day free trial that includes 3 tracks and needs no credit card.",
+    a: "Plans start at $19/month. Starter is $19/month ($190/year) with 10 tracks a month; Pro is $39/month ($390/year) with 30 tracks and 5 cloud HQ separations a month; Studio is $79/month ($790/year) with 80 tracks, 20 cloud HQ separations, MixMind and priority support. DJs can also get MixMind for $12/month, or bundle it: Starter + MixMind is $25/month and Pro + MixMind is $45/month. You can start with a 7-day free trial that includes 3 tracks and needs no credit card.",
   },
   {
     q: "What's included in the free trial?",
-    a: "The 7-day free trial needs no credit card and includes 3 tracks (processed on your own computer) and limited AI (about 50 messages). Cloud HQ separations and packs need a paid plan. If you start a plan during the trial, the trial ends and your plan begins immediately.",
+    a: "The 7-day free trial needs no credit card and includes 3 tracks (processed on your own computer) and limited AI (about 50 messages). It covers BeatMind only: MixMind isn't part of the trial. Cloud HQ separations and packs need a paid plan. If you start a plan during the trial, the trial ends and your plan begins immediately.",
   },
   {
     q: "Will I be charged after the trial?",
@@ -67,7 +67,7 @@ export const MIXMIND_FAQS: Faq[] = [
   },
   {
     q: "Does it modify my Rekordbox library?",
-    a: "No. MixMind is read-only by default. Duplicate cleanup marks tracks as hidden inside MixMind — it does not delete or modify your Rekordbox files.",
+    a: "Browsing and duplicate cleanup are read-only: duplicate cleanup marks tracks as hidden inside MixMind and does not delete or modify your Rekordbox files. The only time MixMind writes to Rekordbox is when you choose to add a built set as a playlist, and it backs up your library first.",
   },
   {
     q: "Mac or Windows?",
@@ -75,11 +75,23 @@ export const MIXMIND_FAQS: Faq[] = [
   },
   {
     q: "Is this the same as BeatMind?",
-    a: "No — they're separate tools. BeatMind makes music inside Ableton Live. MixMind organizes your existing DJ library. MixMind is in early access and included with BeatMind Studio ($79/month); standalone MixMind at $12/month is coming soon.",
+    a: "No — they're separate tools. BeatMind makes music inside Ableton Live. MixMind organizes your existing DJ library and builds sets from it. Both are made by the same team and use the same BeatMind account.",
   },
   {
     q: "How much does MixMind cost?",
-    a: "Today MixMind is available as early access inside BeatMind Studio ($79/month or $790/year). Standalone MixMind at $12/month ($120/year) and BeatMind + MixMind combos from $25/month are coming soon. Email support@beatmind.io to get notified.",
+    a: "MixMind is $12/month or $120/year (2 months free). You can also bundle it with BeatMind: Starter + MixMind is $25/month ($250/year) and Pro + MixMind is $45/month ($450/year), each saving $6/month compared with buying them separately. MixMind is also included in BeatMind Studio ($79/month or $790/year). Cancel anytime.",
+  },
+  {
+    q: "Is MixMind included in the free trial?",
+    a: "No. The 7-day free trial (3 tracks, no card) is for BeatMind. To use MixMind you need a MixMind, BeatMind + MixMind (Starter or Pro) or Studio plan.",
+  },
+  {
+    q: "Can I get BeatMind and MixMind together?",
+    a: "Yes. Starter + MixMind is $25/month ($250/year) and Pro + MixMind is $45/month ($450/year), each $6/month less than buying the two separately. BeatMind Studio ($79/month or $790/year) also includes MixMind, along with 80 tracks, 20 cloud HQ separations a month and priority support.",
+  },
+  {
+    q: "What does the Set Builder do?",
+    a: "The Intelligent Set Builder sequences a set from your own library. Choose a warm-up, peak-time or closing shape, set a BPM range and skip tracks you played recently; MixMind orders the tracks for smooth key flow and can add the finished set to Rekordbox as a playlist. Rekordbox must be closed while MixMind writes the playlist, and it backs up your library first.",
   },
   {
     q: "Can I cancel anytime?",

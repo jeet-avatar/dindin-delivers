@@ -3,8 +3,11 @@ import {
   ANNUAL_DISCOUNT_LABEL,
   HIGHEST_MONTHLY_USD,
   LOWEST_MONTHLY_USD,
+  MIXMIND_COMBOS,
+  MIXMIND_ON_SALE,
   MIXMIND_PRICE,
   PLANS,
+  type MixMindPlanId,
   type Plan,
   planById,
   signupHref,
@@ -72,14 +75,50 @@ function beatmindOffers(): JsonLdObject {
   };
 }
 
-// MixMind has no standalone checkout yet, so the only purchasable offer is
-// early access through BeatMind Studio. Standalone pricing is described, not offered.
-function mixmindOffer(): JsonLdObject {
+const MIXMIND_AVAILABILITY = MIXMIND_ON_SALE ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
+
+function mixmindSaleOffer(
+  name: string,
+  planId: MixMindPlanId,
+  monthly: number,
+  yearly: number,
+  description: string,
+): JsonLdObject {
+  return {
+    "@type": "Offer",
+    name,
+    url: absoluteUrl(signupHref(planId, "month")),
+    price: usd(monthly),
+    priceCurrency: "USD",
+    availability: MIXMIND_AVAILABILITY,
+    description,
+    priceSpecification: [unitPrice(monthly, "MONTH", "MON"), unitPrice(yearly, "YEAR", "ANN")],
+  };
+}
+
+// The first offer is standalone MixMind ($12/month); the rest are the BeatMind + MixMind
+// combos and Studio, which also include MixMind. MixMind is not part of the free trial.
+function mixmindOffers(): JsonLdObject[] {
   const studio = planById("studio");
-  return planOffer(
-    studio,
-    `MixMind early access is included with BeatMind Studio ($${studio.monthly}/month). Standalone MixMind ($${MIXMIND_PRICE.monthly}/month) is coming soon.`,
-  );
+  return [
+    mixmindSaleOffer(
+      "MixMind",
+      MIXMIND_PRICE.id,
+      MIXMIND_PRICE.monthly,
+      MIXMIND_PRICE.yearly,
+      `MixMind for Mac and Windows: $${MIXMIND_PRICE.monthly}/month or $${MIXMIND_PRICE.yearly}/year (${ANNUAL_DISCOUNT_LABEL}). Not included in the BeatMind free trial.`,
+    ),
+    ...MIXMIND_COMBOS.map((combo) =>
+      mixmindSaleOffer(
+        `BeatMind ${combo.name}`,
+        combo.id,
+        combo.monthly,
+        combo.yearly,
+        `BeatMind ${combo.name}: $${combo.monthly}/month or $${combo.yearly}/year, saving $${combo.savingsMonthly}/month compared with buying both separately.`,
+      ),
+    ),
+    planOffer(studio, `BeatMind Studio includes MixMind: $${studio.monthly}/month or $${studio.yearly}/year.`),
+  ];
 }
 
 export function organizationSchema(): JsonLdObject {
@@ -146,14 +185,15 @@ export function mixmindAppSchema(): JsonLdObject {
     operatingSystem: "macOS, Windows",
     url: absoluteUrl("/mixmind"),
     image: absoluteUrl(OG_IMAGE_MIXMIND),
-    description:
-      "DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, and build AI playlists from music you already own. In early access, included with BeatMind Studio; standalone MixMind is coming soon.",
+    description: `DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, build AI playlists and sequence warm-up, peak-time or closing sets from music you already own. $${MIXMIND_PRICE.monthly}/month, or included with BeatMind + MixMind bundles and BeatMind Studio.`,
     softwareRequirements: "Rekordbox 6 or 7",
     publisher: ORGANIZATION_REF,
-    offers: mixmindOffer(),
+    offers: mixmindOffers(),
     featureList: [
       "Full Rekordbox library browser",
       "AI playlist builder",
+      "Intelligent Set Builder: warm-up, peak-time and closing sets with BPM range and key flow",
+      "Add built sets to Rekordbox as playlists",
       "Duplicate track detection and cleanup",
       "Pioneer USB drive support",
       "Mac and Windows native app",

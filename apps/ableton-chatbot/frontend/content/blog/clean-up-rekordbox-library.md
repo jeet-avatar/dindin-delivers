@@ -103,7 +103,7 @@ When your playlists are ready, exporting them to USB has its own set of pitfalls
 
 ## Try MixMind on your own library
 
-MixMind reads your Rekordbox 6 or 7 collection, shows every track in one fast table, surfaces duplicates and builds AI playlists from tracks you own, on Mac and Windows. MixMind is in early access, included with the BeatMind Studio plan; standalone MixMind at $12/month is coming soon. [See MixMind](/mixmind).
+MixMind reads your Rekordbox 6 or 7 collection, shows every track in one fast table, surfaces duplicates and builds AI playlists from tracks you own, on Mac and Windows. MixMind is $12/month ($120/year), or bundled with BeatMind from $25/month and included in BeatMind Studio. [See MixMind](/mixmind).
 
 ## FAQ
 
@@ -117,7 +117,7 @@ Yes. File → Display All Missing Files opens Rekordbox's missing file manager, 
 
 ### Will MixMind delete tracks from my Rekordbox library?
 
-No. MixMind is read-only by default. Duplicate cleanup marks tracks as hidden inside MixMind and does not delete or modify your Rekordbox files. Playlists it builds are saved as Rekordbox XML that you choose to import.
+No. MixMind is read-only by default. Duplicate cleanup marks tracks as hidden inside MixMind and does not delete or modify your Rekordbox files. Playlists it builds are saved as Rekordbox XML that you choose to import. The Set Builder can also add a finished set to Rekordbox as a playlist, but only when you choose to: Rekordbox must be closed, and MixMind backs up your library first.
 
 ### Do I need to close Rekordbox while using MixMind?
 

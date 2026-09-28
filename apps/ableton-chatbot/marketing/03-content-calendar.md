@@ -75,7 +75,7 @@ The profile grid has shown **3:4 tiles since Jan 2025**. **Design static/carouse
 - **Caption:**
   > DJs, this one's for you. MixMind reads your Rekordbox 6/7 library and gives you a fast browser, a duplicate finder and an AI playlist builder that only picks tracks you already own.
   > It doesn't delete or modify your Rekordbox files. Duplicates are hidden inside MixMind.
-  > Mac + Windows · early access in the BeatMind Studio plan (standalone coming soon) · link in bio.
+  > Mac + Windows · $12/mo, or bundled with BeatMind from $25/mo · link in bio.
 - **Hashtags (5, IG max):** #rekordbox #djtips #djlife #pioneerdj #djset
 - **Alt text:** "Four screenshots of the MixMind desktop app: a library table with BPM, key and genre columns, a duplicate-track view, an AI playlist prompt, and a USB drive panel."
 

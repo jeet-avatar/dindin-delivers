@@ -3,7 +3,7 @@
 One brand: **BeatMind**. Two products under it:
 
 - **BeatMind** — AI music-production assistant inside Ableton Live 11/12. (Lead product.)
-- **MixMind by BeatMind** — desktop DJ library manager for Rekordbox 6/7. (Early access, included with BeatMind Studio. Standalone coming soon.)
+- **MixMind by BeatMind** — desktop DJ library manager for Rekordbox 6/7. ($12/mo standalone, bundled with BeatMind from $25/mo, or included with BeatMind Studio.)
 
 Company: Zietra Technologies Inc. · Site: https://www.beatmind.io · Contact: support@beatmind.io
 
@@ -105,10 +105,12 @@ Sources for every claim in this file: `frontend/src/lib/pricing.ts` (all prices)
 - Duplicate finder for exact and near-duplicate tracks. Cleanup **hides them inside MixMind** and does **not** delete or modify your Rekordbox files. *(:21, :69)*
 - AI playlist builder: type "20 deep house tracks under 124 BPM in Am" and it builds from tracks you own. *(:26)*
 - Pioneer USB: detects your DJ USB and lets you browse the PIONEER folder. *(:31)*
-- **Early access, included with BeatMind Studio** ($79/mo or $790/yr). Standalone MixMind ($12/mo) and combos are **coming soon**.
+- **Intelligent Set Builder:** warm-up, peak-time or closing sets; BPM range; smooth key flow; skips tracks you played recently; adds the finished set to Rekordbox as a playlist (Rekordbox closed, library backed up first). *(mixmind/page.tsx FEATURES; `/Users/jeet/mixmind` sidecar/setbuilder)*
+- **On sale now:** MixMind **$12/mo** ($120/yr, 2 months free). **Starter + MixMind $25/mo** ($250/yr) and **Pro + MixMind $45/mo** ($450/yr), each **saving $6/mo** vs buying separately. Also **included in BeatMind Studio** ($79/mo or $790/yr). Pricing: beatmind.io/mixmind#pricing
 
 ### MixMind — CAREFUL
-- ~~"MixMind is $12/month"~~ / ~~"Buy MixMind"~~ / ~~"MixMind free trial"~~ as if it's purchasable on its own. Standalone licensing isn't built yet. Say "early access in Studio, standalone coming soon".
+- ~~"MixMind free trial"~~ / ~~"Try MixMind free"~~. The 7-day no-card trial covers **BeatMind only** (3 tracks). MixMind needs a paid MixMind, BeatMind + MixMind or Studio plan. Say "MixMind from $12/mo".
+- ~~"Set Builder never touches Rekordbox"~~. Browsing and duplicate cleanup are read-only, but "Add to Rekordbox" writes a playlist (only when the user chooses, with Rekordbox closed, after a backup).
 - **"Export to Pioneer USB / CDJ-ready":** The MixMind codebase has a USB export path (`/Users/jeet/mixmind` → `POST /api/usb/export`). But the public MixMind page only claims "detects… browse the PIONEER folder", and the CDJ-3000 hardware acceptance report (`/Users/jeet/mixmind/.planning/CDJ_TEST_REPORT.md`) still has unfilled PASS/FAIL rows. **Before posting any USB-export content:** confirm the export is in the build users download, and record a real export that loads on a real player. Until then, say "export your library to a USB" and don't say "CDJ-verified".
 - ~~"Deletes duplicates for you"~~. It hides them in MixMind.
 - ~~"Works with Serato / Traktor / Engine"~~. Not claimed.
@@ -164,7 +166,7 @@ Sources for every claim in this file: `frontend/src/lib/pricing.ts` (all prices)
 ## 9. Press / boilerplate paragraph
 
 > **About BeatMind**
-> BeatMind is an AI music-production assistant that works inside Ableton Live 11 and 12. Producers describe a sound in plain English, and BeatMind builds drums, bass and melodies part by part as editable Session-view clips in their own Live Set. It uses installed sounds, adjusts supported device controls and records an audition of each part for review. A reference-track workflow provides estimated stems, section timing and optional AI listening notes to guide original parts. The BeatMind brand also includes MixMind, a desktop DJ library manager for Rekordbox 6/7 with a library browser, duplicate finder and AI playlist builder. BeatMind plans start at $19/month, with a 7-day free trial that includes 3 tracks and needs no credit card; MixMind is in early access with the BeatMind Studio plan. BeatMind is made by Zietra Technologies Inc.
+> BeatMind is an AI music-production assistant that works inside Ableton Live 11 and 12. Producers describe a sound in plain English, and BeatMind builds drums, bass and melodies part by part as editable Session-view clips in their own Live Set. It uses installed sounds, adjusts supported device controls and records an audition of each part for review. A reference-track workflow provides estimated stems, section timing and optional AI listening notes to guide original parts. The BeatMind brand also includes MixMind, a desktop DJ library manager for Rekordbox 6/7 with a library browser, duplicate finder and AI playlist builder. BeatMind plans start at $19/month, with a 7-day free trial that includes 3 tracks and needs no credit card; MixMind costs $12/month, or $25/month bundled with BeatMind Starter, and is included in the BeatMind Studio plan. BeatMind is made by Zietra Technologies Inc.
 > Web: https://www.beatmind.io · Press and support: **support@beatmind.io**
 > *Ableton and Live are trademarks of Ableton AG; Rekordbox is a trademark of AlphaTheta Corporation. BeatMind is not affiliated with either.*
 
@@ -186,7 +188,7 @@ Source of truth: `frontend/src/lib/pricing.ts` (matches live Stripe). If this ta
 |------|---------|--------|----------------|------------------|---------------|
 | **Starter** | $19 | $190 | 10 | — | AI producer (fair use) |
 | **Pro** *(Most popular)* | $39 | $390 | 30 | 5 | AI producer (fair use) |
-| **Studio** | $79 | $790 | 80 | 20 | AI producer (fair use), **MixMind (early access)**, priority support |
+| **Studio** | $79 | $790 | 80 | 20 | AI producer (fair use), **MixMind**, priority support |
 
 **What a "track" is:** one stem separation of a reference track. High-quality separation runs on your own computer via the Bridge. **Cloud HQ separation** runs on our cloud GPU, for computers that can't run HQ separation locally.
 
@@ -202,10 +204,20 @@ Source of truth: `frontend/src/lib/pricing.ts` (matches live Stripe). If this ta
 
 **Founding Member offer:** the first **100 annual subscribers** get **40% off for life** with code **`FOUNDING100`**. Annual plans only.
 
-**MixMind:** early access, included in Studio today. **Coming soon** (not purchasable yet): standalone MixMind $12/mo ($120/yr), Starter + MixMind $25/mo, Pro + MixMind $45/mo (each combo saves $6/mo).
+**MixMind (on sale):**
+
+| Plan | Monthly | Annual | Includes |
+|------|---------|--------|----------|
+| **MixMind** | $12 | $120 | MixMind for Mac + Windows |
+| **Starter + MixMind** | $25 | $250 | BeatMind Starter + MixMind (saves $6/mo vs separate) |
+| **Pro + MixMind** | $45 | $450 | BeatMind Pro + MixMind (saves $6/mo vs separate) |
+| **Studio** | $79 | $790 | MixMind included |
+
+MixMind is **not** in the free trial.
 
 **Say it short:**
 - "Plans from $19/mo. Free 7-day trial with 3 tracks, no card."
 - "No card for the trial. You only pay if you choose a plan."
-- "MixMind is in early access with BeatMind Studio; standalone is coming soon."
+- "MixMind for DJs: $12/mo, or save with BeatMind + MixMind from $25/mo."
+- "The free trial is for BeatMind. MixMind starts at $12/mo."
 - "Founding Member: first 100 annual subscribers get 40% off for life with code FOUNDING100."

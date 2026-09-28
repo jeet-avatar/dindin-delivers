@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
 import { type BlogPost, extractFaqs, formatPostDate, getAllPosts, getPost, getRelatedPosts } from "@/lib/blog";
+import { MIXMIND_TRIAL_NOTE } from "@/lib/pricing";
 import { BASE_URL, OG_IMAGE_BLOG, OG_IMAGE_SIZE, SITE_NAME, TRIAL_TERMS, absoluteUrl } from "@/lib/site";
 import { ORGANIZATION_REF, breadcrumbSchema, faqPageSchema, organizationSchema } from "@/lib/structured-data";
 import { BlogFooter, BlogNav } from "../blog-chrome";
@@ -78,13 +79,13 @@ function PostCta({ product }: { product: BlogPost["product"] }) {
       </h2>
       <p className="text-sm mb-6 max-w-md mx-auto" style={{ color: "var(--text-secondary)" }}>
         {isMixMind
-          ? "MixMind browses, de-duplicates and builds AI playlists from the Rekordbox collection you already own. Mac + Windows. Early access with BeatMind Studio; standalone MixMind $12/month coming soon."
+          ? "MixMind browses, de-duplicates and builds AI playlists and full sets from the Rekordbox collection you already own. Mac + Windows. $12/month, or save with BeatMind + MixMind from $25/month."
           : "BeatMind builds drums, bass and melodies part by part in your own Live Set, with captured auditions to review. Ableton Live 11 or 12. Plans from $19/month."}
       </p>
-      <Link href={isMixMind ? "/mixmind" : "/signup"} className="inline-block px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
-        {isMixMind ? "See MixMind →" : "Start free trial →"}
+      <Link href={isMixMind ? "/mixmind#pricing" : "/signup"} className="inline-block px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
+        {isMixMind ? "See MixMind pricing →" : "Start free trial →"}
       </Link>
-      <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>{TRIAL_TERMS}</p>
+      <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>{isMixMind ? MIXMIND_TRIAL_NOTE : TRIAL_TERMS}</p>
     </aside>
   );
 }

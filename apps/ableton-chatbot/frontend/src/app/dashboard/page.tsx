@@ -491,14 +491,14 @@ export default function DashboardPage() {
     `${usage.included_per_month} track separations per month`,
     ...(usage.included_cloud_per_month > 0 ? [`${usage.included_cloud_per_month} BeatMind Cloud GPU tracks per month`] : []),
     "BeatMind AI for Ableton Live", "BeatMind Bridge for Ableton Live",
-    ...(usage.plan.mixmind ? ["MixMind early access for Mac + Windows"] : []),
+    ...(usage.plan.mixmind ? ["MixMind for Mac + Windows"] : []),
   ] : [
     `${usage?.plan?.source === "trial" ? usage.included_per_month : 3} tracks separated on your computer`,
     "BeatMind AI for Ableton Live (trial allowance)", "BeatMind Bridge for Ableton Live",
   ];
   const mixmindLocked = (
     <div className="rounded-xl border p-3 text-xs" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
-      MixMind early access is included with the Studio plan.{" "}
+      MixMind needs a MixMind, BeatMind + MixMind or Studio plan.{" "}
       <button type="button" onClick={choosePlan} className="underline" style={{ color: "#a78bfa" }}>See plans</button>
     </div>
   );

@@ -1,7 +1,7 @@
 # BeatMind Go-To-Market Launch Kit
 
 Launch: **Monday 2026-09-28** · Site: https://www.beatmind.io · All accounts and outreach use **support@beatmind.io**
-Brand: **BeatMind** (AI co-producer inside Ableton Live 11/12) + **MixMind by BeatMind** (Rekordbox 6/7 library manager). BeatMind plans: Starter $19/mo, Pro $39/mo, Studio $79/mo (annual = 2 months free). Free trial: 7 days, 3 tracks, about 50 AI messages, no card, never charged unless you choose a plan. MixMind is early access inside Studio; standalone ($12/mo) is coming soon. Founding Member offer: first 100 annual subscribers get 40% off for life with **FOUNDING100**. Full table: 05 §10. Company: Zietra Technologies Inc.
+Brand: **BeatMind** (AI co-producer inside Ableton Live 11/12) + **MixMind by BeatMind** (Rekordbox 6/7 library manager). BeatMind plans: Starter $19/mo, Pro $39/mo, Studio $79/mo (annual = 2 months free). Free trial: 7 days, 3 tracks, about 50 AI messages, no card, never charged unless you choose a plan. MixMind is on sale: $12/mo ($120/yr), Starter + MixMind $25/mo, Pro + MixMind $45/mo (each saves $6/mo vs separate), and included in Studio. The free trial covers BeatMind only, not MixMind. Founding Member offer: first 100 annual subscribers get 40% off for life with **FOUNDING100**. Full table: 05 §10. Company: Zietra Technologies Inc.
 
 | File | What's in it |
 |------|--------------|
