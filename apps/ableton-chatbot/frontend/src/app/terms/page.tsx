@@ -1,5 +1,7 @@
 "use client";
 
+import { TRIAL_TERMS } from "@/lib/site";
+
 const PRODUCT = "BeatMind";
 const COMPANY = "Zietra Technologies Inc.";
 const DOMAIN = "beatmind.io";
@@ -44,7 +46,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="4. Subscription and Billing">
-            <p className="mb-3">Access requires a paid subscription ($19/month) after a 7-day free trial. Billing is handled by Stripe. You may cancel anytime from your account dashboard — access continues until the end of the current billing period. No refunds for partial months.</p>
+            <p className="mb-3">Access requires a paid subscription (plans and prices are listed at {DOMAIN}/#pricing) after the free trial. {TRIAL_TERMS} Billing is handled by Stripe. You may cancel anytime from your account dashboard — access continues until the end of the current billing period. No refunds for partial months.</p>
             <p>We reserve the right to change pricing with 30 days&apos; notice. Existing subscribers keep their rate until the next renewal after the notice period.</p>
           </Section>
 

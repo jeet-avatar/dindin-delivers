@@ -95,6 +95,7 @@ Sources for every claim in this file: `frontend/src/lib/pricing.ts` (all prices)
 - ~~"Unlimited"~~ anything. Tracks and cloud HQ are monthly allowances; the AI producer is "fair use", not unlimited.
 - ~~"Unlimited free trial"~~ / ~~"try everything free"~~. The trial is 7 days, 3 tracks and about 50 AI messages; no cloud HQ, no packs.
 - ~~"Cancel before your trial ends"~~ / ~~"billed after the trial"~~. We never take a card for the trial; people only pay if they choose a plan.
+- ~~CREATOR60 in any public post~~ and ~~"no card" / "no strings" about CREATOR60~~. It's a private creator code: checkout needs a card, and Pro renews at $39/mo after the 2 free months unless cancelled.
 - ~~"Only N Founding seats left"~~ unless you checked the real FOUNDING100 redemption count that day.
 
 ### MixMind — we CAN say

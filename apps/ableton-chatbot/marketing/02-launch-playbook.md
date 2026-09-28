@@ -107,10 +107,16 @@ Rule quotes were read from each sub's sidebar/rules (logged out) on 2026-09-27. 
 
 **How to find them:** YouTube search "ableton techno tutorial", "rekordbox tips", "ableton live 12 workflow", filtered by *This month*. TikTok search #abletonlive / #rekordbox, then look at the accounts behind top posts. Record everyone in the sheet: name, platform, URL, followers, last post date, email, genre, fit notes, status.
 
-**Offer:** free extended trial (**60 days**, applied manually to their account; confirm you can do this in the admin/DB before offering). No payment, no posting obligation, no script. If they post, ask them to disclose it per FTC rules ("#ad" isn't needed if it's unpaid, but a free product still has to be disclosed, e.g. "BeatMind gave me free access").
+**Offer:** Stripe promo code **`CREATOR60`** = **BeatMind Pro free for 2 months** (100% off the first 2 months). **Max 30 uses, new customers only.** After 2 months, Pro renews at **$39/mo unless they cancel**. No posting obligation, no script.
+- **Be upfront about the card:** checkout asks for a card even though the first 2 months are $0, and the plan renews automatically unless cancelled. Say both things in the first message. Never call it "no strings" or "no card".
+- **1:1 only:** send the code privately to creators you've vetted. Don't post it on the site, in social posts, in Reddit/Discord, or in the launch email. If a creator shares it publicly, the 30-use cap will run out, so ask them not to.
+- **Test it once first:** before batch 1, redeem CREATOR60 with a fresh test account and confirm checkout shows $0 today and $39/mo from month 3. "New customers only" is enforced by Stripe, so a creator who has already paid for BeatMind won't be able to use it.
+- **Track uses** in the outreach sheet (who got the code and when they redeemed it). Stop offering it when Stripe shows 30 redemptions.
+- **Renewal reminder:** around day 50, email each creator who redeemed it: "Your free Pro months end on [date]. It renews at $39/mo unless you cancel in billing settings."
+- **Disclosure:** if they post, ask them to disclose it per FTC rules ("#ad" isn't needed if it's unpaid, but a free product still has to be disclosed, e.g. "BeatMind gave me 2 free months of Pro").
 
 ### Creator outreach email (from support@beatmind.io)
-**Subject:** Free access to BeatMind (AI inside Ableton), no strings
+**Subject:** 2 free months of BeatMind Pro (AI inside Ableton)
 
 > Hi [First name],
 >
@@ -118,11 +124,13 @@ Rule quotes were read from each sub's sidebar/rules (logged out) on 2026-09-27. 
 >
 > BeatMind is an AI assistant that works *inside* Ableton Live 11/12. You describe a sound ("rolling 16th bass in F minor"), and it builds it as editable clips in your own Live Set, one part at a time, using your installed sounds, with a recorded audition before the next part. It doesn't generate finished songs, and I'd honestly rather hear what you think it gets wrong.
 >
-> I'd like to give you **60 days free**, no card and no obligation to post. If you do make something with it, great, but please mention that you got free access. If not, blunt feedback is just as valuable to me.
+> I'd like to give you **2 months of BeatMind Pro free** with the code **CREATOR60**. To be upfront: checkout asks for a card, the first 2 months are $0, and after that Pro renews at $39/month unless you cancel (one click in billing settings, anytime before the renewal date, and I'll email you a reminder a week or so before). There's no obligation to post. If you do make something with it, great, but please mention that you got it free. If not, blunt feedback is just as valuable to me.
+>
+> The code is just for you, so please don't share it publicly.
 >
 > If any of your viewers want in: plans start at $19/mo, there's a 7-day free trial with 3 tracks and no card, and our first 100 annual subscribers get 40% off for life with code **FOUNDING100**. Totally optional to mention.
 >
-> Want me to set it up? Just reply with the email you'd sign up with.
+> To use it: sign up at https://www.beatmind.io/signup?plan=pro&interval=month, choose Pro, and enter CREATOR60 at checkout. Any problems, just reply and I'll sort it out.
 >
 > Thanks,
 > [Your name]
@@ -134,10 +142,10 @@ Rule quotes were read from each sub's sidebar/rules (logged out) on 2026-09-27. 
 **MixMind variant:** swap paragraph 2 for:
 > MixMind (by BeatMind) is a desktop app that reads your Rekordbox 6/7 library. It has a fast searchable browser, a duplicate finder (it hides dupes inside MixMind and never touches your Rekordbox files), and an AI playlist builder that only picks tracks you already own. Mac + Windows. It's in early access right now (included with our Studio plan; standalone MixMind is coming soon), so your feedback would shape it.
 
-*(MixMind variant: give 60 days of Studio, since that's the only plan with MixMind access. Drop the FOUNDING100 paragraph unless they also produce in Ableton.)*
+*(MixMind variant: **CREATOR60 covers Pro, which does not include MixMind** (only Studio does). Don't send CREATOR60 to MixMind-only creators. Hold MixMind creator outreach until a Studio creator code exists in Stripe, and drop the FOUNDING100 paragraph unless they also produce in Ableton.)*
 
 **Follow-up (once, 5–7 days later):**
-> Hi [First name], just bumping this in case it got buried. Happy to set up free access anytime. No worries if it's not for you. [Name]
+> Hi [First name], just bumping this in case it got buried. The 2 free months of Pro (code CREATOR60; card at checkout, renews at $39/mo unless cancelled) are still yours if you want them. No worries if it's not for you. [Name]
 
 ---
 

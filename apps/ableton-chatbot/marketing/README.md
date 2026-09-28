@@ -19,6 +19,7 @@ Brand: **BeatMind** (AI co-producer inside Ableton Live 11/12) + **MixMind by Be
 3. **Blog links:** on 2026-09-27 every `/blog/...` URL returned HTTP 200 **but served the homepage**, so the posts aren't live yet. Open each one before linking it.
 4. **MixMind USB export video (S10) is gated.** The public MixMind page only claims "detect USB + browse the PIONEER folder", and the CDJ hardware test report isn't filled in. Use the fallback cut until a real export has been confirmed.
 5. **Site copy inconsistency to fix (not changed in this kit):** `frontend/src/app/mixmind/page.tsx:309` says BeatMind is "our AI that builds full tracks inside Ableton Live". That contradicts the homepage ("Session scenes are not a finished Arrangement timeline or exported song", `page.tsx:172`). Change it to something like "…that builds editable parts inside Ableton Live" before sending traffic to /mixmind.
+6. **CREATOR60 is for 1:1 creator outreach only.** It's BeatMind Pro free for 2 months (max 30 uses, new customers only), then $39/mo unless cancelled, and checkout needs a card. Never post it publicly or put it on the site. Always tell creators about the card and the renewal. See 02 §Creator outreach.
 
 ---
 
