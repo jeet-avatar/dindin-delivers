@@ -26,6 +26,7 @@ trap 'rm -rf "$WORK"' EXIT
   --hidden-import local_separation --hidden-import stem_import \
   --hidden-import reference_worker --hidden-import separation --hidden-import stems \
   --collect-data demucs --collect-submodules demucs --collect-data librosa \
+  --add-data "$PWD/THIRD_PARTY_NOTICES.txt:." \
   --distpath "$WORK/dist" --workpath "$WORK/work" --specpath "$WORK" bridge_app.py
 APP="$WORK/dist/BeatMind Bridge.app"
 "$WORK/venv/bin/python" - "$APP/Contents/Info.plist" <<'PY'
@@ -83,6 +84,7 @@ fi
 mkdir -p "$WORK/image/AbletonOSC-Extensions"
 ditto "$APP" "$WORK/image/BeatMind Bridge.app"
 cp abletonosc/*.py abletonosc/README.md "$WORK/image/AbletonOSC-Extensions/"
+cp THIRD_PARTY_NOTICES.txt "$WORK/image/Third-Party Notices.txt"
 ln -s /Applications "$WORK/image/Applications"
 hdiutil create -volname "BeatMind Bridge" -srcfolder "$WORK/image" -format UDZO "$WORK/BeatMind-Bridge.dmg"
 codesign --sign "$SIGNING_ID" --timestamp "$WORK/BeatMind-Bridge.dmg"
