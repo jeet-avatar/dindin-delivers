@@ -28,7 +28,18 @@ logging.basicConfig(
 )
 log = logging.getLogger("bridge")
 
+
+class SignInRejected(Exception):
+    """The server no longer accepts this Bridge's saved sign-in (revoked or expired)."""
+
+
+def rejected_sign_in(error):
+    status = getattr(getattr(error, "response", None), "status_code", None) or getattr(error, "status_code", None)
+    code = getattr(getattr(error, "rcvd", None), "code", None) or getattr(error, "code", None)
+    return status in (401, 403) or code == 4001
+
 # AbletonOSC defaults
+BRIDGE_VERSION = "1.2.0"
 OSC_HOST = "127.0.0.1"
 OSC_SEND_PORT = 11000
 OSC_RECV_PORT = 11001
@@ -157,13 +168,23 @@ class AbletonBridge:
         self.udp_transport = transport
         log.info(f"Listening for OSC responses on {OSC_HOST}:{OSC_RECV_PORT}")
 
-        # Connect to cloud backend WebSocket
+        # Connect to cloud backend WebSocket. Any outage (network loss, a BeatMind deploy returning 503,
+        # timeouts) is retried with backoff; only a rejected sign-in stops the Bridge.
+        delay = 2
         while self.running:
             try:
                 await self._connect_websocket()
-            except (websockets.ConnectionClosed, ConnectionRefusedError, OSError) as e:
-                log.warning(f"WebSocket disconnected: {e}. Reconnecting in 3s...")
-                await asyncio.sleep(3)
+                delay = 2
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                if rejected_sign_in(e):
+                    raise SignInRejected("Please sign in to BeatMind again.") from e
+                if not self.running:
+                    break
+                log.warning(f"Connection interrupted ({type(e).__name__}). Reconnecting in {delay}s...")
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 30)
 
     async def _connect_websocket(self):
         """Connect to backend WebSocket and handle messages."""
@@ -179,7 +200,7 @@ class AbletonBridge:
             from local_separation import available as local_separation_available
             await ws.send(json.dumps({
                 "type": "bridge_hello",
-                "version": "1.1.0",
+                "version": BRIDGE_VERSION,
                 "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
                 "capabilities": ["local_separation_v1"] if local_separation_available() else [],
             }))

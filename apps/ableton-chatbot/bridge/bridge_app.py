@@ -16,7 +16,9 @@ from urllib.request import Request, urlopen
 
 # Import the bridge core from the same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bridge import AbletonBridge
+from bridge import AbletonBridge, BRIDGE_VERSION, SignInRejected
+import credentials
+import updater
 from launch_link import register_mac_launch
 from bridge_network import tls_context, connection_error, network_check
 
@@ -26,6 +28,8 @@ DEFAULT_SERVER = "wss://api.beatmind.io/ws/bridge"
 DEFAULT_API = "https://api.beatmind.io"
 CHAT_URL = "https://www.beatmind.io/dashboard"
 START_LABEL = "Let's make music"
+UPDATE_CHECK_MS = 6 * 60 * 60 * 1000
+USER_AGENT = f"BeatMind-Bridge/{BRIDGE_VERSION}"
 
 # ── Colors (match BeatMind dark theme) ──
 BG = "#0a0a0a"
@@ -72,6 +76,8 @@ class BeatMindBridgeApp:
         self.connected = False
         self.busy = False
         self.closing = False
+        self.bridge_token = None
+        self.latest = None
         config = load_config()
 
         # ── Fonts ──
@@ -103,6 +109,12 @@ class BeatMindBridgeApp:
 
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        saved = credentials.load() if config.get("remember", True) else None
+        if saved:
+            self.root.after(300, self._resume, saved)
+        self.root.after(2000, self._check_updates)
+        updater.clean_previous()
 
     def _build_ui(self, config: dict):
         # Logo / Title
@@ -167,6 +179,9 @@ class BeatMindBridgeApp:
         self.disconnect_btn = ttk.Button(self.btn_frame, text='Disconnect',
                                          style='Disconnect.TButton', command=self._disconnect,
                                          takefocus=True)
+        self.sign_out_btn = ttk.Button(self.btn_frame, text='Sign out',
+                                       style='Disconnect.TButton', command=self._sign_out,
+                                       takefocus=True)
 
         # ── Status ──
         status_frame = tk.Frame(self.root, bg=BG)
@@ -181,8 +196,17 @@ class BeatMindBridgeApp:
                                      font=self.font_small, bg=BG, fg=TEXT_DIM, wraplength=340, justify='left')
         self.status_label.pack(side="left")
 
+        # ── Update (installed only when the user clicks) ──
+        self.update_frame = tk.Frame(self.root, bg=BG)
+        self.update_label = tk.Label(self.update_frame, text="", font=self.font_small, bg=BG, fg=ACCENT,
+                                     wraplength=250, justify='left')
+        self.update_label.pack(side="left")
+        self.update_btn = ttk.Button(self.update_frame, text='Install update', style='Disconnect.TButton',
+                                     command=self._install_update, takefocus=True)
+        self.update_btn.pack(side="right")
+
         # ── Footer ──
-        tk.Label(self.root, text="BeatMind by Zietra Technologies Inc.",
+        tk.Label(self.root, text=f"BeatMind Bridge {BRIDGE_VERSION} by Zietra Technologies Inc.",
                  font=tkfont.Font(family="Helvetica Neue", size=10),
                  bg=BG, fg=BORDER).pack(side="bottom", pady=(0, 12))
 
@@ -207,9 +231,11 @@ class BeatMindBridgeApp:
             self._set_status("Please enter email and password", ERROR)
             return
 
-        # Save config
         if self.remember_var.get():
             save_config({"email": email, "remember": True})
+        else:
+            save_config({"remember": False})
+            credentials.forget()
 
         self._set_status("Logging in...", ACCENT)
         self.busy = True
@@ -239,7 +265,7 @@ class BeatMindBridgeApp:
             login_data = json.dumps({"email": email, "password": password}).encode()
             req = Request(f"{api_base}/api/auth/login", data=login_data,
                           headers={"Content-Type": "application/json",
-                                   "User-Agent": "BeatMind-Bridge/1.0"})
+                                   "User-Agent": USER_AGENT})
             with urlopen(req, timeout=10, context=tls_context()) as resp:
                 data = json.loads(resp.read())
             token = data["token"]
@@ -252,7 +278,7 @@ class BeatMindBridgeApp:
             req = Request(f"{api_base}/api/auth/bridge-token", method="POST",
                           headers={"Authorization": f"Bearer {token}",
                                    "Content-Type": "application/json",
-                                   "User-Agent": "BeatMind-Bridge/1.0"})
+                                   "User-Agent": USER_AGENT})
             with urlopen(req, timeout=10, context=tls_context()) as resp:
                 bridge_data = json.loads(resp.read())
             bridge_token = bridge_data["bridge_token"]
@@ -260,10 +286,29 @@ class BeatMindBridgeApp:
             self._post(self._login_failed, connection_error(e, 'bridge_token'))
             return
 
-        # Step 3: Start bridge
+        if self.remember_var.get():
+            try:
+                credentials.save(bridge_token)
+            except Exception:
+                pass  # Still connects; the user just signs in again next launch.
+        self._run_bridge(bridge_token)
+
+    def _resume(self, bridge_token):
+        """Reconnect with the saved sign-in, without asking for the password."""
+        if self.busy or self.connected:
+            return
+        self.busy = True
+        self.email_entry.config(state='disabled')
+        self.password_entry.config(state='disabled')
+        self.connect_btn.config(state="disabled", text="Connecting...")
+        self._set_status("Signing you back in...", ACCENT)
+        threading.Thread(target=self._run_bridge, args=(bridge_token,), daemon=True).start()
+
+    def _run_bridge(self, bridge_token):
         server_url = os.environ.get("BEATMIND_WS", DEFAULT_SERVER)
         if self.closing:
             return
+        self.bridge_token = bridge_token
         self._post(self._set_status, "Connecting to BeatMind...", ACCENT)
 
         loop = asyncio.new_event_loop()
@@ -274,6 +319,10 @@ class BeatMindBridgeApp:
 
         try:
             loop.run_until_complete(bridge.start())
+        except SignInRejected:
+            credentials.forget()
+            self.bridge_token = None
+            message = 'Please sign in to BeatMind again.'
         except Exception:
             message = 'Bridge connection failed. Please try again.'
         finally:
@@ -300,6 +349,7 @@ class BeatMindBridgeApp:
         self.password_entry.config(state='disabled')
         self.connect_btn.config(state="normal", text=START_LABEL)
         self.disconnect_btn.pack(side='right', padx=(8, 0))
+        self.sign_out_btn.pack(side='right', padx=(8, 0))
         self.connect_btn.focus_set()
         self._set_status("Connected to BeatMind", SUCCESS)
 
@@ -321,9 +371,80 @@ class BeatMindBridgeApp:
         self.email_entry.config(state='normal')
         self.password_entry.config(state='normal')
         self.disconnect_btn.pack_forget()
+        self.sign_out_btn.pack_forget()
         self.connect_btn.config(state="normal", text=START_LABEL)
         self.connect_btn.focus_set()
         self._set_status(message, TEXT_DIM if message == 'Disconnected' else ERROR)
+
+    def _sign_out(self):
+        """Forget this computer's sign-in everywhere, then disconnect."""
+        token, self.bridge_token = self.bridge_token, None
+        credentials.forget()
+        if token:
+            threading.Thread(target=self._revoke, args=(token,), daemon=True).start()
+        self._disconnect()
+
+    def _revoke(self, token):
+        api_base = os.environ.get("BEATMIND_API", DEFAULT_API)
+        try:
+            req = Request(f"{api_base}/api/auth/bridge-token/revoke", method="POST",
+                          data=json.dumps({"bridge_token": token}).encode(),
+                          headers={"Content-Type": "application/json", "User-Agent": USER_AGENT})
+            urlopen(req, timeout=10, context=tls_context()).close()
+        except Exception:
+            pass  # The local copy is already gone; the server token expires on its own.
+
+    def _check_updates(self):
+        if self.closing:
+            return
+        threading.Thread(target=self._fetch_update, daemon=True).start()
+        self.root.after(UPDATE_CHECK_MS, self._check_updates)
+
+    def _fetch_update(self):
+        try:
+            latest = updater.check(BRIDGE_VERSION)
+        except Exception:
+            return  # Offline or bad metadata: try again at the next check.
+        if latest:
+            self._post(self._show_update, latest)
+
+    def _show_update(self, latest):
+        self.latest = latest
+        self.update_label.config(text=f"BeatMind Bridge {latest['version']} is available. "
+                                      "Your Ableton set stays open.", fg=ACCENT)
+        self.update_btn.config(state='normal')
+        self.update_frame.pack(pady=(14, 0), fill="x", padx=24)
+
+    def _separating(self):
+        return bool(self.bridge and self.bridge.local.jobs)
+
+    def _install_update(self):
+        if not self.latest:
+            return
+        if self._separating():
+            self.update_label.config(text="A track is separating. Install when it finishes.", fg=TEXT_DIM)
+            return
+        self.update_btn.config(state='disabled')
+        threading.Thread(target=self._download_update, args=(self.latest,), daemon=True).start()
+
+    def _download_update(self, latest):
+        def progress(text):
+            self._post(self.update_label.config, {"text": text, "fg": TEXT_DIM})
+        try:
+            app = updater.install(latest, progress)
+        except Exception as error:
+            self._post(self._update_failed, str(error) or "The update could not be installed.")
+            return
+        self._post(self._restart_into, app)
+
+    def _update_failed(self, message):
+        self.update_label.config(text=message, fg=ERROR)
+        self.update_btn.config(state='normal')
+
+    def _restart_into(self, app):
+        """Relaunch the new Bridge. It signs back in on its own; Ableton is not touched."""
+        updater.relaunch(app)
+        self._on_close()
 
     def _on_close(self):
         self.closing = True

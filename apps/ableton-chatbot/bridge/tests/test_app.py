@@ -12,8 +12,16 @@ import bridge
 
 class BridgeAppTests(unittest.TestCase):
     def setUp(self):
-        with patch.object(bridge_app, 'load_config', return_value={}):
+        with patch.object(bridge_app, 'load_config', return_value={}), \
+             patch.object(bridge_app.credentials, 'load', return_value=None), \
+             patch.object(bridge_app.updater, 'clean_previous'):
             self.app = bridge_app.BeatMindBridgeApp()
+        self.app.closing = False
+        for target, name in ((bridge_app, 'save_config'), (bridge_app.credentials, 'save'),
+                             (bridge_app.credentials, 'forget'), (bridge_app.updater, 'check')):
+            patcher = patch.object(target, name, return_value=None)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.app.root.title('BeatMind Bridge - UI test')
         self.app.root.update()
         self.app.root.focus_force()

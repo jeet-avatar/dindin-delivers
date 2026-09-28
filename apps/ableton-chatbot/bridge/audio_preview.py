@@ -108,6 +108,15 @@ async def capture_part(bridge, track, scene, seconds):
                 raise RuntimeError("Audio capture did not finish before its deadline.")
             metrics = complete["metrics"]
             if not metrics.get("has_signal"):
+                try:
+                    meter = (await query("/live/track/get/output_meter_level", [track]))[-1]
+                except RuntimeError:
+                    meter = 0
+                if meter > 0.05:
+                    raise RuntimeError(
+                        "Ableton's meter shows this track playing, but BeatMind Audio heard silence. "
+                        "Some plugins play outside Ableton's own audio, so they cannot be captured. "
+                        "Freeze the track or resample it to audio, then preview again.")
                 raise RuntimeError("The actual Ableton recording is silent. Check the instrument and audio routing; no successful preview was produced.")
             if audio.stat().st_size > 900000:
                 raise RuntimeError("Recording exceeds the preview size limit.")
