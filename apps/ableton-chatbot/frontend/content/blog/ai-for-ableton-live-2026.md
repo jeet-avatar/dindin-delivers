@@ -99,7 +99,7 @@ Every category above has limits. For in-DAW assistants specifically, these are t
 - **Device control depends on the device.** Native Ableton devices expose their controls clearly; third-party plugins vary a lot.
 - **Your library shapes the results.** An assistant that loads installed sounds can only be as good as what you have installed. A focused sample pack will beat a generic factory kit for most genres.
 - **Taste is still yours.** AI can propose a warmer bass. Deciding whether it is *better* is a producer's call, which is why BeatMind never accepts a sound on your behalf.
-- **Platform gaps.** Captured auditions currently need macOS; on Windows you listen in Live directly.
+- **Platform gaps.** The BeatMind Bridge currently runs only on Macs with Apple Silicon and macOS 15 or later; Windows support isn't available yet.
 
 If a tool claims to remove all of these limits, be sceptical and test it on your own material.
 

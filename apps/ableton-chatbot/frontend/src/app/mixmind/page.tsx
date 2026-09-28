@@ -12,7 +12,6 @@ import { MIXMIND_COMBOS, MIXMIND_PRICE, formatUsd, planById, signupHref } from "
 import { SUPPORT_EMAIL, TRIAL_SHORT } from "@/lib/site";
 
 const MAC_DOWNLOAD = "/MixMind-mac.dmg";
-const WIN_DOWNLOAD = "/MixMind-Setup-win.exe";
 
 const FEATURES = [
   {
@@ -33,7 +32,7 @@ const FEATURES = [
   {
     emoji: "💿",
     title: "Pioneer USB Support",
-    desc: "Plug in your DJ USB. MixMind detects it instantly and lets you browse the PIONEER folder directly. Mac and Windows.",
+    desc: "Plug in your DJ USB. MixMind detects it instantly and lets you browse the PIONEER folder directly.",
   },
 ];
 
@@ -41,12 +40,12 @@ const STEPS = [
   {
     n: "01",
     title: "Download",
-    desc: "Sign in with your BeatMind account (Studio includes MixMind early access), then download the MixMind early-access build for Mac or Windows.",
+    desc: "Sign in with your BeatMind account (Studio includes MixMind early access), then download the MixMind early-access build for Mac. Requires a Mac with Apple silicon (M1 or later).",
   },
   {
     n: "02",
     title: "Connect",
-    desc: "MixMind reads your Rekordbox XML automatically. Your full library loads in seconds.",
+    desc: "MixMind reads your Rekordbox library (database or XML) automatically. Your full library loads in seconds.",
   },
   {
     n: "03",
@@ -59,11 +58,11 @@ const STUDIO = planById("studio");
 const COMBO_FROM_MONTHLY = Math.min(...MIXMIND_COMBOS.map((combo) => combo.monthly));
 
 const PRICING_FEATURES = [
-  "Full library browser — unlimited tracks",
+  "Full library browser — no track limit",
   "Duplicate detection & cleanup",
   "AI playlist builder",
   "Pioneer USB drive support",
-  "Mac + Windows",
+  "Mac now (Apple silicon) · Windows coming soon",
   "Priority support",
 ];
 
@@ -131,7 +130,7 @@ export default function MixMindPage() {
         {/* Hero */}
         <section className="max-w-4xl mx-auto px-6 pt-24 pb-20 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium mb-8 border" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--accent)" }}>
-            ✦ Desktop app · Mac + Windows · Reads Rekordbox
+            ✦ Desktop app · Mac (Apple silicon) · Reads Rekordbox
           </div>
           <h1 className="text-5xl md:text-7xl font-black leading-tight mb-6 tracking-tight">
             Your DJ library,<br />
@@ -154,19 +153,8 @@ export default function MixMindPage() {
               </svg>
               Download for Mac · early access
             </a>
-            <a
-              href={WIN_DOWNLOAD}
-              onClick={(e) => handleDownload(e, WIN_DOWNLOAD)}
-              className="flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-lg transition-colors duration-150 border hover:border-white"
-              style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M3 5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25v13.5A2.25 2.25 0 0 1 18.75 21H5.25A2.25 2.25 0 0 1 3 18.75V5.25zm9 1a1 1 0 0 0-1 1v4.586l-1.293-1.293a1 1 0 0 0-1.414 1.414l3 3a1 1 0 0 0 1.414 0l3-3a1 1 0 0 0-1.414-1.414L13 11.836V7.25a1 1 0 0 0-1-1z"/>
-              </svg>
-              Download for Windows · early access
-            </a>
           </div>
-          <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>Early access for BeatMind Studio members · Standalone MixMind coming soon</p>
+          <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>Early access for BeatMind Studio members · Standalone MixMind coming soon · Requires a Mac with Apple silicon (M1 or later) · Windows coming soon</p>
 
           {/* App preview */}
           <div className="mt-16 rounded-2xl border text-left overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="img" aria-label="MixMind app preview showing library browser with tracks, BPM, and key columns">
@@ -221,7 +209,7 @@ export default function MixMindPage() {
           <div className="border-l-2 pl-5 py-1" style={{ borderColor: "var(--accent)" }}>
             <h2 id="what-is-heading" className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>What is MixMind?</h2>
             <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              MixMind is a desktop DJ library manager for Mac and Windows that reads your Rekordbox 6 or 7 collection. It gives you a fast, searchable library browser, an AI playlist builder that picks from tracks you already own, a duplicate finder and Pioneer USB drive browsing, without modifying your Rekordbox files. MixMind is made by the BeatMind team and is in early access: it is included with BeatMind Studio ({formatUsd(STUDIO.monthly)}/month), and standalone MixMind at {formatUsd(MIXMIND_PRICE.monthly)}/month is coming soon.
+              MixMind is a desktop DJ library manager for Mac (Apple silicon) that reads your Rekordbox 6 or 7 collection. It gives you a fast, searchable library browser, an AI playlist builder that picks from tracks you already own, a duplicate finder and Pioneer USB drive browsing. Browsing, searching and finding duplicates never change your Rekordbox library. MixMind only writes to Rekordbox when you click Add to Rekordbox in the Set Builder, which adds the set to Rekordbox as a playlist after backing up your library (Rekordbox must be closed). The Set Builder builds techno and minimal sets today, with more genres coming. A Windows version of MixMind is coming soon. MixMind is made by the BeatMind team and is in early access: it is included with BeatMind Studio ({formatUsd(STUDIO.monthly)}/month), and standalone MixMind at {formatUsd(MIXMIND_PRICE.monthly)}/month is coming soon.
             </p>
           </div>
         </section>
@@ -356,14 +344,6 @@ export default function MixMindPage() {
               style={{ background: "var(--accent)", color: "#fff" }}
             >
               Download for Mac (early access) →
-            </a>
-            <a
-              href={WIN_DOWNLOAD}
-              onClick={(e) => handleDownload(e, WIN_DOWNLOAD)}
-              className="inline-block px-10 py-4 rounded-xl font-semibold text-lg border transition-colors duration-150 hover:border-white"
-              style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
-            >
-              Download for Windows (early access) →
             </a>
           </div>
         </section>

@@ -9,7 +9,7 @@ const TITLE = "MixMind — AI DJ Library Manager for Rekordbox";
 export const metadata: Metadata = {
   title: TITLE,
   description:
-    "MixMind reads your Rekordbox collection and gives you a fast library browser, an AI playlist builder, and a one-click duplicate cleaner. Mac + Windows desktop app, in early access with BeatMind Studio.",
+    "MixMind reads your Rekordbox collection and gives you a fast library browser, an AI playlist builder, and a one-click duplicate cleaner. Mac desktop app (Apple Silicon), in early access with BeatMind Studio.",
   keywords: [
     "DJ library manager",
     "Rekordbox organizer",
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     "Pioneer USB library",
     "Rekordbox AI",
     "MixMind",
-    "DJ tools Mac Windows",
+    "DJ tools Mac",
   ],
   alternates: {
     canonical: `${BASE_URL}/mixmind`,
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: TITLE,
     description:
-      "Browse your Rekordbox library, find duplicates, and build AI playlists from music you already own. Mac + Windows desktop app. Early access with BeatMind Studio; standalone coming soon.",
+      "Browse your Rekordbox library, find duplicates, and build AI playlists from music you already own. Mac desktop app (Apple Silicon). Early access with BeatMind Studio; standalone coming soon.",
     url: `${BASE_URL}/mixmind`,
     siteName: SITE_NAME,
     type: "website",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: TITLE,
     description:
-      "Browse every track in your Rekordbox library, kill duplicates, and build AI playlists. Mac + Windows. Early access with BeatMind Studio.",
+      "Browse every track in your Rekordbox library, kill duplicates, and build AI playlists. Mac (Apple Silicon). Early access with BeatMind Studio.",
     images: [OG_IMAGE_MIXMIND],
   },
 };

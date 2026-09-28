@@ -22,7 +22,7 @@ function features(option: PlanOption): string[] {
     list.push("BeatMind AI for Ableton Live", `${option.included_tracks} track separations / month`);
   }
   if (option.included_cloud > 0) list.push(`${option.included_cloud} BeatMind Cloud GPU tracks / month`);
-  if (option.mixmind) list.push(option.plan === "studio" ? "MixMind early access" : "MixMind for Mac + Windows");
+  if (option.mixmind) list.push(option.plan === "studio" ? "MixMind early access" : "MixMind for Mac (Apple Silicon)");
   return list;
 }
 

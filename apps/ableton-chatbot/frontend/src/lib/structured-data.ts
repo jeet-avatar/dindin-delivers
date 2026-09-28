@@ -120,7 +120,7 @@ export function beatmindAppSchema(): JsonLdObject {
     "@type": "SoftwareApplication",
     name: "BeatMind",
     applicationCategory: "MusicApplication",
-    operatingSystem: "macOS, Windows",
+    operatingSystem: "macOS",
     url: absoluteUrl("/"),
     image: absoluteUrl(OG_IMAGE),
     description: HOME_DESCRIPTION,
@@ -132,7 +132,7 @@ export function beatmindAppSchema(): JsonLdObject {
       "Session-view clips and scenes in your own Live Set",
       "Captured auditions to review each part",
       "Supported Ableton device control adjustments",
-      "Mac and Windows bridge agent",
+      "BeatMind Bridge for Mac (Apple Silicon, macOS 15+)",
     ],
   };
 }
@@ -143,7 +143,7 @@ export function mixmindAppSchema(): JsonLdObject {
     "@type": "SoftwareApplication",
     name: "MixMind",
     applicationCategory: "MusicApplication",
-    operatingSystem: "macOS, Windows",
+    operatingSystem: "macOS",
     url: absoluteUrl("/mixmind"),
     image: absoluteUrl(OG_IMAGE_MIXMIND),
     description:
@@ -156,7 +156,7 @@ export function mixmindAppSchema(): JsonLdObject {
       "AI playlist builder",
       "Duplicate track detection and cleanup",
       "Pioneer USB drive support",
-      "Mac and Windows native app",
+      "Mac app for Apple Silicon",
     ],
   };
 }

@@ -4,15 +4,15 @@
 
 ## BeatMind
 
-- [BeatMind home](https://www.beatmind.io/): AI music producer for Ableton Live — web app plus a local bridge agent (macOS and Windows).
-- Requirements: Ableton Live 11 or 12 (Standard or Suite), BeatMind Bridge, AbletonOSC. Captured auditions and automatic Live Set file-menu actions currently require macOS.
+- [BeatMind home](https://www.beatmind.io/): AI music producer for Ableton Live — web app plus the local BeatMind Bridge app for Mac (Apple Silicon, macOS 15+). Windows support isn't available yet.
+- Requirements: Ableton Live 11 or 12 (Standard or Suite), AbletonOSC, and the BeatMind Bridge on a Mac with Apple Silicon (M1 or later) and macOS 15 or later. Placing separated stems into Live needs Live 12 and the BeatMind extension.
 - How it works: connect the Bridge and AbletonOSC, describe genre, mood, tempo and instruments in plain English, then review and refine each part (kick, bass, melody, effects) before moving to the next.
 - Scope: works in Session view (clips and scenes) and adjusts supported device controls; parameter availability depends on the device. It does not write a finished Arrangement timeline or export full songs.
 - Ownership: users own 100% of the music they create with BeatMind.
 
 ## MixMind
 
-- [MixMind](https://www.beatmind.io/mixmind): desktop DJ library manager for Mac (Apple Silicon native; Intel via Rosetta 2) and Windows 10/11 that reads Rekordbox 6 and 7 libraries (XML or database).
+- [MixMind](https://www.beatmind.io/mixmind): desktop DJ library manager for Mac (requires Apple silicon, M1 or later) that reads Rekordbox 6 and 7 libraries (database or XML). A Windows version of MixMind is coming soon.
 - Features: fast searchable library browser (BPM, key, genre, duration), AI playlist builder using tracks the DJ already owns, exact and near-duplicate finder, Pioneer USB drive browsing.
 - Safety: read-only by default; duplicate cleanup hides tracks inside MixMind and does not delete or modify Rekordbox files.
 - Availability: early access for BeatMind Studio members; standalone MixMind is coming soon.

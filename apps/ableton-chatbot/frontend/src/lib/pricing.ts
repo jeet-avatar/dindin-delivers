@@ -46,7 +46,7 @@ export const PLANS: Plan[] = [
       "10 tracks / month",
       "High-quality stem separation on your computer via the Bridge",
       "AI producer inside Ableton Live (fair use)",
-      "Mac + Windows Bridge",
+      "BeatMind Bridge for Mac (Apple Silicon, macOS 15+)",
     ],
     highlight: false,
     available: true,

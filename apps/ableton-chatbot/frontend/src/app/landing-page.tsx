@@ -114,7 +114,7 @@ export default function LandingPage() {
         {/* Hero */}
         <section className="max-w-4xl mx-auto px-6 pt-24 pb-20 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium mb-8 border" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--accent)" }}>
-            ✦ Works inside Ableton Live 11 &amp; 12 · Mac + Windows
+            ✦ Works inside Ableton Live 11 &amp; 12 · Mac (Apple Silicon)
           </div>
           <h1 className="text-5xl md:text-7xl font-black leading-tight mb-6 tracking-tight">
             The AI that builds music<br />
@@ -385,7 +385,7 @@ export default function LandingPage() {
                 <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
                   DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, and build AI playlists from music you already own.
                 </p>
-                <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>Desktop app · Mac + Windows · Requires Rekordbox 6 or 7</div>
+                <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>Desktop app · Mac (Apple Silicon) · Requires Rekordbox 6 or 7</div>
                 <div className="text-sm font-semibold mb-5">Included in Studio ({formatUsd(STUDIO_MONTHLY)}/mo) today · {formatUsd(MIXMIND_PRICE.monthly)}/mo standalone coming soon</div>
                 <Link href="/mixmind" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-colors duration-150 border hover:border-white" style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
                   See MixMind →

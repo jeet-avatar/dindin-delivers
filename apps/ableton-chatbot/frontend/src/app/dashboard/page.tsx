@@ -497,6 +497,9 @@ export default function DashboardPage() {
   const isSubscribed = usage ? hasPaidPlan(usage.plan) : ["active", "trialing", "past_due"].includes(user?.subscription_status ?? "");
   const trialDays = daysLeft(user?.trial_ends_at);
   const trialActive = !isSubscribed && trialDays !== null && trialDays > 0;
+  // Until the account loads (including the pre-rendered page) we don't know the plan, so show a neutral state.
+  const planChecking = !usage && authStatus === "Checking sign-in";
+  const checkingPlanText = "Checking your plan…";
   const currentPlan = isSubscribed && usage ? planName(usage.plan) : "BeatMind";
   const trialTracks = usage?.plan?.source === "trial" ? `${usage.allowance_left} of ${usage.included_per_month} tracks left · ` : "";
   const trialSummary = `Free trial · ${trialTracks}${trialDays} day${trialDays !== 1 ? "s" : ""} left`;
@@ -508,7 +511,7 @@ export default function DashboardPage() {
     `${usage.included_per_month} track separations per month`,
     ...(usage.included_cloud_per_month > 0 ? [`${usage.included_cloud_per_month} BeatMind Cloud GPU tracks per month`] : []),
     "BeatMind AI for Ableton Live", "BeatMind Bridge for Ableton Live",
-    ...(usage.plan.mixmind ? ["MixMind early access for Mac + Windows"] : []),
+    ...(usage.plan.mixmind ? ["MixMind early access for Mac (Apple Silicon)"] : []),
   ] : [
     `${usage?.plan?.source === "trial" ? usage.included_per_month : 3} tracks separated on your computer`,
     "BeatMind AI for Ableton Live (trial allowance)", "BeatMind Bridge for Ableton Live",
@@ -531,11 +534,12 @@ export default function DashboardPage() {
           Welcome back{user?.name ? `, ${user.name.split(" ")[0]}` : ""}
         </h1>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          {isSubscribed
+          {planChecking && checkingPlanText}
+          {!planChecking && (isSubscribed
             ? `${currentPlan} plan${usage ? ` · ${usage.tracks_used} of ${usage.included_per_month} tracks used this month` : ""}`
             : trialActive
               ? trialSummary
-              : "Your free trial has ended — choose a plan to continue"}
+              : "Your free trial has ended — choose a plan to continue")}
         </p>
       </div>
 
@@ -548,7 +552,7 @@ export default function DashboardPage() {
       )}
 
       {/* Subscription CTA banner */}
-      {!isSubscribed && (
+      {!isSubscribed && !planChecking && (
         <div className="mb-8 rounded-2xl p-5 border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
           style={{ background: "linear-gradient(135deg,#0d1f3c 0%,#1a1000 100%)", borderColor: "#1e3a5f" }}>
           <div>
@@ -613,20 +617,12 @@ export default function DashboardPage() {
             AI-powered DJ library organizer with smart playlists, duplicate finder, BPM/key analysis, and Rekordbox + USB export.
           </p>
           {mixmindIncluded ? (
-          <div className="grid grid-cols-2 gap-2">
-            <a href="/MixMind-mac.dmg" download
-              className="py-2 rounded-xl text-sm font-semibold text-center flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
-              style={{ background: "#7c3aed", color: "#fff" }}>
-              <DownloadIcon size={13} />
-              Mac
-            </a>
-            <a href="/MixMind-Setup-win.exe" download
-              className="py-2 rounded-xl text-sm font-semibold text-center flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
-              style={{ background: "#5b21b6", color: "#fff" }}>
-              <DownloadIcon size={13} />
-              Windows
-            </a>
-          </div>
+          <a href="/MixMind-mac.dmg" download
+            className="py-2 rounded-xl text-sm font-semibold text-center flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
+            style={{ background: "#7c3aed", color: "#fff" }}>
+            <DownloadIcon size={13} />
+            Download for Mac
+          </a>
           ) : mixmindLocked}
         </div>
       </div>
@@ -776,10 +772,10 @@ export default function DashboardPage() {
 
       <div className="rounded-2xl border p-6 mb-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
         <p className="text-sm mb-5" style={{ color: "var(--text-secondary)", lineHeight: "1.7" }}>
-          MixMind is a native desktop app — download it for your platform and run it alongside your DJ software. No browser required.
+          MixMind is a native desktop app for Mac — download it and run it alongside your DJ software. No browser required. A Windows version of MixMind is coming soon.
         </p>
         {mixmindIncluded ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <a href="/MixMind-mac.dmg" download
             className="flex flex-col items-center gap-3 p-5 rounded-xl border text-center transition-all hover:border-purple-500"
             style={{ borderColor: "var(--border)", background: "var(--bg-primary)" }}>
@@ -788,19 +784,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="font-semibold text-sm">Mac</p>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>macOS 12+ · Universal</p>
-            </div>
-          </a>
-          <a href="/MixMind-Setup-win.exe" download
-            className="flex flex-col items-center gap-3 p-5 rounded-xl border text-center transition-all hover:border-purple-500"
-            style={{ borderColor: "var(--border)", background: "var(--bg-primary)" }}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#5b21b6" }}>
-              <DownloadIcon size={18} />
-            </div>
-            <div>
-              <p className="font-semibold text-sm">Windows</p>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Windows 10+ · x64</p>
-              <p className="text-xs mt-1" style={{ color: "#6b7280" }}>SmartScreen? Click More info → Run anyway</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Requires a Mac with Apple silicon (M1 or later)</p>
             </div>
           </a>
         </div>
@@ -835,18 +819,10 @@ export default function DashboardPage() {
         {[
           {
             name: "MixMind for Mac",
-            sub: "macOS 12+ · Apple Silicon + Intel",
+            sub: "Requires a Mac with Apple silicon (M1 or later)",
             desc: "AI DJ library manager. Smart playlists, duplicate finder, Rekordbox export.",
             href: "/MixMind-mac.dmg",
             bg: "#7c3aed",
-            icon: <DJIcon size={20} />,
-          },
-          {
-            name: "MixMind for Windows",
-            sub: "Windows 10+ · x64 installer · If SmartScreen appears, click 'More info → Run anyway'",
-            desc: "Full feature parity with Mac. Installer includes all required dependencies.",
-            href: "/MixMind-Setup-win.exe",
-            bg: "#5b21b6",
             icon: <DJIcon size={20} />,
           },
         ].filter(() => mixmindIncluded).map(app => (
@@ -891,7 +867,8 @@ export default function DashboardPage() {
 
       <div className="rounded-2xl border p-5 mb-4" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
         <h3 id="billing" className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-secondary)" }}>Billing</h3>
-        {isSubscribed ? (
+        {planChecking && <p role="status" className="text-sm" style={{ color: "var(--text-secondary)" }}>{checkingPlanText}</p>}
+        {!planChecking && (isSubscribed ? (
           <>
             <div className="flex items-center gap-2 mb-3">
               <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold"
@@ -934,10 +911,10 @@ export default function DashboardPage() {
               Billing history
             </button>}
           </>
-        )}
+        ))}
       </div>
 
-      <div className="rounded-2xl border p-5 mb-6" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+      {!planChecking && <div className="rounded-2xl border p-5 mb-6" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
         <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-secondary)" }}>{isSubscribed ? "Plan includes" : "Free trial includes"}</p>
         <ul className="space-y-2.5">
           {planFeatures.map(f => (
@@ -947,7 +924,7 @@ export default function DashboardPage() {
             </li>
           ))}
         </ul>
-      </div>
+      </div>}
 
       <button onClick={logout}
         className="flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl border transition-opacity hover:opacity-70"
@@ -1019,7 +996,12 @@ export default function DashboardPage() {
 
         {/* Subscription status pill */}
         <div className="hidden sm:block px-3 pb-5">
-          {isSubscribed ? (
+          {planChecking && (
+            <div role="status" className="rounded-xl p-3 border text-xs" style={{ background: "var(--bg-primary)", borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+              {checkingPlanText}
+            </div>
+          )}
+          {!planChecking && (isSubscribed ? (
             <div className="rounded-xl p-3 border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
               <p className="text-xs font-semibold mb-0.5" style={{ color: "#4ade80" }}>✓ {currentPlan} plan</p>
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage ? `${usage.allowance_left} of ${usage.included_per_month} tracks left this month` : "Active"}</p>
@@ -1035,7 +1017,7 @@ export default function DashboardPage() {
                 Start your plan →
               </p>
             </button>
-          )}
+          ))}
         </div>
       </aside>
 

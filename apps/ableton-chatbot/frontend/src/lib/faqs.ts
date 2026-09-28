@@ -20,7 +20,7 @@ export const BEATMIND_FAQS: Faq[] = [
   },
   {
     q: "Does it work on Mac and Windows?",
-    a: "Bridge downloads are available for macOS and Windows. Captured auditions and automatic Live Set file-menu actions currently require macOS; supported controls depend on Ableton and your installed devices.",
+    a: "BeatMind runs in your browser, and the BeatMind Bridge that connects it to Ableton Live currently runs on Macs with Apple Silicon (M1 or later) and macOS 15 or later. Windows support isn't available yet — join the list at support@beatmind.io and we'll email you when it is.",
   },
   {
     q: "How much does BeatMind cost?",
@@ -71,7 +71,7 @@ export const MIXMIND_FAQS: Faq[] = [
   },
   {
     q: "Mac or Windows?",
-    a: "Both. The Mac DMG runs natively on Apple Silicon (M1/M2/M3/M4). Intel Macs need Rosetta 2 — if you don't have it, macOS will prompt you to install it free. The EXE installer works on Windows 10/11.",
+    a: "MixMind for Mac runs on Apple silicon (M1 or later). A Windows version of MixMind is coming soon.",
   },
   {
     q: "Is this the same as BeatMind?",
