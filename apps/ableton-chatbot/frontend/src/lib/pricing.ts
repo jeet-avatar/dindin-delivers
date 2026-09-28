@@ -3,6 +3,8 @@
 export { TRIAL_AI_MESSAGES, TRIAL_DAYS, TRIAL_DETAILS, TRIAL_SHORT, TRIAL_TERMS, TRIAL_TRACKS } from "@/lib/site";
 
 export type PlanId = "starter" | "pro" | "studio";
+export type MixMindPlanId = "mixmind" | "starter_mixmind" | "pro_mixmind";
+export type CheckoutPlanId = PlanId | MixMindPlanId;
 export type BillingInterval = "month" | "year";
 
 export interface Plan {
@@ -23,8 +25,11 @@ export interface Pack {
 }
 
 export interface Combo {
+  id: MixMindPlanId;
+  beatmindPlan: PlanId;
   name: string;
   monthly: number;
+  yearly: number;
   savingsMonthly: number;
   available: boolean;
 }
@@ -108,18 +113,21 @@ export const FOUNDING_DISCOUNT_PERCENT = 40;
 export const FOUNDING_SEATS = 100;
 export const FOUNDING_OFFER = `First ${FOUNDING_SEATS} annual subscribers get ${FOUNDING_DISCOUNT_PERCENT}% off for life with code ${FOUNDING_CODE}. Annual plans only.`;
 
-export const MIXMIND_PRICE = { monthly: 12, yearly: 120, available: false };
+// One switch for MixMind sales (needs the MixMind app sign-in + backend MIXMIND_SALES_ENABLED first).
+export const MIXMIND_ON_SALE = false;
+
+export const MIXMIND_PRICE = { id: "mixmind" as const, monthly: 12, yearly: 120, available: MIXMIND_ON_SALE };
 
 export const MIXMIND_COMBOS: Combo[] = [
-  { name: "Starter + MixMind", monthly: 25, savingsMonthly: 6, available: false },
-  { name: "Pro + MixMind", monthly: 45, savingsMonthly: 6, available: false },
+  { id: "starter_mixmind", beatmindPlan: "starter", name: "Starter + MixMind", monthly: 25, yearly: 250, savingsMonthly: 6, available: MIXMIND_ON_SALE },
+  { id: "pro_mixmind", beatmindPlan: "pro", name: "Pro + MixMind", monthly: 45, yearly: 450, savingsMonthly: 6, available: MIXMIND_ON_SALE },
 ];
 
 export function formatUsd(amount: number): string {
   return Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`;
 }
 
-export function signupHref(planId: PlanId, interval: BillingInterval): string {
+export function signupHref(planId: CheckoutPlanId, interval: BillingInterval): string {
   return `/signup?plan=${planId}&interval=${interval}`;
 }
 
