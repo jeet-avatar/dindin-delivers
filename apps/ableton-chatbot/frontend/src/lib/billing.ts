@@ -80,7 +80,8 @@ export function hasMixMindAccess(user: Pick<User, "mixmind_access"> | null | und
 
 export function planName(plan: PlanState | null | undefined): string {
   if (!plan?.plan) return "No plan";
-  if (plan.tier === "legacy") return "Original $19 plan";
+  // Callers add " plan" themselves ("✓ Original $19 plan", "Cancel your Original $19 plan?").
+  if (plan.tier === "legacy") return "Original $19";
   return PLAN_NAMES[plan.plan] ?? plan.plan;
 }
 
