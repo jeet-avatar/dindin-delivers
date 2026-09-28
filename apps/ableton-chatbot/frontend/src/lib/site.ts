@@ -15,14 +15,16 @@ export const OG_IMAGE_MIXMIND = "/og-mixmind.png";
 export const OG_IMAGE_BLOG = "/og-blog.png";
 export const OG_IMAGE_SIZE = { width: 1200, height: 630 };
 
-// Official social profile URLs for Organization.sameAs. Intentionally empty:
-// add each URL here once the account exists. Never add unverified links.
-export const SOCIAL_PROFILES: string[] = [
-  "https://www.instagram.com/beatmindio/",
-  "https://www.tiktok.com/@beatmindio",
-  "https://www.youtube.com/@beatmindio",
-  "https://x.com/beatmindio",
+// Official social profiles: footer icons and Organization.sameAs.
+// Add each account only once it exists. Never add unverified links.
+export const SOCIAL_LINKS: { name: string; url: string }[] = [
+  { name: "Instagram", url: "https://www.instagram.com/beatmindio/" },
+  { name: "TikTok", url: "https://www.tiktok.com/@beatmindio" },
+  { name: "YouTube", url: "https://www.youtube.com/@beatmindio" },
+  { name: "X", url: "https://x.com/beatmindio" },
+  { name: "Facebook", url: "https://www.facebook.com/profile.php?id=61595121410950" },
 ];
+export const SOCIAL_PROFILES: string[] = SOCIAL_LINKS.map((link) => link.url);
 
 export const HOME_TITLE = "BeatMind — AI Music Producer for Ableton";
 export const HOME_DESCRIPTION =

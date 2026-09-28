@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SocialLinks } from "@/components/SocialLinks";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon } from "@/components/Icons";
@@ -387,6 +388,9 @@ export default function MixMindPage() {
                 <a href="mailto:support@beatmind.io" className="hover:text-white transition-colors duration-150">Support</a>
               </div>
             </nav>
+          </div>
+          <div className="mt-6">
+            <SocialLinks />
           </div>
           <div className="mt-6 text-xs text-center" style={{ color: "var(--text-secondary)" }}>
             Made with <span className="heart-pulse" style={{ color: "var(--accent)" }} aria-label="love">♥</span> for DJs everywhere

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SocialLinks } from "@/components/SocialLinks";
 import { LEGAL_NAME, SUPPORT_EMAIL } from "@/lib/site";
 
 export function BlogNav() {
@@ -45,6 +46,9 @@ export function BlogFooter() {
             <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-white transition-colors duration-150">Support</a>
           </div>
         </nav>
+      </div>
+      <div className="mt-6">
+        <SocialLinks />
       </div>
     </footer>
   );
