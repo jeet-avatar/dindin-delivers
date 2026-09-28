@@ -28,6 +28,7 @@ from production import create_plan, get_plan, link_audition, review_part, replac
 from session_context import matching_recordings, context_note
 from model_history import bounded_history
 import ai_usage
+import mixmind_ai
 import catalog
 import references
 import chat_store
@@ -41,6 +42,7 @@ from stripe_routes import router as stripe_router
 from security import (
     enforce_secrets, rate_limit, get_client_ip,
     validate_password, create_bridge_token, revoke_bridge_token, validate_bridge_token, bridge_token_owner,
+    create_mixmind_token, revoke_mixmind_token, mixmind_token_owner, MIXMIND_AI_PATH,
     check_credential_stuffing, check_bot_ua, check_prompt_injection,
     watermark_response, DoSProtectionMiddleware,
 )
@@ -176,22 +178,44 @@ app.add_middleware(
 
 # ---- Auth helpers ----
 
-def get_current_user(authorization: str = Header(None)) -> dict:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Unauthorized")
-    token = authorization[7:]
+def bearer_token(authorization: str | None) -> str | None:
+    return authorization[7:] if authorization and authorization.startswith("Bearer ") else None
+
+
+def token_user(token: str | None, allow_mixmind: bool = True) -> dict | None:
+    """The user behind a web login JWT or, when allowed, a non-revoked MixMind token. Bridge tokens never qualify."""
+    if not token:
+        return None
     try:
-        payload = decode_token(token)
-        if payload.get("typ") == "bridge":
-            raise HTTPException(401, "Unauthorized")  # Bridge tokens only open the bridge WebSocket.
-        user = get_user_by_id(int(payload["sub"]))
-        if not user:
-            raise HTTPException(401, "Unauthorized")
-        return user
+        claims = decode_token(token)
     except JWTError:
+        return None
+    kind = claims.get("typ")
+    if kind == "mixmind" and allow_mixmind:
+        user_id = mixmind_token_owner(token)
+    elif kind is None:
+        try:
+            user_id = int(claims["sub"])
+        except (ValueError, KeyError, TypeError):
+            return None
+    else:
+        return None  # Bridge tokens only open the bridge WebSocket; MixMind tokens only the MixMind endpoints.
+    return get_user_by_id(user_id) if user_id else None
+
+
+def get_current_user(authorization: str = Header(None)) -> dict:
+    user = token_user(bearer_token(authorization), allow_mixmind=False)
+    if not user:
         raise HTTPException(401, "Unauthorized")
-    except (ValueError, KeyError):
+    return user
+
+
+def get_account_user(authorization: str = Header(None)) -> dict:
+    """/api/auth/me and /api/auth/verify: a web login JWT or the MixMind app's long-lived token."""
+    user = token_user(bearer_token(authorization))
+    if not user:
         raise HTTPException(401, "Unauthorized")
+    return user
 
 
 def require_subscription(user: dict = Depends(get_current_user)) -> dict:
@@ -268,14 +292,14 @@ def user_payload(user: dict) -> dict:
 
 
 @app.get("/api/auth/me")
-async def me(user: dict = Depends(get_current_user)):
+async def me(user: dict = Depends(get_account_user)):
     return user_payload(user)
 
 
 @app.get("/api/auth/verify")
-async def verify_token(user: dict = Depends(get_current_user)):
+async def verify_token(user: dict = Depends(get_account_user)):
     """
-    Verify JWT and return user's active subscriptions.
+    Verify a login JWT or MixMind token and return the user's active subscriptions.
     Used by MixMind desktop app on launch.
 
     Response 200: {"user_id": "...", "email": "...", "subscriptions": ["beatmind"]}
@@ -394,6 +418,28 @@ class BridgeSignOut(BaseModel):
 async def sign_out_bridge(req: BridgeSignOut):
     revoke_bridge_token(req.bridge_token)
     return {"revoked": True}
+
+
+@app.post("/api/auth/mixmind-token")
+async def get_mixmind_token(user: dict = Depends(get_current_user)):
+    """A 365-day MixMind desktop sign-in, issued to any signed-in user; MixMind endpoints check the plan per call."""
+    return {"mixmind_token": create_mixmind_token(user["id"])}
+
+
+class MixMindSignOut(BaseModel):
+    mixmind_token: str = Field(min_length=20, max_length=2000)
+
+
+@app.post("/api/auth/mixmind-token/revoke")
+async def sign_out_mixmind(req: MixMindSignOut):
+    revoke_mixmind_token(req.mixmind_token)
+    return {"revoked": True}
+
+
+@app.post(MIXMIND_AI_PATH)
+async def mixmind_ai_messages(request: Request, x_api_key: str = Header(None), authorization: str = Header(None)):
+    """Anthropic Messages API for the MixMind app (the SDK sends its api_key as x-api-key). See mixmind_ai.py."""
+    return await mixmind_ai.handle(request, token_user(x_api_key or bearer_token(authorization)))
 
 
 @app.get("/api/bridge/install-script")

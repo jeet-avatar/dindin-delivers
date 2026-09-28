@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 import ai_usage
 import billing
 import catalog
-from database import db, get_user_by_id, is_subscribed, mixmind_access, parse_utc, subscription_access
+from database import db, is_subscribed, mixmind_access, parse_utc, subscription_access
 
 log = logging.getLogger("beatmind.stripe")
 
@@ -43,18 +43,9 @@ def _get_current_user_dep():
 
 
 def _authenticated_user(request: Request) -> dict:
-    from beatmind_auth import decode_token
-    from jose import JWTError
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        raise HTTPException(401, "Unauthorized")
-    try:
-        user = get_user_by_id(int(decode_token(auth[7:])["sub"]))
-    except (JWTError, KeyError, ValueError):
-        raise HTTPException(401, "Unauthorized")
-    if not user:
-        raise HTTPException(401, "Unauthorized")
-    return user
+    """Web login JWTs only: Bridge and MixMind app tokens cannot manage billing."""
+    from main import get_current_user
+    return get_current_user(request.headers.get("Authorization"))
 
 
 def _field(obj, key, default=None):
