@@ -127,7 +127,7 @@ Not yet. BeatMind runs in your browser, and the BeatMind Bridge that connects it
 
 ### Who owns the music I make with BeatMind?
 
-You do, 100%. Everything BeatMind generates in your Ableton project is yours to release, sell or license.
+You do. We claim no rights to what you make. Samples and presets you load stay under their own licences.
 
 ### What is AbletonOSC and why is it needed?
 

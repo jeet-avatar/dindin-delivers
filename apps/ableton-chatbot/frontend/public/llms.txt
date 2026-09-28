@@ -8,7 +8,7 @@
 - Requirements: Ableton Live 11 or 12 (Standard or Suite), AbletonOSC, and the BeatMind Bridge on a Mac with Apple Silicon (M1 or later) and macOS 15 or later. Placing separated stems into Live needs Live 12 and the BeatMind extension.
 - How it works: connect the Bridge and AbletonOSC, describe genre, mood, tempo and instruments in plain English, then review and refine each part (kick, bass, melody, effects) before moving to the next.
 - Scope: works in Session view (clips and scenes) and adjusts supported device controls; parameter availability depends on the device. It does not write a finished Arrangement timeline or export full songs.
-- Ownership: users own 100% of the music they create with BeatMind.
+- Ownership: users own what they make; BeatMind claims no rights. Samples and presets they load stay under their own licences.
 
 ## MixMind
 
@@ -27,7 +27,7 @@ Paid plans: cancel anytime. Annual billing = 2 months free. Switch or cancel any
 - BeatMind Starter: $19/month or $190/year. 10 tracks/month, AI producer inside Ableton Live (fair use).
 - BeatMind Pro (most popular): $39/month or $390/year. 30 tracks/month + 5 cloud HQ separations/month, AI producer (fair use).
 - BeatMind Studio: $79/month or $790/year. 80 tracks/month + 20 cloud HQ separations/month, MixMind included (early access), priority support, AI producer (fair use).
-- What a "track" is: one stem separation of a reference track. High-quality separation runs on the user's own computer via the BeatMind Bridge. Monthly allowances reset each month and do not roll over.
+- What a "track" is: one stem separation of a reference track. High-quality separation runs on the user's own Mac via the BeatMind Bridge. Monthly allowances reset each month and do not roll over.
 - Cloud HQ separations: high-quality stem separation on BeatMind's cloud GPU, for computers that can't run HQ separation locally. Paid plans only (Pro, Studio, or Cloud HQ packs).
 - Extra track packs (never expire): 10 for $9, 25 for $19, 60 for $39.
 - Cloud HQ packs (never expire): 10 for $7.99, 50 for $34.99.

@@ -97,12 +97,12 @@ BeatMind can adjust volume, pan, sends and supported device parameters. Which co
 
 If you have a track whose energy you want to learn from, BeatMind's reference workflow can help you plan before you prompt:
 
-1. **Stems:** upload the reference and review its separated drums, bass, vocals and other layers. These are estimates with possible bleed, not the original studio files.
+1. **Stems:** upload the reference and review its separated stems (up to eight stems: vocals, bass, other instruments and drums, with the drums split into kick, snare, toms and cymbals/hi-hat). These are estimates with possible bleed, not the original studio files.
 2. **Timing:** review the detected BPM and proposed section boundaries, then correct and confirm them.
-3. **Listening (optional):** write a listening brief, for example "focus on the warm bass groove, restrained drums and gradual build." This step is opt-in and may carry a charge.
+3. **Listening (optional):** write a listening brief, for example "focus on the warm bass groove, restrained drums and gradual build." This step sends a short excerpt and your brief to OpenAI for analysis, only when you run it.
 4. **Template:** describe what to keep and avoid, choose style, mood and key, plan the sound roles and sections, then approve a planning brief.
 
-Approving the brief saves a plan; it does not import stems or build anything in Live. You still build original parts one at a time in chat, which is exactly the point. Later, you can compare a captured audition of your part against a reference layer with level-matched A/B playback.
+Approving the brief saves a plan; it does not build anything in Live. Placing the stems themselves on new audio tracks is a separate, optional step for stems separated on your Mac (it needs Live 12 and the BeatMind extension). You still build original parts one at a time in chat, which is exactly the point. Later, you can compare a captured audition of your part against a reference layer with level-matched A/B playback.
 
 ## From loop to arrangement: taking over
 

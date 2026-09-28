@@ -90,7 +90,7 @@ export const HIGHEST_MONTHLY_USD = Math.max(...PLANS.map((plan) => plan.monthly)
 export const ANNUAL_DISCOUNT_LABEL = "2 months free";
 
 export const TRACK_DEFINITION =
-  "A track is one stem separation of a reference track. High-quality separation runs on your own computer via the Bridge.";
+  "A track is one stem separation of a reference track. High-quality separation runs on your own Mac via the Bridge.";
 export const CLOUD_HQ_DEFINITION =
   "Cloud HQ separations run on our cloud GPU, for computers that can't run high-quality separation locally. They need a paid plan.";
 
