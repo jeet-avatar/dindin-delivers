@@ -176,8 +176,15 @@ def subscription_access(user: dict) -> bool:
     return user.get("plan_tier") != "mixmind" and _paid_status(user)
 
 
+def mixmind_comp_emails() -> set[str]:
+    """Accounts given MixMind without a plan (internal testing, creator comps): MIXMIND_COMP_EMAILS=a@x.com,b@y.com."""
+    return {e.strip().lower() for e in os.getenv("MIXMIND_COMP_EMAILS", "").split(",") if e.strip()}
+
+
 def mixmind_access(user: dict) -> bool:
     """MixMind is included in Studio, MixMind and the combo plans; not in Starter, Pro, legacy plans or the trial."""
+    if str(user.get("email", "")).lower() in mixmind_comp_emails():
+        return True
     return bool(user.get("mixmind")) and _paid_status(user)
 
 

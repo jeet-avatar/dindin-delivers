@@ -449,3 +449,13 @@ class MixMindRateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MixMindCompTests(unittest.TestCase):
+    def test_comp_emails_get_mixmind_without_a_plan(self):
+        from database import mixmind_access
+        with patch.dict(os.environ, {"MIXMIND_COMP_EMAILS": " Tester@BeatMind.io , other@x.com"}):
+            self.assertTrue(mixmind_access({"email": "tester@beatmind.io", "subscription_status": "inactive"}))
+            self.assertFalse(mixmind_access({"email": "nobody@x.com", "subscription_status": "inactive"}))
+        with patch.dict(os.environ, {"MIXMIND_COMP_EMAILS": ""}):
+            self.assertFalse(mixmind_access({"email": "tester@beatmind.io", "subscription_status": "inactive"}))
