@@ -2,6 +2,11 @@ export const BASE_URL = "https://www.beatmind.io";
 export const SITE_NAME = "BeatMind";
 export const LEGAL_NAME = "Zietra Technologies Inc.";
 export const SUPPORT_EMAIL = "support@beatmind.io";
+// CONFIRM: postal address shown in the privacy policy. Check with the company records before relying on it.
+export const LEGAL_POSTAL_ADDRESS = "12 Teaberry, Rancho Santa Margarita, CA 92688, USA";
+// CONFIRM: governing-law state for the Terms of Service.
+export const GOVERNING_LAW_STATE = "California";
+export const LEGAL_LAST_UPDATED = "September 28, 2026";
 
 export const TRIAL_DAYS = 7;
 export const TRIAL_TRACKS = 3;
