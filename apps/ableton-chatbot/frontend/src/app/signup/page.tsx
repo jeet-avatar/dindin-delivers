@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveAuth, apiFetch, API_URL } from "@/lib/auth";
+import { saveAuth, API_URL } from "@/lib/auth";
 import { EyeIcon, EyeOffIcon } from "@/components/Icons";
 
 export default function SignupPage() {
@@ -26,20 +26,7 @@ export default function SignupPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Registration failed");
       saveAuth(data.token, data.user);
-      // Collect payment method upfront — card charged after 7-day trial ends
-      try {
-        const checkoutRes = await apiFetch("/api/stripe/checkout", {
-          method: "POST",
-          body: JSON.stringify({}),
-        });
-        const checkout = await checkoutRes.json();
-        if (checkout.url) {
-          window.location.href = checkout.url;
-          return;
-        }
-      } catch {
-        // Stripe unavailable — let user into dashboard; 402 gate will prompt later
-      }
+      // The free trial needs no card: go straight to the app. Plans are chosen from the dashboard.
       router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -57,7 +44,7 @@ export default function SignupPage() {
             beatmind
           </Link>
           <h1 className="text-2xl font-bold">Start your free trial</h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>7 days free, then $19/month</p>
+          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>7 days free &middot; no credit card required</p>
         </div>
 
         <form onSubmit={submit} className="rounded-2xl border p-8 space-y-4" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} noValidate>
@@ -136,7 +123,7 @@ export default function SignupPage() {
           </button>
 
           <p className="text-xs text-center" style={{ color: "var(--text-secondary)" }}>
-            Card saved now &middot; charged after 7-day trial &middot; cancel anytime
+            No card needed &middot; includes 3 tracks &middot; choose a plan any time
           </p>
         </form>
 

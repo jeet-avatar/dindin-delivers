@@ -10,6 +10,9 @@ export interface User {
   subscription_status: string;
   trial_ends_at: string | null;
   subscribed: boolean;
+  plan?: string | null;
+  /** MixMind is included in the user's plan (Studio, MixMind or a combo). */
+  mixmind_access?: boolean;
 }
 
 export function saveAuth(token: string, user: User) {

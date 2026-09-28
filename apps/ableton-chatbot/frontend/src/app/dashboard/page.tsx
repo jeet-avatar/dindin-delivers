@@ -14,12 +14,14 @@ import { messageRecordingIds } from "@/lib/chat-recordings";
 import NewSongDialog from "@/components/NewSongDialog";
 import References from "@/components/References";
 import ChatComparisons from "@/components/ChatComparisons";
+import PlanPicker from "@/components/PlanPicker";
 import BridgeLaunch from "@/components/BridgeLaunch";
 import { useAbletonLaunch } from "@/lib/use-ableton-launch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
 import { bridgeStatusLabel } from "@/lib/bridge-status";
 import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/chat-index";
 import { acceptedSound, type MusicChoice } from "@/lib/music-workflow";
+import { daysLeft, hasMixMindAccess, hasPaidPlan, openBillingPortal, planName, useUsage } from "@/lib/billing";
 
 // ─── Inline icons (avoids prop-type conflicts with existing Icons.tsx) ────────
 function HomeIcon({ size = 20 }: { size?: number }) {
@@ -162,6 +164,16 @@ export default function DashboardPage() {
   const [chats, setChats] = useState<ChatEntry[]>([]);
   const [serverChats, setServerChats] = useState<ChatEntry[]>([]);
   const [authStatus, setAuthStatus] = useState("Checking sign-in");
+  const [planReason, setPlanReason] = useState<string | null>(null);
+  const { usage, reload: reloadUsage } = useUsage(user?.id);
+
+  // Back from Stripe Checkout: the webhook can land a few seconds after the redirect.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("subscribed") && !params.has("purchase")) return;
+    const timers = [3000, 10000].map(ms => setTimeout(() => { void reloadUsage().catch(() => undefined); }, ms));
+    return () => timers.forEach(clearTimeout);
+  }, [reloadUsage]);
   const explicitRecordingIds = messageRecordingIds(messages);
   const recordings = useRecordings(explicitRecordingIds.flat());
   const recordingIdsByMessage = messageRecordingIds(messages, recordings.items);
@@ -361,9 +373,11 @@ export default function DashboardPage() {
         signal: controller.signal,
       });
       if (res.status === 402) {
-        const { url } = await (await apiFetch("/api/stripe/checkout", { method: "POST", body: JSON.stringify({}) })).json();
-        if (url) window.location.href = url;
-        throw new Error("A subscription is required to continue.");
+        const error = await res.json().catch(() => ({}));
+        const reason = typeof error.detail === "string" && error.detail !== "Subscription required"
+          ? error.detail : "Your free trial has ended. Choose a plan to keep going.";
+        setPlanReason(reason);
+        throw new Error(reason);
       }
       if (res.status === 401) { clearAuth(); router.replace("/login"); return; }
       if (!res.ok) {
@@ -435,11 +449,12 @@ export default function DashboardPage() {
     } finally { requestRef.current = null; setLoading(false); }
   }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject]);
 
+  // Subscribers manage or change plans in the Stripe portal; everyone else picks a plan.
   const openBilling = async () => {
-    if (!user) return;
-    const { url } = await (await apiFetch("/api/stripe/portal", { method: "POST", body: JSON.stringify({ email: user.email }) })).json();
-    if (url) window.location.href = url;
+    try { if (!(await openBillingPortal())) setPlanReason(""); }
+    catch (e) { setHistoryError(e instanceof Error ? e.message : "Billing could not open."); }
   };
+  const choosePlan = () => setPlanReason("");
 
   const logout = () => { clearAuth(); router.push("/"); };
 
@@ -457,11 +472,32 @@ export default function DashboardPage() {
   };
 
   // Derived subscription state
-  const isSubscribed = user?.subscribed || user?.subscription_status === "active";
-  const trialDays = user?.trial_ends_at
-    ? Math.max(0, Math.ceil((new Date(user.trial_ends_at).getTime() - Date.now()) / 86400000))
-    : null;
+  // A paid plan, not the free trial (user.subscribed is also true during the trial).
+  const isSubscribed = usage ? hasPaidPlan(usage.plan) : ["active", "trialing", "past_due"].includes(user?.subscription_status ?? "");
+  const trialDays = daysLeft(user?.trial_ends_at);
   const trialActive = !isSubscribed && trialDays !== null && trialDays > 0;
+  const currentPlan = isSubscribed && usage ? planName(usage.plan) : "BeatMind";
+  const trialTracks = usage?.plan.source === "trial" ? `${usage.allowance_left} of ${usage.included_per_month} tracks left · ` : "";
+  const trialSummary = `Free trial · ${trialTracks}${trialDays} day${trialDays !== 1 ? "s" : ""} left`;
+  const trialOutOfTracks = usage?.plan.source === "trial" && usage.allowance_left === 0;
+  let trialBanner = "Your free trial has ended";
+  if (trialActive) trialBanner = trialOutOfTracks ? `Your free trial includes ${usage?.included_per_month} tracks. Choose a plan to keep going.` : trialSummary;
+  const mixmindIncluded = hasMixMindAccess(usage ?? user);
+  const planFeatures = usage && isSubscribed ? [
+    `${usage.included_per_month} track separations per month`,
+    ...(usage.included_cloud_per_month > 0 ? [`${usage.included_cloud_per_month} BeatMind Cloud GPU tracks per month`] : []),
+    "BeatMind AI for Ableton Live", "BeatMind Bridge for Ableton Live",
+    ...(usage.plan.mixmind ? ["MixMind early access for Mac + Windows"] : []),
+  ] : [
+    `${usage?.plan.source === "trial" ? usage.included_per_month : 3} tracks separated on your computer`,
+    "BeatMind AI for Ableton Live (trial allowance)", "BeatMind Bridge for Ableton Live",
+  ];
+  const mixmindLocked = (
+    <div className="rounded-xl border p-3 text-xs" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+      MixMind early access is included with the Studio plan.{" "}
+      <button type="button" onClick={choosePlan} className="underline" style={{ color: "#a78bfa" }}>See plans</button>
+    </div>
+  );
 
   // ──────────────────────────────────────────────────────────────────────────
   // HOME
@@ -475,10 +511,10 @@ export default function DashboardPage() {
         </h1>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           {isSubscribed
-            ? "Pro plan · Full access to BeatMind + MixMind"
+            ? `${currentPlan} plan${usage ? ` · ${usage.tracks_used} of ${usage.included_per_month} tracks used this month` : ""}`
             : trialActive
-              ? `Free trial · ${trialDays} day${trialDays !== 1 ? "s" : ""} remaining`
-              : "Your trial has ended — subscribe to continue"}
+              ? trialSummary
+              : "Your free trial has ended — choose a plan to continue"}
         </p>
       </div>
 
@@ -488,16 +524,16 @@ export default function DashboardPage() {
           style={{ background: "linear-gradient(135deg,#0d1f3c 0%,#1a1000 100%)", borderColor: "#1e3a5f" }}>
           <div>
             <p className="font-semibold text-sm mb-1" style={{ color: "#93c5fd" }}>
-              {trialActive ? `🎵 ${trialDays} day${trialDays !== 1 ? "s" : ""} left on your free trial` : "⚠️ Trial ended — subscribe to keep access"}
+              {trialBanner}
             </p>
             <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-              $19/mo · Unlimited BeatMind + MixMind · Cancel any time
+              Starter, Pro or Studio · monthly or yearly · cancel any time
             </p>
           </div>
-          <button onClick={openBilling}
+          <button onClick={choosePlan}
             className="flex-shrink-0 px-6 py-2.5 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90"
             style={{ background: "var(--accent)", color: "#fff" }}>
-            Subscribe now →
+            Start your plan →
           </button>
         </div>
       )}
@@ -547,6 +583,7 @@ export default function DashboardPage() {
           <p className="text-xs mb-5 flex-1" style={{ color: "var(--text-secondary)", lineHeight: "1.65" }}>
             AI-powered DJ library organizer with smart playlists, duplicate finder, BPM/key analysis, and Rekordbox + USB export.
           </p>
+          {mixmindIncluded ? (
           <div className="grid grid-cols-2 gap-2">
             <a href="/MixMind-mac.dmg" download
               className="py-2 rounded-xl text-sm font-semibold text-center flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
@@ -561,6 +598,7 @@ export default function DashboardPage() {
               Windows
             </a>
           </div>
+          ) : mixmindLocked}
         </div>
       </div>
 
@@ -711,6 +749,7 @@ export default function DashboardPage() {
         <p className="text-sm mb-5" style={{ color: "var(--text-secondary)", lineHeight: "1.7" }}>
           MixMind is a native desktop app — download it for your platform and run it alongside your DJ software. No browser required.
         </p>
+        {mixmindIncluded ? (
         <div className="grid grid-cols-2 gap-3">
           <a href="/MixMind-mac.dmg" download
             className="flex flex-col items-center gap-3 p-5 rounded-xl border text-center transition-all hover:border-purple-500"
@@ -736,6 +775,7 @@ export default function DashboardPage() {
             </div>
           </a>
         </div>
+        ) : mixmindLocked}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -755,7 +795,7 @@ export default function DashboardPage() {
   const renderDownloads = () => (
     <div className="p-8 max-w-2xl">
       <h2 className="text-xl font-bold mb-1">Downloads</h2>
-      <p className="text-sm mb-7" style={{ color: "var(--text-secondary)" }}>All apps included with your subscription.</p>
+      <p className="text-sm mb-7" style={{ color: "var(--text-secondary)" }}>Apps included with your plan.</p>
 
       <section aria-label="BeatMind Bridge" className="mb-6 border-b pb-5" style={{ borderColor: "var(--border)" }}>
         <h3 className="font-semibold text-sm">BeatMind Bridge</h3>
@@ -780,7 +820,7 @@ export default function DashboardPage() {
             bg: "#5b21b6",
             icon: <DJIcon size={20} />,
           },
-        ].map(app => (
+        ].filter(() => mixmindIncluded).map(app => (
           <div key={app.name} className="rounded-2xl border p-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
             <div className="flex items-center justify-between gap-4 mb-3">
               <div className="flex items-center gap-3">
@@ -802,6 +842,7 @@ export default function DashboardPage() {
             <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{app.desc}</p>
           </div>
         ))}
+        {!mixmindIncluded && mixmindLocked}
       </div>
     </div>
   );
@@ -827,14 +868,18 @@ export default function DashboardPage() {
               <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold"
                 style={{ background: "#052e16", color: "#4ade80" }}>
                 <CheckIcon size={11} />
-                Active — Pro
+                {usage?.plan.status === "past_due" ? `Payment failed — ${currentPlan}` : `Active — ${currentPlan}`}
               </span>
-              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>$19 / month</span>
+              {usage?.plan.interval && <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Billed {usage.plan.interval === "year" ? "yearly" : "monthly"}</span>}
             </div>
+            {usage?.plan.status === "past_due" && <p className="text-xs mb-3 text-amber-200">Update your card in Manage billing to keep your plan.</p>}
+            {usage && <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+              {usage.tracks_used} of {usage.included_per_month} tracks{usage.included_cloud_per_month > 0 ? ` · ${usage.cloud_used} of ${usage.included_cloud_per_month} Cloud tracks` : ""} used this month · {usage.track_credits} purchased tracks · {usage.cloud_credits} purchased Cloud tracks
+            </p>}
             <button onClick={openBilling}
               className="text-xs px-4 py-2 rounded-lg border transition-opacity hover:opacity-70"
               style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
-              Manage billing →
+              Manage billing · change plan →
             </button>
           </>
         ) : (
@@ -842,27 +887,32 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xs px-2.5 py-1 rounded-full font-semibold"
                 style={{ background: "#1a1000", color: "#fbbf24" }}>
-                {trialActive ? `Free trial · ${trialDays}d left` : "Trial ended"}
+                {trialActive ? trialSummary : "Trial ended"}
               </span>
             </div>
             <p className="text-xs mb-4" style={{ color: "var(--text-secondary)" }}>
               {trialActive
-                ? `Your trial ends in ${trialDays} day${trialDays !== 1 ? "s" : ""}. Subscribe to keep full access.`
-                : "Subscribe to continue using BeatMind and MixMind."}
+                ? "No card on file. Your trial ends on its own; choose a plan whenever you're ready."
+                : "Choose a plan to keep using BeatMind."}
             </p>
-            <button onClick={openBilling}
+            <button onClick={choosePlan}
               className="px-6 py-2.5 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}>
-              Subscribe · $19 / month
+              Start your plan
             </button>
+            {usage?.billing_account && <button onClick={openBilling}
+              className="ml-3 text-xs px-4 py-2 rounded-lg border transition-opacity hover:opacity-70"
+              style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+              Billing history
+            </button>}
           </>
         )}
       </div>
 
       <div className="rounded-2xl border p-5 mb-6" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-secondary)" }}>Plan includes</p>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-secondary)" }}>{isSubscribed ? "Plan includes" : "Free trial includes"}</p>
         <ul className="space-y-2.5">
-          {["BeatMind AI — unlimited prompts", "BeatMind Bridge for Ableton Live", "MixMind for Mac + Windows", "AI playlist generation", "Priority email support"].map(f => (
+          {planFeatures.map(f => (
             <li key={f} className="flex items-center gap-2.5 text-sm">
               <span style={{ color: "#4ade80" }}><CheckIcon size={14} /></span>
               {f}
@@ -887,6 +937,7 @@ export default function DashboardPage() {
     <div className="flex h-dvh overflow-hidden" style={{ background: "var(--bg-primary)" }}>
       {songSetup !== null && sessionId && <NewSongDialog sessionId={sessionId} onCancel={() => setSongSetup(null)}
         onReady={updated => { setProject(updated); setSongSetup(null); }} />}
+      {planReason !== null && <PlanPicker reason={planReason || undefined} inTrial={trialActive} onClose={() => setPlanReason(null)} />}
 
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside className="flex flex-col w-14 sm:w-60 flex-shrink-0 border-r" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
@@ -941,18 +992,18 @@ export default function DashboardPage() {
         <div className="hidden sm:block px-3 pb-5">
           {isSubscribed ? (
             <div className="rounded-xl p-3 border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
-              <p className="text-xs font-semibold mb-0.5" style={{ color: "#4ade80" }}>✓ Pro Plan</p>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Full access · Both apps</p>
+              <p className="text-xs font-semibold mb-0.5" style={{ color: "#4ade80" }}>✓ {currentPlan} plan</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage ? `${usage.allowance_left} of ${usage.included_per_month} tracks left this month` : "Active"}</p>
             </div>
           ) : (
-            <button onClick={openBilling}
+            <button onClick={choosePlan}
               className="w-full rounded-xl p-3 text-left transition-opacity hover:opacity-90"
               style={{ background: "linear-gradient(135deg,#1d4ed8,#7c3aed)" }}>
               <p className="text-xs font-bold text-white mb-0.5">
-                {trialActive ? `${trialDays}d trial left` : "Trial ended"}
+                {trialActive ? trialSummary : "Trial ended"}
               </p>
               <p className="text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
-                Tap to subscribe →
+                Start your plan →
               </p>
             </button>
           )}
