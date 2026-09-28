@@ -17,6 +17,7 @@ import ChatComparisons from "@/components/ChatComparisons";
 import PlanPicker from "@/components/PlanPicker";
 import SubscriptionControls from "@/components/SubscriptionControls";
 import BridgeLaunch from "@/components/BridgeLaunch";
+import UpdateBanner from "@/components/UpdateBanner";
 import { useAbletonLaunch } from "@/lib/use-ableton-launch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
 import { bridgeStatusLabel } from "@/lib/bridge-status";
@@ -480,9 +481,9 @@ export default function DashboardPage() {
   const trialDays = daysLeft(user?.trial_ends_at);
   const trialActive = !isSubscribed && trialDays !== null && trialDays > 0;
   const currentPlan = isSubscribed && usage ? planName(usage.plan) : "BeatMind";
-  const trialTracks = usage?.plan.source === "trial" ? `${usage.allowance_left} of ${usage.included_per_month} tracks left · ` : "";
+  const trialTracks = usage?.plan?.source === "trial" ? `${usage.allowance_left} of ${usage.included_per_month} tracks left · ` : "";
   const trialSummary = `Free trial · ${trialTracks}${trialDays} day${trialDays !== 1 ? "s" : ""} left`;
-  const trialOutOfTracks = usage?.plan.source === "trial" && usage.allowance_left === 0;
+  const trialOutOfTracks = usage?.plan?.source === "trial" && usage.allowance_left === 0;
   let trialBanner = "Your free trial has ended";
   if (trialActive) trialBanner = trialOutOfTracks ? `Your free trial includes ${usage?.included_per_month} tracks. Choose a plan to keep going.` : trialSummary;
   const mixmindIncluded = hasMixMindAccess(usage ?? user);
@@ -492,7 +493,7 @@ export default function DashboardPage() {
     "BeatMind AI for Ableton Live", "BeatMind Bridge for Ableton Live",
     ...(usage.plan.mixmind ? ["MixMind early access for Mac + Windows"] : []),
   ] : [
-    `${usage?.plan.source === "trial" ? usage.included_per_month : 3} tracks separated on your computer`,
+    `${usage?.plan?.source === "trial" ? usage.included_per_month : 3} tracks separated on your computer`,
     "BeatMind AI for Ableton Live (trial allowance)", "BeatMind Bridge for Ableton Live",
   ];
   const mixmindLocked = (
@@ -1039,6 +1040,7 @@ export default function DashboardPage() {
             </span>
           </button>
         </header>
+        <UpdateBanner />
         <div className="shrink-0 border-b px-3 sm:px-6" style={{ borderColor: "var(--border)" }}>
           <BridgeLaunch status={bridgeStatus} onRetry={refreshBridge} ableton={ableton} />
         </div>

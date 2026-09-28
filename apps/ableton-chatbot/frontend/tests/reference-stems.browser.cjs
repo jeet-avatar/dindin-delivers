@@ -28,6 +28,7 @@ function wave() {
       }, { id, project });
       await context.route('**/api/**', async route => {
         const req = route.request(), path = new URL(req.url()).pathname;
+        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
         const body = req.postData() ? req.postDataJSON() : {};
         calls.push({ path, method: req.method(), body });
         const reply = (value, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
@@ -69,7 +70,7 @@ function wave() {
       await save().click(); await section().getByRole('alert').filter({ hasText: 'Stem file integrity is not confirmed' }).waitFor();
       assert.equal(posts().length, 0);
       await section().getByRole('button', { name: 'Refresh stem checks', exact: true }).click();
-      await section().getByText('4 separated audio files saved with this reference', { exact: true }).waitFor();
+      await section().getByText('4 separated stems saved with this reference', { exact: true }).waitFor();
       assert.equal(calls.filter(c => c.path.endsWith('/refresh-analysis')).length, 1);
       await next('Review drums').click();
       assert.equal(await choice('drums').evaluate(el => document.activeElement === el), true);

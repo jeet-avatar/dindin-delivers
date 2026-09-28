@@ -15,6 +15,8 @@ export default function NewSongDialog({ sessionId, onCancel, onReady }: {
   const [ready, setReady] = useState(false);
   const [title, setTitle] = useState("");
   const [tracks, setTracks] = useState<string[]>([]);
+  // A new set replaces what is open in Ableton, so the user must first save it or choose to close it.
+  const [current, setCurrent] = useState<"saved" | "close" | null>(null);
   useEffect(() => { dialog.current?.showModal(); }, []);
 
   async function step(operation: string) {
@@ -23,7 +25,9 @@ export default function NewSongDialog({ sessionId, onCancel, onReady }: {
       const response = await apiFetch("/api/live-set", { method: "POST", body: JSON.stringify({ operation, session_id: sessionId }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail || "Live Set setup is unavailable.");
-      setSummary(result.summary); setError(["failed", "unverified"].includes(result.status));
+      const failed = ["failed", "unverified"].includes(result.status);
+      setSummary(result.summary); setError(failed);
+      if (operation === "save" && !failed) setCurrent("saved");
       if (operation === "inspect") {
         setReady(result.new_set_ready === true); setTitle(result.title || ""); setTracks(result.tracks || []);
       }
@@ -52,10 +56,15 @@ export default function NewSongDialog({ sessionId, onCancel, onReady }: {
       <div className="flex flex-wrap gap-2 mt-3">
         <button disabled={busy} onClick={() => step("activate")} className={button}>Open Ableton</button>
         <button disabled={busy} onClick={() => step("save")} className={button}>1. Save current set</button>
-        <button disabled={busy} onClick={() => step("new")} className={button}>2. Open new Live Set</button>
+        <button disabled={busy} onClick={() => setCurrent("close")} aria-pressed={current === "close"} className={button}>1. Close it without saving</button>
+        <button disabled={busy || !current} onClick={() => step("new")} className={button}>2. Open new Live Set</button>
         <button disabled={busy} onClick={() => step("inspect")} className={button}>3. Inspect open set</button>
       </div>
-      <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>Existing chats and sound reviews stay saved. Any save-location prompt must be completed in Ableton.</p>
+      <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>
+        {current === null && "First save the set that is open in Ableton, or choose to close it. "}
+        {current === "saved" && "Current set saved. "}
+        {current === "close" && "When Ableton asks to save, choose Don't Save. "}
+        Existing chats and sound reviews stay saved. Any save-location prompt must be completed in Ableton.</p>
       {summary && <p role={error ? "alert" : "status"} className={`text-sm mt-3 ${error ? "text-red-300" : "text-emerald-200"}`}>{liveSetMessage(summary)}</p>}
       {liveSetMessage(summary) !== summary && <details className="mt-2 text-xs break-words"><summary>Technical details</summary>{summary}</details>}
       {title && <p className="text-sm mt-2 break-words">{title}</p>}

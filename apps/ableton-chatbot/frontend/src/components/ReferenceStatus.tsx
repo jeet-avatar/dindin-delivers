@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { UploadProgress } from "@/lib/reference-upload";
 
-type StatusReference = { name: string; status: string; stage?: string; created_at: string; error?: string };
+type StatusReference = { name: string; status: string; stage?: string; created_at: string; error?: string; storage?: string };
 const elapsed = (seconds: number) => `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60).toString().padStart(2, "0")}s`;
 
 export default function ReferenceStatus({ reference, checkedAt, pollError, transfer, startedAt, onOpen, onListen }: {
@@ -25,9 +25,16 @@ export default function ReferenceStatus({ reference, checkedAt, pollError, trans
   const failed = reference.status === "failed";
   const measuring = reference.stage === "Measuring tempo, tonal centre and energy changes";
   const decoding = reference.stage === "Decoding audio" || reference.stage === "Validating audio";
+  // Local references never leave the user's computer; only the analysis report reaches BeatMind.
+  const local = reference.storage === "local";
+  const confirmed = local ? "Separating on your computer." : "Upload confirmed.";
   const separatingMessage = reference.stage?.startsWith("Splitting drums")
-    ? "Upload confirmed. Main stems are done; splitting drums into kick, snare, toms and cymbals."
-    : "Upload confirmed. Estimating drums, bass, vocals and other stems. This can take several minutes; progress within this stage is not reported.";
+    ? `${confirmed} Main stems are done; splitting drums into kick, snare, toms and cymbals.`
+    : `${confirmed} Estimating drums, bass, vocals and other stems. This can take several minutes; progress within this stage is not reported.`;
+  const readyMessage = local
+    ? "Separated on your computer. Your stems are in Music/BeatMind Stems and the analysis is saved. Nothing was uploaded."
+    : "Upload and analysis complete. Your audio and estimated stems are saved. No need to upload again.";
+  const firstStep = local ? "Choose file" : "Upload";
   const step = ready ? 4 : reference.status === "uploading" ? 0 : measuring ? 2 : 1;
   const title = transfer ? transfer.sent ? "Confirming upload" : "Uploading audio"
     : failed ? "Processing failed" : uncertain ? "Current status not confirmed" : ready ? "Ready to listen"
@@ -44,11 +51,11 @@ export default function ReferenceStatus({ reference, checkedAt, pollError, trans
       <p className="text-sm">{percent}% sent / {(transfer.loaded / 1048576).toFixed(1)} / {(transfer.total / 1048576).toFixed(1)} MB</p>
       <p className="text-sm text-neutral-300">{transfer.sent ? "Bytes sent. Waiting for the server to confirm the upload; analysis has not been confirmed yet." : "Sending your file. Keep this tab open until the upload is confirmed."}</p>
     </> : failed ? <p role="alert" className="text-sm text-red-300">{reference.error || "Analysis could not finish. Your other references are unchanged."}</p>
-      : uncertain ? <p className="text-sm text-amber-200">{pollError || "The server has not confirmed this status recently. Reconnecting automatically."} Last known stage: {reference.stage || reference.status}. Do not upload another copy.</p>
-      : ready ? <p className="text-sm text-emerald-200">Upload and analysis complete. Your audio and estimated stems are saved. No need to upload again.</p>
+      : uncertain ? <p className="text-sm text-amber-200">{pollError || "The server has not confirmed this status recently. Reconnecting automatically."} Last known stage: {reference.stage || reference.status}. {local ? "Do not start another copy." : "Do not upload another copy."}</p>
+      : ready ? <p className="text-sm text-emerald-200">{readyMessage}</p>
       : <p className="text-sm text-neutral-300">{reference.status === "uploading" ? "The server is receiving the file. Analysis has not started." : measuring ? "Stem separation is complete. Measuring tempo, tonal content and energy changes." : separatingMessage}</p>}
     {!failed && <ol aria-label="Reference processing steps" className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-      {["Upload", "Separate stems", "Analyze", "Ready"].map((label, index) => <li key={label} className={`border-t-2 pt-2 ${index < step ? "border-emerald-400 text-emerald-300" : index === step && !uncertain ? "border-amber-300 text-white" : "border-neutral-700 text-neutral-400"}`}>
+      {[firstStep, "Separate stems", "Analyze", "Ready"].map((label, index) => <li key={label} className={`border-t-2 pt-2 ${index < step ? "border-emerald-400 text-emerald-300" : index === step && !uncertain ? "border-amber-300 text-white" : "border-neutral-700 text-neutral-400"}`}>
         <span className="block">{index + 1}. {label}</span>
         <span>{index < step ? "Done" : index === step ? uncertain ? "Last known stage" : "In progress" : "Pending"}</span>
       </li>)}

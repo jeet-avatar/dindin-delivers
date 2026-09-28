@@ -32,7 +32,7 @@ async function assertPlaybackProgress(locator) {
 
 async function main() {
   const directory = process.env.BEATMIND_COMPARISON_FIXTURE_DIR;
-  if (!directory) throw new Error('Set BEATMIND_COMPARISON_FIXTURE_DIR to a generated comparison fixture.');
+  if (!directory) throw new Error('Set BEATMIND_COMPARISON_FIXTURE_DIR. Generate one with: python backend/make_comparison_fixture.py <dir>');
   const base = process.env.BEATMIND_UI_URL || 'http://localhost:3011';
   const referenceId = 'a'.repeat(32), recordingId = 'b'.repeat(32), comparisonId = 'c'.repeat(32);
   const report = { ...JSON.parse(fs.readFileSync(path.join(directory, 'report.json'))),
@@ -59,12 +59,15 @@ async function main() {
         localStorage.setItem('beatmind_token', 'fixture-not-a-real-token');
         localStorage.setItem('beatmind_user', JSON.stringify(user));
       }, user);
+      await context.route('**/release.json', route => route.fulfill({ contentType: 'application/json', body: '{"frontend_commit":"test"}' }));
+      await context.route('**/bridge/latest.json', route => route.fulfill({ contentType: 'application/json', body: '{"version":"0.0.0"}' }));
       await context.route('**/api/**', async route => {
         const request = route.request();
         const url = new URL(request.url()).pathname;
         const json = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
         if (request.method() === 'OPTIONS') return route.fulfill({ status: 204 });
         if (url === '/api/auth/me') return json(user);
+        if (url === '/api/stripe/usage') return json(require('./fixtures/usage.cjs'));
         if (url === '/api/references') return json({ references: [reference], available: true, max_bytes: 250 * 1024 * 1024, min_seconds: 5, max_seconds: 600, audio_listening: { available: false } });
         if (url === '/api/recordings') return json({ recordings: [recording] });
         if (url.endsWith('/comparisons')) {

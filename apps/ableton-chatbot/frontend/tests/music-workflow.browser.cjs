@@ -37,6 +37,7 @@ async function main() {
       }, { id });
       await context.route('**/api/**', async route => {
         const path = new URL(route.request().url()).pathname;
+        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
         const reply = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
         if (path === '/api/auth/me') return reply({ id: 987654, email: 'fixture@example.invalid', subscribed: true });
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });

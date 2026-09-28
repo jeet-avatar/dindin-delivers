@@ -20,6 +20,7 @@ async function main() {
       });
       await context.route('**/api/**', async route => {
         const req = route.request(), path = new URL(req.url()).pathname;
+        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
         const body = req.postData() ? req.postDataJSON() : {};
         calls.push({ path, method: req.method(), body });
         const reply = data => route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });

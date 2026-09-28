@@ -24,6 +24,7 @@ async function main() {
       }, { oldId, project });
       await context.route('**/api/**', async route => {
         const req = route.request(), path = new URL(req.url()).pathname;
+        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
         const reply = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
         calls.push({ path, method: req.method() });
         if (path === '/api/auth/me') return reply({ id: 987657, subscribed: true });

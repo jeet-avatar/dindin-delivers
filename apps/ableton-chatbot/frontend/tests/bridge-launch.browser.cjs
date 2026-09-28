@@ -18,6 +18,7 @@ async function main() {
       });
       await context.route('**/api/**', async route => {
         const path = new URL(route.request().url()).pathname;
+        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
         if (path === '/api/live-set') {
           assert.equal(route.request().method(), 'POST');
           assert.deepEqual(route.request().postDataJSON(), { operation: 'activate' });

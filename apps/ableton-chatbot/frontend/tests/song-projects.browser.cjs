@@ -35,6 +35,7 @@ async function main() {
         if (path === '/api/auth/me') return reply({ id: 987655, email: 'songs@example.invalid', subscribed: true });
         if (path === '/api/bridge/status') return reply({ bridge_connected: true });
         if (path === '/api/recordings') return reply({ recordings: [] });
+        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
         if (path === '/api/chats') {
           if (request.method() === 'POST') {
             const id = `song-${Object.keys(songs).length + 1}`;
@@ -152,6 +153,11 @@ async function main() {
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'Choose Live Set', exact: true }).click();
       assert.equal(await page.getByRole('button', { name: 'Use inspected set instead', exact: true }).isDisabled(), true);
+      const openNew = page.getByRole('button', { name: '2. Open new Live Set', exact: true });
+      assert.equal(await openNew.isDisabled(), true, 'A new set needs the open set saved or closed first');
+      await page.getByRole('button', { name: '1. Close it without saving', exact: true }).click();
+      assert.equal(await openNew.isDisabled(), false);
+      await page.getByText("When Ableton asks to save, choose Don't Save.", { exact: false }).waitFor();
       await page.getByRole('button', { name: '1. Save current set', exact: true }).click();
       await page.getByRole('alert').filter({ hasText: 'macOS blocked bridge control.' }).waitFor();
       assert.equal(await page.getByRole('button', { name: 'Use this new set', exact: true }).isDisabled(), true);

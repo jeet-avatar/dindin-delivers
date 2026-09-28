@@ -19,6 +19,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       });
       await context.route('**/api/**', async route => {
         const path = new URL(route.request().url()).pathname;
+        if (path === '/api/stripe/usage') return route.fulfill({ status: 404, body: '' });
         const reply = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
         if (path === '/api/auth/me') return reply({ id: 987662, subscribed: true });
         if (path === '/api/chats') return reply({ chats: [] });
