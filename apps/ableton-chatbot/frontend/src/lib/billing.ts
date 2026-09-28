@@ -80,6 +80,7 @@ export function hasMixMindAccess(user: Pick<User, "mixmind_access"> | null | und
 
 export function planName(plan: PlanState | null | undefined): string {
   if (!plan?.plan) return "No plan";
+  if (plan.tier === "legacy") return "Founding subscriber";
   return PLAN_NAMES[plan.plan] ?? plan.plan;
 }
 

@@ -339,6 +339,26 @@ def _find_user(conn, subscription, user_id=None):
     return None
 
 
+LEGACY_METADATA_KEY = "beatmind_legacy"
+LEGACY_LOOKUP_KEY = "beatmind_starter_monthly"
+
+
+def _legacy_upgrade(subscription, lookup_key, included):
+    """Subscribers from before tiered pricing were sold "$19/mo, unlimited BeatMind + MixMind".
+
+    Their subscription carries metadata beatmind_legacy=true; while they stay on the original $19
+    price they get Pro allowances plus MixMind. Switching to another plan drops the override.
+    """
+    legacy = str(_field(_field(subscription, "metadata", {}), LEGACY_METADATA_KEY, "")).lower() == "true"
+    if not legacy or lookup_key != LEGACY_LOOKUP_KEY:
+        return included
+    pro = catalog.plan("pro", "month") or {}
+    return {**included, "tier": "legacy",
+            "included_tracks": pro.get("included_tracks", included.get("included_tracks")),
+            "included_cloud": pro.get("included_cloud", included.get("included_cloud")),
+            "mixmind": True}
+
+
 def _plan_fields(subscription):
     """Plan fields from the subscription's first item: product metadata first, then the catalog."""
     item = (_field(_field(subscription, "items", {}), "data", []) or [{}])[0]
@@ -352,7 +372,7 @@ def _plan_fields(subscription):
     plan = catalog.PLAN_KEYS.get(key, (None,))[0] or (entry or {}).get("plan") or (included or {}).get("tier")
     # API versions from 2025-03-31 moved the billing period from the subscription to its items.
     period_end = _field(subscription, "current_period_end") or _field(item, "current_period_end")
-    included = included or {}
+    included = _legacy_upgrade(subscription, key, included or {})
     cancel_at = _field(subscription, "cancel_at") or (period_end if _field(subscription, "cancel_at_period_end") else None)
     return {"plan": plan, "cancel_at": _iso(cancel_at), "plan_tier": included.get("tier"), "plan_lookup_key": key,
             "plan_interval": _field(_field(price, "recurring", {}), "interval"),

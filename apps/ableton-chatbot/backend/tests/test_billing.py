@@ -697,6 +697,25 @@ class WebhookTests(WebhookCase):
         stored = get_user_by_id(user["id"])
         self.assertEqual((stored["plan"], stored["included_tracks"], stored["subscription_status"]), ("starter", 10, "active"))
 
+    def test_founding_subscriber_on_the_original_price_gets_pro_allowances_and_mixmind(self):
+        user = new_user("active", stripe_customer_id="cus_found", subscription_id="sub_found")
+        sub = stripe_subscription("sub_found", "cus_found", "starter")
+        sub["metadata"] = {"beatmind_legacy": "true"}
+        self.subscriptions["sub_found"] = sub
+        self.deliver(self.event("customer.subscription.updated", {"id": "sub_found"}))
+        stored = get_user_by_id(user["id"])
+        self.assertEqual((stored["plan_tier"], stored["included_tracks"], stored["included_cloud"]), ("legacy", 30, 5))
+        self.assertTrue(mixmind_access(stored))
+
+    def test_founding_subscriber_who_switches_plan_gets_that_plan_instead(self):
+        user = new_user("active", stripe_customer_id="cus_found2", subscription_id="sub_found2")
+        sub = stripe_subscription("sub_found2", "cus_found2", "studio")
+        sub["metadata"] = {"beatmind_legacy": "true"}
+        self.subscriptions["sub_found2"] = sub
+        self.deliver(self.event("customer.subscription.updated", {"id": "sub_found2"}))
+        stored = get_user_by_id(user["id"])
+        self.assertEqual((stored["plan_tier"], stored["included_tracks"], stored["included_cloud"]), ("studio", 80, 20))
+
     def test_failed_renewal_starts_the_grace_period_and_deletion_ends_access(self):
         user = subscriber("pro", stripe_customer_id="cus_pd")
         sub_id = user["subscription_id"]
