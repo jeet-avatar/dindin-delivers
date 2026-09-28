@@ -153,6 +153,44 @@ class MixMindTokenTests(unittest.TestCase):
         self.assertIsNone(security.mixmind_token_owner(token[:-4] + "AAAA"))
 
 
+class MixMindDownloadTests(unittest.TestCase):
+    """The installer has no public URL: only a signed-in, MixMind-entitled user gets a link, and it expires."""
+
+    def setUp(self):
+        import main
+        security._rate_store.clear()
+        self.client = TestClient(main.app)
+
+    def get(self, user=None):
+        headers = {"Authorization": "Bearer " + create_token(user["id"], user["email"])} if user else {}
+        return self.client.get("/api/mixmind/download", headers=headers)
+
+    def test_signed_out_is_rejected(self):
+        self.assertEqual(self.get().status_code, 401)
+
+    def test_no_mixmind_access_is_rejected(self):
+        for user in (new_user(), subscriber("starter"), subscriber("pro")):
+            self.assertEqual(self.get(user).status_code, 402, user.get("plan"))
+
+    def test_mixmind_entitled_users_get_a_short_lived_presigned_url(self):
+        import mixmind_download
+        with patch.object(mixmind_download, "presigned_url", return_value="https://s3.example/signed") as presign:
+            for user in (subscriber("studio"), subscriber("mixmind"), subscriber("starter_mixmind")):
+                response = self.get(user)
+                self.assertEqual(response.status_code, 200, user.get("plan"))
+                body = response.json()
+                self.assertEqual(body["url"], "https://s3.example/signed")
+                self.assertEqual(body["expires_in"], mixmind_download.EXPIRES_IN_SECONDS)
+        self.assertEqual(presign.call_count, 3)
+
+    def test_comp_email_without_a_plan_still_gets_a_link(self):
+        import mixmind_download
+        user = new_user(email="tester@beatmind.io")
+        with patch.dict(os.environ, {"MIXMIND_COMP_EMAILS": "tester@beatmind.io"}), \
+             patch.object(mixmind_download, "presigned_url", return_value="https://s3.example/signed"):
+            self.assertEqual(self.get(user).status_code, 200)
+
+
 class ProxyCase(unittest.TestCase):
     """A studio subscriber with a MixMind token, and a mocked Bedrock client."""
 

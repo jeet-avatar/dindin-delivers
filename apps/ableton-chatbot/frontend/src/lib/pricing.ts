@@ -136,6 +136,15 @@ export function signupHref(planId: CheckoutPlanId, interval: BillingInterval): s
   return `/signup?plan=${planId}&interval=${interval}`;
 }
 
+/**
+ * Where a pricing card's button should go. A signed-in visitor already has an account — sending them
+ * to /signup would either 409 ("account already exists") or start a second one, so they go straight
+ * to the dashboard's plan picker instead, pre-selected on this plan (see parsePlanIntent).
+ */
+export function ctaHref(planId: CheckoutPlanId, interval: BillingInterval, loggedIn: boolean): string {
+  return loggedIn ? `/dashboard?plan=${planId}&interval=${interval}` : signupHref(planId, interval);
+}
+
 export function planById(planId: PlanId): Plan {
   const plan = PLANS.find((candidate) => candidate.id === planId);
   if (!plan) {

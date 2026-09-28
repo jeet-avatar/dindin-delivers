@@ -29,6 +29,7 @@ from session_context import matching_recordings, context_note
 from model_history import bounded_history
 import ai_usage
 import mixmind_ai
+import mixmind_download as mixmind_download_module
 import catalog
 import references
 import chat_store
@@ -434,6 +435,17 @@ class MixMindSignOut(BaseModel):
 async def sign_out_mixmind(req: MixMindSignOut):
     revoke_mixmind_token(req.mixmind_token)
     return {"revoked": True}
+
+
+@app.get("/api/mixmind/download")
+async def mixmind_download(request: Request, user: dict = Depends(get_current_user)):
+    """A presigned, 5-minute link to the MixMind installer. The DMG has no public URL of its own —
+    this is the only way to reach it, and only for a signed-in user on a plan that includes MixMind."""
+    rate_limit(f"mixmind-download:{get_client_ip(request)}", max_requests=20, window_seconds=3600)
+    if not mixmind_access(user):
+        raise HTTPException(402, "MixMind isn't included in your current plan.")
+    return {"url": await asyncio.to_thread(mixmind_download_module.presigned_url),
+            "expires_in": mixmind_download_module.EXPIRES_IN_SECONDS}
 
 
 @app.post(MIXMIND_AI_PATH)

@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { Showcase } from "@/components/Showcase";
 import { SocialLinks } from "@/components/SocialLinks";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BoltIcon, SlidersIcon, SparklesIcon, RefreshIcon, CheckIcon } from "@/components/Icons";
+import { isLoggedIn } from "@/lib/auth";
 import { BEATMIND_FAQS } from "@/lib/faqs";
 import {
   ANNUAL_DISCOUNT_LABEL,
@@ -21,8 +22,8 @@ import {
   TRACK_PACKS,
   type BillingInterval,
   type Pack,
+  ctaHref,
   formatUsd,
-  signupHref,
 } from "@/lib/pricing";
 import { TRIAL_DETAILS, TRIAL_SHORT, TRIAL_TERMS } from "@/lib/site";
 
@@ -75,6 +76,10 @@ function packList(packs: Pack[]): string {
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("month");
+  // Computed after mount (not during the static export) so a signed-in visitor's pricing clicks go
+  // straight to the dashboard's plan picker instead of a redundant, failing /signup.
+  const [loggedIn, setLoggedIn] = useState(false);
+  useEffect(() => { setLoggedIn(isLoggedIn()); }, []);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
@@ -288,13 +293,13 @@ export default function LandingPage() {
                     ))}
                   </ul>
                   <Link
-                    href={signupHref(plan.id, billingInterval)}
+                    href={ctaHref(plan.id, billingInterval, loggedIn)}
                     className={plan.highlight
                       ? "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
                       : "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-colors duration-150 border hover:border-white"}
                     style={plan.highlight ? { background: "var(--accent)", color: "#fff" } : { borderColor: "var(--border)", color: "var(--text-primary)" }}
                   >
-                    Start free trial &rarr;
+                    {loggedIn ? `Choose ${plan.name} →` : "Start free trial →"}
                   </Link>
                   <p className="text-xs mt-3 text-center" style={{ color: "var(--text-secondary)" }}>No card for the trial · only charged if you choose this plan</p>
                 </div>

@@ -15,7 +15,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   // A plan picked on the public site (?plan=&interval=) is carried to the dashboard plan picker.
   const [planQuery, setPlanQuery] = useState("");
-  useEffect(() => { setPlanQuery(planIntentQuery(parsePlanIntent(window.location.search))); }, []);
+  // Where to send the user after signing in — a page like /mixmind that sent them here to authenticate
+  // first. Only an internal path is honored, so this can't be turned into an open redirect.
+  const [redirectTo, setRedirectTo] = useState("");
+  useEffect(() => {
+    setPlanQuery(planIntentQuery(parsePlanIntent(window.location.search)));
+    const redirect = new URLSearchParams(window.location.search).get("redirect");
+    setRedirectTo(redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "");
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +38,7 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data.detail || "Login failed");
       saveAuth(data.token, data.user);
       // Users without a plan choose one in the dashboard; never force Stripe Checkout at sign-in.
-      router.push(`/dashboard${planQuery}`);
+      router.push(redirectTo || `/dashboard${planQuery}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {

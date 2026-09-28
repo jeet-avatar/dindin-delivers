@@ -7,7 +7,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon } from "@/components/Icons";
 import { isLoggedIn, apiFetch } from "@/lib/auth";
-import { hasMixMindAccess } from "@/lib/billing";
 import { MIXMIND_FAQS } from "@/lib/faqs";
 import {
   ANNUAL_DISCOUNT_LABEL,
@@ -16,12 +15,14 @@ import {
   MIXMIND_TRIAL_NOTE,
   type BillingInterval,
   type CheckoutPlanId,
+  ctaHref,
   formatUsd,
   planById,
-  signupHref,
 } from "@/lib/pricing";
 
-const MAC_DOWNLOAD = "/MixMind-mac.dmg";
+// The installer has no public URL of its own — /api/mixmind/download hands back a signed link that
+// expires in minutes, and only to a signed-in account on a plan that includes MixMind.
+const DOWNLOAD_FALLBACK_HREF = "/mixmind#pricing";
 
 const FEATURES = [
   {
@@ -124,35 +125,44 @@ const PRICE_CARDS: MixMindPriceCard[] = [
     };
   }),
 ];
-];
 
 export default function MixMindPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("month");
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
+  // Computed after mount (not during the static export) so a signed-in visitor's pricing clicks go
+  // straight to the dashboard's plan picker instead of a redundant, failing /signup.
+  const [loggedIn, setLoggedIn] = useState(false);
+  useEffect(() => { setLoggedIn(isLoggedIn()); }, []);
   const router = useRouter();
 
-  async function handleDownload(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
+  async function handleDownload(e: React.MouseEvent<HTMLAnchorElement>) {
     e.preventDefault();
     if (!isLoggedIn()) {
       router.push("/login?redirect=/mixmind");
       return;
     }
+    setDownloadError("");
+    setDownloading(true);
     try {
-      const res = await apiFetch("/api/auth/me");
-      if (!res.ok) {
+      const res = await apiFetch("/api/mixmind/download");
+      if (res.status === 401) {
         router.push("/login?redirect=/mixmind");
         return;
       }
-      const user = await res.json();
-      if (!hasMixMindAccess(user)) {
+      if (res.status === 402) {
         router.push("/dashboard?upgrade=mixmind");
         return;
       }
+      if (!res.ok) throw new Error();
+      const { url } = await res.json();
+      window.location.href = url;
     } catch {
-      router.push("/dashboard");
-      return;
+      setDownloadError("Couldn't start the download. Please try again in a moment.");
+    } finally {
+      setDownloading(false);
     }
-    window.location.href = href;
   }
 
   return (
@@ -211,18 +221,20 @@ export default function MixMindPage() {
               Get MixMind · {formatUsd(MIXMIND_PRICE.monthly)}/mo
             </a>
             <a
-              href={MAC_DOWNLOAD}
-              onClick={(e) => handleDownload(e, MAC_DOWNLOAD)}
+              href={DOWNLOAD_FALLBACK_HREF}
+              onClick={handleDownload}
+              aria-disabled={downloading}
               className="flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-lg transition-colors duration-150 border hover:border-white"
               style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
               </svg>
-              Download for Mac
+              {downloading ? "Preparing download…" : "Download for Mac"}
             </a>
           </div>
           <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>From {formatUsd(MIXMIND_PRICE.monthly)}/month · Requires a Mac with Apple silicon (M1 or later); Windows coming soon · Sign in with your BeatMind account to unlock the download</p>
+          {downloadError && <p role="alert" className="text-xs mt-2" style={{ color: "#fca5a5" }}>{downloadError}</p>}
 
           {/* App preview */}
           <div className="mt-16 rounded-2xl border text-left overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="img" aria-label="MixMind app preview showing library browser with tracks, BPM, and key columns">
@@ -396,7 +408,7 @@ export default function MixMindPage() {
                   </ul>
                   {card.available ? (
                     <Link
-                      href={signupHref(card.id, billingInterval)}
+                      href={ctaHref(card.id, billingInterval, loggedIn)}
                       className={card.highlight
                         ? "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
                         : "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-colors duration-150 border hover:border-white"}
@@ -418,7 +430,7 @@ export default function MixMindPage() {
           <div className="mt-6 p-5 rounded-xl border text-sm text-left md:text-center" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
             <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Included in BeatMind {STUDIO.name}: </span>
             MixMind comes with Studio ({formatUsd(STUDIO.monthly)}/mo or {formatUsd(STUDIO.yearly)}/yr), along with {STUDIO.includedTracks} BeatMind tracks and {STUDIO.includedCloud} cloud HQ separations a month and priority support.{" "}
-            <Link href={signupHref(STUDIO.id, billingInterval)} className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
+            <Link href={ctaHref(STUDIO.id, billingInterval, loggedIn)} className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
               Choose Studio &rarr;
             </Link>
           </div>
@@ -469,14 +481,16 @@ export default function MixMindPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
-              href={MAC_DOWNLOAD}
-              onClick={(e) => handleDownload(e, MAC_DOWNLOAD)}
+              href={DOWNLOAD_FALLBACK_HREF}
+              onClick={handleDownload}
+              aria-disabled={downloading}
               className="inline-block px-10 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
-              Download for Mac →
+              {downloading ? "Preparing download…" : "Download for Mac →"}
             </a>
           </div>
+          {downloadError && <p role="alert" className="text-xs mt-3" style={{ color: "#fca5a5" }}>{downloadError}</p>}
         </section>
       </main>
 
