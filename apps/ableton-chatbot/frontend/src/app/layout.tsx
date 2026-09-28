@@ -1,26 +1,38 @@
 import type { Metadata, Viewport } from "next";
+import { BASE_URL, HOME_DESCRIPTION, HOME_TITLE, OG_IMAGE, OG_IMAGE_SIZE, SITE_NAME } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.beatmind.io"),
-  title: "BeatMind — AI Music Producer for Ableton",
-  description: "Describe what you want. BeatMind builds full tracks — drums, bass, pads, effects, mix — directly inside your Ableton Live project.",
+  metadataBase: new URL(BASE_URL),
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "AI music producer",
+    "AI for Ableton Live",
+    "Ableton AI assistant",
+    "AI music production",
+    "AbletonOSC",
+    "AI drum and bass generator for Ableton",
+    "BeatMind",
+  ],
   icons: {
     icon: "/favicon.svg",
   },
   openGraph: {
-    title: "BeatMind — AI Music Producer for Ableton",
-    description: "Describe what you want. BeatMind builds full tracks — drums, bass, pads, effects, mix — directly inside your Ableton Live project.",
-    url: "https://www.beatmind.io",
-    siteName: "BeatMind",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    url: `${BASE_URL}/`,
+    siteName: SITE_NAME,
     type: "website",
     locale: "en_US",
-    // TODO: add og-image.png
+    images: [{ url: OG_IMAGE, ...OG_IMAGE_SIZE, alt: HOME_TITLE }],
   },
   twitter: {
-    card: "summary",
-    title: "BeatMind — AI Music Producer for Ableton",
-    description: "Describe what you want. BeatMind builds full tracks — drums, bass, pads, effects, mix — directly inside your Ableton Live project.",
+    card: "summary_large_image",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    images: [OG_IMAGE],
   },
 };
 

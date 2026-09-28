@@ -1,0 +1,53 @@
+# BeatMind
+
+> BeatMind is an AI music-production assistant that works inside Ableton Live 11 and 12. Through a local BeatMind Bridge and AbletonOSC, it builds drums, bass and melodies one part at a time as Session-view clips and scenes in the user's own Live Set, with captured auditions to review each part. It does not generate or export finished songs. MixMind, from the same team, is a desktop DJ library manager for Rekordbox. BeatMind is made by Zietra Technologies Inc.
+
+## BeatMind
+
+- [BeatMind home](https://www.beatmind.io/): AI music producer for Ableton Live — web app plus a local bridge agent (macOS and Windows).
+- Requirements: Ableton Live 11 or 12 (Standard or Suite), BeatMind Bridge, AbletonOSC. Captured auditions and automatic Live Set file-menu actions currently require macOS.
+- How it works: connect the Bridge and AbletonOSC, describe genre, mood, tempo and instruments in plain English, then review and refine each part (kick, bass, melody, effects) before moving to the next.
+- Scope: works in Session view (clips and scenes) and adjusts supported device controls; parameter availability depends on the device. It does not write a finished Arrangement timeline or export full songs.
+- Ownership: users own 100% of the music they create with BeatMind.
+
+## MixMind
+
+- [MixMind](https://www.beatmind.io/mixmind): desktop DJ library manager for Mac (Apple Silicon native; Intel via Rosetta 2) and Windows 10/11 that reads Rekordbox 6 and 7 libraries (XML or database).
+- Features: fast searchable library browser (BPM, key, genre, duration), AI playlist builder using tracks the DJ already owns, exact and near-duplicate finder, Pioneer USB drive browsing.
+- Safety: read-only by default; duplicate cleanup hides tracks inside MixMind and does not delete or modify Rekordbox files.
+- Availability: early access for BeatMind Studio members; standalone MixMind is coming soon.
+
+## Pricing
+
+Free trial: 7 days, no credit card required. It includes 3 tracks (processed on the user's own computer) and limited AI (about 50 messages). Cloud HQ separations and packs need a paid plan. Nobody is charged unless they choose a plan; starting a plan during the trial ends the trial and begins the plan immediately.
+
+Paid plans: cancel anytime. Annual billing = 2 months free. Switch plans anytime from billing settings. Full details: https://www.beatmind.io/#pricing
+
+- BeatMind Starter: $19/month or $190/year. 10 tracks/month, AI producer inside Ableton Live (fair use).
+- BeatMind Pro (most popular): $39/month or $390/year. 30 tracks/month + 5 cloud HQ separations/month, AI producer (fair use).
+- BeatMind Studio: $79/month or $790/year. 80 tracks/month + 20 cloud HQ separations/month, MixMind included (early access), priority support, AI producer (fair use).
+- What a "track" is: one stem separation of a reference track. High-quality separation runs on the user's own computer via the BeatMind Bridge. Monthly allowances reset each month and do not roll over.
+- Cloud HQ separations: high-quality stem separation on BeatMind's cloud GPU, for computers that can't run HQ separation locally. Paid plans only (Pro, Studio, or Cloud HQ packs).
+- Extra track packs (never expire): 10 for $9, 25 for $19, 60 for $39.
+- Cloud HQ packs (never expire): 10 for $7.99, 50 for $34.99.
+- Packs are used after the monthly allowance and require a paid plan.
+- Founding Member offer: the first 100 annual subscribers get 40% off for life with code FOUNDING100 (annual plans only).
+- MixMind: currently in early access, included with BeatMind Studio. Standalone MixMind ($12/month or $120/year) is coming soon and cannot be purchased yet.
+- Coming soon: BeatMind Starter + MixMind ($25/month) and BeatMind Pro + MixMind ($45/month), each saving $6/month.
+
+## Blog
+
+- [Blog index](https://www.beatmind.io/blog): guides on AI music production in Ableton Live and Rekordbox library management.
+- [How to Make Music in Ableton with AI: A Step-by-Step Walkthrough](https://www.beatmind.io/blog/how-to-make-a-track-in-ableton-with-ai): Learn how to make music in Ableton with AI: install BeatMind Bridge, enable AbletonOSC, write a prompt, audition each part and iterate inside your Live Set.
+- [AI for Ableton Live in 2026: What Actually Works](https://www.beatmind.io/blog/ai-for-ableton-live-2026): AI for Ableton Live in 2026, explained honestly: stem splitters, sample generators, mixing assistants and in-DAW AI, what each is good for and where it falls short.
+- [From Text Prompt to Arrangement: Writing AI Music Prompts That Work](https://www.beatmind.io/blog/prompt-to-arrangement-ai-music-production): How to write AI music production prompts that work: genre, BPM, key, mood and references, with example prompts and how to take over and arrange the idea yourself.
+- [How to Clean Up Your Rekordbox Library: Duplicates, Missing Files and Tags](https://www.beatmind.io/blog/clean-up-rekordbox-library): How to clean up a Rekordbox library step by step: back up, fix missing files, find duplicates, fill untagged genres and keys, and keep your playlists gig-ready.
+- [How to Export Rekordbox Playlists to USB on Mac Without Slowdowns](https://www.beatmind.io/blog/export-rekordbox-usb-mac-fast): Export Rekordbox playlists to USB on a Mac without slowdowns: choose FAT32 or exFAT for your CDJs, stop Spotlight indexing, eject cleanly and verify the drive.
+- [How to Build a 2-Hour Techno Set with AI Playlist Tools](https://www.beatmind.io/blog/build-2-hour-techno-set-ai): Build a 2-hour techno set with AI playlist tools: plan the energy arc, keep BPM and key flow smooth with harmonic mixing, and use MixMind to shortlist your own tracks.
+
+## Contact
+
+- Email: support@beatmind.io
+- Company: Zietra Technologies Inc.
+- [Privacy policy](https://www.beatmind.io/privacy)
+- [Terms of service](https://www.beatmind.io/terms)

@@ -5,6 +5,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon } from "@/components/Icons";
 import { isLoggedIn, apiFetch } from "@/lib/auth";
+import { MIXMIND_FAQS } from "@/lib/faqs";
+import { MIXMIND_COMBOS, MIXMIND_PRICE, formatUsd, planById, signupHref } from "@/lib/pricing";
+import { SUPPORT_EMAIL, TRIAL_SHORT } from "@/lib/site";
 
 const MAC_DOWNLOAD = "/MixMind-mac.dmg";
 const WIN_DOWNLOAD = "/MixMind-Setup-win.exe";
@@ -36,7 +39,7 @@ const STEPS = [
   {
     n: "01",
     title: "Download",
-    desc: "Sign in or start your free trial, then download MixMind for Mac or Windows.",
+    desc: "Sign in with your BeatMind account (Studio includes MixMind early access), then download the MixMind early-access build for Mac or Windows.",
   },
   {
     n: "02",
@@ -50,6 +53,9 @@ const STEPS = [
   },
 ];
 
+const STUDIO = planById("studio");
+const COMBO_FROM_MONTHLY = Math.min(...MIXMIND_COMBOS.map((combo) => combo.monthly));
+
 const PRICING_FEATURES = [
   "Full library browser — unlimited tracks",
   "Duplicate detection & cleanup",
@@ -57,29 +63,6 @@ const PRICING_FEATURES = [
   "Pioneer USB drive support",
   "Mac + Windows",
   "Priority support",
-];
-
-const FAQS = [
-  {
-    q: "Do I need Rekordbox?",
-    a: "Yes — MixMind reads your Rekordbox library (XML or database). It works with Rekordbox 6 and 7. You don't need Rekordbox open while using MixMind.",
-  },
-  {
-    q: "Does it modify my Rekordbox library?",
-    a: "No. MixMind is read-only by default. Duplicate cleanup marks tracks as hidden inside MixMind — it does not delete or modify your Rekordbox files.",
-  },
-  {
-    q: "Mac or Windows?",
-    a: "Both. The Mac DMG runs natively on Apple Silicon (M1/M2/M3/M4). Intel Macs need Rosetta 2 — if you don't have it, macOS will prompt you to install it free. The EXE installer works on Windows 10/11.",
-  },
-  {
-    q: "Is this the same as BeatMind?",
-    a: "No — they're separate tools. BeatMind makes music inside Ableton Live. MixMind organizes your existing DJ library. Both are $19/month.",
-  },
-  {
-    q: "Can I cancel anytime?",
-    a: "Yes. Cancel from your account with one click. No questions, no lock-in.",
-  },
 ];
 
 export default function MixMindPage() {
@@ -127,6 +110,7 @@ export default function MixMindPage() {
           <a href="#features" className="hover:text-white transition-colors duration-150">Features</a>
           <a href="#how" className="hover:text-white transition-colors duration-150">How it works</a>
           <a href="#pricing" className="hover:text-white transition-colors duration-150">Pricing</a>
+          <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
           <Link href="/" className="hover:text-white transition-colors duration-150">BeatMind ↗</Link>
         </div>
         <a
@@ -135,7 +119,7 @@ export default function MixMindPage() {
           className="text-sm px-4 py-2 rounded-lg font-medium transition-opacity duration-150 hover:opacity-90"
           style={{ background: "var(--accent)", color: "#fff" }}
         >
-          Download for Mac →
+          Download for Mac (early access) →
         </a>
       </nav>
 
@@ -165,7 +149,7 @@ export default function MixMindPage() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
               </svg>
-              Download for Mac
+              Download for Mac · early access
             </a>
             <a
               href={WIN_DOWNLOAD}
@@ -176,10 +160,10 @@ export default function MixMindPage() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M3 5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25v13.5A2.25 2.25 0 0 1 18.75 21H5.25A2.25 2.25 0 0 1 3 18.75V5.25zm9 1a1 1 0 0 0-1 1v4.586l-1.293-1.293a1 1 0 0 0-1.414 1.414l3 3a1 1 0 0 0 1.414 0l3-3a1 1 0 0 0-1.414-1.414L13 11.836V7.25a1 1 0 0 0-1-1z"/>
               </svg>
-              Download for Windows
+              Download for Windows · early access
             </a>
           </div>
-          <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>7-day free trial · No credit card required · Cancel anytime</p>
+          <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>Early access for BeatMind Studio members · Standalone MixMind coming soon</p>
 
           {/* App preview */}
           <div className="mt-16 rounded-2xl border text-left overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="img" aria-label="MixMind app preview showing library browser with tracks, BPM, and key columns">
@@ -229,6 +213,16 @@ export default function MixMindPage() {
           </div>
         </section>
 
+        {/* What is MixMind? — concise definition for search and answer engines */}
+        <section className="max-w-3xl mx-auto px-6 pb-4" aria-labelledby="what-is-heading">
+          <div className="border-l-2 pl-5 py-1" style={{ borderColor: "var(--accent)" }}>
+            <h2 id="what-is-heading" className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>What is MixMind?</h2>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              MixMind is a desktop DJ library manager for Mac and Windows that reads your Rekordbox 6 or 7 collection. It gives you a fast, searchable library browser, an AI playlist builder that picks from tracks you already own, a duplicate finder and Pioneer USB drive browsing, without modifying your Rekordbox files. MixMind is made by the BeatMind team and is in early access: it is included with BeatMind Studio ({formatUsd(STUDIO.monthly)}/month), and standalone MixMind at {formatUsd(MIXMIND_PRICE.monthly)}/month is coming soon.
+            </p>
+          </div>
+        </section>
+
         {/* Features */}
         <section id="features" className="max-w-6xl mx-auto px-6 py-20" aria-labelledby="features-heading">
           <h2 id="features-heading" className="text-3xl md:text-4xl font-bold text-center mb-4">
@@ -271,16 +265,17 @@ export default function MixMindPage() {
 
         {/* Pricing */}
         <section id="pricing" className="max-w-2xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
-          <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Simple pricing</h2>
+          <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Pricing</h2>
           <p className="mb-12" style={{ color: "var(--text-secondary)" }}>
-            One plan. Everything included. Cancel anytime.
+            MixMind is in early access: included with BeatMind Studio ({formatUsd(STUDIO.monthly)}/mo). Standalone MixMind {formatUsd(MIXMIND_PRICE.monthly)}/mo and BeatMind + MixMind combos from {formatUsd(COMBO_FROM_MONTHLY)}/mo &mdash; coming soon.
           </p>
           <div className="rounded-2xl border p-8 relative overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--accent)" }}>
             <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "#fff" }}>
-              7-DAY FREE TRIAL
+              EARLY ACCESS
             </div>
-            <div className="text-6xl font-black mb-2" aria-label="19 dollars per month">$19</div>
-            <div className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>per month · billed monthly · cancel anytime</div>
+            <div className="text-sm font-semibold mb-2" style={{ color: "var(--accent)" }}>Included with BeatMind {STUDIO.name}</div>
+            <div className="text-6xl font-black mb-2" aria-label={`${STUDIO.monthly} dollars per month`}>{formatUsd(STUDIO.monthly)}</div>
+            <div className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>per month or {formatUsd(STUDIO.yearly)}/year · cancel anytime</div>
             <ul className="text-sm space-y-3 text-left mb-8 max-w-xs mx-auto">
               {PRICING_FEATURES.map((item) => (
                 <li key={item} className="flex items-center gap-2">
@@ -289,15 +284,21 @@ export default function MixMindPage() {
                 </li>
               ))}
             </ul>
-            <a
-              href={MAC_DOWNLOAD}
-              onClick={(e) => handleDownload(e, MAC_DOWNLOAD)}
+            <Link
+              href={signupHref(STUDIO.id, "month")}
               className="block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
-              Download for Mac →
-            </a>
-            <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>No credit card required for trial</p>
+              Choose Studio →
+            </Link>
+            <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>Studio also includes BeatMind with 80 tracks/month · BeatMind {TRIAL_SHORT}</p>
+          </div>
+
+          <div className="mt-8 p-5 rounded-xl border text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
+            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Coming soon: </span>
+            standalone MixMind ({formatUsd(MIXMIND_PRICE.monthly)}/mo or {formatUsd(MIXMIND_PRICE.yearly)}/yr), Starter + MixMind ({formatUsd(MIXMIND_COMBOS[0].monthly)}/mo) and Pro + MixMind ({formatUsd(MIXMIND_COMBOS[1].monthly)}/mo), each saving {formatUsd(MIXMIND_COMBOS[0].savingsMonthly)}/mo.
+            <br />
+            Get notified: email <span className="font-medium" style={{ color: "var(--text-primary)" }}>{SUPPORT_EMAIL}</span>
           </div>
 
           {/* Also have BeatMind? */}
@@ -306,7 +307,7 @@ export default function MixMindPage() {
             <Link href="/" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
               Check out BeatMind →
             </Link>
-            {" "}— our AI that builds full tracks inside Ableton Live.
+            {" "}— our AI that builds drums, bass and melodies part by part inside your Ableton Live Set.
           </div>
         </section>
 
@@ -314,7 +315,7 @@ export default function MixMindPage() {
         <section className="max-w-2xl mx-auto px-6 pb-20" aria-labelledby="faq-heading">
           <h2 id="faq-heading" className="text-3xl font-bold text-center mb-10">Frequently asked</h2>
           <div className="space-y-3">
-            {FAQS.map((faq, i) => (
+            {MIXMIND_FAQS.map((faq, i) => (
               <div key={i} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
@@ -342,7 +343,7 @@ export default function MixMindPage() {
         <section className="border-t py-20 text-center" style={{ borderColor: "var(--border)" }}>
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to clean up your library?</h2>
           <p className="mb-8" style={{ color: "var(--text-secondary)" }}>
-            Download MixMind. Your Rekordbox library loads in seconds.
+            Studio members can download the MixMind early-access build today. Your Rekordbox library loads in seconds.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
@@ -351,7 +352,7 @@ export default function MixMindPage() {
               className="inline-block px-10 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
-              Download for Mac →
+              Download for Mac (early access) →
             </a>
             <a
               href={WIN_DOWNLOAD}
@@ -359,7 +360,7 @@ export default function MixMindPage() {
               className="inline-block px-10 py-4 rounded-xl font-semibold text-lg border transition-colors duration-150 hover:border-white"
               style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
             >
-              Download for Windows →
+              Download for Windows (early access) →
             </a>
           </div>
         </section>
@@ -378,6 +379,7 @@ export default function MixMindPage() {
             </div>
             <nav aria-label="Footer links">
               <div className="flex items-center gap-6 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
                 <Link href="/privacy" className="hover:text-white transition-colors duration-150">Privacy</Link>
                 <Link href="/terms" className="hover:text-white transition-colors duration-150">Terms</Link>
                 <a href="mailto:support@beatmind.io" className="hover:text-white transition-colors duration-150">Support</a>
