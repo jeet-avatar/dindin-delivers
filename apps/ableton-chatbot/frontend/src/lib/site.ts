@@ -17,7 +17,10 @@ export const OG_IMAGE_SIZE = { width: 1200, height: 630 };
 
 // Official social profile URLs for Organization.sameAs. Intentionally empty:
 // add each URL here once the account exists. Never add unverified links.
-export const SOCIAL_PROFILES: string[] = [];
+export const SOCIAL_PROFILES: string[] = [
+  "https://www.instagram.com/beatmindio/",
+  "https://www.tiktok.com/@beatmindio",
+];
 
 export const HOME_TITLE = "BeatMind — AI Music Producer for Ableton";
 export const HOME_DESCRIPTION =
