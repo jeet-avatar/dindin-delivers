@@ -176,6 +176,18 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
             data['template']['status'] = 'needs_review'
             self.assertIn('template', song_projects.planning_reason(project, 'ref', 42))
 
+    async def test_local_references_skip_ai_listening_but_keep_every_other_gate(self):
+        project = {'starting_point': 'reference', 'live_set': {'title': 'Test'}}
+        data = {'status': 'ready', 'storage': 'local'}
+        with patch.object(song_projects.references, 'owned', return_value=(None, {})), patch.object(song_projects.references, 'public', return_value=data):
+            self.assertIn('one question', song_projects.planning_reason(project, 'ref', 42))
+            data['stem_review'] = {'status': 'accepted'}
+            self.assertIn('timing', song_projects.planning_reason(project, 'ref', 42))
+            data['timing'] = {'status': 'confirmed'}
+            self.assertIn('template', song_projects.planning_reason(project, 'ref', 42))
+            data['template'] = {'status': 'approved'}
+            self.assertEqual(song_projects.planning_reason(project, 'ref', 42), '')
+
     async def test_recording_memory_is_song_scoped_without_changing_old_approvals(self):
         recordings.ROOT.mkdir()
         for identifier, session_id in [('a' * 32, 'old'), ('b' * 32, self.id)]:
