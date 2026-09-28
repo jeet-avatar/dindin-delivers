@@ -60,15 +60,30 @@ Never say "done" without proof: tests + real runs + production checks (see the r
   Stripe and stores processed event ids (`stripe_events`); one-click cancel/resume; AI usage log + fair-use cap
   (`ai_usage.py`). Env knobs are listed in `backend/.env.example`.
 
+- **Sign-in and updates (2026-09-28, service api :34, :35 = same + email copy fix, web c0877660, Bridge 1.2.0 at www.beatmind.io/BeatMind-Bridge-1.2.0.dmg):** bridge tokens are signed
+  JWTs (`typ=bridge`, 180 days) tracked in the `bridge_tokens` table, so deploys no longer sign Bridges out;
+  web JWT auth rejects them. The Bridge keeps its token in the macOS Keychain (`credentials.py`), reconnects
+  with backoff through 5xx/outages, and only a 401/403/4001 returns it to the login screen. `updater.py`
+  checks `www.beatmind.io/bridge/latest.json` (launch + every 6 h), installs on click only (sha256 + Team
+  PRKZ4UVCD7 + Gatekeeper), never during a separation. The dashboard `UpdateBanner` compares
+  `/release.json` `frontend_commit` with the build-time `NEXT_PUBLIC_RELEASE_COMMIT` (always set both) and
+  never reloads by itself. Product-update email: `backend/send_product_update.py` as an ECS one-off task;
+  SES is in sandbox, so only verified addresses receive mail until production access is granted.
+- **Secrets:** JWT_SECRET, ANTHROPIC_API_KEY, SMTP_PASSWORD come from Secrets Manager
+  `beatmind/production/app` (task-def `secrets`). Start new task defs from the live revision. Stripe keys are
+  still env vars (owned by the pricing session).
+- **Deploys:** service runs max 100% / min 0% (single SQLite writer on EFS), so each deploy has ~2.5 min of
+  503s (target group drain 20 s, health interval 10 s).
+
 ## Pending / Next Steps
 
 1. **User must provide prices** (track packs, cloud per-track, included tracks/month) → create Stripe
    products/prices → set the two env vars → deploy → verify a real purchase.
-2. Publish the notarized Bridge DMG (build: `bridge/build_app.sh` with `NOTARY_KEY*` API-key vars).
+2. Request SES production access before emailing all users (`send_product_update.py --campaign bridge-1.2.0`).
 3. Real in-Ableton test of "Place stems in Ableton" in a disposable Live set (not run: it writes to
    the user's open set and needs the extension installed + Live restart).
 4. Windows Bridge has no local separation yet (macOS only).
-5. Security debt: STRIPE/JWT/ANTHROPIC/SMTP secrets are plain task-def env vars → move to Secrets Manager.
+5. Security debt: STRIPE secrets are still plain task-def env vars → move to Secrets Manager (pricing session).
 6. Production brain is `claude-haiku-4-5`; Opus 5.5 is enabled on Bedrock if quality is preferred over cost.
 
 ## AI Model Config
