@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon } from "@/components/Icons";
 import { isLoggedIn, apiFetch } from "@/lib/auth";
+import { hasMixMindAccess } from "@/lib/billing";
 import { MIXMIND_FAQS } from "@/lib/faqs";
 import { MIXMIND_COMBOS, MIXMIND_PRICE, formatUsd, planById, signupHref } from "@/lib/pricing";
 import { SUPPORT_EMAIL, TRIAL_SHORT } from "@/lib/site";
@@ -82,12 +83,13 @@ export default function MixMindPage() {
         return;
       }
       const user = await res.json();
-      if (!user.subscribed) {
-        router.push("/dashboard");
+      if (!hasMixMindAccess(user)) {
+        router.push("/dashboard?upgrade=studio");
         return;
       }
     } catch {
-      // network error — fall through and let the download attempt proceed
+      router.push("/dashboard");
+      return;
     }
     window.location.href = href;
   }
