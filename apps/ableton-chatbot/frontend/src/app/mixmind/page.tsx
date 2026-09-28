@@ -7,7 +7,7 @@ import { CheckIcon } from "@/components/Icons";
 import { isLoggedIn, apiFetch } from "@/lib/auth";
 import { MIXMIND_FAQS } from "@/lib/faqs";
 import { MIXMIND_COMBOS, MIXMIND_PRICE, formatUsd, planById, signupHref } from "@/lib/pricing";
-import { SUPPORT_EMAIL } from "@/lib/site";
+import { SUPPORT_EMAIL, TRIAL_SHORT } from "@/lib/site";
 
 const MAC_DOWNLOAD = "/MixMind-mac.dmg";
 const WIN_DOWNLOAD = "/MixMind-Setup-win.exe";
@@ -39,7 +39,7 @@ const STEPS = [
   {
     n: "01",
     title: "Download",
-    desc: "Start a BeatMind Studio trial or sign in as a Studio member, then download the MixMind early-access build for Mac or Windows.",
+    desc: "Sign in with your BeatMind account (Studio includes MixMind early access), then download the MixMind early-access build for Mac or Windows.",
   },
   {
     n: "02",
@@ -218,7 +218,7 @@ export default function MixMindPage() {
           <div className="border-l-2 pl-5 py-1" style={{ borderColor: "var(--accent)" }}>
             <h2 id="what-is-heading" className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>What is MixMind?</h2>
             <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              MixMind is a desktop DJ library manager for Mac and Windows that reads your Rekordbox 6 or 7 collection. It gives you a fast, searchable library browser, an AI playlist builder that picks from tracks you already own, a duplicate finder and Pioneer USB drive browsing, without modifying your Rekordbox files. MixMind is made by the BeatMind team and is in early access: it is included with BeatMind Studio ({formatUsd(STUDIO.monthly)}/month, 7-day free trial, no credit card required), and standalone MixMind at {formatUsd(MIXMIND_PRICE.monthly)}/month is coming soon.
+              MixMind is a desktop DJ library manager for Mac and Windows that reads your Rekordbox 6 or 7 collection. It gives you a fast, searchable library browser, an AI playlist builder that picks from tracks you already own, a duplicate finder and Pioneer USB drive browsing, without modifying your Rekordbox files. MixMind is made by the BeatMind team and is in early access: it is included with BeatMind Studio ({formatUsd(STUDIO.monthly)}/month), and standalone MixMind at {formatUsd(MIXMIND_PRICE.monthly)}/month is coming soon.
             </p>
           </div>
         </section>
@@ -275,7 +275,7 @@ export default function MixMindPage() {
             </div>
             <div className="text-sm font-semibold mb-2" style={{ color: "var(--accent)" }}>Included with BeatMind {STUDIO.name}</div>
             <div className="text-6xl font-black mb-2" aria-label={`${STUDIO.monthly} dollars per month`}>{formatUsd(STUDIO.monthly)}</div>
-            <div className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>per month or {formatUsd(STUDIO.yearly)}/year · 7-day free trial · cancel anytime</div>
+            <div className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>per month or {formatUsd(STUDIO.yearly)}/year · cancel anytime</div>
             <ul className="text-sm space-y-3 text-left mb-8 max-w-xs mx-auto">
               {PRICING_FEATURES.map((item) => (
                 <li key={item} className="flex items-center gap-2">
@@ -289,9 +289,9 @@ export default function MixMindPage() {
               className="block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
-              Start Studio free trial →
+              Choose Studio →
             </Link>
-            <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>No credit card required for trial · Studio also includes BeatMind with 80 tracks/month</p>
+            <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>Studio also includes BeatMind with 80 tracks/month · BeatMind {TRIAL_SHORT}</p>
           </div>
 
           <div className="mt-8 p-5 rounded-xl border text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>

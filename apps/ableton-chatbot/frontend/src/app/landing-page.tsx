@@ -23,7 +23,7 @@ import {
   planById,
   signupHref,
 } from "@/lib/pricing";
-import { TRIAL_TERMS } from "@/lib/site";
+import { TRIAL_DETAILS, TRIAL_SHORT, TRIAL_TERMS } from "@/lib/site";
 
 const FEATURES = [
   {
@@ -130,7 +130,7 @@ export default function LandingPage() {
               See how it works
             </a>
           </div>
-          <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>No credit card required for trial · Cancel anytime</p>
+          <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>{TRIAL_SHORT} · Only pay if you choose a plan</p>
 
           {/* Product preview terminal */}
           <div className="mt-16 rounded-2xl border text-left overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="img" aria-label="Illustrative BeatMind conversation planning a first kick">
@@ -166,7 +166,7 @@ export default function LandingPage() {
           <div className="border-l-2 pl-5 py-1" style={{ borderColor: "var(--accent)" }}>
             <h2 id="what-is-heading" className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>What is BeatMind?</h2>
             <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              BeatMind is an AI music-production assistant that works inside Ableton Live 11 and 12. Through the local BeatMind Bridge and AbletonOSC, it builds drums, bass and melodies one part at a time as Session-view clips and scenes in your own Live Set, with a captured audition to review before the next part. You keep control of the arrangement. Plans start at {formatUsd(LOWEST_MONTHLY_USD)}/month, and every plan includes a 7-day free trial with no credit card required.
+              BeatMind is an AI music-production assistant that works inside Ableton Live 11 and 12. Through the local BeatMind Bridge and AbletonOSC, it builds drums, bass and melodies one part at a time as Session-view clips and scenes in your own Live Set, with a captured audition to review before the next part. You keep control of the arrangement. Plans start at {formatUsd(LOWEST_MONTHLY_USD)}/month, and you can try it first with a 7-day free trial that includes 3 tracks and needs no credit card.
             </p>
           </div>
         </section>
@@ -215,11 +215,11 @@ export default function LandingPage() {
         <section id="pricing" className="max-w-6xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
           <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Pricing</h2>
           <p className="mb-8 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>
-            Every plan includes the AI producer inside Ableton Live. Pick how many reference tracks you separate each month. {TRIAL_TERMS}
+            Every plan includes the AI producer inside Ableton Live. Pick how many reference tracks you separate each month.
           </p>
 
           {/* Billing interval toggle */}
-          <div className="inline-flex p-1 rounded-xl border mb-10" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="group" aria-label="Billing interval">
+          <div className="inline-flex p-1 rounded-xl border mb-3" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="group" aria-label="Billing interval">
             {(["month", "year"] as const).map((option) => {
               const selected = billingInterval === option;
               return (
@@ -236,6 +236,8 @@ export default function LandingPage() {
               );
             })}
           </div>
+
+          <p className="text-xs mb-10" style={{ color: "var(--text-secondary)" }}>{TRIAL_SHORT}</p>
 
           {/* Founding Member banner */}
           <div className="rounded-2xl border p-5 mb-10 text-sm text-left md:text-center" style={{ background: "var(--bg-secondary)", borderColor: "var(--accent)" }}>
@@ -284,13 +286,14 @@ export default function LandingPage() {
                   >
                     Start free trial &rarr;
                   </Link>
-                  <p className="text-xs mt-3 text-center" style={{ color: "var(--text-secondary)" }}>No credit card required for trial</p>
+                  <p className="text-xs mt-3 text-center" style={{ color: "var(--text-secondary)" }}>No card for the trial · only charged if you choose this plan</p>
                 </div>
               );
             })}
           </div>
 
           <p className="text-xs mt-6 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>{TRACK_DEFINITION}</p>
+          <p className="text-xs mt-2 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>{TRIAL_DETAILS}</p>
 
           {/* Packs */}
           <div className="mt-10 rounded-2xl border p-6 text-left" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
@@ -393,7 +396,7 @@ export default function LandingPage() {
         <section className="border-t py-20 text-center" style={{ borderColor: "var(--border)" }}>
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to make music with AI?</h2>
           <p className="mb-8" style={{ color: "var(--text-secondary)" }}>
-            Start your free trial. No credit card. Cancel anytime.
+            {TRIAL_TERMS} You only pay if you choose a plan.
           </p>
           <Link href="/signup" className="inline-block px-10 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
             Get started free &rarr;

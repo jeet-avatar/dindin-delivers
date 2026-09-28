@@ -74,13 +74,14 @@ Common to all: email **support@beatmind.io** · profile image = the "B" tile (`#
 - [ ] Sign up with support@beatmind.io. Username `beatmindio`.
 - [ ] **Name (30 max):** `BeatMind | AI for Ableton` (25). The Name field is searchable, so the keywords help people find you.
 - [ ] Switch to a **Professional account → Business**, category **"Software"** (or "App Page" if Software doesn't appear). *Why Business, not Creator:* "Software" describes a product brand honestly, and Business accounts reliably offer that category (whether Creator accounts do is unconfirmed). Don't use "Musician/Band": it misrepresents a software company and pulls in the wrong audience. Business accounts get a limited music library, which doesn't matter because we use our own audio (see 04).
-- [ ] **Bio (150 max). Paste this (144 chars):**
+- [ ] **Bio (150 max). Paste this (147 chars; 148 if the 🎛️ variation selector counts as 2):**
   ```
-  AI co-producer inside Ableton Live 🎛️
+  AI co-producer in Ableton Live 🎛️
   Describe a sound → editable clips in YOUR Live Set
   + MixMind for Rekordbox DJs
-  7-day free trial, no card ↓
+  7-day trial · 3 tracks · no card ↓
   ```
+  *(Replaces the live bio ending "7-day free trial, no card ↓". Line 1 is shortened from "inside" to "in" to make room for "3 tracks".)*
 - [ ] Links: the IG UTM homepage link + the MixMind link (see §2).
 - [ ] Contact button: email support@beatmind.io.
 - [ ] Profile pic: upload 720×720 (IG stores it at 320×320 and shows it as a circle).
@@ -97,9 +98,9 @@ Common to all: email **support@beatmind.io** · profile image = the "B" tile (`#
 - [ ] Sign up with support@beatmind.io. Username `beatmindio`.
 - [ ] Switch to a **Business account** (Settings → Account → Switch to Business account), category **Software/Apps** (or the closest tech/software option). *Trade-off:* business accounts get a **clickable website link straight away**, while personal accounts reportedly need 1,000 followers first. But business accounts **only get the Commercial Music Library**. That's fine because we use original audio from BeatMind sessions.
 - [ ] **Name (30 max):** `BeatMind` (8). Or `BeatMind · AI for Ableton` (25) to tell us apart from the other @beatmind accounts. Use this one.
-- [ ] **Bio (80 max; TikTok doesn't publish its limit, so we stay under 80). Paste (75):**
+- [ ] **Bio (80 max; TikTok doesn't publish its limit, so we stay under 80). Paste (76):**
   ```
-  AI co-producer inside Ableton Live 🎛️ + MixMind for DJs. 7-day free trial ↓
+  AI co-producer in Ableton Live 🎛️ + MixMind for DJs. 7-day trial, 3 tracks ↓
   ```
 - [ ] Website: the TikTok UTM link. Email: support@beatmind.io.
 - [ ] Profile pic: 400×400 or larger (200×200 minimum).
@@ -114,7 +115,7 @@ Common to all: email **support@beatmind.io** · profile image = the "B" tile (`#
 
   This channel: real sessions (any speed-ups are labelled), setup guides, prompt ideas, reference-track workflows, and honest notes on what BeatMind can't do yet. Plus MixMind, our Rekordbox library manager for DJs.
 
-  7-day free trial, no credit card: https://www.beatmind.io
+  7-day free trial with 3 tracks included, no credit card: https://www.beatmind.io
   Questions / collabs: support@beatmind.io
 
   Ableton and Live are trademarks of Ableton AG. BeatMind is not affiliated with Ableton.
@@ -130,7 +131,7 @@ Common to all: email **support@beatmind.io** · profile image = the "B" tile (`#
 - [ ] **Display name (50 max):** `BeatMind · AI inside Ableton` (28).
 - [ ] **Bio (160 max). Paste (151):**
   ```
-  AI co-producer inside Ableton Live. Describe a sound, get editable clips in your Live Set, part by part. + MixMind for Rekordbox DJs. Free 7-day trial.
+  AI co-producer inside Ableton Live. Describe a sound, get editable clips in your Live Set. + MixMind for Rekordbox DJs. 7-day trial, 3 tracks, no card.
   ```
 - [ ] Website field: the X UTM link. Location: leave blank or "Ableton Live 11/12" (a small joke that also signals the product).
 - [ ] Profile 400×400. **Header 1500×500** (keep the bottom-left clear because the avatar overlaps it; no GIFs).
@@ -154,9 +155,9 @@ Common to all: email **support@beatmind.io** · profile image = the "B" tile (`#
   ```
   AI co-producer inside Ableton Live: describe a sound, get editable clips. + MixMind for Rekordbox.
   ```
-- [ ] Longer "About"/description (≤255). Paste (243):
+- [ ] Longer "About"/description (≤255). Paste (248):
   ```
-  BeatMind is an AI music-production assistant that works inside Ableton Live 11/12. Describe a sound and it builds editable clips in your own Live Set, part by part. Also: MixMind, a Rekordbox library manager for DJs. 7-day free trial, no card.
+  BeatMind is an AI music-production assistant that works inside Ableton Live 11/12. Describe a sound and it builds editable clips in your own Live Set, part by part. Also: MixMind, a Rekordbox library manager for DJs. 7-day trial, 3 tracks, no card.
   ```
 - [ ] Website: the Facebook UTM link. Email: support@beatmind.io. CTA button: **"Sign up"** → the same link.
 - [ ] Profile **320×320** (Facebook's official best upload). Cover **851×315** (text in the center ~640 px, because mobile crops the sides).

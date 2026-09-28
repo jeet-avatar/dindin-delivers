@@ -40,7 +40,7 @@ The profile grid has shown **3:4 tiles since Jan 2025**. **Design static/carouse
 - **Visual:** S06 (Bridge + AbletonOSC setup, 45 s). **Cover:** dark screenshot of the Bridge window "connected" + text "SETUP IN 4 STEPS" (Poppins Bold, white, "4 STEPS" in orange).
 - **Caption:**
   > How BeatMind connects to Ableton Live, the whole setup.
-  > 1. Sign up at beatmind.io (7-day free trial, no card)
+  > 1. Sign up at beatmind.io (7-day free trial, 3 tracks, no card)
   > 2. Install BeatMind Bridge (Mac or Windows)
   > 3. In Live: Preferences → Link/Tempo/MIDI → Control Surface → AbletonOSC
   > 4. Sign in to Bridge → connected
@@ -56,14 +56,14 @@ The profile grid has shown **3:4 tiles since Jan 2025**. **Design static/carouse
   2. "You describe it. 'Dark melodic techno kick, 126 BPM, A minor.'"
   3. "It builds it in YOUR Live Set: real tracks, real MIDI clips, your installed sounds."
   4. "One part at a time. You hear a recorded audition and decide what stays."
-  5. "7-day free trial · no card · plans from $19/mo. Link in bio."
+  5. "Free 7-day trial · 3 tracks · no card · plans from $19/mo. Link in bio."
 - **Caption:**
   > Meet BeatMind 👋
   > It's an AI production assistant that works inside Ableton Live. Not a song generator, and it doesn't hand you a mystery audio file. It builds kick, bass and melody parts as editable clips in your own set, so the track stays yours.
-  > Swipe → how it works. Try it free for 7 days, link in bio.
+  > Swipe → how it works. Try it free for 7 days with 3 tracks, no card. Link in bio.
   > Founding Member: the first 100 annual subscribers get 40% off for life with code FOUNDING100.
 - **Hashtags (5, IG max):** #abletonlive #musicproducer #aimusic #musicproduction #beatmaking
-- **Alt text:** "Five-slide orange graphic introducing BeatMind: an AI that builds music inside Ableton, from a plain-English prompt to editable MIDI clips in your own Live Set, one part at a time, with a 7-day free trial."
+- **Alt text:** "Five-slide orange graphic introducing BeatMind: an AI that builds music inside Ableton, from a plain-English prompt to editable MIDI clips in your own Live Set, one part at a time, with a 7-day free trial that includes 3 tracks."
 
 ### G3 — MixMind intro (dark) · Carousel, 4 slides
 - **Visual:** dark screenshots of the MixMind app (library table, Duplicates view, AI playlist box, USB drive panel). **Blur track titles you don't want public.** Slide 1 has a text overlay.
@@ -136,7 +136,7 @@ The profile grid has shown **3:4 tiles since Jan 2025**. **Design static/carouse
 - **Caption:**
   > One sentence in, editable Ableton clips out.
   > "dark melodic techno kick at 126 BPM, A minor" → tempo set, sound loaded, MIDI clip written, in my own Live Set. Then a bass. Every note is editable and the track's still mine to finish.
-  > BeatMind · 7-day free trial, no card · link in bio
+  > BeatMind · 7-day free trial, 3 tracks, no card · link in bio
 - **Hashtags (5, IG max):** #abletonlive #melodictechno #musicproducer #aimusic #ableton12
 - **Alt text:** "Screen recording: a prompt typed into BeatMind sets Ableton Live to 126 BPM, loads a kick sound, and creates a MIDI clip, then adds a bass clip, and the notes are opened in the piano roll."
 
@@ -149,8 +149,8 @@ The profile grid has shown **3:4 tiles since Jan 2025**. **Design static/carouse
 | Day | Date | Platform | Format | Asset | Caption / copy |
 |-----|------|----------|--------|-------|----------------|
 | 1 | Mon 9/28 | IG | 9 grid posts | G1–G9 | see Part A |
-| 1 | Mon 9/28 | TikTok, YT Shorts, FB Reels | Short | S01 hero | "one sentence → editable Ableton clips. real MIDI, my own Live Set. 7-day free trial, link in bio #abletonlive #musicproducer #techno #aimusic" |
-| 1 | Mon 9/28 | X | Thread (5 posts) | S01 clip on post 1 | 1/ "Launching BeatMind today: an AI assistant that works *inside* Ableton Live. You describe a sound, and it builds the part as real clips in your own Live Set. 🧵" · 2/ "It isn't a song generator. It builds one part at a time (kick, bass, melody), loads sounds you have installed, and records an audition for you to judge." · 3/ "It also does reference tracks: estimated stems, a section timing map, then you build original parts with a similar energy." · 4/ "Live 11/12. Plans from $19/mo, 7-day trial, no card: [UTM link]. I'm the founder, so ask me anything." · 5/ "Founding Member offer: the first 100 annual subscribers get 40% off for life with code FOUNDING100. Annual plans only." |
+| 1 | Mon 9/28 | TikTok, YT Shorts, FB Reels | Short | S01 hero | "one sentence → editable Ableton clips. real MIDI, my own Live Set. 7-day free trial, 3 tracks, link in bio #abletonlive #musicproducer #techno #aimusic" |
+| 1 | Mon 9/28 | X | Thread (5 posts) | S01 clip on post 1 | 1/ "Launching BeatMind today: an AI assistant that works *inside* Ableton Live. You describe a sound, and it builds the part as real clips in your own Live Set. 🧵" · 2/ "It isn't a song generator. It builds one part at a time (kick, bass, melody), loads sounds you have installed, and records an audition for you to judge." · 3/ "It also does reference tracks: estimated stems, a section timing map, then you build original parts with a similar energy." · 4/ "Live 11/12. Plans from $19/mo. Free 7-day trial with 3 tracks, no card: [UTM link]. I'm the founder, so ask me anything." · 5/ "Founding Member offer: the first 100 annual subscribers get 40% off for life with code FOUNDING100. Annual plans only." |
 | 1 | Mon 9/28 | Threads | Text + clip | S01 | "Built an AI that works inside Ableton Live, not instead of it. Describe a sound, and it builds editable clips in your own set, one part at a time. Launching today. What would you ask it to build first?" |
 | 1 | Mon 9/28 | FB Page | Post | G2 carousel images | same as G2 caption + UTM link (utm_source=facebook) |
 | 2 | Tue 9/29 | TT / Reels / Shorts / FB | Short | S06 setup | "the whole setup, no gatekeeping: Bridge + AbletonOSC → connected. #abletonlive #abletontips #ableton12" |

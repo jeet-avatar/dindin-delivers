@@ -3,9 +3,10 @@
 Budget: organic only. Owner: founder. Contact on everything: **support@beatmind.io**.
 
 ## Pricing to quote (live in Stripe; full one-pager in 05)
-- **BeatMind Starter $19/mo** ($190/yr): 10 tracks/month. **Pro $39/mo** ($390/yr, most popular): 30 tracks + 5 cloud HQ separations/month. **Studio $79/mo** ($790/yr): 80 tracks + 20 cloud HQ/month + MixMind early access + priority support. Annual = 2 months free. 7-day free trial, no card, cancel anytime.
+- **BeatMind Starter $19/mo** ($190/yr): 10 tracks/month. **Pro $39/mo** ($390/yr, most popular): 30 tracks + 5 cloud HQ separations/month. **Studio $79/mo** ($790/yr): 80 tracks + 20 cloud HQ/month + MixMind early access + priority support. Annual = 2 months free. Cancel anytime.
+- **Free trial:** 7 days, **no card**, includes **3 tracks** (processed on your own computer) and limited AI (**about 50 messages**). Cloud HQ separations and packs need a paid plan. **Nobody is ever charged unless they choose a plan**; starting a plan during the trial ends the trial and starts the plan immediately. Never say "cancel before the trial ends" (there's nothing to cancel).
 - **MixMind is early access inside Studio.** Standalone MixMind ($12/mo) and combos (Starter + MixMind $25/mo, Pro + MixMind $45/mo) are **coming soon**. Never tell anyone they can buy MixMind on its own yet.
-- Short form for posts: **"Plans from $19/mo, 7-day free trial, no card."**
+- Short form for posts: **"Plans from $19/mo. Free 7-day trial with 3 tracks, no card."**
 
 ## Founding Member offer (launch campaign)
 - **The offer:** the first **100 annual subscribers** get **40% off for life** with code **`FOUNDING100`**. Annual plans only (Starter, Pro or Studio yearly). It does not apply to monthly plans or packs.
@@ -119,7 +120,7 @@ Rule quotes were read from each sub's sidebar/rules (logged out) on 2026-09-27. 
 >
 > I'd like to give you **60 days free**, no card and no obligation to post. If you do make something with it, great, but please mention that you got free access. If not, blunt feedback is just as valuable to me.
 >
-> If any of your viewers want in: plans start at $19/mo with a 7-day free trial, and our first 100 annual subscribers get 40% off for life with code **FOUNDING100**. Totally optional to mention.
+> If any of your viewers want in: plans start at $19/mo, there's a 7-day free trial with 3 tracks and no card, and our first 100 annual subscribers get 40% off for life with code **FOUNDING100**. Totally optional to mention.
 >
 > Want me to set it up? Just reply with the email you'd sign up with.
 >
@@ -198,8 +199,8 @@ Review every Sunday. If a channel produces zero signups in 2 weeks, cut its time
 **Tagline (≤60): `The AI co-producer that builds clips inside Ableton Live` (56 chars)**
 Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `AI that builds editable music parts inside Ableton Live` (55)
 
-**Description (≤260 to satisfy both PH limits; this is 250):**
-> BeatMind works inside Ableton Live 11/12. Describe a sound in plain English and it builds drums, bass and melodies as editable clips in your own Live Set, part by part, with a recorded audition to review. Plans from $19/mo, 7-day free trial, no card.
+**Description (≤260 to satisfy both PH limits; this is 258):**
+> BeatMind works inside Ableton Live 11/12. Describe a sound in plain English and it builds drums, bass and melodies as editable clips in your own Live Set, part by part, with a recorded audition to review. Plans from $19/mo; 3 tracks free for 7 days, no card.
 
 **Topics:** Music · Artificial Intelligence · Audio · Productivity (or Maker Tools)
 
@@ -216,7 +217,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 >
 > **For DJs:** MixMind (same brand) reads your Rekordbox 6/7 library: fast browser, duplicate finder (it never touches your Rekordbox files), and an AI playlist builder that only picks tracks you own. It's in early access inside our Studio plan; standalone MixMind is coming soon.
 >
-> **Pricing:** Starter $19/mo, Pro $39/mo, Studio $79/mo (annual = 2 months free), all with a 7-day free trial, no card. **Founding Member:** the first 100 annual subscribers get 40% off for life with code **FOUNDING100**.
+> **Pricing:** Starter $19/mo, Pro $39/mo, Studio $79/mo (annual = 2 months free). The free trial is 7 days with 3 tracks and no card, and you're never charged unless you pick a plan. **Founding Member:** the first 100 annual subscribers get 40% off for life with code **FOUNDING100**.
 >
 > I'd love blunt feedback, especially on what felt clunky in setup. I'm here all day. support@beatmind.io
 
@@ -237,6 +238,8 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 - *Who owns the output?* You do, 100%.
 - *What's a "track"?* One stem separation of a reference track. HQ separation runs on your own computer via the Bridge. Cloud HQ (Pro/Studio) is for machines that can't run it locally. The AI producer is fair-use on every plan.
 - *Can I buy MixMind on its own?* Not yet. It's early access inside Studio today; standalone ($12/mo) and combos are coming soon.
+- *What's in the free trial?* 7 days, 3 tracks (processed on your computer), about 50 AI messages, no card. Cloud HQ and packs need a paid plan.
+- *Will I be charged after the trial?* No. We never take a card for the trial; you only pay if you choose a plan.
 - *Is FOUNDING100 for monthly plans?* No, annual plans only, first 100 subscribers, 40% off for life.
 
 ---
@@ -299,7 +302,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 >
 > Support: I answer every email personally at support@beatmind.io.
 >
-> Plans from $19/mo, 7-day free trial, no card: https://www.beatmind.io/?utm_source=reddit&utm_medium=community&utm_campaign=launch&utm_content=edmp-marketplace
+> Plans from $19/mo. Free 7-day trial with 3 tracks, no card: https://www.beatmind.io/?utm_source=reddit&utm_medium=community&utm_campaign=launch&utm_content=edmp-marketplace
 >
 > Honest feedback very welcome, especially on setup.
 
@@ -339,13 +342,13 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 >
 > Demo video, no signup needed: [YouTube link to S01 or the walkthrough].
 >
-> Plans start at $19/mo, and there's a 7-day free trial with no card. I know signup walls aren't ideal for HN, but it has to connect to your local Ableton, so it needs an account for the Bridge. I'd especially appreciate feedback on the setup flow and the architecture. Happy to answer anything.
+> Plans start at $19/mo, and there's a 7-day free trial (3 tracks, limited AI) with no card, so nobody gets charged unless they pick a plan. I know signup walls aren't ideal for HN, but it has to connect to your local Ableton, so it needs an account for the Bridge. I'd especially appreciate feedback on the setup flow and the architecture. Happy to answer anything.
 
 *(HN etiquette: submit it yourself, don't ask anyone to upvote, and reply to criticism with specifics. Technical details are from `README.md`, `STEM24_RELEASE_2026-09-27.md` and `backend/claude_tools.py`.)*
 
 ### Launch announcement email
 **From:** BeatMind <support@beatmind.io> · **To:** your personal network (Day 1), and opted-in subscribers/trial users (PH day, with the PH line)
-**Subject:** I built an AI that works inside Ableton Live (free for 7 days)
+**Subject:** I built an AI that works inside Ableton Live (try 3 tracks free)
 **Preview text:** Describe a sound. Get editable clips in your own Live Set.
 
 > Hi [First name],
@@ -358,7 +361,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 >
 > **For DJs:** MixMind (same brand) reads your Rekordbox library, finds duplicates without touching your files, and builds AI playlists from tracks you own. It's in early access, included with the Studio plan.
 >
-> 👉 **Try it free for 7 days, no card:** https://www.beatmind.io/?utm_source=email&utm_medium=email&utm_campaign=launch
+> 👉 **Try it free for 7 days with 3 tracks, no card:** https://www.beatmind.io/?utm_source=email&utm_medium=email&utm_campaign=launch
 >
 > Plans start at $19/month (Starter), with Pro at $39 and Studio at $79. **Founding Member offer:** the first 100 people to subscribe annually get **40% off for life** with code **FOUNDING100** (annual plans only; annual already includes 2 months free).
 >

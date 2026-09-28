@@ -18,7 +18,7 @@ import {
   SITE_NAME,
   SOCIAL_PROFILES,
   SUPPORT_EMAIL,
-  TRIAL_TERMS,
+  TRIAL_DETAILS,
   absoluteUrl,
 } from "@/lib/site";
 
@@ -66,7 +66,7 @@ function beatmindOffers(): JsonLdObject {
     offers: PLANS.map((plan) =>
       planOffer(
         plan,
-        `$${plan.monthly}/month or $${plan.yearly}/year (${ANNUAL_DISCOUNT_LABEL}). ${plan.features.join(", ")}. ${TRIAL_TERMS}`,
+        `$${plan.monthly}/month or $${plan.yearly}/year (${ANNUAL_DISCOUNT_LABEL}). ${plan.features.join(", ")}. ${TRIAL_DETAILS}`,
       ),
     ),
   };
@@ -78,7 +78,7 @@ function mixmindOffer(): JsonLdObject {
   const studio = planById("studio");
   return planOffer(
     studio,
-    `MixMind early access is included with BeatMind Studio ($${studio.monthly}/month). Standalone MixMind ($${MIXMIND_PRICE.monthly}/month) is coming soon. ${TRIAL_TERMS}`,
+    `MixMind early access is included with BeatMind Studio ($${studio.monthly}/month). Standalone MixMind ($${MIXMIND_PRICE.monthly}/month) is coming soon.`,
   );
 }
 

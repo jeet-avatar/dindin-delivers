@@ -15,7 +15,7 @@ This guide walks through the whole process, from a blank Set to a loop you can a
 ## What you need before you start
 
 - **Ableton Live 11 or 12** (Standard or Suite). BeatMind controls Live directly, so it will not work with another DAW or with Live 10.
-- **A BeatMind account.** Plans start at $19/month (Starter, with 10 tracks a month), and every plan has a 7-day free trial with no credit card required.
+- **A BeatMind account.** Plans start at $19/month (Starter, with 10 tracks a month), and you can start with a 7-day free trial that includes 3 tracks and needs no credit card. You're only charged if you choose a plan.
 - **BeatMind Bridge**, a small desktop app available for macOS and Windows. It runs on your computer and relays instructions between the BeatMind web app and Ableton.
 - **AbletonOSC**, an open-source Live remote script that lets other software talk to Live over OSC (Open Sound Control).
 
@@ -112,7 +112,7 @@ That is where the track becomes yours: the fills, the edits, the automation that
 
 ## Try it on your own Set
 
-The fastest way to understand AI-assisted production is to hear it build a kick in your own Live Set. Start the [7-day free trial](/signup) (no credit card required), connect Bridge, and ask for one part. If you want the bigger picture first, read [AI for Ableton Live in 2026: what actually works](/blog/ai-for-ableton-live-2026).
+The fastest way to understand AI-assisted production is to hear it build a kick in your own Live Set. Start the [7-day free trial](/signup) (3 tracks included, no credit card required), connect Bridge, and ask for one part. If you want the bigger picture first, read [AI for Ableton Live in 2026: what actually works](/blog/ai-for-ableton-live-2026).
 
 ## FAQ
 

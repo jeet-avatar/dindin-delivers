@@ -1,5 +1,7 @@
 // Single source of truth for public pricing copy. Must match the live Stripe prices.
 
+export { TRIAL_AI_MESSAGES, TRIAL_DAYS, TRIAL_DETAILS, TRIAL_SHORT, TRIAL_TERMS, TRIAL_TRACKS } from "@/lib/site";
+
 export type PlanId = "starter" | "pro" | "studio";
 export type BillingInterval = "month" | "year";
 
@@ -85,7 +87,7 @@ export const ANNUAL_DISCOUNT_LABEL = "2 months free";
 export const TRACK_DEFINITION =
   "A track is one stem separation of a reference track. High-quality separation runs on your own computer via the Bridge.";
 export const CLOUD_HQ_DEFINITION =
-  "Cloud HQ separations run on our cloud GPU, for computers that can't run high-quality separation locally.";
+  "Cloud HQ separations run on our cloud GPU, for computers that can't run high-quality separation locally. They need a paid plan.";
 
 export const TRACK_PACKS: Pack[] = [
   { quantity: 10, price: 9 },
@@ -99,7 +101,7 @@ export const CLOUD_HQ_PACKS: Pack[] = [
 ];
 
 export const PACK_TERMS =
-  "Packs never expire. They're used after your monthly allowance and need an active plan or trial.";
+  "Packs never expire. They're used after your monthly allowance and need a paid plan.";
 
 export const FOUNDING_CODE = "FOUNDING100";
 export const FOUNDING_DISCOUNT_PERCENT = 40;

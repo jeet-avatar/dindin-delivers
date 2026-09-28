@@ -7,7 +7,7 @@ Style: **MIX**. Mostly faceless screen recordings of Ableton, BeatMind or MixMin
 2. **No mock UI.** If a feature doesn't work on camera, cut it. Don't fake it.
 3. **Audio = our own.** The music in each video is the loop you just built with BeatMind, or a track you have the rights to. Don't use copyrighted trending audio. On a TikTok Business account you only get the Commercial Music Library anyway (see `01-handles-and-accounts.md`). For MixMind videos that show a DJ library, **mute the track audio** or use your own/licensed tracks. Library *titles* on screen are fine, but blur any you don't want public.
 4. **Captions burned in** (most people watch muted), plus platform auto-captions switched on.
-5. **CTA** is always one of these: "link in bio", "7-day free trial, no card", or "beatmind.io". Pick one per video. **MixMind videos:** never sell MixMind on its own (standalone isn't purchasable yet). Use "link in bio" or "early access in BeatMind Studio". Don't quote a MixMind price.
+5. **CTA** is always one of these: "link in bio", "7-day free trial, 3 tracks, no card", or "beatmind.io". Pick one per video. **MixMind videos:** never sell MixMind on its own (standalone isn't purchasable yet). Use "link in bio" or "early access in BeatMind Studio". Don't quote a MixMind price.
 
 Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage · **[V]** = founder voice
 
@@ -24,8 +24,8 @@ Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage ·
   - 0:18–0:24 Type *"add a rolling offbeat bass in Am"*. A second track and clip appear. Both play.
   - 0:24–0:30 Pull back to show the full Session view: two real tracks, clips you can open. The cursor double-clicks a clip to show the notes in the piano roll.
 - **VO:** "I typed one sentence into Ableton. BeatMind set the tempo, loaded a kick from my installed sounds and wrote the clip, right in my Live Set. Then a bass. These are real MIDI clips. I can open them, change every note, and the track's still mine to finish."
-- **On-screen captions:** "126 BPM · A minor" → "real MIDI clip in MY set" → "part 2: bass" → "every note editable" → "7-day free trial · no card"
-- **CTA:** "Link in bio. 7-day free trial, no card."
+- **On-screen captions:** "126 BPM · A minor" → "real MIDI clip in MY set" → "part 2: bass" → "every note editable" → "free trial · 3 tracks · no card"
+- **CTA:** "Link in bio. 7-day free trial, 3 tracks, no card."
 - **Audio:** the loop being built (natural sound from Live). Duck the VO over it at about −6 dB.
 - **Product:** BeatMind
 
@@ -57,7 +57,7 @@ Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage ·
   - 0:36–0:40 End card.
 - **VO:** "Upload a reference and BeatMind separates it into estimated stems: drums, bass, vocals, other. You can solo each one and download the WAVs. Then confirm the section timing, write what you want to keep, and build your own original parts with a similar energy."
 - **Captions:** "drums" "bass" "vocals" "other" → "estimated stems · download WAV" → "confirm the timing map" → "then build ORIGINAL parts"
-- **CTA:** "beatmind.io, 7-day free trial."
+- **CTA:** "beatmind.io, 3 tracks free for 7 days."
 - **Audio:** the reference must be your own music. Don't upload or play a commercial track on camera.
 - **Product:** BeatMind
 - **Honesty note on screen, small text at 0:08:** "stems are estimates · may have bleed"
@@ -78,7 +78,7 @@ Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage ·
 - **Shot list:** 0:00 Live browser showing your installed packs → 0:04 prompt *"use a Wavetable pad from my installed sounds, slow attack, Am chords"* → 0:10 the instrument loads on a new MIDI track, chord clip appears → 0:18 plays → 0:22 end card.
 - **VO:** "BeatMind loads instruments and samples you already have installed, then writes the part. Your library, your sound."
 - **Captions:** "your installed sounds" → "loads + writes the clip" → "your library, your sound"
-- **CTA:** "7-day free trial, no card."
+- **CTA:** "7-day free trial, 3 tracks, no card."
 - **Audio:** the pad.
 - **Product:** BeatMind
 - **Note:** name the device you actually used in the test (e.g., Wavetable is in Live Standard/Suite). Swap the prompt text to match what really worked.
@@ -114,7 +114,7 @@ Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage ·
 - **Length:** 40 s
 - **Hook:** On-screen: **"Why I built an AI that lives inside Ableton."** VO: "I kept opening Ableton and closing it an hour later with nothing."
 - **Shot list:** b-roll only, no face: late-night desk, hands on keys, the Live Session view, a coffee cup, the Bridge window connecting, a first loop playing, then a DJ USB/decks shot for the MixMind mention.
-- **VO (write it in your own words; this is a starting draft, keep only what's true for you):** "I kept opening Ableton and closing it an hour later with nothing. Not because I didn't have ideas. Getting from idea to first loop just took forever. So I built BeatMind: you describe the sound, and it builds the part in your own Live Set, one piece at a time, and you keep full control. Then I did the same for my DJ library, which became MixMind. Both are live now. Seven-day free trial, no card. I'm reading every message at support@beatmind.io."
+- **VO (write it in your own words; this is a starting draft, keep only what's true for you):** "I kept opening Ableton and closing it an hour later with nothing. Not because I didn't have ideas. Getting from idea to first loop just took forever. So I built BeatMind: you describe the sound, and it builds the part in your own Live Set, one piece at a time, and you keep full control. Then I did the same for my DJ library, which became MixMind. BeatMind is live now, and MixMind is in early access with the Studio plan. Free seven-day trial with three tracks, no card. I'm reading every message at support@beatmind.io."
 - **Captions:** key phrases only.
 - **CTA:** "support@beatmind.io, I read every one."
 - **Audio:** a quiet original pad/loop from BeatMind.
@@ -198,13 +198,13 @@ Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage ·
 | 4:50–5:50 | Part 3: melody/stab | Script 12 prompt 3 | then **you** take over: play or edit notes by hand |
 | 5:50–6:50 | Reference workflow (optional chapter) | your own reference track → stems → timing → template | stems are estimates; optional AI listening is opt-in and sends audio to OpenAI; the goal is original parts |
 | 6:50–7:30 | Limits (build trust) | text slide | Session view, not Arrangement; supported devices only; Windows bridge without auditions; you finish the song |
-| 7:30–8:00 | Wrap + CTA | end screen | Plans from $19/mo, 7-day free trial, no card; FOUNDING100 (first 100 annual subscribers, 40% off for life) in the description; blog link; MixMind (early access in Studio) mention for DJs |
+| 7:30–8:00 | Wrap + CTA | end screen | Plans from $19/mo; free 7-day trial with 3 tracks, no card; FOUNDING100 (first 100 annual subscribers, 40% off for life) in the description; blog link; MixMind (early access in Studio) mention for DJs |
 
 **Description template:**
 ```
 BeatMind is an AI assistant that works inside Ableton Live 11/12. Describe a sound, and it builds editable clips in your own Live Set, one part at a time.
 
-Try it free for 7 days (no card): https://www.beatmind.io/?utm_source=youtube&utm_medium=video&utm_campaign=launch&utm_content=walkthrough1
+Try it free for 7 days with 3 tracks (no card): https://www.beatmind.io/?utm_source=youtube&utm_medium=video&utm_campaign=launch&utm_content=walkthrough1
 Read: How to make a track in Ableton with AI → https://www.beatmind.io/blog/how-to-make-a-track-in-ableton-with-ai
 
 Chapters

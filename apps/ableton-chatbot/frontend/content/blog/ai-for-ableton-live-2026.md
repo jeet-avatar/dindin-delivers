@@ -117,7 +117,7 @@ Each tool does the job it is good at, and you make the calls in between.
 
 ## Try an in-DAW assistant on your own Set
 
-If the "tedious DAW work" category is where you lose the most time, BeatMind is built for exactly that. Plans start at $19/month, with a [7-day free trial, no credit card required](/signup). Connect it to a fresh Live Set and ask for one part. If you already know what you want to hear, read [how to write prompts that produce usable ideas](/blog/prompt-to-arrangement-ai-music-production).
+If the "tedious DAW work" category is where you lose the most time, BeatMind is built for exactly that. Plans start at $19/month, with a [7-day free trial with 3 tracks, no credit card required](/signup). Connect it to a fresh Live Set and ask for one part. If you already know what you want to hear, read [how to write prompts that produce usable ideas](/blog/prompt-to-arrangement-ai-music-production).
 
 ## FAQ
 
