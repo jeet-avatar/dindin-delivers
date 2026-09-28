@@ -477,6 +477,26 @@ export default function DashboardPage() {
   };
   const choosePlan = () => setPlanReason("");
 
+  // MixMind has no public download URL: this fetches a presigned link that expires in minutes,
+  // valid only for a signed-in account with mixmind_access. Shared by every download button below.
+  const [mixmindDownloading, setMixmindDownloading] = useState(false);
+  const handleMixMindDownload = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    if (mixmindDownloading) return;
+    setMixmindDownloading(true);
+    try {
+      const res = await apiFetch("/api/mixmind/download");
+      if (res.status === 402) { setPlanReason("MixMind needs a MixMind, BeatMind + MixMind or Studio plan."); return; }
+      if (!res.ok) throw new Error();
+      const { url } = await res.json();
+      window.location.href = url;
+    } catch {
+      setHistoryError("Couldn't start the MixMind download. Please try again in a moment.");
+    } finally {
+      setMixmindDownloading(false);
+    }
+  };
+
   const logout = () => { clearAuth(); router.push("/"); };
 
   const reviewRecording = (item: Recording, decision: string) => {
@@ -617,11 +637,11 @@ export default function DashboardPage() {
             AI-powered DJ library organizer with smart playlists, duplicate finder, BPM/key analysis, and Rekordbox + USB export.
           </p>
           {mixmindIncluded ? (
-          <a href="/MixMind-mac.dmg" download
+          <a href="#" onClick={handleMixMindDownload} aria-disabled={mixmindDownloading}
             className="py-2 rounded-xl text-sm font-semibold text-center flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
             style={{ background: "#7c3aed", color: "#fff" }}>
             <DownloadIcon size={13} />
-            Download for Mac
+            {mixmindDownloading ? "Preparing…" : "Download for Mac"}
           </a>
           ) : mixmindLocked}
         </div>
@@ -776,14 +796,14 @@ export default function DashboardPage() {
         </p>
         {mixmindIncluded ? (
         <div className="grid grid-cols-1 gap-3">
-          <a href="/MixMind-mac.dmg" download
+          <a href="#" onClick={handleMixMindDownload} aria-disabled={mixmindDownloading}
             className="flex flex-col items-center gap-3 p-5 rounded-xl border text-center transition-all hover:border-purple-500"
             style={{ borderColor: "var(--border)", background: "var(--bg-primary)" }}>
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#7c3aed" }}>
               <DownloadIcon size={18} />
             </div>
             <div>
-              <p className="font-semibold text-sm">Mac</p>
+              <p className="font-semibold text-sm">{mixmindDownloading ? "Preparing…" : "Mac"}</p>
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Requires a Mac with Apple silicon (M1 or later)</p>
             </div>
           </a>
@@ -821,7 +841,7 @@ export default function DashboardPage() {
             name: "MixMind for Mac",
             sub: "Requires a Mac with Apple silicon (M1 or later)",
             desc: "AI DJ library manager. Smart playlists, duplicate finder, Rekordbox export.",
-            href: "/MixMind-mac.dmg",
+            onDownload: handleMixMindDownload,
             bg: "#7c3aed",
             icon: <DJIcon size={20} />,
           },
@@ -837,11 +857,11 @@ export default function DashboardPage() {
                   <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{app.sub}</p>
                 </div>
               </div>
-              <a href={app.href} download
+              <a href="#" onClick={app.onDownload} aria-disabled={mixmindDownloading}
                 className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
                 style={{ background: app.bg, color: "#fff" }}>
                 <DownloadIcon size={14} />
-                Download
+                {mixmindDownloading ? "Preparing…" : "Download"}
               </a>
             </div>
             <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{app.desc}</p>
