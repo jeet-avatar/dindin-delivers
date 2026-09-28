@@ -7,6 +7,7 @@ packages: kind, credits, pack_id). The result is cached in-process for CATALOG_T
 
 import logging
 import os
+import re
 import threading
 import time
 
@@ -194,3 +195,45 @@ def public_plans():
 
 def packs():
     return resolve()['packs']
+
+
+# Rules on top of each coupon's own product restrictions, which cannot tell a monthly price from a yearly one.
+# Any other active code is accepted when its coupon applies to the chosen plan's product.
+PROMO_RULES = {
+    'FOUNDING100': {'intervals': ('year',), 'message': 'FOUNDING100 works on yearly plans. Switch to yearly to use it.'},
+    'CREATOR60': {'plans': ('pro',), 'message': 'CREATOR60 works on the Pro plan.'},
+}
+PROMO_INVALID = "That code isn't valid or has expired."
+PROMO_USED_UP = 'That code has been fully redeemed.'
+
+
+class PromoError(Exception):
+    """A promotion code the user cannot use; the message is shown to them."""
+
+
+def promotion(code, entry, now=None):
+    """The Stripe promotion code ID for `code` on a plan entry, or PromoError explaining why not."""
+    code = (code or '').strip()
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', code):
+        raise PromoError(PROMO_INVALID)
+    found = stripe.PromotionCode.list(code=code, active=True, limit=1)['data']
+    if not found:
+        raise PromoError(PROMO_INVALID)
+    promo = found[0]
+    rule = PROMO_RULES.get(str(promo['code']).upper(), {})
+    if entry['interval'] not in rule.get('intervals', INTERVALS) or entry['plan'] not in rule.get('plans', PLANS):
+        raise PromoError(rule['message'])
+    if _field(promo, 'expires_at') and promo['expires_at'] <= (now or time.time()):
+        raise PromoError(PROMO_INVALID)
+    if _field(promo, 'max_redemptions') and _field(promo, 'times_redeemed', 0) >= promo['max_redemptions']:
+        raise PromoError(PROMO_USED_UP)
+    # API versions from 2025-09-30 name the coupon under promotion.coupon; older ones expand promo.coupon.
+    coupon_id = _field(_field(promo, 'promotion', {}), 'coupon') or _field(promo, 'coupon')
+    coupon_id = coupon_id if isinstance(coupon_id, str) else _field(coupon_id, 'id')
+    coupon = stripe.Coupon.retrieve(coupon_id, expand=['applies_to'])
+    if not _field(coupon, 'valid', False):
+        raise PromoError(PROMO_USED_UP)
+    products = _field(_field(coupon, 'applies_to', {}), 'products', [])
+    if products and entry['product_id'] not in products:
+        raise PromoError(f"That code doesn't apply to the {entry['name']} plan.")
+    return promo['id']

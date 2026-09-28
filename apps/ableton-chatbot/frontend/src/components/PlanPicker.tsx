@@ -50,6 +50,7 @@ export default function PlanPicker({ onClose, reason, inTrial }: Props) {
   const [interval, setIntervalChoice] = useState<Interval>("month");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [promoCode, setPromoCode] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -66,7 +67,7 @@ export default function PlanPicker({ onClose, reason, inTrial }: Props) {
 
   async function choose(plan: PlanId) {
     setBusy(true); setError("");
-    try { await startCheckout(plan, interval); }
+    try { await startCheckout(plan, interval, promoCode); }
     catch (e) { setError(e instanceof Error ? e.message : "Checkout could not start."); setBusy(false); }
   }
 
@@ -74,7 +75,6 @@ export default function PlanPicker({ onClose, reason, inTrial }: Props) {
     .filter((p): p is PlanOption => Boolean(p));
   const beatmind = options(BEATMIND_PLANS);
   const mixmind = options(MIXMIND_PLANS);
-  const promoOnYearly = catalog?.promotion_codes_on.includes("year");
 
   return <div role="dialog" aria-modal="true" aria-labelledby="plan-picker-title"
     className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 sm:items-center" onClick={onClose}>
@@ -96,7 +96,13 @@ export default function PlanPicker({ onClose, reason, inTrial }: Props) {
           {value === "month" ? "Monthly" : "Yearly · 2 months free"}
         </button>)}
       </div>
-      {interval === "year" && promoOnYearly && <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>Have a promo code? Enter it at checkout (yearly plans only).</p>}
+      <label className="mt-4 block text-sm" style={{ color: "var(--text-secondary)" }}>Have a code?
+        <input value={promoCode} onChange={event => setPromoCode(event.target.value)} maxLength={64} autoComplete="off"
+          placeholder="Promo code" aria-describedby="promo-help"
+          className="ml-3 rounded-lg px-3 py-1.5 text-sm uppercase outline-none"
+          style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+      </label>
+      <p id="promo-help" className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>Applied when you choose a plan. We&apos;ll tell you if it doesn&apos;t fit that plan or billing period.</p>
 
       {!catalog && !error && <p role="status" className="mt-6 text-sm" style={{ color: "var(--text-secondary)" }}>Loading plans...</p>}
       {catalog && beatmind.length === 0 && <p role="status" className="mt-6 text-sm text-amber-200">Plans are unavailable right now. Please try again shortly.</p>}

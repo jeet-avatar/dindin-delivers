@@ -14,7 +14,7 @@ from typing import Literal
 
 import stripe
 from fastapi import APIRouter, HTTPException, Header, Request, Depends
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 import ai_usage
 import billing
@@ -85,13 +85,14 @@ class CheckoutRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     plan: Literal["starter", "pro", "studio", "mixmind", "starter_mixmind", "pro_mixmind"] = "starter"
     interval: Literal["month", "year"] = "month"
+    promo_code: str | None = Field(default=None, max_length=64)
 
 
 @router.get("/plans")
 async def plans():
     """The plan picker's catalog. MixMind plans stay listed as unavailable until MixMind sales open."""
     items = await asyncio.to_thread(catalog.public_plans)
-    return {"plans": items, "promotion_codes_on": ["year"], "trial_days": 7,
+    return {"plans": items, "trial_days": 7,
             "trial": {**billing.trial_allowance(), **ai_usage.trial_limits()},
             "mixmind_sales_enabled": catalog.mixmind_sales_enabled()}
 
@@ -111,6 +112,16 @@ async def create_checkout_session(request: Request, body: CheckoutRequest | None
     if user["subscription_status"] in OPEN_STATUSES:
         raise HTTPException(409, "You already have a BeatMind plan. Change it or update your card from Manage billing.")
 
+    # Codes are checked here, not with allow_promotion_codes: a coupon cannot tell monthly from yearly prices.
+    discounts = {}
+    if body.promo_code and body.promo_code.strip():
+        try:
+            discounts = {"discounts": [{"promotion_code": await asyncio.to_thread(catalog.promotion, body.promo_code, entry)}]}
+        except catalog.PromoError as error:
+            raise HTTPException(400, str(error))
+        except stripe.StripeError as e:
+            log.error("Stripe promotion lookup error for user %s: %s", user["id"], type(e).__name__)
+            raise HTTPException(503, "Codes can't be checked right now. Please try again shortly.")
     # No Stripe trial: the app's free trial collects no card, and subscribing ends it (charged today, full allowance).
     subscription_data = {"metadata": {"user_id": str(user["id"]), "app": APP, "plan": body.plan}}
     try:
@@ -123,13 +134,16 @@ async def create_checkout_session(request: Request, body: CheckoutRequest | None
             payment_method_types=["card"],
             line_items=[{"price": entry["price_id"], "quantity": 1}],
             subscription_data=subscription_data,
-            # FOUNDING100 is for yearly plans only; its coupon also names monthly products, so gate it here.
-            allow_promotion_codes=body.interval == "year",
             success_url=f"{FRONTEND_URL}/dashboard?subscribed=true",
             cancel_url=f"{FRONTEND_URL}/dashboard?checkout=cancelled",
             metadata={"user_id": str(user["id"]), "app": APP, "plan": body.plan, "interval": body.interval},
+            **discounts,
         )
         return {"url": session.url}
+    except stripe.InvalidRequestError as e:
+        log.error("Stripe checkout rejected for user %s: %s", user["id"], type(e).__name__)
+        # e.g. a first-time-only code on a customer who has paid before.
+        raise HTTPException(400, "That code can't be used on this account." if discounts else "Payment processing failed. Please try again.")
     except stripe.StripeError as e:
         log.error("Stripe checkout error for user %s: %s", user["id"], type(e).__name__)
         raise HTTPException(400, "Payment processing failed. Please try again.")

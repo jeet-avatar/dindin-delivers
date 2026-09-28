@@ -19,7 +19,6 @@ export interface PlanOption {
 
 export interface Catalog {
   plans: PlanOption[];
-  promotion_codes_on: Interval[];
   trial_days: number;
   trial: { tracks: number; cloud: number; chat_messages: number; estimated_usd: number };
   mixmind_sales_enabled: boolean;
@@ -108,9 +107,12 @@ export async function fetchPlans(): Promise<Catalog> {
   return response.json();
 }
 
-/** Sends the browser to Stripe Checkout for a plan. Throws with the server's reason when it cannot start. */
-export async function startCheckout(plan: PlanId, interval: Interval): Promise<void> {
-  const response = await apiFetch("/api/stripe/checkout", { method: "POST", body: JSON.stringify({ plan, interval }) });
+/** Sends the browser to Stripe Checkout for a plan. Throws with the server's reason (e.g. a code that doesn't apply). */
+export async function startCheckout(plan: PlanId, interval: Interval, promoCode = ""): Promise<void> {
+  const code = promoCode.trim();
+  const response = await apiFetch("/api/stripe/checkout", {
+    method: "POST", body: JSON.stringify({ plan, interval, ...(code ? { promo_code: code } : {}) }),
+  });
   const body = await response.json().catch(() => ({}));
   if (!response.ok || !body.url) throw new Error(typeof body.detail === "string" ? body.detail : "Checkout could not start.");
   window.location.assign(body.url);

@@ -373,20 +373,84 @@ class CheckoutTests(CatalogCase):
         params = self.create.call_args.kwargs
         self.assertEqual(params["line_items"], [{"price": "price_beatmind_starter_monthly", "quantity": 1}])
         self.assertEqual(params["mode"], "subscription")
-        self.assertFalse(params["allow_promotion_codes"])
+        self.assertNotIn("allow_promotion_codes", params)
+        self.assertNotIn("discounts", params)
         self.assertNotIn("trial_end", params["subscription_data"])
         self.assertEqual(params["customer"], get_user_by_id(user["id"])["stripe_customer_id"])
 
-    def test_each_plan_and_interval_uses_its_price_and_promo_codes_only_on_yearly(self):
+    def test_each_plan_and_interval_uses_its_price(self):
         for plan in ("starter", "pro", "studio"):
             for interval in ("month", "year"):
                 with self.subTest(plan=plan, interval=interval):
                     self.assertEqual(self.checkout(new_user(), plan=plan, interval=interval).status_code, 200)
                     params = self.create.call_args.kwargs
                     self.assertEqual(params["line_items"][0]["price"], "price_" + catalog.lookup_key(plan, interval))
-                    self.assertEqual(params["allow_promotion_codes"], interval == "year")
+                    self.assertNotIn("allow_promotion_codes", params, "codes are validated by BeatMind, not typed into Stripe")
                     self.assertEqual(params["metadata"]["plan"], plan)
                     self.assertEqual(params["subscription_data"]["metadata"]["app"], "beatmind")
+
+    PROMOS = {
+        "FOUNDING100": ("promo_founding", "cp_founding", [f"prod_{p}" for p in (
+            "beatmind_starter", "beatmind_pro", "beatmind_studio", "mixmind", "beatmind_starter_mixmind", "beatmind_pro_mixmind")]),
+        "CREATOR60": ("promo_creator", "cp_creator", ["prod_beatmind_pro"]),
+        "STUDIOONLY": ("promo_studio", "cp_studio", ["prod_beatmind_studio"]),
+        "ANYPLAN": ("promo_any", "cp_any", None),
+    }
+
+    def with_promos(self, redeemed=0, valid=True):
+        def listing(code, **kw):
+            match = self.PROMOS.get(code.upper())
+            return {"data": [{"id": match[0], "code": code.upper(), "promotion": {"type": "coupon", "coupon": match[1]},
+                              "max_redemptions": 100, "times_redeemed": redeemed, "expires_at": None}] if match else []}
+        coupons = {c: {"id": c, "valid": valid, "applies_to": {"products": products} if products else None}
+                   for _, c, products in self.PROMOS.values()}
+        self.stack.enter_context(patch.object(self.routes.stripe.PromotionCode, "list", side_effect=listing))
+        self.stack.enter_context(patch.object(self.routes.stripe.Coupon, "retrieve", side_effect=lambda cid, **kw: coupons[cid]))
+
+    def test_founding100_is_for_yearly_plans_only(self):
+        self.with_promos()
+        response = self.checkout(new_user(), plan="pro", interval="month", promo_code="FOUNDING100")
+        self.assertEqual((response.status_code, response.json()["detail"]), (400, catalog.PROMO_RULES["FOUNDING100"]["message"]))
+        self.create.assert_not_called()
+        for plan in ("starter", "pro", "studio"):
+            self.assertEqual(self.checkout(new_user(), plan=plan, interval="year", promo_code="founding100").status_code, 200)
+            self.assertEqual(self.create.call_args.kwargs["discounts"], [{"promotion_code": "promo_founding"}])
+
+    def test_creator60_is_for_pro_only(self):
+        self.with_promos()
+        for plan in ("starter", "studio"):
+            response = self.checkout(new_user(), plan=plan, interval="month", promo_code="CREATOR60")
+            self.assertEqual((response.status_code, response.json()["detail"]), (400, "CREATOR60 works on the Pro plan."))
+        self.create.assert_not_called()
+        for interval in ("month", "year"):
+            self.assertEqual(self.checkout(new_user(), plan="pro", interval=interval, promo_code=" CREATOR60 ").status_code, 200)
+            self.assertEqual(self.create.call_args.kwargs["discounts"], [{"promotion_code": "promo_creator"}])
+
+    def test_other_codes_need_a_coupon_that_applies_to_the_plan(self):
+        self.with_promos()
+        response = self.checkout(new_user(), plan="pro", promo_code="STUDIOONLY")
+        self.assertEqual((response.status_code, response.json()["detail"]), (400, "That code doesn't apply to the Pro plan."))
+        self.assertEqual(self.checkout(new_user(), plan="studio", promo_code="STUDIOONLY").status_code, 200)
+        self.assertEqual(self.checkout(new_user(), plan="starter", promo_code="ANYPLAN").status_code, 200)
+
+    def test_unknown_malformed_or_used_up_codes_are_rejected(self):
+        self.with_promos()
+        for code in ("NOPE", "bad code!", "x" * 65):
+            response = self.checkout(new_user(), plan="pro", interval="year", promo_code=code)
+            self.assertIn(response.status_code, (400, 422), code)
+        self.assertEqual(self.checkout(new_user(), plan="pro", promo_code="NOPE").json()["detail"], catalog.PROMO_INVALID)
+        self.create.assert_not_called()
+
+    def test_used_up_codes_are_rejected(self):
+        self.with_promos(redeemed=100)
+        self.assertEqual(self.checkout(new_user(), plan="pro", promo_code="CREATOR60").json()["detail"], catalog.PROMO_USED_UP)
+        self.create.assert_not_called()
+
+    def test_first_time_only_codes_rejected_by_stripe_are_a_clear_400(self):
+        self.with_promos()
+        self.create.side_effect = self.routes.stripe.InvalidRequestError("prior transactions", "discounts")
+        response = self.checkout(new_user(), plan="pro", promo_code="CREATOR60")
+        self.assertEqual((response.status_code, response.json()["detail"]), (400, "That code can't be used on this account."))
 
     def test_mixmind_plans_are_coming_soon_until_enabled(self):
         for plan in catalog.MIXMIND_PLANS:
@@ -427,7 +491,6 @@ class CheckoutTests(CatalogCase):
         self.assertEqual({k: studio[k] for k in ("amount", "currency", "included_tracks", "included_cloud", "mixmind", "available")},
                          {"amount": 79000, "currency": "usd", "included_tracks": 80, "included_cloud": 20, "mixmind": True,
                           "available": True})
-        self.assertEqual(body["promotion_codes_on"], ["year"])
         self.assertNotIn("price_id", studio)
 
     def test_pack_checkout_creates_a_customer_once_and_opens_the_portal(self):
