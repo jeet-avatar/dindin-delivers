@@ -88,7 +88,7 @@ Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage ·
 - **Hook:** On-screen: **"Connecting AI to Ableton, the honest setup."**
 - **Shot list:** 0:00 beatmind.io → sign up → 0:06 download BeatMind Bridge → 0:12 AbletonOSC in Live: Preferences → Link/Tempo/MIDI → Control Surface = AbletonOSC → 0:22 Bridge window shows connected → 0:30 dashboard connection bar green → 0:36 first prompt → 0:42 end card.
 - **VO:** "Here's the whole setup. Sign up, install BeatMind Bridge, pick AbletonOSC as a control surface in Live, and sign in. Once the bridge says connected, you're talking to your Live Set."
-- **Captions:** step numbers 1–4 on screen. "Mac + Windows bridge" · "auditions: macOS".
+- **Captions:** step numbers 1–4 on screen. "Bridge: Mac (Apple Silicon)".
 - **CTA:** "Trial link in bio. No card."
 - **Audio:** low original beat from BeatMind under the VO.
 - **Product:** BeatMind
@@ -197,8 +197,8 @@ Legend: **[SC]** = screen capture · **[H]** = hands/controller/decks footage ·
 | 3:40–4:50 | Part 2: bass + iteration | "make it warmer" | supported device parameters, recorded audition, keep/change |
 | 4:50–5:50 | Part 3: melody/stab | Script 12 prompt 3 | then **you** take over: play or edit notes by hand |
 | 5:50–6:50 | Reference workflow (optional chapter) | your own reference track → stems → timing → template | stems are estimates; optional AI listening is opt-in and sends audio to OpenAI; the goal is original parts |
-| 6:50–7:30 | Limits (build trust) | text slide | Session view, not Arrangement; supported devices only; Windows bridge without auditions; you finish the song |
-| 7:30–8:00 | Wrap + CTA | end screen | Plans from $19/mo; free 7-day trial with 3 tracks, no card; FOUNDING100 (first 100 annual subscribers, 40% off for life) in the description; blog link; MixMind (early access in Studio) mention for DJs |
+| 6:50–7:30 | Limits (build trust) | text slide | Session view, not Arrangement; supported devices only; Bridge is Mac-only (Apple Silicon) for now; you finish the song |
+| 7:30–8:00 | Wrap + CTA | end screen | Plans from $19/mo; free 7-day trial with 3 tracks, no card; FOUNDING100 (first 100 annual subscribers, 40% off for as long as their subscription stays active) in the description; blog link; MixMind (early access in Studio) mention for DJs |
 
 **Description template:**
 ```

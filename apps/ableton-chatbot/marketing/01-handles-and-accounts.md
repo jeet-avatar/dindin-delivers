@@ -89,7 +89,7 @@ Common to all: email **support@beatmind.io** · profile image = the "B" tile (`#
   1. **How it works**: S06 setup reel + story frames of the 3 steps
   2. **Prompts**: S12 + G8 slides
   3. **MixMind**: S09, S11, G3
-  4. **FAQ**: story slides answering "Do I need Ableton?" (Live 11/12 Standard or Suite), "Mac or Windows?" (bridge on both; auditions macOS), "Who owns the music?" (you, 100%), "Does it make full songs?" (no, it builds parts; you finish)
+  4. **FAQ**: story slides answering "Do I need Ableton?" (Live 11/12 Standard or Suite), "Mac or Windows?" (Bridge: Mac with Apple Silicon, macOS 15+; Windows not yet), "Who owns the music?" (you, 100%), "Does it make full songs?" (no, it builds parts; you finish)
   5. **Limits**: G6 "what it can't do"
 - [ ] **Pinned posts:** G9 hero reel, G2 "Meet BeatMind", G6 "What it can't do" (see 03).
 - [ ] Threads: log in with the same IG account and claim `@beatmindio`.
