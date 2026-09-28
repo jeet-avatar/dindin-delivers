@@ -62,6 +62,10 @@ export const BEATMIND_FAQS: Faq[] = [
 
 export const MIXMIND_FAQS: Faq[] = [
   {
+    q: "Do I need a separate account for MixMind?",
+    a: "No. BeatMind and MixMind use one login: sign in to the MixMind app with the same email and password you use on beatmind.io. One account and one subscription cover BeatMind, the Bridge and MixMind, with a single billing page.",
+  },
+  {
     q: "Do I need Rekordbox?",
     a: "Yes — MixMind reads your Rekordbox library (XML or database). It works with Rekordbox 6 and 7. You don't need Rekordbox open while using MixMind.",
   },
