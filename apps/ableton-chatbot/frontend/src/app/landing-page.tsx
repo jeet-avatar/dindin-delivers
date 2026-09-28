@@ -28,23 +28,23 @@ import { TRIAL_DETAILS, TRIAL_SHORT, TRIAL_TERMS } from "@/lib/site";
 const FEATURES = [
   {
     Icon: BoltIcon,
-    title: "One Part at a Time",
-    desc: "Start with a kick, bass or melody. Review each captured audition before choosing the next part.",
+    title: "Build one part at a time",
+    desc: "Start with a kick, bassline or melody. Hear a captured audition of each part before you decide what comes next.",
   },
   {
     Icon: SlidersIcon,
-    title: "Connected to Ableton",
-    desc: "Load available sounds, build clips and adjust supported device controls in your Live Set. Parameter availability depends on the device.",
+    title: "Works in your own Live Set",
+    desc: "BeatMind loads your installed sounds, writes real MIDI clips and adjusts supported device controls, so everything stays editable in Ableton.",
   },
   {
     Icon: SparklesIcon,
-    title: "Production Knowledge",
-    desc: "Develop rhythm, tone and effects around your brief, with inspected controls and recorded previews.",
+    title: "Thinks like a producer",
+    desc: "Genre, tempo, key and mood shape every decision, from groove and sound choice to effects and levels.",
   },
   {
     Icon: RefreshIcon,
-    title: "Iterate Naturally",
-    desc: "Ask for a warmer bass, a different kick pattern or a level adjustment. Keep the changes you like and refine the rest.",
+    title: "Refine in plain English",
+    desc: "Ask for a warmer bass, a busier hi-hat or a quieter pad. Keep what you like and change the rest.",
   },
 ];
 
@@ -62,7 +62,7 @@ const STEPS = [
   {
     n: "03",
     title: "Create",
-    desc: "Watch your track come to life inside Ableton, clip by clip, ready for you to take over.",
+    desc: "Watch clips appear in Ableton, one part at a time. When you like the idea, take over and arrange it your way.",
   },
 ];
 
@@ -113,18 +113,18 @@ export default function LandingPage() {
         {/* Hero */}
         <section className="max-w-4xl mx-auto px-6 pt-24 pb-20 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium mb-8 border" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--accent)" }}>
-            ✦ Powered by Claude AI + AbletonOSC
+            ✦ Works inside Ableton Live 11 &amp; 12 · Mac + Windows
           </div>
           <h1 className="text-5xl md:text-7xl font-black leading-tight mb-6 tracking-tight">
             The AI that builds music<br />
             <span style={{ color: "var(--accent)" }}>inside Ableton.</span>
           </h1>
           <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)", lineHeight: "1.6" }}>
-            Develop your music inside Ableton Live, one part at a time. Choose your sources, review captured auditions and refine the rhythm, tone and effects.
+            Describe a sound in plain English. BeatMind builds drums, bass and melodies as real clips in your own Live Set, one part at a time, and lets you hear each idea before you keep it.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/signup" className="px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
-              Start free trial — 7 days free
+              Try it free for 7 days
             </Link>
             <a href="#how" className="px-8 py-4 rounded-xl font-semibold text-lg transition-colors duration-150 border hover:border-white" style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
               See how it works
@@ -174,10 +174,10 @@ export default function LandingPage() {
         {/* Features */}
         <section id="features" className="max-w-6xl mx-auto px-6 py-20" aria-labelledby="features-heading">
           <h2 id="features-heading" className="text-3xl md:text-4xl font-bold text-center mb-4">
-            Your next musical idea
+            From idea to groove, without leaving Ableton
           </h2>
           <p className="text-center mb-14" style={{ color: "var(--text-secondary)" }}>
-            Build, audition and refine supported parts inside your DAW. Session scenes are not a finished Arrangement timeline or exported song.
+            BeatMind works in Session View, so you get editable clips and scenes to build on, and the final arrangement stays yours.
           </p>
           <div className="grid md:grid-cols-2 gap-6">
             {FEATURES.map((f) => (
@@ -270,7 +270,9 @@ export default function LandingPage() {
                     {billingInterval === "year" ? ` · ${ANNUAL_DISCOUNT_LABEL}` : " · cancel anytime"}
                   </div>
                   <ul className="text-sm space-y-3 mb-8 flex-1">
-                    {plan.features.map((feature) => (
+                    {plan.features.map((feature) => feature.endsWith(":") ? (
+                      <li key={feature} className="font-medium" style={{ color: "var(--text-secondary)" }}>{feature}</li>
+                    ) : (
                       <li key={feature} className="flex items-start gap-2">
                         <span className="mt-0.5 flex-shrink-0"><CheckIcon size={16} color="var(--accent)" /></span>
                         {feature}
@@ -393,8 +395,8 @@ export default function LandingPage() {
         </section>
 
         {/* Final CTA */}
-        <section className="border-t py-20 text-center" style={{ borderColor: "var(--border)" }}>
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to make music with AI?</h2>
+        <section className="border-t px-6 py-20 text-center" style={{ borderColor: "var(--border)" }}>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Your next track starts with one sentence.</h2>
           <p className="mb-8" style={{ color: "var(--text-secondary)" }}>
             {TRIAL_TERMS} You only pay if you choose a plan.
           </p>
