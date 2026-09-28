@@ -1,9 +1,10 @@
 "use client";
 
+import { SUPPORT_EMAIL } from "@/lib/site";
+
 const PRODUCT = "BeatMind";
 const COMPANY = "Zietra Technologies Inc.";
 const DOMAIN = "beatmind.io";
-const PRIVACY_EMAIL = "privacy@zietra.tech";
 const EFFECTIVE = "March 1, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -32,7 +33,7 @@ export default function PrivacyPage() {
 
         <div className="prose prose-invert space-y-8 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           <Section title="1. Who We Are">
-            <p>{COMPANY} (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) operates {PRODUCT} ({DOMAIN}), an AI music production assistant that integrates with Ableton Live. Our registered address is in the United States. For privacy inquiries, contact us at <a href={`mailto:${PRIVACY_EMAIL}`} className="underline" style={{ color: "var(--accent)" }}>{PRIVACY_EMAIL}</a>.</p>
+            <p>{COMPANY} (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) operates {PRODUCT} ({DOMAIN}), an AI music production assistant that integrates with Ableton Live. Our registered address is in the United States. For privacy inquiries, contact us at <a href={`mailto:${SUPPORT_EMAIL}`} className="underline" style={{ color: "var(--accent)" }}>{SUPPORT_EMAIL}</a>.</p>
           </Section>
 
           <Section title="2. Information We Collect">
@@ -63,11 +64,11 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="5. Data Retention">
-            <p>We retain your account data for as long as your account is active. Chat history is retained for 90 days. You may request deletion of your account and associated data at any time by emailing <a href={`mailto:${PRIVACY_EMAIL}`} className="underline" style={{ color: "var(--accent)" }}>{PRIVACY_EMAIL}</a>.</p>
+            <p>We retain your account data for as long as your account is active. Chat history is retained for 90 days. You may request deletion of your account and associated data at any time by emailing <a href={`mailto:${SUPPORT_EMAIL}`} className="underline" style={{ color: "var(--accent)" }}>{SUPPORT_EMAIL}</a>.</p>
           </Section>
 
           <Section title="6. Your Rights">
-            <p>Depending on your location, you may have rights to access, correct, delete, or export your personal data. To exercise these rights, email <a href={`mailto:${PRIVACY_EMAIL}`} className="underline" style={{ color: "var(--accent)" }}>{PRIVACY_EMAIL}</a>. We respond within 30 days.</p>
+            <p>Depending on your location, you may have rights to access, correct, delete, or export your personal data. To exercise these rights, email <a href={`mailto:${SUPPORT_EMAIL}`} className="underline" style={{ color: "var(--accent)" }}>{SUPPORT_EMAIL}</a>. We respond within 30 days.</p>
           </Section>
 
           <Section title="7. Cookies">
@@ -87,7 +88,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="11. Contact">
-            <p>Questions? Email <a href={`mailto:${PRIVACY_EMAIL}`} className="underline" style={{ color: "var(--accent)" }}>{PRIVACY_EMAIL}</a>.</p>
+            <p>Questions? Email <a href={`mailto:${SUPPORT_EMAIL}`} className="underline" style={{ color: "var(--accent)" }}>{SUPPORT_EMAIL}</a>.</p>
           </Section>
         </div>
       </div>
