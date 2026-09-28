@@ -9,7 +9,7 @@ const TITLE = "MixMind — AI DJ Library Manager for Rekordbox";
 export const metadata: Metadata = {
   title: TITLE,
   description:
-    "MixMind reads your Rekordbox collection and gives you a fast library browser, an AI playlist builder, a set builder and a one-click duplicate cleaner. Mac + Windows desktop app from $12/month.",
+    "MixMind reads your Rekordbox collection and gives you a fast library browser, an AI playlist builder, a set builder and a one-click duplicate cleaner. Mac desktop app (Apple Silicon; Windows coming soon) from $12/month.",
   keywords: [
     "DJ library manager",
     "Rekordbox organizer",
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     "Pioneer USB library",
     "Rekordbox AI",
     "MixMind",
-    "DJ tools Mac Windows",
+    "DJ tools Mac",
   ],
   alternates: {
     canonical: `${BASE_URL}/mixmind`,
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: TITLE,
     description:
-      "Browse your Rekordbox library, find duplicates, and build AI playlists and full sets from music you already own. Mac + Windows desktop app. $12/month, or bundled with BeatMind from $25/month.",
+      "Browse your Rekordbox library, find duplicates, and build AI playlists and full sets from music you already own. Mac desktop app (Apple Silicon; Windows coming soon). $12/month, or bundled with BeatMind from $25/month.",
     url: `${BASE_URL}/mixmind`,
     siteName: SITE_NAME,
     type: "website",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: TITLE,
     description:
-      "Browse every track in your Rekordbox library, kill duplicates, and build AI playlists and sets. Mac + Windows. From $12/month.",
+      "Browse every track in your Rekordbox library, kill duplicates, and build AI playlists and sets. Mac (Apple Silicon); Windows coming soon. From $12/month.",
     images: [OG_IMAGE_MIXMIND],
   },
 };

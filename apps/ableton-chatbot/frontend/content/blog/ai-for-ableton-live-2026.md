@@ -87,7 +87,7 @@ BeatMind is an AI music-production assistant that works inside Ableton Live 11 a
 - adjusts **supported device parameters**, volume, pan and sends, reading each device's actual controls first;
 - records a **captured audition** of each part on macOS, so you review what was actually built before moving on.
 
-It also has a reference workflow. You can upload a reference track, review its separated stems (drums, bass, vocals, other), confirm a timing map of its sections, and turn that into a planning brief for building your own original parts. The stems are estimates with possible bleed, not the artist's studio files, and approving a plan is not the same as having the music built. The building still happens part by part in chat.
+It also has a reference workflow. You can upload a reference track, review its separated stems (up to eight stems: vocals, bass, other instruments and drums, with the drums split into kick, snare, toms and cymbals/hi-hat), confirm a timing map of its sections, and turn that into a planning brief for building your own original parts. The stems are estimates with possible bleed, not the artist's studio files, and approving a plan is not the same as having the music built. The building still happens part by part in chat.
 
 Because everything BeatMind makes is native Live material (MIDI clips, Drum Racks, Simpler instances, Wavetable or Operator patches, device settings), nothing needs exporting and re-importing. You can open any clip and edit notes, swap a sample, or rip the whole chain out.
 
@@ -99,7 +99,7 @@ Every category above has limits. For in-DAW assistants specifically, these are t
 - **Device control depends on the device.** Native Ableton devices expose their controls clearly; third-party plugins vary a lot.
 - **Your library shapes the results.** An assistant that loads installed sounds can only be as good as what you have installed. A focused sample pack will beat a generic factory kit for most genres.
 - **Taste is still yours.** AI can propose a warmer bass. Deciding whether it is *better* is a producer's call, which is why BeatMind never accepts a sound on your behalf.
-- **Platform gaps.** Captured auditions currently need macOS; on Windows you listen in Live directly.
+- **Platform gaps.** The BeatMind Bridge currently runs only on Macs with Apple Silicon and macOS 15 or later; Windows support isn't available yet.
 
 If a tool claims to remove all of these limits, be sceptical and test it on your own material.
 
@@ -135,7 +135,7 @@ No. Current tools speed up specific tasks, but choosing sounds, arranging and fi
 
 ### Is music made with AI tools in Ableton copyright-free?
 
-It depends on the tool and its terms. With BeatMind, you own everything it generates in your Ableton project, 100%, to release, sell or license. Stems separated from someone else's track remain their music, so do not release them without permission.
+It depends on the tool and its terms. With BeatMind, you own what you make; we claim no rights to it. Samples and presets you load stay under their own licences. Stems separated from someone else's track remain their music, so do not release them without permission.
 
 ### Does BeatMind work with Ableton Live 10?
 

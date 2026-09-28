@@ -63,7 +63,7 @@ That last row matters. A duplicate finder should *suggest* pairs; a human should
 
 **How MixMind finds them:** MixMind's Duplicate Finder compares title and artist with fuzzy matching and checks that durations are within a few seconds of each other, then surfaces likely pairs. That catches near-duplicates like small spelling differences, while the duration check keeps an extended mix and a radio edit from being flagged as the same track.
 
-**What it does not do:** MixMind is read-only by default. Resolving a pair marks the copy you do not want as hidden inside MixMind; it does not delete files or modify your Rekordbox library. When you are ready to remove tracks from Rekordbox itself, do it in Rekordbox, after your backup.
+**What it does not do:** finding and resolving duplicates never changes your Rekordbox library. Resolving a pair marks the copy you do not want as hidden inside MixMind; it does not delete files. MixMind only writes to Rekordbox when you click Add to Rekordbox in the Set Builder, which adds a set as a playlist after backing up your library (close Rekordbox first). When you are ready to remove tracks from Rekordbox itself, do it in Rekordbox, after your backup.
 
 ## Step 4: Fill in missing genres, keys and BPMs
 
@@ -103,7 +103,7 @@ When your playlists are ready, exporting them to USB has its own set of pitfalls
 
 ## Try MixMind on your own library
 
-MixMind reads your Rekordbox 6 or 7 collection, shows every track in one fast table, surfaces duplicates and builds AI playlists from tracks you own, on Mac and Windows. MixMind is $12/month ($120/year), or bundled with BeatMind from $25/month and included in BeatMind Studio. [See MixMind](/mixmind).
+MixMind reads your Rekordbox 6 or 7 collection, shows every track in one fast table, surfaces duplicates and builds AI playlists from tracks you own, on Mac (Apple silicon; Windows coming soon). MixMind is $12/month ($120/year), or bundled with BeatMind from $25/month and included in BeatMind Studio. [See MixMind](/mixmind).
 
 ## FAQ
 
@@ -117,11 +117,11 @@ Yes. File → Display All Missing Files opens Rekordbox's missing file manager, 
 
 ### Will MixMind delete tracks from my Rekordbox library?
 
-No. MixMind is read-only by default. Duplicate cleanup marks tracks as hidden inside MixMind and does not delete or modify your Rekordbox files. Playlists it builds are saved as Rekordbox XML that you choose to import. The Set Builder can also add a finished set to Rekordbox as a playlist, but only when you choose to: Rekordbox must be closed, and MixMind backs up your library first.
+No. Duplicate cleanup marks tracks as hidden inside MixMind and never deletes files. Browsing, searching and finding duplicates never change your Rekordbox library. Playlists it builds are saved as Rekordbox XML that you choose to import. The Set Builder can also add a finished set to Rekordbox as a playlist, but only when you choose to: Rekordbox must be closed, and MixMind backs up your library first.
 
 ### Do I need to close Rekordbox while using MixMind?
 
-You do not need Rekordbox open to use MixMind. When MixMind reads the Rekordbox database directly, close Rekordbox first, because an open Rekordbox locks its database.
+Yes. Close Rekordbox while MixMind reads or writes your library: an open Rekordbox locks its database, and MixMind won't add a set to Rekordbox while it is running.
 
 ### Should I delete an extended mix if I also have the radio edit?
 

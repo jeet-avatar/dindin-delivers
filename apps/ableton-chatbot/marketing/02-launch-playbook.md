@@ -4,15 +4,15 @@ Budget: organic only. Owner: founder. Contact on everything: **support@beatmind.
 
 ## Pricing to quote (live in Stripe; full one-pager in 05)
 - **BeatMind Starter $19/mo** ($190/yr): 10 tracks/month. **Pro $39/mo** ($390/yr, most popular): 30 tracks + 5 cloud HQ separations/month. **Studio $79/mo** ($790/yr): 80 tracks + 20 cloud HQ/month + MixMind + priority support. Annual = 2 months free. Cancel anytime.
-- **Free trial:** 7 days, **no card**, includes **3 tracks** (processed on your own computer) and limited AI (**about 50 messages**). Cloud HQ separations and packs need a paid plan. **Nobody is ever charged unless they choose a plan**; starting a plan during the trial ends the trial and starts the plan immediately. Never say "cancel before the trial ends" (there's nothing to cancel).
-- **MixMind is on sale.** MixMind **$12/mo** ($120/yr). Combos: **Starter + MixMind $25/mo** ($250/yr) and **Pro + MixMind $45/mo** ($450/yr), each saving $6/mo vs buying separately. Studio ($79/mo) includes MixMind. **The free trial is BeatMind only**: never say MixMind has a free trial.
+- **Free trial:** 7 days, **no card**, includes **3 tracks**, separated on your own Mac, and limited AI (**about 50 messages**). Cloud HQ separations and packs need a paid plan. **Nobody is ever charged unless they choose a plan**; starting a plan during the trial ends the trial and starts the plan immediately. Never say "cancel before the trial ends" (there's nothing to cancel).
+- **MixMind is on sale.** MixMind **$12/mo** ($120/yr). Combos: **Starter + MixMind $25/mo** ($250/yr) and **Pro + MixMind $45/mo** ($450/yr), each saving $6/mo vs buying separately. Studio ($79/mo) includes MixMind. Mac (Apple silicon) now, Windows coming soon. **The free trial is BeatMind only**: never say MixMind has a free trial.
 - Short form for posts: **"Plans from $19/mo. Free 7-day trial with 3 tracks, no card."**
 
 ## Founding Member offer (launch campaign)
-- **The offer:** the first **100 annual subscribers** get **40% off for life** with code **`FOUNDING100`**. Annual plans only (Starter, Pro or Studio yearly). It does not apply to monthly plans or packs.
+- **The offer:** the first **100 annual subscribers** get **40% off for as long as their subscription stays active** with code **`FOUNDING100`**. Annual plans only (Starter, Pro or Studio yearly). It does not apply to monthly plans or packs.
 - **Where it goes:** the Day 1 launch posts (X thread, IG caption, TikTok/Shorts caption), the Product Hunt first comment, the launch email, and the creator outreach email (as something creators can pass on to their audience).
 - **Honesty rules:** say "first 100", never "only X left", unless you've checked the real redemption count in Stripe that day. When it hits 100, delete the line from every scheduled post. Don't put the code in Reddit posts (it reads as an ad and most subs ban it).
-- **One-liner:** "Founding Member: first 100 annual subscribers get 40% off for life with code FOUNDING100."
+- **One-liner:** "Founding Member: first 100 annual subscribers get 40% off for as long as their subscription stays active with code FOUNDING100."
 Rule zero for every community post: **say you're the founder, lead with value, and follow each sub's rules.** A single ban on r/ableton costs more than any one post can earn.
 
 ## Community rules: what's actually allowed (researched 2026-09-27)
@@ -128,9 +128,9 @@ Rule quotes were read from each sub's sidebar/rules (logged out) on 2026-09-27. 
 >
 > The code is just for you, so please don't share it publicly.
 >
-> If any of your viewers want in: plans start at $19/mo, there's a 7-day free trial with 3 tracks and no card, and our first 100 annual subscribers get 40% off for life with code **FOUNDING100**. Totally optional to mention.
+> If any of your viewers want in: plans start at $19/mo, there's a 7-day free trial with 3 tracks and no card, and our first 100 annual subscribers get 40% off for as long as their subscription stays active with code **FOUNDING100**. Totally optional to mention.
 >
-> To use it: sign up at https://www.beatmind.io/signup?plan=pro&interval=month, choose Pro, and enter CREATOR60 at checkout. Any problems, just reply and I'll sort it out.
+> To use it: sign up at https://www.beatmind.io/signup?plan=pro&interval=month, choose Pro, click **Have a code?** in the plan picker and enter CREATOR60. Any problems, just reply and I'll sort it out.
 >
 > Thanks,
 > [Your name]
@@ -140,7 +140,7 @@ Rule quotes were read from each sub's sidebar/rules (logged out) on 2026-09-27. 
 > *If you'd rather not hear from me again, just say so and I won't follow up.*
 
 **MixMind variant:** swap paragraph 2 for:
-> MixMind (by BeatMind) is a desktop app that reads your Rekordbox 6/7 library. It has a fast searchable browser, a duplicate finder (it hides dupes inside MixMind and never touches your Rekordbox files), and an AI playlist builder that only picks tracks you already own. Mac + Windows. It's $12/mo (or bundled with BeatMind from $25/mo), and it's new, so your feedback would shape it.
+> MixMind (by BeatMind) is a desktop app that reads your Rekordbox 6/7 library. It has a fast searchable browser, a duplicate finder (it hides dupes inside MixMind; browsing and duplicates never change your Rekordbox library), and an AI playlist builder that only picks tracks you already own. Mac (Apple silicon) now, Windows coming soon. It's $12/mo (or bundled with BeatMind from $25/mo), and it's new, so your feedback would shape it.
 
 *(MixMind variant: **CREATOR60 covers Pro, which does not include MixMind** (MixMind is in the MixMind, Starter + MixMind, Pro + MixMind and Studio plans). Don't send CREATOR60 to MixMind-only creators. Hold MixMind creator outreach until a creator code that applies to a MixMind plan exists in Stripe, and drop the FOUNDING100 paragraph unless they also produce in Ableton.)*
 
@@ -217,15 +217,15 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 >
 > **The problem:** I'd open Ableton with an idea and close it an hour later with an empty set. The gap between the idea and the first loop kept killing tracks.
 >
-> **What BeatMind does:** you connect your Live Set through a small Bridge app (Mac/Windows) and AbletonOSC, then describe what you want, e.g. "dark melodic techno kick, 126 BPM, A minor". BeatMind sets the tempo, loads a sound you already have installed, writes the clip, and records an audition so you can decide before moving to the next part. Ask for "warmer bass" and it adjusts supported device controls.
+> **What BeatMind does:** you connect your Live Set through a small Bridge app (Mac, Apple Silicon) and AbletonOSC, then describe what you want, e.g. "dark melodic techno kick, 126 BPM, A minor". BeatMind sets the tempo, loads a sound you already have installed, writes the clip, and records an audition (macOS) so you can decide before moving to the next part. Ask for "warmer bass" and it adjusts supported device controls.
 >
 > You can also upload a reference track to get estimated stems (drums/bass/vocals/other) and a section timing map to guide *original* parts.
 >
 > **What it isn't:** it doesn't generate a finished, exported song. It builds editable Session-view parts, and you finish the track. Everything you make is 100% yours.
 >
-> **For DJs:** MixMind (same brand) reads your Rekordbox 6/7 library: fast browser, duplicate finder (it never touches your Rekordbox files), and an AI playlist builder that only picks tracks you own. It's $12/mo on its own, $25/mo with BeatMind Starter, or included in Studio. (The free trial covers BeatMind, not MixMind.)
+> **For DJs:** MixMind (same brand) reads your Rekordbox 6/7 library: fast browser, duplicate finder (browsing and duplicates never change your Rekordbox library), and an AI playlist builder that only picks tracks you own. It's $12/mo on its own, $25/mo with BeatMind Starter, or included in Studio. Mac (Apple silicon) now, Windows coming soon. (The free trial covers BeatMind, not MixMind.)
 >
-> **Pricing:** Starter $19/mo, Pro $39/mo, Studio $79/mo (annual = 2 months free). The free trial is 7 days with 3 tracks and no card, and you're never charged unless you pick a plan. **Founding Member:** the first 100 annual subscribers get 40% off for life with code **FOUNDING100**.
+> **Pricing:** Starter $19/mo, Pro $39/mo, Studio $79/mo (annual = 2 months free). The free trial is 7 days with 3 tracks and no card, and you're never charged unless you pick a plan. **Founding Member:** the first 100 annual subscribers get 40% off for as long as their subscription stays active with code **FOUNDING100**.
 >
 > I'd love blunt feedback, especially on what felt clunky in setup. I'm here all day. support@beatmind.io
 
@@ -241,7 +241,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 **Common-question replies (prep):**
 - *Does it make full songs?* No. It builds editable parts in Session view, and you arrange and finish. That's deliberate.
 - *Which Live versions?* 11 or 12, Standard or Suite.
-- *Windows?* The Bridge runs on Windows, but recorded auditions and automatic Live Set file-menu actions currently need macOS.
+- *Windows?* Not yet. The Bridge currently runs on Macs with Apple Silicon (M1 or later) and macOS 15 or later. Point people to support@beatmind.io to hear when Windows is ready. Don't promise a date.
 - *Which AI model?* It's powered by Claude (the site says "Powered by Claude AI + AbletonOSC"). Optional AI listening for reference tracks is opt-in and sends the selected audio to OpenAI. We say that up front.
 - *Who owns the output?* You do, 100%.
 - *What's a "track"?* One stem separation of a reference track. HQ separation runs on your own computer via the Bridge. Cloud HQ (Pro/Studio) is for machines that can't run it locally. The AI producer is fair-use on every plan.
@@ -249,7 +249,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 - *Is MixMind in the free trial?* No. The 7-day trial is for BeatMind. MixMind needs a MixMind, combo or Studio plan.
 - *What's in the free trial?* 7 days, 3 tracks (processed on your computer), about 50 AI messages, no card. Cloud HQ and packs need a paid plan.
 - *Will I be charged after the trial?* No. We never take a card for the trial; you only pay if you choose a plan.
-- *Is FOUNDING100 for monthly plans?* No, annual plans only, first 100 subscribers, 40% off for life.
+- *Is FOUNDING100 for monthly plans?* No, annual plans only, first 100 subscribers, 40% off for as long as their subscription stays active.
 
 ---
 
@@ -305,9 +305,9 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 ### Reddit draft 2b — r/edmproduction **Marketplace Thread** comment (the only place software is allowed, R6)
 > **BeatMind: builds editable parts inside Ableton Live 11/12** (I'm the founder)
 >
-> What it does: you connect your Live Set through a small Bridge app + AbletonOSC, then describe a part ("rolling 16th bass in F minor"). It creates the track, loads an instrument/sample you already have installed, writes the MIDI clip, and records an audition so you can keep or change it before the next part. Tweaks like "warmer, less top end" adjust supported device controls.
+> What it does: you connect your Live Set through a small Bridge app + AbletonOSC, then describe a part ("rolling 16th bass in F minor"). It creates the track, loads an instrument/sample you already have installed, writes the MIDI clip, and records an audition (macOS) so you can keep or change it before the next part. Tweaks like "warmer, less top end" adjust supported device controls.
 >
-> What it doesn't do: it doesn't generate finished songs or audio files. You get Session-view clips you edit and arrange yourself. Auditions need macOS. The Bridge also runs on Windows.
+> What it doesn't do: it doesn't generate finished songs. You get Session-view clips you edit and arrange yourself. The Bridge currently runs on Macs with Apple Silicon (macOS 15+); Windows isn't supported yet.
 >
 > Support: I answer every email personally at support@beatmind.io.
 >
@@ -327,7 +327,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 > 5. **Move rejects to a "_review" folder** instead of deleting. Wait a week, then delete.
 > 6. **Re-export your USB afterwards** so the stick matches the cleaned library.
 >
-> Disclosure: I build MixMind, a desktop app (Mac/Windows) that reads your Rekordbox 6/7 library and lists exact and near-duplicates. It hides dupes inside the app and doesn't delete or modify your Rekordbox files, which suited my "don't touch the real library" rule. (Posted with mod permission.) The checklist works fine by hand, too.
+> Disclosure: I build MixMind, a desktop app (Mac, Apple silicon) that reads your Rekordbox 6/7 library and lists exact and near-duplicates. It hides dupes inside the app, and finding duplicates never changes your Rekordbox library, which suited my "don't touch the real library" rule. (Posted with mod permission.) The checklist works fine by hand, too.
 >
 > Longer version with screenshots: [include only if the mods explicitly OK'd a link: beatmind.io/blog/clean-up-rekordbox-library]
 
@@ -337,7 +337,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 **Title (≤80): `Show HN: BeatMind – AI that builds editable clips in Ableton Live over OSC` (74 chars)**
 **URL:** `https://www.beatmind.io/?utm_source=hn&utm_medium=community&utm_campaign=launch`
 **Text (paste as the first comment if you submit a URL, or as the body for a text post):**
-> Hi HN, I'm the founder of BeatMind. It's an AI assistant that works inside Ableton Live (11/12). You describe a sound ("dark techno kick, 126 BPM, A minor") and it builds it in your own Live Set: it sets the tempo, creates a MIDI track, loads an installed instrument or sample, writes the notes, then records an audition so you can decide before the next part.
+> Hi HN, I'm the founder of BeatMind. It's an AI assistant that works inside Ableton Live (11/12). You describe a sound ("dark techno kick, 126 BPM, A minor") and it builds it in your own Live Set: it sets the tempo, creates a MIDI track, loads an installed instrument or sample, writes the notes, then records an audition (macOS) so you can decide before the next part.
 >
 > How it works: the web app sends the conversation to Claude with a set of tool definitions (create_midi_track, add_notes, load_instrument, set_device_parameter, fire_scene, …). Tool calls go over a WebSocket to a small local "Bridge" app, which turns them into OSC messages for AbletonOSC, an open-source Live remote script (UDP 11000/11001). So the cloud never touches your project files. Everything happens through Live's own API.
 >
@@ -364,7 +364,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 >
 > Today I'm launching **BeatMind**, an AI music-production assistant that works *inside* Ableton Live 11 and 12.
 >
-> You describe what you want, e.g. "dark melodic techno kick at 126 BPM in A minor", and BeatMind builds it in your own Live Set: real tracks, real MIDI clips, sounds you already have installed. It records an audition of each part so you can keep it or change it before moving on. Ask for "warmer bass" and it adjusts the supported device controls.
+> You describe what you want, e.g. "dark melodic techno kick at 126 BPM in A minor", and BeatMind builds it in your own Live Set: real tracks, real MIDI clips, sounds you already have installed. It records an audition (macOS) of each part so you can keep it or change it before moving on. Ask for "warmer bass" and it adjusts the supported device controls.
 >
 > It doesn't make finished songs for you. It gets you from blank set to first loop, and the track stays 100% yours.
 >
@@ -372,7 +372,7 @@ Alternates: `Describe a sound, get editable clips in your Ableton set` (56) · `
 >
 > 👉 **Try it free for 7 days with 3 tracks, no card:** https://www.beatmind.io/?utm_source=email&utm_medium=email&utm_campaign=launch
 >
-> Plans start at $19/month (Starter), with Pro at $39 and Studio at $79. **Founding Member offer:** the first 100 people to subscribe annually get **40% off for life** with code **FOUNDING100** (annual plans only; annual already includes 2 months free).
+> Plans start at $19/month (Starter), with Pro at $39 and Studio at $79. **Founding Member offer:** the first 100 people to subscribe annually get **40% off for as long as their subscription stays active** with code **FOUNDING100** (annual plans only; annual already includes 2 months free).
 >
 > [PH day only: We're also on Product Hunt today, and I'd love your honest feedback there: [PH link]]
 >

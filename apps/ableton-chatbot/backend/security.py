@@ -32,6 +32,8 @@ def enforce_secrets():
         errors.append("ANTHROPIC_API_KEY env var is required")
     if os.getenv("STRIPE_SECRET_KEY") and not os.getenv("STRIPE_WEBHOOK_SECRET"):
         errors.append("STRIPE_WEBHOOK_SECRET is required when STRIPE_SECRET_KEY is set")
+    if os.getenv("STRIPE_LEGACY_SECRET_KEY") and not os.getenv("STRIPE_LEGACY_WEBHOOK_SECRET"):
+        errors.append("STRIPE_LEGACY_WEBHOOK_SECRET is required when STRIPE_LEGACY_SECRET_KEY is set")
     if errors:
         raise RuntimeError("Missing required env vars:\n" + "\n".join(f"  - {e}" for e in errors))
 

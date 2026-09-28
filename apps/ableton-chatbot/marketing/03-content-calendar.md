@@ -41,7 +41,7 @@ The profile grid has shown **3:4 tiles since Jan 2025**. **Design static/carouse
 - **Caption:**
   > How BeatMind connects to Ableton Live, the whole setup.
   > 1. Sign up at beatmind.io (7-day free trial, 3 tracks, no card)
-  > 2. Install BeatMind Bridge (Mac or Windows)
+  > 2. Install BeatMind Bridge (Mac with Apple Silicon, macOS 15+)
   > 3. In Live: Preferences → Link/Tempo/MIDI → Control Surface → AbletonOSC
   > 4. Sign in to Bridge → connected
   > Then just describe what you want to build. Works with Live 11 and 12 (Standard or Suite). Recorded auditions currently need macOS.
@@ -61,7 +61,7 @@ The profile grid has shown **3:4 tiles since Jan 2025**. **Design static/carouse
   > Meet BeatMind 👋
   > It's an AI production assistant that works inside Ableton Live. Not a song generator, and it doesn't hand you a mystery audio file. It builds kick, bass and melody parts as editable clips in your own set, so the track stays yours.
   > Swipe → how it works. Try it free for 7 days with 3 tracks, no card. Link in bio.
-  > Founding Member: the first 100 annual subscribers get 40% off for life with code FOUNDING100.
+  > Founding Member: the first 100 annual subscribers get 40% off for as long as their subscription stays active with code FOUNDING100.
 - **Hashtags (5, IG max):** #abletonlive #musicproducer #aimusic #musicproduction #beatmaking
 - **Alt text:** "Five-slide orange graphic introducing BeatMind: an AI that builds music inside Ableton, from a plain-English prompt to editable MIDI clips in your own Live Set, one part at a time, with a 7-day free trial that includes 3 tracks."
 
@@ -70,12 +70,12 @@ The profile grid has shown **3:4 tiles since Jan 2025**. **Design static/carouse
 - **Slides:**
   1. "For DJs: **MixMind** by BeatMind. Your Rekordbox library, finally organized." (screenshot behind, darkened)
   2. "Every track, one fast table: BPM · key · genre · duration."
-  3. "Duplicate finder: exact + near-dupes. Your Rekordbox files aren't touched."
-  4. "AI playlists from tracks you own. '20 deep house under 124 BPM in Am.' Mac + Windows · Rekordbox 6/7."
+  3. "Duplicate finder: exact + near-dupes. Your Rekordbox library isn't changed."
+  4. "AI playlists from tracks you own. '20 deep house under 124 BPM in Am.' Mac (Apple silicon) · Rekordbox 6/7."
 - **Caption:**
   > DJs, this one's for you. MixMind reads your Rekordbox 6/7 library and gives you a fast browser, a duplicate finder and an AI playlist builder that only picks tracks you already own.
-  > It doesn't delete or modify your Rekordbox files. Duplicates are hidden inside MixMind.
-  > Mac + Windows · $12/mo, or bundled with BeatMind from $25/mo · link in bio.
+  > Browsing and finding duplicates never change your Rekordbox library. Duplicates are hidden inside MixMind.
+  > Mac (Apple silicon) now, Windows coming soon · $12/mo, or bundled with BeatMind from $25/mo · link in bio.
 - **Hashtags (5, IG max):** #rekordbox #djtips #djlife #pioneerdj #djset
 - **Alt text:** "Four screenshots of the MixMind desktop app: a library table with BPM, key and genre columns, a duplicate-track view, an AI playlist prompt, and a USB drive panel."
 
@@ -150,7 +150,7 @@ The profile grid has shown **3:4 tiles since Jan 2025**. **Design static/carouse
 |-----|------|----------|--------|-------|----------------|
 | 1 | Mon 9/28 | IG | 9 grid posts | G1–G9 | see Part A |
 | 1 | Mon 9/28 | TikTok, YT Shorts, FB Reels | Short | S01 hero | "one sentence → editable Ableton clips. real MIDI, my own Live Set. 7-day free trial, 3 tracks, link in bio #abletonlive #musicproducer #techno #aimusic" |
-| 1 | Mon 9/28 | X | Thread (5 posts) | S01 clip on post 1 | 1/ "Launching BeatMind today: an AI assistant that works *inside* Ableton Live. You describe a sound, and it builds the part as real clips in your own Live Set. 🧵" · 2/ "It isn't a song generator. It builds one part at a time (kick, bass, melody), loads sounds you have installed, and records an audition for you to judge." · 3/ "It also does reference tracks: estimated stems, a section timing map, then you build original parts with a similar energy." · 4/ "Live 11/12. Plans from $19/mo. Free 7-day trial with 3 tracks, no card: [UTM link]. I'm the founder, so ask me anything." · 5/ "Founding Member offer: the first 100 annual subscribers get 40% off for life with code FOUNDING100. Annual plans only." |
+| 1 | Mon 9/28 | X | Thread (5 posts) | S01 clip on post 1 | 1/ "Launching BeatMind today: an AI assistant that works *inside* Ableton Live. You describe a sound, and it builds the part as real clips in your own Live Set. 🧵" · 2/ "It isn't a song generator. It builds one part at a time (kick, bass, melody), loads sounds you have installed, and records an audition (macOS) for you to judge." · 3/ "It also does reference tracks: estimated stems, a section timing map, then you build original parts with a similar energy." · 4/ "Live 11/12. Plans from $19/mo. Free 7-day trial with 3 tracks, no card: [UTM link]. I'm the founder, so ask me anything." · 5/ "Founding Member offer: the first 100 annual subscribers get 40% off for as long as their subscription stays active with code FOUNDING100. Annual plans only." |
 | 1 | Mon 9/28 | Threads | Text + clip | S01 | "Built an AI that works inside Ableton Live, not instead of it. Describe a sound, and it builds editable clips in your own set, one part at a time. Launching today. What would you ask it to build first?" |
 | 1 | Mon 9/28 | FB Page | Post | G2 carousel images | same as G2 caption + UTM link (utm_source=facebook) |
 | 2 | Tue 9/29 | TT / Reels / Shorts / FB | Short | S06 setup | "the whole setup, no gatekeeping: Bridge + AbletonOSC → connected. #abletonlive #abletontips #ableton12" |

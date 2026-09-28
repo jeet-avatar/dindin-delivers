@@ -112,7 +112,7 @@ MixMind can help with the Mac-side checks. Plug in your DJ USB and MixMind detec
 
 ## Get your library gig-ready
 
-Exports go faster when you are only exporting what you need. MixMind reads your Rekordbox library, surfaces duplicates, builds AI playlists from tracks you own and lets you browse your Pioneer USB on Mac and Windows. MixMind is $12/month ($120/year), or bundled with BeatMind from $25/month and included in BeatMind Studio. [See MixMind](/mixmind), or read [how to build a 2-hour techno set with AI playlist tools](/blog/build-2-hour-techno-set-ai).
+Exports go faster when you are only exporting what you need. MixMind reads your Rekordbox library, surfaces duplicates, builds AI playlists from tracks you own and lets you browse your Pioneer USB on Mac (Apple silicon; Windows coming soon). MixMind is $12/month ($120/year), or bundled with BeatMind from $25/month and included in BeatMind Studio. [See MixMind](/mixmind), or read [how to build a 2-hour techno set with AI playlist tools](/blog/build-2-hour-techno-set-ai).
 
 ## FAQ
 

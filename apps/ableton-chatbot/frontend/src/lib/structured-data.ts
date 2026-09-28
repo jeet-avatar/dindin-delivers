@@ -159,7 +159,7 @@ export function beatmindAppSchema(): JsonLdObject {
     "@type": "SoftwareApplication",
     name: "BeatMind",
     applicationCategory: "MusicApplication",
-    operatingSystem: "macOS, Windows",
+    operatingSystem: "macOS",
     url: absoluteUrl("/"),
     image: absoluteUrl(OG_IMAGE),
     description: HOME_DESCRIPTION,
@@ -171,7 +171,7 @@ export function beatmindAppSchema(): JsonLdObject {
       "Session-view clips and scenes in your own Live Set",
       "Captured auditions to review each part",
       "Supported Ableton device control adjustments",
-      "Mac and Windows bridge agent",
+      "BeatMind Bridge for Mac (Apple Silicon, macOS 15+)",
     ],
   };
 }
@@ -182,7 +182,7 @@ export function mixmindAppSchema(): JsonLdObject {
     "@type": "SoftwareApplication",
     name: "MixMind",
     applicationCategory: "MusicApplication",
-    operatingSystem: "macOS, Windows",
+    operatingSystem: "macOS",
     url: absoluteUrl("/mixmind"),
     image: absoluteUrl(OG_IMAGE_MIXMIND),
     description: `DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, build AI playlists and sequence warm-up, peak-time or closing sets from music you already own. $${MIXMIND_PRICE.monthly}/month, or included with BeatMind + MixMind bundles and BeatMind Studio.`,
@@ -196,7 +196,7 @@ export function mixmindAppSchema(): JsonLdObject {
       "Add built sets to Rekordbox as playlists",
       "Duplicate track detection and cleanup",
       "Pioneer USB drive support",
-      "Mac and Windows native app",
+      "Mac app for Apple Silicon",
     ],
   };
 }

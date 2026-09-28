@@ -28,10 +28,10 @@ TRIAL_INCLUDED_TRACKS = 3
 class NoCredits(Exception):
     MESSAGES = {
         'track': 'Your tracks for this month are used up. Buy a track pack or upgrade your plan to separate more.',
-        'cloud': 'Your BeatMind Cloud tracks are used up. Buy a cloud pack or upgrade your plan to separate on a BeatMind GPU.',
+        'cloud': 'Your Cloud HQ separations are used up. Buy a Cloud HQ pack or upgrade your plan to get more.',
         'trial': 'Your free trial includes {included} tracks. Choose a plan to keep going.',
-        'trial_cloud': 'BeatMind Cloud separation is part of the paid plans. Choose a plan to separate on a BeatMind GPU.',
-        'trial_mode': 'Your free trial separates tracks on your own computer with the BeatMind Bridge. '
+        'trial_cloud': 'Cloud HQ separations are part of the paid plans. Choose a plan to use them.',
+        'trial_mode': 'Your free trial separates tracks on your own Mac with the BeatMind Bridge. '
                       'Choose a plan to upload tracks to BeatMind.',
     }
 

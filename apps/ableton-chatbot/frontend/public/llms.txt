@@ -4,34 +4,35 @@
 
 ## BeatMind
 
-- [BeatMind home](https://www.beatmind.io/): AI music producer for Ableton Live — web app plus a local bridge agent (macOS and Windows).
-- Requirements: Ableton Live 11 or 12 (Standard or Suite), BeatMind Bridge, AbletonOSC. Captured auditions and automatic Live Set file-menu actions currently require macOS.
+- [BeatMind home](https://www.beatmind.io/): AI music producer for Ableton Live — web app plus the local BeatMind Bridge app for Mac (Apple Silicon, macOS 15+). Windows support isn't available yet.
+- Requirements: Ableton Live 11 or 12 (Standard or Suite), AbletonOSC, and the BeatMind Bridge on a Mac with Apple Silicon (M1 or later) and macOS 15 or later. Placing separated stems into Live needs Live 12 and the BeatMind extension.
 - How it works: connect the Bridge and AbletonOSC, describe genre, mood, tempo and instruments in plain English, then review and refine each part (kick, bass, melody, effects) before moving to the next.
 - Scope: works in Session view (clips and scenes) and adjusts supported device controls; parameter availability depends on the device. It does not write a finished Arrangement timeline or export full songs.
-- Ownership: users own 100% of the music they create with BeatMind.
+- Ownership: users own what they make; BeatMind claims no rights. Samples and presets they load stay under their own licences.
 
 ## MixMind
 
-- [MixMind](https://www.beatmind.io/mixmind): desktop DJ library manager for Mac (Apple Silicon native; Intel via Rosetta 2) and Windows 10/11 that reads Rekordbox 6 and 7 libraries (XML or database).
+- [MixMind](https://www.beatmind.io/mixmind): desktop DJ library manager for Mac (requires Apple silicon, M1 or later) that reads Rekordbox 6 and 7 libraries (database or XML). A Windows version of MixMind is coming soon.
 - Features: fast searchable library browser (BPM, key, genre, duration), AI playlist builder using tracks the DJ already owns, exact and near-duplicate finder, Pioneer USB drive browsing, and an Intelligent Set Builder (warm-up, peak-time or closing sets; BPM range; key flow; skip recently played tracks; add the finished set to Rekordbox as a playlist).
-- Safety: browsing and duplicate cleanup are read-only; duplicate cleanup hides tracks inside MixMind and does not delete or modify Rekordbox files. Adding a set to Rekordbox writes a playlist only when the user chooses to, with Rekordbox closed, after backing up the library.
+- Safety: browsing, searching and finding duplicates never change the Rekordbox library (duplicate cleanup hides tracks inside MixMind). MixMind only writes to Rekordbox when the user clicks Add to Rekordbox in the Set Builder, which adds the set as a playlist after backing up the library; Rekordbox must be closed.
+- Set Builder: techno and minimal sets today, more genres coming. The AI playlist chat works across the whole library.
 - Availability: on sale now. MixMind $12/month or $120/year; BeatMind Starter + MixMind $25/month; BeatMind Pro + MixMind $45/month; included in BeatMind Studio. Downloads unlock after signing in with a BeatMind account on a plan that includes MixMind. MixMind is not part of the free trial.
 
 ## Pricing
 
-Free trial: 7 days, no credit card required. It covers BeatMind only (not MixMind) and includes 3 tracks (processed on the user's own computer) and limited AI (about 50 messages). Cloud HQ separations and packs need a paid plan. Nobody is charged unless they choose a plan; starting a plan during the trial ends the trial and begins the plan immediately.
+Free trial: 7 days, no credit card required. It covers BeatMind only (not MixMind) and includes 3 tracks, separated on the user's own Mac, and limited AI (about 50 messages). Cloud HQ separations and packs need a paid plan. Nobody is charged unless they choose a plan; starting a plan during the trial ends the trial and begins the plan immediately.
 
-Paid plans: cancel anytime. Annual billing = 2 months free. Switch plans anytime from billing settings. Full details: https://www.beatmind.io/#pricing
+Paid plans: cancel anytime. Annual billing = 2 months free. Switch or cancel anytime from Dashboard → Account → Billing. Full details: https://www.beatmind.io/#pricing
 
 - BeatMind Starter: $19/month or $190/year. 10 tracks/month, AI producer inside Ableton Live (fair use).
 - BeatMind Pro (most popular): $39/month or $390/year. 30 tracks/month + 5 cloud HQ separations/month, AI producer (fair use).
 - BeatMind Studio: $79/month or $790/year. 80 tracks/month + 20 cloud HQ separations/month, MixMind included, priority support, AI producer (fair use).
-- What a "track" is: one stem separation of a reference track. High-quality separation runs on the user's own computer via the BeatMind Bridge. Monthly allowances reset each month and do not roll over.
+- What a "track" is: one stem separation of a reference track. High-quality separation runs on the user's own Mac via the BeatMind Bridge. Monthly allowances reset each month and do not roll over.
 - Cloud HQ separations: high-quality stem separation on BeatMind's cloud GPU, for computers that can't run HQ separation locally. Paid plans only (Pro, Studio, or Cloud HQ packs).
 - Extra track packs (never expire): 10 for $9, 25 for $19, 60 for $39.
 - Cloud HQ packs (never expire): 10 for $7.99, 50 for $34.99.
 - Packs are used after the monthly allowance and require a paid plan.
-- Founding Member offer: the first 100 annual subscribers get 40% off for life with code FOUNDING100 (annual plans only).
+- Founding Member offer: the first 100 annual subscribers who use code FOUNDING100 get 40% off for as long as their subscription stays active. Annual plans only.
 - MixMind: $12/month or $120/year (2 months free). Not included in the free trial.
 - BeatMind Starter + MixMind: $25/month or $250/year. BeatMind Pro + MixMind: $45/month or $450/year. Each saves $6/month versus buying BeatMind and MixMind separately.
 - BeatMind Studio ($79/month or $790/year) also includes MixMind.

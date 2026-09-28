@@ -16,28 +16,25 @@ This guide walks through the whole process, from a blank Set to a loop you can a
 
 - **Ableton Live 11 or 12** (Standard or Suite). BeatMind controls Live directly, so it will not work with another DAW or with Live 10.
 - **A BeatMind account.** Plans start at $19/month (Starter, with 10 tracks a month), and you can start with a 7-day free trial that includes 3 tracks and needs no credit card. You're only charged if you choose a plan.
-- **BeatMind Bridge**, a small desktop app available for macOS and Windows. It runs on your computer and relays instructions between the BeatMind web app and Ableton.
+- **BeatMind Bridge**, a small desktop app for Macs with Apple Silicon (M1 or later) and macOS 15 or later. It runs on your computer and relays instructions between the BeatMind web app and Ableton. Windows support isn't available yet.
 - **AbletonOSC**, an open-source Live remote script that lets other software talk to Live over OSC (Open Sound Control).
-
-One platform note up front: captured auditions (recordings of what BeatMind just built, so you can review them) and automatic Live Set file-menu actions currently require macOS. Windows users can still build and edit parts; you just audition by listening in Live directly.
 
 ## Step 1: Create your account and install BeatMind Bridge
 
 1. Go to [/signup](/signup) and start the free trial.
-2. Download BeatMind Bridge for your operating system from your dashboard.
+2. Download BeatMind Bridge for Mac from your dashboard.
 3. Open Bridge and sign in with the same account.
 
 Bridge is the piece that makes "AI inside Ableton" possible. The BeatMind web app plans and reasons about your music; Bridge carries its instructions to Live on your machine. Your Live Set stays on your computer the whole time.
 
-On macOS, the Bridge disk image also includes BeatMind's AbletonOSC extension files, which add exact sample-pack loading, fader mapping and automation support. Follow the README bundled with them; it tells you where to copy the files and reminds you to save your Set and restart Live afterwards.
+The Bridge disk image also includes BeatMind's AbletonOSC extension files, which add exact sample-pack loading, fader mapping and automation support. Follow the README bundled with them; it tells you where to copy the files and reminds you to save your Set and restart Live afterwards.
 
 ## Step 2: Install and enable AbletonOSC
 
 If you have never installed a third-party remote script, this is the only fiddly part.
 
 1. Place the `AbletonOSC` folder in your User Library's Remote Scripts folder:
-   - macOS: `~/Music/Ableton/User Library/Remote Scripts/`
-   - Windows: `\Users\[you]\Documents\Ableton\User Library\Remote Scripts\`
+   - `~/Music/Ableton/User Library/Remote Scripts/`
 2. Restart Ableton Live.
 3. Open Live's **Settings** (called Preferences in Live 11) and go to the **Link/Tempo/MIDI** tab.
 4. In an empty **Control Surface** slot, choose **AbletonOSC**.
@@ -68,7 +65,7 @@ If you name a specific pack, BeatMind treats that as a strict constraint. It loa
 This is where BeatMind differs from tools that generate a whole audio file at once. It works part by part, inside your Session View:
 
 1. **Kick.** BeatMind creates a MIDI track, loads a kick (for example a Drum Rack or a sample in Simpler), writes a four-on-the-floor clip and sets the tempo.
-2. **Audition.** On macOS, it records a captured audition so you hear what was actually built. It also flags quiet previews instead of pretending a low-level recording is broken or silent.
+2. **Audition.** It records a captured audition so you hear what was actually built. It also flags quiet previews instead of pretending a low-level recording is broken or silent.
 3. **Decide.** You keep it, ask for changes, or reject it. BeatMind never accepts a sound on your behalf.
 4. **Next part.** Only then does it move to hats, bass, a Wavetable or Operator pad, and so on.
 
@@ -106,7 +103,7 @@ That is where the track becomes yours: the fills, the edits, the automation that
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Bridge shows disconnected | Bridge not signed in, or AbletonOSC not selected | Sign in to Bridge; pick AbletonOSC in a Control Surface slot |
-| No captured audition | Running on Windows, or audio permission not granted | Auditions need macOS; grant Bridge audio permission |
+| No captured audition | Bridge audio permission not granted | Grant Bridge audio permission in macOS System Settings |
 | Named pack not found | Pack not installed where Live indexes it | Install the pack in Live, or copy the files into your User Library (no symlinks) |
 | A plugin parameter will not change | Plugin does not expose that control | Try a native device, or adjust that control yourself |
 
@@ -126,11 +123,11 @@ No. BeatMind works with Ableton Live 11 or 12, Standard or Suite. What it can lo
 
 ### Does BeatMind work on Windows?
 
-Yes, BeatMind Bridge is available for macOS and Windows. Captured auditions and automatic Live Set file-menu actions currently require macOS, so on Windows you review parts by listening in Live.
+Not yet. BeatMind runs in your browser, and the BeatMind Bridge that connects it to Ableton Live currently runs on Macs with Apple Silicon (M1 or later) and macOS 15 or later. Windows support isn't available yet — join the list at support@beatmind.io and we'll email you when it is.
 
 ### Who owns the music I make with BeatMind?
 
-You do, 100%. Everything BeatMind generates in your Ableton project is yours to release, sell or license.
+You do. We claim no rights to what you make. Samples and presets you load stay under their own licences.
 
 ### What is AbletonOSC and why is it needed?
 

@@ -80,7 +80,8 @@ export function hasMixMindAccess(user: Pick<User, "mixmind_access"> | null | und
 
 export function planName(plan: PlanState | null | undefined): string {
   if (!plan?.plan) return "No plan";
-  if (plan.tier === "legacy") return "Founding subscriber";
+  // Callers add " plan" themselves ("✓ Original $19 plan", "Cancel your Original $19 plan?").
+  if (plan.tier === "legacy") return "Original $19";
   return PLAN_NAMES[plan.plan] ?? plan.plan;
 }
 
@@ -117,8 +118,9 @@ export function withoutPlanIntent(search: string): string {
 }
 
 export function planIntentNote(intent: PlanIntent): string {
-  return `You picked ${PLAN_NAMES[intent.plan]}. BeatMind plans include the 7-day free trial first — start the plan any time; `
-    + "MixMind plans need a paid plan to unlock the app.";
+  const plan = PLAN_NAMES[intent.plan];
+  return `You picked ${plan}. You'll start on the free 7-day BeatMind trial (no card). Start ${plan} whenever you're ready — `
+    + "MixMind unlocks once a plan that includes it starts.";
 }
 
 export function formatPrice(amount: number, currency: string): string {

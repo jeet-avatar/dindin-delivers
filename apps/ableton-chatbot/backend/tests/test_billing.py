@@ -991,3 +991,91 @@ class MigrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LegacyAccountTests(WebhookCase):
+    """Founding subscribers stay on the previous Stripe account; everything new goes to the primary one."""
+
+    def setUp(self):
+        super().setUp()
+        for name, value in (("STRIPE_LEGACY_SECRET_KEY", "sk_legacy"), ("STRIPE_LEGACY_WEBHOOK_SECRET", "whsec_legacy"),
+                            ("STRIPE_LEGACY_PORTAL_CONFIGURATION", "bpc_legacy"), ("STRIPE_PORTAL_CONFIGURATION", "bpc_primary")):
+            self.stack.enter_context(patch.object(self.routes, name, value))
+        self.stack.enter_context(patch.object(self.routes.stripe, "api_key", "sk_primary"))
+        self.create = self.stack.enter_context(patch.object(self.routes.stripe.checkout.Session, "create", return_value=Session()))
+        self.customer = self.stack.enter_context(patch.object(self.routes.stripe.Customer, "create",
+                                                              side_effect=lambda **kw: {"id": "cus_" + uuid.uuid4().hex[:10]}))
+        self.portal = self.stack.enter_context(patch.object(self.routes.stripe.billing_portal.Session, "create", return_value=Session()))
+
+    def founder(self):
+        user = subscriber("starter", stripe_customer_id="cus_" + uuid.uuid4().hex[:8])
+        self.subscriptions[user["subscription_id"]] = stripe_subscription(user["subscription_id"], user["stripe_customer_id"], "starter")
+        return user
+
+    def deliver_signed_by(self, secret, event):
+        def construct(body, signature, key):
+            if key != secret:
+                raise self.routes.stripe.SignatureVerificationError("bad", signature)
+            return event
+        with patch.object(self.routes.stripe.Webhook, "construct_event", side_effect=construct):
+            return self.client.post("/api/stripe/webhook", content=b"{}", headers={"stripe-signature": "t"})
+
+    def test_legacy_events_are_verified_and_read_with_the_legacy_account(self):
+        user = self.founder()
+        response = self.deliver_signed_by("whsec_legacy", self.event("customer.subscription.updated", {"id": user["subscription_id"]}))
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self.retrieve.call_args.kwargs["api_key"], "sk_legacy")
+        self.assertIsNone(get_user_by_id(user["id"])["stripe_account"])
+        self.deliver_signed_by("whsec_test", self.event("customer.subscription.updated", {"id": user["subscription_id"]}))
+        self.assertNotIn("api_key", self.retrieve.call_args.kwargs)
+        self.assertEqual(self.deliver_signed_by("whsec_other", self.event("x", {})).status_code, 400)
+
+    def test_founding_subscribers_manage_and_cancel_on_the_legacy_account(self):
+        user = self.founder()
+        self.client.post("/api/stripe/portal", headers=auth(user))
+        self.assertEqual((self.portal.call_args.kwargs["api_key"], self.portal.call_args.kwargs["configuration"]),
+                         ("sk_legacy", "bpc_legacy"))
+        with patch.object(self.routes.stripe.Subscription, "modify", return_value=self.subscriptions[user["subscription_id"]]) as modify:
+            self.assertEqual(self.client.post("/api/stripe/subscription/cancel", headers=auth(user)).status_code, 200)
+        self.assertEqual(self.retrieve.call_args.kwargs["api_key"], "sk_legacy")
+        self.assertEqual(modify.call_args.kwargs["api_key"], "sk_legacy")
+
+    def test_founding_subscribers_buy_packs_as_guests_on_the_primary_account(self):
+        user = self.founder()
+        self.assertEqual(self.client.post("/api/stripe/packs/tracks_10/checkout", headers=auth(user)).status_code, 200)
+        params = self.create.call_args.kwargs
+        self.assertEqual(params["customer_email"], user["email"])
+        self.assertNotIn("customer", params)
+        self.assertNotIn("api_key", params)
+        self.customer.assert_not_called()
+        self.assertEqual(get_user_by_id(user["id"])["stripe_customer_id"], user["stripe_customer_id"])
+
+    def test_a_former_legacy_customer_subscribes_on_the_primary_account(self):
+        user = new_user("canceled", stripe_customer_id="cus_old", subscription_id="sub_old")
+        response = self.client.post("/api/stripe/checkout", json={"plan": "pro"}, headers=auth(user))
+        self.assertEqual(response.status_code, 200, response.text)
+        stored = get_user_by_id(user["id"])
+        self.assertNotEqual(stored["stripe_customer_id"], "cus_old")
+        self.assertEqual(stored["stripe_account"], "primary")
+        self.assertEqual(self.create.call_args.kwargs["customer"], stored["stripe_customer_id"])
+        self.assertNotIn("api_key", self.create.call_args.kwargs)
+        self.client.post("/api/stripe/portal", headers=auth(get_user_by_id(user["id"])))
+        self.assertNotIn("api_key", self.portal.call_args.kwargs)
+        self.assertEqual(self.portal.call_args.kwargs["configuration"], "bpc_primary")
+
+    def test_new_webhook_customers_are_tagged_with_their_account(self):
+        user = new_user(trial_days=5)
+        sub = stripe_subscription("sub_new", "cus_new", "pro", user_id=user["id"])
+        self.subscriptions["sub_new"] = sub
+        self.deliver_signed_by("whsec_test", self.event("customer.subscription.created", {"id": "sub_new"}))
+        stored = get_user_by_id(user["id"])
+        self.assertEqual((stored["stripe_customer_id"], stored["stripe_account"]), ("cus_new", "primary"))
+
+    def test_without_a_legacy_account_existing_customers_use_the_one_account(self):
+        user = self.founder()
+        with patch.object(self.routes, "STRIPE_LEGACY_SECRET_KEY", ""):
+            self.client.post("/api/stripe/portal", headers=auth(user))
+            self.assertNotIn("api_key", self.portal.call_args.kwargs)
+            fresh = subscriber("pro")
+            self.client.post("/api/stripe/packs/tracks_10/checkout", headers=auth(fresh))
+            self.assertIsNone(get_user_by_id(fresh["id"])["stripe_account"], "untagged until a legacy account exists")

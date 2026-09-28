@@ -46,7 +46,7 @@ export const PLANS: Plan[] = [
       "10 tracks / month",
       "High-quality stem separation on your computer via the Bridge",
       "AI producer inside Ableton Live (fair use)",
-      "Mac + Windows Bridge",
+      "BeatMind Bridge for Mac (Apple Silicon, macOS 15+)",
     ],
     highlight: false,
     available: true,
@@ -90,7 +90,7 @@ export const HIGHEST_MONTHLY_USD = Math.max(...PLANS.map((plan) => plan.monthly)
 export const ANNUAL_DISCOUNT_LABEL = "2 months free";
 
 export const TRACK_DEFINITION =
-  "A track is one stem separation of a reference track. High-quality separation runs on your own computer via the Bridge.";
+  "A track is one stem separation of a reference track. High-quality separation runs on your own Mac via the Bridge.";
 export const CLOUD_HQ_DEFINITION =
   "Cloud HQ separations run on our cloud GPU, for computers that can't run high-quality separation locally. They need a paid plan.";
 
@@ -111,7 +111,7 @@ export const PACK_TERMS =
 export const FOUNDING_CODE = "FOUNDING100";
 export const FOUNDING_DISCOUNT_PERCENT = 40;
 export const FOUNDING_SEATS = 100;
-export const FOUNDING_OFFER = `First ${FOUNDING_SEATS} annual subscribers get ${FOUNDING_DISCOUNT_PERCENT}% off for life with code ${FOUNDING_CODE}. Annual plans only.`;
+export const FOUNDING_OFFER = `The first ${FOUNDING_SEATS} annual subscribers who use code ${FOUNDING_CODE} get ${FOUNDING_DISCOUNT_PERCENT}% off for as long as their subscription stays active. Annual plans only.`;
 
 // One switch for MixMind sales. false = standalone MixMind and both combos are not purchasable:
 // their site CTAs are disabled and their JSON-LD offers are no longer InStock.
