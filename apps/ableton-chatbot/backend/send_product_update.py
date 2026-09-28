@@ -14,8 +14,8 @@ CAMPAIGNS = {
         subject="BeatMind Bridge 1.2: stay signed in, detailed stems and updates in the app",
         headline="A new BeatMind Bridge is ready",
         lines=["The Bridge now stays signed in, even while BeatMind updates. No more logging in again.",
-               "Separate reference tracks on your own Mac into 8 detailed stems (kick, snare, toms, cymbals, bass, "
-               "vocals and other) and place them straight into Ableton.",
+               "Separate reference tracks on your own Mac into 8 detailed stems (drums plus kick, snare, toms and "
+               "cymbals, bass, vocals and other) and place them straight into Ableton.",
                "Future Bridge updates install from the Bridge window with one click, when it suits you."],
         cta_label="Download BeatMind Bridge 1.2", cta_url="https://www.beatmind.io/BeatMind-Bridge.dmg"),
 }
