@@ -111,7 +111,7 @@ export const PACK_TERMS =
 export const FOUNDING_CODE = "FOUNDING100";
 export const FOUNDING_DISCOUNT_PERCENT = 40;
 export const FOUNDING_SEATS = 100;
-export const FOUNDING_OFFER = `First ${FOUNDING_SEATS} annual subscribers get ${FOUNDING_DISCOUNT_PERCENT}% off for life with code ${FOUNDING_CODE}. Annual plans only.`;
+export const FOUNDING_OFFER = `The first ${FOUNDING_SEATS} annual subscribers who use code ${FOUNDING_CODE} get ${FOUNDING_DISCOUNT_PERCENT}% off for as long as their subscription stays active. Annual plans only.`;
 
 // One switch for MixMind sales (needs the MixMind app sign-in + backend MIXMIND_SALES_ENABLED first).
 export const MIXMIND_ON_SALE = false;

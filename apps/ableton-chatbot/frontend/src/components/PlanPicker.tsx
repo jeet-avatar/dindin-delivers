@@ -21,7 +21,7 @@ function features(option: PlanOption): string[] {
   if (option.tier !== "mixmind") {
     list.push("BeatMind AI for Ableton Live", `${option.included_tracks} track separations / month`);
   }
-  if (option.included_cloud > 0) list.push(`${option.included_cloud} BeatMind Cloud GPU tracks / month`);
+  if (option.included_cloud > 0) list.push(`${option.included_cloud} Cloud HQ separations / month`);
   if (option.mixmind) list.push(option.plan === "studio" ? "MixMind early access" : "MixMind for Mac (Apple Silicon)");
   return list;
 }
@@ -164,7 +164,7 @@ export default function PlanPicker({ onClose, reason, inTrial, intent = null }: 
         </div>
       </>}
 
-      <p className="mt-5 text-xs" style={{ color: "var(--text-secondary)" }}>Each separation uses one track; BeatMind Cloud also uses one cloud track. Failed separations are refunded. Need more? Track packs top up any paid plan.</p>
+      <p className="mt-5 text-xs" style={{ color: "var(--text-secondary)" }}>Each separation uses one track; a cloud separation also uses one Cloud HQ separation. Failed separations are refunded. Need more? Track packs top up any paid plan.</p>
       {error && <p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
     </div>
   </div>;

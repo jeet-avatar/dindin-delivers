@@ -509,11 +509,11 @@ export default function DashboardPage() {
   const mixmindIncluded = hasMixMindAccess(usage ?? user);
   const planFeatures = usage && isSubscribed ? [
     `${usage.included_per_month} track separations per month`,
-    ...(usage.included_cloud_per_month > 0 ? [`${usage.included_cloud_per_month} BeatMind Cloud GPU tracks per month`] : []),
+    ...(usage.included_cloud_per_month > 0 ? [`${usage.included_cloud_per_month} Cloud HQ separations per month`] : []),
     "BeatMind AI for Ableton Live", "BeatMind Bridge for Ableton Live",
     ...(usage.plan.mixmind ? ["MixMind early access for Mac (Apple Silicon)"] : []),
   ] : [
-    `${usage?.plan?.source === "trial" ? usage.included_per_month : 3} tracks separated on your computer`,
+    `${usage?.plan?.source === "trial" ? usage.included_per_month : 3} tracks, separated on your own Mac`,
     "BeatMind AI for Ableton Live (trial allowance)", "BeatMind Bridge for Ableton Live",
   ];
   const mixmindLocked = (
@@ -880,7 +880,7 @@ export default function DashboardPage() {
             </div>
             {usage?.plan.status === "past_due" && <p className="text-xs mb-3 text-amber-200">Update your card in Manage billing to keep your plan.</p>}
             {usage && <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-              {usage.tracks_used} of {usage.included_per_month} tracks{usage.included_cloud_per_month > 0 ? ` · ${usage.cloud_used} of ${usage.included_cloud_per_month} Cloud tracks` : ""} used this month · {usage.track_credits} purchased tracks · {usage.cloud_credits} purchased Cloud tracks
+              {usage.tracks_used} of {usage.included_per_month} tracks{usage.included_cloud_per_month > 0 ? ` · ${usage.cloud_used} of ${usage.included_cloud_per_month} Cloud HQ separations` : ""} used this month · {usage.track_credits} purchased tracks · {usage.cloud_credits} purchased Cloud HQ separations
             </p>}
             {usage
               ? <SubscriptionControls usage={usage} onChanged={reloadUsage} onManage={openBilling} />

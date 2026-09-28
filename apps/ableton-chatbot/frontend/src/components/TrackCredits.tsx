@@ -6,7 +6,7 @@ import { daysLeft, formatPrice, hasPaidPlan, openBillingPortal, planName, useUsa
 import PlanPicker from "./PlanPicker";
 
 function packLabel(pack: Pack) {
-  return pack.kind === "cloud" ? `${pack.credits} BeatMind Cloud tracks` : `${pack.credits} tracks`;
+  return pack.kind === "cloud" ? `${pack.credits} Cloud HQ separations` : `${pack.credits} tracks`;
 }
 
 // Tracks used vs included, purchased credits, packs and plan upgrades. Renders nothing while billing is not metered.
@@ -48,13 +48,13 @@ export default function TrackCredits({ refreshKey }: { refreshKey?: unknown }) {
     <p className="font-medium">{heading}</p>
     {paid && <div className="flex flex-wrap gap-x-6 gap-y-1">
       <span><strong>{usage.tracks_used}</strong> of {usage.included_per_month} tracks used this month</span>
-      {usage.included_cloud_per_month > 0 && <span><strong>{usage.cloud_used}</strong> of {usage.included_cloud_per_month} BeatMind Cloud tracks used</span>}
+      {usage.included_cloud_per_month > 0 && <span><strong>{usage.cloud_used}</strong> of {usage.included_cloud_per_month} Cloud HQ separations used</span>}
       <span><strong>{usage.track_credits}</strong> purchased tracks</span>
-      <span><strong>{usage.cloud_credits}</strong> purchased Cloud tracks</span>
+      <span><strong>{usage.cloud_credits}</strong> purchased Cloud HQ separations</span>
     </div>}
     <p className="text-xs text-neutral-400">{trial
-      ? "Your free trial separates tracks on your computer with the BeatMind Bridge. BeatMind Cloud and track packs come with a paid plan."
-      : "Each separation uses one track, from this month's plan first, then purchased tracks. BeatMind Cloud also uses one Cloud track. Failed separations are refunded. Purchased tracks don't expire and are used while you have a paid plan."}</p>
+      ? "Your free trial separates tracks on your own Mac with the BeatMind Bridge. Cloud HQ separations and packs come with a paid plan."
+      : "Each separation uses one track, from this month's plan first, then purchased tracks. A cloud separation also uses one Cloud HQ separation. Failed separations are refunded. Purchased tracks don't expire and are used while you have a paid plan."}</p>
 
     {paid
       ? <button type="button" onClick={() => void upgrade()}

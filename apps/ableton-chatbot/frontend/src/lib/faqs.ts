@@ -28,7 +28,7 @@ export const BEATMIND_FAQS: Faq[] = [
   },
   {
     q: "What's included in the free trial?",
-    a: "The 7-day free trial needs no credit card and includes 3 tracks (processed on your own computer) and limited AI (about 50 messages). Cloud HQ separations and packs need a paid plan. If you start a plan during the trial, the trial ends and your plan begins immediately.",
+    a: "The 7-day free trial needs no credit card and includes 3 tracks, separated on your own Mac, and limited AI (about 50 messages). Cloud HQ separations and packs need a paid plan. If you start a plan during the trial, the trial ends and your plan begins immediately.",
   },
   {
     q: "Will I be charged after the trial?",
@@ -48,15 +48,15 @@ export const BEATMIND_FAQS: Faq[] = [
   },
   {
     q: "Can I switch plans?",
-    a: "Yes. You can move between Starter, Pro and Studio anytime from your billing settings.",
+    a: "Yes. You can move between Starter, Pro and Studio anytime from Dashboard → Account → Billing.",
   },
   {
     q: "Is there an annual discount?",
-    a: "Yes. Annual billing gives you 2 months free: $190/year for Starter, $390/year for Pro and $790/year for Studio. The first 100 annual subscribers also get 40% off for life with code FOUNDING100 (annual plans only).",
+    a: "Yes. Annual billing gives you 2 months free: $190/year for Starter, $390/year for Pro and $790/year for Studio. The first 100 annual subscribers who use code FOUNDING100 also get 40% off for as long as their subscription stays active. Annual plans only.",
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Go to Dashboard → Billing → Cancel subscription. Your access continues until the end of the period you've paid for, and you won't be charged again.",
+    a: "Yes. Go to Dashboard → Account → Billing → Cancel subscription, or use Manage billing (Stripe) or email support@beatmind.io. Your access continues until the end of the period you've paid for, and you won't be charged again.",
   },
 ];
 
@@ -87,6 +87,6 @@ export const MIXMIND_FAQS: Faq[] = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Go to Dashboard → Billing → Cancel subscription. Your access continues until the end of the period you've paid for, and you won't be charged again.",
+    a: "Yes. Go to Dashboard → Account → Billing → Cancel subscription, or use Manage billing (Stripe) or email support@beatmind.io. Your access continues until the end of the period you've paid for, and you won't be charged again.",
   },
 ];

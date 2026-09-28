@@ -243,8 +243,9 @@ export default function LandingPage() {
           {/* Founding Member banner */}
           <div className="rounded-2xl border p-5 mb-10 text-sm text-left md:text-center" style={{ background: "var(--bg-secondary)", borderColor: "var(--accent)" }}>
             <span className="font-semibold" style={{ color: "var(--accent)" }}>Founding Member offer: </span>
-            the first {FOUNDING_SEATS} annual subscribers get {FOUNDING_DISCOUNT_PERCENT}% off for life with code{" "}
-            <code className="px-2 py-0.5 rounded font-mono font-semibold" style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}>{FOUNDING_CODE}</code>.{" "}
+            the first {FOUNDING_SEATS} annual subscribers who use code{" "}
+            <code className="px-2 py-0.5 rounded font-mono font-semibold" style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}>{FOUNDING_CODE}</code>{" "}
+            get {FOUNDING_DISCOUNT_PERCENT}% off for as long as their subscription stays active.{" "}
             <span style={{ color: "var(--text-secondary)" }}>Annual plans only.</span>
           </div>
 
