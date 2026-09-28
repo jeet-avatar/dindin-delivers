@@ -8,8 +8,10 @@ The estimate is for monitoring, not invoicing. Rates are USD per million tokens:
 - AI_RATES_JSON='{"<model substring>": {"input": .., "output": .., "cache_read": .., "cache_write": .., "audio_input": ..}}'
   overrides any model.
 
-The cap (AI_FAIR_USE_USD_STARTER/PRO/STUDIO, default $8/$15/$30 per UTC month) blocks chat only when
-AI_FAIR_USE_ENFORCED=true; otherwise usage is only logged.
+Paid plans: a monthly cap (AI_FAIR_USE_USD_STARTER/PRO/STUDIO, default $8/$15/$30 per UTC month) blocks AI
+features only when AI_FAIR_USE_ENFORCED=true (429); otherwise usage is only logged.
+Free trial: always capped at TRIAL_CHAT_MESSAGES (default 50) chat messages or TRIAL_AI_USD (default $2) of
+estimated spend over the whole trial, whichever comes first (402: choose a plan).
 """
 
 from datetime import datetime, timezone
@@ -17,7 +19,9 @@ import json
 import logging
 import os
 
-from database import db
+from fastapi import HTTPException
+
+from database import add_columns, db
 
 log = logging.getLogger("beatmind.ai_usage")
 
@@ -27,6 +31,12 @@ OPENAI_PLACEHOLDER = {'input': 5.0, 'cached_input': 0.5, 'audio_input': 40.0, 'o
 # PLACEHOLDER for Claude models other than Haiku 4.5 (e.g. BEATMIND_MODEL switched to a larger model).
 CLAUDE_PLACEHOLDER = {'input': 5.0, 'output': 25.0}
 FAIR_USE_USD = {'starter': 8.0, 'pro': 15.0, 'studio': 30.0}
+TRIAL_CHAT_MESSAGES = 50
+TRIAL_AI_USD = 2.0
+FAIR_USE_MESSAGE = ("You've reached this month's fair-use limit for BeatMind AI on your plan. "
+                    "Upgrade your plan to keep going, or wait until the 1st of next month (UTC). "
+                    "Your songs, stems and track packs are unaffected.")
+TRIAL_MESSAGE = "Your free trial's AI messages are used up. Choose a plan to keep going."
 
 
 def init(conn):
@@ -35,6 +45,7 @@ def init(conn):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             feature TEXT NOT NULL,
+            request_id TEXT,
             provider TEXT NOT NULL,
             model TEXT NOT NULL,
             input_tokens INTEGER NOT NULL DEFAULT 0,
@@ -46,6 +57,7 @@ def init(conn):
             rate_basis TEXT NOT NULL,
             created_at TEXT DEFAULT (datetime('now'))
         )""")
+    add_columns(conn, 'ai_usage', {'request_id': 'TEXT'})
     conn.execute("CREATE INDEX IF NOT EXISTS ai_usage_user ON ai_usage (user_id, created_at)")
 
 
@@ -104,15 +116,16 @@ def estimate(provider, model, tokens):
     return sum(tokens.get(field, 0) * rate[kind] for field, kind in kinds.items()) / 1_000_000, basis
 
 
-def record(user_id, feature, provider, model, tokens):
-    """Log one model call. Never raises: usage logging must not break the user's request."""
+def record(user_id, feature, provider, model, tokens, request_id=None):
+    """Log one model call; request_id groups the calls of one chat message. Never raises: usage logging must
+    not break the user's request."""
     try:
         usd, basis = estimate(provider, model, tokens)
         with db() as conn:
-            conn.execute("""INSERT INTO ai_usage (user_id, feature, provider, model, input_tokens, output_tokens,
+            conn.execute("""INSERT INTO ai_usage (user_id, feature, request_id, provider, model, input_tokens, output_tokens,
                             cache_read_tokens, cache_write_tokens, audio_input_tokens, estimated_usd, rate_basis)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                         (user_id, feature, provider, model, *(int(tokens.get(field, 0) or 0) for field in (
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                         (user_id, feature, request_id, provider, model, *(int(tokens.get(field, 0) or 0) for field in (
                              'input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_write_tokens', 'audio_input_tokens')),
                           usd, basis))
     except Exception:
@@ -148,3 +161,37 @@ def month_to_date(user_id, tier):
 def over_cap(user_id, tier):
     """True only when the cap is enforced and this month's estimated spend has reached it."""
     return fair_use_enforced() and month_to_date(user_id, tier)['over_fair_use']
+
+
+def trial_limits():
+    return {'chat_messages': int(_env_float('TRIAL_CHAT_MESSAGES', TRIAL_CHAT_MESSAGES)),
+            'estimated_usd': _env_float('TRIAL_AI_USD', TRIAL_AI_USD)}
+
+
+def trial_usage(user_id):
+    """AI used during the free trial (all of the user's usage: the trial is their first week)."""
+    with db() as conn:
+        row = conn.execute("""SELECT COUNT(DISTINCT CASE WHEN feature='chat' THEN COALESCE(request_id, id) END) AS messages,
+                              COALESCE(SUM(estimated_usd), 0) AS usd FROM ai_usage WHERE user_id=?""", (user_id,)).fetchone()
+    limits = trial_limits()
+    return {'chat_messages': row['messages'], 'estimated_usd': round(row['usd'], 4), 'limits': limits,
+            'exhausted': row['messages'] >= limits['chat_messages'] or row['usd'] >= limits['estimated_usd']}
+
+
+def status(user_id, plan):
+    """Month-to-date usage and the limit that applies to this user's plan."""
+    usage = month_to_date(user_id, plan['tier'])
+    if plan['source'] == 'trial':
+        usage['trial'] = trial_usage(user_id)
+    return usage
+
+
+def enforce(user):
+    """Raise before an AI call when the free trial's AI is used up, or an enforced fair-use cap is reached."""
+    import billing
+    plan = billing.allowance(user)
+    if plan['source'] == 'trial':
+        if trial_usage(user['id'])['exhausted']:
+            raise HTTPException(402, TRIAL_MESSAGE)
+    elif fair_use_enforced() and over_cap(user['id'], plan['tier']):
+        raise HTTPException(429, FAIR_USE_MESSAGE)

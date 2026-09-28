@@ -3,6 +3,10 @@
 Every separation uses one track. A BeatMind Cloud separation also uses one cloud track.
 Spend order for both: this UTC month's plan allowance first, then purchased credits. Failed separations are refunded.
 
+The app's no-card free trial has its own small allowance for the whole trial (TRIAL_INCLUDED_TRACKS, default 3,
+separated on the user's computer only; TRIAL_INCLUDED_CLOUD, default 0). Trial separations are logged with
+source 'trial', so a plan bought during the trial starts with its full monthly allowance.
+
 Metering is on once the Stripe catalog resolves (see catalog.py); BILLING_ENFORCED=false turns it off
 (separations are then logged as unmetered), BILLING_ENFORCED=true forces it on.
 """
@@ -18,14 +22,22 @@ from database import add_columns, db, subscription_access, trial_active
 KINDS = ('track', 'cloud')
 MODES = ('local', 'cloud', 'server')
 LEGACY_INCLUDED_TRACKS = 10  # Subscribers from before plans existed are Starter.
-TRIAL_INCLUDED_TRACKS = 10
+TRIAL_INCLUDED_TRACKS = 3
 
 
 class NoCredits(Exception):
-    def __init__(self, kind):
+    MESSAGES = {
+        'track': 'Your tracks for this month are used up. Buy a track pack or upgrade your plan to separate more.',
+        'cloud': 'Your BeatMind Cloud tracks are used up. Buy a cloud pack or upgrade your plan to separate on a BeatMind GPU.',
+        'trial': 'Your free trial includes {included} tracks. Choose a plan to keep going.',
+        'trial_cloud': 'BeatMind Cloud separation is part of the paid plans. Choose a plan to separate on a BeatMind GPU.',
+        'trial_mode': 'Your free trial separates tracks on your own computer with the BeatMind Bridge. '
+                      'Choose a plan to upload tracks to BeatMind.',
+    }
+
+    def __init__(self, kind, included=None):
         self.kind = kind
-        super().__init__('Your BeatMind Cloud tracks are used up. Buy a cloud pack or upgrade your plan to separate on a BeatMind GPU.'
-                         if kind == 'cloud' else 'Your tracks for this month are used up. Buy a track pack or upgrade your plan to separate more.')
+        super().__init__(self.MESSAGES[kind].format(included=included))
 
 
 def _env_int(name, default):
@@ -65,6 +77,10 @@ def enforced():
     return catalog.resolved() or _env_int('BEATMIND_INCLUDED_TRACKS', 0) > 0 or bool(_env_packs())
 
 
+def trial_allowance():
+    return {'tracks': _env_int('TRIAL_INCLUDED_TRACKS', TRIAL_INCLUDED_TRACKS), 'cloud': _env_int('TRIAL_INCLUDED_CLOUD', 0)}
+
+
 def allowance(user):
     """This user's monthly plan allowance and where it comes from."""
     none = {'source': 'none', 'plan': None, 'tier': None, 'interval': None, 'status': None,
@@ -81,9 +97,10 @@ def allowance(user):
         return {**none, 'source': 'legacy', 'plan': 'starter', 'tier': 'starter', 'status': user['subscription_status'],
                 'included_tracks': _env_int('BEATMIND_INCLUDED_TRACKS', LEGACY_INCLUDED_TRACKS)}
     if trial_active(user):
-        return {**none, 'source': 'trial', 'plan': 'trial', 'tier': 'starter', 'status': 'app_trial',
-                'included_tracks': _env_int('BEATMIND_TRIAL_TRACKS', TRIAL_INCLUDED_TRACKS),
-                'included_cloud': _env_int('BEATMIND_TRIAL_CLOUD', 0)}
+        trial = trial_allowance()
+        return {**none, 'source': 'trial', 'plan': 'trial', 'tier': 'trial', 'status': 'app_trial',
+                'included_tracks': trial['tracks'], 'included_cloud': trial['cloud'],
+                'current_period_end': user.get('trial_ends_at')}
     return {**none, 'status': user.get('subscription_status')}
 
 
@@ -130,14 +147,18 @@ def _balance(conn, user_id, kind):
                         (user_id, kind)).fetchone()[0]
 
 
-def _used(conn, user_id, kind):
+def _used(conn, user_id, kind, plan):
+    """Allowance used: this UTC month for a plan, the whole trial for the free trial."""
     column = 'cloud_source' if kind == 'cloud' else 'source'
+    if plan['source'] == 'trial':
+        return conn.execute(f"SELECT COUNT(*) FROM separations WHERE user_id=? AND {column}='trial' AND status='charged'",
+                            (user_id,)).fetchone()[0]
     return conn.execute(f"""SELECT COUNT(*) FROM separations WHERE user_id=? AND {column}='allowance' AND status='charged'
                             AND substr(created_at, 1, 7)=?""", (user_id, _month())).fetchone()[0]
 
 
 def _left(conn, user_id, plan, kind):
-    return max(0, plan['included_cloud' if kind == 'cloud' else 'included_tracks'] - _used(conn, user_id, kind))
+    return max(0, plan['included_cloud' if kind == 'cloud' else 'included_tracks'] - _used(conn, user_id, kind, plan))
 
 
 def summary(user_id):
@@ -146,7 +167,7 @@ def summary(user_id):
         plan = allowance(_user(conn, user_id))
         recent = conn.execute("""SELECT reference_id, mode, source, cloud, cloud_source, status, created_at FROM separations
                                  WHERE user_id=? ORDER BY id DESC LIMIT 20""", (user_id,)).fetchall()
-        tracks_used, cloud_used = _used(conn, user_id, 'track'), _used(conn, user_id, 'cloud')
+        tracks_used, cloud_used = _used(conn, user_id, 'track', plan), _used(conn, user_id, 'cloud', plan)
         return {'enforced': is_enforced, 'plan': plan,
                 'included_per_month': plan['included_tracks'], 'tracks_used': tracks_used,
                 'allowance_left': max(0, plan['included_tracks'] - tracks_used),
@@ -161,6 +182,8 @@ def _sources(conn, user_id, mode, is_enforced):
     if not is_enforced:
         return 'unmetered', None
     plan = allowance(_user(conn, user_id))
+    if plan['source'] == 'trial':
+        return _trial_sources(conn, user_id, mode, plan)
     cloud = None
     if mode == 'cloud':
         if _left(conn, user_id, plan, 'cloud') > 0:
@@ -174,6 +197,20 @@ def _sources(conn, user_id, mode, is_enforced):
     if _balance(conn, user_id, 'track') > 0:
         return 'credit', cloud
     raise NoCredits('track')
+
+
+def _trial_sources(conn, user_id, mode, plan):
+    """The free trial separates on the user's computer from its own allowance; cloud only if configured."""
+    if mode == 'server':
+        raise NoCredits('trial_mode')
+    cloud = None
+    if mode == 'cloud':
+        if _left(conn, user_id, plan, 'cloud') < 1:
+            raise NoCredits('trial_cloud')
+        cloud = 'trial'
+    if _left(conn, user_id, plan, 'track') < 1:
+        raise NoCredits('trial', plan['included_tracks'])
+    return 'trial', cloud
 
 
 def check(user_id, mode):
@@ -203,7 +240,7 @@ def charge(user_id, reference_id, mode):
 def refund(reference_id):
     """Return the credits of a separation that failed. Safe to call repeatedly.
 
-    Allowance tracks come back by marking the separation refunded; purchased credits are re-added.
+    Allowance and trial tracks come back by marking the separation refunded; purchased credits are re-added.
     """
     with db() as conn:
         conn.execute('BEGIN IMMEDIATE')
@@ -213,7 +250,7 @@ def refund(reference_id):
         if row['source'] == 'credit':
             conn.execute("INSERT INTO credit_ledger (user_id, kind, delta, reason, reference_id) VALUES (?, 'track', 1, 'refund', ?)",
                          (row['user_id'], reference_id))
-        if row['cloud'] and row['cloud_source'] != 'allowance':
+        if row['cloud'] and row['cloud_source'] in ('credit', None):  # NULL: rows from before cloud_source.
             conn.execute("INSERT INTO credit_ledger (user_id, kind, delta, reason, reference_id) VALUES (?, 'cloud', 1, 'refund', ?)",
                          (row['user_id'], reference_id))
         conn.execute("UPDATE separations SET status='refunded' WHERE id=?", (row['id'],))

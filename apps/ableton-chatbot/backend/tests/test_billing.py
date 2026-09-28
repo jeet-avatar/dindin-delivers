@@ -141,16 +141,6 @@ class CatalogTests(CatalogCase):
         with patch.dict(os.environ, {"MIXMIND_SALES_ENABLED": "true"}):
             self.assertTrue(all(p["available"] for p in catalog.public_plans()))
 
-    def test_trial_end_continues_the_app_trial_only_when_more_than_48_hours_remain(self):
-        now = datetime(2026, 9, 27, 12, tzinfo=timezone.utc)
-        five_days = (now + timedelta(days=5)).isoformat()
-        self.assertEqual(catalog.trial_end(five_days, now), int((now + timedelta(days=5)).timestamp()))
-        self.assertIsNone(catalog.trial_end((now + timedelta(hours=47)).isoformat(), now))
-        self.assertIsNone(catalog.trial_end((now - timedelta(days=1)).isoformat(), now))
-        self.assertIsNone(catalog.trial_end(None, now))
-        naive = (now + timedelta(days=3)).replace(tzinfo=None).isoformat()
-        self.assertEqual(catalog.trial_end(naive, now), int((now + timedelta(days=3)).timestamp()))
-
 
 class EnforcementTests(CatalogCase):
     def test_metering_turns_on_when_the_catalog_resolves_and_env_can_switch_it_off(self):
@@ -189,9 +179,12 @@ class AllowanceTests(CatalogCase):
             self.assertEqual(billing.allowance(legacy)["included_tracks"], 15)
         self.assertEqual(billing.allowance(legacy)["included_cloud"], 0)
 
-    def test_trial_users_get_starter_tracks_and_expired_users_nothing(self):
+    def test_trial_users_get_three_tracks_and_expired_users_nothing(self):
         trial = billing.allowance(new_user(trial_days=5))
-        self.assertEqual((trial["source"], trial["included_tracks"], trial["included_cloud"]), ("trial", 10, 0))
+        self.assertEqual((trial["source"], trial["included_tracks"], trial["included_cloud"]), ("trial", 3, 0))
+        with patch.dict(os.environ, {"TRIAL_INCLUDED_TRACKS": "5", "TRIAL_INCLUDED_CLOUD": "1"}):
+            trial = billing.allowance(new_user(trial_days=5))
+        self.assertEqual((trial["included_tracks"], trial["included_cloud"]), (5, 1))
         expired = billing.allowance(new_user())
         self.assertEqual((expired["source"], expired["included_tracks"]), ("none", 0))
         canceled = billing.allowance(subscriber("studio", status="canceled"))
@@ -232,6 +225,44 @@ class AllowanceTests(CatalogCase):
                 allowance_ref = billing.summary(user["id"])["separations"][-1]["reference_id"]
                 billing.refund(allowance_ref)
                 self.assertEqual(billing.summary(user["id"])["allowance_left"], 1, "a failed allowance track comes back")
+
+    def test_trial_includes_three_local_tracks_for_the_whole_trial(self):
+        user = new_user(trial_days=5)
+        first = ref()
+        billing.charge(user["id"], first, "local")
+        billing.charge(user["id"], ref(), "local")
+        with db() as conn:  # A trial spanning two months still has three tracks in total.
+            conn.execute("UPDATE separations SET created_at='2000-01-15 10:00:00' WHERE reference_id=?", (first,))
+        billing.charge(user["id"], ref(), "local")
+        with self.assertRaises(billing.NoCredits) as caught:
+            billing.check(user["id"], "local")
+        self.assertEqual(str(caught.exception), "Your free trial includes 3 tracks. Choose a plan to keep going.")
+        summary = billing.summary(user["id"])
+        self.assertEqual((summary["plan"]["source"], summary["tracks_used"], summary["allowance_left"]), ("trial", 3, 0))
+        self.assertEqual({s["source"] for s in summary["separations"]}, {"trial"})
+        billing.refund(first)
+        self.assertEqual(billing.summary(user["id"])["allowance_left"], 1, "a failed trial track comes back")
+
+    def test_trial_cannot_use_cloud_or_server_separation(self):
+        user = new_user(trial_days=5)
+        with self.assertRaises(billing.NoCredits) as cloud:
+            billing.check(user["id"], "cloud")
+        self.assertEqual(cloud.exception.kind, "trial_cloud")
+        self.assertIn("paid plans", str(cloud.exception))
+        with self.assertRaises(billing.NoCredits) as server:
+            billing.charge(user["id"], ref(), "server")
+        self.assertEqual(server.exception.kind, "trial_mode")
+        self.assertEqual(billing.summary(user["id"])["tracks_used"], 0)
+
+    def test_subscribing_after_trial_tracks_starts_the_full_plan_allowance(self):
+        user = new_user(trial_days=5)
+        for _ in range(3):
+            billing.charge(user["id"], ref(), "local")
+        with db() as conn:  # What the webhook stores once the plan is paid (it also ends the app trial).
+            conn.execute("""UPDATE users SET subscription_status='active', plan='starter', plan_tier='starter', included_tracks=10,
+                            included_cloud=0, trial_ends_at=? WHERE id=?""", (datetime.now(timezone.utc).isoformat(), user["id"]))
+        summary = billing.summary(user["id"])
+        self.assertEqual((summary["plan"]["source"], summary["tracks_used"], summary["allowance_left"]), ("subscription", 0, 10))
 
     def test_last_months_separations_do_not_use_this_months_allowance(self):
         user = subscriber("starter")
@@ -370,13 +401,15 @@ class CheckoutTests(CatalogCase):
         self.assertEqual(self.checkout(new_user(), plan="enterprise").status_code, 422)
         self.assertEqual(self.checkout(new_user(), interval="week").status_code, 422)
 
-    def test_subscribing_during_the_app_trial_does_not_stack_a_second_trial(self):
-        user = new_user(trial_days=5)
-        self.checkout(user, plan="pro")
-        expected = int(datetime.fromisoformat(user["trial_ends_at"]).timestamp())
-        self.assertEqual(self.create.call_args.kwargs["subscription_data"]["trial_end"], expected)
-        self.checkout(new_user(trial_days=1), plan="pro")
-        self.assertNotIn("trial_end", self.create.call_args.kwargs["subscription_data"], "under 48 hours left: bill now")
+    def test_subscribing_during_the_app_trial_has_no_stripe_trial(self):
+        trial_user = new_user(trial_days=5)
+        for user in (trial_user, new_user()):
+            self.assertEqual(self.checkout(user, plan="pro").status_code, 200)
+            data = self.create.call_args.kwargs["subscription_data"]
+            self.assertNotIn("trial_end", data)
+            self.assertNotIn("trial_period_days", data)
+        self.assertEqual(get_user_by_id(trial_user["id"])["trial_ends_at"], trial_user["trial_ends_at"],
+                         "an abandoned checkout keeps the free trial; the paid subscription ends it")
 
     def test_existing_subscribers_manage_their_plan_instead_of_buying_another(self):
         for status in ("active", "trialing", "past_due"):
@@ -398,7 +431,7 @@ class CheckoutTests(CatalogCase):
         self.assertNotIn("price_id", studio)
 
     def test_pack_checkout_creates_a_customer_once_and_opens_the_portal(self):
-        user = new_user(trial_days=5)
+        user = subscriber("pro")  # A paid plan without a Stripe Customer on file yet (e.g. a legacy row).
         response = self.client.post("/api/stripe/packs/tracks_25/checkout", headers=auth(user))
         self.assertEqual(response.status_code, 200, response.text)
         params = self.create.call_args.kwargs
@@ -414,9 +447,12 @@ class CheckoutTests(CatalogCase):
             self.assertEqual(self.client.post("/api/stripe/portal", headers=auth(user)).status_code, 200)
         self.assertEqual(portal.call_args.kwargs["customer"], customer)
 
-    def test_packs_need_a_plan_or_trial(self):
-        response = self.client.post("/api/stripe/packs/tracks_10/checkout", headers=auth(new_user()))
-        self.assertEqual(response.status_code, 402)
+    def test_packs_need_a_paid_plan(self):
+        for user in (new_user(), new_user(trial_days=5), subscriber("pro", status="canceled")):
+            response = self.client.post("/api/stripe/packs/tracks_10/checkout", headers=auth(user))
+            self.assertEqual(response.status_code, 402)
+        self.create.assert_not_called()
+        self.assertFalse(self.client.get("/api/stripe/usage", headers=auth(new_user(trial_days=5))).json()["can_buy_packs"])
         self.assertEqual(self.client.post("/api/stripe/packs/nope/checkout", headers=auth(new_user("active"))).status_code, 404)
 
     def test_portal_without_a_billing_account_is_404(self):
@@ -516,6 +552,16 @@ class WebhookTests(CatalogCase):
         self.retrieve.side_effect = lambda sub_id, **kw: self.subscriptions[sub_id]
         self.assertEqual(self.deliver(event).json(), {"received": True})
         self.assertEqual(get_user_by_id(user["id"])["plan"], "pro")
+
+    def test_a_paid_plan_ends_the_app_trial(self):
+        user = new_user(trial_days=5)
+        billing.charge(user["id"], ref(), "local")
+        self.subscriptions["sub_now"] = stripe_subscription("sub_now", "cus_now", "pro", user_id=user["id"])
+        self.deliver(self.event("customer.subscription.created", {"id": "sub_now"}))
+        stored = get_user_by_id(user["id"])
+        self.assertLessEqual(stored["trial_ends_at"], datetime.now(timezone.utc).isoformat())
+        summary = billing.summary(user["id"])
+        self.assertEqual((summary["plan"]["source"], summary["allowance_left"], summary["cloud_allowance_left"]), ("subscription", 30, 5))
 
     def test_subscription_checkout_stores_the_plan_from_stripe(self):
         user = new_user(trial_days=5)
@@ -635,6 +681,29 @@ class FairUseTests(unittest.TestCase):
                 main.prepare_chat(main.ChatRequest(message="Make a beat"), user)
         self.assertEqual(caught.exception.status_code, 429)
         self.assertIn("Upgrade your plan", caught.exception.detail)
+
+    def test_trial_ai_is_capped_even_when_fair_use_is_not_enforced(self):
+        import main
+        by_messages, by_spend, fresh = new_user(trial_days=5), new_user(trial_days=5), new_user(trial_days=5)
+        for n in range(50):
+            ai_usage.record(by_messages["id"], "chat", "bedrock", self.HAIKU, {"input_tokens": 10}, f"request-{n}")
+        ai_usage.record(by_messages["id"], "chat", "bedrock", self.HAIKU, {"input_tokens": 10}, "request-0")  # same message
+        self.spend(by_spend, 2.0)
+        with patch.object(main, "claude_client", object()), patch.dict(os.environ, {"AI_FAIR_USE_ENFORCED": "false"}):
+            for user in (by_messages, by_spend):
+                with self.assertRaises(main.HTTPException) as caught:
+                    main.prepare_chat(main.ChatRequest(message="Make a beat"), user)
+                self.assertEqual((caught.exception.status_code, caught.exception.detail), (402, ai_usage.TRIAL_MESSAGE))
+            main.prepare_chat(main.ChatRequest(message="Make a beat"), fresh)
+            with patch.dict(os.environ, {"TRIAL_CHAT_MESSAGES": "51"}):
+                main.prepare_chat(main.ChatRequest(message="Make a beat"), by_messages)
+        self.assertEqual(ai_usage.trial_usage(by_messages["id"])["chat_messages"], 50)
+
+    def test_paid_subscribers_are_not_held_to_the_trial_cap(self):
+        user = subscriber("starter")
+        self.spend(user, 3)
+        with patch.dict(os.environ, {"AI_FAIR_USE_ENFORCED": "false"}):
+            ai_usage.enforce(user)
 
     def test_last_months_spend_does_not_count(self):
         user = subscriber("starter")

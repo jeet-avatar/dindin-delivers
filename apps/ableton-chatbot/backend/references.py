@@ -16,6 +16,7 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
+import ai_usage
 import audio_listener
 import billing
 import cloud_separation
@@ -537,6 +538,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         data = reference_listening.read(directory)
         if len(data['excerpts']) >= 200:
             raise HTTPException(409, 'This reference has reached its listening-history limit.')
+        ai_usage.enforce(user)
         rate_limit(f"reference-listen:{user['id']}", max_requests=10, window_seconds=3600)
         LISTENING.add(reference_id)
         try:
@@ -565,6 +567,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         segments = reference_listening.windows(directory)
         if len(data['excerpts']) + len(segments) > 200:
             raise HTTPException(409, 'This reference has reached its listening-history limit.')
+        ai_usage.enforce(user)
         rate_limit(f"reference-whole:{user['id']}", max_requests=2, window_seconds=3600)
         data['job'] = {'status': 'running', 'completed': 0, 'total': len(segments),
                        'intent': request.intent, 'failures': [], 'started_at': datetime.now(timezone.utc).isoformat()}
@@ -626,6 +629,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         if SUGGESTING:
             raise HTTPException(409, 'A template suggestion is running. Please wait.')
         timing = reference_timing.require_review(directory) if request.brief.timing_mode == 'reference_seconds' else None
+        ai_usage.enforce(user)
         rate_limit(f"reference-template:{user['id']}", max_requests=5, window_seconds=3600)
         SUGGESTING.add(reference_id)
         try:

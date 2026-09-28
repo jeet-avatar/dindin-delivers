@@ -148,7 +148,7 @@ def past_due_grace_days() -> int:
         return PAST_DUE_GRACE_DAYS
 
 
-def _utc(value: str | None):
+def parse_utc(value: str | None):
     if not value:
         return None
     try:
@@ -165,7 +165,7 @@ def _paid_status(user: dict) -> bool:
     if status in ("active", "trialing"):
         return True
     if status == "past_due":
-        since = _utc(user.get("past_due_since"))
+        since = parse_utc(user.get("past_due_since"))
         return since is None or datetime.now(timezone.utc) < since + timedelta(days=past_due_grace_days())
     return False
 
@@ -181,7 +181,7 @@ def mixmind_access(user: dict) -> bool:
 
 
 def trial_active(user: dict) -> bool:
-    trial = _utc(user.get("trial_ends_at"))
+    trial = parse_utc(user.get("trial_ends_at"))
     return bool(trial and datetime.now(timezone.utc) < trial)
 
 

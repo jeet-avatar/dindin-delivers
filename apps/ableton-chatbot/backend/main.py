@@ -28,7 +28,6 @@ from production import create_plan, get_plan, link_audition, review_part, replac
 from session_context import matching_recordings, context_note
 from model_history import bounded_history
 import ai_usage
-import billing
 import catalog
 import references
 import chat_store
@@ -50,9 +49,6 @@ logging.basicConfig(level=logging.WARNING)
 log = logging.getLogger("beatmind")
 
 TRIAL_DAYS = 7
-FAIR_USE_MESSAGE = ("You've reached this month's fair-use limit for BeatMind AI on your plan. "
-                    "Upgrade your plan to keep chatting, or wait until the 1st of next month (UTC). "
-                    "Your songs, stems and track packs are unaffected.")
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")]
 
 
@@ -562,8 +558,7 @@ def prepare_chat(req: ChatRequest, user: dict):
     # Block prompt injection attempts
     check_prompt_injection(req.message)
 
-    if ai_usage.fair_use_enforced() and ai_usage.over_cap(user["id"], billing.allowance(user)["tier"]):
-        raise HTTPException(429, FAIR_USE_MESSAGE)
+    ai_usage.enforce(user)
 
     session_id = req.session_id or str(uuid.uuid4())
     if session_id not in sessions:
@@ -764,6 +759,7 @@ def _build_tools() -> list[dict]:
 
 
 async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None, emit=None) -> tuple[str, list]:
+    usage_request = uuid.uuid4().hex  # Groups this message's model calls in the usage log.
     tool_calls_log = []
     pack_scoped = False
     track_creation_attempted = False
@@ -793,7 +789,7 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
             tools=[tool for tool in _build_tools() if not planning_only or tool['name'] in DISCUSSION_TOOLS],
             messages=bounded_history(messages),
         )
-        ai_usage.record(session.user_id, 'chat', provider_name(), MODEL, ai_usage.anthropic_tokens(response))
+        ai_usage.record(session.user_id, 'chat', provider_name(), MODEL, ai_usage.anthropic_tokens(response), usage_request)
 
         text_parts = []
         tool_uses = []

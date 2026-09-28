@@ -5,7 +5,6 @@ includes comes from its Stripe PRODUCT metadata (tier, included_tracks, included
 packages: kind, credits, pack_id). The result is cached in-process for CATALOG_TTL_SECONDS.
 """
 
-from datetime import datetime, timezone
 import logging
 import os
 import threading
@@ -25,7 +24,6 @@ PACK_KEYS = ('beatmind_pack_tracks_10', 'beatmind_pack_tracks_25', 'beatmind_pac
              'beatmind_pack_cloud_10', 'beatmind_pack_cloud_50')
 TTL_SECONDS = 600
 RETRY_SECONDS = 60
-TRIAL_MIN_SECONDS = 48 * 3600  # Stripe Checkout rejects a trial_end sooner than 48 hours away.
 
 _lock = threading.Lock()
 _cache: tuple[float, dict] | None = None
@@ -196,22 +194,3 @@ def public_plans():
 
 def packs():
     return resolve()['packs']
-
-
-def trial_end(trial_ends_at, now=None):
-    """Stripe trial_end (unix seconds) that continues the app trial, or None when no Stripe trial applies.
-
-    The app trial is not stacked with a second trial: subscribing during it ends Stripe's trial when the
-    app trial ends. Stripe needs at least 48 hours of trial; closer than that, billing starts now.
-    """
-    if not trial_ends_at:
-        return None
-    try:
-        end = datetime.fromisoformat(trial_ends_at)
-    except ValueError:
-        return None
-    end = end if end.tzinfo else end.replace(tzinfo=timezone.utc)
-    now = now or datetime.now(timezone.utc)
-    if (end - now).total_seconds() <= TRIAL_MIN_SECONDS:
-        return None
-    return int(end.timestamp())

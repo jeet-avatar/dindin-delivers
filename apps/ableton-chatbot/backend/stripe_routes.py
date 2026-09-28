@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict
 import ai_usage
 import billing
 import catalog
-from database import db, get_user_by_id, is_subscribed, mixmind_access
+from database import db, get_user_by_id, is_subscribed, mixmind_access, parse_utc, subscription_access
 
 log = logging.getLogger("beatmind.stripe")
 
@@ -92,6 +92,7 @@ async def plans():
     """The plan picker's catalog. MixMind plans stay listed as unavailable until MixMind sales open."""
     items = await asyncio.to_thread(catalog.public_plans)
     return {"plans": items, "promotion_codes_on": ["year"], "trial_days": 7,
+            "trial": {**billing.trial_allowance(), **ai_usage.trial_limits()},
             "mixmind_sales_enabled": catalog.mixmind_sales_enabled()}
 
 
@@ -110,11 +111,8 @@ async def create_checkout_session(request: Request, body: CheckoutRequest | None
     if user["subscription_status"] in OPEN_STATUSES:
         raise HTTPException(409, "You already have a BeatMind plan. Change it or update your card from Manage billing.")
 
+    # No Stripe trial: the app's free trial collects no card, and subscribing ends it (charged today, full allowance).
     subscription_data = {"metadata": {"user_id": str(user["id"]), "app": APP, "plan": body.plan}}
-    # Continue the app's free trial instead of adding a second one; none once it is (nearly) over.
-    trial_end = catalog.trial_end(user.get("trial_ends_at"))
-    if trial_end:
-        subscription_data["trial_end"] = trial_end
     try:
         customer = await asyncio.to_thread(_ensure_customer, user)
         session = await asyncio.to_thread(
@@ -163,9 +161,10 @@ async def usage(request: Request):
     summary = billing.summary(user["id"])
     return {**summary, "packs": [p for p in packs if p["price"]],
             "subscribed": is_subscribed(user), "mixmind_access": mixmind_access(user),
-            # Separations need an active plan or trial, so packages top one up rather than replace it.
-            "packs_require_plan": True, "billing_account": bool(user.get("stripe_customer_id")),
-            "ai_usage": ai_usage.month_to_date(user["id"], summary["plan"]["tier"])}
+            # Packages top up a paid plan: they are not sold during the free trial or without a plan.
+            "packs_require_plan": True, "can_buy_packs": subscription_access(user),
+            "billing_account": bool(user.get("stripe_customer_id")),
+            "ai_usage": ai_usage.status(user["id"], summary["plan"])}
 
 
 @router.post("/packs/{pack_id}/checkout")
@@ -177,8 +176,8 @@ async def buy_pack(pack_id: str, request: Request):
         raise HTTPException(404, "Unknown package")
     if not stripe.api_key:
         raise HTTPException(500, "Payment system not configured")
-    if not is_subscribed(user):
-        raise HTTPException(402, "Track packs top up a plan or free trial. Choose a plan first.")
+    if not subscription_access(user):
+        raise HTTPException(402, "Track packs top up a paid plan. Choose a plan first.")
     metadata = {"user_id": str(user["id"]), "app": APP, "pack_id": item["id"],
                 "kind": item["kind"], "credits": str(item["credits"])}
     try:
@@ -270,6 +269,8 @@ def apply_subscription(subscription, user_id=None) -> bool:
             log.info("Ignoring %s subscription %s: user %s has open subscription %s", status, subscription["id"], user["id"], current)
             return False
         fields = _plan_fields(subscription)
+        if status in OPEN_STATUSES and (trial := parse_utc(user.get("trial_ends_at"))) and trial > datetime.now(timezone.utc):
+            fields["trial_ends_at"] = datetime.now(timezone.utc).isoformat()  # A paid plan replaces the free trial.
         if status == "past_due":
             already = user["subscription_status"] == "past_due" and user.get("past_due_since")
             fields["past_due_since"] = user["past_due_since"] if already else datetime.now(timezone.utc).isoformat()
