@@ -21,6 +21,7 @@ export const SOCIAL_PROFILES: string[] = [
   "https://www.instagram.com/beatmindio/",
   "https://www.tiktok.com/@beatmindio",
   "https://www.youtube.com/@beatmindio",
+  "https://x.com/beatmindio",
 ];
 
 export const HOME_TITLE = "BeatMind — AI Music Producer for Ableton";
