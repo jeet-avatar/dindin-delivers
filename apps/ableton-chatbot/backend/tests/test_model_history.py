@@ -35,6 +35,15 @@ class ModelHistoryTests(unittest.TestCase):
         self.assertTrue(all(entry["status"] == "verified" for entry in ledger))
         self.assertEqual(compact[2]["content"][0]["type"], "tool_use")
         self.assertEqual(compact[-1]["content"][0]["tool_use_id"], "11")
+    def test_compaction_never_truncates_midi_notes(self):
+        from model_history import compact_result
+        notes = [{"pitch": 57, "start": i * 0.25, "duration": 0.2, "velocity": 90, "mute": False} for i in range(48)]
+        compacted = compact_result({"status": "observed", "notes": notes, "other": list(range(40))})
+        self.assertEqual(compacted["notes"]["total"], 48)
+        self.assertEqual(len(compacted["notes"]["rows"]), 48)
+        self.assertEqual(compacted["notes"]["rows"][47], [57, 11.75, 0.2, 90])
+        self.assertTrue(compacted["other"]["truncated"])  # other long lists are still shortened
+
     def test_small_history_is_unchanged(self):
         messages = [{"role": "user", "content": "Inspect"}]
         self.assertIs(bounded_history(messages), messages)

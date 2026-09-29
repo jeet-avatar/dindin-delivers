@@ -263,7 +263,7 @@ class VerifiedExecutor:
                 raise ExecutionError("Destination clip slot is occupied. Choose an empty slot; existing music was not overwritten.")
             if name == "create_clip" and not await self.scalar("/live/track/get/has_midi_input", [t]):
                 raise ExecutionError("MIDI clips require a MIDI track.")
-        if name in {"add_notes", "clear_notes", "duplicate_clip"}:
+        if name in {"add_notes", "clear_notes", "remove_notes", "duplicate_clip"}:
             clip_length = await self.scalar("/live/clip/get/length", [t, s])
             if not await self.scalar("/live/clip/get/is_midi_clip", [t, s]):
                 raise ExecutionError("This operation requires a MIDI clip.")
@@ -275,6 +275,13 @@ class VerifiedExecutor:
                 expected_notes = before_notes + [{**n, "muted": False} for n in data["notes"]]
             elif name == "clear_notes":
                 expected_notes = []
+            elif name == "remove_notes":
+                low, high = data.get("pitch_low", 0), data.get("pitch_high", 127)
+                end = data["start"] + data["length"]
+                expected_notes = [n for n in before_notes
+                                  if not (low <= n["pitch"] <= high and data["start"] - 1e-6 <= n["start"] < end - 1e-6)]
+                if len(expected_notes) == len(before_notes):
+                    raise ExecutionError("No notes start in that range; nothing was removed.")
         if name in {"set_device_parameter", "automate_parameter"}:
             params = (await self.perform("get_device_parameters", {"track": t, "device": data["device"]}))["parameters"]
             if data["parameter"] >= len(params):

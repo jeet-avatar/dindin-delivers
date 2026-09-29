@@ -371,8 +371,24 @@ ABLETON_TOOLS = [
         },
     },
     {
+        "name": "remove_notes",
+        "description": "Remove only the notes that START inside a time range (and optional pitch range) of a clip, keeping every other note exactly. Use it to empty a beat or a bar (for example the last beat before a drop) without rewriting the clip. Verified against the full before/after note list.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {"type": "integer", "description": "Track index"},
+                "scene": {"type": "integer", "description": "Scene index"},
+                "start": {"type": "number", "minimum": 0, "description": "Range start in beats from the clip start"},
+                "length": {"type": "number", "exclusiveMinimum": 0, "description": "Range length in beats"},
+                "pitch_low": {"type": "integer", "minimum": 0, "maximum": 127},
+                "pitch_high": {"type": "integer", "minimum": 0, "maximum": 127},
+            },
+            "required": ["track", "scene", "start", "length"],
+        },
+    },
+    {
         "name": "clear_notes",
-        "description": "Remove ALL MIDI notes from a clip so you can rewrite the pattern. Use before re-adding notes when fixing a pattern.",
+        "description": "Remove ALL MIDI notes from a clip so you can rewrite the pattern. Only clear after you have read the COMPLETE note list (never from a partial or truncated read); to remove some notes, use remove_notes instead.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -725,6 +741,10 @@ def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
             return [{"address": "/live/song/delete_scene", "args": [tool_input["scene"]]}]
         case "delete_clip":
             return [{"address": "/live/clip_slot/delete_clip", "args": [tool_input["track"], tool_input["scene"]]}]
+        case "remove_notes":
+            low, high = tool_input.get("pitch_low", 0), tool_input.get("pitch_high", 127)
+            return [{"address": "/live/clip/remove/notes", "args": [tool_input["track"], tool_input["scene"], low, high - low + 1,
+                                                                    float(tool_input["start"]), float(tool_input["length"])]}]
         case "clear_notes":
             # No extra args after [track, scene] removes all notes in the clip.
             return [{"address": "/live/clip/remove/notes", "args": [tool_input["track"], tool_input["scene"], 0, 128, -8192.0, 32768.0]}]

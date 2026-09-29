@@ -373,3 +373,11 @@ def test_prompt_has_human_feel_and_drama_rules():
     from claude_tools import SYSTEM_PROMPT
     for phrase in ("global Groove Amount", "Chance: ghost hats", "Drama in transitions", "Stop short", "white-noise riser"):
         assert phrase in SYSTEM_PROMPT
+
+
+def test_remove_notes_only_removes_the_range():
+    from claude_tools import tool_to_osc
+    cmds = tool_to_osc("remove_notes", {"track": 3, "scene": 5, "start": 15, "length": 1})
+    assert cmds == [{"address": "/live/clip/remove/notes", "args": [3, 5, 0, 128, 15.0, 1.0]}]
+    cmds = tool_to_osc("remove_notes", {"track": 1, "scene": 5, "start": 15, "length": 1, "pitch_low": 42, "pitch_high": 46})
+    assert cmds[0]["args"][2:4] == [42, 5]

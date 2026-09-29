@@ -13,11 +13,32 @@ def as_dict(value):
     return value
 
 
+NOTE_KEYS = {"notes", "changed_notes"}
+NOTE_FIELDS = ("pitch", "start", "duration", "velocity")
+
+
+def compact_notes(notes):
+    """MIDI notes stay complete (a partial list led to notes being rewritten from a guess); only their form shrinks."""
+    rows = []
+    for note in notes[:512]:
+        if isinstance(note, dict) and all(k in note for k in NOTE_FIELDS):
+            row = [note[k] for k in NOTE_FIELDS]
+            if note.get("probability", 1) != 1:
+                row.append({"probability": note["probability"]})
+            rows.append(row)
+        else:
+            return None
+    return {"format": list(NOTE_FIELDS), "rows": rows, "total": len(notes),
+            **({"truncated": True, "instruction": "More than 512 notes; read a smaller range before rewriting."} if len(notes) > 512 else {})}
+
+
 def compact_result(value):
     if isinstance(value, dict):
         result = {}
         for key, item in value.items():
-            if key in {"steps", "waveform", "production_log"}:
+            if key in NOTE_KEYS and isinstance(item, list) and len(item) > 16 and compact_notes(item) is not None:
+                result[key] = compact_notes(item)
+            elif key in {"steps", "waveform", "production_log"}:
                 result[key + "_audit"] = {"entries": len(item) if isinstance(item, list) else None,
                     "detail": "Full evidence retained in the action log; omitted from model context."}
             else:

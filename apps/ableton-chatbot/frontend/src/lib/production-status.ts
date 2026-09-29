@@ -108,7 +108,7 @@ export function trackOutcomes(actions: ProductionAction[]) {
     const previous = typeof target === "number" ? tracks.get(target) : undefined;
     if (previous && !isInspection(action) && !AUDIO.has(action.tool)) previous.recording = false;
     if (previous && BAD.has(action.result?.status || "")) {
-      if (["add_notes", "clear_notes", "duplicate_clip"].includes(action.tool)) previous.noteCount = undefined;
+      if (["add_notes", "clear_notes", "remove_notes", "duplicate_clip"].includes(action.tool)) previous.noteCount = undefined;
       if (action.tool.startsWith("load_")) previous.source = undefined;
     }
     if (!["verified", "observed"].includes(action.result?.status || "")) continue;
@@ -116,14 +116,14 @@ export function trackOutcomes(actions: ProductionAction[]) {
     if (Array.isArray(observedNames)) names = observedNames;
     const track = action.tool === "duplicate_clip" ? action.input.target_track : action.input.track;
     if (typeof track !== "number" || !action.result) continue;
-    if (!["set_track_name", "load_pack_sample", "load_library_item", "load_instrument", "load_sample", "add_notes", "clear_notes", "duplicate_clip", "audition_part", "get_track_device_tree", "get_clip_notes"].includes(action.tool)) continue;
+    if (!["set_track_name", "load_pack_sample", "load_library_item", "load_instrument", "load_sample", "add_notes", "clear_notes", "remove_notes", "duplicate_clip", "audition_part", "get_track_device_tree", "get_clip_notes"].includes(action.tool)) continue;
     const item = tracks.get(track) || { track, name: typeof names[track] === "string" ? String(names[track]) : `Track ${track + 1}`, recording: false };
     if (action.tool === "set_track_name" && typeof action.input.name === "string") item.name = action.input.name;
     if (action.tool === "load_pack_sample" && action.result.source) item.source = `${action.result.source.pack_name} / ${action.result.source.relative_path.split("/").at(-1)}`;
     if (action.tool === "load_library_item" && action.input.kind === "instrument" && Array.isArray(action.input.folders)) item.source = action.input.folders.join(" / ");
     if (action.tool === "get_track_device_tree" && Array.isArray(action.result.devices) && (!item.source || !action.result.devices.length)) item.source = action.result.devices.map(d => d.name).join(" + ") || "No device present";
     // A notes check of an empty scene slot says nothing about the track's clips in other scenes.
-    if (["add_notes", "clear_notes", "duplicate_clip", "get_clip_notes"].includes(action.tool) && Array.isArray(action.result.notes)
+    if (["add_notes", "clear_notes", "remove_notes", "duplicate_clip", "get_clip_notes"].includes(action.tool) && Array.isArray(action.result.notes)
         && action.result.has_clip !== false) {
       item.noteCount = action.result.notes.length;
       item.notesVerified = action.result.status === "verified";
@@ -138,7 +138,7 @@ export function actionLabel(tool: string) {
   const labels: Record<string, string> = {
     load_pack_sample: "Load selected pack sample", load_library_item: "Load instrument or effect",
     load_instrument: "Load instrument", load_sample: "Load sample", add_notes: "Write MIDI pattern",
-    clear_notes: "Clear MIDI pattern", audition_part: "Record sound preview",
+    clear_notes: "Clear MIDI pattern", remove_notes: "Remove notes in a range", audition_part: "Record sound preview",
     audition_scene: "Record full-mix preview", record_arrangement: "Record song to Arrangement",
     mix_check: "Run mix check", apply_master_chain: "Set master Limiter", get_effect_recipe: "Choose effect chain",
     delete_device: "Remove device", set_track_arm: "Set track arm", set_track_solo: "Set track solo", create_midi_track: "Create MIDI track",
