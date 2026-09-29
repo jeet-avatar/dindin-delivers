@@ -188,3 +188,9 @@ apps/ios/delivery/.dead-code-backup/
 
 # SQLite test artifacts
 *:memory:*
+
+# ===================
+# Git worktrees (project-local isolated workspaces)
+# ===================
+.worktrees/
+worktrees/
