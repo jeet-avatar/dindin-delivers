@@ -36,16 +36,24 @@ class MappingTests(unittest.TestCase):
         volume.str_for_value = lambda v: f"{v:.2f}"
         envelopes = {id(cutoff): Envelope(0.3, 1.0, 32.0)}
         clip = SimpleNamespace(length=32.0, automation_envelope=lambda p: envelopes.get(id(p)))
+        sustain = Parameter("Ve Sustain")
+        envelopes[id(sustain)] = Envelope(0.2, 0.8, 32.0)
+        hat = SimpleNamespace(name="Simpler", parameters=[sustain], can_have_chains=False)
+        kit = SimpleNamespace(name="909 Core Kit", parameters=[], can_have_chains=True, can_have_drum_pads=True,
+                              chains=[SimpleNamespace(name="Kick", devices=[]), SimpleNamespace(name="Open Hat", devices=[hat])])
         device = SimpleNamespace(name="Auto Filter", parameters=[cutoff], can_have_chains=False)
         mixer = SimpleNamespace(volume=volume, panning=Parameter("Pan"), sends=[Parameter("A-Reverb")])
-        track = SimpleNamespace(devices=[device], mixer_device=mixer,
+        track = SimpleNamespace(devices=[device, kit], mixer_device=mixer,
                                 clip_slots=[SimpleNamespace(has_clip=True, clip=clip), SimpleNamespace(has_clip=False)])
         handlers = {}
         server = SimpleNamespace(add_handler=lambda address, callback: handlers.update({address: callback}))
         extension.register(SimpleNamespace(song=SimpleNamespace(tracks=[track]), osc_server=server), SimpleNamespace())
         read = lambda data: json.loads(handlers["/live/beatmind/clip_automation"]((json.dumps(data),))[0])
         result = read({"track": 0, "scene": 0, "samples": 3})
-        self.assertEqual([a["name"] for a in result["automations"]], ["Frequency"])
+        self.assertEqual([a["name"] for a in result["automations"]], ["Frequency", "Ve Sustain"])
+        self.assertEqual(result["automations"][1]["path"], [1, 1, 0])
+        nested = read({"track": 0, "scene": 0, "path": [1, 1, 0], "control": "Ve Sustain"})
+        self.assertEqual([a["device"] for a in nested["automations"]], ["Simpler"])
         self.assertEqual(result["automations"][0]["path"], [0])
         self.assertEqual([t for t, _ in result["automations"][0]["points"]], [0.01, 16.01, 31.99])
         self.assertTrue(result["automations"][0]["points"][0][1].endswith("Hz"))

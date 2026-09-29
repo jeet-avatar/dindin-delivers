@@ -352,7 +352,7 @@ def register(handler, app):
                 path = prefix + [index]
                 for parameter in device.parameters:
                     targets.append(({"path": path, "device": device.name, "control": parameter.name}, parameter))
-                if depth < 3 and getattr(device, "can_have_chains", False) and not getattr(device, "can_have_drum_pads", False):
+                if depth < 3 and getattr(device, "can_have_chains", False):  # racks and Drum Rack pads alike
                     for chain_index, chain in enumerate(device.chains):
                         walk(chain.devices, path + [chain_index], depth + 1)
         walk(track.devices, [], 0)
