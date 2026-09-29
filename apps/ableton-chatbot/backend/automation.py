@@ -63,7 +63,7 @@ for name, operation, description, properties, required in [
       "velocity_deviation": {"type": "number", "minimum": -64, "maximum": 64},
       "nudge_ms": {"type": "number", "minimum": -30, "maximum": 30}},
      ["track", "scene", "pitches"]),
-    ("groove", "groove", "Live's Groove Pool. action library: browse factory grooves (folders like [\"Swing\",\"MPC\"]); pool: grooves in this set, their amounts and the global Groove Amount; clips: which clips use which groove; global: read or set the global Groove Amount (amount 0-130 %, 0 switches every groove off); load: add a library groove by exact folders path; assign: give a clip a pool groove (groove index) or none (groove null); amounts: set a pool groove's timing, random, velocity (-100..100) and quantize (0-100 %).",
+    ("groove", "groove", "Live's Groove Pool. action library: browse factory grooves (folders like [\"Swing\",\"MPC\"]); pool: grooves in this set, their amounts and the global Groove Amount; clips: which clips use which groove; global: read or set the global Groove Amount (amount 0-130 %, 0 switches every groove off); load: add a library groove by exact folders path; assign: give a clip a pool groove (groove index); Live cannot clear a clip's groove, so to make clips straight set their pool groove's amounts to 0; amounts: set a pool groove's timing, random, velocity (-100..100) and quantize (0-100 %).",
      {"action": {"type": "string", "enum": ["library", "pool", "clips", "global", "load", "assign", "amounts"]},
       "folders": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 200}, "maxItems": 6},
       "track": {"type": "integer", "minimum": 0}, "scene": {"type": "integer", "minimum": 0},

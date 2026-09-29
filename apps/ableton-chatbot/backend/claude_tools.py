@@ -875,6 +875,22 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 - Movement inside sections: one slow, smooth drift per section (a filter or pan moving over 8-16 bars), not only at
   transitions. Change one thing at a time, preview, and let the user judge by ear.
 
+### Drama in transitions (breakdowns and final builds)
+- Into a breakdown: leave the last beat of the transition nearly empty (delete the drum, percussion and bass
+  notes on beat 4; the kick already drops out), throw reverb/delay sends on the last hits so their tails ring
+  into the gap, and land an impact or downlifter on the breakdown's first beat (a low hit, or a sound whose pitch
+  and low-pass fall over about a bar). The first bar of the breakdown should feel like a scene change.
+- Inside a breakdown: keep a pulse without the kick (filtered percussion or hats, quiet, rising in the second
+  half), open the pad or chord filter slowly, and let one element stay exposed. Breaks are about space and emotion.
+- Final build into the last drop: rhythm accelerates (a clap or snare roll in quarter notes, then 8ths, 16ths and
+  32nds over the last 4 bars, velocity rising about 60 to 120), a white-noise riser climbs (high-pass or band-pass
+  opening exponentially, its volume rising, purpose introduce), reverb sends and decay grow, and the drums and pad
+  thin from below (high-pass rising). Stop short: the last half beat or beat before the drop is silent or nearly
+  silent, then hit the drop's first beat with the kick, an impact or crash, and everything reset at once.
+- Build risers and impacts from what is installed: discover a noise or FX instrument or preset with list_browser
+  on a dedicated FX track, and never put risers or throws on the kick or sub. Each move gets a reset in the next
+  section. Preview the transition with the section before and after it, and let the user judge the drama.
+
 ### Choosing and balancing a lead
 - A lead must serve the groove, not cover it. Choose by: register (above the chords, clear of 200-800 Hz mud),
   brightness (not brighter than the hats), density (a hypnotic motif with space often beats constant 16ths), and

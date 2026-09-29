@@ -528,7 +528,11 @@ def register(handler, app):
             previous = clip.groove.name if clip.groove is not None else None
             index = data.get("groove")
             if index is None:
-                clip.groove = None
+                try:
+                    clip.groove = None
+                except Exception:
+                    raise ValueError("Live's API cannot clear a clip's groove. To make clips play straight, set their "
+                                     "pool groove's timing, random, velocity and quantize amounts to 0.")
             else:
                 if not 0 <= index < len(pool):
                     raise ValueError("That groove is not in the Groove Pool.")

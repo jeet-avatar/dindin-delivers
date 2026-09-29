@@ -367,3 +367,9 @@ def test_read_clip_automation_is_read_only_and_passes_the_target():
     assert result["status"] == "observed" and sent == [("/live/beatmind/clip_automation", {"track": 4, "scene": 1, "mixer": "send", "send": 0})]
     from claude_tools import SYSTEM_PROMPT
     assert "read_clip_automation on that clip" in SYSTEM_PROMPT
+
+
+def test_prompt_has_human_feel_and_drama_rules():
+    from claude_tools import SYSTEM_PROMPT
+    for phrase in ("global Groove Amount", "Chance: ghost hats", "Drama in transitions", "Stop short", "white-noise riser"):
+        assert phrase in SYSTEM_PROMPT
