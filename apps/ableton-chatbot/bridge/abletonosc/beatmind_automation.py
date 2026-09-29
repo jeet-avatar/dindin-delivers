@@ -287,7 +287,7 @@ def register(handler, app):
 
     def clip_envelope(data):
         """Write a stored automation ramp into a Session clip, so it plays with the clip and records into the
-        Arrangement. Points are (beat, value) in the control's display unit; steps are linear in that unit."""
+        Arrangement. Points are (beat, value) in the control's display unit, shaped by each point's curve."""
         slot = handler.song.tracks[data["track"]].clip_slots[data["scene"]]
         if not slot.has_clip:
             raise ValueError("There is no clip in that slot to automate.")
@@ -320,14 +320,18 @@ def register(handler, app):
             raise ValueError("Live does not allow automation of this control in a clip.")
         written = 0
         for start, end in zip(points, points[1:]):
-            beat = start["beat"]
-            while beat < end["beat"] - 1e-9:
-                fraction = (beat - start["beat"]) / (end["beat"] - start["beat"])
+            span = end["beat"] - start["beat"]
+            count = max(1, int(math.ceil(span / step - 1e-9)))
+            for i in range(count):
+                beat = start["beat"] + i * step
+                # Spread the steps so the first holds the start value and the last holds the end value exactly.
+                fraction = i / (count - 1) if count > 1 else 1.0
+                if start.get("curve") == "step":
+                    fraction = 0.0
                 value = curve_value(start["value"], end["value"], fraction, start.get("curve", "linear"))
                 native = native_value(parameter, value, data["unit"], nearest=True)
                 envelope.insert_step(beat, min(step, end["beat"] - beat), native)
                 written += 1
-                beat += step
         # Read inside the first and last steps; exactly at a step boundary Live can report the previous value.
         first = parameter.str_for_value(envelope.value_at_time(points[0]["beat"] + step / 2))
         last = parameter.str_for_value(envelope.value_at_time(max(points[-1]["beat"] - step / 2, 0)))

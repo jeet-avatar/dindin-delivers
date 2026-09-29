@@ -28,6 +28,31 @@ class Parameter:
 
 
 class MappingTests(unittest.TestCase):
+    def test_clip_envelope_ramp_lands_on_its_end_value(self):
+        steps = []
+        class Envelope:
+            def insert_step(self, beat, length, value): steps.append((beat, length, value))
+            def value_at_time(self, t): return [v for b, l, v in steps if b <= t][-1]
+        cutoff = Parameter("Frequency")
+        clip = SimpleNamespace(length=32.0, clear_envelope=lambda p: None, automation_envelope=lambda p: None,
+                               create_automation_envelope=lambda p: Envelope())
+        device = SimpleNamespace(name="Auto Filter", class_name="AutoFilter", parameters=[cutoff], can_have_chains=False)
+        track = SimpleNamespace(devices=[device], clip_slots=[SimpleNamespace(has_clip=True, clip=clip)])
+        handlers = {}
+        server = SimpleNamespace(add_handler=lambda address, callback: handlers.update({address: callback}))
+        extension.register(SimpleNamespace(song=SimpleNamespace(tracks=[track]), osc_server=server), SimpleNamespace())
+        result = json.loads(handlers["/live/beatmind/clip_envelope"]((json.dumps({
+            "track": 0, "scene": 0, "path": [0], "map_id": extension.map_id(device), "control": "Frequency", "unit": "Hz",
+            "points": [{"beat": 0, "value": 20}, {"beat": 16, "value": 20, "curve": "exponential"}, {"beat": 32, "value": 300}]}),))[0])
+        self.assertEqual(result["status"], "verified", result)
+        hz = lambda native: 20 * 1000 ** native
+        self.assertAlmostEqual(hz(steps[0][2]), 20, delta=0.5)
+        self.assertAlmostEqual(hz(steps[63][2]), 20, delta=0.5)   # held until beat 16
+        self.assertAlmostEqual(hz(steps[64][2]), 20, delta=0.5)   # the ramp starts from the start value
+        self.assertAlmostEqual(hz(steps[-1][2]), 300, delta=3)    # and its last step is the end value
+        self.assertEqual(len(steps), 128)
+        self.assertIn("300", result["end_display"])
+
     def test_clip_automation_reads_stored_envelopes_only(self):
         class Envelope:
             def __init__(self, start, end, length): self.start, self.end, self.length = start, end, length
