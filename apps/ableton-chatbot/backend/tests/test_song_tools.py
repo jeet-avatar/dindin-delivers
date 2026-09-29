@@ -180,6 +180,7 @@ def test_mix_check_flags_clipping_and_names_the_armed_track():
     import mix_check, recordings
     live = FakeLive()
     live.arm = [0, 1, 0]
+    live.clips.add((2, 1))  # the Pad plays in the Drop too
     async def query(address, args):
         extra = {"/live/track/get/mute": lambda: [args[0], 0], "/live/track/get/volume": lambda: [args[0], 0.85]}
         if address in extra:
@@ -187,11 +188,16 @@ def test_mix_check_flags_clipping_and_names_the_armed_track():
         return (await live._query_osc("t", address, args, 4))["args"]
     with tempfile.TemporaryDirectory() as directory, patch.object(recordings, "ROOT", Path(directory)), \
          patch.object(mix_check, "loudness", return_value=(-9.6, 0.7)), patch.object(mix_check, "low_end_share", return_value=17.0):
-        (Path(directory) / ("b" * 32 + ".json")).write_text(json.dumps({"id": "b" * 32, "user_id": 3, "kind": "scene", "scene": 1, "scene_name": "Drop"}))
+        (Path(directory) / ("b" * 32 + ".json")).write_text(json.dumps({"id": "b" * 32, "user_id": 3, "kind": "scene", "scene": 1, "scene_name": "Drop",
+                                                                         "created_at": "2026-09-28T01:00:00"}))
+        for rid, track, rms, when in (("d" * 32, 0, -20.0, "2026-09-28T00:01:00"), ("e" * 32, 2, -15.0, "2026-09-28T00:02:00")):
+            (Path(directory) / (rid + ".json")).write_text(json.dumps({"id": rid, "user_id": 3, "track": track, "scene": 1,
+                                                                        "metrics": {"rms_dbfs": rms}, "created_at": when}))
         result = asyncio.run(mix_check.run(3, "b" * 32, query))
     checks = {c["id"]: c for c in result["checks"]}
     assert checks["headroom"]["status"] == "fail" and checks["loudness"]["status"] == "warn"
     assert checks["safety"]["fix"] == "Before exporting: unsolo Bass, disarm Bass."
+    assert checks["balance"]["status"] == "warn" and "Pad (+5.0 dB vs kick)" in checks["balance"]["detail"]
     part = asyncio.run(mix_check.run(3, "c" * 32, query))
     assert part["status"] == "failed"
 

@@ -93,6 +93,7 @@ export default function ProductionLog({ actions, requestStatus }: { actions: Pro
   const summary = summarizeProduction(actions, requestStatus);
   const tracks = trackOutcomes(actions);
   const section = actions.map(action => action.result?.section_brief).filter(Boolean).at(-1);
+  const mixCheck = actions.filter(action => action.tool === "mix_check").at(-1);
   return (
     <section className="min-w-0 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }} aria-label="Production actions">
       <div className="mb-3">
@@ -120,6 +121,17 @@ export default function ProductionLog({ actions, requestStatus }: { actions: Pro
           <p className="mt-1" style={{ color: "var(--text-secondary)" }}>{[track.noteCount != null ? `${track.noteCount} MIDI notes ${track.notesVerified ? "checked" : "present"}` : "", track.recording ? "Recording available" : ""].filter(Boolean).join(" / ")}</p>
         </li>)}
       </ul>}
+      {mixCheck?.result?.checks && <div className="mb-3" aria-label="Mix check">
+        <p className="text-sm font-semibold">Mix check{mixCheck.result.measurements ? ` · ${mixCheck.result.measurements.integrated_lufs} LUFS · true peak ${mixCheck.result.measurements.true_peak_dbtp} dBTP` : ""}</p>
+        <ul className="text-xs mt-2 space-y-2">
+          {mixCheck.result.checks.map(check => <li key={check.id} className="break-words">
+            <span className={check.status === "pass" ? "text-emerald-300" : check.status === "warn" ? "text-amber-200" : "text-red-300"}>
+              {check.status === "pass" ? "Pass" : check.status === "warn" ? "Improve" : "Must fix"}</span>{" "}
+            <strong>{check.label}:</strong> {check.detail}
+            {check.fix && <p style={{ color: "var(--text-secondary)" }}>Fix: {check.fix}</p>}
+          </li>)}
+        </ul>
+      </div>}
       <details className="text-xs">
         <summary className="cursor-pointer py-2" style={{ color: "var(--text-secondary)" }}>Technical history ({actions.length} actions)</summary>
       <ol className="divide-y" style={{ borderColor: "var(--border)" }}>
@@ -148,14 +160,6 @@ export default function ProductionLog({ actions, requestStatus }: { actions: Pro
                 <p><strong>Source:</strong> {action.result.section_brief.pack_name || (action.result.section_brief.source_mode === "existing" ? "Existing sounds" : "Discover sources")}</p>
                 <p>Brief saved; musical clips and audio still require verification.</p>
               </div>}
-              {action.tool === "mix_check" && action.result?.checks && <ul aria-label="Mix check" className="text-xs mt-2 space-y-2">
-                {action.result.checks.map(check => <li key={check.id} className="break-words">
-                  <span className={check.status === "pass" ? "text-emerald-300" : check.status === "warn" ? "text-amber-200" : "text-red-300"}>
-                    {check.status === "pass" ? "Pass" : check.status === "warn" ? "Improve" : "Must fix"}</span>{" "}
-                  <strong>{check.label}:</strong> {check.detail}
-                  {check.fix && <p style={{ color: "var(--text-secondary)" }}>Fix: {check.fix}</p>}
-                </li>)}
-              </ul>}
               {action.tool === "record_arrangement" && action.result?.sections && <ol aria-label="Arrangement sections" className="text-xs mt-2 space-y-1">
                 {action.result.sections.map((section, i) => <li key={i}>
                   Bars {section.start_bar}–{section.start_bar + section.bars - 1}: <strong>{section.name}</strong> ({section.bars} bars)

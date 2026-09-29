@@ -109,6 +109,26 @@ async def run(user_id, recording_id, query, target_lufs=TARGET_LUFS, ceiling=CEI
         checks.append(item("low_end", "Low end", "pass", f"{low}% of the energy below 120 Hz" +
                            (f"; carried by {', '.join(low_parts)}." if low_parts else ".")))
 
+    # Balance: each part's latest solo preview level against the kick's. Melodic parts well above the kick bury it.
+    latest = {}
+    for rec in recordings.list_recordings(user_id):
+        if rec.get("kind", "part") == "part" and isinstance(rec.get("track"), int) and rec["track"] not in latest:
+            latest[rec["track"]] = rec
+    by_name = {tracks[i]["name"]: latest[i]["metrics"].get("rms_dbfs") for i in latest if i < len(tracks) and tracks[i]["in_scene"]}
+    kick_rms = next((v for n, v in by_name.items() if "kick" in n.casefold() and v is not None), None)
+    loud = [f"{n} ({v - kick_rms:+.1f} dB vs kick)" for n, v in by_name.items()
+            if kick_rms is not None and v is not None and not any(w in n.casefold() for w in ("kick", "bass"))
+            and v > kick_rms - 3]
+    if kick_rms is None:
+        checks.append(item("balance", "Balance", "warn", "No kick preview to compare the other parts against.",
+                           "Preview the kick, then run the mix check again."))
+    elif loud:
+        checks.append(item("balance", "Balance", "warn", "Louder than the kick allows: " + ", ".join(loud) + ".",
+                           "In a Drop the kick and bass lead; lower these parts until they sit about 6-10 dB under the kick, "
+                           "or thin their tone (less presence boost, fewer notes)."))
+    else:
+        checks.append(item("balance", "Balance", "pass", "Melodic parts sit below the kick; the kick and bass lead the mix."))
+
     silent = [t["name"] for t in tracks if t["in_scene"] and t["mute"] and "reference" not in t["name"].casefold()]
     buried = [t["name"] for t in tracks if t["in_scene"] and not t["mute"] and t["volume"] < 0.4]
     if silent or buried:
@@ -143,5 +163,6 @@ async def run(user_id, recording_id, query, target_lufs=TARGET_LUFS, ceiling=CEI
             "checks": checks, "measurements": {"integrated_lufs": round(lufs, 1), "true_peak_dbtp": round(true_peak, 1),
                                                "low_end_percent": low, "target_lufs": target_lufs, "ceiling_dbtp": ceiling},
             "limitations": ["Measured on a short full-mix preview of one section, not the whole exported song.",
+                            "Balance uses each part's latest solo preview; re-preview a part after changing its fader.",
                             "These are measurements, not a judgement of taste; listen as well."],
             "steps": []}

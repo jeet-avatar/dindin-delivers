@@ -444,6 +444,13 @@ for _name, _flag, _about in (("set_track_arm", "armed", "Arm or disarm a track f
         "additionalProperties": False}})
 
 ABLETON_TOOLS.append({
+    "name": "get_track_volume",
+    "description": "Read a track's current fader level in dB (and Live's native 0-1 value). Read it before changing a fader by a relative amount such as 'down 1.5 dB'.",
+    "input_schema": {"type": "object", "properties": {"track": {"type": "integer", "minimum": 0}}, "required": ["track"],
+                     "additionalProperties": False}
+})
+
+ABLETON_TOOLS.append({
     "name": "mix_check",
     "description": "Run the engineering checklist on a full-mix preview from audition_scene: true peak/headroom, integrated loudness against the target, low-end share, every part audible, empty sections, and session safety (solo, arm, reference muted). Read-only. Show the user each failed or warned item with its fix, fix the must-fix items with verified tools, then preview and check again.",
     "input_schema": {"type": "object", "properties": {
@@ -572,6 +579,16 @@ def fader_from_db(db: float) -> float:
     return round(max(0.0, 0.4 * 10 ** ((db + 18) / 40)), 4)
 
 
+def db_from_fader(value: float) -> float:
+    """Inverse of fader_from_db: the dB level shown for a Live volume fader value."""
+    if value <= 0:
+        return float("-inf")
+    if value >= 0.4:
+        return round((value - 0.85) * 40, 1)
+    import math
+    return round(40 * math.log10(value / 0.4) - 18, 1)
+
+
 def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
     """
     Convert a Claude tool call into one or more OSC commands.
@@ -597,6 +614,8 @@ def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
             return [{"address": "/live/song/get/track_names", "args": [], "query": True}]
         case "set_track_name":
             return [{"address": "/live/track/set/name", "args": [tool_input["track"], tool_input["name"]]}]
+        case "get_track_volume":
+            return [{"address": "/live/track/get/volume", "args": [tool_input["track"]], "query": True}]
         case "set_track_volume":
             if ("volume" in tool_input) == ("volume_db" in tool_input):
                 raise ValueError("Give exactly one of volume_db (dB) or volume (Live's native 0.0-1.0 fader value).")
@@ -806,7 +825,8 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 ### Kick and bass (sidechain)
 - The kick and bass must not fight. First keep the bassline off the kick's beats and the sub mono.
 - Then duck the bass with the kick: a dedicated Compressor LAST on the bass chain, get_sidechain_sources, then
-  set_sidechain with source "Kick", switch the Compressor's sidechain on, ratio 4:1 (up to 10:1 for obvious pumping),
+  set_sidechain with source "Kick", make sure "S/C On" is On and "S/C EQ On" is Off (its default 80 Hz high-pass
+  hides the kick's low end from the trigger), Model Peak for fast ducking, ratio 4:1 (up to 10:1 for obvious pumping),
   attack 0.1-1 ms, release so it recovers before the next kick (about 60000/BPM ms as the ceiling; 150-250 ms at
   124 BPM is tight), threshold for roughly 3-6 dB of gain reduction on each kick. Optionally the same, lighter
   (2-3 dB), on pads/chords. Propose it like any chain and audition the bass with the kick playing.
@@ -822,6 +842,15 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 - Build sections: open a low-pass (Auto Filter or EQ Eight) from about 300 Hz to fully open over the Build, and
   high-pass everything except the riser over its last 4 bars; everything returns to normal at the Drop.
 - Breaks: filter or reverb/delay throws on the last beat before the Drop. Keep automation on its own section clip.
+
+### Choosing and balancing a lead
+- A lead must serve the groove, not cover it. Choose by: register (above the chords, clear of 200-800 Hz mud),
+  brightness (not brighter than the hats), density (a hypnotic motif with space often beats constant 16ths), and
+  character for the genre. Preset names are only a starting point: say so, audition, and offer alternatives.
+- In a Drop the kick and bass lead the mix; the lead sits about 6-10 dB under the kick in RMS. Start leads quieter
+  than you think, avoid presence boosts by default, and keep delay/reverb subtle (delay 10-15% wet).
+- If the user says a part is overpowering, first lower it (read get_track_volume, then set_track_volume), then
+  reduce its brightness or density, and only then swap the sound.
 
 ### What makes a track stand out
 - Change something every 8 bars (a part in or out, a filter move, a fill); a clear Break with the kick gone; a

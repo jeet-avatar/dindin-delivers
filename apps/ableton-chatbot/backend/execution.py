@@ -7,7 +7,7 @@ import time
 
 from jsonschema import Draft202012Validator
 
-from claude_tools import ABLETON_TOOLS, tool_to_osc, fader_from_db
+from claude_tools import ABLETON_TOOLS, tool_to_osc, fader_from_db, db_from_fader
 
 
 VALIDATORS = {t["name"]: Draft202012Validator(t["input_schema"]) for t in ABLETON_TOOLS}
@@ -216,6 +216,11 @@ class VerifiedExecutor:
             for cmd in tool_to_osc(name, data):
                 observations[cmd["address"]] = await self.command(cmd["address"], cmd.get("args", []), True, cmd.get("timeout", 5))
             result = {"status": "observed", "summary": name.replace("_", " ").capitalize(), "observations": observations}
+            if name == "get_track_volume":
+                value = float(observations["/live/track/get/volume"][-1])
+                result["volume"] = value
+                result["volume_db"] = db_from_fader(value)
+                result["summary"] = f"Track {t + 1} fader is at {result['volume_db']} dB (native {value:.3f})."
             if name == "get_clip_notes":
                 result["notes"] = notes_from_values(observations["/live/clip/get/notes"])
                 result["summary"] = f"Read {len(result['notes'])} MIDI notes from track {t + 1}, scene {s + 1}."
