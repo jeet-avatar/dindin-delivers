@@ -103,6 +103,9 @@ class PrecedenceTests(MixCheckTests):
     _save_full_mix_recording() fixture helper — not a fresh unittest.IsolatedAsyncioTestCase."""
 
     async def test_explicit_target_wins_over_everything(self):
+        # A conflicting producer profile is saved too, so this actually proves explicit beats profile
+        # (not just that explicit flows through when nothing else is set).
+        producer_profile.update(user_id=1, changes={'loudness_target_lufs': -10.0})
         recording_id = self._save_full_mix_recording(gain=0.1)
         report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query,
                                      target_lufs=-8.0)
@@ -111,10 +114,18 @@ class PrecedenceTests(MixCheckTests):
     async def test_producer_profile_wins_when_no_explicit_target(self):
         # setUp() (inherited from MixCheckTests) already patches producer_profile.ROOT to an isolated
         # temp dir, so this only needs to write into it — no separate patch needed here.
+        # A valid, conflicting reference_id is also supplied, so this proves profile beats reference
+        # (not just that profile flows through when no reference is offered).
         producer_profile.update(user_id=1, changes={'loudness_target_lufs': -10.0})
-        recording_id = self._save_full_mix_recording(gain=0.1)
-        report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query)
-        self.assertEqual(report['measurements']['target_lufs'], -10.0)
+        with tempfile.TemporaryDirectory() as refs_dir:
+            with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)):
+                reference_id = 'd' * 32
+                (Path(refs_dir) / reference_id).mkdir()
+                wavfile.write(Path(refs_dir) / reference_id / 'mix.wav', 44100, tone(gain=0.5))
+                recording_id = self._save_full_mix_recording(gain=0.1)
+                report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query,
+                                             reference_id=reference_id)
+                self.assertEqual(report['measurements']['target_lufs'], -10.0)
 
     async def test_reference_wins_when_no_explicit_or_profile_target(self):
         # producer_profile.ROOT isolation comes from the inherited setUp() (no preference saved there,
@@ -130,7 +141,10 @@ class PrecedenceTests(MixCheckTests):
                 recording_id = self._save_full_mix_recording(gain=0.1)
                 report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query,
                                              reference_id=reference_id)
-                self.assertNotEqual(report['measurements']['target_lufs'], mix_check.TARGET_LUFS)
+                # Exact value, not just "not the constant" — FFmpeg's ebur128 measurement is
+                # deterministic on identical input, so this isn't flaky.
+                expected = mastering.reference_targets(reference_id)['target_lufs']
+                self.assertEqual(report['measurements']['target_lufs'], expected)
 
     async def test_constant_default_when_nothing_else_set(self):
         # No preference saved (inherited setUp()'s isolated producer_profile.ROOT is empty) and no
@@ -138,6 +152,19 @@ class PrecedenceTests(MixCheckTests):
         recording_id = self._save_full_mix_recording(gain=0.1)
         report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query)
         self.assertEqual(report['measurements']['target_lufs'], mix_check.TARGET_LUFS)
+
+    async def test_reference_failure_returns_failed_status(self):
+        # Covers the try/except ValueError path in run(): a reference_id with no saved reference audio
+        # must surface reference_targets()'s specific message via a normal failed-status response,
+        # not propagate the ValueError.
+        with tempfile.TemporaryDirectory() as refs_dir:
+            with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)):
+                recording_id = self._save_full_mix_recording(gain=0.1)
+                report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query,
+                                             reference_id='f' * 32)
+                self.assertEqual(report, {"status": "failed",
+                                          "summary": "That reference has no saved mix audio to measure.",
+                                          "steps": []})
 
 
 if __name__ == '__main__':
