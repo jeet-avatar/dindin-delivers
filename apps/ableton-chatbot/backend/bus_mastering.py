@@ -68,6 +68,12 @@ async def compare_bus(user_id, reference_id, bus, scene, query, send, capture_sc
     the real composition: `recordings.save_recording(bridge.user_id, await bridge.local_operation(...))`),
     returning a dict with `recording.id` once saved to `recordings.ROOT/{id}.m4a` — a bare
     `bridge.local_operation` call alone only returns base64 bytes, not a file on disk."""
+    if bus not in ('drums', 'bass', 'vocals', 'other'):
+        # Guards _reference_bus_samples()'s `directory / f'{bus}.wav'` path build below: an
+        # unvalidated bus name could otherwise walk out of this reference's own directory
+        # (e.g. '../other_reference_id/mix') and read a different reference's audio. This
+        # module's own safety must not depend on a caller elsewhere validating `bus` first.
+        return {'status': 'failed', 'summary': f'"{bus}" is not a bus.', 'steps': []}
     try:
         references.owned(reference_id, user_id)
     except (ValueError, HTTPException) as error:

@@ -211,6 +211,58 @@ class BusComparisonTests(unittest.IsolatedAsyncioTestCase):
                     query=query, send=send, capture_scene=capture_scene)
         self.assertEqual(result, {'status': 'failed', 'summary': 'Reference not found', 'steps': []})
 
+    async def test_no_track_classified_for_the_bus_fails(self):
+        # A valid bus with nothing in the Live set classified into it — distinct from the ownership
+        # and missing-stem failure paths already covered above, and previously untested: every other
+        # test happens to pick a bus that some fake track name classifies into.
+        async def send(address, args):
+            raise AssertionError('should not mute anything when no track matches the bus')
+
+        async def query(address, args):
+            if address == '/live/song/get/track_names':
+                return ['FX Riser']  # unclassifiable by bus_mastering.classify()
+            raise AssertionError(address)
+
+        async def capture_scene(request):
+            raise AssertionError('should not capture when no track matches the bus')
+
+        with tempfile.TemporaryDirectory() as refs_dir:
+            reference_id = 'c' * 32
+            with patch.object(references, 'ROOT', Path(refs_dir)):
+                own_reference(refs_dir, reference_id, user_id=1)
+                wavfile.write(Path(refs_dir) / reference_id / 'vocals.wav', 44100, tone(gain=0.4))
+                with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)):
+                    result = await bus_mastering.compare_bus(
+                        user_id=1, reference_id=reference_id, bus='vocals', scene=0,
+                        query=query, send=send, capture_scene=capture_scene)
+        self.assertEqual(result, {'status': 'failed', 'summary': 'No track classified as vocals to compare.', 'steps': []})
+
+    async def test_invalid_bus_name_fails_before_touching_the_filesystem(self):
+        # Defense in depth: _reference_bus_samples() builds `directory / f'{bus}.wav'` from `bus`
+        # unchecked. Without this guard, a bus like '../other_reference_id/mix' could walk out of this
+        # reference's own directory and read a different (possibly not-owned) reference's audio. This
+        # must fail closed even though nothing calls compare_bus() with an attacker-controlled bus in
+        # production today (the dispatcher's JSON-schema enum is a separate, later-task guard) — this
+        # module's own safety must not depend on that caller.
+        async def send(address, args):
+            raise AssertionError('should not reach Ableton for an invalid bus')
+
+        async def query(address, args):
+            raise AssertionError('should not reach Ableton for an invalid bus')
+
+        async def capture_scene(request):
+            raise AssertionError('should not capture for an invalid bus')
+
+        with tempfile.TemporaryDirectory() as refs_dir:
+            reference_id = 'c' * 32
+            with patch.object(references, 'ROOT', Path(refs_dir)):
+                own_reference(refs_dir, reference_id, user_id=1)
+                with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)):
+                    result = await bus_mastering.compare_bus(
+                        user_id=1, reference_id=reference_id, bus='../etc/passwd', scene=0,
+                        query=query, send=send, capture_scene=capture_scene)
+        self.assertEqual(result, {'status': 'failed', 'summary': '"../etc/passwd" is not a bus.', 'steps': []})
+
 
 if __name__ == '__main__':
     unittest.main()
