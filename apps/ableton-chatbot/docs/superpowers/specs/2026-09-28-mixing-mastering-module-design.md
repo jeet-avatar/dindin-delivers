@@ -32,9 +32,14 @@ pipeline instead of duplicating it.
 - **Loudness/true-peak measurement itself** (`loudness()`, via FFmpeg
   `ebur128`) and band-energy measurement (`band_shares()`) are real,
   working functions today — but they're defined as plain top-level
-  functions **inside `mix_check.py`** (`mix_check.py:19` and `:44`), not in
+  functions **inside `mix_check.py`** (`def loudness(path):` /
+  `def band_shares(samples):`, currently around lines 19 and 41), not in
   a separate `mastering.py` module. Corrected below; an earlier draft of
   this spec wrongly assumed a standalone `mastering.py` already existed.
+  **Line numbers throughout this spec are as of 2026-09-29 against an
+  actively-developed branch (`main.py` alone had 4+ commits land in one
+  day) — re-verify exact line numbers immediately before implementation
+  rather than trusting them as fixed.**
 - **`engineering_rules.py` / `get_engineering_rules`** — rulebooks (vocal,
   human_feel, drama, entrances, **interactions**) including masking guidance
   (kick vs. bass, vocal vs. synth, etc.) as producer-legible detect/fix rules.
@@ -122,14 +127,23 @@ this spec got their status wrong); the rest are additive.
   `bus_mastering.py` one shared home for loudness measurement instead of
   duplicating it (three copies would violate this repo's own
   code-simplifier rules).
-- **`backend/main.py`** (existing — dispatcher, real change required).
-  Its `mix_check`/`apply_master_chain` call sites currently pass
-  `tool_input.get("target_lufs", mix_check.TARGET_LUFS)` — collapsing "not
-  explicitly requested" into the hardcoded default *before* `mix_check.run()`
-  is called, which is what makes real precedence impossible today. Change
-  this to pass `tool_input.get("target_lufs")` (may be `None`) plus the new
-  `reference_id` from the tool call, and let `mix_check.run()` resolve the
-  precedence itself (next bullet).
+- **`backend/main.py`** (existing — dispatcher, real change required). Find
+  the `if tool_name == "mix_check":` branch (as of 2026-09-29, lines
+  981-985 — verify against current line numbers, this file moves fast).
+  It currently has **two independent collapses**: the `mix_check` call
+  passes `tool_input.get("target_lufs", mix_check.TARGET_LUFS)`, and the
+  separate `apply_master_chain` call two lines below it passes
+  `tool_input.get("target_lufs", -14.0)` — its own hardcoded literal, not
+  even a reference to the same constant. Both collapse "not explicitly
+  requested" into a default *before* `mix_check.run()`/`master_chain.apply()`
+  ever see it, which is what makes real precedence impossible today. Change
+  the `mix_check` call site to pass `tool_input.get("target_lufs")` (may be
+  `None`) plus the new `reference_id` from the tool call, and let
+  `mix_check.run()` resolve precedence itself (next bullet).
+  **`apply_master_chain`'s own `-14.0` collapse is deliberately left
+  alone** — per Data flow step 5, it's always called with an
+  already-resolved `target_lufs` from `mix_check`'s step 4, so it never
+  falls back to its own literal in this design's normal path.
 - **`backend/mix_check.run()`** (existing — signature change). Change
   `target_lufs=TARGET_LUFS` to `target_lufs=None`, add `reference_id=None`,
   and resolve in this order inside the function: (1) explicit `target_lufs`
