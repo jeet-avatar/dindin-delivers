@@ -84,10 +84,13 @@ Bridge (local)
                                           streaming-normalization preview, structured pass/fail)
 ```
 
-Matchering is GPL-3.0. It runs as an isolated subprocess in its own venv
-(mirroring how `sound_comparison.run()` already shells out to a subprocess
-with a hard timeout and its own env) — never imported into BeatMind's own
-process, so BeatMind's own license posture is unaffected.
+Matchering is GPL-3.0. It runs under **its own venv's Python interpreter**
+(true dependency isolation — Matchering and its deps never enter BeatMind's
+own site-packages), invoked as a subprocess the same crash/timeout-safe way
+`sound_comparison.run()` already shells out to a subprocess (hard timeout,
+process-group kill, own env). `sound_comparison.run()`'s use of `sys.executable`
+gives crash isolation only, same interpreter; Matchering additionally needs
+the separate-venv isolation for the license boundary to actually hold.
 
 ## Components
 
@@ -111,12 +114,16 @@ the same Compare sounds report), and on the bounced master (mastering stage).
 
 New — no maintained open-source equivalent exists (confirmed by research: only
 unrelated ML-training "frequency masking augmentation" tools surfaced).
-Takes N simultaneous track recordings for the same time window (capturing all
-non-muted tracks unsoloed, reusing `audio_preview.py`'s capture path), computes
-per-critical-band energy via STFT (same `scipy.signal.stft` already used in
-`sound_comparison.measure()`), and flags any band where two or more tracks
-each hold >X% of the total energy in that band at the same time — a genuine
-gap this module has to fill itself rather than adopt.
+`audio_preview.py`'s `capture_part()` isolates exactly one track at a time (it
+force-solos the target and un-solos everything else) — there is no
+summed-mix capture to analyze per-track overlap from. So this component takes
+**N sequential isolated captures**, one per non-empty track over the same
+bar range/scene, each using `capture_part()` exactly as it works today. It
+then computes per-critical-band energy via STFT independently for each
+isolated track (same `scipy.signal.stft` already used in
+`sound_comparison.measure()`) and flags any band where two or more tracks
+each hold >X% of the total energy in that band during the same window — a
+genuine gap this module has to fill itself rather than adopt.
 
 Output is advisory notes only ("Bass and kick both dominate 60-120Hz during
 bars 9-16"), not an automatic EQ change.
@@ -163,11 +170,13 @@ tone, arrangement, or creative quality.
 ```
 1. Reference track already uploaded & stem-separated (existing workflow) — reused as-is.
 2. Per-track loop (existing "build a part" loop, extended):
-   describe_sound → audition_part → [NEW] measure_track (loudness_measurement)
-   → Compare sounds report now includes LUFS/true-peak/phase alongside
-     existing RMS/crest/spectrum → Claude/user decide on an explicit device
-     value change → applied via existing automate_parameter/mixer_preview,
-     re-verified, same as today.
+   describe_sound → audition_part → [NEW] measure_track (loudness_measurement,
+   a new tool call, new report) — this is a **separate report presented
+   alongside** the existing Compare sounds report in chat, not a modification
+   to `sound_comparison.py`'s own code or its `compare_arrays()` output. Claude
+   reasons over both reports together, then Claude/user decide on an explicit
+   device value change → applied via existing automate_parameter/mixer_preview,
+   re-verified, same as today.
 3. [NEW] detect_masking across all built tracks once arrangement is stable →
    advisory notes surfaced in chat, same non-blocking pattern.
 4. [NEW] bounce_master → master_track (Matchering vs. reference) →
@@ -189,9 +198,12 @@ tone, arrangement, or creative quality.
   mute/solo state) refuses rather than guesses, same as `audio_preview.py`.
 - Matchering subprocess isolation means a Matchering crash/bad-install can
   never take down the main Bridge process.
-- Missing or incompatible reference audio (wrong channel count, too short)
-  is validated before any processing starts, reusing `reference_limits.py`'s
-  existing bounds where applicable.
+- Missing or incompatible reference audio (wrong channel count, too short) is
+  validated before any processing starts. `reference_limits.py` today only
+  defines byte-size and duration bounds (`MAX_BYTES`, `MIN_SECONDS`,
+  `MAX_SECONDS`, `UPLOAD_TIMEOUT_SECONDS`) — it has no channel-count check, so
+  channel-count validation is new logic added alongside those existing
+  bounds, not a reuse of them.
 
 ## Testing
 
@@ -219,3 +231,9 @@ tone, arrangement, or creative quality.
   primitives already in this codebase (STFT, LUFS), not external
   dependencies, but they are net-new logic with no reference implementation
   to lean on.
+- This spec spans several fairly independent risk profiles (DSP math, Bridge/
+  OSC transport safety, packaging, licensing) and is sized as a milestone,
+  not a single plan. The implementation plan should phase it: (1) per-track
+  loudness/phase measurement, (2) masking detector, (3) master bounce
+  capability, (4) mastering + release gate — each independently shippable and
+  testable before the next starts.
