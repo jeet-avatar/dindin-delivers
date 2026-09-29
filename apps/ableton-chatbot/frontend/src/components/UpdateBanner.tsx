@@ -18,6 +18,7 @@ export default function UpdateBanner() {
   const [dismissed, setDismissed] = useState(false);
   const [download, setDownload] = useState("");
   const [legacy, setLegacy] = useState(false);
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -37,6 +38,7 @@ export default function UpdateBanner() {
         setNotice(updateNotice(BUILT_COMMIT, release, version, latest));
         setLegacy(version !== null && newerVersion(FIRST_VISIBLE_UPDATER, version));
         setDownload(latest && typeof latest === "object" && "url" in latest ? String(latest.url) : "");
+        setNotes(latest && typeof latest === "object" && "notes" in latest ? String(latest.notes) : "");
       } catch { /* Checked again at the next interval. */ }
     };
     void check();
@@ -53,7 +55,7 @@ export default function UpdateBanner() {
       <button type="button" onClick={() => window.location.reload()} className="rounded border px-2 py-1 text-xs">Reload</button>
     </span>}
     {notice.bridge && (legacy
-      ? <span>BeatMind Bridge {notice.bridge} keeps you signed in and updates itself. <a href={download} className="underline">Download it</a>, then replace the old app when your song is saved.</span>
+      ? <span>BeatMind Bridge {notice.bridge} is available{notes ? `: ${notes}` : "."} <a href={download} className="underline">Download it</a>, then replace the old app when your song is saved.</span>
       : <span>BeatMind Bridge {notice.bridge} is available. Click Install update in the Bridge window when you are ready.</span>)}
     <button type="button" onClick={() => setDismissed(true)} className="ml-auto text-xs underline">Later</button>
   </div>;

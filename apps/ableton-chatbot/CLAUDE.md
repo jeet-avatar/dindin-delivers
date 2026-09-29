@@ -80,6 +80,19 @@ Never say "done" without proof: tests + real runs + production checks (see the r
 - **Deploys:** service runs max 100% / min 0% (single SQLite writer on EFS), so each deploy has ~2.5 min of
   503s (target group drain 20 s, health interval 10 s).
 
+- **Song tools (2026-09-28, api :46, Bridge 1.3.x):** `audition_scene` records a whole scene's full mix (mutes kept,
+  solos cleared) via `bridge/audio_preview.capture_scene`; `record_arrangement` (`bridge/arrangement.py`) plays an
+  approved scene/bar plan with Arrangement Record on, launching scenes 2 beats early under 1-bar quantization,
+  refuses a non-empty Arrangement, restores arms/quantization/loop and sets back_to_arranger=0 last. Gated on Bridge
+  capabilities scene_audition_v1 / arrangement_record_v1. Verified on real Live 12.2.7.
+- **Producer model:** BEATMIND_MODEL=us.anthropic.claude-opus-5-5 since :43 (was Haiku 4.5 on every earlier revision);
+  BeatMindProductionTaskRole allows the Opus 5.5 ARNs. ~4x Haiku cost; fair-use enforcement is off (pricing session).
+- **BeatMind Starter template:** `templates/BeatMind-Starter.als` → www.beatmind.io/templates/BeatMind-Starter.als.
+  Starter tracks are EMPTY: the prompt says load an instrument first and audition_part refuses empty MIDI tracks.
+- **Gotchas:** deleting tracks over OSC crashed Live 12.2.7 (OnClipSelectionChanged); AbletonOSC never answers a notes
+  query on an empty slot (check has_clip first); Live reports arrangement clip *loop* length, not timeline length;
+  Bridge 1.2.0/1.3.0 hide the Install update row (fixed-size window) - fixed in 1.3.1.
+
 ## Pending / Next Steps
 
 1. **User must provide prices** (track packs, cloud per-track, included tracks/month) → create Stripe
