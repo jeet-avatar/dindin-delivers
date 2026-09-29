@@ -53,6 +53,8 @@ for name, operation, description, properties, required in [
       "path": TARGET["path"], "control": {"type": "string", "minLength": 1, "maxLength": 200},
       "samples": {"type": "integer", "minimum": 2, "maximum": 33, "description": "Values per control across the clip (default 9)."}},
      ["track", "scene"]),
+    ("read_track_mixer", "mixer_state", "Read a track's mixer exactly as Live displays it: volume, pan and each send level to the return tracks (for example A-Reverb -15 dB), and whether each is automated. Read-only. Use it before writing send or volume automation so the ride starts from and returns to the real level.",
+     {"track": {"type": "integer", "minimum": 0}}, ["track"]),
     ("get_sidechain_sources", "sidechain", "List the tracks that can feed a Compressor's sidechain and its current source. Read-only.",
      {"track": {"type": "integer", "minimum": 0}, "device": {"type": "integer", "minimum": 0}}, ["track", "device"]),
     ("set_sidechain", "sidechain", "Route another track (normally the Kick) into a Compressor's sidechain input so the kick ducks this part. Use a source name exactly as get_sidechain_sources lists it; the routing is read back. Then switch the Compressor's sidechain on and set ratio, attack, release and threshold with set_device_control.",

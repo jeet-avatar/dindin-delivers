@@ -387,8 +387,23 @@ def register(handler, app):
                 "summary": ("%d automated control(s) in this clip: %s." % (len(found), ", ".join(a["name"] for a in found)))
                            if found else "No automation is stored in this clip."}
 
+    def mixer_state(data):
+        """Read a track's mixer as Live displays it: volume, pan and every send (reverb/delay levels). Read-only."""
+        track = handler.song.tracks[data["track"]]
+        mixer = track.mixer_device
+        returns = list(handler.song.return_tracks)
+        show = lambda parameter: {"display": parameter.str_for_value(parameter.value),
+                                  "automated": int(parameter.automation_state) != 0}
+        return {"status": "observed", "track": data["track"], "name": track.name,
+                "volume": show(mixer.volume), "pan": show(mixer.panning),
+                "sends": [{"send": i, "return": returns[i].name if i < len(returns) else None, **show(send)}
+                          for i, send in enumerate(mixer.sends)],
+                "summary": "%s: volume %s, sends %s." % (track.name, mixer.volume.str_for_value(mixer.volume.value),
+                           ", ".join("%s %s" % (returns[i].name if i < len(returns) else i, send.str_for_value(send.value))
+                                     for i, send in enumerate(mixer.sends)) or "none")}
+
     for operation, function in {"catalog": catalog, "device_tree": device_tree, "clip_envelope": clip_envelope,
-                                "clip_automation": clip_automation,
+                                "clip_automation": clip_automation, "mixer_state": mixer_state,
                                 "control_map": control_map, "set_control": set_control, "load_item": load_item}.items():
         def callback(params, function=function):
             try:

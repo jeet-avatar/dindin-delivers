@@ -28,6 +28,22 @@ class Parameter:
 
 
 class MappingTests(unittest.TestCase):
+    def test_mixer_state_reads_sends_as_live_displays_them(self):
+        def parameter(text, automated=0):
+            return SimpleNamespace(value=0.5, automation_state=automated, str_for_value=lambda v: text)
+        mixer = SimpleNamespace(volume=parameter("-6.0 dB"), panning=parameter("C"),
+                                sends=[parameter("-15 dB"), parameter("-inf dB", automated=1)])
+        track = SimpleNamespace(name="Lead", mixer_device=mixer)
+        song = SimpleNamespace(tracks=[track], return_tracks=[SimpleNamespace(name="A-Reverb"), SimpleNamespace(name="B-Delay")])
+        handlers = {}
+        server = SimpleNamespace(add_handler=lambda address, callback: handlers.update({address: callback}))
+        extension.register(SimpleNamespace(song=song, osc_server=server), SimpleNamespace())
+        result = json.loads(handlers["/live/beatmind/mixer_state"]((json.dumps({"track": 0}),))[0])
+        self.assertEqual(result["volume"]["display"], "-6.0 dB")
+        self.assertEqual([(x["return"], x["display"], x["automated"]) for x in result["sends"]],
+                         [("A-Reverb", "-15 dB", False), ("B-Delay", "-inf dB", True)])
+        self.assertIn("A-Reverb -15 dB", result["summary"])
+
     def test_clip_envelope_ramp_lands_on_its_end_value(self):
         steps = []
         class Envelope:

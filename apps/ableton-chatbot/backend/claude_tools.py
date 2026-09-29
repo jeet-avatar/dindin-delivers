@@ -842,6 +842,8 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
   1 = B Delay) for reverb/delay rides and throws, mixer "volume" for rides and fades (both in dB), mixer "pan".
 - Before replacing, redoing or resetting automation, read_clip_automation on that clip (and the next section's
   clip) to see what is stored; keep approved values unless the user asked to change them. Never guess old values.
+- Before a send or volume ride, read_track_mixer for the track's real send and fader levels; the ride starts from
+  and returns to those levels unless a clip already automates them (then read_clip_automation).
 - Every automation has a purpose (tension, release, introduce, remove, clarity or movement) and a reset: say where
   the control returns to normal (usually the next section's clip holds the normal value). Never leave a filter
   closed, a send up or a fader down by accident.
