@@ -890,7 +890,9 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                 action["result"] = result
                 tool_calls_log.append(action)
                 if result.get("recording"):
-                    previous_id = link_audition(session.user_id, session.session_id, result["recording"])
+                    # A full-mix preview belongs to the song, not to one planned part.
+                    previous_id = (None if result["recording"].get("kind") == "scene"
+                                   else link_audition(session.user_id, session.session_id, result["recording"]))
                     if previous_id:
                         from recordings import link_revision
                         link_revision(result["recording"]["id"], previous_id, session.user_id)
@@ -909,15 +911,41 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
 
         if any(action['result'].get('comparison') for action in tool_calls_log):
             return 'The saved sounds have been compared. Play A and B below at matched RMS levels. These measurements are not a match percentage. Which difference would you like to refine?', tool_calls_log
+        if audition_ready and any(action['result'].get('recording', {}).get('kind') == 'scene' for action in tool_calls_log):
+            return "Your full-mix preview is ready. Listen to the whole scene together, then accept it or request a change to the balance.", tool_calls_log
         if audition_ready:
             revised = any(action.get('result', {}).get('recording', {}).get('supersedes') for action in tool_calls_log)
             if revised:
                 return "Your updated preview is ready. The earlier recording and its decision remain saved. Listen to this version, then accept it or request a change.", tool_calls_log
             return "Your first preview of this part is ready. Listen, then accept the sound or request a change. Nothing else will be built until you choose the next step.", tool_calls_log
-        if any(action["tool"] == "audition_part" for action in tool_calls_log):
+        if any(action["tool"] in {"audition_part", "audition_scene"} for action in tool_calls_log):
             return "The part remains in Ableton, but its audition did not pass verification. No recording is ready for approval. Review the audition details before retrying; do not recreate the track or notes.", tool_calls_log
 
     return "Production paused at the action limit. Some requested work may remain; review the action log before continuing.", tool_calls_log
+
+
+SONG_TOOL_CAPABILITY = {"audition_scene": "scene_audition_v1", "record_arrangement": "arrangement_record_v1"}
+
+
+async def _song_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection) -> dict:
+    """Full-mix scene previews and Arrangement recording run inside the Bridge (1.3.0 and later)."""
+    from jsonschema import validate, ValidationError
+    try:
+        validate(tool_input, next(t["input_schema"] for t in ABLETON_TOOLS if t["name"] == tool_name))
+    except ValidationError as error:
+        return {"status": "failed", "summary": error.message, "steps": []}
+    if SONG_TOOL_CAPABILITY[tool_name] not in bridge.capabilities:
+        message = ("This needs BeatMind Bridge 1.3 or later. Click Install update in the Bridge window "
+                   "(your Ableton set stays open), then ask again.")
+        return {"status": "failed", "error": message, "summary": message, "steps": []}
+    if tool_name == "audition_scene":
+        result = await bridge.local_operation("capture_scene", {"scene": tool_input["scene"], "seconds": tool_input.get("seconds", 12)})
+        return save_recording(bridge.user_id, result)
+    tempo = await bridge.send_command("/live/song/get/tempo", [], True)
+    bpm = float((tempo.get("args") or [60])[-1]) if tempo.get("status") == "ok" else 60.0
+    bars = sum(section["bars"] for section in tool_input["sections"])
+    return await bridge.local_operation("record_arrangement", {"sections": tool_input["sections"]},
+                                        timeout=bars * 4 * 60 / max(bpm, 20) + 90)
 
 
 async def _missing_instrument(track: int, bridge: BridgeConnection) -> str | None:
@@ -938,6 +966,8 @@ async def _execute_tool(tool_name: str, tool_input: dict, bridge: BridgeConnecti
         return {"status": "failed", "error": "No Ableton bridge connected.", "summary": "No Ableton bridge connected.", "steps": []}
     if tool_name in {item["name"] for item in AUTOMATION_TOOLS}:
         return await execute_automation(tool_name, tool_input, bridge.send_command)
+    if tool_name in {"audition_scene", "record_arrangement"}:
+        return await _song_tool(tool_name, tool_input, bridge)
     if tool_name in {"audition_part", "list_sample_packs", "search_pack_samples", "inspect_pack_sample", "load_pack_sample"}:
         from jsonschema import validate, ValidationError
         try:

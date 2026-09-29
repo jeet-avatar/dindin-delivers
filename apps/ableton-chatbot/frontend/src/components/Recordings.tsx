@@ -18,6 +18,9 @@ export interface Recording {
   track?: number;
   scene?: number;
   track_name: string;
+  /** "scene" for a full-mix preview of a whole scene. */
+  kind?: "part" | "scene";
+  scene_name?: string;
   source: string;
   decision: "pending" | "accepted" | "revise";
   metrics: { duration_seconds: number; peak_dbfs: number; rms_dbfs?: number; waveform: number[] };
@@ -118,8 +121,9 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
     {item.supersedes && <p className="text-xs mt-1 text-emerald-200">Updated preview. Your earlier recording and its decision are saved.</p>}
     {superseded && <p className="text-xs mt-1">Historical version. A newer recording is available.</p>}
     <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-      Ableton reference at capture: {typeof item.track === "number" && item.track >= 0 ? `Track ${item.track + 1}` : "Track not recorded"}
-      {typeof item.scene === "number" && item.scene >= 0 ? ` / Scene ${item.scene + 1}` : ""}
+      Ableton reference at capture: {item.kind === "scene" ? "Full mix, all tracks"
+        : typeof item.track === "number" && item.track >= 0 ? `Track ${item.track + 1}` : "Track not recorded"}
+      {typeof item.scene === "number" && item.scene >= 0 ? ` / Scene ${item.scene + 1}${item.scene_name ? ` (${item.scene_name})` : ""}` : ""}
     </p>
     <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
       {item.source} · {item.metrics.duration_seconds.toFixed(1)}s · Peak {item.metrics.peak_dbfs.toFixed(1)} dBFS

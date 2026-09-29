@@ -39,7 +39,7 @@ def rejected_sign_in(error):
     return status in (401, 403) or code == 4001
 
 # AbletonOSC defaults
-BRIDGE_VERSION = "1.2.0"
+BRIDGE_VERSION = "1.3.0"
 OSC_HOST = "127.0.0.1"
 OSC_SEND_PORT = 11000
 OSC_RECV_PORT = 11001
@@ -202,7 +202,8 @@ class AbletonBridge:
                 "type": "bridge_hello",
                 "version": BRIDGE_VERSION,
                 "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
-                "capabilities": ["local_separation_v1"] if local_separation_available() else [],
+                "capabilities": ["scene_audition_v1", "arrangement_record_v1"]
+                                + (["local_separation_v1"] if local_separation_available() else []),
             }))
             # Deliver separation results that finished while the connection was down.
             await self.local.flush()
@@ -258,6 +259,14 @@ class AbletonBridge:
             from audio_preview import capture_part
             result = await capture_part(self, msg.get("track"), msg.get("scene"), msg.get("seconds", 8))
             await self._reply(request_id, result)
+
+        elif msg_type == "capture_scene":
+            from audio_preview import capture_scene
+            await self._reply(request_id, await capture_scene(self, msg.get("scene"), msg.get("seconds", 12)))
+
+        elif msg_type == "record_arrangement":
+            from arrangement import record_arrangement
+            await self._reply(request_id, await record_arrangement(self, msg.get("sections")))
 
         elif msg_type == "sample_library":
             from sample_library import SampleLibrary, load_exact

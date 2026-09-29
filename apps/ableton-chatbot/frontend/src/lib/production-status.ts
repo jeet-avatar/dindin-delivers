@@ -2,7 +2,7 @@ import type { ProductionAction } from "../components/ProductionLog";
 
 const BAD = new Set(["failed", "partial", "unverified"]);
 const READS = new Set(["list_browser", "list_sample_packs", "search_pack_samples", "inspect_pack_sample", "inspect_track", "describe_sound", "create_production_plan", "list_reference_sounds", "compare_reference_sound"]);
-const AUDIO = new Set(["audition_part", "capture_combined_groove"]);
+const AUDIO = new Set(["audition_part", "audition_scene", "capture_combined_groove"]);
 const SEARCHES = new Set(["get_library_catalog", "list_browser", "search_pack_samples"]);
 
 export function isInspection(action: ProductionAction) {
@@ -138,7 +138,8 @@ export function actionLabel(tool: string) {
   const labels: Record<string, string> = {
     load_pack_sample: "Load selected pack sample", load_library_item: "Load instrument or effect",
     load_instrument: "Load instrument", load_sample: "Load sample", add_notes: "Write MIDI pattern",
-    clear_notes: "Clear MIDI pattern", audition_part: "Record sound preview", create_midi_track: "Create MIDI track",
+    clear_notes: "Clear MIDI pattern", audition_part: "Record sound preview",
+    audition_scene: "Record full-mix preview", record_arrangement: "Record song to Arrangement", create_midi_track: "Create MIDI track",
     get_device_control_map: "Inspect instrument controls", get_track_device_tree: "Inspect devices and drum pads",
     set_device_control: "Set instrument control", create_production_plan: "Save production plan",
     capture_combined_groove: "Record combined groove",

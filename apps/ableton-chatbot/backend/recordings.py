@@ -22,7 +22,8 @@ def save_recording(user_id, result):
     recording_id = uuid.uuid4().hex
     metadata = {"id": recording_id, "user_id": user_id, "created_at": datetime.now(timezone.utc).isoformat(),
                 "track_name": result["track_name"], "track": result["track"], "scene": result["scene"],
-                "metrics": result["metrics"], "source": "Ableton Live application audio", "decision": "pending"}
+                "metrics": result["metrics"], "source": "Ableton Live application audio", "decision": "pending",
+                "kind": result.get("kind", "part"), **({"scene_name": result["scene_name"]} if result.get("scene_name") else {})}
     (ROOT / f"{recording_id}.m4a").write_bytes(data)
     (ROOT / f"{recording_id}.json").write_text(json.dumps(metadata))
     return {**result, "recording": metadata}

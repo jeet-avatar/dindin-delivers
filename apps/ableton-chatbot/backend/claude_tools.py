@@ -437,6 +437,25 @@ ABLETON_TOOLS.append({
         "seconds": {"type": "number", "minimum": 2, "maximum": 16}}, "required": ["track", "scene"]}
 })
 
+ABLETON_TOOLS.append({
+    "name": "audition_scene",
+    "description": "Record the FULL MIX of one scene for frontend listening: every clip in the scene plays together with the user's mutes kept and solos cleared, then transport, solos and quantization are restored. Use it when the user wants to hear sections or the whole song together. Requires stopped transport. This pauses production for user review; do not call more tools in the same batch.",
+    "input_schema": {"type": "object", "properties": {
+        "scene": {"type": "integer", "minimum": 0},
+        "seconds": {"type": "number", "minimum": 4, "maximum": 16}}, "required": ["scene"]}
+})
+
+ABLETON_TOOLS.append({
+    "name": "record_arrangement",
+    "description": "Record the song into Ableton's Arrangement timeline by playing the given scenes in order, each for its number of bars, with Arrangement Record on. Refuses when the Arrangement already has clips. Takes real time (the song's length). ONLY call it after the user explicitly approved this exact section order and bar counts in chat; propose them first.",
+    "input_schema": {"type": "object", "properties": {
+        "sections": {"type": "array", "minItems": 1, "maxItems": 32, "items": {
+            "type": "object", "properties": {"scene": {"type": "integer", "minimum": 0},
+                                             "bars": {"type": "integer", "minimum": 1, "maximum": 128}},
+            "required": ["scene", "bars"], "additionalProperties": False}}},
+        "required": ["sections"]}
+})
+
 for name, description, properties, required in [
     ("list_sample_packs", "List installed packs and check exact_loading_ready. If false, stop BEFORE creating tracks: the AbletonOSC extension needs reloading. Use returned IDs. Missing bundles require installation, never substitution.", {}, []),
     ("search_pack_samples", "Index ALL supported audio files in exactly one pack, then return a page of matching paths and IDs. Empty query enumerates the pack; follow next_offset until null before claiming all entries were reviewed. Cataloging is NOT audio listening or timbre analysis.",
@@ -722,7 +741,11 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 - For pack mode, discover actual samples in that exact pack and verify loaded file identity. Do not replace missing samples with another pack or a synth.
 - Create or revise the musical clips with verified tools, then describe and audition the result. A saved brief, named scene or sent launch is not a completed audible section.
 - Track numbers shown to the user are one-based; tool indices are zero-based. With N tracks, the final existing index is N-1. Refresh names/counts after structural changes; never guess the next index.
-- Session scenes are not Arrangement View clips. If the user requests the Arrangement timeline, disclose that the current tools do not write that timeline rather than substituting scene names and claiming completion.
+- Session scenes are not Arrangement View clips. To put the song on the Arrangement timeline, propose the section
+  order and bar counts (for example Intro 8, Build 8, Drop 16, Break 8, Drop 2 16, Outro 8), wait for the user's
+  explicit approval, then call record_arrangement once with exactly those sections. It needs an empty Arrangement.
+- To let the user hear several parts together (a section, or the whole mix), use audition_scene on that scene;
+  audition_part only records one track.
 - Preserve the user's explicit tempo, time signature, instruments, source constraints and edit scope.
 - Genre labels are creative context, not fixed tempo ranges, track counts or device chains.
 - Inspect the current set and discover installed sources before choosing instruments or effects.

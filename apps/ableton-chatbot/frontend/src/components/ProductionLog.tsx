@@ -39,6 +39,8 @@ export interface ProductionAction {
     notes?: MidiNote[];
     /** false when a notes check found an empty scene slot. */
     has_clip?: boolean;
+    /** record_arrangement: the sections as recorded on the Arrangement timeline. */
+    sections?: { scene: number; name: string; bars: number; start_bar: number }[];
     devices?: { name: string }[];
     observations?: Record<string, unknown[]>;
     missing_notes?: MidiNote[];
@@ -144,6 +146,11 @@ export default function ProductionLog({ actions, requestStatus }: { actions: Pro
                 <p><strong>Source:</strong> {action.result.section_brief.pack_name || (action.result.section_brief.source_mode === "existing" ? "Existing sounds" : "Discover sources")}</p>
                 <p>Brief saved; musical clips and audio still require verification.</p>
               </div>}
+              {action.tool === "record_arrangement" && action.result?.sections && <ol aria-label="Arrangement sections" className="text-xs mt-2 space-y-1">
+                {action.result.sections.map((section, i) => <li key={i}>
+                  Bars {section.start_bar}–{section.start_bar + section.bars - 1}: <strong>{section.name}</strong> ({section.bars} bars)
+                </li>)}
+              </ol>}
               {action.result?.source && <div className="text-xs mt-2 space-y-1 break-all">
                 <p><strong>Sample pack:</strong> {action.result.source.pack_name}</p>
                 <p><strong>Source file:</strong> {action.result.source.relative_path}</p>

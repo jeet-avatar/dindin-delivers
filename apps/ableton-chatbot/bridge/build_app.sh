@@ -21,7 +21,7 @@ trap 'rm -rf "$WORK"' EXIT
   --name "BeatMind Bridge" --osx-bundle-identifier com.zietra.beatmind-bridge \
   --codesign-identity "$SIGNING_ID" --osx-entitlements-file entitlements.plist --target-arch arm64 \
   --paths ../backend \
-  --hidden-import audio_preview --hidden-import live_set \
+  --hidden-import audio_preview --hidden-import live_set --hidden-import arrangement \
   --hidden-import mixer_preview --hidden-import sample_library \
   --hidden-import local_separation --hidden-import stem_import \
   --hidden-import reference_worker --hidden-import separation --hidden-import stems \
