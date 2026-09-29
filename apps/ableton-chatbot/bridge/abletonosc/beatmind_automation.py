@@ -338,7 +338,10 @@ def register(handler, app):
                 fraction = i / (count - 1) if count > 1 else 1.0
                 if start.get("curve") == "step":
                     fraction = 0.0
-                value = curve_value(start["value"], end["value"], fraction, start.get("curve", "linear"))
+                if str(start["value"]) == str(end["value"]):
+                    value = start["value"]  # a hold, including -inf (off) held flat
+                else:
+                    value = curve_value(start["value"], end["value"], fraction, start.get("curve", "linear"))
                 native = native_value(parameter, value, data["unit"], nearest=True)
                 envelope.insert_step(beat, min(step, end["beat"] - beat), native)
                 written += 1

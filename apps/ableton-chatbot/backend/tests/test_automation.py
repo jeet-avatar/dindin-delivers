@@ -38,6 +38,29 @@ class MappingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             extension.native_value(Parameter("Frequency"), "-inf", "Hz")
 
+    def test_send_can_hold_off_across_a_clip(self):
+        steps = []
+        class Envelope:
+            def insert_step(self, beat, length, value): steps.append(value)
+            def value_at_time(self, t): return steps[-1]
+        send = SimpleNamespace(name="B-Delay", min=0.0, max=1.0, value=0.0, is_enabled=True, is_quantized=False, state=0,
+                               automation_state=0, str_for_value=lambda v: "-inf dB" if v <= 0 else f"{20 * math.log10(v):.1f} dB")
+        clip = SimpleNamespace(length=8.0, clear_envelope=lambda p: None, automation_envelope=lambda p: None,
+                               create_automation_envelope=lambda p: Envelope())
+        mixer = SimpleNamespace(volume=None, panning=None, sends=[send, send])
+        track = SimpleNamespace(devices=[], mixer_device=mixer, clip_slots=[SimpleNamespace(has_clip=True, clip=clip)])
+        handlers = {}
+        server = SimpleNamespace(add_handler=lambda address, callback: handlers.update({address: callback}))
+        extension.register(SimpleNamespace(song=SimpleNamespace(tracks=[track]), osc_server=server), SimpleNamespace())
+        write = lambda points: json.loads(handlers["/live/beatmind/clip_envelope"]((json.dumps(
+            {"track": 0, "scene": 0, "mixer": "send", "send": 1, "unit": "dB", "points": points}),))[0])
+        held = write([{"beat": 0, "value": "-inf"}, {"beat": 8, "value": "-inf"}])
+        self.assertEqual(held["status"], "verified", held)
+        self.assertEqual(set(steps), {0.0})
+        ramp = write([{"beat": 0, "value": "-inf"}, {"beat": 8, "value": -12}])
+        self.assertEqual(ramp["status"], "failed")
+        self.assertIn("step curve", ramp["summary"])
+
     def test_mixer_state_reads_sends_as_live_displays_them(self):
         def parameter(text, automated=0):
             return SimpleNamespace(value=0.5, automation_state=automated, str_for_value=lambda v: text)

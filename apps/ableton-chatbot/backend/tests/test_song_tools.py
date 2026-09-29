@@ -287,10 +287,18 @@ def test_automation_needs_purpose_reset_and_respects_limits():
 def test_density_warns_after_five_controls_in_a_section():
     import automation
     registry = {}
+    ramp = [{"beat": 0, "value": 20}, {"beat": 4, "value": 300}]
     for i in range(6):
-        result = automation.note_density(registry, {"track": i, "scene": 2, "control": "Frequency"}, {"status": "verified"})
+        result = automation.note_density(registry, {"track": i, "scene": 2, "control": "Frequency", "points": ramp}, {"status": "verified"})
     assert "6 controls" in result["density_warning"]
-    again = automation.note_density(registry, {"track": 0, "scene": 3, "mixer": "send", "send": 1}, {"status": "verified"})
+    hold = automation.note_density(registry, {"track": 5, "scene": 2, "control": "Frequency",
+                                              "points": [{"beat": 0, "value": 20}, {"beat": 4, "value": 20}]}, {"status": "verified"})
+    assert "density_warning" not in hold  # rewriting it as a flat hold removes the move
+    for i in range(6, 12):
+        flat = automation.note_density(registry, {"track": i, "scene": 2, "mixer": "send", "send": 0,
+                                                  "points": [{"beat": 0, "value": -30}, {"beat": 4, "value": -30}]}, {"status": "verified"})
+    assert "density_warning" not in flat
+    again = automation.note_density(registry, {"track": 0, "scene": 3, "mixer": "send", "send": 1, "points": ramp}, {"status": "verified"})
     assert "density_warning" not in again
 
 

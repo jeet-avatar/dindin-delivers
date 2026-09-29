@@ -96,10 +96,13 @@ DENSITY_LIMIT = 5
 
 
 def note_density(registry, data, result):
-    """Record the automated control and warn when one section has too many moving at once."""
+    """Record the moving control and warn when one section has too many moving at once."""
     target = data.get("control") or (f"send {data.get('send', 0)}" if data.get("mixer") == "send" else data.get("mixer"))
     controls = registry.setdefault(data["scene"], set())
-    controls.add((data["track"], target))
+    if len({str(point["value"]) for point in data.get("points", [])}) > 1:  # a flat hold (a reset) is not a move
+        controls.add((data["track"], target))
+    else:
+        controls.discard((data["track"], target))
     if len(controls) > DENSITY_LIMIT:
         result = {**result, "density_warning": (
             f"{len(controls)} controls are now automated in this section. More than {DENSITY_LIMIT} moving at once "
