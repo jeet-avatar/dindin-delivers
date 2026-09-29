@@ -25,6 +25,20 @@ ALIASES = {
 MAX_REPLY = 9000
 
 
+def curve_value(start, end, fraction, curve):
+    """Value at `fraction` (0-1) of a segment. Exponential moves evenly by ear for frequencies (log space);
+    logarithmic eases out (natural fades); step holds the start value until the next point."""
+    if curve == "step":
+        return start
+    if curve == "exponential":
+        if start > 0 and end > 0:
+            return start * (end / start) ** fraction
+        return start + (end - start) * fraction ** 2  # ease-in for values that cross zero (dB, %)
+    if curve == "logarithmic":
+        return start + (end - start) * (1 - (1 - fraction) ** 2)
+    return start + (end - start) * fraction
+
+
 def normalized(name):
     return re.sub(r"[^a-z0-9]", "", name.casefold())
 
@@ -309,7 +323,7 @@ def register(handler, app):
             beat = start["beat"]
             while beat < end["beat"] - 1e-9:
                 fraction = (beat - start["beat"]) / (end["beat"] - start["beat"])
-                value = start["value"] + (end["value"] - start["value"]) * fraction
+                value = curve_value(start["value"], end["value"], fraction, start.get("curve", "linear"))
                 native = native_value(parameter, value, data["unit"], nearest=True)
                 envelope.insert_step(beat, min(step, end["beat"] - beat), native)
                 written += 1

@@ -28,7 +28,7 @@ for name, operation, description, properties, required in [
       "unit": {"type": "string", "enum": ["Hz", "kHz", "ms", "s", "dB", "%", "ratio", "native", "normalized", "label"],
                "description": "Match Live's display: Hz/kHz, ms/s, dB, %, ratio for displays like '4.00 : 1' (value 4), label only for controls that list choices."}},
      ["track", "path", "map_id", "control", "value", "unit"]),
-    ("write_clip_automation", "clip_envelope", "Store an automation ramp INSIDE a Session clip (a filter opening over a Build, a high-pass sweep before the Drop, a reverb or delay throw). It plays every time the clip plays and is recorded into the Arrangement. Points are beats from the clip start with values in the control's display unit; steps are linear between points. Replaces any earlier envelope for that control in that clip.",
+    ("write_clip_automation", "clip_envelope", "Store an automation ramp INSIDE a Session clip (a filter opening over a Build, a high-pass sweep before the Drop, a reverb or delay throw). It plays every time the clip plays and is recorded into the Arrangement. Points are beats from the clip start with values in the control's display unit; each point's curve shapes the move to the next point (default linear). Every automation needs a purpose and a reset. Replaces any earlier envelope for that control in that clip.",
      {"track": {"type": "integer", "minimum": 0}, "path": TARGET["path"], "scene": {"type": "integer", "minimum": 0},
       "map_id": {"type": "string", "pattern": "^[a-f0-9]{24}$"},
       "mixer": {"type": "string", "enum": ["volume", "pan", "send"],
@@ -37,9 +37,16 @@ for name, operation, description, properties, required in [
       "control": {"type": "string", "minLength": 1, "maxLength": 200},
       "unit": {"type": "string", "enum": ["Hz", "kHz", "ms", "s", "dB", "%", "ratio", "native", "normalized"]},
       "points": {"type": "array", "minItems": 2, "maxItems": 64, "items": {"type": "object", "properties": {
-          "beat": {"type": "number", "minimum": 0}, "value": {"type": ["number", "string"]}}, "required": ["beat", "value"], "additionalProperties": False}},
-      "steps_per_beat": {"type": "integer", "minimum": 1, "maximum": 16}},
-     ["track", "scene", "unit", "points"]),
+          "beat": {"type": "number", "minimum": 0}, "value": {"type": ["number", "string"]},
+          "curve": {"type": "string", "enum": ["linear", "exponential", "logarithmic", "step"],
+                    "description": "Shape from this point to the next: exponential for filter sweeps and risers, logarithmic for natural fades, step for gated or rhythmic moves, linear otherwise."}},
+          "required": ["beat", "value"], "additionalProperties": False}},
+      "steps_per_beat": {"type": "integer", "minimum": 1, "maximum": 16},
+      "purpose": {"type": "string", "enum": ["tension", "release", "introduce", "remove", "clarity", "movement"],
+                  "description": "The musical reason for this automation."},
+      "reset": {"type": "string", "minLength": 3, "maxLength": 200,
+                "description": "Where the control returns to its normal value (for example 'Drop clip holds 20 kHz'). Never assume it resets by itself."}},
+     ["track", "scene", "unit", "points", "purpose", "reset"]),
     ("get_sidechain_sources", "sidechain", "List the tracks that can feed a Compressor's sidechain and its current source. Read-only.",
      {"track": {"type": "integer", "minimum": 0}, "device": {"type": "integer", "minimum": 0}}, ["track", "device"]),
     ("set_sidechain", "sidechain", "Route another track (normally the Kick) into a Compressor's sidechain input so the kick ducks this part. Use a source name exactly as get_sidechain_sources lists it; the routing is read back. Then switch the Compressor's sidechain on and set ratio, attack, release and threshold with set_device_control.",
@@ -48,6 +55,48 @@ for name, operation, description, properties, required in [
 ]:
     AUTOMATION_TOOLS.append({"name": name, "description": description, "operation": operation,
                              "input_schema": {"type": "object", "properties": properties, "required": required, "additionalProperties": False}})
+
+
+# Enforced limits: (control name keywords, unit, maximum, why).
+LIMITS = [(("feedback",), "%", 75.0, "delay feedback above 75% can run away"),
+          (("resonance",), "%", 70.0, "high resonance creates sharp peaks while the filter moves"),
+          (("dry/wet",), "%", 60.0, "a device wetter than 60% washes the part out; use a send for big throws")]
+LOW_END_WORDS = ("kick", "bass", "sub")
+
+
+def safety_problem(name, data, track_name=""):
+    """Why this write is refused, or None."""
+    control = str(data.get("control") or "").casefold()
+    values = [p["value"] for p in data.get("points", []) if isinstance(p.get("value"), (int, float))]
+    if isinstance(data.get("value"), (int, float)):
+        values.append(data["value"])
+    for words, unit, maximum, why in LIMITS:
+        if any(w in control for w in words) and data.get("unit") == unit and values and max(values) > maximum:
+            return f"{data['control']} is limited to {maximum:g}{unit}: {why}."
+    if name != "write_clip_automation":
+        return None
+    if data.get("mixer") in ("send", "pan") and any(w in track_name.casefold() for w in LOW_END_WORDS):
+        return (f"{track_name} carries the low end, so it stays dry and centred (no send or pan automation). "
+                "Move the parts around it instead.")
+    if (data.get("mixer") == "volume" and len(values) >= 2 and max(values) - min(values) > 2
+            and data.get("purpose") not in ("introduce", "remove")):
+        return "Volume rides stay within 2 dB; a bigger change must be an entry or exit fade (purpose introduce or remove)."
+    return None
+
+
+DENSITY_LIMIT = 5
+
+
+def note_density(registry, data, result):
+    """Record the automated control and warn when one section has too many moving at once."""
+    target = data.get("control") or (f"send {data.get('send', 0)}" if data.get("mixer") == "send" else data.get("mixer"))
+    controls = registry.setdefault(data["scene"], set())
+    controls.add((data["track"], target))
+    if len(controls) > DENSITY_LIMIT:
+        result = {**result, "density_warning": (
+            f"{len(controls)} controls are now automated in this section. More than {DENSITY_LIMIT} moving at once "
+            "sounds busy and blurs the build; keep one or two primary moves and make the rest subtle or remove them.")}
+    return result
 
 
 def numeric_value(data):
@@ -63,17 +112,20 @@ def numeric_value(data):
     return data
 
 
-async def execute_automation(name, data, send):
+async def execute_automation(name, data, send, track_name=""):
     definition = next(item for item in AUTOMATION_TOOLS if item["name"] == name)
     data = numeric_value(data)
     if name == "write_clip_automation" and not data.get("mixer") and not all(k in data for k in ("path", "map_id", "control")):
         return {"status": "failed", "summary": "A device automation needs path, map_id and control (or use mixer: volume, pan or send).", "steps": []}
     if name == "write_clip_automation":
-        data = {**data, "points": [{"beat": point["beat"], "value": numeric_value({"value": point["value"], "unit": data["unit"]})["value"]}
+        data = {**data, "points": [{**point, "value": numeric_value({"value": point["value"], "unit": data["unit"]})["value"]}
                                    for point in data["points"]]}
     errors = list(Draft202012Validator(definition["input_schema"]).iter_errors(data))
     if errors or ("path" in data and len(data["path"]) % 2 == 0):
         return {"status": "failed", "summary": errors[0].message if errors else "Invalid nested device path.", "steps": []}
+    problem = safety_problem(name, data, track_name) if name in ("write_clip_automation", "set_device_control") else None
+    if problem:
+        return {"status": "failed", "summary": "Not written: " + problem, "steps": []}
     steps = []
     written = False
 

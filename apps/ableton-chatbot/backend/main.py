@@ -23,7 +23,7 @@ from pydantic import BaseModel, EmailStr, Field
 from claude_tools import ABLETON_TOOLS, SYSTEM_PROMPT
 from execution import BAD_STATUSES, MAX_PRODUCTION_ROUNDS, execute_verified
 from ai_provider import create_client, failure_message, model_name, provider_name
-from automation import AUTOMATION_TOOLS, execute_automation
+from automation import AUTOMATION_TOOLS, execute_automation, note_density
 from production import create_plan, get_plan, link_audition, review_part, replace_audition
 from session_context import matching_recordings, context_note
 from model_history import bounded_history
@@ -66,6 +66,7 @@ class BridgeConnection:
         self.connected_at = datetime.now(timezone.utc)
         self.pending: dict[str, asyncio.Future] = {}
         self.capabilities: set[str] = set()
+        self.automated_controls: dict[int, set] = {}  # scene -> automated (track, target) this connection
 
     async def send_command(self, address: str, args: list, query: bool = False, timeout: float = 5.0) -> dict:
         request_id = str(uuid.uuid4())
@@ -1024,7 +1025,15 @@ async def _execute_tool(tool_name: str, tool_input: dict, bridge: BridgeConnecti
     if not bridge:
         return {"status": "failed", "error": "No Ableton bridge connected.", "summary": "No Ableton bridge connected.", "steps": []}
     if tool_name in {item["name"] for item in AUTOMATION_TOOLS}:
-        return await execute_automation(tool_name, tool_input, bridge.send_command)
+        track_name = ""
+        if tool_input.get("mixer") in ("send", "pan") and isinstance(tool_input.get("track"), int):
+            names = await bridge.send_command("/live/song/get/track_names", [], True)
+            if names.get("status") == "ok" and tool_input["track"] < len(names.get("args") or []):
+                track_name = str(names["args"][tool_input["track"]])
+        result = await execute_automation(tool_name, tool_input, bridge.send_command, track_name)
+        if tool_name == "write_clip_automation" and result.get("status") in ("verified", "partial"):
+            result = note_density(bridge.automated_controls, tool_input, result)
+        return result
     if tool_name in {"audition_scene", "record_arrangement"}:
         return await _song_tool(tool_name, tool_input, bridge)
     if tool_name in {"mix_check", "apply_master_chain"}:

@@ -1,3 +1,4 @@
+import numpy as np
 import asyncio
 from pathlib import Path
 import sys
@@ -187,7 +188,7 @@ def test_mix_check_flags_clipping_and_names_the_armed_track():
             return extra[address]()
         return (await live._query_osc("t", address, args, 4))["args"]
     with tempfile.TemporaryDirectory() as directory, patch.object(recordings, "ROOT", Path(directory)), \
-         patch.object(mix_check, "loudness", return_value=(-9.6, 0.7)), patch.object(mix_check, "low_end_share", return_value=17.0):
+         patch.object(mix_check, "loudness", return_value=(-9.6, 0.7)), patch.object(mix_check, "stereo_samples", return_value=np.random.default_rng(1).normal(0, 0.1, (44100, 1)).repeat(2, axis=1)):
         (Path(directory) / ("b" * 32 + ".json")).write_text(json.dumps({"id": "b" * 32, "user_id": 3, "kind": "scene", "scene": 1, "scene_name": "Drop",
                                                                          "created_at": "2026-09-28T01:00:00"}))
         for rid, track, rms, when in (("d" * 32, 0, -20.0, "2026-09-28T00:01:00"), ("e" * 32, 2, -15.0, "2026-09-28T00:02:00")):
@@ -254,13 +255,63 @@ def test_clip_automation_points_sent_as_text_become_numbers():
         sent.update(json.loads(args[0]))
         return {"status": "ok", "address": address, "args": ['{"status": "verified", "summary": "ok"}']}
     asyncio.run(automation.execute_automation("write_clip_automation", {"track": 4, "path": [1], "scene": 1, "map_id": "a" * 24,
-        "control": "Frequency", "unit": "Hz", "points": [{"beat": 0, "value": "300"}, {"beat": 32, "value": "18000"}]}, send))
-    assert [p["value"] for p in sent["points"]] == [300.0, 18000.0]
+        "control": "Frequency", "unit": "Hz", "points": [{"beat": 0, "value": "300", "curve": "exponential"}, {"beat": 32, "value": "18000"}],
+        "purpose": "tension", "reset": "Drop clip holds 20 kHz"}, send))
+    assert [p["value"] for p in sent["points"]] == [300.0, 18000.0] and sent["points"][0]["curve"] == "exponential"
+
+
+def test_automation_needs_purpose_reset_and_respects_limits():
+    import automation, json
+    sent = []
+    async def send(address, args, query, timeout):
+        sent.append(address)
+        return {"status": "ok", "address": address, "args": ['{"status": "verified", "summary": "ok"}']}
+    run = lambda data, name="": asyncio.run(automation.execute_automation("write_clip_automation", data, send, name))
+    base = {"track": 4, "scene": 1, "unit": "dB", "mixer": "volume", "purpose": "movement", "reset": "next clip at 0 dB",
+            "points": [{"beat": 0, "value": -6}, {"beat": 16, "value": 0}]}
+    missing = {k: v for k, v in base.items() if k != "reset"}
+    assert run(missing)["status"] == "failed" and "reset" in run(missing)["summary"]
+    assert "2 dB" in run(base)["summary"]
+    assert run({**base, "purpose": "introduce"})["status"] == "verified"
+    send_ride = {**base, "mixer": "send", "send": 0, "points": [{"beat": 0, "value": -20}, {"beat": 4, "value": -19}]}
+    assert "low end" in run(send_ride, "Kick")["summary"] and run(send_ride, "Chords")["status"] == "verified"
+    feedback = {"track": 5, "path": [3], "scene": 1, "map_id": "a" * 24, "control": "Feedback", "unit": "%", "purpose": "tension",
+                "reset": "Drop clip 30%", "points": [{"beat": 0, "value": 30}, {"beat": 4, "value": 90}]}
+    assert "75%" in run(feedback)["summary"]
+    assert sent == ["/live/beatmind/clip_envelope"] * 2
+    control = asyncio.run(automation.execute_automation("set_device_control", {"track": 5, "path": [3], "map_id": "a" * 24,
+                                                         "control": "Resonance", "value": 85, "unit": "%"}, send))
+    assert "70%" in control["summary"]
+
+
+def test_density_warns_after_five_controls_in_a_section():
+    import automation
+    registry = {}
+    for i in range(6):
+        result = automation.note_density(registry, {"track": i, "scene": 2, "control": "Frequency"}, {"status": "verified"})
+    assert "6 controls" in result["density_warning"]
+    again = automation.note_density(registry, {"track": 0, "scene": 3, "mixer": "send", "send": 1}, {"status": "verified"})
+    assert "density_warning" not in again
+
+
+def test_mix_analysis_bands_mono_and_energy_arc():
+    import mix_check
+    t = np.arange(44100 * 2) / 44100
+    sub = np.sin(2 * np.pi * 50 * t)
+    mono = np.stack([sub, sub], axis=1)
+    wide = np.stack([sub, -sub], axis=1)
+    assert mix_check.low_end_correlation(mono) == 1.0 and mix_check.low_end_correlation(wide) == -1.0
+    mud = np.sin(2 * np.pi * 300 * t)
+    assert mix_check.band_shares(np.stack([mud, mud], axis=1))["mud"] > 95
+    problems = mix_check.energy_problems({"Build": -9.0, "Drop": -9.5, "Break": -12.0, "Drop 2": -10.0})
+    assert len(problems) == 2 and "Drop (-9.5 LUFS)" in problems[0] and "Drop 2" in problems[1]
+    assert mix_check.energy_problems({"Build": -12.0, "Drop": -9.0, "Break": -14.0, "Drop 2": -8.5}) == []
 
 
 def test_prompt_has_sidechain_velocity_and_automation_rules():
     from claude_tools import SYSTEM_PROMPT
-    for phrase in ("set_sidechain with source \"Kick\"", "Hats/percussion: base 75-80", "write_clip_automation so movement is saved"):
+    for phrase in ("set_sidechain with source \"Kick\"", "Hats/percussion: base 75-80", "write_clip_automation so movement is saved",
+                   "exponential for filter sweeps", "has a purpose", "loudness-matched"):
         assert phrase in SYSTEM_PROMPT
 
 

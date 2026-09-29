@@ -29,17 +29,58 @@ def loudness(path):
     return value(integrated), value(peak)
 
 
-def low_end_share(path):
-    """Share of spectral energy below 120 Hz, in percent."""
-    decoded = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-i", str(path), "-ac", "1", "-ar", str(RATE),
+def stereo_samples(path):
+    decoded = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-i", str(path), "-ac", "2", "-ar", str(RATE),
                               "-f", "f32le", "pipe:1"], capture_output=True, timeout=60)
-    samples = np.frombuffer(decoded.stdout, dtype="<f4").astype(float)
-    if samples.size < RATE:
+    samples = np.frombuffer(decoded.stdout, dtype="<f4").astype(float).reshape(-1, 2)
+    if samples.shape[0] < RATE:
         raise ValueError("The recording is too short to analyse.")
-    spectrum = np.abs(np.fft.rfft(samples * np.hanning(samples.size))) ** 2
-    frequencies = np.fft.rfftfreq(samples.size, 1 / RATE)
+    return samples
+
+
+def band_shares(samples):
+    """Percent of spectral energy (20 Hz and up) in each named band."""
+    mono = samples.mean(axis=1)
+    spectrum = np.abs(np.fft.rfft(mono * np.hanning(mono.size))) ** 2
+    frequencies = np.fft.rfftfreq(mono.size, 1 / RATE)
     total = float(spectrum[frequencies >= 20].sum()) or 1.0
-    return round(100 * float(spectrum[(frequencies >= 20) & (frequencies < 120)].sum()) / total, 1)
+    share = lambda low, high: round(100 * float(spectrum[(frequencies >= low) & (frequencies < high)].sum()) / total, 1)
+    return {"low": share(20, 120), "mud": share(200, 500), "harsh": share(2000, 5000)}
+
+
+def low_end_correlation(samples):
+    """Left/right correlation below 120 Hz: 1 is mono, below about 0.8 the low end is wide and weakens on club systems."""
+    frequencies = np.fft.rfftfreq(samples.shape[0], 1 / RATE)
+    keep = frequencies < 120
+    left, right = (np.fft.irfft(np.fft.rfft(samples[:, c]) * keep, samples.shape[0]) for c in (0, 1))
+    energy = float(np.sqrt((left ** 2).sum() * (right ** 2).sum()))
+    return round(float((left * right).sum()) / energy, 2) if energy else 1.0
+
+
+def section_energy(user_id, session_id):
+    """Loudness of the latest full-mix preview of each section of this song, by section name."""
+    levels = {}
+    for rec in recordings.list_recordings(user_id, session_id, limit=None):  # newest first
+        name = (rec.get("scene_name") or "").strip()
+        path = recordings.ROOT / f"{rec['id']}.m4a"
+        if rec.get("kind") == "scene" and name and name not in levels and path.exists():
+            levels[name] = loudness(path)[0]
+    return levels
+
+
+# Energy arc a dance track needs: (quieter section, louder section, minimum difference in LU).
+ENERGY_ARC = [("Build", "Drop", 1.0), ("Break", "Drop", 2.0), ("Drop", "Drop 2", 0.0)]
+
+
+def energy_problems(levels):
+    folded = {name.casefold(): (name, value) for name, value in levels.items()}
+    problems = []
+    for quiet, loud, gap in ENERGY_ARC:
+        if quiet.casefold() in folded and loud.casefold() in folded:
+            (q_name, q), (l_name, l) = folded[quiet.casefold()], folded[loud.casefold()]
+            if l - q < gap:
+                problems.append(f"{l_name} ({l:.1f} LUFS) should be at least {gap:g} LU louder than {q_name} ({q:.1f} LUFS)")
+    return problems
 
 
 def item(key, label, status, detail, fix=None):
@@ -55,7 +96,11 @@ async def run(user_id, recording_id, query, target_lufs=TARGET_LUFS, ceiling=CEI
         return {"status": "failed", "summary": "Run the mix check on a full-mix preview (audition_scene), not a single part.", "steps": []}
     path = recordings.ROOT / f"{recording_id}.m4a"
     lufs, true_peak = loudness(path)
-    low = low_end_share(path)
+    samples = stereo_samples(path)
+    bands = band_shares(samples)
+    low = bands["low"]
+    correlation = low_end_correlation(samples)
+    levels = section_energy(user_id, recording.get("session_id"))
     scene = recording["scene"]
 
     names = await query("/live/song/get/track_names", [])
@@ -109,6 +154,40 @@ async def run(user_id, recording_id, query, target_lufs=TARGET_LUFS, ceiling=CEI
         checks.append(item("low_end", "Low end", "pass", f"{low}% of the energy below 120 Hz" +
                            (f"; carried by {', '.join(low_parts)}." if low_parts else ".")))
 
+    if correlation < 0.8:
+        checks.append(item("low_mono", "Low end mono", "warn", f"Below 120 Hz the left/right correlation is {correlation:.2f}; "
+                           "the kick and bass spread wide and lose punch on club systems.",
+                           "Keep kick and bass centred: remove stereo widening, chorus or pan movement from them, "
+                           "or add Utility with Bass Mono at 120 Hz."))
+    else:
+        checks.append(item("low_mono", "Low end mono", "pass", f"Below 120 Hz the mix is centred (correlation {correlation:.2f})."))
+
+    crowded = []
+    if bands["mud"] > 25:
+        crowded.append((f"{bands['mud']}% of the energy sits in 200-500 Hz (mud)",
+                        "cut 2-4 dB around 250-400 Hz on the pads, chords or bass harmonics"))
+    if bands["harsh"] > 20:
+        crowded.append((f"{bands['harsh']}% sits in 2-5 kHz (harshness)",
+                        "tame the lead, hats or saturation around 3 kHz, or lower the brightest part"))
+    if crowded:
+        checks.append(item("bands", "Frequency crowding", "warn", "; ".join(c[0] for c in crowded) + ".",
+                           "Then " + " and ".join(c[1] for c in crowded) + ". Listen before and after."))
+    else:
+        checks.append(item("bands", "Frequency crowding", "pass",
+                           f"200-500 Hz {bands['mud']}%, 2-5 kHz {bands['harsh']}% of the energy: no crowded band."))
+
+    arc = energy_problems(levels)
+    if arc:
+        checks.append(item("energy", "Section energy", "warn", "; ".join(arc) + ".",
+                           "The Drop must hit hardest: thin or lower the Build and Break (fewer parts, filter, lower pad), "
+                           "or give Drop 2 one extra element. Re-record the section previews after changing them."))
+    elif len(levels) >= 2:
+        checks.append(item("energy", "Section energy", "pass", "Section loudness follows the arc: " +
+                           ", ".join(f"{n} {v:.1f}" for n, v in levels.items()) + " LUFS."))
+    else:
+        checks.append(item("energy", "Section energy", "warn", "Only one section has a full-mix preview.",
+                           "Preview the Build, Drop and Break with audition_scene to check the energy arc."))
+
     # Balance: each part's latest solo preview level against the kick's. Melodic parts well above the kick bury it.
     latest = {}
     for rec in recordings.list_recordings(user_id):
@@ -161,8 +240,10 @@ async def run(user_id, recording_id, query, target_lufs=TARGET_LUFS, ceiling=CEI
             "summary": f"Mix check of {recording.get('scene_name') or 'this section'}: {counts['pass']} pass, "
                        f"{counts['warn']} to improve, {counts['fail']} must fix.",
             "checks": checks, "measurements": {"integrated_lufs": round(lufs, 1), "true_peak_dbtp": round(true_peak, 1),
-                                               "low_end_percent": low, "target_lufs": target_lufs, "ceiling_dbtp": ceiling},
+                                               "low_end_percent": low, "band_percent": bands,
+                                               "low_end_correlation": correlation, "section_lufs": levels, "target_lufs": target_lufs, "ceiling_dbtp": ceiling},
             "limitations": ["Measured on a short full-mix preview of one section, not the whole exported song.",
                             "Balance uses each part's latest solo preview; re-preview a part after changing its fader.",
+                            "Section energy compares each section's latest full-mix preview; loudness-match before judging sounds.",
                             "These are measurements, not a judgement of taste; listen as well."],
             "steps": []}

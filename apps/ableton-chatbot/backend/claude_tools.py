@@ -840,9 +840,20 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 - Use write_clip_automation so movement is saved in the clip and recorded into the Arrangement; automate_parameter
   only performs a live move and is not saved. It also automates the track MIXER: mixer "send" (send 0 = A Reverb,
   1 = B Delay) for reverb/delay rides and throws, mixer "volume" for rides and fades (both in dB), mixer "pan".
-- Build sections: open a low-pass (Auto Filter or EQ Eight) from about 300 Hz to fully open over the Build, and
-  high-pass everything except the riser over its last 4 bars; everything returns to normal at the Drop.
-- Breaks: filter or reverb/delay throws on the last beat before the Drop. Keep automation on its own section clip.
+- Every automation has a purpose (tension, release, introduce, remove, clarity or movement) and a reset: say where
+  the control returns to normal (usually the next section's clip holds the normal value). Never leave a filter
+  closed, a send up or a fader down by accident.
+- Curves: exponential for filter sweeps and risers (frequency is heard logarithmically, so a linear sweep sounds
+  like it jumps at the end), logarithmic for natural fades, step for gated or rhythmic moves, linear otherwise.
+- Move one or two primary controls per section; the rest are subtle. More than about 5 moving at once sounds busy.
+- Kick and sub/bass stay dry and centred: no reverb/delay sends, pan or width automation on them, low end mono.
+- Limits (the server refuses beyond them): delay feedback 75%, filter resonance 70%, device Dry/Wet 60% (use a
+  send for big throws), volume rides within 2 dB unless the move introduces or removes a part.
+- Build: low-pass opening from about 300 Hz to fully open (exponential), high-pass the non-riser parts over the
+  last 4 bars, rising reverb/delay sends; everything resets on the Drop's first beat. Break: remove the kick, open
+  space with longer tails; a throw on the last beat before the Drop. Drop: mostly static; energy comes from the
+  parts. Drop 2 differs from Drop 1 (an extra element or a new move), at least as loud. Outro mirrors the Intro.
+- Judge a change loudness-matched: louder always sounds "better". Keep 3-6 dB of headroom before the master.
 
 ### Choosing and balancing a lead
 - A lead must serve the groove, not cover it. Choose by: register (above the chords, clear of 200-800 Hz mud),

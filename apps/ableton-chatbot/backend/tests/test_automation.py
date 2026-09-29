@@ -28,6 +28,14 @@ class Parameter:
 
 
 class MappingTests(unittest.TestCase):
+    def test_curve_shapes_between_points(self):
+        shape = lambda curve: [round(extension.curve_value(300, 18000, f, curve)) for f in (0, 0.25, 0.5, 0.75, 1)]
+        self.assertEqual(shape("linear"), [300, 4725, 9150, 13575, 18000])
+        self.assertEqual(shape("exponential"), [300, 835, 2324, 6467, 18000])
+        self.assertEqual(shape("logarithmic")[1:4], [8044, 13575, 16894])
+        self.assertEqual(shape("step"), [300] * 5)
+        self.assertEqual(extension.curve_value(-30, 0, 0.5, "exponential"), -22.5)
+
     def test_unit_conversion_uses_nonlinear_display_without_writes(self):
         parameter = Parameter()
         value = extension.native_value(parameter, 2, "kHz")

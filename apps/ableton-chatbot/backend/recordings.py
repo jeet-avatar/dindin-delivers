@@ -39,9 +39,9 @@ def owned_recording(recording_id, user_id):
     return item if item.get("user_id") == user_id else None
 
 
-def list_recordings(user_id, session_id=None):
+def list_recordings(user_id, session_id=None, limit=20):
     items = [owned_recording(path.stem, user_id) for path in ROOT.glob("*.json")]
-    ordered = sorted((item for item in items if item and (session_id is None or item.get('session_id') == session_id)), key=lambda item: item["created_at"], reverse=True)[:20]
+    ordered = sorted((item for item in items if item and (session_id is None or item.get('session_id') == session_id)), key=lambda item: item["created_at"], reverse=True)[:limit]
     return [{key: value for key, value in item.items() if key != "production_log"} for item in ordered]
 
 
