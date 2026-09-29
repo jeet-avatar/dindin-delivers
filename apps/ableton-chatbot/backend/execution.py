@@ -132,6 +132,9 @@ class VerifiedExecutor:
         raise ExecutionError(f"Readback mismatch at {address}: expected {expected!r}, received {actual!r}. Do not repeat the write blindly.")
 
     async def notes(self, track, scene):
+        # AbletonOSC never answers a notes query for an empty slot, so check the slot first.
+        if not await self.scalar("/live/clip_slot/get/has_clip", [track, scene]):
+            return []
         return notes_from_values(await self.read("/live/clip/get/notes", [track, scene, 0, 128, -8192.0, 32768.0]))
 
     async def pattern_matches(self, track, scene, expected):
@@ -189,6 +192,10 @@ class VerifiedExecutor:
                               "devices": inspection["observations"].get("/live/track/get/devices/name", []),
                               "notes": notes, "note_count": len(notes),
                               "inspection": inspection["observations"]}}
+
+        if name == "get_clip_notes" and not await self.scalar("/live/clip_slot/get/has_clip", [t, s]):
+            return {"status": "observed", "summary": f"Track {t + 1}, scene {s + 1} has no clip yet.", "notes": [],
+                    "observations": {}}
 
         if name in READ_TOOLS:
             observations = {}

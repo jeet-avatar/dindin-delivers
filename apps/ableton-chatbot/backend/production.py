@@ -53,7 +53,8 @@ def create_plan(user_id, session_id, data):
         return {"status": "failed", "summary": errors[0].message, "steps": []}
     existing = get_plan(user_id, session_id)
     if existing and any(part["status"] != "planned" for part in existing["parts"]):
-        return {"status": "failed", "summary": "This plan already has work in progress. Continue it instead of overwriting its review history.", "steps": []}
+        return {"status": "observed", "summary": "A production plan is already in progress. Continue it; its review history is unchanged.",
+                "plan": existing, "steps": []}
     if len({part["role"].casefold() for part in data["parts"]}) != len(data["parts"]):
         return {"status": "failed", "summary": "Each part needs a distinct role.", "steps": []}
     plan = {**data, "user_id": user_id, "session_id": session_id,

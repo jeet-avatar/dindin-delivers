@@ -127,7 +127,11 @@ class PlanTests(unittest.TestCase):
             self.assertEqual(production.get_plan(7, "session")["parts"][1]["status"], "planned")
             self.assertIsNone(production.review_part(7, "recording", "accepted"))
             self.assertEqual(production.get_plan(7, "session")["parts"][0]["status"], "accepted")
-            self.assertEqual(production.create_plan(7, "session", data)["status"], "failed")
+            again = production.create_plan(7, "session", data)
+            # An in-progress plan is continued, never overwritten, and is not reported as a failure.
+            self.assertEqual(again["status"], "observed")
+            self.assertEqual(again["plan"]["parts"][0]["status"], "accepted")
+            self.assertEqual(production.get_plan(7, "session")["parts"][0]["status"], "accepted")
 
     def test_refinement_audition_does_not_consume_next_part(self):
         data = {"title": "Test", "genre": "Minimal", "bpm": 124, "key": "C", "scope": "loop", "assumptions": [],

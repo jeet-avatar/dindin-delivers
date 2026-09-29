@@ -88,6 +88,12 @@ class ExecutionTests(unittest.IsolatedAsyncioTestCase):
     async def run_tool(self, name, data):
         return await execute_verified(name, data, self.live.send)
 
+    async def test_notes_of_an_empty_slot_answer_without_querying_notes(self):
+        self.live.has_clip = 0
+        result = await self.run_tool("get_clip_notes", {"track": 0, "scene": 1})
+        self.assertEqual((result["status"], result["notes"]), ("observed", []))
+        self.assertNotIn("/live/clip/get/notes", [call[0] for call in self.live.calls])
+
     async def test_reject_invalid_commands_before_any_io(self):
         cases = [("set_tempo", {"bpm": float("nan")}), ("set_tempo", {"bpm": True}),
                  ("set_track_volume", {"track": -1, "volume": 0.5}),
