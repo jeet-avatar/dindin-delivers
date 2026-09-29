@@ -1,239 +1,176 @@
-# Mixing and Mastering Module — Design
+# Reference-Informed Mixing and Mastering — Design (v2)
 
-## Summary
+**This replaces the 2026-09-28 draft of this spec (commits `f4d5dcb9`,
+`e0de10b1`).** That draft was written against a stale checkout of `main`.
+BeatMind ships from release branches, and
+`origin/release/beatmind-launch-20260928` already has a full mastering
+pipeline the draft didn't know about. Re-scoped below to extend that
+pipeline instead of duplicating it.
 
-BeatMind can already produce a track (MIDI + instruments, driven by Claude over
-AbletonOSC) and already has a mature **Reference-to-Track workflow**: upload a
-reference song, separate it into four stems (Demucs `htdemucs`), analyze
-tempo/key/energy (librosa), review/approve stems, map its structure, optionally
-get a paid third-party listening description, and build a creative template
-from it. It also has a **Compare sounds** stage (`backend/sound_comparison.py`)
-that takes one real Ableton audition recording and one reference layer,
-level-matches them, and reports bounded DSP measurements (RMS, peak, crest,
-spectral centroid, 6-band energy split, stereo side-energy) plus plain-language
-notes — explicitly diagnostic, explicitly not a quality score, explicitly never
-touching Ableton.
+## What already exists (verified against the release branch, not assumed)
 
-**What doesn't exist yet, and what this module adds:**
+- **`mix_check` tool** (`backend/mix_check.py`) — full engineering checklist
+  on a bounced full-mix preview: integrated LUFS + true peak (FFmpeg's own
+  `ebur128` filter), low-end %, low-end mono correlation (the mono/club-
+  translation check), mud/harshness band %, section energy arc (Build→Drop
+  LUFS progression), balance-vs-kick, session safety. Read-only, every item
+  has a concrete fix.
+- **`apply_master_chain` tool** (`backend/master_chain.py`) — loads Ableton's
+  own native Limiter on the Main track and sets its Ceiling/Gain from
+  `measured_lufs`, via the real `beatmind_master` AbletonOSC extension,
+  verified by readback. No external mastering engine involved.
+- **`audition_scene`** — already bounces a full mix (and can preview
+  transitions between two scenes). Full-mix rendering is not a gap.
+- **`producer_profile.py`** — per-user preferences that override rulebook
+  defaults, including `loudness_target_lufs` and `ceiling_dbtp`. This is
+  what "producer requirement" means in this codebase, confirmed by the user.
+- **`sound_comparison.py`** — per-part vs. reference-layer diagnostic (RMS,
+  crest, spectral centroid, 6-band energy %, stereo side-energy %). Already
+  reads either the reference's full mix or a specific stem
+  (`ROOT/reference_id/{mix,drums,bass,vocals,other}.wav` — confirmed from
+  `references.py`), it just doesn't measure loudness.
+- **`engineering_rules.py` / `get_engineering_rules`** — rulebooks (vocal,
+  human_feel, drama, entrances, **interactions**) including masking guidance
+  (kick vs. bass, vocal vs. synth, etc.) as producer-legible detect/fix rules.
 
-1. **Loudness/true-peak/phase measurement** — Compare sounds has no LUFS,
-   no true-peak, no mono-compatibility check. Needed both per-part and,
-   critically, at the final mix.
-2. **Frequency-masking detection across simultaneously-sounding tracks** — no
-   existing tool (in this repo or in open source) checks whether two tracks
-   are fighting for the same frequency band at the same time.
-3. **A final mastering pass** — nothing bounces the master bus, matches it to
-   the reference track, or checks it against release-readiness thresholds.
-   The reference workflow explicitly stops short of this ("the reference
-   workflow alone is not a finished song").
+None of this needs to be rebuilt, and no GPL dependency (Matchering) or new
+Bridge/OSC capability is needed anywhere in this design — everything reuses
+FFmpeg `ebur128` (already how `mastering.loudness()` measures LUFS/true
+peak) and Ableton's own Limiter (already how mastering is applied).
 
-This design covers those three additions. It deliberately does **not** touch
-or replace the existing reference upload/stem/timing/template/compare code —
-it extends the same measurement style and reuses the same reference audio
-already on disk, and it does not introduce any new form of Claude "listening":
-the existing rule stands — no tool lets Claude hear audio, only measure it.
+**Branch note for the implementation plan:** all of the above lives on
+`release/beatmind-launch-20260928`, not `main` — this repo's working folder
+intentionally stays on `main` while BeatMind ships from release branches.
+Implementation should branch from (or target) the release branch, not
+`main`, or the files this spec extends won't be there.
 
-## Terminology (precise, to avoid the overclaiming this codebase is careful about)
+## What's actually missing
 
-- **Per-track measurement** (not "mixing"): extending Compare sounds with more
-  metrics. Still diagnostic-only, still human/Claude-reviewed before any
-  device parameter changes, applied the same way today's fader edits are
-  (`bridge/mixer_preview.py`): an explicit value, verified before and after.
-- **Mastering**: the new final-mix stage — bounce, match to reference, gate
-  against release-readiness thresholds. This is the only stage that produces
-  a deliverable file.
-- **"Release ready"** is never an unconditional claim. Every report in this
-  module carries a `limitations` array and a `status`, the same pattern
-  `sound_comparison.py` already uses. A passing QA gate means "no measured
-  problem found," not "this sounds good."
+1. `mix_check` / `apply_master_chain` use fixed or producer-profile defaults
+   — never informed by the **actual uploaded reference track's** measured
+   loudness/tonal balance. The reference workflow and the mastering system
+   don't talk to each other today.
+2. `sound_comparison.py` has no LUFS/true-peak, only RMS/crest/spectral/
+   stereo — so per-part Compare sounds can't judge loudness against the
+   reference.
+3. **No per-stem mastering.** The reference is already separated into
+   drums/bass/vocals/other; nothing compares the corresponding group of the
+   user's own tracks against it.
+4. `mix_check.py` and `master_chain.py` have **zero test coverage** — every
+   other backend module in this repo has a `test_*.py`, these two don't.
+
+## Goals
+
+1. When a reference track is attached, `mix_check`'s loudness target comes
+   from the reference's own measured LUFS (via `mastering.loudness()` on
+   its `mix.wav`) instead of the fixed -14 default — **but a
+   `producer_profile.py` override still wins**, preserving today's
+   precedence (explicit param > producer preference > rulebook default);
+   the reference becomes a new source that only fills in when neither of
+   those is set.
+2. Add LUFS/true-peak to `sound_comparison.measure()`'s report, so per-part
+   Compare sounds includes loudness alongside its existing metrics.
+3. Add per-stem-bus mastering: group the user's own Ableton tracks into the
+   same four buses the reference uses (drums/bass/vocals/other), bounce
+   each bus, and compare it to the reference's corresponding stem.
+4. Close the test gap on `mix_check.py` and `master_chain.py`.
 
 ## Non-goals
 
-- No autonomous auto-correction loop. Nothing in this module computes a
-  correction and silently applies it to an Ableton device. Every apply is an
-  explicit value change through the existing tool-call pattern, verified
-  before/after, exactly like current fader edits.
-- No new "Claude listens to audio" capability. Perceptual judgment stays with
-  the human, via existing audition players.
-- No change to the reference upload/stem/timing/template pipeline.
-- No Windows support (Bridge mastering deps are macOS-first, matching the
-  rest of Bridge's current scope).
+- No Matchering, no external mastering engine, no new native dependency —
+  everything reuses `mastering.loudness()` (FFmpeg `ebur128`) and the
+  existing native-Ableton Limiter chain.
+- No new Bridge/OSC capability. Bus-level bounces are built entirely from
+  existing primitives (track mute state + `audition_scene`), described
+  below.
+- No autonomous auto-apply. `apply_master_chain`'s own tool description
+  already requires the user to agree before it runs; this design doesn't
+  loosen that gate, and bus comparison results are advisory only, same as
+  today's per-part Compare sounds.
+- No new frequency-masking-across-simultaneous-tracks detector.
+  `mix_check`'s mud/harsh %, balance-vs-kick, and the `interactions`
+  rulebook already give producer-usable masking guidance today. Not adding
+  a parallel STFT overlap tool speculatively — if real use shows this
+  isn't enough, that's a follow-up phase, not something to build now.
 
 ## Architecture
 
-Same split as the rest of BeatMind: measurement and rendering that touch real
-audio files happen in the **Bridge** (local, on the user's Mac); Claude drives
-it through new tool calls over the existing WebSocket/OSC channel, the same
-way it drives `audition_part` today.
+Backend-only (Python), extending existing files rather than replacing them.
 
-```
-Claude (cloud)
-   │ tool calls: measure_track, detect_masking, bounce_master, master_track, check_release
-   ▼
-Bridge (local)
-   ├─ backend/loudness_measurement.py   (new: extends sound_comparison's bounded-measurement
-   │                                     style with LUFS/LRA/true-peak, subprocess-isolated)
-   ├─ backend/masking_detector.py       (new: STFT energy-overlap across simultaneous tracks)
-   ├─ bridge/master_bounce.py           (new: renders the full master bus to a WAV,
-   │                                     same solo/mute/transport-restore discipline as audio_preview.py)
-   ├─ backend/mastering.py              (new: shells out to an isolated Matchering process,
-   │                                     target = bounced master, reference = the same
-   │                                     reference track already on disk from the reference
-   │                                     workflow)
-   └─ backend/release_gate.py           (new: FFmpeg loudnorm two-pass + aphasemeter,
-                                          streaming-normalization preview, structured pass/fail)
-```
-
-Matchering is GPL-3.0. It runs under **its own venv's Python interpreter**
-(true dependency isolation — Matchering and its deps never enter BeatMind's
-own site-packages), invoked as a subprocess the same crash/timeout-safe way
-`sound_comparison.run()` already shells out to a subprocess (hard timeout,
-process-group kill, own env). `sound_comparison.run()`'s use of `sys.executable`
-gives crash isolation only, same interpreter; Matchering additionally needs
-the separate-venv isolation for the license boundary to actually hold.
-
-## Components
-
-### 1. Loudness/true-peak/phase measurement (`loudness_measurement.py`)
-
-Extends the existing `measure()`/`compare_arrays()` pattern in
-`sound_comparison.py` — same bounded style (numpy/scipy, no ML, explicit
-`limitations`), adding:
-- Integrated LUFS and LRA (ITU-R BS.1770-4, via `pyloudnorm` — MIT, pure
-  Python, no new native dependency risk).
-- True-peak (inter-sample peak) via 4x oversampling, the same check
-  `libebur128` and FFmpeg's own `ebur128` implement, done directly in numpy
-  to avoid adding a second native dependency alongside Matchering.
-- Phase/mono correlation via FFmpeg's `aphasemeter` filter, invoked the same
-  subprocess-with-timeout way `render_comparison()` already invokes `ffmpeg`.
-
-Called on: each part's audition recording (per-track measurement, surfaced in
-the same Compare sounds report), and on the bounced master (mastering stage).
-
-### 2. Masking detector (`masking_detector.py`)
-
-New — no maintained open-source equivalent exists (confirmed by research: only
-unrelated ML-training "frequency masking augmentation" tools surfaced).
-`audio_preview.py`'s `capture_part()` isolates exactly one track at a time (it
-force-solos the target and un-solos everything else) — there is no
-summed-mix capture to analyze per-track overlap from. So this component takes
-**N sequential isolated captures**, one per non-empty track over the same
-bar range/scene, each using `capture_part()` exactly as it works today. It
-then computes per-critical-band energy via STFT independently for each
-isolated track (same `scipy.signal.stft` already used in
-`sound_comparison.measure()`) and flags any band where two or more tracks
-each hold >X% of the total energy in that band during the same window — a
-genuine gap this module has to fill itself rather than adopt.
-
-Output is advisory notes only ("Bass and kick both dominate 60-120Hz during
-bars 9-16"), not an automatic EQ change.
-
-### 3. Master bounce (`bridge/master_bounce.py`)
-
-New Bridge capability. No full-mixdown render exists today — `audio_preview.py`
-only solos and captures one track/scene. This renders the master bus across a
-requested arrangement range, with the same safety discipline
-`mixer_preview.py`/`audio_preview.py` already use: verify transport stopped,
-verify no unexpected mute/solo state, restore all track states afterward,
-refuse (not guess) on a silent render.
-
-### 4. Mastering pass (`mastering.py`)
-
-Input: the bounced master, plus the reference track's audio file (the one
-already uploaded and stem-separated in the reference workflow — no new upload
-step). Runs the isolated Matchering subprocess (target=master, reference=that
-file), returns the matched master plus Matchering's own reported gain/EQ
-delta. This is explicitly presented as one candidate, not a final artifact —
-it still has to pass the release gate.
-
-### 5. Release gate (`release_gate.py`)
-
-Pass/fail, not advisory, on:
-- Integrated LUFS within a configurable target band (streaming default: -14
-  LUFS ±1) and true-peak ≤ -1 dBTP — via FFmpeg two-pass `loudnorm`.
-- No inter-sample clipping, no DC offset.
-- Mono compatibility (phase correlation via `aphasemeter` doesn't fall below
-  a configurable threshold).
-- **Streaming-normalization preview**: simulate each platform's own turn-down
-  (Spotify/YouTube/Apple each renormalize toward roughly -14 LUFS) and
-  re-check true-peak after that gain change — the one check no open-source
-  tool provides, implemented as straightforward gain math on top of the LUFS
-  figure already measured, not a new dependency.
-
-A failing gate reports which specific metric failed, its measured value, and
-its target — never a vague "needs work." A passing gate still ships with the
-same `limitations` framing as the rest of this module: it did not judge
-tone, arrangement, or creative quality.
+- **`backend/mastering.py`** (existing) — add `reference_targets(reference_id)`,
+  reading `ROOT/reference_id/mix.wav` through the existing `loudness()` and
+  `band_shares()` functions. Purely additive; no changes to existing
+  functions or their signatures.
+- **`backend/mix_check.run()`** (existing) — accept an optional
+  `reference_id`. When given, target_lufs falls back to
+  `mastering.reference_targets()` instead of the hardcoded `-14.0`, only
+  when no explicit `target_lufs` argument and no producer-profile
+  `loudness_target_lufs` override are present.
+- **`backend/sound_comparison.measure()`** (existing) — add `lufs`/
+  `true_peak_dbtp` to the returned dict via `mastering.loudness()` on the
+  same decoded excerpt; extend `compare_arrays()`'s `next_checks` with one
+  more note when the LUFS delta is large. Existing fields are unchanged, so
+  this doesn't break `test_sound_comparison.py`'s current assertions.
+- **`backend/bus_mastering.py`** (new — the one genuinely new module) —
+  classifies the user's Ableton tracks into drums/bass/vocals/other by
+  name (reusing the same substring-matching idiom `mix_check.py` already
+  uses for kick/bass), mutes tracks outside the target bus, calls the
+  existing `audition_scene` to bounce just that bus, measures it with
+  `mastering.loudness()` + `sound_comparison.measure()`, compares against
+  `ROOT/reference_id/{bus}.wav`, and restores mute state — all built from
+  tools that already exist (`set_track_mute`-equivalent, `audition_scene`),
+  no new Bridge extension.
+- **`backend/claude_tools.py`** — extend `mix_check`'s input schema with
+  optional `reference_id`; add one new tool, `compare_bus_to_reference`,
+  wrapping `bus_mastering.py`.
 
 ## Data flow
 
-```
-1. Reference track already uploaded & stem-separated (existing workflow) — reused as-is.
-2. Per-track loop (existing "build a part" loop, extended):
-   describe_sound → audition_part → [NEW] measure_track (loudness_measurement,
-   a new tool call, new report) — this is a **separate report presented
-   alongside** the existing Compare sounds report in chat, not a modification
-   to `sound_comparison.py`'s own code or its `compare_arrays()` output. Claude
-   reasons over both reports together, then Claude/user decide on an explicit
-   device value change → applied via existing automate_parameter/mixer_preview,
-   re-verified, same as today.
-3. [NEW] detect_masking across all built tracks once arrangement is stable →
-   advisory notes surfaced in chat, same non-blocking pattern.
-4. [NEW] bounce_master → master_track (Matchering vs. reference) →
-   check_release (release gate).
-5. Pass → deliverable master file handed back with its full measurement
-   report. Fail → specific failing metric(s) reported; loop back to step 2
-   (per-track) or step 4 (re-master) as appropriate — never auto-retried
-   silently.
-```
+1. Reference track already uploaded and stem-separated (existing
+   workflow) — `mix.wav` plus four stem files already on disk.
+2. Per-part loop (unchanged): `describe_sound` → `audition_part` →
+   Compare sounds, now reporting LUFS/true-peak delta alongside its
+   existing metrics.
+3. Once the arrangement is stable: for each bus, mute other tracks,
+   `audition_scene`, measure, compare to the matching reference stem — a
+   bus-level report (loudness delta, spectral band delta) surfaced in
+   chat, advisory only.
+4. Full mix: `audition_scene` → `mix_check(reference_id=...)` — loudness
+   target now derived from the reference unless a producer-profile
+   override or explicit value is set → address any fails → re-check.
+5. `apply_master_chain(measured_lufs=..., target_lufs=<from step 4>)` —
+   user-approved, unchanged from today.
+6. Final `mix_check` re-run to confirm.
 
 ## Error handling
 
-- Every new subprocess call (Matchering, ffmpeg loudnorm/aphasemeter) follows
-  `sound_comparison.run()`'s existing pattern exactly: hard timeout,
-  process-group kill on timeout, structured error surfaced (never silent
-  fallback), "no Ableton/file changes were made" stated explicitly on
-  failure where relevant.
-- Master bounce failure (silent render, transport not stopped, unexpected
-  mute/solo state) refuses rather than guesses, same as `audio_preview.py`.
-- Matchering subprocess isolation means a Matchering crash/bad-install can
-  never take down the main Bridge process.
-- Missing or incompatible reference audio (wrong channel count, too short) is
-  validated before any processing starts. `reference_limits.py` today only
-  defines byte-size and duration bounds (`MAX_BYTES`, `MIN_SECONDS`,
-  `MAX_SECONDS`, `UPLOAD_TIMEOUT_SECONDS`) — it has no channel-count check, so
-  channel-count validation is new logic added alongside those existing
-  bounds, not a reuse of them.
+- Missing/incomplete reference stems (e.g., a stem review marked
+  "needs-work" and never re-saved) — `bus_mastering.py` checks file
+  existence the same way `sound_comparison.py` already does
+  (`(directory / f'{layer}.wav').is_file()`) and fails clearly rather
+  than guessing or substituting a different stem.
+- A track name that matches no bus (e.g., "FX Riser") is reported as
+  "unclassified" and excluded from bus comparison — never silently folded
+  into the wrong bus.
+- Mute-state restore follows the same before/after verification discipline
+  `mixer_preview.py`/`audio_preview.py` already use, restored even when a
+  step in between fails.
 
 ## Testing
 
-- Extend the existing `sound_comparison` test style (bounded numeric
-  assertions, not perceptual claims) to the new loudness/true-peak/phase
-  functions, validated against the **EBU Tech 3341** conformance test vectors
-  — the actual standard test suite for loudness meters — so the LUFS/true-peak
-  numbers are provably correct, not just "looks plausible."
-- Golden fixture: one reference track + one set of built stems with
-  hand-verified expected loudness/masking output, regression-tested the same
-  way MixMind's "Clean-key golden test" pins expected output.
-- Packaging: Matchering's dependencies (scipy/numpy/soundfile) and the
-  bundled `ffmpeg` binary must be verified in the **packaged** Bridge
-  installer, not just dev env — this class of bug (native/audio deps missing
-  from a packaged build) has already bitten this account once (MixMind's
-  libSDL2/Demucs bundling gap).
+- `test_mix_check.py`, `test_master_chain.py`: close the existing coverage
+  gap, following `test_sound_comparison.py`'s existing style (fixture
+  audio, bounded numeric assertions, not perceptual claims).
+- `test_bus_mastering.py`: bus-classification correctness (track name →
+  bus) as pure unit tests, plus mute/restore and measurement using the
+  same fixture pattern as the other new tests.
+- Regression: a reference track with a known LUFS/band profile produces a
+  `mix_check` target within tolerance of that measured value.
 
-## Open dependencies / risks
+## Open questions
 
-- Matchering must be packaged in its own isolated venv inside the Bridge
-  installer; this is new packaging surface, flagged for the implementation
-  plan to size properly.
-- No maintained open-source library exists for masking detection or
-  streaming-normalization preview — both are small custom builds on
-  primitives already in this codebase (STFT, LUFS), not external
-  dependencies, but they are net-new logic with no reference implementation
-  to lean on.
-- This spec spans several fairly independent risk profiles (DSP math, Bridge/
-  OSC transport safety, packaging, licensing) and is sized as a milestone,
-  not a single plan. The implementation plan should phase it: (1) per-track
-  loudness/phase measurement, (2) masking detector, (3) master bounce
-  capability, (4) mastering + release gate — each independently shippable and
-  testable before the next starts.
+- Bus classification by track name is a heuristic, the same one
+  `mix_check.py`'s kick/bass detection already relies on — unusual or
+  non-English track names may misclassify. A producer-facing manual bus
+  override may be worth adding if this proves unreliable in practice; not
+  building it preemptively.
