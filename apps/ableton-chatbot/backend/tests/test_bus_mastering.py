@@ -14,3 +14,19 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual(result[4], 'vocals')  # Lead Vocal
         self.assertEqual(result[5], 'other')   # Pad
         self.assertIsNone(result[6])           # FX Riser — unclassified, never guessed
+
+    def test_classifies_literal_drums(self):
+        self.assertEqual(bus_mastering.classify('Drums'), 'drums')
+
+    def test_classifies_descriptive_other_names(self):
+        self.assertEqual(bus_mastering.classify('Warm Pad'), 'other')
+        self.assertEqual(bus_mastering.classify('Analog Synth Lead'), 'other')
+        self.assertEqual(bus_mastering.classify('Rhodes Keys'), 'other')
+        self.assertEqual(bus_mastering.classify('Nylon Guitar'), 'other')
+
+    def test_classifies_bare_808_as_bass(self):
+        self.assertEqual(bus_mastering.classify('808'), 'bass')
+
+    def test_classifies_case_and_whitespace_variants(self):
+        self.assertEqual(bus_mastering.classify('KICK'), 'drums')
+        self.assertEqual(bus_mastering.classify('Kick '), 'drums')

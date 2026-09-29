@@ -4,6 +4,7 @@
 DRUM_WORDS = ('kick', 'snare', 'hat', 'clap', 'perc', 'cymbal', 'tom', 'drum')
 BASS_WORDS = ('bass', 'sub', '808')
 VOCAL_WORDS = ('vocal', 'vox', 'voice')
+OTHER_WORDS = ('pad', 'chords', 'lead', 'synth', 'keys', 'strings', 'guitar', 'arp')
 
 
 def classify(name):
@@ -14,7 +15,7 @@ def classify(name):
         return 'bass'
     if any(word in lowered for word in DRUM_WORDS):
         return 'drums'
-    if lowered.strip() in ('pad', 'chords', 'lead', 'synth', 'keys', 'strings', 'guitar', 'arp'):
+    if any(word in lowered for word in OTHER_WORDS):
         return 'other'
     return None
 
