@@ -840,6 +840,8 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 - Use write_clip_automation so movement is saved in the clip and recorded into the Arrangement; automate_parameter
   only performs a live move and is not saved. It also automates the track MIXER: mixer "send" (send 0 = A Reverb,
   1 = B Delay) for reverb/delay rides and throws, mixer "volume" for rides and fades (both in dB), mixer "pan".
+- Before replacing, redoing or resetting automation, read_clip_automation on that clip (and the next section's
+  clip) to see what is stored; keep approved values unless the user asked to change them. Never guess old values.
 - Every automation has a purpose (tension, release, introduce, remove, clarity or movement) and a reset: say where
   the control returns to normal (usually the next section's clip holds the normal value). Never leave a filter
   closed, a send up or a fader down by accident.

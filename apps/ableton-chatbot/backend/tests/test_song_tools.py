@@ -347,3 +347,15 @@ def test_history_keeps_the_last_proposal_by_shrinking_old_tool_evidence():
     text = json.dumps(kept)
     assert "PROPOSAL 5: the full plan text" in text and "Approved, go ahead" in text
     assert len(text.encode()) <= 40000
+
+
+def test_read_clip_automation_is_read_only_and_passes_the_target():
+    import automation, json
+    sent = []
+    async def send(address, args, query, timeout):
+        sent.append((address, json.loads(args[0])))
+        return {"status": "ok", "address": address, "args": ['{"status": "observed", "has_clip": true, "automations": [], "summary": "No automation is stored in this clip."}']}
+    result = asyncio.run(automation.execute_automation("read_clip_automation", {"track": 4, "scene": 1, "mixer": "send", "send": 0}, send))
+    assert result["status"] == "observed" and sent == [("/live/beatmind/clip_automation", {"track": 4, "scene": 1, "mixer": "send", "send": 0})]
+    from claude_tools import SYSTEM_PROMPT
+    assert "read_clip_automation on that clip" in SYSTEM_PROMPT

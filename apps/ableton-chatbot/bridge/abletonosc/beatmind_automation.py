@@ -335,7 +335,56 @@ def register(handler, app):
                     parameter.name, first, last, points[-1]["beat"] - points[0]["beat"], written),
                 "control": {"index": index, "name": parameter.name}, "start_display": first, "end_display": last}
 
+    def clip_automation(data):
+        """Read the automation stored in a Session clip: which controls move and their values over the clip.
+        Read-only. With no target, lists every automated control on the track's devices and mixer."""
+        track = handler.song.tracks[data["track"]]
+        slot = track.clip_slots[data["scene"]]
+        if not slot.has_clip:
+            return {"status": "observed", "has_clip": False, "automations": [], "summary": "There is no clip in that slot."}
+        clip = slot.clip
+        mixer = track.mixer_device
+        targets = [({"mixer": "volume"}, mixer.volume), ({"mixer": "pan"}, mixer.panning)]
+        targets += [({"mixer": "send", "send": i}, send) for i, send in enumerate(mixer.sends)]
+
+        def walk(devices, prefix, depth):
+            for index, device in enumerate(devices):
+                path = prefix + [index]
+                for parameter in device.parameters:
+                    targets.append(({"path": path, "device": device.name, "control": parameter.name}, parameter))
+                if depth < 3 and getattr(device, "can_have_chains", False) and not getattr(device, "can_have_drum_pads", False):
+                    for chain_index, chain in enumerate(device.chains):
+                        walk(chain.devices, path + [chain_index], depth + 1)
+        walk(track.devices, [], 0)
+        wanted = {key: data[key] for key in ("mixer", "send", "path", "control") if key in data}
+        if wanted:
+            targets = [(t, p) for t, p in targets if all(t.get(k) == v for k, v in wanted.items())]
+        length = clip.length
+        def envelope_of(parameter):
+            try:
+                return clip.automation_envelope(parameter)
+            except Exception:  # Some controls cannot hold clip automation.
+                return None
+        automated = [(t, p, envelope_of(p)) for t, p in targets]
+        automated = [item for item in automated if item[2] is not None]
+
+        def read(samples):
+            # Just inside each time: exactly on a step boundary Live can report the previous step.
+            times = [min(length * i / (samples - 1) + 0.01, length - 0.01) for i in range(samples)]
+            return [{**target, "name": parameter.name,
+                     "points": [[round(t, 2), parameter.str_for_value(envelope.value_at_time(t))] for t in times]}
+                    for target, parameter, envelope in automated]
+        requested = max(2, min(33, int(data.get("samples", 9))))
+        for samples in sorted({requested, min(requested, 5), 3, 2}, reverse=True):
+            found = read(samples)
+            if len(json.dumps(found).encode()) <= MAX_REPLY - 600:
+                break
+        return {"status": "observed", "has_clip": True, "clip_length_beats": length, "automations": found,
+                "summary": ("%d automated control(s) in this clip: %s." % (len(found), ", ".join(a["name"] for a in found)))
+                           if found else "No automation is stored in this clip."}
+
     for operation, function in {"catalog": catalog, "device_tree": device_tree, "clip_envelope": clip_envelope,
+                                "clip_automation": clip_automation,
                                 "control_map": control_map, "set_control": set_control, "load_item": load_item}.items():
         def callback(params, function=function):
             try:
