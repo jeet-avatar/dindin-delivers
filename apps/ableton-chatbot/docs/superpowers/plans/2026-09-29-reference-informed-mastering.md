@@ -61,6 +61,17 @@ class LoudnessTests(unittest.TestCase):
         bands = mastering.band_shares(samples)
         self.assertGreater(bands['harsh'], 80)
         self.assertLess(bands['low'], 5)
+
+    def test_loudness_is_deterministic_on_identical_input(self):
+        # Pins the invariant Chunk 3's sound_comparison LUFS-delta note depends on: two independent
+        # FFmpeg ebur128 runs on byte-identical audio must agree exactly, not just approximately,
+        # or test_identical_audio_has_zero_deltas_without_match_claim (existing test) would be flaky.
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'tone.wav'
+            wavfile.write(path, 44100, tone(gain=0.5))
+            first = mastering.loudness(path)
+            second = mastering.loudness(path)
+            self.assertEqual(first, second)
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -672,13 +683,15 @@ Expected: FAIL — `KeyError: 'lufs'`
 ```python
 # backend/sound_comparison.py — add near the top
 import tempfile
+from pathlib import Path
 import mastering
 
 # inside measure(), after the existing peak/rms/spectrum computation, before the return:
-    with tempfile.NamedTemporaryFile(suffix='.wav', delete=True) as scratch:
+    with tempfile.TemporaryDirectory() as scratch:
         from scipy.io import wavfile as _wavfile
-        _wavfile.write(scratch.name, RATE, (samples * 32767).round().astype('<i2'))
-        lufs, true_peak_dbtp = mastering.loudness(scratch.name)
+        scratch_path = Path(scratch) / 'excerpt.wav'
+        _wavfile.write(scratch_path, RATE, (samples * 32767).round().astype('<i2'))
+        lufs, true_peak_dbtp = mastering.loudness(scratch_path)
     return {'rms_dbfs': round(rms_db, 3), 'peak_dbfs': round(float(20 * np.log10(peak)), 3),
             'crest_db': round(float(20 * np.log10(peak) - rms_db), 3),
             'spectral_centroid_hz': round(float(np.sum(frequencies * energy) / total), 2),
@@ -688,21 +701,61 @@ import mastering
                               for low, high in BANDS}}
 ```
 
+(`TemporaryDirectory()` + an explicit path, not `NamedTemporaryFile`, to match the idiom
+`render_comparison()` and Chunk 1's `reference_targets()` test already use elsewhere in this
+codebase/plan.)
+
 ```python
-# backend/sound_comparison.py — inside compare_arrays(), extend the existing deltas dict and notes list
+# backend/sound_comparison.py — inside compare_arrays(), full real body with the new lines marked
     deltas = {key: round(b[key] - a[key], 3) for key in
-              ('rms_dbfs', 'crest_db', 'spectral_centroid_hz', 'side_energy_percent', 'lufs')}
-    # ... after the existing crest_db note ...
-    if abs(deltas['lufs']) >= 3:
+              ('rms_dbfs', 'crest_db', 'spectral_centroid_hz', 'side_energy_percent', 'lufs')}  # 'lufs' added
+    band_deltas = {key: round(b['bands_percent'][key] - a['bands_percent'][key], 3) for key in a['bands_percent']}
+    notes = []
+    if abs(deltas['rms_dbfs']) >= 6:
+        notes.append('The recorded levels differ substantially. Judge the RMS-matched previews before changing tone.')
+    if abs(deltas['spectral_centroid_hz']) >= 200:
+        direction = 'higher' if deltas['spectral_centroid_hz'] > 0 else 'lower'
+        notes.append(f'The candidate spectral centroid is {direction}. Different notes or instruments can cause this; compare register before proposing a filter or EQ change.')
+    if abs(deltas['crest_db']) >= 3:
+        notes.append('Peak-to-average dynamics differ. Listen to attack and decay before proposing envelope or compression changes.')
+    if abs(deltas['lufs']) >= 3:  # NEW
         notes.append('Integrated loudness differs by 3 LU or more. Level-match by ear before judging tone or dynamics.')
+    if abs(deltas['side_energy_percent']) >= 10:
+        notes.append('Stereo side energy differs. Check the source and phase before considering width, reverb or delay.')
+    if not notes:
+        notes.append('No large difference on these coarse measures. This does not prove a timbral, melodic or perceptual match.')
 ```
 
-Note: `measure()` is called from `render_comparison()` on 2-16 second excerpts (per
-`ComparisonRequest.duration_seconds`), each already running inside `sound_comparison.run()`'s existing
-isolated subprocess with a 60-second total timeout (`sound_comparison.py:126-144`) — the added FFmpeg
-subprocess call inside `measure()` runs *inside* that same isolated child process, so it doesn't need
-its own separate timeout/isolation; it inherits the existing one. Confirm this stays true after
-implementing — if `measure()` were ever called somewhere outside that isolation boundary, revisit.
+Notes on what this change actually does, confirmed by reading the current test suite and CI config
+rather than assumed:
+
+- `measure()` is called from `render_comparison()` on 2-16 second excerpts, already running inside
+  `sound_comparison.run()`'s isolated subprocess with a 60-second timeout — the added FFmpeg call
+  there just runs inside that existing isolation, no new timeout/isolation needed. `render_comparison()`
+  already spawns 2 FFmpeg decode subprocesses before calling `measure()` twice; this adds 2 more (4
+  total instead of 2 per comparison), still comfortably inside the 60s budget.
+- **But `measure()` is also called directly, synchronously, in-process** by
+  `MeasurementTests.test_identical_audio_has_zero_deltas_without_match_claim`,
+  `test_gain_changes_level_not_spectral_shape_and_previews_match`, and
+  `test_frequency_and_phase_are_measured_without_mono_cancellation` in the existing
+  `test_sound_comparison.py` — none of these go through `run()`'s subprocess isolation today, and
+  after this change they'll each shell out to FFmpeg directly during what were previously pure-NumPy
+  unit tests. Same for `ComparisonApiTests.fake_run()`, whose whole purpose was avoiding the real
+  subprocess worker at the API-test layer. This is a real, present-tense change to those tests'
+  character (not a hypothetical to "revisit later"), and it's accepted here rather than mocked:
+  `.github/workflows/deploy-beatmind.yml` already runs `sudo apt-get install -y ffmpeg` before the
+  whole-suite `python -m unittest discover`, and other tests in the same file
+  (`test_real_ffmpeg_worker_creates_playable_bounded_previews`) already require FFmpeg — so this adds
+  no new CI/environment dependency, it just extends an existing one to more tests in the file. If a
+  future contributor wants those specific `MeasurementTests` back to pure-NumPy speed, that's a
+  `mastering.loudness` mock at that call site, not a blocker for this plan.
+- The exact-zero LUFS delta the existing `test_identical_audio_has_zero_deltas_without_match_claim`
+  assertion needs for two calls on identical input is safe, not flaky: `tone()` is deterministic
+  float64 math, so two calls produce bit-identical arrays; `(samples * 32767).round().astype('<i2')`
+  is a deterministic function of those floats, so the two WAV files are byte-identical; and FFmpeg's
+  `ebur128` summary always prints integrated LUFS to exactly one decimal place, coarser than any
+  run-to-run floating-point noise could surface. Pinned as an explicit test in Chunk 1, Task 1.1
+  (`test_loudness_is_deterministic_on_identical_input`), not left as an implicit assumption.
 
 - [ ] **Step 4: Run to verify all `test_sound_comparison.py` tests pass**
 
