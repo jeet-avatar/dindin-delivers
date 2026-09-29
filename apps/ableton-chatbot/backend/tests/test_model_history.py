@@ -44,6 +44,21 @@ class ModelHistoryTests(unittest.TestCase):
         self.assertEqual(compacted["notes"]["rows"][47], [57, 11.75, 0.2, 90])
         self.assertTrue(compacted["other"]["truncated"])  # other long lists are still shortened
 
+    def test_checkpoint_keeps_read_automation_and_notes(self):
+        history = [{"role": "user", "content": "Rebuild the clip"}]
+        automation = {"status": "observed", "summary": "3 automated control(s)", "automations": [
+            {"mixer": "send", "send": 0, "name": "A-Reverb", "points": [[0.01, "-inf dB"], [3.99, "-inf dB"]]},
+            {"path": [3], "control": "Frequency", "name": "Frequency", "points": [[0.01, "20.0 Hz"], [3.99, "20.0 Hz"]]}]}
+        history.extend([{"role": "assistant", "content": [{"type": "tool_use", "id": "r", "name": "read_clip_automation", "input": {"track": 2, "scene": 1}}]},
+                        {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "r", "content": json.dumps(automation)}]}])
+        for i in range(12):
+            history.extend([{"role": "assistant", "content": [{"type": "tool_use", "id": str(i), "name": "add_notes", "input": {"fixture": "x" * 2000}}]},
+                            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": str(i), "content": json.dumps({"status": "verified", "summary": "ok"})}]}])
+        compact = bounded_history(history, 8000)
+        ledger = json.loads(compact[1]["content"].split("\n", 1)[1])
+        read = next(entry for entry in ledger if entry["id"] == "r")
+        self.assertEqual(read["automations"][1]["points"][0], [0.01, "20.0 Hz"])
+
     def test_small_history_is_unchanged(self):
         messages = [{"role": "user", "content": "Inspect"}]
         self.assertIs(bounded_history(messages), messages)

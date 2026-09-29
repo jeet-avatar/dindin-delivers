@@ -14,6 +14,8 @@ def as_dict(value):
 
 
 NOTE_KEYS = {"notes", "changed_notes"}
+# Read results that later steps rebuild from; they survive even when a long turn is cut to its action ledger.
+KEPT_READS = ("notes", "automations", "volume", "pan", "sends", "clip_length_beats", "has_clip")
 NOTE_FIELDS = ("pitch", "start", "duration", "velocity")
 
 
@@ -78,7 +80,9 @@ def compact_turn(turn, budget):
                     result = {"status": "unverified", "summary": block["content"]}
                 entry = next((item for item in ledger if item["id"] == block.get("tool_use_id")), None)
                 if entry is not None:
-                    entry.update({k: compact_result(result[k]) for k in ("status", "summary", "error", "recording") if isinstance(result, dict) and k in result})
+                    # Keep what was READ (notes, stored automation, mixer levels): later steps rebuild from it.
+                    entry.update({k: compact_result(result[k]) for k in ("status", "summary", "error", "recording") + KEPT_READS
+                                  if isinstance(result, dict) and k in result})
                 block["content"] = json.dumps(compact_result(result))
             blocks.append(block)
         compacted.append({**message, "content": blocks})
@@ -143,7 +147,7 @@ def summarize_earlier_turns(messages, current_start):
 
 
 def bounded_history(messages, max_bytes=None):
-    budget = int(os.getenv("BEATMIND_HISTORY_MAX_BYTES", "100000")) if max_bytes is None else max_bytes
+    budget = int(os.getenv("BEATMIND_HISTORY_MAX_BYTES", "250000")) if max_bytes is None else max_bytes
     if budget <= 0:
         raise HistoryBudgetError("Model history budget must be positive.")
     if encoded_size(messages) <= budget:
