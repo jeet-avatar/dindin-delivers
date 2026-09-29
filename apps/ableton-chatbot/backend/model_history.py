@@ -2,6 +2,7 @@
 import json
 import os
 import hashlib
+import re
 
 
 def as_dict(value):
@@ -137,9 +138,54 @@ def bounded_history(messages, max_bytes=None):
         return messages
     if encoded_size(messages[starts[-1]:]) > budget:
         return compact_turn(messages[starts[-1]:], budget)
+    # Keep whole recent turns within most of the budget; the rest carries the words of the dropped turns.
+    reserve = min(40000, budget // 4)
     first = starts[-1]
     for index in reversed(starts[:-1]):
-        if encoded_size(messages[index:]) > budget:
+        if encoded_size(messages[index:]) > budget - reserve:
             break
         first = index
-    return messages[first:]
+    kept = messages[first:]
+    room = budget - encoded_size(kept) - 200
+    note = earlier_text(messages[:first], room)
+    if note:
+        kept = [{**kept[0], "content": note + "\n\n" + kept[0]["content"]}] + kept[1:]
+    return kept
+
+
+def message_text(message):
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    return "\n".join(block.get("text", "") for block in map(as_dict, content or [])
+                     if isinstance(block, dict) and block.get("type") == "text")
+
+
+APPROVAL = re.compile(r"^\W*(yes|yep|yeah|ok|okay|sure|go ahead|approved?|do it|sounds good|build (it|this)|lets? (do|go|build))\b", re.I)
+
+
+def earlier_text(messages, room):
+    """The words of dropped turns without their tool evidence. The latest proposals the user approved (and those
+    approvals) are kept first, so an approved plan survives even when its turn no longer fits; the remaining room
+    holds the newest other messages."""
+    header = ("Earlier conversation, text only (tool calls and results omitted). Plans and decisions here still "
+              "stand; inspect Live before relying on any state it describes.\n")
+    texts = [(i, message.get("role"), message_text(message).strip()) for i, message in enumerate(messages)]
+    texts = [(i, role, text) for i, role, text in texts if text and not text.startswith("Execution checkpoint")]
+    pinned = []  # the three latest approved proposals, newest first
+    for position in range(len(texts) - 1, 0, -1):
+        _, role, text = texts[position]
+        if role == "user" and APPROVAL.match(text) and texts[position - 1][1] == "assistant" and len(pinned) < 6:
+            pinned += [texts[position - 1][0], texts[position][0]]
+    chosen = set()
+    for i in pinned + [i for i, _, _ in reversed(texts) if i not in pinned]:
+        candidate = chosen | {i}
+        body = "\n".join(f"[{role}] {text}" for j, role, text in texts if j in candidate)
+        if len((header + body).encode("utf-8")) <= room:
+            chosen = candidate
+        elif i in pinned or not chosen:
+            continue
+        else:
+            break
+    body = "\n".join(f"[{role}] {text}" for j, role, text in texts if j in chosen)
+    return header + body if chosen else ""

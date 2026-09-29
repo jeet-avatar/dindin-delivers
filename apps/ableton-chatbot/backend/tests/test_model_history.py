@@ -45,8 +45,32 @@ class ModelHistoryTests(unittest.TestCase):
                    {"role": "assistant", "content": [SimpleNamespace(type="tool_use", id="check", name="get_session_state", input={})]},
                    {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "check", "content": "Observed"}]}]
         messages = old + current
-        self.assertEqual(bounded_history(messages, 2000), current)
+        bounded = bounded_history(messages, 2000)
+        self.assertEqual(bounded[1:], current[1:])
+        self.assertTrue(bounded[0]["content"].endswith("\n\nCreate the requested arrangement"))
+        self.assertIn("[user] Old request", bounded[0]["content"])  # words kept, the huge log is not
+        self.assertNotIn("Large prior log", bounded[0]["content"])
         self.assertEqual(len(messages), 5)
+
+    def test_approved_plan_text_survives_when_its_turn_is_dropped(self):
+        plan = "Plan: T1 drums EQ low cut 30 to 350 Hz over bars 3-4. Shall I build this plan exactly as written?"
+        def turn(request, i):
+            return [{"role": "user", "content": request},
+                    {"role": "assistant", "content": [SimpleNamespace(type="text", text=f"Working on step {i}"),
+                                                      SimpleNamespace(type="tool_use", id=f"t{i}", name="write_clip_automation", input={"track": i})]},
+                    {"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": json.dumps({"status": "verified", "data": "z" * 3000})}]},
+                    {"role": "assistant", "content": f"Step {i} done. " + "Details of the move. " * 20}]
+        messages = [{"role": "user", "content": "Make the arrangement"}, {"role": "assistant", "content": plan}]
+        for i in range(40):
+            messages += turn("Yes, build this plan exactly as written." if i == 0 else "Yes, continue." if i == 30 else f"Continue {i}", i)
+        bounded = bounded_history(messages, 20000)
+        self.assertLessEqual(encoded_size(bounded), 20000)
+        self.assertNotEqual(bounded[1].get("content"), plan)  # the plan's own turn was dropped
+        self.assertTrue(bounded[-1]["content"].startswith("Step 39 done."))
+        self.assertIn(plan, bounded[0]["content"])
+        self.assertIn("[user] Yes, build this plan exactly as written.", bounded[0]["content"])
+        self.assertNotIn("zzzz", bounded[0]["content"])
+        self.assertTrue(bounded[0]["content"].endswith("\n\nContinue %d" % next(i for i in range(40) if f"Continue {i}" == bounded[0]["content"].split("\n\n")[-1])))
 
     def test_recent_complete_turns_survive(self):
         recent = [{"role": "user", "content": "Use my selected pack"}, {"role": "assistant", "content": "Inspected"}, {"role": "user", "content": "Continue"}]
