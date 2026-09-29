@@ -124,10 +124,28 @@ function writeChat(userId: number, id: string, snapshot: SavedChat): ChatEntry[]
   if (!snapshot.sessionId && !snapshot.messages.length && !snapshot.input.trim() && !snapshot.project) return restored;
   const chats: ChatEntry[] = [...restored.filter(c => c.id !== id), { id, title, sessionId: snapshot.sessionId }];
   // Save the conversation before changing the active pointer; failed storage must not erase it.
-  localStorage.setItem(`${prefix}_${id}`, JSON.stringify(snapshot));
-  localStorage.setItem(`beatmind_chat_v1_${userId}`, JSON.stringify(snapshot));
+  localStorage.removeItem(`beatmind_chat_v1_${userId}`);  // legacy duplicate of the active chat
+  storeCompact(`${prefix}_${id}`, snapshot);
   localStorage.setItem(prefix, JSON.stringify({ activeId: id, chats }));
   return chats;
+}
+
+// Browser storage is a cache of the server's chat history, limited to a few MB per site. Long productions keep
+// only their latest messages here, without per-step tool traces; the full chat stays on the server.
+function storeCompact(key: string, snapshot: SavedChat) {
+  let messages = snapshot.messages.slice(-50).map(m => ({ ...m,
+    toolCalls: m.toolCalls?.map(a => ({ ...a, result: a.result ? { ...a.result, steps: undefined } : undefined })),
+  }));
+  for (;;) {
+    const encoded = JSON.stringify({ ...snapshot, messages });
+    try {
+      if (encoded.length <= 1000000) { localStorage.setItem(key, encoded); return; }
+    } catch (error) {
+      if (messages.length <= 2) throw error;
+    }
+    if (messages.length <= 2) throw new Error("This conversation is too large for browser storage.");
+    messages = messages.slice(Math.ceil(messages.length / 4));
+  }
 }
 
 function restoredMessages(saved: SavedChat): Message[] {
@@ -259,17 +277,8 @@ export default function DashboardPage() {
     if (!historyReady || !user || !chatId) return;
     try {
       // Recordings retain full command evidence; keep browser history within storage limits.
-      const savedMessages = messages.slice(-50).map(m => ({ ...m,
-        toolCalls: m.toolCalls?.map(a => ({ ...a, result: a.result ? { ...a.result, steps: undefined } : undefined })),
-      }));
-      const snapshot = { messages: savedMessages, sessionId, input, project, referenceId, running: loading,
-        runningId: loading ? messages.at(-1)?.id : undefined };
-      let encoded = JSON.stringify(snapshot);
-      while (encoded.length > 2000000 && snapshot.messages.length > 2) {
-        snapshot.messages.splice(0, 2);
-        encoded = JSON.stringify(snapshot);
-      }
-      const savedChats = writeChat(user.id, chatId, JSON.parse(encoded));
+      const savedChats = writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: loading,
+        runningId: loading ? messages.at(-1)?.id : undefined });
       // Draft saves must not trigger another render of an unchanged chat list.
       setChats(previous => previous.length === savedChats.length && previous.every((chat, index) =>
         chat.id === savedChats[index].id && chat.title === savedChats[index].title && chat.sessionId === savedChats[index].sessionId
