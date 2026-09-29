@@ -279,3 +279,20 @@ def test_cut_off_answers_are_continued_and_blank_answers_explained():
     assert run([NS(stop_reason="max_tokens", content=[NS(type="text", text="Part one, ")]),
                 NS(stop_reason="end_turn", content=[NS(type="text", text="part two.")])]) == "Part one, part two."
     assert "did not produce an answer" in run([NS(stop_reason="end_turn", content=[])])
+
+
+def test_history_keeps_the_last_proposal_by_shrinking_old_tool_evidence():
+    import json
+    from model_history import bounded_history
+    bulky = json.dumps({"status": "observed", "summary": "Read device tree", "devices": ["x" * 400] * 60})
+    turns = []
+    for n in range(6):
+        turns += [{"role": "user", "content": f"request {n}"},
+                  {"role": "assistant", "content": [{"type": "tool_use", "id": f"t{n}", "name": "get_track_device_tree", "input": {"track": n}}]},
+                  {"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{n}", "content": bulky}]},
+                  {"role": "assistant", "content": f"PROPOSAL {n}: the full plan text"}]
+    turns.append({"role": "user", "content": "Approved, go ahead"})
+    kept = bounded_history(turns, max_bytes=40000)
+    text = json.dumps(kept)
+    assert "PROPOSAL 5: the full plan text" in text and "Approved, go ahead" in text
+    assert len(text.encode()) <= 40000

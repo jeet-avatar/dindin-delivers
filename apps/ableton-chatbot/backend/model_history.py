@@ -88,6 +88,38 @@ def encoded_size(value):
     return len(json.dumps(value, default=encode, ensure_ascii=False).encode("utf-8"))
 
 
+TARGET_KEYS = ("track", "scene", "index", "target_track", "target_scene", "path", "control", "device", "mixer", "send")
+
+
+def summarize_block(block):
+    """Old tool evidence shrinks to what happened; the conversation text around it is kept."""
+    block = dict(as_dict(block))
+    if block.get("type") == "tool_result" and isinstance(block.get("content"), str):
+        try:
+            result = json.loads(block["content"])
+        except ValueError:
+            result = {"summary": block["content"]}
+        if isinstance(result, dict):
+            kept = {k: (str(result[k])[:300] if k in ("summary", "error") else result[k])
+                    for k in ("status", "summary", "error") if k in result}
+            block["content"] = json.dumps({**kept, "detail": "Earlier result shortened; inspect current state if needed."})
+    elif block.get("type") == "tool_use" and len(json.dumps(block.get("input", {}))) > 400:
+        inputs = block.get("input", {})
+        block["input"] = {**{k: inputs[k] for k in TARGET_KEYS if k in inputs}, "details_omitted": True}
+    return block
+
+
+def summarize_earlier_turns(messages, current_start):
+    summarized = []
+    for i, message in enumerate(messages):
+        content = message.get("content")
+        if i < current_start and isinstance(content, list):
+            summarized.append({**message, "content": [summarize_block(block) for block in content]})
+        else:
+            summarized.append(message)
+    return summarized
+
+
 def bounded_history(messages, max_bytes=None):
     budget = int(os.getenv("BEATMIND_HISTORY_MAX_BYTES", "100000")) if max_bytes is None else max_bytes
     if budget <= 0:
@@ -99,6 +131,10 @@ def bounded_history(messages, max_bytes=None):
               if message.get("role") == "user" and isinstance(message.get("content"), str)]
     if not starts:
         raise HistoryBudgetError("The current production turn exceeds the model history budget.")
+    # Shrink bulky evidence from earlier turns before dropping any conversation (proposals must survive).
+    messages = summarize_earlier_turns(messages, starts[-1])
+    if encoded_size(messages) <= budget:
+        return messages
     if encoded_size(messages[starts[-1]:]) > budget:
         return compact_turn(messages[starts[-1]:], budget)
     first = starts[-1]
