@@ -71,6 +71,15 @@ class SavedSignInTests(unittest.TestCase):
         self.assertEqual(thread.call_args.kwargs['args'], ('live-token',))
         self.assertIsNone(self.app.bridge_token)
 
+    def test_update_row_is_fully_visible_when_connected(self):
+        self.app, _ = make_app(None)
+        self.app._on_connected()
+        self.app._show_update({'version': '9.9.9', 'url': 'https://www.beatmind.io/x.dmg', 'sha256': '0' * 64})
+        self.app.root.update()
+        frame = self.app.update_frame
+        self.assertLessEqual(frame.winfo_y() + frame.winfo_height(), self.app.root.winfo_height())
+        self.assertGreaterEqual(self.app.root.winfo_height(), self.app.root.winfo_reqheight())
+
     def test_update_waits_for_running_separation(self):
         self.app, _ = make_app(None)
         self.app._show_update({'version': '9.9.9', 'url': 'https://www.beatmind.io/x.dmg', 'sha256': '0' * 64})

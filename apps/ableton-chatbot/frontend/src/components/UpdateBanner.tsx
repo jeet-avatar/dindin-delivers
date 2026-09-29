@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/auth";
-import { updateNotice, type UpdateNotice } from "@/lib/update-check";
+import { newerVersion, updateNotice, type UpdateNotice } from "@/lib/update-check";
 
 const CHECK_MS = 10 * 60 * 1000;
+const FIRST_VISIBLE_UPDATER = "1.3.1";
 const BUILT_COMMIT = process.env.NEXT_PUBLIC_RELEASE_COMMIT;
 
 async function json(request: Promise<Response>): Promise<unknown> {
@@ -29,11 +30,12 @@ export default function UpdateBanner() {
           json(apiFetch("/api/bridge/status")),
         ]);
         const bridge = status && typeof status === "object" ? status as { bridge_connected?: boolean; bridge_version?: string | null } : {};
-        // Bridges before 1.2.0 report no version and cannot install updates themselves.
+        // Bridges before 1.2.0 report no version and cannot install updates themselves; 1.2.0 and 1.3.0 can,
+        // but their fixed-size window hides the Install update row, so they are pointed to the download too.
         const version = bridge.bridge_connected ? bridge.bridge_version || "0" : null;
         if (!active) return;
         setNotice(updateNotice(BUILT_COMMIT, release, version, latest));
-        setLegacy(version === "0");
+        setLegacy(version !== null && newerVersion(FIRST_VISIBLE_UPDATER, version));
         setDownload(latest && typeof latest === "object" && "url" in latest ? String(latest.url) : "");
       } catch { /* Checked again at the next interval. */ }
     };

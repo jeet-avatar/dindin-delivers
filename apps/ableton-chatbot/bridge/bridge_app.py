@@ -414,6 +414,14 @@ class BeatMindBridgeApp:
                                       "Your Ableton set stays open.", fg=ACCENT)
         self.update_btn.config(state='normal')
         self.update_frame.pack(pady=(14, 0), fill="x", padx=24)
+        self._fit_window()
+
+    def _fit_window(self):
+        """The window has a fixed size; grow it so a newly shown row is never cut off below the footer."""
+        self.root.update_idletasks()
+        needed = self.root.winfo_reqheight()
+        if needed > self.root.winfo_height():
+            self.root.geometry(f"{self.root.winfo_width()}x{needed}")
 
     def _separating(self):
         return bool(self.bridge and self.bridge.local.jobs)
