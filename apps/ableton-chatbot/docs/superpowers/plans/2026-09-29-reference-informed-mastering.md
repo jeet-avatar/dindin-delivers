@@ -23,7 +23,8 @@
 **Files:**
 - Create: `backend/mastering.py`
 - Create: `backend/tests/test_mastering.py`
-- Modify: `backend/mix_check.py:1-49` (imports and the two function definitions)
+- Modify: `backend/mix_check.py:1-49` (imports, and the `loudness()`/`stereo_samples()`/`band_shares()`
+  definitions plus the `RATE` constant, all of which move to `mastering.py`)
 
 - [ ] **Step 1: Write the failing test**
 
