@@ -37,3 +37,9 @@ class EmptyRackTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_prompt_reuses_beatmind_starter_tracks():
+    from claude_tools import SYSTEM_PROMPT
+    assert "BeatMind Starter" in SYSTEM_PROMPT
+    assert "matching empty track instead of" in SYSTEM_PROMPT

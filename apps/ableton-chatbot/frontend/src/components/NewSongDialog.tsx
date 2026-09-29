@@ -65,6 +65,8 @@ export default function NewSongDialog({ sessionId, onCancel, onReady }: {
         {current === "saved" && "Current set saved. "}
         {current === "close" && "When Ableton asks to save, choose Don't Save. "}
         Existing chats and sound reviews stay saved. Any save-location prompt must be completed in Ableton.</p>
+      <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
+        A new Live Set starts from your Ableton default set. For a clean BeatMind layout, set up the BeatMind Starter template from Downloads first.</p>
       {summary && <p role={error ? "alert" : "status"} className={`text-sm mt-3 ${error ? "text-red-300" : "text-emerald-200"}`}>{liveSetMessage(summary)}</p>}
       {liveSetMessage(summary) !== summary && <details className="mt-2 text-xs break-words"><summary>Technical details</summary>{summary}</details>}
       {title && <p className="text-sm mt-2 break-words">{title}</p>}

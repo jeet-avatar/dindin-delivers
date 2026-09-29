@@ -2,6 +2,8 @@ export const BASE_URL = "https://www.beatmind.io";
 export const SITE_NAME = "BeatMind";
 export const LEGAL_NAME = "Zietra Technologies Inc.";
 export const SUPPORT_EMAIL = "support@beatmind.io";
+// Ableton Live 12 starter set; "Open new Live Set" uses it once saved as the Live default set.
+export const STARTER_TEMPLATE_URL = "/templates/BeatMind-Starter.als";
 
 export const LEGAL_POSTAL_ADDRESS = "12 Teaberry, Rancho Santa Margarita, CA 92688, USA";
 

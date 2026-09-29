@@ -21,6 +21,7 @@ import UpdateBanner from "@/components/UpdateBanner";
 import { useAbletonLaunch } from "@/lib/use-ableton-launch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
 import { bridgeStatusLabel } from "@/lib/bridge-status";
+import { STARTER_TEMPLATE_URL } from "@/lib/site";
 import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/chat-index";
 import { acceptedSound, type MusicChoice } from "@/lib/music-workflow";
 import {
@@ -834,6 +835,29 @@ export default function DashboardPage() {
         <h3 className="font-semibold text-sm">BeatMind Bridge</h3>
         <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>macOS 15+ · Apple Silicon · Notarized</p>
         {bridgeConnected && <button onClick={() => setNav("beatmind")} className="mt-2 rounded px-4 py-2 text-sm font-semibold" style={{ background: "var(--accent)", color: "#0a0a0a" }}>Let&apos;s make music</button>}
+      </section>
+      <section aria-label="BeatMind Starter template" className="mb-6 border-b pb-5" style={{ borderColor: "var(--border)" }}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-sm">BeatMind Starter template</h3>
+            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Ableton Live 12 · Built-in devices only · 124 BPM</p>
+          </div>
+          <a href={STARTER_TEMPLATE_URL} download="BeatMind Starter.als"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90"
+            style={{ background: "var(--accent)", color: "#0a0a0a" }}>
+            <DownloadIcon size={14} /> Download
+          </a>
+        </div>
+        <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>
+          Empty Kick, Drums, Percussion, Bass, Chords and Lead tracks, an FX track, a muted Reference track,
+          Reverb and Delay returns, and scenes named Intro, Build, Drop, Break, Drop 2 and Outro.
+          BeatMind fills these tracks with sounds you approve.
+        </p>
+        <ol className="text-xs mt-3 space-y-1 list-decimal list-inside">
+          <li>Double-click the downloaded file to open it in Ableton Live.</li>
+          <li>In Ableton, choose File, then Save Live Set As Default Set, and press Return.</li>
+          <li>Every File, New Live Set now starts from BeatMind Starter, including Open new Live Set in BeatMind.</li>
+        </ol>
       </section>
       <div className="space-y-4">
         {[

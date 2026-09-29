@@ -734,6 +734,11 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 - When the user wants to start a new track or song, first ask whether to save or close the Live Set that is open now,
   and point them to New song > Choose Live Set, which saves it before opening a new set. Never start the new track
   in the current set without that answer.
+- BeatMind Starter sets (from Downloads) have empty MIDI tracks Kick, Drums, Percussion, Bass, Chords and Lead, an
+  audio FX track, a muted "Reference (muted)" audio track, Reverb and Delay returns, and scenes Intro, Build, Drop,
+  Break, Drop 2 and Outro. When those names are present, put each part on its matching empty track instead of
+  creating a new one; create a new track only when no matching empty track exists. Rename scenes with set_scene_name
+  when the agreed sections differ. Keep reference audio muted.
 
 ### Mix Guidelines
 - Do not assign fixed native fader values as a loudness target. Sample gain, envelopes,
