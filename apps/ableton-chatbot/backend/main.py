@@ -919,7 +919,11 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
         if audition_ready:
             revised = any(action.get('result', {}).get('recording', {}).get('supersedes') for action in tool_calls_log)
             if revised:
-                return "Your updated preview is ready. The earlier recording and its decision remain saved. Listen to this version, then accept it or request a change.", tool_calls_log
+                added = [a["input"]["effect_uri"].split("/")[-1] for a in tool_calls_log
+                         if a["tool"] == "load_effect" and a["result"].get("status") == "verified"]
+                effects = f" Effects added this time: {', '.join(added)}." if added else ""
+                return ("Your updated preview is ready." + effects + " The earlier recording and its decision remain saved. "
+                        "Compare before and after, then accept it or request a change."), tool_calls_log
             return "Your first preview of this part is ready. Listen, then accept the sound or request a change. Nothing else will be built until you choose the next step.", tool_calls_log
         if any(action["tool"] in {"audition_part", "audition_scene"} for action in tool_calls_log):
             return "The part remains in Ableton, but its audition did not pass verification. No recording is ready for approval. Review the audition details before retrying; do not recreate the track or notes.", tool_calls_log

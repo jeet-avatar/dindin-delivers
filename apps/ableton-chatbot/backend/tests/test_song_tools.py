@@ -216,3 +216,11 @@ def test_master_limiter_picks_values_from_live_display_curve():
     assert state["set"] == {"Ceiling": 0.7, "Input Gain": 0.4}  # -1.0 dB ceiling and +4 dB gain for -18 -> -14 LUFS
     loud = asyncio.run(master_chain.apply(query, AsyncMock(), measured_lufs=-9.6))
     assert loud["master"]["gain_db"] == 0.0 and "no gain" in loud["summary"]
+
+
+def test_numbers_sent_as_text_reach_live_as_numbers():
+    import automation
+    assert automation.numeric_value({"value": "4000", "unit": "Hz"})["value"] == 4000.0
+    assert automation.numeric_value({"value": " 2.5 ", "unit": "dB"})["value"] == 2.5
+    assert automation.numeric_value({"value": "High Pass 48dB", "unit": "label"})["value"] == "High Pass 48dB"
+    assert automation.numeric_value({"value": "loud", "unit": "dB"})["value"] == "loud"

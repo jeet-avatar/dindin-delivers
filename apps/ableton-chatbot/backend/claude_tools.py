@@ -795,6 +795,10 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 - Propose the chain in plain words, one line per device (what it does and why for this part), plus send levels.
   Wait for the user's approval. Then load each device with load_effect, set its controls with get_device_control_map
   and set_device_control, set sends with set_track_send, and audition_part so the user compares before and after.
+- Set every Hz/dB/ms/% control with set_device_control using a JSON number (4000, not "4000") and its real unit.
+  Never fall back to set_device_parameter with raw 0-1 values for a control that has real units.
+- Apply the WHOLE approved chain before auditioning. If any device or setting fails, say exactly which one did not
+  apply and ask before continuing; never audition a partial chain as if it were complete.
 - Keep the processed peak at or below the dry peak unless loudness is the goal. If the user rejects the result,
   remove exactly the devices you added with delete_device (newest first) and audition again.
 

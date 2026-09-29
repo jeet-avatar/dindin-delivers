@@ -32,8 +32,22 @@ for name, operation, description, properties, required in [
                              "input_schema": {"type": "object", "properties": properties, "required": required, "additionalProperties": False}})
 
 
+def numeric_value(data):
+    """The model sometimes sends numbers as text ("4000", "2.5"); Live's extension needs a real number."""
+    value = data.get("value")
+    if data.get("unit") not in (None, "label") and isinstance(value, str):
+        try:
+            number = float(value.strip().replace(",", ""))
+        except ValueError:
+            return data
+        if math.isfinite(number):
+            return {**data, "value": number}
+    return data
+
+
 async def execute_automation(name, data, send):
     definition = next(item for item in AUTOMATION_TOOLS if item["name"] == name)
+    data = numeric_value(data)
     errors = list(Draft202012Validator(definition["input_schema"]).iter_errors(data))
     if errors or ("path" in data and len(data["path"]) % 2 == 0):
         return {"status": "failed", "summary": errors[0].message if errors else "Invalid nested device path.", "steps": []}
