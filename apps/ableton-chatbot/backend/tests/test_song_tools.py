@@ -224,3 +224,8 @@ def test_numbers_sent_as_text_reach_live_as_numbers():
     assert automation.numeric_value({"value": " 2.5 ", "unit": "dB"})["value"] == 2.5
     assert automation.numeric_value({"value": "High Pass 48dB", "unit": "label"})["value"] == "High Pass 48dB"
     assert automation.numeric_value({"value": "loud", "unit": "dB"})["value"] == "loud"
+
+
+def test_polish_prompt_requires_an_explicit_yes():
+    from claude_tools import SYSTEM_PROMPT
+    assert "apply only after an explicit yes" in SYSTEM_PROMPT

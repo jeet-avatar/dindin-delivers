@@ -793,7 +793,8 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
   get_effect_recipe for its role and genre. With a reference, first run compare_reference_sound for the matching
   layer and pass its band_deltas so the EQ moves follow the reference.
 - Propose the chain in plain words, one line per device (what it does and why for this part), plus send levels.
-  Wait for the user's approval. Then load each device with load_effect, set its controls with get_device_control_map
+  Wait for the user's approval of THAT chain, even when the request sounds like an instruction ("polish it", "bring
+  the level down"): propose first, apply only after an explicit yes. Then load each device with load_effect, set its controls with get_device_control_map
   and set_device_control, set sends with set_track_send, and audition_part so the user compares before and after.
 - Set every Hz/dB/ms/% control with set_device_control using a JSON number (4000, not "4000") and its real unit.
   Never fall back to set_device_parameter with raw 0-1 values for a control that has real units.

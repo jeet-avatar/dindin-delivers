@@ -21,6 +21,10 @@ ALIASES = {
 }
 
 
+# macOS drops UDP datagrams over 9216 bytes (net.inet.udp.maxdgram); leave room for the OSC framing.
+MAX_REPLY = 9000
+
+
 def normalized(name):
     return re.sub(r"[^a-z0-9]", "", name.casefold())
 
@@ -216,7 +220,7 @@ def register(handler, app):
                 "total": len(children), "next_offset": offset + limit if offset + limit < len(children) else None,
                 "summary": "Read actual browser items; no instrument or plug-in was loaded."}
 
-    def device_tree(data):
+    def device_tree(data, compact=0):
         count = [0]
         truncated = [False]
         def walk(devices, prefix, depth):
@@ -231,28 +235,49 @@ def register(handler, app):
                         "parameter_count": len(device.parameters), "chains": [], "drum_pads": []}
                 if getattr(device, "can_have_chains", False):
                     chains = list(device.chains)
-                    if depth < 4:
+                    drum_rack = getattr(device, "can_have_drum_pads", False)
+                    if compact and drum_rack:
+                        # Compact forms for big kits. 1: chains without their devices. 2: no chain list.
+                        # 3: only the number of populated pads.
+                        if compact == 1:
+                            node["chains"] = [{"name": chain.name, "index": i, "devices": []} for i, chain in enumerate(chains)]
+                        truncated[0] = True
+                    elif depth < 4:
                         node["chains"] = [{"name": chain.name, "index": i, "devices": walk(chain.devices, path + [i], depth + 1)}
                                           for i, chain in enumerate(chains)]
                     elif chains:
                         truncated[0] = True
                     if getattr(device, "can_have_drum_pads", False):
-                        node["drum_pads"] = [{"note": pad.note, "name": pad.name,
-                                             "chain_indices": [chains.index(chain) for chain in pad.chains if chain in chains]}
-                                            for pad in device.drum_pads if pad.chains]
+                        pads = [pad for pad in device.drum_pads if pad.chains]
+                        if compact >= 3:
+                            node["drum_pad_count"] = len(pads)
+                        elif compact == 2:
+                            node["drum_pads"] = [{"note": pad.note, "name": pad.name} for pad in pads]
+                        else:
+                            node["drum_pads"] = [{"note": pad.note, "name": pad.name,
+                                                 "chain_indices": [chains.index(chain) for chain in pad.chains if chain in chains]}
+                                                for pad in pads]
                 result.append(node)
             return result
         return {"status": "observed", "devices": walk(handler.song.tracks[data["track"]].devices, [], 0),
-                "complete": not truncated[0], "summary": "Read nested device paths and populated drum-pad MIDI mappings."}
+                "complete": not truncated[0],
+                "summary": "Read nested device paths and populated drum-pad MIDI mappings." +
+                           ({1: " Compact: Drum Rack pad chains are listed without their devices.",
+                             2: " Compact: Drum Rack pads are listed by note and name only.",
+                             3: " Compact: only the number of Drum Rack pads is given; inspect a pad path for details."}.get(compact, ""))}
 
     for operation, function in {"catalog": catalog, "device_tree": device_tree,
                                 "control_map": control_map, "set_control": set_control, "load_item": load_item}.items():
         def callback(params, function=function):
             try:
-                result = function(json.loads(params[0]))
-                encoded = json.dumps(result)
-                if len(encoded.encode()) > 60000:
-                    raise ValueError("Response exceeds OSC size limit. Narrow the query or page size.")
+                data = json.loads(params[0])
+                encoded = json.dumps(function(data))
+                for level in (1, 2, 3):
+                    if len(encoded.encode()) <= MAX_REPLY or function is not device_tree:
+                        break
+                    encoded = json.dumps(device_tree(data, compact=level))
+                if len(encoded.encode()) > MAX_REPLY:
+                    raise ValueError("The answer is too large for one message. Narrow the query or use a smaller page size.")
                 return (encoded,)
             except Exception as error:
                 return (json.dumps({"status": "failed", "summary": str(error), "error": str(error)}),)

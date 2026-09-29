@@ -921,6 +921,9 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
             if revised:
                 added = [a["input"]["effect_uri"].split("/")[-1] for a in tool_calls_log
                          if a["tool"] == "load_effect" and a["result"].get("status") == "verified"]
+                for a in tool_calls_log:  # a device added and then removed in the same turn is not "added"
+                    if a["tool"] == "delete_device" and a["result"].get("status") == "verified" and a["input"]["expected_name"] in added:
+                        added.remove(a["input"]["expected_name"])
                 effects = f" Effects added this time: {', '.join(added)}." if added else ""
                 return ("Your updated preview is ready." + effects + " The earlier recording and its decision remain saved. "
                         "Compare before and after, then accept it or request a change."), tool_calls_log
