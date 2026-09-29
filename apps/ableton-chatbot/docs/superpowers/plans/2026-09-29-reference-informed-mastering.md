@@ -190,7 +190,7 @@ class ReferenceTargetsTests(unittest.TestCase):
 ```
 
 Check first whether `references.py` exposes its `ROOT` as a plain module-level `Path` read from
-`os.getenv('BEATMIND_REFERENCES_DIR', ...)` (it does — confirmed at `references.py:28`) so
+`os.getenv('BEATMIND_REFERENCES_DIR', ...)` (it does — confirmed at `references.py:33`) so
 `mastering.py` can read the same env var directly without importing `references.py` itself (avoids a
 circular import risk, since nothing in `mastering.py` needs anything else from `references.py`).
 
@@ -220,7 +220,7 @@ def reference_targets(reference_id):
             'band_percent': bands}
 ```
 
-Note: `REFERENCES_ROOT` is read once at import time from the env var, matching `references.py:28`'s
+Note: `REFERENCES_ROOT` is read once at import time from the env var, matching `references.py:33`'s
 own pattern (`ROOT = Path(os.getenv('BEATMIND_REFERENCES_DIR', '/tmp/beatmind-references'))`) — keep
 the same default path string so both modules agree on the real location in production.
 
