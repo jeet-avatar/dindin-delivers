@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/auth";
 import { backgroundPollingAllowed } from "@/lib/background-polling";
@@ -234,7 +234,8 @@ export function useRecordings(recordingIds: string[]) {
           if (!initialized.current || !item.created_at || Date.parse(item.created_at) <= mountedAt.current) initialIds.current.add(item.id);
         });
         initialized.current = true;
-        setItems(loaded);
+        // Polling every 4 s must not re-render the conversation when nothing changed.
+        setItems(previous => JSON.stringify(previous) === JSON.stringify(loaded) ? previous : loaded);
         setLoaded(true); setUnauthorized(false);
         setError("");
       } catch (error) { if (active && started === generation) setError(error instanceof Error ? error.message : "Recording request failed."); }
@@ -260,7 +261,8 @@ export function useRecordings(recordingIds: string[]) {
       window.removeEventListener(RECORDING_CHANGED, changed); window.removeEventListener("storage", storageChanged); window.removeEventListener("focus", invalidate); };
   }, [idsKey]);
 
-  return { items, error, loaded, unauthorized, initialIds: initialIds.current };
+  // A stable result lets the conversation skip re-rendering while the user types.
+  return useMemo(() => ({ items, error, loaded, unauthorized, initialIds: initialIds.current }), [items, error, loaded, unauthorized]);
 }
 
 export default function Recordings({ items, onDecision, initialIds, title = "Sounds", missing = false, allowReview = true, onPreview, supersededIds }: {
