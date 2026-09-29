@@ -76,7 +76,9 @@ class LoudnessTests(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd backend && python -m pytest tests/test_mastering.py -v` (or `python -m unittest tests.test_mastering -v` — match whichever runner the other test files use; check `backend/tests/conftest.py` first)
+Run: `cd backend && python -m unittest tests.test_mastering -v` (matches this repo's real CI invocation,
+`.github/workflows/deploy-beatmind.yml`'s `python -m unittest discover -s tests` — not pytest, which
+isn't in `requirements.txt`/`requirements-test.txt`)
 Expected: FAIL with `ModuleNotFoundError: No module named 'mastering'`
 
 - [ ] **Step 3: Create `mastering.py` — move the two functions verbatim**
@@ -125,32 +127,42 @@ def band_shares(samples):
     return {"low": share(20, 120), "mud": share(200, 500), "harsh": share(2000, 5000)}
 ```
 
-- [ ] **Step 4: Update `mix_check.py` to import from `mastering` instead of defining locally**
+- [ ] **Step 4: Update `mix_check.py` to import `mastering` and qualify every call site**
 
-Replace `mix_check.py`'s own `def loudness(path): ...` (line 19) and `def band_shares(samples): ...`
-(line 41) — delete both bodies, keep every call site inside `mix_check.py` unchanged (`run()` calls
-`loudness(path)` and `band_shares(samples)` unqualified, so importing the names directly keeps those
-call sites working with no other edits):
+Delete `mix_check.py`'s own `def loudness(path): ...` (line 19), `def stereo_samples(path): ...`
+(line 32), `def band_shares(samples): ...` (line 41), and the `RATE = 44100` constant. Use a bare
+`import mastering` (not `from mastering import ...`) so every call site is qualified — this is
+decided once, here, rather than done as an unqualified import now and switched to qualified later in
+Chunk 2, to avoid editing this file twice and to avoid missing a call site (there are **five**
+unqualified references to these names in the real file, not just the two inside `run()` — found by
+reading the whole file, not by grepping for the obvious ones):
 
 ```python
 # backend/mix_check.py — near the top, alongside the existing imports
-from mastering import loudness, band_shares, stereo_samples, RATE
+import mastering
 ```
 
-Remove `mix_check.py`'s own now-duplicate `RATE = 44100` constant and the `stereo_samples` function
-(same reasoning — it's only used inside `loudness`'s sibling functions, now centralized in `mastering.py`)
-if nothing else in `mix_check.py` still needs it standalone. Check with:
+Then qualify every one of these five real call sites (confirmed by reading the full file):
+- `run()`: `lufs, true_peak = loudness(path)` → `lufs, true_peak = mastering.loudness(path)`
+- `run()`: `samples = stereo_samples(path)` → `samples = mastering.stereo_samples(path)`
+- `run()`: `bands = band_shares(samples)` → `bands = mastering.band_shares(samples)`
+- `low_end_correlation()`: every bare `RATE` (e.g. `np.fft.rfftfreq(samples.shape[0], 1 / RATE)`) →
+  `mastering.RATE`
+- `section_energy()`: its own separate call, `levels[name] = loudness(path)[0]` →
+  `levels[name] = mastering.loudness(path)[0]`
+
+Verify nothing was missed:
 
 ```bash
-grep -n "stereo_samples\|^RATE" mix_check.py
+grep -n "\bloudness(\|\bstereo_samples(\|\bband_shares(\|\bRATE\b" mix_check.py
 ```
 
-If `stereo_samples`/`RATE` are used elsewhere in `mix_check.py` (they are — `run()` calls
-`stereo_samples(path)` directly), keep them imported from `mastering` rather than removed outright.
+Every remaining hit should be either inside `mastering.py` itself (not this file) or prefixed with
+`mastering.` — any bare hit left in `mix_check.py` after this step means a call site was missed.
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `cd backend && python -m pytest tests/test_mastering.py -v`
+Run: `cd backend && python -m unittest tests.test_mastering -v`
 Expected: PASS
 
 - [ ] **Step 6: Verify the `mix_check.py` refactor didn't break the module (no test file exists for it yet — that's Chunk 2)**
@@ -177,25 +189,28 @@ git commit -m "refactor: extract loudness()/band_shares() into shared mastering.
 ```python
 # add to backend/tests/test_mastering.py
 
-import os
 from unittest import mock
 
 
 class ReferenceTargetsTests(unittest.TestCase):
+    """`REFERENCES_ROOT` is read once at import time (see Step 3), so patching the
+    BEATMIND_REFERENCES_DIR env var after import has no effect — patch the module attribute
+    directly, the same technique that already has to be used for producer_profile.ROOT elsewhere."""
+
     def test_reads_the_reference_mix_file(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             reference_id = 'a' * 32
             (root / reference_id).mkdir()
             wavfile.write(root / reference_id / 'mix.wav', 44100, tone(gain=0.5))
-            with mock.patch.dict(os.environ, {'BEATMIND_REFERENCES_DIR': str(root)}):
+            with mock.patch.object(mastering, 'REFERENCES_ROOT', root):
                 target = mastering.reference_targets(reference_id)
             self.assertTrue(-20 < target['target_lufs'] < -5)
             self.assertIn('band_percent', target)
 
     def test_missing_reference_raises(self):
         with tempfile.TemporaryDirectory() as temporary:
-            with mock.patch.dict(os.environ, {'BEATMIND_REFERENCES_DIR': temporary}):
+            with mock.patch.object(mastering, 'REFERENCES_ROOT', Path(temporary)):
                 with self.assertRaises(ValueError):
                     mastering.reference_targets('b' * 32)
 ```
@@ -207,7 +222,7 @@ circular import risk, since nothing in `mastering.py` needs anything else from `
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd backend && python -m pytest tests/test_mastering.py::ReferenceTargetsTests -v`
+Run: `cd backend && python -m unittest tests.test_mastering.ReferenceTargetsTests -v`
 Expected: FAIL with `AttributeError: module 'mastering' has no attribute 'reference_targets'`
 
 - [ ] **Step 3: Implement**
@@ -237,7 +252,7 @@ the same default path string so both modules agree on the real location in produ
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd backend && python -m pytest tests/test_mastering.py -v`
+Run: `cd backend && python -m unittest tests.test_mastering -v`
 Expected: PASS (all tests in the file)
 
 - [ ] **Step 5: Commit**
@@ -284,6 +299,7 @@ import numpy as np
 from scipy.io import wavfile
 
 import mix_check
+import producer_profile
 import recordings
 
 
@@ -331,7 +347,13 @@ class MixCheckTests(unittest.IsolatedAsyncioTestCase):
     can't take a WAV fixture directly. `mix_check.run()` only needs `owned_recording()` (reads the
     JSON sidecar) and a file at `ROOT/{id}.m4a` (read by FFmpeg, which sniffs real content and doesn't
     care that the extension says m4a) — write both directly, bypassing save_recording()'s M4A check,
-    which exists for the real upload path, not for test fixtures."""
+    which exists for the real upload path, not for test fixtures.
+
+    Also patches producer_profile.ROOT to an empty temp dir for every test in this class (and its
+    PrecedenceTests subclass) — without this, mix_check.run()'s new default path (Task 2.2) calls
+    producer_profile.stored(user_id=1) against whichever real path BEATMIND_PROFILES_DIR resolves to,
+    so a stale local run or shared cache with a saved preference for that user id would silently
+    change these tests' expected values."""
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -339,6 +361,11 @@ class MixCheckTests(unittest.IsolatedAsyncioTestCase):
         self._root_patch = patch.object(recordings, 'ROOT', Path(self._tmp.name))
         self._root_patch.start()
         self.addCleanup(self._root_patch.stop)
+        self._profiles_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._profiles_tmp.cleanup)
+        self._profile_patch = patch.object(producer_profile, 'ROOT', Path(self._profiles_tmp.name))
+        self._profile_patch.start()
+        self.addCleanup(self._profile_patch.stop)
 
     def _save_full_mix_recording(self, gain=0.5, user_id=1):
         import json, uuid
@@ -368,7 +395,7 @@ class MixCheckTests(unittest.IsolatedAsyncioTestCase):
 
 - [ ] **Step 3: Run and verify these pass against current `mix_check.run()`**
 
-Run: `cd backend && python -m pytest tests/test_mix_check.py -v`
+Run: `cd backend && python -m unittest tests.test_mix_check -v`
 Expected: PASS (this pins down today's behavior before Task 2.2 changes the signature)
 
 - [ ] **Step 4: Commit the characterization tests separately from the behavior change**
@@ -387,8 +414,8 @@ git commit -m "test: characterize mix_check.run()'s current behavior before chan
 - [ ] **Step 1: Write the failing precedence tests**
 
 ```python
-# add to backend/tests/test_mix_check.py
-import producer_profile
+# add to backend/tests/test_mix_check.py — producer_profile is already imported at the top (Task 2.1)
+import mastering
 
 
 class PrecedenceTests(MixCheckTests):
@@ -402,17 +429,21 @@ class PrecedenceTests(MixCheckTests):
         self.assertEqual(report['measurements']['target_lufs'], -8.0)
 
     async def test_producer_profile_wins_when_no_explicit_target(self):
-        with tempfile.TemporaryDirectory() as profiles_dir:
-            with patch.object(producer_profile, 'ROOT', Path(profiles_dir)):
-                producer_profile.update(user_id=1, changes={'loudness_target_lufs': -10.0})
-                recording_id = self._save_full_mix_recording(gain=0.1)
-                report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query)
-                self.assertEqual(report['measurements']['target_lufs'], -10.0)
+        # setUp() (inherited from MixCheckTests) already patches producer_profile.ROOT to an isolated
+        # temp dir, so this only needs to write into it — no separate patch needed here.
+        producer_profile.update(user_id=1, changes={'loudness_target_lufs': -10.0})
+        recording_id = self._save_full_mix_recording(gain=0.1)
+        report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query)
+        self.assertEqual(report['measurements']['target_lufs'], -10.0)
 
     async def test_reference_wins_when_no_explicit_or_profile_target(self):
-        with tempfile.TemporaryDirectory() as profiles_dir, tempfile.TemporaryDirectory() as refs_dir:
-            with patch.object(producer_profile, 'ROOT', Path(profiles_dir)), \
-                 patch.dict('os.environ', {'BEATMIND_REFERENCES_DIR': refs_dir}):
+        # producer_profile.ROOT isolation comes from the inherited setUp() (no preference saved there,
+        # so producer_profile.stored(1) returns {} and .get("loudness_target_lufs") is None).
+        # mastering.REFERENCES_ROOT is a separate module-level constant read once at import time
+        # (Chunk 1, Task 1.2) — patching the env var after import has no effect, so it needs its own
+        # patch.object here.
+        with tempfile.TemporaryDirectory() as refs_dir:
+            with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)):
                 reference_id = 'c' * 32
                 (Path(refs_dir) / reference_id).mkdir()
                 wavfile.write(Path(refs_dir) / reference_id / 'mix.wav', 44100, tone(gain=0.5))
@@ -422,20 +453,24 @@ class PrecedenceTests(MixCheckTests):
                 self.assertNotEqual(report['measurements']['target_lufs'], mix_check.TARGET_LUFS)
 
     async def test_constant_default_when_nothing_else_set(self):
-        with tempfile.TemporaryDirectory() as profiles_dir:
-            with patch.object(producer_profile, 'ROOT', Path(profiles_dir)):
-                recording_id = self._save_full_mix_recording(gain=0.1)
-                report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query)
-                self.assertEqual(report['measurements']['target_lufs'], mix_check.TARGET_LUFS)
+        # No preference saved (inherited setUp()'s isolated producer_profile.ROOT is empty) and no
+        # reference_id passed, so this must fall all the way through to the TARGET_LUFS constant.
+        recording_id = self._save_full_mix_recording(gain=0.1)
+        report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query)
+        self.assertEqual(report['measurements']['target_lufs'], mix_check.TARGET_LUFS)
 ```
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `cd backend && python -m pytest tests/test_mix_check.py::PrecedenceTests -v`
+Run: `cd backend && python -m unittest tests.test_mix_check.PrecedenceTests -v`
 Expected: FAIL — either a `TypeError` on the unexpected `reference_id` kwarg, or wrong `target_lufs`
 values, since `producer_profile` isn't consulted by `run()` at all today
 
 - [ ] **Step 3: Implement the precedence chain**
+
+Add `import producer_profile` to `mix_check.py`'s existing top-of-file imports, alongside the
+`import mastering` Task 1.1 already put there (no circular-import risk — `producer_profile.py`
+doesn't import `mix_check`):
 
 ```python
 # backend/mix_check.py — change the run() signature and its opening lines
@@ -447,7 +482,6 @@ async def run(user_id, recording_id, query, target_lufs=None, ceiling=CEILING_DB
     if recording.get("kind") != "scene":
         return {"status": "failed", "summary": "Run the mix check on a full-mix preview (audition_scene), not a single part.", "steps": []}
     if target_lufs is None:
-        import producer_profile
         profile_target = producer_profile.stored(user_id).get("loudness_target_lufs")
         if profile_target is not None:
             target_lufs = profile_target
@@ -459,18 +493,13 @@ async def run(user_id, recording_id, query, target_lufs=None, ceiling=CEILING_DB
     # ... rest of the existing function body is unchanged from here ...
 ```
 
-Add `import mastering` alongside the existing `from mastering import loudness, band_shares, ...` line
-from Chunk 1 — or just reuse that same import line, since `mastering.reference_targets` needs to be
-reachable as `mastering.reference_targets(...)`, not just the two functions imported by name. Change
-the top-of-file import to `import mastering` and update the internal `loudness(...)`/`band_shares(...)`
-call sites to `mastering.loudness(...)`/`mastering.band_shares(...)` instead — this is cleaner than
-mixing a bare `import mastering` with `from mastering import loudness, band_shares` in the same file.
-Update Chunk 1's Task 1.1 Step 4 accordingly if implementing in strict order (i.e. land on
-`import mastering` + qualified calls from the start, rather than doing it twice).
+(`mastering.reference_targets(...)` is already reachable — Task 1.1 landed `import mastering` as a
+bare, qualified import in `mix_check.py` from the start, so no second import-style change is needed
+here.)
 
 - [ ] **Step 4: Run to verify all `test_mix_check.py` tests pass, including Task 2.1's characterization tests**
 
-Run: `cd backend && python -m pytest tests/test_mix_check.py -v`
+Run: `cd backend && python -m unittest tests.test_mix_check -v`
 Expected: PASS — all of them, confirming the precedence change didn't break existing behavior
 
 - [ ] **Step 5: Commit**
@@ -516,7 +545,7 @@ positional order at all (see Step 3).
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd backend && python -m pytest tests/test_main_mix_dispatch.py -v`
+Run: `cd backend && python -m unittest tests.test_main_mix_dispatch -v`
 Expected: FAIL — `run.call_args` shows `mix_check.TARGET_LUFS`, not `None`
 
 - [ ] **Step 3: Update the dispatcher**
@@ -549,7 +578,7 @@ Add `reference_id` to `mix_check`'s tool schema in `claude_tools.py`:
 
 - [ ] **Step 4: Run to verify the test passes**
 
-Run: `cd backend && python -m pytest tests/test_main_mix_dispatch.py -v`
+Run: `cd backend && python -m unittest tests.test_main_mix_dispatch -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -570,6 +599,7 @@ git commit -m "feat: pass reference_id through to mix_check, stop pre-collapsing
 
 ```python
 # backend/tests/test_master_chain.py
+import json
 import unittest
 from unittest.mock import AsyncMock
 
@@ -582,16 +612,19 @@ def curve(low=-24.0, high=6.0, count=101):
 
 class MasterChainTests(unittest.IsolatedAsyncioTestCase):
     async def test_loads_limiter_when_missing_then_sets_ceiling_and_gain(self):
-        devices_calls = [[], ["EQ Eight", "Limiter"]]  # before load, after load
+        # apply() queries /live/beatmind/master/devices THREE times when it has to load the Limiter:
+        # once at the top, once after load() to refresh the device list, and once more while building
+        # the final "master" dict in its return statement — the fake must supply all three replies.
+        devices_calls = [[], ["EQ Eight", "Limiter"], ["EQ Eight", "Limiter"]]
         async def query(address, args):
             if address == "/live/beatmind/master/devices":
                 return devices_calls.pop(0)
             if address == "/live/beatmind/master/load":
                 return ["loaded"]
             if address == "/live/beatmind/master/parameters":
-                return [args[0], '{"parameters": [{"name": "Ceiling"}, {"name": "Gain"}]}']
+                return [args[0], json.dumps({"parameters": [{"name": "Ceiling"}, {"name": "Gain"}]})]
             if address == "/live/beatmind/master/curve":
-                return ["ok", curve()]
+                return ["ok", json.dumps(curve())]
             if address == "/live/beatmind/master/set":
                 return ["ok", None, "-1.0 dB"]
             raise AssertionError(address)
@@ -614,9 +647,9 @@ class MasterChainTests(unittest.IsolatedAsyncioTestCase):
             if address == "/live/beatmind/master/devices":
                 return ["Limiter"]
             if address == "/live/beatmind/master/parameters":
-                return [args[0], '{"parameters": [{"name": "Ceiling"}, {"name": "Gain"}]}']
+                return [args[0], json.dumps({"parameters": [{"name": "Ceiling"}, {"name": "Gain"}]})]
             if address == "/live/beatmind/master/curve":
-                return ["ok", curve()]
+                return ["ok", json.dumps(curve())]
             if address == "/live/beatmind/master/set":
                 return ["ok", None, "0.0 dB"]
             raise AssertionError(address)
@@ -627,7 +660,7 @@ class MasterChainTests(unittest.IsolatedAsyncioTestCase):
 
 - [ ] **Step 2: Run and verify these pass against the existing, unmodified `master_chain.py`**
 
-Run: `cd backend && python -m pytest tests/test_master_chain.py -v`
+Run: `cd backend && python -m unittest tests.test_master_chain -v`
 Expected: PASS (this is pure characterization — `master_chain.py` isn't being changed)
 
 If any test fails, that means this plan's understanding of `master_chain.apply()`'s exact reply-shape
@@ -675,7 +708,7 @@ changes `measure()`'s performance/purity characteristics (was previously a fast 
 
 - [ ] **Step 2: Run to verify these fail**
 
-Run: `cd backend && python -m pytest tests/test_sound_comparison.py -k "loudness" -v`
+Run: `cd backend && python -m unittest tests.test_sound_comparison -k loudness -v`
 Expected: FAIL — `KeyError: 'lufs'`
 
 - [ ] **Step 3: Implement**
@@ -759,7 +792,7 @@ rather than assumed:
 
 - [ ] **Step 4: Run to verify all `test_sound_comparison.py` tests pass**
 
-Run: `cd backend && python -m pytest tests/test_sound_comparison.py -v`
+Run: `cd backend && python -m unittest tests.test_sound_comparison -v`
 Expected: PASS — including the pre-existing tests, confirming the new fields are additive and don't
 break `test_identical_audio_has_zero_deltas_without_match_claim`'s existing
 `all(value == 0 for value in report['candidate_minus_reference'].values())` assertion (LUFS delta
@@ -826,7 +859,7 @@ class ClassificationTests(unittest.TestCase):
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd backend && python -m pytest tests/test_bus_mastering.py -v`
+Run: `cd backend && python -m unittest tests.test_bus_mastering -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'bus_mastering'`
 
 - [ ] **Step 3: Implement — reuse `mix_check.py`'s own name-matching idiom (kick/bass substring checks)**
@@ -865,7 +898,7 @@ the spec — a manual override — not something to build preemptively here.
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `cd backend && python -m pytest tests/test_bus_mastering.py -v`
+Run: `cd backend && python -m unittest tests.test_bus_mastering -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -892,7 +925,8 @@ from unittest.mock import AsyncMock, patch
 import numpy as np
 from scipy.io import wavfile
 
-import references
+import mastering
+import recordings
 
 
 def tone(frequency=110, gain=0.2, seconds=3, rate=44100):
@@ -928,8 +962,10 @@ class BusComparisonTests(unittest.IsolatedAsyncioTestCase):
                 return {'status': 'verified', 'recording': {'id': recording_id_holder['id']}}
 
             with tempfile.TemporaryDirectory() as recordings_dir:
+                # mastering.REFERENCES_ROOT is read once at import time — patch the attribute
+                # directly, not the env var (see Chunk 1/2's notes on the same gotcha).
                 with patch.object(recordings, 'ROOT', Path(recordings_dir)), \
-                     patch.dict('os.environ', {'BEATMIND_REFERENCES_DIR': refs_dir}):
+                     patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)):
                     result = await bus_mastering.compare_bus(
                         user_id=1, reference_id=reference_id, bus='bass', scene=0,
                         query=query, send=send, capture_scene=capture_scene)
@@ -946,18 +982,49 @@ class BusComparisonTests(unittest.IsolatedAsyncioTestCase):
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd backend && python -m pytest tests/test_bus_mastering.py::BusComparisonTests -v`
+Run: `cd backend && python -m unittest tests.test_bus_mastering.BusComparisonTests -v`
 Expected: FAIL — `AttributeError: module 'bus_mastering' has no attribute 'compare_bus'`
 
 - [ ] **Step 3: Implement**
 
+**Detailed-stems gap, found by plan review, not by the spec:** the reference's drums are not always a
+single `drums.wav`. `backend/stems.py` defines `ALL_STEMS = CORE_STEMS + DRUM_PARTS` where
+`DRUM_PARTS = ('kick', 'snare', 'toms', 'cymbals')`, and `backend/reference_worker.py` confirms that
+when a reference was separated with `stem_set == 'detailed'` (drumsep configured), it produces those
+four files instead of a merged `drums.wav`. Comparing the 'drums' bus against a detailed reference
+must not just report "no saved drums stem" — it should sum the four detailed parts into one signal.
+
 ```python
 # add to backend/bus_mastering.py
+import numpy as np
+
 import mastering
 import recordings
 import sound_comparison
 
-REFERENCES_ROOT = mastering.REFERENCES_ROOT
+DRUM_PARTS = ('kick', 'snare', 'toms', 'cymbals')  # from backend/stems.py's DRUM_PARTS
+
+
+def _reference_bus_samples(reference_id, bus):
+    """The reference's audio for one bus, as samples — merged drums.wav if present, otherwise summed
+    detailed kick/snare/toms/cymbals stems for the 'drums' bus. Returns None if nothing is saved.
+
+    Reads `mastering.REFERENCES_ROOT` freshly on every call (not aliased to a local module-level name)
+    so that patching `mastering.REFERENCES_ROOT` in tests (see Chunk 1/2's notes on this same gotcha)
+    actually takes effect here — a `REFERENCES_ROOT = mastering.REFERENCES_ROOT` alias at import time
+    would bind a stale copy that a later patch on `mastering` wouldn't reach."""
+    directory = mastering.REFERENCES_ROOT / reference_id
+    merged = directory / f'{bus}.wav'
+    if merged.is_file():
+        return mastering.stereo_samples(merged)
+    if bus != 'drums':
+        return None
+    parts = [directory / f'{part}.wav' for part in DRUM_PARTS]
+    if not all(path.is_file() for path in parts):
+        return None
+    part_samples = [mastering.stereo_samples(path) for path in parts]
+    length = min(len(samples) for samples in part_samples)
+    return sum(samples[:length] for samples in part_samples)
 
 
 async def compare_bus(user_id, reference_id, bus, scene, query, send, capture_scene, seconds=8):
@@ -965,8 +1032,8 @@ async def compare_bus(user_id, reference_id, bus, scene, query, send, capture_sc
     composition: `recordings.save_recording(bridge.user_id, await bridge.local_operation(...))`),
     returning a dict with `recording.id` once saved to `recordings.ROOT/{id}.m4a` — a bare
     `bridge.local_operation` call alone only returns base64 bytes, not a file on disk."""
-    reference_path = REFERENCES_ROOT / reference_id / f'{bus}.wav'
-    if not reference_path.is_file():
+    reference_samples = _reference_bus_samples(reference_id, bus)
+    if reference_samples is None:
         return {'status': 'failed', 'summary': f'No saved {bus} stem for this reference. '
                 'Complete the reference stem review first.', 'steps': []}
     names = await query('/live/song/get/track_names', [])
@@ -986,7 +1053,6 @@ async def compare_bus(user_id, reference_id, bus, scene, query, send, capture_sc
                     f'{capture.get("summary", "unknown error")}', 'steps': []}
         candidate_id = capture['recording']['id']
         candidate_samples = mastering.stereo_samples(recordings.ROOT / f'{candidate_id}.m4a')
-        reference_samples = mastering.stereo_samples(reference_path)
         length = min(len(candidate_samples), len(reference_samples))
         report, _, _ = sound_comparison.compare_arrays(reference_samples[:length], candidate_samples[:length])
         return {'status': 'measured', 'bus': bus, 'comparison': report, 'steps': []}
@@ -998,7 +1064,7 @@ async def compare_bus(user_id, reference_id, bus, scene, query, send, capture_sc
 
 - [ ] **Step 4: Run to verify the test passes**
 
-Run: `cd backend && python -m pytest tests/test_bus_mastering.py -v`
+Run: `cd backend && python -m unittest tests.test_bus_mastering -v`
 Expected: PASS
 
 - [ ] **Step 5: Write and verify a mute-restore-on-failure test**
@@ -1021,7 +1087,7 @@ Expected: PASS
             reference_id = 'e' * 32
             (Path(refs_dir) / reference_id).mkdir()
             wavfile.write(Path(refs_dir) / reference_id / 'bass.wav', 44100, tone(gain=0.4))
-            with patch.dict('os.environ', {'BEATMIND_REFERENCES_DIR': refs_dir}):
+            with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)):
                 result = await bus_mastering.compare_bus(
                     user_id=1, reference_id=reference_id, bus='bass', scene=0,
                     query=query, send=send, capture_scene=capture_scene)
@@ -1030,7 +1096,7 @@ Expected: PASS
         self.assertIn((0, 0), mute_calls)  # restored even though capture failed
 ```
 
-Run: `cd backend && python -m pytest tests/test_bus_mastering.py -v`
+Run: `cd backend && python -m unittest tests.test_bus_mastering -v`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -1063,7 +1129,7 @@ class BusToolDispatchTests(unittest.IsolatedAsyncioTestCase):
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd backend && python -m pytest tests/test_main_mix_dispatch.py::BusToolDispatchTests -v`
+Run: `cd backend && python -m unittest tests.test_main_mix_dispatch.BusToolDispatchTests -v`
 Expected: FAIL — `compare_bus_to_reference` not recognized, or `KeyError` on tool schema lookup
 
 - [ ] **Step 3: Add the tool definition**
@@ -1088,10 +1154,23 @@ ABLETON_TOOLS.append({
 - [ ] **Step 4: Wire the dispatcher — this needs both `query`/`send` (like `_mix_tool`) and
       `local_operation` (like `_song_tool`), so it gets its own small function**
 
+Every other tool dispatcher in `main.py` validates `tool_input` against its JSON schema before
+touching it — `_mix_tool` and `_song_tool` both do `validate(tool_input, next(t["input_schema"] for t
+in ABLETON_TOOLS if t["name"]==tool_name))` inside a `try/except ValidationError` before reading any
+key, and even the inline `audition_part` branch in `_execute_tool` does the same. `_bus_tool` must
+follow this too — without it, a malformed call (missing `reference_id`, `bus` outside the enum) raises
+a raw `KeyError`/`TypeError` instead of the friendly `{"status": "failed", ...}` every other tool
+returns, and `_bus_tool`'s own `except (RuntimeError, ValueError, OSError)` doesn't catch either.
+
 ```python
 # backend/main.py — add near _mix_tool/_song_tool
-async def _bus_tool(tool_input: dict, bridge: BridgeConnection) -> dict:
+async def _bus_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection) -> dict:
+    from jsonschema import validate, ValidationError
     import bus_mastering
+    try:
+        validate(tool_input, next(t["input_schema"] for t in ABLETON_TOOLS if t["name"] == tool_name))
+    except ValidationError as error:
+        return {"status": "failed", "summary": error.message, "steps": []}
     if 'scene_audition_v1' not in bridge.capabilities:
         message = ("This needs BeatMind Bridge 1.3 or later. Click Install update in the Bridge window "
                    "(your Ableton set stays open), then ask again.")
@@ -1122,7 +1201,7 @@ Add to `_execute_tool`'s dispatch chain (alongside the existing `if tool_name in
 
 ```python
     if tool_name == "compare_bus_to_reference":
-        return await _bus_tool(tool_input, bridge)
+        return await _bus_tool(tool_name, tool_input, bridge)
 ```
 
 Note: this duplicates the `query`/`send` closures already defined inside `_mix_tool` — if that
@@ -1132,7 +1211,7 @@ to keep this task's diff minimal and reviewable; flag as a fast-follow if raised
 
 - [ ] **Step 5: Run to verify the test passes**
 
-Run: `cd backend && python -m pytest tests/test_main_mix_dispatch.py -v`
+Run: `cd backend && python -m unittest tests.test_main_mix_dispatch -v`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -1146,10 +1225,10 @@ git commit -m "feat: register compare_bus_to_reference tool and wire its dispatc
 
 ## Before merging
 
-- [ ] Run the full backend suite once: `cd backend && python -m pytest -v` (or the project's real
-  test-runner invocation — check `backend/tests/conftest.py` / any `pytest.ini`/`pyproject.toml` test
-  config first, this plan assumes pytest-compatible unittest discovery, which is likely but not
-  independently confirmed against a CI config file during planning).
+- [ ] Run the full backend suite once: `cd backend && python -m unittest discover -s tests -v` — confirmed
+  against the real `.github/workflows/deploy-beatmind.yml` (`python -m unittest discover -s tests`) during
+  plan review; every per-task `Run:` command in this plan uses `python -m unittest`, not `pytest` (`pytest`
+  is not in `requirements.txt`/`requirements-test.txt`).
 - [ ] Re-verify every line-number citation in this plan against the actual branch state at
   implementation time — this branch had 4+ commits/day while this plan was written.
 - [ ] `recordings.py`'s exact save/lookup API and `capture_scene`'s exact success-reply shape were
