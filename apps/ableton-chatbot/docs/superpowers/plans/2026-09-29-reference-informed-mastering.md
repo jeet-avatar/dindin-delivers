@@ -77,9 +77,19 @@ class LoudnessTests(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd backend && python -m unittest tests.test_mastering -v` (matches this repo's real CI invocation,
-`.github/workflows/deploy-beatmind.yml`'s `python -m unittest discover -s tests` — not pytest, which
-isn't in `requirements.txt`/`requirements-test.txt`)
+Run: `cd backend && python -m pytest tests/test_mastering.py -v` — **empirically verified during
+implementation setup, correcting an earlier (wrong) assumption in this plan.** The CI workflow file's
+literal text runs `python -m unittest discover -s tests`, which is what earlier plan review rounds
+cited as ground truth — but `backend/tests/conftest.py` provides DB isolation via a `pytest`-only
+`@pytest.fixture(autouse=True, scope="session")` (`isolated_database`, which repoints
+`database.DB_PATH` to a throwaway temp file). `unittest discover` does not load `conftest.py` at
+all — it's a pytest-only convention — so under plain `unittest`, every test hits a real, persistent,
+uninitialized `beatmind.db` in the working directory. Confirmed by actually running both: `python -m
+unittest discover -s tests` produced 127 errors + 3 failures (missing tables, cascading rate-limit
+429s from unreset shared state); `python -m pytest tests/ -q` (with `pytest`/`pytest-asyncio`
+installed — neither is in `requirements-test.txt`, install them manually) passed all 430 tests
+cleanly. Use `pytest` for every `Run:` command in this plan; the CI YAML's command does not actually
+work correctly against this codebase as of 2026-09-29, whatever its literal text says.
 Expected: FAIL with `ModuleNotFoundError: No module named 'mastering'`
 
 - [ ] **Step 3: Create `mastering.py` — move the two functions verbatim**
@@ -163,7 +173,7 @@ Every remaining hit should be either inside `mastering.py` itself (not this file
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `cd backend && python -m unittest tests.test_mastering -v`
+Run: `cd backend && python -m pytest tests/test_mastering.py -v`
 Expected: PASS
 
 - [ ] **Step 6: Verify the `mix_check.py` refactor didn't break the module (no test file exists for it yet — that's Chunk 2)**
@@ -223,7 +233,7 @@ circular import risk, since nothing in `mastering.py` needs anything else from `
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd backend && python -m unittest tests.test_mastering.ReferenceTargetsTests -v`
+Run: `cd backend && python -m pytest tests/test_mastering.py::ReferenceTargetsTests -v`
 Expected: FAIL with `AttributeError: module 'mastering' has no attribute 'reference_targets'`
 
 - [ ] **Step 3: Implement**
@@ -253,7 +263,7 @@ the same default path string so both modules agree on the real location in produ
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd backend && python -m unittest tests.test_mastering -v`
+Run: `cd backend && python -m pytest tests/test_mastering.py -v`
 Expected: PASS (all tests in the file)
 
 - [ ] **Step 5: Commit**
@@ -396,7 +406,7 @@ class MixCheckTests(unittest.IsolatedAsyncioTestCase):
 
 - [ ] **Step 3: Run and verify these pass against current `mix_check.run()`**
 
-Run: `cd backend && python -m unittest tests.test_mix_check -v`
+Run: `cd backend && python -m pytest tests/test_mix_check.py -v`
 Expected: PASS (this pins down today's behavior before Task 2.2 changes the signature)
 
 - [ ] **Step 4: Commit the characterization tests separately from the behavior change**
@@ -463,7 +473,7 @@ class PrecedenceTests(MixCheckTests):
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `cd backend && python -m unittest tests.test_mix_check.PrecedenceTests -v`
+Run: `cd backend && python -m pytest tests/test_mix_check.py::PrecedenceTests -v`
 Expected: FAIL — either a `TypeError` on the unexpected `reference_id` kwarg, or wrong `target_lufs`
 values, since `producer_profile` isn't consulted by `run()` at all today
 
@@ -500,7 +510,7 @@ here.)
 
 - [ ] **Step 4: Run to verify all `test_mix_check.py` tests pass, including Task 2.1's characterization tests**
 
-Run: `cd backend && python -m unittest tests.test_mix_check -v`
+Run: `cd backend && python -m pytest tests/test_mix_check.py -v`
 Expected: PASS — all of them, confirming the precedence change didn't break existing behavior
 
 - [ ] **Step 5: Commit**
@@ -546,7 +556,7 @@ positional order at all (see Step 3).
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd backend && python -m unittest tests.test_main_mix_dispatch -v`
+Run: `cd backend && python -m pytest tests/test_main_mix_dispatch.py -v`
 Expected: FAIL — `run.call_args` shows `mix_check.TARGET_LUFS`, not `None`
 
 - [ ] **Step 3: Update the dispatcher**
@@ -579,7 +589,7 @@ Add `reference_id` to `mix_check`'s tool schema in `claude_tools.py`:
 
 - [ ] **Step 4: Run to verify the test passes**
 
-Run: `cd backend && python -m unittest tests.test_main_mix_dispatch -v`
+Run: `cd backend && python -m pytest tests/test_main_mix_dispatch.py -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -661,7 +671,7 @@ class MasterChainTests(unittest.IsolatedAsyncioTestCase):
 
 - [ ] **Step 2: Run and verify these pass against the existing, unmodified `master_chain.py`**
 
-Run: `cd backend && python -m unittest tests.test_master_chain -v`
+Run: `cd backend && python -m pytest tests/test_master_chain.py -v`
 Expected: PASS (this is pure characterization — `master_chain.py` isn't being changed)
 
 If any test fails, that means this plan's understanding of `master_chain.apply()`'s exact reply-shape
@@ -709,7 +719,7 @@ changes `measure()`'s performance/purity characteristics (was previously a fast 
 
 - [ ] **Step 2: Run to verify these fail**
 
-Run: `cd backend && python -m unittest tests.test_sound_comparison -k loudness -v`
+Run: `cd backend && python -m pytest tests/test_sound_comparison.py -k loudness -v`
 Expected: FAIL — `KeyError: 'lufs'`
 
 - [ ] **Step 3: Implement**
@@ -777,10 +787,11 @@ rather than assumed:
   unit tests. Same for `ComparisonApiTests.fake_run()`, whose whole purpose was avoiding the real
   subprocess worker at the API-test layer. This is a real, present-tense change to those tests'
   character (not a hypothetical to "revisit later"), and it's accepted here rather than mocked:
-  `.github/workflows/deploy-beatmind.yml` already runs `sudo apt-get install -y ffmpeg` before the
-  whole-suite `python -m unittest discover`, and other tests in the same file
-  (`test_real_ffmpeg_worker_creates_playable_bounded_previews`) already require FFmpeg — so this adds
-  no new CI/environment dependency, it just extends an existing one to more tests in the file. If a
+  `.github/workflows/deploy-beatmind.yml` already runs `sudo apt-get install -y ffmpeg` before running
+  the suite (via `pytest`, per the correction below — not the YAML's literal `unittest discover` text),
+  and other tests in the same file (`test_real_ffmpeg_worker_creates_playable_bounded_previews`)
+  already require FFmpeg — so this adds no new CI/environment dependency, it just extends an existing
+  one to more tests in the file. If a
   future contributor wants those specific `MeasurementTests` back to pure-NumPy speed, that's a
   `mastering.loudness` mock at that call site, not a blocker for this plan.
 - The exact-zero LUFS delta the existing `test_identical_audio_has_zero_deltas_without_match_claim`
@@ -793,7 +804,7 @@ rather than assumed:
 
 - [ ] **Step 4: Run to verify all `test_sound_comparison.py` tests pass**
 
-Run: `cd backend && python -m unittest tests.test_sound_comparison -v`
+Run: `cd backend && python -m pytest tests/test_sound_comparison.py -v`
 Expected: PASS — including the pre-existing tests, confirming the new fields are additive and don't
 break `test_identical_audio_has_zero_deltas_without_match_claim`'s existing
 `all(value == 0 for value in report['candidate_minus_reference'].values())` assertion (LUFS delta
@@ -860,7 +871,7 @@ class ClassificationTests(unittest.TestCase):
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd backend && python -m unittest tests.test_bus_mastering -v`
+Run: `cd backend && python -m pytest tests/test_bus_mastering.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'bus_mastering'`
 
 - [ ] **Step 3: Implement — reuse `mix_check.py`'s own name-matching idiom (kick/bass substring checks)**
@@ -899,7 +910,7 @@ the spec — a manual override — not something to build preemptively here.
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `cd backend && python -m unittest tests.test_bus_mastering -v`
+Run: `cd backend && python -m pytest tests/test_bus_mastering.py -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -983,7 +994,7 @@ class BusComparisonTests(unittest.IsolatedAsyncioTestCase):
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd backend && python -m unittest tests.test_bus_mastering.BusComparisonTests -v`
+Run: `cd backend && python -m pytest tests/test_bus_mastering.py::BusComparisonTests -v`
 Expected: FAIL — `AttributeError: module 'bus_mastering' has no attribute 'compare_bus'`
 
 - [ ] **Step 3: Implement**
@@ -1073,7 +1084,7 @@ async def compare_bus(user_id, reference_id, bus, scene, query, send, capture_sc
 
 - [ ] **Step 4: Run to verify the test passes**
 
-Run: `cd backend && python -m unittest tests.test_bus_mastering -v`
+Run: `cd backend && python -m pytest tests/test_bus_mastering.py -v`
 Expected: PASS
 
 - [ ] **Step 5: Write and verify a mute-restore-on-failure test**
@@ -1105,7 +1116,7 @@ Expected: PASS
         self.assertIn((0, 0), mute_calls)  # restored even though capture failed
 ```
 
-Run: `cd backend && python -m unittest tests.test_bus_mastering -v`
+Run: `cd backend && python -m pytest tests/test_bus_mastering.py -v`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -1138,7 +1149,7 @@ class BusToolDispatchTests(unittest.IsolatedAsyncioTestCase):
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd backend && python -m unittest tests.test_main_mix_dispatch.BusToolDispatchTests -v`
+Run: `cd backend && python -m pytest tests/test_main_mix_dispatch.py::BusToolDispatchTests -v`
 Expected: FAIL — `compare_bus_to_reference` not recognized, or `KeyError` on tool schema lookup
 
 - [ ] **Step 3: Add the tool definition**
@@ -1220,7 +1231,7 @@ to keep this task's diff minimal and reviewable; flag as a fast-follow if raised
 
 - [ ] **Step 5: Run to verify the test passes**
 
-Run: `cd backend && python -m unittest tests.test_main_mix_dispatch -v`
+Run: `cd backend && python -m pytest tests/test_main_mix_dispatch.py -v`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -1234,10 +1245,16 @@ git commit -m "feat: register compare_bus_to_reference tool and wire its dispatc
 
 ## Before merging
 
-- [ ] Run the full backend suite once: `cd backend && python -m unittest discover -s tests -v` — confirmed
-  against the real `.github/workflows/deploy-beatmind.yml` (`python -m unittest discover -s tests`) during
-  plan review; every per-task `Run:` command in this plan uses `python -m unittest`, not `pytest` (`pytest`
-  is not in `requirements.txt`/`requirements-test.txt`).
+- [ ] Run the full backend suite once: `cd backend && python -m pytest tests/ -v`. Requires `pytest`
+  and `pytest-asyncio` installed (`pip install pytest pytest-asyncio` — neither is in
+  `requirements.txt`/`requirements-test.txt` today, a pre-existing gap in this repo, not something
+  this plan's scope covers fixing). Use `pytest`, not `python -m unittest discover -s tests` despite
+  that being `.github/workflows/deploy-beatmind.yml`'s literal text — empirically verified during
+  implementation setup (2026-09-29) that the YAML's command produces 127 errors/3 failures (it never
+  loads `conftest.py`'s pytest-only DB-isolation fixture, so tests hit a real, shared, uninitialized
+  `beatmind.db`), while `pytest` passes all 430 tests cleanly. Two earlier plan-review rounds "verified"
+  the `unittest` invocation by reading the CI YAML's text; neither actually ran it. Every per-task
+  `Run:` command in this plan was corrected to `pytest` for this reason.
 - [ ] Re-verify every line-number citation in this plan against the actual branch state at
   implementation time — this branch had 4+ commits/day while this plan was written.
 - [ ] `recordings.py`'s exact save/lookup API and `capture_scene`'s exact success-reply shape were
