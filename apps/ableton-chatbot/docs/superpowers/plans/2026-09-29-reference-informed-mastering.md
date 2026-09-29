@@ -999,11 +999,11 @@ must not just report "no saved drums stem" — it should sum the four detailed p
 # add to backend/bus_mastering.py
 import numpy as np
 
+from stems import DRUM_PARTS  # ('kick', 'snare', 'toms', 'cymbals') — import, don't copy, so this
+                               # can't drift if stems.py's taxonomy ever changes
 import mastering
 import recordings
 import sound_comparison
-
-DRUM_PARTS = ('kick', 'snare', 'toms', 'cymbals')  # from backend/stems.py's DRUM_PARTS
 
 
 def _reference_bus_samples(reference_id, bus):
@@ -1026,6 +1026,14 @@ def _reference_bus_samples(reference_id, bus):
     part_samples = [mastering.stereo_samples(path) for path in parts]
     length = min(len(samples) for samples in part_samples)
     return sum(samples[:length] for samples in part_samples)
+
+
+# Known limitation, not a bug: summing 4 detailed drum-part stems can push some samples' peak amplitude
+# over sound_comparison.measure()'s "digital full scale" guard (peak >= 0.999) even when no individual
+# part clips on its own (e.g. a kick+snare transient coinciding). measure() already raises a clear
+# ValueError in that case and compare_bus()'s caller (_bus_tool) already surfaces it as a normal failed
+# result — so this needs no extra code, just awareness that a well-mixed detailed-stem reference can
+# fail 'drums' bus comparison somewhat more often than a merged drums.wav would.
 
 
 async def compare_bus(user_id, reference_id, bus, scene, query, send, capture_scene, seconds=8):
