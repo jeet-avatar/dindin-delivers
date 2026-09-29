@@ -29,13 +29,17 @@ for name, operation, description, properties, required in [
                "description": "Match Live's display: Hz/kHz, ms/s, dB, %, ratio for displays like '4.00 : 1' (value 4), label only for controls that list choices."}},
      ["track", "path", "map_id", "control", "value", "unit"]),
     ("write_clip_automation", "clip_envelope", "Store an automation ramp INSIDE a Session clip (a filter opening over a Build, a high-pass sweep before the Drop, a reverb or delay throw). It plays every time the clip plays and is recorded into the Arrangement. Points are beats from the clip start with values in the control's display unit; steps are linear between points. Replaces any earlier envelope for that control in that clip.",
-     {**TARGET, "scene": {"type": "integer", "minimum": 0}, "map_id": {"type": "string", "pattern": "^[a-f0-9]{24}$"},
+     {"track": {"type": "integer", "minimum": 0}, "path": TARGET["path"], "scene": {"type": "integer", "minimum": 0},
+      "map_id": {"type": "string", "pattern": "^[a-f0-9]{24}$"},
+      "mixer": {"type": "string", "enum": ["volume", "pan", "send"],
+                "description": "Automate the track's mixer instead of a device: volume, pan, or send (with 'send': 0 for return A, 1 for return B). Omit path/map_id/control for mixer targets; sends and volume use dB."},
+      "send": {"type": "integer", "minimum": 0},
       "control": {"type": "string", "minLength": 1, "maxLength": 200},
       "unit": {"type": "string", "enum": ["Hz", "kHz", "ms", "s", "dB", "%", "ratio", "native", "normalized"]},
       "points": {"type": "array", "minItems": 2, "maxItems": 64, "items": {"type": "object", "properties": {
           "beat": {"type": "number", "minimum": 0}, "value": {"type": ["number", "string"]}}, "required": ["beat", "value"], "additionalProperties": False}},
       "steps_per_beat": {"type": "integer", "minimum": 1, "maximum": 16}},
-     ["track", "path", "scene", "map_id", "control", "unit", "points"]),
+     ["track", "scene", "unit", "points"]),
     ("get_sidechain_sources", "sidechain", "List the tracks that can feed a Compressor's sidechain and its current source. Read-only.",
      {"track": {"type": "integer", "minimum": 0}, "device": {"type": "integer", "minimum": 0}}, ["track", "device"]),
     ("set_sidechain", "sidechain", "Route another track (normally the Kick) into a Compressor's sidechain input so the kick ducks this part. Use a source name exactly as get_sidechain_sources lists it; the routing is read back. Then switch the Compressor's sidechain on and set ratio, attack, release and threshold with set_device_control.",
@@ -62,6 +66,8 @@ def numeric_value(data):
 async def execute_automation(name, data, send):
     definition = next(item for item in AUTOMATION_TOOLS if item["name"] == name)
     data = numeric_value(data)
+    if name == "write_clip_automation" and not data.get("mixer") and not all(k in data for k in ("path", "map_id", "control")):
+        return {"status": "failed", "summary": "A device automation needs path, map_id and control (or use mixer: volume, pan or send).", "steps": []}
     if name == "write_clip_automation":
         data = {**data, "points": [{"beat": point["beat"], "value": numeric_value({"value": point["value"], "unit": data["unit"]})["value"]}
                                    for point in data["points"]]}

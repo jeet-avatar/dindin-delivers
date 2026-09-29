@@ -838,7 +838,8 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 
 ### Automation (stored in clips)
 - Use write_clip_automation so movement is saved in the clip and recorded into the Arrangement; automate_parameter
-  only performs a live move and is not saved.
+  only performs a live move and is not saved. It also automates the track MIXER: mixer "send" (send 0 = A Reverb,
+  1 = B Delay) for reverb/delay rides and throws, mixer "volume" for rides and fades (both in dB), mixer "pan".
 - Build sections: open a low-pass (Auto Filter or EQ Eight) from about 300 Hz to fully open over the Build, and
   high-pass everything except the riser over its last 4 bars; everything returns to normal at the Drop.
 - Breaks: filter or reverb/delay throws on the last beat before the Drop. Keep automation on its own section clip.

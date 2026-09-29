@@ -278,10 +278,24 @@ def register(handler, app):
         if not slot.has_clip:
             raise ValueError("There is no clip in that slot to automate.")
         clip = slot.clip
-        device = device_at(data)
-        if data["map_id"] != map_id(device):
-            raise ValueError("Device mapping changed. Discover the controls again before writing.")
-        index, parameter = resolve_parameter(device.parameters, data["control"])
+        mixer_target = data.get("mixer")
+        if mixer_target:
+            # The track's own mixer: volume, pan or a send to a return track (reverb/delay rides).
+            mixer = handler.song.tracks[data["track"]].mixer_device
+            if mixer_target == "send":
+                sends = list(mixer.sends)
+                if not 0 <= int(data.get("send", -1)) < len(sends):
+                    raise ValueError("That send does not exist; the set has %d return tracks." % len(sends))
+                parameter, index = sends[int(data["send"])], int(data["send"])
+            elif mixer_target in ("volume", "pan"):
+                parameter, index = (mixer.volume if mixer_target == "volume" else mixer.panning), -1
+            else:
+                raise ValueError("Mixer target must be volume, pan or send.")
+        else:
+            device = device_at(data)
+            if data["map_id"] != map_id(device):
+                raise ValueError("Device mapping changed. Discover the controls again before writing.")
+            index, parameter = resolve_parameter(device.parameters, data["control"])
         points = sorted(data["points"], key=lambda point: point["beat"])
         if len(points) < 2 or points[0]["beat"] < 0 or points[-1]["beat"] > clip.length + 1e-6:
             raise ValueError("Give at least two points inside the clip (0 to %.2f beats)." % clip.length)
