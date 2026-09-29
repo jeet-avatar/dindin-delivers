@@ -415,8 +415,144 @@ def register(handler, app):
                            ", ".join("%s %s" % (returns[i].name if i < len(returns) else i, send.str_for_value(send.value))
                                      for i, send in enumerate(mixer.sends)) or "none")}
 
+    def note_feel(data):
+        """Humanize chosen notes in a Session clip with Live's own note editing: chance (probability), velocity
+        deviation and a timing nudge in milliseconds. Notes are chosen by pitch and, optionally, by their position in
+        the bar. Everything else about the notes is kept."""
+        clip = handler.song.tracks[data["track"]].clip_slots[data["scene"]].clip
+        if clip is None or not clip.is_midi_clip:
+            raise ValueError("There is no MIDI clip in that slot.")
+        notes = clip.get_notes_extended(0, 128, 0.0, clip.length)
+        positions = data.get("positions_in_bar")  # beats within a 4-beat bar, e.g. [0.5, 1.5] for off-beats
+        beat_ms = 60000.0 / handler.song.tempo
+        nudge = float(data.get("nudge_ms", 0.0)) / beat_ms
+        if abs(float(data.get("nudge_ms", 0.0))) > 30:
+            raise ValueError("Keep timing nudges within 30 ms; larger moves are rewrites, not feel.")
+        chosen = []
+        for note in notes:
+            if data.get("pitches") and note.pitch not in data["pitches"]:
+                continue
+            if positions is not None and not any(abs((note.start_time % 4.0) - p) < 0.02 for p in positions):
+                continue
+            chosen.append(note)
+        if not chosen:
+            raise ValueError("No notes match those pitches and positions.")
+        for note in chosen:
+            if "probability" in data:
+                note.probability = max(0.0, min(1.0, float(data["probability"])))
+            if "velocity_deviation" in data:
+                note.velocity_deviation = max(-127.0, min(127.0, float(data["velocity_deviation"])))
+            if nudge:
+                note.start_time = max(0.0, note.start_time + nudge)
+        clip.apply_note_modifications(notes)
+        after = clip.get_notes_extended(0, 128, 0.0, clip.length)
+        by_id = {note.note_id: note for note in after}
+        checked = [by_id[n.note_id] for n in chosen if n.note_id in by_id]
+        return {"status": "verified" if len(checked) == len(chosen) else "partial",
+                "summary": "%d note(s) changed: %s" % (len(checked), ", ".join(
+                    part for part in ("chance %d%%" % round(100 * checked[0].probability) if "probability" in data else "",
+                                      "velocity deviation %+d" % round(checked[0].velocity_deviation) if "velocity_deviation" in data else "",
+                                      "nudged %+.1f ms" % float(data["nudge_ms"]) if nudge else "") if part)),
+                "notes": [{"pitch": n.pitch, "start": round(n.start_time, 4), "probability": round(n.probability, 2),
+                           "velocity": n.velocity, "velocity_deviation": n.velocity_deviation} for n in checked[:40]]}
+
+    def groove(data):
+        """Live's grooves. action: library (browse the groove library), pool (grooves loaded in this set and their
+        amounts), clips (which clips use a groove), load (a library item by folder path), assign (a groove from the pool
+        to a clip, or none), amounts
+        (set a pool groove's timing, random, velocity and quantize amounts, 0-100)."""
+        action = data["action"]
+        pool = list(handler.song.groove_pool.grooves)
+        describe = lambda i, g: {"index": i, "name": g.name, "timing": round(g.timing_amount, 1),
+                                 "random": round(g.random_amount, 1), "velocity": round(g.velocity_amount, 1),
+                                 "quantize": round(g.quantization_amount, 1)}
+        def groove_library():
+            # Live's API has no groove category; the factory grooves are in Packs > Core Library > Grooves.
+            item = app.browser.packs
+            for name in ("Core Library", "Grooves"):
+                children = [child for child in item.children if child.name == name]
+                if len(children) != 1:
+                    raise ValueError("Live's Core Library grooves are not installed.")
+                item = children[0]
+            return item
+        if action == "library":
+            item = groove_library()
+            for name in data.get("folders", []):
+                children = [child for child in item.children if child.name == name]
+                if len(children) != 1:
+                    raise ValueError("Groove folder is unavailable or ambiguous.")
+                item = children[0]
+            children = list(item.children)
+            return {"status": "observed", "folders": data.get("folders", []),
+                    "items": [{"name": c.name, "folder": bool(c.is_folder), "loadable": bool(c.is_loadable)} for c in children[:80]],
+                    "total": len(children), "summary": "Read the groove library; nothing was loaded."}
+        if action == "pool":
+            amount = round(100 * handler.song.groove_amount)
+            return {"status": "observed", "grooves": [describe(i, g) for i, g in enumerate(pool)], "global_amount": amount,
+                    "summary": "%d groove(s) in the Groove Pool; global Groove Amount %d%%%s." % (
+                        len(pool), amount, " (grooves have no effect)" if amount == 0 else "")}
+        if action == "global":
+            # The Groove Pool's global amount scales every groove's timing; 0% switches all grooves off.
+            if "amount" in data:
+                handler.song.groove_amount = max(0.0, min(1.3, float(data["amount"]) / 100.0))
+            amount = round(100 * handler.song.groove_amount)
+            return {"status": "verified" if "amount" in data else "observed", "global_amount": amount,
+                    "summary": "Global Groove Amount is %d%%." % amount}
+        if action == "load":
+            item = groove_library()
+            for name in data["folders"]:
+                children = [child for child in item.children if child.name == name]
+                if len(children) != 1:
+                    raise ValueError("Exact groove path is missing or ambiguous; no fallback was attempted.")
+                item = children[0]
+            if not item.is_loadable:
+                raise ValueError("Select a groove file, not a folder.")
+            app.browser.load_item(item)
+            return {"status": "sent", "before": len(pool), "summary": "Groove load requested; read the pool to confirm."}
+        if action == "clips":
+            # Which groove each clip in a scene (or every scene) uses.
+            scenes = [data["scene"]] if "scene" in data else range(len(handler.song.scenes))
+            found = []
+            for s_index in scenes:
+                for t_index, track in enumerate(handler.song.tracks):
+                    slot = track.clip_slots[s_index]
+                    if slot.has_clip and slot.clip.groove is not None:
+                        found.append({"track": t_index, "scene": s_index, "groove": slot.clip.groove.name})
+            return {"status": "observed", "clips": found,
+                    "summary": "%d clip(s) use a groove." % len(found) if found else "No clip uses a groove."}
+        if action == "assign":
+            clip = handler.song.tracks[data["track"]].clip_slots[data["scene"]].clip
+            if clip is None:
+                raise ValueError("There is no clip in that slot.")
+            previous = clip.groove.name if clip.groove is not None else None
+            index = data.get("groove")
+            if index is None:
+                clip.groove = None
+            else:
+                if not 0 <= index < len(pool):
+                    raise ValueError("That groove is not in the Groove Pool.")
+                clip.groove = pool[index]
+            name = clip.groove.name if clip.groove is not None else None
+            expected = None if index is None else pool[index].name
+            return {"status": "verified" if name == expected else "partial", "groove": name, "previous": previous,
+                    "summary": "Clip groove is %s (was %s)." % (name or "none", previous or "none")}
+        if action == "amounts":
+            index = data["groove"]
+            if not 0 <= index < len(pool):
+                raise ValueError("That groove is not in the Groove Pool.")
+            g = pool[index]
+            for key, attribute in (("timing", "timing_amount"), ("random", "random_amount"),
+                                   ("velocity", "velocity_amount"), ("quantize", "quantization_amount")):
+                if key in data:
+                    low = -100.0 if key == "velocity" else 0.0  # Velocity can also invert the groove's accents
+                    setattr(g, attribute, max(low, min(100.0, float(data[key]))))
+            return {"status": "verified", "groove": describe(index, g), "summary": "Groove %s: timing %.0f%%, random %.0f%%, velocity %.0f%%, quantize %.0f%%." % (
+                g.name, g.timing_amount, g.random_amount, g.velocity_amount, g.quantization_amount)}
+        raise ValueError("Groove action must be library, pool, clips, global, load, assign or amounts.")
+
     for operation, function in {"catalog": catalog, "device_tree": device_tree, "clip_envelope": clip_envelope,
                                 "clip_automation": clip_automation, "mixer_state": mixer_state,
+                                "note_feel": note_feel, "groove": groove,
                                 "control_map": control_map, "set_control": set_control, "load_item": load_item}.items():
         def callback(params, function=function):
             try:

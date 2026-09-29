@@ -55,6 +55,22 @@ for name, operation, description, properties, required in [
      ["track", "scene"]),
     ("read_track_mixer", "mixer_state", "Read a track's mixer exactly as Live displays it: volume, pan and each send level to the return tracks (for example A-Reverb -15 dB), and whether each is automated. Read-only. Use it before writing send or volume automation so the ride starts from and returns to the real level.",
      {"track": {"type": "integer", "minimum": 0}}, ["track"]),
+    ("set_note_feel", "note_feel", "Humanize notes already in a Session clip, keeping everything else: chance (probability 0-1, so a note plays only some loops), velocity_deviation (random velocity range, +/-), and nudge_ms (timing push in milliseconds, -30 to +30: negative is early, positive is late/laid back). Choose notes by pitches and optionally positions_in_bar (beats within a 4-beat bar, e.g. [0.5,1.5,2.5,3.5] for off-beats). Reads back the notes.",
+     {"track": {"type": "integer", "minimum": 0}, "scene": {"type": "integer", "minimum": 0},
+      "pitches": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 127}, "minItems": 1, "maxItems": 16},
+      "positions_in_bar": {"type": "array", "items": {"type": "number", "minimum": 0, "exclusiveMaximum": 4}, "maxItems": 32},
+      "probability": {"type": "number", "minimum": 0, "maximum": 1},
+      "velocity_deviation": {"type": "number", "minimum": -64, "maximum": 64},
+      "nudge_ms": {"type": "number", "minimum": -30, "maximum": 30}},
+     ["track", "scene", "pitches"]),
+    ("groove", "groove", "Live's Groove Pool. action library: browse factory grooves (folders like [\"Swing\",\"MPC\"]); pool: grooves in this set, their amounts and the global Groove Amount; clips: which clips use which groove; global: read or set the global Groove Amount (amount 0-130 %, 0 switches every groove off); load: add a library groove by exact folders path; assign: give a clip a pool groove (groove index) or none (groove null); amounts: set a pool groove's timing, random, velocity (-100..100) and quantize (0-100 %).",
+     {"action": {"type": "string", "enum": ["library", "pool", "clips", "global", "load", "assign", "amounts"]},
+      "folders": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 200}, "maxItems": 6},
+      "track": {"type": "integer", "minimum": 0}, "scene": {"type": "integer", "minimum": 0},
+      "groove": {"type": ["integer", "null"], "minimum": 0}, "amount": {"type": "number", "minimum": 0, "maximum": 130},
+      "timing": {"type": "number", "minimum": 0, "maximum": 100}, "random": {"type": "number", "minimum": 0, "maximum": 100},
+      "velocity": {"type": "number", "minimum": -100, "maximum": 100}, "quantize": {"type": "number", "minimum": 0, "maximum": 100}},
+     ["action"]),
     ("get_sidechain_sources", "sidechain", "List the tracks that can feed a Compressor's sidechain and its current source. Read-only.",
      {"track": {"type": "integer", "minimum": 0}, "device": {"type": "integer", "minimum": 0}}, ["track", "device"]),
     ("set_sidechain", "sidechain", "Route another track (normally the Kick) into a Compressor's sidechain input so the kick ducks this part. Use a source name exactly as get_sidechain_sources lists it; the routing is read back. Then switch the Compressor's sidechain on and set ratio, attack, release and threshold with set_device_control.",
@@ -152,7 +168,8 @@ async def execute_automation(name, data, send, track_name=""):
     try:
         if name == "set_sidechain":
             data = {**data, "operation": "set"}
-        if definition["operation"] in {"set_control", "load_item", "clip_envelope"} or name == "set_sidechain":
+        if definition["operation"] in {"set_control", "load_item", "clip_envelope", "note_feel"} or name == "set_sidechain" \
+                or (name == "groove" and data["action"] in {"global", "load", "assign", "amounts"}):
             # A reply can be lost after a write, so uncertainty must remain explicit.
             written = True
         result = await call(definition["operation"], data)

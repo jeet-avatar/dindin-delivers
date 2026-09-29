@@ -61,6 +61,44 @@ class MappingTests(unittest.TestCase):
         self.assertEqual(ramp["status"], "failed")
         self.assertIn("step curve", ramp["summary"])
 
+    def test_note_feel_sets_chance_and_nudges_only_chosen_notes(self):
+        class Note:
+            def __init__(self, i, pitch, start): self.note_id, self.pitch, self.start_time, self.probability, self.velocity, self.velocity_deviation = i, pitch, start, 1.0, 100, 0.0
+        notes = [Note(1, 42, 0.5), Note(2, 42, 1.0), Note(3, 42, 1.5), Note(4, 36, 0.0)]
+        clip = SimpleNamespace(is_midi_clip=True, length=4.0, get_notes_extended=lambda *a: notes,
+                               apply_note_modifications=lambda n: None)
+        track = SimpleNamespace(clip_slots=[SimpleNamespace(clip=clip)])
+        handlers = {}
+        server = SimpleNamespace(add_handler=lambda address, callback: handlers.update({address: callback}))
+        extension.register(SimpleNamespace(song=SimpleNamespace(tracks=[track], tempo=125.0), osc_server=server), SimpleNamespace())
+        feel = lambda data: json.loads(handlers["/live/beatmind/note_feel"]((json.dumps({"track": 0, "scene": 0, **data}),))[0])
+        result = feel({"pitches": [42], "positions_in_bar": [0.5, 1.5], "probability": 0.7, "velocity_deviation": 12, "nudge_ms": 4.8})
+        self.assertEqual(result["status"], "verified", result)
+        self.assertEqual([n.probability for n in notes], [0.7, 1.0, 0.7, 1.0])
+        self.assertAlmostEqual(notes[0].start_time, 0.51)  # 4.8 ms at 125 BPM is 0.01 beat
+        self.assertEqual(notes[1].start_time, 1.0)
+        self.assertEqual(notes[3].velocity_deviation, 0.0)
+        self.assertIn("30 ms", feel({"pitches": [42], "nudge_ms": 40})["summary"])
+        self.assertEqual(feel({"pitches": [50]})["status"], "failed")
+
+    def test_groove_pool_global_amount_and_assign(self):
+        swing = SimpleNamespace(name="Swing MPC 3000 16ths 57", timing_amount=100.0, random_amount=0.0, velocity_amount=0.0, quantization_amount=0.0)
+        clip = SimpleNamespace(groove=None)
+        song = SimpleNamespace(groove_pool=SimpleNamespace(grooves=[swing]), groove_amount=0.0, scenes=[1],
+                               tracks=[SimpleNamespace(clip_slots=[SimpleNamespace(has_clip=True, clip=clip)])])
+        handlers = {}
+        server = SimpleNamespace(add_handler=lambda address, callback: handlers.update({address: callback}))
+        extension.register(SimpleNamespace(song=song, osc_server=server), SimpleNamespace())
+        groove = lambda data: json.loads(handlers["/live/beatmind/groove"]((json.dumps(data),))[0])
+        self.assertIn("no effect", groove({"action": "pool"})["summary"])
+        self.assertEqual(groove({"action": "global", "amount": 100})["global_amount"], 100)
+        assigned = groove({"action": "assign", "track": 0, "scene": 0, "groove": 0})
+        self.assertEqual((assigned["status"], assigned["previous"]), ("verified", None))
+        self.assertEqual(groove({"action": "clips"})["clips"], [{"track": 0, "scene": 0, "groove": "Swing MPC 3000 16ths 57"}])
+        amounts = groove({"action": "amounts", "groove": 0, "timing": 60, "random": 3, "velocity": -20})
+        self.assertEqual((swing.timing_amount, swing.random_amount, swing.velocity_amount), (60.0, 3.0, -20.0))
+        self.assertEqual(groove({"action": "assign", "track": 0, "scene": 0, "groove": None})["groove"], None)
+
     def test_mixer_state_reads_sends_as_live_displays_them(self):
         def parameter(text, automated=0):
             return SimpleNamespace(value=0.5, automation_state=automated, str_for_value=lambda v: text)

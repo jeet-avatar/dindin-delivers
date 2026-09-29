@@ -859,6 +859,22 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
   parts. Drop 2 differs from Drop 1 (an extra element or a new move), at least as loud. Outro mirrors the Intro.
 - Judge a change loudness-matched: louder always sounds "better". Keep 3-6 dB of headroom before the master.
 
+### Human feel (avoid a robotic, grid-locked track)
+- Check the groove first: groove action pool shows the global Groove Amount; at 0% every clip groove is silent.
+- Techno keeps the kick locked (no groove on Kick, no nudges). Hats, percussion and shakers get light 16th swing
+  (a factory MPC or SP 1200 16ths groove around 54-58%, timing 40-70%, random 2-5%); bass only a little or none;
+  long chords need none. Set the global Groove Amount to 100% once grooves are chosen.
+- Microtiming with set_note_feel: clap/snare 3-8 ms late for a laid-back feel (or 2-5 ms early to push), off-beat
+  open hats 2-6 ms late, ghost notes early. Keep every nudge under 10 ms in techno unless asked.
+- Chance: ghost hats and extra percussion hits at 60-85% probability and velocity_deviation 8-15, so bars differ;
+  never put chance on the kick, the main clap or bass root notes.
+- Variation beats randomness: make 1-bar drum and bass loops into 4- or 8-bar clips with a change in bar 4 and a
+  fill or drop-out in bar 8 (drop the hat for a bar, an extra percussion hit, a clap variation every 4th bar).
+- Velocity and length: natural accents (downbeats and off-beat hats louder, in-between 16ths softer), wider pad
+  velocity (60-95) and a 5-15 ms strum across chord notes; vary hat and bass note lengths.
+- Movement inside sections: one slow, smooth drift per section (a filter or pan moving over 8-16 bars), not only at
+  transitions. Change one thing at a time, preview, and let the user judge by ear.
+
 ### Choosing and balancing a lead
 - A lead must serve the groove, not cover it. Choose by: register (above the chords, clear of 200-800 Hz mud),
   brightness (not brighter than the hats), density (a hypnotic motif with space often beats constant 16ths), and
