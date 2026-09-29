@@ -195,7 +195,7 @@ class VerifiedExecutor:
 
         if name == "get_clip_notes" and not await self.scalar("/live/clip_slot/get/has_clip", [t, s]):
             return {"status": "observed", "summary": f"Track {t + 1}, scene {s + 1} has no clip yet.", "notes": [],
-                    "observations": {}}
+                    "has_clip": False, "observations": {}}
 
         if name in READ_TOOLS:
             observations = {}

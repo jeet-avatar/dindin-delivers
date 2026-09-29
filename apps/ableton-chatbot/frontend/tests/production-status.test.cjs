@@ -50,3 +50,26 @@ assert.equal(summarizeProduction([action('set_track_volume', 'verified')], 'comp
 assert.equal(summarizeProduction([...bassSetup, action('audition_part', 'verified', { track: 1 })], 'complete').title, 'Audio ready');
 assert.match(summarizeProduction([...bassSetup, action('audition_part', 'verified', { track: 1 })], 'interrupted').detail, /recording was captured before interruption/);
 assert.equal(summarizeProduction([failed], 'interrupted').issues.length, 1);
+
+// Rehearsal 2026-09-28: a check of an empty scene slot must not turn a track's real note count into 0.
+{
+  const actions = [
+    action('add_notes', 'verified', { track: 5, scene: 2 }, { notes: new Array(64).fill({}) }),
+    action('get_clip_notes', 'observed', { track: 5, scene: 0 }, { notes: [], has_clip: false }),
+  ];
+  assert.equal(trackOutcomes(actions)[0].noteCount, 64);
+}
+// A browser search that missed, then found the folder, is not an unresolved issue.
+{
+  const outcomes = actionOutcomes([
+    action('get_library_catalog', 'failed', { category: 'sounds', folders: ['Plucked'] }, { summary: 'Browser folder is unavailable or ambiguous' }),
+    action('get_library_catalog', 'observed', { category: 'sounds', folders: ['Guitar & Plucked'] }),
+  ]);
+  assert.equal(outcomes[0].kind, 'repaired');
+  assert.equal(summarizeProduction([
+    action('get_library_catalog', 'failed', { folders: ['Plucked'] }),
+    action('get_library_catalog', 'observed', { folders: ['Guitar & Plucked'] }),
+  ]).issues.length, 0);
+}
+console.log('Empty-slot note checks and recovered browser searches passed.');
+

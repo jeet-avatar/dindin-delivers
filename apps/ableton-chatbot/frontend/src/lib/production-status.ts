@@ -3,6 +3,7 @@ import type { ProductionAction } from "../components/ProductionLog";
 const BAD = new Set(["failed", "partial", "unverified"]);
 const READS = new Set(["list_browser", "list_sample_packs", "search_pack_samples", "inspect_pack_sample", "inspect_track", "describe_sound", "create_production_plan", "list_reference_sounds", "compare_reference_sound"]);
 const AUDIO = new Set(["audition_part", "capture_combined_groove"]);
+const SEARCHES = new Set(["get_library_catalog", "list_browser", "search_pack_samples"]);
 
 export function isInspection(action: ProductionAction) {
   return action.tool.startsWith("get_") || READS.has(action.tool);
@@ -57,6 +58,10 @@ export function actionOutcomes(actions: ProductionAction[]): ActionOutcome[] {
         const sameRequest = later.tool === action.tool && canonical(later.input) === canonical(action.input);
         if (sameRequest && isInspection(action) && later.result?.status === "observed") {
           return { kind: "repaired", label: "Check succeeded on retry", repairedBy: j };
+        }
+        // A browser search that missed is recovered by a later successful search of the same kind.
+        if (SEARCHES.has(action.tool) && later.tool === action.tool && later.result?.status === "observed") {
+          return { kind: "repaired", label: "Found on a later search", repairedBy: j };
         }
         if (sameRequest && ["set_device_control", "set_device_parameter"].includes(action.tool) && later.result?.status === "verified") {
           return { kind: "repaired", label: "Setting rechecked", repairedBy: j };
@@ -117,7 +122,9 @@ export function trackOutcomes(actions: ProductionAction[]) {
     if (action.tool === "load_pack_sample" && action.result.source) item.source = `${action.result.source.pack_name} / ${action.result.source.relative_path.split("/").at(-1)}`;
     if (action.tool === "load_library_item" && action.input.kind === "instrument" && Array.isArray(action.input.folders)) item.source = action.input.folders.join(" / ");
     if (action.tool === "get_track_device_tree" && Array.isArray(action.result.devices) && (!item.source || !action.result.devices.length)) item.source = action.result.devices.map(d => d.name).join(" + ") || "No device present";
-    if (["add_notes", "clear_notes", "duplicate_clip", "get_clip_notes"].includes(action.tool) && Array.isArray(action.result.notes)) {
+    // A notes check of an empty scene slot says nothing about the track's clips in other scenes.
+    if (["add_notes", "clear_notes", "duplicate_clip", "get_clip_notes"].includes(action.tool) && Array.isArray(action.result.notes)
+        && action.result.has_clip !== false) {
       item.noteCount = action.result.notes.length;
       item.notesVerified = action.result.status === "verified";
     }

@@ -37,6 +37,8 @@ export interface ProductionAction {
     error?: string;
     steps?: ExecutionStep[];
     notes?: MidiNote[];
+    /** false when a notes check found an empty scene slot. */
+    has_clip?: boolean;
     devices?: { name: string }[];
     observations?: Record<string, unknown[]>;
     missing_notes?: MidiNote[];
