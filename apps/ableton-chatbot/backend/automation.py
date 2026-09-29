@@ -25,7 +25,8 @@ for name, operation, description, properties, required in [
     ("set_device_control", "set_control", "Set a discovered control using its exact name or an unambiguous alias. Converts Hz/kHz, ms/s, dB, %, native values, normalized continuous values or enum labels WITHOUT probing by writes. Rejects stale maps, ambiguous names, disabled controls and existing automation. Reads back independently.",
      {**TARGET, "map_id": {"type": "string", "pattern": "^[a-f0-9]{24}$"},
       "control": {"type": "string", "minLength": 1, "maxLength": 200}, "value": {"type": ["number", "string"]},
-      "unit": {"type": "string", "enum": ["Hz", "kHz", "ms", "s", "dB", "%", "native", "normalized", "label"]}},
+      "unit": {"type": "string", "enum": ["Hz", "kHz", "ms", "s", "dB", "%", "ratio", "native", "normalized", "label"],
+               "description": "Match Live's display: Hz/kHz, ms/s, dB, %, ratio for displays like '4.00 : 1' (value 4), label only for controls that list choices."}},
      ["track", "path", "map_id", "control", "value", "unit"]),
 ]:
     AUTOMATION_TOOLS.append({"name": name, "description": description, "operation": operation,

@@ -41,7 +41,11 @@ def resolve_parameter(parameters, control):
 
 
 def parse_display(text):
-    match = re.fullmatch(r"\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*(Hz|kHz|ms|s|dB|%)\s*", text, re.I)
+    # Gain-style controls show "-inf dB" at the bottom of their range (Compressor Threshold, Utility Gain).
+    ratio = re.fullmatch(r"\s*(\d+(?:\.\d*)?|inf)\s*:\s*1\s*", text)  # Compressor ratio, e.g. "4.00 : 1"
+    if ratio:
+        return float(ratio[1]), "ratio"
+    match = re.fullmatch(r"\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+|inf))\s*(Hz|kHz|ms|s|dB|%)\s*", text.replace("\u2212", "-"), re.I)
     if not match:
         raise ValueError("Live does not expose a supported numeric display unit for this control.")
     number, unit = float(match[1]), match[2].casefold()
@@ -74,7 +78,7 @@ def native_value(parameter, value, unit):
     else:
         if parameter.is_quantized:
             raise ValueError("Use a choice label or native integer for discrete controls.")
-        target, target_unit = parse_display(str(value) + " " + unit)
+        target, target_unit = (float(value), "ratio") if unit == "ratio" else parse_display(str(value) + " " + unit)
         samples = []
         for i in range(33):
             native = parameter.min + (parameter.max - parameter.min) * i / 32
