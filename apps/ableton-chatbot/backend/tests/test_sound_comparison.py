@@ -58,6 +58,16 @@ class MeasurementTests(unittest.TestCase):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 comparison.ComparisonRequest.model_validate({'recording_id': 'b'*32, **kwargs})
 
+    def test_measure_includes_loudness(self):
+        result = comparison.measure(tone(gain=0.3))
+        self.assertIn('lufs', result)
+        self.assertIn('true_peak_dbtp', result)
+        self.assertTrue(-30 < result['lufs'] < 0)
+
+    def test_large_loudness_delta_is_flagged(self):
+        report, _, _ = comparison.compare_arrays(tone(gain=0.3), tone(gain=0.01))
+        self.assertTrue(any('loudness' in note.casefold() or 'lufs' in note.casefold() for note in report['next_checks']))
+
     def test_real_ffmpeg_worker_creates_playable_bounded_previews(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
