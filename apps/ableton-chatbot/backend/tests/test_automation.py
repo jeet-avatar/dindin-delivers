@@ -63,7 +63,7 @@ class MappingTests(unittest.TestCase):
 
     def test_note_feel_sets_chance_and_nudges_only_chosen_notes(self):
         class Note:
-            def __init__(self, i, pitch, start): self.note_id, self.pitch, self.start_time, self.probability, self.velocity, self.velocity_deviation = i, pitch, start, 1.0, 100, 0.0
+            def __init__(self, i, pitch, start): self.note_id, self.pitch, self.start_time, self.duration, self.probability, self.velocity, self.velocity_deviation = i, pitch, start, 0.25, 1.0, 100, 0.0
         notes = [Note(1, 42, 0.5), Note(2, 42, 1.0), Note(3, 42, 1.5), Note(4, 36, 0.0)]
         clip = SimpleNamespace(is_midi_clip=True, length=4.0, get_notes_extended=lambda *a: notes,
                                apply_note_modifications=lambda n: None)

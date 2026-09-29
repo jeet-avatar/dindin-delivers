@@ -66,6 +66,11 @@ export interface ProductionAction {
   };
 }
 
+// Tool results come from the server and Live; a missing field must show as blank, never crash the page.
+function beats(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? Number(value.toFixed(4)) : "";
+}
+
 function NoteTable({ notes, label = "MIDI notes" }: { notes: MidiNote[]; label?: string }) {
   return (
     <details className="mt-3">
@@ -76,8 +81,8 @@ function NoteTable({ notes, label = "MIDI notes" }: { notes: MidiNote[]; label?:
           <tbody>{notes.map((note, index) => (
             <tr key={index} className="border-t" style={{ borderColor: "var(--border)" }}>
               <td className="py-1.5 pr-4">{note.pitch}</td>
-              <td className="pr-4">{Number(note.start.toFixed(4))}</td>
-              <td className="pr-4">{Number(note.duration.toFixed(4))}</td>
+              <td className="pr-4">{beats(note.start)}</td>
+              <td className="pr-4">{beats(note.duration)}</td>
               <td className="pr-4">{note.velocity}</td>
               <td>{note.muted ? "Yes" : "No"}</td>
             </tr>

@@ -453,7 +453,8 @@ def register(handler, app):
                     part for part in ("chance %d%%" % round(100 * checked[0].probability) if "probability" in data else "",
                                       "velocity deviation %+d" % round(checked[0].velocity_deviation) if "velocity_deviation" in data else "",
                                       "nudged %+.1f ms" % float(data["nudge_ms"]) if nudge else "") if part)),
-                "notes": [{"pitch": n.pitch, "start": round(n.start_time, 4), "probability": round(n.probability, 2),
+                "changed_notes": [{"pitch": n.pitch, "start": round(n.start_time, 4), "duration": round(n.duration, 4),
+                                   "probability": round(n.probability, 2),
                            "velocity": n.velocity, "velocity_deviation": n.velocity_deviation} for n in checked[:40]]}
 
     def groove(data):
