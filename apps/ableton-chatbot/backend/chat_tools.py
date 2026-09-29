@@ -24,9 +24,14 @@ TOOLS.append({'name': 'get_effect_recipe', 'description': 'Get a starting effect
          'installed_plugins': {'type': 'array', 'items': {'type': 'string', 'maxLength': 120}, 'maxItems': 200},
          'allow_third_party': {'type': 'boolean'}},
       'required': ['role'], 'additionalProperties': False}})
-TOOLS.append({'name': 'get_engineering_rules', 'description': "Look up BeatMind's engineering rulebook before answering an engineering question or making a processing decision: the method (detect, least destructive fix, smallest change, verify, stop), the order of processing, problem/detection/action rules with frequency and amount search zones, what never to do, and which built-in Ableton device does each job. Topics: vocal, interactions (kick vs bass, vocal vs synth, lead vs vocal, percussion vs vocal, FX vs intelligibility). Pass problem (for example 'sibilance', 'mud', 'reverb too distant') to narrow the rules. Read-only.",
+TOOLS.append({'name': 'get_engineering_rules', 'description': "Look up BeatMind's engineering rulebook before answering an engineering question or making a processing decision: the method (detect, least destructive fix, smallest change, verify, stop), the order of processing, problem/detection/action rules with frequency and amount search zones, what never to do, and which built-in Ableton device does each job. Topics: vocal, human_feel, drama, entrances, interactions (kick vs bass, vocal vs synth, lead vs vocal, percussion vs vocal, FX vs intelligibility). The result includes this producer's preferences, which override the defaults. Pass problem (for example 'sibilance', 'mud', 'reverb too distant') to narrow the rules. Read-only.",
      'input_schema': {'type': 'object', 'properties': {'topic': {'type': 'string', 'maxLength': 60}, 'problem': {'type': 'string', 'maxLength': 200}},
                       'required': ['topic'], 'additionalProperties': False}})
+TOOLS.append({'name': 'producer_preferences', 'description': "Read or save this producer's own preferences, which override BeatMind's rulebook defaults in every track: swing_percent, swing_parts, kick_locked, humanize (off/light/medium/heavy), clap_nudge_ms, hat_nudge_ms, ghost_chance, variation_bars, pad_entry_bars, hat_entry_bars, bass_entry_bars, drops_full_level, drama (subtle/medium/big), throw_level_db, loudness_target_lufs, ceiling_dbtp, vocal_style. Read them before producing; save a value only when the producer states a preference ('more swing', 'no fades on my bass'), and confirm what was saved.",
+     'input_schema': {'type': 'object', 'properties': {'action': {'type': 'string', 'enum': ['get', 'set', 'reset']},
+                       'values': {'type': 'object', 'additionalProperties': {'type': ['number', 'string', 'boolean']}},
+                       'reset': {'type': 'array', 'items': {'type': 'string', 'maxLength': 40}, 'maxItems': 20}},
+                      'required': ['action'], 'additionalProperties': False}})
 TOOLS.append({'name': 'vocal_check', 'description': "Detect what a vocal actually needs before processing it, from a solo vocal preview (audition_part on the vocal track): clipping and headroom, rumble, boom, mud, boxiness, nasal and harsh bands measured against the vocal's own tilt, narrow resonances, sibilant bursts, dull top and phrase-level consistency. Pass compare_recording_ids (solo previews of synths, lead, pads, percussion) to score masking in the vocal's 1-5 kHz range. Each finding has the rulebook fix; passing stages say skip. Read-only; propose fixes, apply only after the user agrees.",
      'input_schema': {'type': 'object', 'properties': {'recording_id': {'type': 'string', 'pattern': '^[a-f0-9]{32}$'},
                        'compare_recording_ids': {'type': 'array', 'items': {'type': 'string', 'pattern': '^[a-f0-9]{32}$'}, 'maxItems': 8}},
@@ -40,7 +45,21 @@ async def execute(name, inputs, user_id):
         validate(inputs, next(tool['input_schema'] for tool in TOOLS if tool['name'] == name))
         if name == 'get_engineering_rules':
             import engineering_rules
-            return engineering_rules.lookup(inputs['topic'], inputs.get('problem'))
+            import producer_profile
+            result = engineering_rules.lookup(inputs['topic'], inputs.get('problem'))
+            if result.get('status') == 'observed':
+                mine = producer_profile.stored(user_id)
+                result['producer_preferences'] = mine
+                result['precedence'] = ("This producer's preferences override the rulebook defaults." if mine
+                                        else "This producer has not set preferences; use the defaults.")
+            return result
+        if name == 'producer_preferences':
+            import producer_profile
+            if inputs['action'] == 'get':
+                return producer_profile.profile(user_id)
+            if inputs['action'] == 'set':
+                return producer_profile.update(user_id, inputs.get('values') or {})
+            return producer_profile.update(user_id, {}, inputs.get('reset') or list(producer_profile.PREFERENCES))
         if name == 'vocal_check':
             import vocal_check
             return vocal_check.run(user_id, inputs['recording_id'], inputs.get('compare_recording_ids'))

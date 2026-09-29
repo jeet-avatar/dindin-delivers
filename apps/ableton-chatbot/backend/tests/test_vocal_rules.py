@@ -102,3 +102,31 @@ def test_vocal_recipe_is_conditional_and_prompt_points_to_the_rulebook():
     assert "Multiband Dynamics" in [step["device"] for step in chain]
     for phrase in ("get_engineering_rules first", "vocal_check on a solo vocal preview", "Never fix an"):
         assert phrase in SYSTEM_PROMPT
+
+
+def test_new_rulebook_topics_and_word_matching():
+    assert engineering_rules.lookup("why does it sound robotic")["topic"] == "human_feel"
+    assert engineering_rules.lookup("drama", "riser")["rules"][0]["problem"] == "Weak final build"
+    assert engineering_rules.lookup("smooth fade in")["topic"] == "entrances"
+
+
+def test_producer_preferences_override_defaults_and_validate(tmp_path):
+    import asyncio
+    import chat_tools
+    import producer_profile
+    with patch.object(producer_profile, "ROOT", tmp_path):
+        run = lambda inputs: asyncio.run(chat_tools.execute("producer_preferences", inputs, 42))
+        base = run({"action": "get"})
+        assert base["preferences"]["swing_percent"] == {"value": 54.0, "source": "default", "meaning": producer_profile.PREFERENCES["swing_percent"][2]}
+        saved = run({"action": "set", "values": {"swing_percent": 58, "humanize": "heavy", "kick_locked": False}})
+        assert saved["status"] == "verified"
+        assert saved["preferences"]["swing_percent"]["value"] == 58.0 and saved["preferences"]["swing_percent"]["source"] == "producer"
+        assert saved["humanize_detail"]["chance"] == 0.65
+        assert run({"action": "set", "values": {"swing_percent": 80}})["status"] == "failed"
+        assert run({"action": "set", "values": {"colour": "red"}})["status"] == "failed"
+        rules = asyncio.run(chat_tools.execute("get_engineering_rules", {"topic": "human_feel"}, 42))
+        assert rules["producer_preferences"]["swing_percent"] == 58.0 and "override" in rules["precedence"]
+        other = asyncio.run(chat_tools.execute("get_engineering_rules", {"topic": "human_feel"}, 43))
+        assert other["producer_preferences"] == {}
+        cleared = run({"action": "reset", "reset": ["swing_percent"]})
+        assert cleared["preferences"]["swing_percent"]["source"] == "default" and cleared["preferences"]["humanize"]["value"] == "heavy"

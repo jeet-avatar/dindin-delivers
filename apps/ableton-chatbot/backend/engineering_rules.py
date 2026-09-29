@@ -86,6 +86,39 @@ RULEBOOKS = {
         "formula": ("Clarity = clean recording + controlled low-mids + controlled resonances + stable dynamics + "
                     "controlled sibilance + enough presence + less masking + right level + controlled reverb + automation."),
     },
+    "human_feel": {
+        "title": "Human feel (groove, microtiming, variation)",
+        "rules": [
+            ("Silent grooves", "Clips have grooves but nothing swings", "Check the Groove Pool's global Groove Amount; at 0% every groove is off. Set it to 100% once grooves are chosen."),
+            ("Swing", "Hats and percussion feel mechanical", "Light 16th swing (MPC or SP 1200 16ths groove, effective 54-57% by default) on hats and percussion; timing 40-70%, random 2-5%. Bass little or none; long chords none. Producer preference swing_percent overrides."),
+            ("Locked kick", "Kick wanders", "Techno keeps the kick on the grid: no groove, nudge or chance (unless the producer turns kick_locked off)."),
+            ("Microtiming", "Everything lands exactly together", "Clap/snare 3-8 ms late for laid back (or 2-5 ms early to push), off-beat open hats 2-6 ms late, ghosts early; under 10 ms in techno."),
+            ("Identical bars", "1-bar loops repeat unchanged", "Make drum and bass loops 4-8 bars: a small change in bar 4, a fill or drop-out in the last bar; a clap variation every 4th bar."),
+            ("Chance", "Bars sound copy-pasted", "Ghost hats and extra percussion at 60-85% probability with velocity deviation 8-15; never on the kick, main clap or bass roots."),
+            ("Flat velocity", "Every hit the same strength", "Accent downbeats and off-beat hats, soften in-between 16ths; pads 60-95 with lower notes louder; strum chord notes 5-15 ms apart."),
+            ("Same note lengths", "Every note identical length", "Vary hat and bass note lengths slightly; long notes release at slightly different times."),
+            ("Static sections", "Nothing moves inside a section", "One slow, smooth drift per section (a filter or pan over 8-16 bars)."),
+        ],
+    },
+    "drama": {
+        "title": "Drama in transitions (breakdowns and final builds)",
+        "rules": [
+            ("Flat drop into a break", "The breakdown just starts", "Leave the transition's last beat nearly empty (remove drums, percussion and bass on beat 4), throw reverb/delay on the last hits so tails ring into the gap, impact or downlifter on the break's first beat."),
+            ("Break loses the groove", "No pulse without the kick", "A quiet pulse (filtered percussion or hats) rising in the break's second half; open the pad filter slowly; one exposed element."),
+            ("Weak final build", "The last drop does not feel earned", "Accelerating roll (quarters, 8ths, 16ths, 32nds over the last 4 bars, velocity about 60 to 120), white-noise riser opening exponentially with rising volume, growing reverb, drums and pad thinned from below."),
+            ("No release", "The drop arrives softly", "Stop short: silence the last half beat, then kick, crash or impact and every reset on the drop's first beat; crash and impacts on non-looping clips so they hit once."),
+            ("Preview", "Is the change dramatic enough?", "Preview the transition itself with audition_scene then_scene and first_bars; let the producer judge."),
+        ],
+    },
+    "entrances": {
+        "title": "Smooth entrances and Arrangement automation",
+        "rules": [
+            ("Parts switch on abruptly", "A part appears at full level", "Record the Arrangement with entry_rides: pads/chords swell from about -30 dB over 4-8 bars (logarithmic), hats/percussion from about -18 dB over 2-4 bars, bass from about -12 dB over 1-2 bars, lead over 1-2 bars."),
+            ("Softened drops", "A drop loses its punch", "Never ride the kick and never soften a drop's first beat (drops_full_level)."),
+            ("Fades that repeat", "A long fade restarts every bar", "Session clip automation loops with the clip; one-time fades belong in the Arrangement, recorded with Automation Arm on."),
+            ("Resets", "A control stays moved", "Every automation has a purpose and a reset in the next section; read clips and mixers before changing them."),
+        ],
+    },
     "interactions": {
         "title": "Interaction rules (mix like a producer, not channel by channel)",
         "rules": [
@@ -102,6 +135,9 @@ RULEBOOKS = {
 TOPIC_WORDS = {
     "vocal": ("vocal", "vox", "voice", "sing", "sibilan", "de-ess", "deess", "breath", "plosive", "lyric"),
     "interactions": ("mask", "interaction", "versus", " vs ", "fight", "compete", "sidechain", "duck"),
+    "human_feel": ("human", "robotic", "swing", "groove", "shuffle", "microtiming", "nudge", "chance", "probability", "velocity", "humaniz", "stiff"),
+    "drama": ("drama", "breakdown", "break down", "build", "riser", "roll", "tension", "transition", "impact", "downlifter"),
+    "entrances": ("entrance", "fade in", "fade-in", "smooth", "swell", "enters", "automation lane", "arrangement automation"),
 }
 
 
