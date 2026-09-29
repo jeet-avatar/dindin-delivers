@@ -10,12 +10,22 @@ import mastering
 import mix_check
 import producer_profile
 import recordings
+import references
 
 
 def tone(frequency=110, gain=0.2, seconds=3, rate=44100):
     times = np.arange(round(seconds * rate)) / rate
     audio = gain * np.sin(2 * np.pi * frequency * times)
     return np.column_stack((audio, audio)).astype('float32')
+
+
+def own_reference(refs_dir, reference_id, user_id):
+    """Write the meta.json references.owned() reads, so a reference_id in refs_dir passes ownership
+    for user_id. Matches the shape references.owned() actually checks: {directory}/meta.json with a
+    'user_id' field (confirmed by reading references.py:150 before writing this)."""
+    import json
+    (Path(refs_dir) / reference_id).mkdir(exist_ok=True)
+    (Path(refs_dir) / reference_id / 'meta.json').write_text(json.dumps({'id': reference_id, 'user_id': user_id}))
 
 
 class FakeAbleton:
@@ -134,9 +144,10 @@ class PrecedenceTests(MixCheckTests):
         # (a previous task) — patching the env var after import has no effect, so it needs its own
         # patch.object here.
         with tempfile.TemporaryDirectory() as refs_dir:
-            with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)):
+            with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)), \
+                 patch.object(references, 'ROOT', Path(refs_dir)):
                 reference_id = 'c' * 32
-                (Path(refs_dir) / reference_id).mkdir()
+                own_reference(refs_dir, reference_id, user_id=1)
                 wavfile.write(Path(refs_dir) / reference_id / 'mix.wav', 44100, tone(gain=0.5))
                 recording_id = self._save_full_mix_recording(gain=0.1)
                 report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query,
@@ -154,17 +165,52 @@ class PrecedenceTests(MixCheckTests):
         self.assertEqual(report['measurements']['target_lufs'], mix_check.TARGET_LUFS)
 
     async def test_reference_failure_returns_failed_status(self):
-        # Covers the try/except ValueError path in run(): a reference_id with no saved reference audio
-        # must surface reference_targets()'s specific message via a normal failed-status response,
-        # not propagate the ValueError.
+        # Covers the try/except ValueError path in run(): a reference_id the caller genuinely owns but
+        # with no saved reference audio must surface reference_targets()'s specific message via a normal
+        # failed-status response, not propagate the ValueError. Ownership must be established first (a
+        # meta.json for this user) so the new ownership check doesn't short-circuit to the generic
+        # not-found message before reference_targets() is ever reached.
         with tempfile.TemporaryDirectory() as refs_dir:
-            with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)):
+            with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)), \
+                 patch.object(references, 'ROOT', Path(refs_dir)):
+                reference_id = 'f' * 32
+                own_reference(refs_dir, reference_id, user_id=1)  # owned, but no mix.wav written
                 recording_id = self._save_full_mix_recording(gain=0.1)
                 report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query,
-                                             reference_id='f' * 32)
+                                             reference_id=reference_id)
                 self.assertEqual(report, {"status": "failed",
                                           "summary": "That reference has no saved mix audio to measure.",
                                           "steps": []})
+
+    async def test_reference_owned_by_another_user_returns_generic_not_found(self):
+        # IDOR guard: a well-formed reference_id (32 hex chars) that belongs to a DIFFERENT user must
+        # never have its loudness used, and must not leak whether it exists via a different error message
+        # than a genuinely missing reference — both must collapse to references.owned()'s generic
+        # "Reference not found". mix.wav is present here specifically to prove it is never read: if the
+        # ownership check were skipped or came after reference_targets(), this reference's real loudness
+        # would leak into the calling (different) user's target_lufs instead of failing closed.
+        with tempfile.TemporaryDirectory() as refs_dir:
+            with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)), \
+                 patch.object(references, 'ROOT', Path(refs_dir)):
+                reference_id = 'e' * 32
+                own_reference(refs_dir, reference_id, user_id=2)  # owned by a DIFFERENT user
+                wavfile.write(Path(refs_dir) / reference_id / 'mix.wav', 44100, tone(gain=0.5))
+                recording_id = self._save_full_mix_recording(gain=0.1, user_id=1)
+                report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query,
+                                             reference_id=reference_id)
+                self.assertEqual(report, {"status": "failed", "summary": "Reference not found", "steps": []})
+
+    async def test_reference_that_does_not_exist_returns_generic_not_found(self):
+        # Same generic message for a reference_id that was never created at all (no directory, no
+        # meta.json) — this must look identical to the "owned by someone else" case above, closing the
+        # cross-tenant existence oracle (a guesser can't distinguish "not yours" from "doesn't exist").
+        with tempfile.TemporaryDirectory() as refs_dir:
+            with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)), \
+                 patch.object(references, 'ROOT', Path(refs_dir)):
+                recording_id = self._save_full_mix_recording(gain=0.1)
+                report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query,
+                                             reference_id='a' * 32)
+                self.assertEqual(report, {"status": "failed", "summary": "Reference not found", "steps": []})
 
 
 if __name__ == '__main__':

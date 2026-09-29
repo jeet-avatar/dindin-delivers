@@ -5,10 +5,12 @@ from Ableton through the Bridge. Every item says pass, warn or fail with a concr
 """
 
 import numpy as np
+from fastapi import HTTPException
 
 import mastering
 import producer_profile
 import recordings
+import references
 
 TARGET_LUFS = -14.0
 CEILING_DBTP = -1.0
@@ -70,9 +72,11 @@ async def run(user_id, recording_id, query, target_lufs=None, ceiling=CEILING_DB
             target_lufs = profile_target
         elif reference_id:
             try:
+                references.owned(reference_id, user_id)
                 target_lufs = mastering.reference_targets(reference_id)["target_lufs"]
-            except ValueError as error:
-                return {"status": "failed", "summary": str(error), "steps": []}
+            except (ValueError, HTTPException) as error:
+                summary = error.detail if isinstance(error, HTTPException) else str(error)
+                return {"status": "failed", "summary": summary, "steps": []}
         else:
             target_lufs = TARGET_LUFS
     path = recordings.ROOT / f"{recording_id}.m4a"
