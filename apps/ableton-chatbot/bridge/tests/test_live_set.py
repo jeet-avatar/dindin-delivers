@@ -25,6 +25,12 @@ def inspect(title, bridge):
         return asyncio.run(live_set.live_set_operation(bridge, "inspect"))
 
 
+def test_locked_screen_is_reported_plainly():
+    with patch.object(live_set.sys, "platform", "darwin"), patch.object(live_set, "screen_locked", AsyncMock(return_value=True)):
+        result = asyncio.run(live_set.live_set_operation(FakeBridge(), "inspect"))
+    assert result["status"] == "failed" and "Your Mac is locked" in result["summary"]
+
+
 class LiveSetTests(unittest.TestCase):
     def test_empty_untitled_set_is_ready_even_right_after_launch(self):
         result = inspect("Untitled", FakeBridge())

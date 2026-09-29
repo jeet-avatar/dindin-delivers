@@ -664,7 +664,10 @@ async def produce_chat(req, session, bridge, emit=None):
             await stack.enter_async_context(bridge.lock)
             if session.project and not session.planning_only:
                 live = await bridge.local_operation('live_set', {'operation': 'inspect'})
-                if live.get('status') not in {'observed', 'verified'} or live.get('title') != session.project['live_set']['title']:
+                if live.get('status') not in {'observed', 'verified'}:
+                    # Say why Ableton could not be checked (for example a locked Mac) instead of blaming the set.
+                    raise HTTPException(409, (live.get('summary') or 'Ableton could not be checked.') + ' Nothing was changed.')
+                if live.get('title') != session.project['live_set']['title']:
                     raise HTTPException(409, 'The open Ableton set no longer matches this song. Use Choose Live Set before making changes. Nothing was changed.')
             state = await bridge.send_command("/live/song/get/track_names", [], True)
             if state.get("status") != "ok" or not isinstance(state.get("args"), list):

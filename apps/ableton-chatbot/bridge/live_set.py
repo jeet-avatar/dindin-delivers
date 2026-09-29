@@ -22,7 +22,17 @@ async def applescript(script):
     return out.decode().strip()
 
 
+async def screen_locked():
+    """macOS hides every window while the screen is locked, so Ableton's title cannot be read."""
+    process = await asyncio.create_subprocess_exec("/usr/sbin/ioreg", "-n", "Root", "-d1",
+                                                   stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+    out, _ = await process.communicate()
+    return b'"CGSSessionScreenIsLocked"=Yes' in out
+
+
 async def window_title():
+    if await screen_locked():
+        raise RuntimeError("Your Mac is locked. Unlock it so BeatMind can see Ableton, then try again.")
     return await applescript(f'''tell application "System Events"
         if (count of (application processes whose bundle identifier is "com.ableton.live")) is not 1 then error "Open exactly one Ableton Live application."
         tell {PROCESS}
