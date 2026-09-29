@@ -262,3 +262,20 @@ def test_prompt_has_sidechain_velocity_and_automation_rules():
     from claude_tools import SYSTEM_PROMPT
     for phrase in ("set_sidechain with source \"Kick\"", "Hats/percussion: base 75-80", "write_clip_automation so movement is saved"):
         assert phrase in SYSTEM_PROMPT
+
+
+def test_cut_off_answers_are_continued_and_blank_answers_explained():
+    import main
+    from types import SimpleNamespace as NS
+
+    def run(replies):
+        session = main.ChatSession("long-answer", 1)
+        session.planning_only = True
+        session.messages = [{"role": "user", "content": "plan the arrangement"}]
+        client = NS(messages=NS(create=AsyncMock(side_effect=replies)))
+        with patch.object(main, "claude_client", client):
+            return asyncio.run(main._run_claude_loop(session, None))[0]
+
+    assert run([NS(stop_reason="max_tokens", content=[NS(type="text", text="Part one, ")]),
+                NS(stop_reason="end_turn", content=[NS(type="text", text="part two.")])]) == "Part one, part two."
+    assert "did not produce an answer" in run([NS(stop_reason="end_turn", content=[])])

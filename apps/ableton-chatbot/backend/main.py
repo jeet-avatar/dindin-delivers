@@ -787,6 +787,7 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(require_subscriptio
 
 
 MODEL = model_name()
+MAX_OUTPUT_TOKENS = int(os.getenv("BEATMIND_MAX_OUTPUT_TOKENS", "8192"))
 
 DISCUSSION_TOOLS = {
     tool['name'] for tool in ABLETON_TOOLS
@@ -830,10 +831,11 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     if getattr(session, "pending_review", False):
         bridge_note += "\nSome historical previews are pending review. Their decisions are informational, not a lock on this request. Follow the user's explicit edit or continuation request without requiring approval of another sound. Never mark a preview accepted on their behalf. Inspect current devices and clips; do not treat a prior recording as unchanged current audio."
 
+    continued_text = []
     for _ in range(MAX_PRODUCTION_ROUNDS):
         response = await claude_client.messages.create(
             model=MODEL,
-            max_tokens=4096,
+            max_tokens=MAX_OUTPUT_TOKENS,
             system=_build_system(bridge_note),
             tools=[tool for tool in _build_tools() if not planning_only or tool['name'] in DISCUSSION_TOOLS],
             messages=bounded_history(messages),
@@ -848,8 +850,18 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
             elif block.type == "tool_use":
                 tool_uses.append(block)
 
+        if response.stop_reason == "max_tokens" and not tool_uses and len(continued_text) < 3:
+            # A long answer (for example a full arrangement plan) was cut off: ask for the rest and join the parts.
+            continued_text.append("\n".join(text_parts))
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": "Continue exactly where you stopped. Do not repeat what you already wrote."})
+            continue
         if response.stop_reason == "end_turn" or not tool_uses:
-            return "\n".join(text_parts), tool_calls_log
+            answer = "".join(continued_text) + "\n".join(text_parts)
+            if not answer.strip():
+                answer = ("I finished checking the set but did not produce an answer. Nothing was changed. "
+                          "Please ask again, or ask for one part of the plan at a time.")
+            return answer, tool_calls_log
 
         messages.append({"role": "assistant", "content": response.content})
         if emit and text_parts:
