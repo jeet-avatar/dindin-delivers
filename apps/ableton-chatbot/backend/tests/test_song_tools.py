@@ -179,7 +179,7 @@ def test_effect_recipe_follows_the_reference_and_offers_installed_plugins_only_o
 
 def test_mix_check_flags_clipping_and_names_the_armed_track():
     import json, tempfile
-    import mix_check, recordings
+    import mastering, mix_check, recordings
     live = FakeLive()
     live.arm = [0, 1, 0]
     live.clips.add((2, 1))  # the Pad plays in the Drop too
@@ -189,7 +189,7 @@ def test_mix_check_flags_clipping_and_names_the_armed_track():
             return extra[address]()
         return (await live._query_osc("t", address, args, 4))["args"]
     with tempfile.TemporaryDirectory() as directory, patch.object(recordings, "ROOT", Path(directory)), \
-         patch.object(mix_check, "loudness", return_value=(-9.6, 0.7)), patch.object(mix_check, "stereo_samples", return_value=np.random.default_rng(1).normal(0, 0.1, (44100, 1)).repeat(2, axis=1)):
+         patch.object(mastering, "loudness", return_value=(-9.6, 0.7)), patch.object(mastering, "stereo_samples", return_value=np.random.default_rng(1).normal(0, 0.1, (44100, 1)).repeat(2, axis=1)):
         (Path(directory) / ("b" * 32 + ".json")).write_text(json.dumps({"id": "b" * 32, "user_id": 3, "kind": "scene", "scene": 1, "scene_name": "Drop",
                                                                          "created_at": "2026-09-28T01:00:00"}))
         for rid, track, rms, when in (("d" * 32, 0, -20.0, "2026-09-28T00:01:00"), ("e" * 32, 2, -15.0, "2026-09-28T00:02:00")):
@@ -304,14 +304,14 @@ def test_density_warns_after_five_controls_in_a_section():
 
 
 def test_mix_analysis_bands_mono_and_energy_arc():
-    import mix_check
+    import mastering, mix_check
     t = np.arange(44100 * 2) / 44100
     sub = np.sin(2 * np.pi * 50 * t)
     mono = np.stack([sub, sub], axis=1)
     wide = np.stack([sub, -sub], axis=1)
     assert mix_check.low_end_correlation(mono) == 1.0 and mix_check.low_end_correlation(wide) == -1.0
     mud = np.sin(2 * np.pi * 300 * t)
-    assert mix_check.band_shares(np.stack([mud, mud], axis=1))["mud"] > 95
+    assert mastering.band_shares(np.stack([mud, mud], axis=1))["mud"] > 95
     problems = mix_check.energy_problems({"Build": -9.0, "Drop": -9.5, "Break": -12.0, "Drop 2": -10.0})
     assert len(problems) == 2 and "Drop (-9.5 LUFS)" in problems[0] and "Drop 2" in problems[1]
     assert mix_check.energy_problems({"Build": -12.0, "Drop": -9.0, "Break": -14.0, "Drop 2": -8.5}) == []
