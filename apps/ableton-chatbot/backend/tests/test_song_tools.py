@@ -381,3 +381,18 @@ def test_remove_notes_only_removes_the_range():
     assert cmds == [{"address": "/live/clip/remove/notes", "args": [3, 5, 0, 128, 15.0, 1.0]}]
     cmds = tool_to_osc("remove_notes", {"track": 1, "scene": 5, "start": 15, "length": 1, "pitch_low": 42, "pitch_high": 46})
     assert cmds[0]["args"][2:4] == [42, 5]
+
+
+def test_transition_preview_needs_the_new_bridge_and_passes_then_scene():
+    import main
+    from types import SimpleNamespace as NS
+    from unittest.mock import AsyncMock
+    old = NS(capabilities={"scene_audition_v1"}, user_id=3, local_operation=AsyncMock())
+    refused = asyncio.run(main._song_tool("audition_scene", {"scene": 7, "then_scene": 8, "seconds": 20}, old))
+    assert refused["status"] == "failed" and "1.3.3" in refused["summary"] and not old.local_operation.called
+    new = NS(capabilities={"scene_audition_v1", "scene_transition_v1"}, user_id=3,
+             local_operation=AsyncMock(return_value={"status": "failed", "error": "stop playback first"}))
+    asyncio.run(main._song_tool("audition_scene", {"scene": 7, "then_scene": 8, "seconds": 20}, new))
+    assert new.local_operation.call_args.args == ("capture_scene", {"scene": 7, "seconds": 20, "then_scene": 8})
+    long_single = asyncio.run(main._song_tool("audition_scene", {"scene": 7, "seconds": 20}, new))
+    assert long_single["status"] == "failed" and "16 seconds" in long_single["summary"]

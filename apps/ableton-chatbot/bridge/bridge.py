@@ -202,7 +202,7 @@ class AbletonBridge:
                 "type": "bridge_hello",
                 "version": BRIDGE_VERSION,
                 "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
-                "capabilities": ["scene_audition_v1", "arrangement_record_v1"]
+                "capabilities": ["scene_audition_v1", "scene_transition_v1", "arrangement_record_v1"]
                                 + (["local_separation_v1"] if local_separation_available() else []),
             }))
             # Deliver separation results that finished while the connection was down.
@@ -262,7 +262,7 @@ class AbletonBridge:
 
         elif msg_type == "capture_scene":
             from audio_preview import capture_scene
-            await self._reply(request_id, await capture_scene(self, msg.get("scene"), msg.get("seconds", 12)))
+            await self._reply(request_id, await capture_scene(self, msg.get("scene"), msg.get("seconds", 12), msg.get("then_scene")))
 
         elif msg_type == "record_arrangement":
             from arrangement import record_arrangement

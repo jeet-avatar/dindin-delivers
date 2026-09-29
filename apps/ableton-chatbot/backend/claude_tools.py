@@ -497,10 +497,11 @@ ABLETON_TOOLS.append({
 
 ABLETON_TOOLS.append({
     "name": "audition_scene",
-    "description": "Record the FULL MIX of one scene for frontend listening: every clip in the scene plays together with the user's mutes kept and solos cleared, then transport, solos and quantization are restored. Use it when the user wants to hear sections or the whole song together. Requires stopped transport. This pauses production for user review; do not call more tools in the same batch.",
+    "description": "Record the FULL MIX of one scene for frontend listening: every clip in the scene plays together with the user's mutes kept and solos cleared, then transport, solos and quantization are restored. Use it when the user wants to hear sections or the whole song together. Requires stopped transport. To hear a TRANSITION, pass then_scene: the scene plays from its start and the next scene launches on the bar where it ends (for example scene T3 with then_scene Drop 2, seconds 16-24), so the user hears the change itself. This pauses production for user review; do not call more tools in the same batch.",
     "input_schema": {"type": "object", "properties": {
         "scene": {"type": "integer", "minimum": 0},
-        "seconds": {"type": "number", "minimum": 4, "maximum": 16}}, "required": ["scene"]}
+        "then_scene": {"type": "integer", "minimum": 0},
+        "seconds": {"type": "number", "minimum": 4, "maximum": 24, "description": "Up to 16 for one scene, up to 24 with then_scene."}}, "required": ["scene"]}
 })
 
 ABLETON_TOOLS.append({

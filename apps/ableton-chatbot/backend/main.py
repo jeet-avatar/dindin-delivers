@@ -999,7 +999,16 @@ async def _song_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection)
                    "(your Ableton set stays open), then ask again.")
         return {"status": "failed", "error": message, "summary": message, "steps": []}
     if tool_name == "audition_scene":
-        result = await bridge.local_operation("capture_scene", {"scene": tool_input["scene"], "seconds": tool_input.get("seconds", 12)})
+        request = {"scene": tool_input["scene"], "seconds": tool_input.get("seconds", 12)}
+        if "then_scene" in tool_input:
+            if "scene_transition_v1" not in bridge.capabilities:
+                message = ("Transition previews need BeatMind Bridge 1.3.3 or later. Click Install update in the Bridge "
+                           "window (your Ableton set stays open), or preview each scene on its own.")
+                return {"status": "failed", "error": message, "summary": message, "steps": []}
+            request["then_scene"] = tool_input["then_scene"]
+        elif request["seconds"] > 16:
+            return {"status": "failed", "summary": "A single-scene preview is at most 16 seconds.", "steps": []}
+        result = await bridge.local_operation("capture_scene", request)
         return save_recording(bridge.user_id, result)
     tempo = await bridge.send_command("/live/song/get/tempo", [], True)
     bpm = float((tempo.get("args") or [60])[-1]) if tempo.get("status") == "ok" else 60.0
