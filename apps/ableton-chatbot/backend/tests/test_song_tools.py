@@ -229,3 +229,30 @@ def test_numbers_sent_as_text_reach_live_as_numbers():
 def test_polish_prompt_requires_an_explicit_yes():
     from claude_tools import SYSTEM_PROMPT
     assert "apply only after an explicit yes" in SYSTEM_PROMPT
+
+
+def test_sidechain_is_verified_only_when_the_source_reads_back():
+    import automation
+    async def send(address, args, query, timeout):
+        return {"status": "ok", "address": address, "args": ['{"status": "observed", "source": "Kick", "sources": ["Kick"]}']}
+    ok = asyncio.run(automation.execute_automation("set_sidechain", {"track": 3, "device": 5, "source": "Kick"}, send))
+    assert ok["status"] == "verified"
+    wrong = asyncio.run(automation.execute_automation("set_sidechain", {"track": 3, "device": 5, "source": "Drums"}, send))
+    assert wrong["status"] == "partial" and "reads back" in wrong["summary"]
+
+
+def test_clip_automation_points_sent_as_text_become_numbers():
+    import automation, json
+    sent = {}
+    async def send(address, args, query, timeout):
+        sent.update(json.loads(args[0]))
+        return {"status": "ok", "address": address, "args": ['{"status": "verified", "summary": "ok"}']}
+    asyncio.run(automation.execute_automation("write_clip_automation", {"track": 4, "path": [1], "scene": 1, "map_id": "a" * 24,
+        "control": "Frequency", "unit": "Hz", "points": [{"beat": 0, "value": "300"}, {"beat": 32, "value": "18000"}]}, send))
+    assert [p["value"] for p in sent["points"]] == [300.0, 18000.0]
+
+
+def test_prompt_has_sidechain_velocity_and_automation_rules():
+    from claude_tools import SYSTEM_PROMPT
+    for phrase in ("set_sidechain with source \"Kick\"", "Hats/percussion: base 75-80", "write_clip_automation so movement is saved"):
+        assert phrase in SYSTEM_PROMPT

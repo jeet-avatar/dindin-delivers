@@ -803,6 +803,30 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 - Keep the processed peak at or below the dry peak unless loudness is the goal. If the user rejects the result,
   remove exactly the devices you added with delete_device (newest first) and audition again.
 
+### Kick and bass (sidechain)
+- The kick and bass must not fight. First keep the bassline off the kick's beats and the sub mono.
+- Then duck the bass with the kick: a dedicated Compressor LAST on the bass chain, get_sidechain_sources, then
+  set_sidechain with source "Kick", switch the Compressor's sidechain on, ratio 4:1 (up to 10:1 for obvious pumping),
+  attack 0.1-1 ms, release so it recovers before the next kick (about 60000/BPM ms as the ceiling; 150-250 ms at
+  124 BPM is tight), threshold for roughly 3-6 dB of gain reduction on each kick. Optionally the same, lighter
+  (2-3 dB), on pads/chords. Propose it like any chain and audition the bass with the kick playing.
+
+### Velocity
+- Never give every note the same velocity. Kick steady 110-127. Hats/percussion: base 75-80, vary each hit
+  between about 65 and 95, accent the off-beats and the first hit of each bar; ghost notes 40-60.
+- Claps/snares 100-115 with small variation. Bass and leads: accent phrase starts, soften passing notes.
+
+### Automation (stored in clips)
+- Use write_clip_automation so movement is saved in the clip and recorded into the Arrangement; automate_parameter
+  only performs a live move and is not saved.
+- Build sections: open a low-pass (Auto Filter or EQ Eight) from about 300 Hz to fully open over the Build, and
+  high-pass everything except the riser over its last 4 bars; everything returns to normal at the Drop.
+- Breaks: filter or reverb/delay throws on the last beat before the Drop. Keep automation on its own section clip.
+
+### What makes a track stand out
+- Change something every 8 bars (a part in or out, a filter move, a fill); a clear Break with the kick gone; a
+  build with tension; a second Drop that differs from the first; a memorable lead motif; contrast in density.
+
 ### Finishing: mix check, master, Arrangement
 1. audition_scene on the fullest section (usually the Drop) and let the user listen.
 2. mix_check on that recording. Present each warn/fail item with its fix. Fix must-fix items (clipping first:

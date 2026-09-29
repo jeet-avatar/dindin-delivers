@@ -270,7 +270,42 @@ def register(handler, app):
                              2: " Compact: Drum Rack pads are listed by note and name only.",
                              3: " Compact: only the number of Drum Rack pads is given; inspect a pad path for details."}.get(compact, ""))}
 
-    for operation, function in {"catalog": catalog, "device_tree": device_tree,
+    def clip_envelope(data):
+        """Write a stored automation ramp into a Session clip, so it plays with the clip and records into the
+        Arrangement. Points are (beat, value) in the control's display unit; steps are linear in that unit."""
+        slot = handler.song.tracks[data["track"]].clip_slots[data["scene"]]
+        if not slot.has_clip:
+            raise ValueError("There is no clip in that slot to automate.")
+        clip = slot.clip
+        device = device_at(data)
+        if data["map_id"] != map_id(device):
+            raise ValueError("Device mapping changed. Discover the controls again before writing.")
+        index, parameter = resolve_parameter(device.parameters, data["control"])
+        points = sorted(data["points"], key=lambda point: point["beat"])
+        if len(points) < 2 or points[0]["beat"] < 0 or points[-1]["beat"] > clip.length + 1e-6:
+            raise ValueError("Give at least two points inside the clip (0 to %.2f beats)." % clip.length)
+        step = 1.0 / max(1, min(16, int(data.get("steps_per_beat", 4))))
+        clip.clear_envelope(parameter)
+        envelope = clip.automation_envelope(parameter) or clip.create_automation_envelope(parameter)
+        if envelope is None:
+            raise ValueError("Live does not allow automation of this control in a clip.")
+        written = 0
+        for start, end in zip(points, points[1:]):
+            beat = start["beat"]
+            while beat < end["beat"] - 1e-9:
+                fraction = (beat - start["beat"]) / (end["beat"] - start["beat"])
+                value = start["value"] + (end["value"] - start["value"]) * fraction
+                native = native_value(parameter, value, data["unit"])
+                envelope.insert_step(beat, min(step, end["beat"] - beat), native)
+                written += 1
+                beat += step
+        first = parameter.str_for_value(envelope.value_at_time(points[0]["beat"]))
+        last = parameter.str_for_value(envelope.value_at_time(max(points[-1]["beat"] - step / 2, 0)))
+        return {"status": "verified", "summary": "%s automated in the clip from %s to %s over %.1f beats (%d steps)." % (
+                    parameter.name, first, last, points[-1]["beat"] - points[0]["beat"], written),
+                "control": {"index": index, "name": parameter.name}, "start_display": first, "end_display": last}
+
+    for operation, function in {"catalog": catalog, "device_tree": device_tree, "clip_envelope": clip_envelope,
                                 "control_map": control_map, "set_control": set_control, "load_item": load_item}.items():
         def callback(params, function=function):
             try:
