@@ -99,9 +99,19 @@ def add_columns(conn, table: str, columns: dict[str, str]) -> None:
 
 
 def get_user_by_email(email: str) -> dict | None:
+    """Exact match first; otherwise the same address in any letter case (people type 'Sylvia@' and 'sylvia@')."""
     with db() as conn:
         row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        if row is None:
+            row = conn.execute("SELECT * FROM users WHERE lower(email) = lower(?) ORDER BY id", (email,)).fetchone()
         return dict(row) if row else None
+
+
+def get_users_by_email_any_case(email: str) -> list[dict]:
+    """Every account whose email equals this one ignoring case (older sign-ups kept the case they were typed in)."""
+    with db() as conn:
+        rows = conn.execute("SELECT * FROM users WHERE lower(email) = lower(?) ORDER BY id", (email,)).fetchall()
+        return [dict(row) for row in rows]
 
 
 def get_user_by_id(user_id: int) -> dict | None:

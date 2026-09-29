@@ -37,7 +37,7 @@ import song_projects
 import chat_tools
 from sections import SECTION_TOOL, get_brief, set_brief, source_error
 from recordings import ROOT as RECORDINGS_ROOT, save_recording, list_recordings, owned_recording, decide_recording, attach_evidence
-from database import init_db, get_user_by_email, get_user_by_id, create_user, is_subscribed, mixmind_access, update_user_password
+from database import init_db, get_user_by_email, get_users_by_email_any_case, get_user_by_id, create_user, is_subscribed, mixmind_access, update_user_password
 from beatmind_auth import hash_password, verify_password, create_token, decode_token
 from stripe_routes import router as stripe_router
 from security import (
@@ -245,12 +245,13 @@ async def register(req: RegisterRequest, request: Request):
     rate_limit(f"register:{get_client_ip(request)}", max_requests=5, window_seconds=3600)
     validate_password(req.password)
 
-    if get_user_by_email(req.email):
+    email = str(req.email).strip().lower()  # one account per address, whatever case it is typed in
+    if get_users_by_email_any_case(email):
         raise HTTPException(409, "An account with this email already exists. Sign in or reset your password.")
 
     trial_ends = (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat()
     user = create_user(
-        email=req.email,
+        email=email,
         password_hash=hash_password(req.password),
         name=req.name,
         trial_ends_at=trial_ends,
@@ -269,8 +270,11 @@ async def login(req: LoginRequest, request: Request):
     rate_limit(f"login:{ip}", max_requests=10, window_seconds=900)
     check_credential_stuffing(ip, req.email)
 
-    user = get_user_by_email(req.email)
-    if not user or not verify_password(req.password, user["password_hash"]):
+    # Case-insensitive: an address typed with different capitals is the same person. If older sign-ups created
+    # more than one account for it, sign in to the one whose password matches.
+    user = next((candidate for candidate in get_users_by_email_any_case(str(req.email).strip())
+                 if verify_password(req.password, candidate["password_hash"])), None)
+    if not user:
         raise HTTPException(401, "Invalid email or password")
 
     token = create_token(user["id"], user["email"])
@@ -377,9 +381,8 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
 async def forgot_password(req: ForgotPasswordRequest, request: Request):
     ip = get_client_ip(request)
     rate_limit(f"{ip}:forgot_password", max_requests=5, window_seconds=3600)
-    user = get_user_by_email(req.email)
-    # Always return 200 to prevent email enumeration
-    if user:
+    # Always return 200 to prevent email enumeration. Any-case match: one reset link per account on this address.
+    for user in get_users_by_email_any_case(str(req.email).strip())[:3]:
         token = _create_reset_token(user["id"], user["email"])
         frontend_url = os.getenv("FRONTEND_URL", "https://www.beatmind.io")
         reset_url = f"{frontend_url}/reset-password?token={token}"
