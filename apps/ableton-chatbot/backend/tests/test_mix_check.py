@@ -6,6 +6,7 @@ from unittest.mock import patch
 import numpy as np
 from scipy.io import wavfile
 
+import mastering
 import mix_check
 import producer_profile
 import recordings
@@ -18,7 +19,7 @@ def tone(frequency=110, gain=0.2, seconds=3, rate=44100):
 
 
 class FakeAbleton:
-    """Canned OSC replies for a 3-track session: Kick, Bass, Lead. Override .replies to change state."""
+    """Canned OSC replies for a 3-track session: Kick, Bass, Lead. Override .mute/.solo/.arm/.volume to change state."""
     def __init__(self, track_names=('Kick', 'Bass', 'Lead'), scene=0, num_scenes=1):
         self.track_names, self.scene, self.num_scenes = track_names, scene, num_scenes
         self.mute = {i: False for i in range(len(track_names))}
@@ -95,6 +96,48 @@ class MixCheckTests(unittest.IsolatedAsyncioTestCase):
         report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query)
         loudness_check = next(c for c in report['checks'] if c['id'] == 'loudness')
         self.assertEqual(loudness_check['status'], 'warn')
+
+
+class PrecedenceTests(MixCheckTests):
+    """Subclasses MixCheckTests to reuse its setUp() (patches recordings.ROOT to a temp dir) and
+    _save_full_mix_recording() fixture helper — not a fresh unittest.IsolatedAsyncioTestCase."""
+
+    async def test_explicit_target_wins_over_everything(self):
+        recording_id = self._save_full_mix_recording(gain=0.1)
+        report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query,
+                                     target_lufs=-8.0)
+        self.assertEqual(report['measurements']['target_lufs'], -8.0)
+
+    async def test_producer_profile_wins_when_no_explicit_target(self):
+        # setUp() (inherited from MixCheckTests) already patches producer_profile.ROOT to an isolated
+        # temp dir, so this only needs to write into it — no separate patch needed here.
+        producer_profile.update(user_id=1, changes={'loudness_target_lufs': -10.0})
+        recording_id = self._save_full_mix_recording(gain=0.1)
+        report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query)
+        self.assertEqual(report['measurements']['target_lufs'], -10.0)
+
+    async def test_reference_wins_when_no_explicit_or_profile_target(self):
+        # producer_profile.ROOT isolation comes from the inherited setUp() (no preference saved there,
+        # so producer_profile.stored(1) returns {} and .get("loudness_target_lufs") is None).
+        # mastering.REFERENCES_ROOT is a separate module-level constant read once at import time
+        # (a previous task) — patching the env var after import has no effect, so it needs its own
+        # patch.object here.
+        with tempfile.TemporaryDirectory() as refs_dir:
+            with patch.object(mastering, 'REFERENCES_ROOT', Path(refs_dir)):
+                reference_id = 'c' * 32
+                (Path(refs_dir) / reference_id).mkdir()
+                wavfile.write(Path(refs_dir) / reference_id / 'mix.wav', 44100, tone(gain=0.5))
+                recording_id = self._save_full_mix_recording(gain=0.1)
+                report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query,
+                                             reference_id=reference_id)
+                self.assertNotEqual(report['measurements']['target_lufs'], mix_check.TARGET_LUFS)
+
+    async def test_constant_default_when_nothing_else_set(self):
+        # No preference saved (inherited setUp()'s isolated producer_profile.ROOT is empty) and no
+        # reference_id passed, so this must fall all the way through to the TARGET_LUFS constant.
+        recording_id = self._save_full_mix_recording(gain=0.1)
+        report = await mix_check.run(user_id=1, recording_id=recording_id, query=FakeAbleton().query)
+        self.assertEqual(report['measurements']['target_lufs'], mix_check.TARGET_LUFS)
 
 
 if __name__ == '__main__':

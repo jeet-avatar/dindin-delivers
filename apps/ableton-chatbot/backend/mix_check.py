@@ -7,6 +7,7 @@ from Ableton through the Bridge. Every item says pass, warn or fail with a concr
 import numpy as np
 
 import mastering
+import producer_profile
 import recordings
 
 TARGET_LUFS = -14.0
@@ -52,13 +53,28 @@ def item(key, label, status, detail, fix=None):
     return {"id": key, "label": label, "status": status, "detail": detail, **({"fix": fix} if fix else {})}
 
 
-async def run(user_id, recording_id, query, target_lufs=TARGET_LUFS, ceiling=CEILING_DBTP):
-    """`query(address, args)` returns the Ableton reply args (track/scene index prefixes included)."""
+async def run(user_id, recording_id, query, target_lufs=None, ceiling=CEILING_DBTP, reference_id=None):
+    """`query(address, args)` returns the Ableton reply args (track/scene index prefixes included).
+
+    `target_lufs` precedence when not given explicitly: the producer's saved profile preference, then an
+    uploaded reference track's measured loudness, then the TARGET_LUFS constant.
+    """
     recording = recordings.owned_recording(recording_id, user_id)
     if not recording:
         return {"status": "failed", "summary": "That recording was not found.", "steps": []}
     if recording.get("kind") != "scene":
         return {"status": "failed", "summary": "Run the mix check on a full-mix preview (audition_scene), not a single part.", "steps": []}
+    if target_lufs is None:
+        profile_target = producer_profile.stored(user_id).get("loudness_target_lufs")
+        if profile_target is not None:
+            target_lufs = profile_target
+        elif reference_id:
+            try:
+                target_lufs = mastering.reference_targets(reference_id)["target_lufs"]
+            except ValueError as error:
+                return {"status": "failed", "summary": str(error), "steps": []}
+        else:
+            target_lufs = TARGET_LUFS
     path = recordings.ROOT / f"{recording_id}.m4a"
     lufs, true_peak = mastering.loudness(path)
     samples = mastering.stereo_samples(path)
