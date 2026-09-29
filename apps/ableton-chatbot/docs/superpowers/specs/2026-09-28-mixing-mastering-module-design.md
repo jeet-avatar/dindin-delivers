@@ -29,6 +29,12 @@ pipeline instead of duplicating it.
   reads either the reference's full mix or a specific stem
   (`ROOT/reference_id/{mix,drums,bass,vocals,other}.wav` — confirmed from
   `references.py`), it just doesn't measure loudness.
+- **Loudness/true-peak measurement itself** (`loudness()`, via FFmpeg
+  `ebur128`) and band-energy measurement (`band_shares()`) are real,
+  working functions today — but they're defined as plain top-level
+  functions **inside `mix_check.py`** (`mix_check.py:19` and `:44`), not in
+  a separate `mastering.py` module. Corrected below; an earlier draft of
+  this spec wrongly assumed a standalone `mastering.py` already existed.
 - **`engineering_rules.py` / `get_engineering_rules`** — rulebooks (vocal,
   human_feel, drama, entrances, **interactions**) including masking guidance
   (kick vs. bass, vocal vs. synth, etc.) as producer-legible detect/fix rules.
@@ -62,12 +68,18 @@ Implementation should branch from (or target) the release branch, not
 ## Goals
 
 1. When a reference track is attached, `mix_check`'s loudness target comes
-   from the reference's own measured LUFS (via `mastering.loudness()` on
-   its `mix.wav`) instead of the fixed -14 default — **but a
-   `producer_profile.py` override still wins**, preserving today's
-   precedence (explicit param > producer preference > rulebook default);
-   the reference becomes a new source that only fills in when neither of
-   those is set.
+   from the reference's own measured LUFS instead of the fixed -14
+   default — **but a `producer_profile.py` override still wins.** This is
+   a *new*, real precedence chain, not a preservation of an existing one:
+   today, `producer_profile` is only consulted by the LLM (per a system-
+   prompt instruction telling it to read producer preferences and pass
+   the value as `target_lufs`), and `main.py`'s dispatcher
+   (`apps/ableton-chatbot/backend/main.py:996-999`) already collapses "no
+   explicit `target_lufs` in the tool call" into the hardcoded constant
+   `mix_check.TARGET_LUFS` *before* `mix_check.run()` ever sees it — so
+   there is no code-level way today to tell "the LLM relayed a saved
+   preference" apart from "no preference exists." This spec makes the
+   precedence a real, testable, code-level chain (see Architecture).
 2. Add LUFS/true-peak to `sound_comparison.measure()`'s report, so per-part
    Compare sounds includes loudness alongside its existing metrics.
 3. Add per-stem-bus mastering: group the user's own Ableton tracks into the
@@ -95,17 +107,37 @@ Implementation should branch from (or target) the release branch, not
 
 ## Architecture
 
-Backend-only (Python), extending existing files rather than replacing them.
+Backend-only (Python). Two of these are small, behavior-preserving
+refactors of existing files (call out explicitly since a previous draft of
+this spec got their status wrong); the rest are additive.
 
-- **`backend/mastering.py`** (existing) — add `reference_targets(reference_id)`,
-  reading `ROOT/reference_id/mix.wav` through the existing `loudness()` and
-  `band_shares()` functions. Purely additive; no changes to existing
-  functions or their signatures.
-- **`backend/mix_check.run()`** (existing) — accept an optional
-  `reference_id`. When given, target_lufs falls back to
-  `mastering.reference_targets()` instead of the hardcoded `-14.0`, only
-  when no explicit `target_lufs` argument and no producer-profile
-  `loudness_target_lufs` override are present.
+- **`backend/mastering.py`** (**new** — extracted, not pre-existing).
+  `loudness()` and `band_shares()` move here unchanged (same signature,
+  same behavior) from `mix_check.py`, which then imports them from their
+  new location — this is a relocation, not a rewrite, so
+  `test_sound_comparison.py`/`mix_check`'s own behavior is unaffected. Add
+  `reference_targets(reference_id)` here too, reading
+  `ROOT/reference_id/mix.wav` through the now-shared `loudness()`. This
+  gives `mix_check.py`, `sound_comparison.py`, and the new
+  `bus_mastering.py` one shared home for loudness measurement instead of
+  duplicating it (three copies would violate this repo's own
+  code-simplifier rules).
+- **`backend/main.py`** (existing — dispatcher, real change required).
+  Its `mix_check`/`apply_master_chain` call sites currently pass
+  `tool_input.get("target_lufs", mix_check.TARGET_LUFS)` — collapsing "not
+  explicitly requested" into the hardcoded default *before* `mix_check.run()`
+  is called, which is what makes real precedence impossible today. Change
+  this to pass `tool_input.get("target_lufs")` (may be `None`) plus the new
+  `reference_id` from the tool call, and let `mix_check.run()` resolve the
+  precedence itself (next bullet).
+- **`backend/mix_check.run()`** (existing — signature change). Change
+  `target_lufs=TARGET_LUFS` to `target_lufs=None`, add `reference_id=None`,
+  and resolve in this order inside the function: (1) explicit `target_lufs`
+  if given, (2) `producer_profile.stored(user_id).get("loudness_target_lufs")`
+  — looked up here in code, not relied on from the LLM, (3)
+  `mastering.reference_targets(reference_id)` if a reference is attached,
+  (4) the `TARGET_LUFS` constant. This is a new, real, testable chain, not
+  a preservation of existing behavior.
 - **`backend/sound_comparison.measure()`** (existing) — add `lufs`/
   `true_peak_dbtp` to the returned dict via `mastering.loudness()` on the
   same decoded excerpt; extend `compare_arrays()`'s `next_checks` with one
@@ -114,12 +146,15 @@ Backend-only (Python), extending existing files rather than replacing them.
 - **`backend/bus_mastering.py`** (new — the one genuinely new module) —
   classifies the user's Ableton tracks into drums/bass/vocals/other by
   name (reusing the same substring-matching idiom `mix_check.py` already
-  uses for kick/bass), mutes tracks outside the target bus, calls the
-  existing `audition_scene` to bounce just that bus, measures it with
-  `mastering.loudness()` + `sound_comparison.measure()`, compares against
-  `ROOT/reference_id/{bus}.wav`, and restores mute state — all built from
-  tools that already exist (`set_track_mute`-equivalent, `audition_scene`),
-  no new Bridge extension.
+  uses for kick/bass), mutes tracks outside the target bus via the
+  existing `set_track_mute` tool, calls the existing `audition_scene` to
+  bounce just that bus (`audition_scene`'s real implementation,
+  `capture_scene()` in `bridge/audio_preview.py`, never touches mute state
+  itself — it only clears solos and restores quantization/song-position —
+  so this doesn't collide with `audition_scene`'s own restore logic),
+  measures it with `mastering.loudness()` + `sound_comparison.measure()`,
+  compares against `ROOT/reference_id/{bus}.wav`, and restores mute state.
+  No new Bridge/OSC extension needed.
 - **`backend/claude_tools.py`** — extend `mix_check`'s input schema with
   optional `reference_id`; add one new tool, `compare_bus_to_reference`,
   wrapping `bus_mastering.py`.
@@ -153,8 +188,12 @@ Backend-only (Python), extending existing files rather than replacing them.
   "unclassified" and excluded from bus comparison — never silently folded
   into the wrong bus.
 - Mute-state restore follows the same before/after verification discipline
-  `mixer_preview.py`/`audio_preview.py` already use, restored even when a
-  step in between fails.
+  `bridge/mixer_preview.py`/`bridge/audio_preview.py` already use on the
+  Bridge side (genuine try/finally with readback-verified restore) —
+  `mix_check.py` already proves backend code has direct OSC `query`/`send`
+  access for mute state (`/live/track/get/mute`; `set_track_mute` maps to
+  `/live/track/set/mute`), so `bus_mastering.py` doesn't need new Bridge
+  code, just the same discipline applied from the backend side.
 
 ## Testing
 
