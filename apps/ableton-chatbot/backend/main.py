@@ -979,8 +979,9 @@ async def _mix_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection) 
     try:
         if tool_name == "mix_check":
             return await mix_check.run(bridge.user_id, tool_input["recording_id"], query,
-                                       tool_input.get("target_lufs", mix_check.TARGET_LUFS),
-                                       tool_input.get("ceiling_dbtp", mix_check.CEILING_DBTP))
+                                       target_lufs=tool_input.get("target_lufs"),
+                                       ceiling=tool_input.get("ceiling_dbtp", mix_check.CEILING_DBTP),
+                                       reference_id=tool_input.get("reference_id"))
         return await master_chain.apply(query, send, tool_input["measured_lufs"],
                                         tool_input.get("target_lufs", -14.0), tool_input.get("ceiling_dbtp", -1.0))
     except (RuntimeError, ValueError, OSError) as error:
