@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { getUser, getToken, clearAuth, apiFetch, API_URL } from "@/lib/auth";
 import type { User } from "@/lib/auth";
@@ -185,7 +185,7 @@ export default function DashboardPage() {
   }, [reloadUsage]);
   const explicitRecordingIds = messageRecordingIds(messages);
   const recordings = useRecordings(explicitRecordingIds.flat());
-  const recordingIdsByMessage = messageRecordingIds(messages, recordings.items);
+  const recordingIdsByMessage = useMemo(() => messageRecordingIds(messages, recordings.items), [messages, recordings.items]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -513,6 +513,47 @@ export default function DashboardPage() {
     }
   };
 
+  // Typing in the chat box must not re-render every message, recording and waveform (it lagged ~375 ms per key).
+  const sendRef = useRef(sendMessage);
+  sendRef.current = sendMessage;
+  const reviewRef = useRef(reviewRecording);
+  reviewRef.current = reviewRecording;
+  const supersededIds = useMemo(() => new Set(recordings.items.flatMap(item => item.supersedes ? [item.supersedes] : [])), [recordings.items]);
+  const lastUserIndex = messages.map(m => m.role).lastIndexOf("user");
+  const conversation = useMemo(() => (<>
+        {messages.map((msg, i) => (
+          <div key={i} ref={i === lastUserIndex ? messagesEndRef : undefined}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className="min-w-0 max-w-full sm:max-w-[90%] rounded-lg px-4 py-3"
+              style={{ background: msg.role === "user" ? "var(--accent)" : "var(--bg-secondary)", color: msg.role === "user" ? "#fff" : "var(--text-primary)" }}>
+              <div className="mb-2"><ChatTimestamp value={msg.createdAt} label={msg.role === "user" ? "Sent" : msg.event === "sound-accepted" ? "Decision saved" : "Request started"} /></div>
+              {msg.role === "user" ? <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p> : <>
+                {!!msg.toolCalls?.length && <ProductionLog actions={msg.toolCalls} requestStatus={msg.requestStatus} />}
+                {!!msg.toolCalls?.length && <FailedAudition actions={msg.toolCalls} busy={loading} onInspect={prompt => {
+                  setInput(prompt); inputRef.current?.focus();
+                }} />}
+                <ReviewMessage text={msg.content} actions={msg.toolCalls || []} ids={recordingIdsByMessage[i]} recordings={recordings.items} />
+                {i === messages.length - 1 && !!msg.choices?.length && <div className="mt-3 flex flex-wrap gap-2">
+                  {msg.choices.map(choice => <button key={choice.label} type="button" disabled={loading || !historyReady}
+                    onClick={() => void sendRef.current(choice.message, undefined, undefined, true)}
+                    className="rounded border px-3 py-2 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>{choice.label}</button>)}
+                </div>}
+                <ChatComparisons actions={msg.toolCalls || []} />
+                <Recordings items={recordings.items.filter(item => recordingIdsByMessage[i].includes(item.id))}
+                  missing={recordingIdsByMessage[i].some(id => !recordings.items.some(item => item.id === id))}
+                  initialIds={recordings.initialIds} onDecision={(item, decision) => reviewRef.current(item, decision)}
+                  supersededIds={supersededIds}
+                  onPreview={actions => setMessages(previous => [...previous, { id: crypto.randomUUID(), role: "assistant", createdAt: new Date().toISOString(),
+                    content: "Track fader adjusted. Fresh audio recorded from the verified sample.", toolCalls: actions }])} />
+              </>}
+            </div>
+          </div>
+        ))}
+  </>
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [messages, recordings, recordingIdsByMessage, supersededIds, loading, historyReady, lastUserIndex]);
+
+
   // Derived subscription state
   // A paid plan, not the free trial (user.subscribed is also true during the trial).
   const isSubscribed = usage ? hasPaidPlan(usage.plan) : ["active", "trialing", "past_due"].includes(user?.subscription_status ?? "");
@@ -695,34 +736,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div key={i} ref={i === messages.map(m => m.role).lastIndexOf("user") ? messagesEndRef : undefined}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className="min-w-0 max-w-full sm:max-w-[90%] rounded-lg px-4 py-3"
-              style={{ background: msg.role === "user" ? "var(--accent)" : "var(--bg-secondary)", color: msg.role === "user" ? "#fff" : "var(--text-primary)" }}>
-              <div className="mb-2"><ChatTimestamp value={msg.createdAt} label={msg.role === "user" ? "Sent" : msg.event === "sound-accepted" ? "Decision saved" : "Request started"} /></div>
-              {msg.role === "user" ? <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p> : <>
-                {!!msg.toolCalls?.length && <ProductionLog actions={msg.toolCalls} requestStatus={msg.requestStatus} />}
-                {!!msg.toolCalls?.length && <FailedAudition actions={msg.toolCalls} busy={loading} onInspect={prompt => {
-                  setInput(prompt); inputRef.current?.focus();
-                }} />}
-                <ReviewMessage text={msg.content} actions={msg.toolCalls || []} ids={recordingIdsByMessage[i]} recordings={recordings.items} />
-                {i === messages.length - 1 && !!msg.choices?.length && <div className="mt-3 flex flex-wrap gap-2">
-                  {msg.choices.map(choice => <button key={choice.label} type="button" disabled={loading || !historyReady}
-                    onClick={() => void sendMessage(choice.message, undefined, undefined, true)}
-                    className="rounded border px-3 py-2 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>{choice.label}</button>)}
-                </div>}
-                <ChatComparisons actions={msg.toolCalls || []} />
-                <Recordings items={recordings.items.filter(item => recordingIdsByMessage[i].includes(item.id))}
-                  missing={recordingIdsByMessage[i].some(id => !recordings.items.some(item => item.id === id))}
-                  initialIds={recordings.initialIds} onDecision={reviewRecording}
-                  supersededIds={new Set(recordings.items.flatMap(item => item.supersedes ? [item.supersedes] : []))}
-                  onPreview={actions => setMessages(previous => [...previous, { id: crypto.randomUUID(), role: "assistant", createdAt: new Date().toISOString(),
-                    content: "Track fader adjusted. Fresh audio recorded from the verified sample.", toolCalls: actions }])} />
-              </>}
-            </div>
-          </div>
-        ))}
+        {conversation}
 
         {loading && (
           <div className="flex justify-start" role="status" aria-label="Thinking">
