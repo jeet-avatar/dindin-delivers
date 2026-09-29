@@ -43,3 +43,29 @@ def test_prompt_reuses_beatmind_starter_tracks():
     from claude_tools import SYSTEM_PROMPT
     assert "BeatMind Starter" in SYSTEM_PROMPT
     assert "matching empty track instead of" in SYSTEM_PROMPT
+
+
+def test_audition_refuses_midi_track_without_instrument():
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    import main
+
+    replies = {"/live/track/get/has_midi_input": [0, True], "/live/track/get/num_devices": [0, 0]}
+    bridge = SimpleNamespace(user_id=1, capture_part=AsyncMock(),
+                             send_command=AsyncMock(side_effect=lambda address, args, query=False, timeout=5.0:
+                                                    {"status": "ok", "args": replies[address]}))
+    result = asyncio.run(main._execute_tool("audition_part", {"track": 0, "scene": 0, "seconds": 4}, bridge))
+    assert result["status"] == "failed"
+    assert "no instrument" in result["summary"] and "load_instrument" in result["summary"]
+    bridge.capture_part.assert_not_called()
+
+    replies["/live/track/get/num_devices"] = [0, 1]
+    bridge.capture_part.return_value = {"status": "failed", "error": "stub", "summary": "stub"}
+    asyncio.run(main._execute_tool("audition_part", {"track": 0, "scene": 0, "seconds": 4}, bridge))
+    bridge.capture_part.assert_called_once()
+
+
+def test_prompt_says_starter_tracks_need_an_instrument():
+    from claude_tools import SYSTEM_PROMPT
+    assert "Starter tracks contain no" in SYSTEM_PROMPT and "load_instrument before writing notes" in SYSTEM_PROMPT

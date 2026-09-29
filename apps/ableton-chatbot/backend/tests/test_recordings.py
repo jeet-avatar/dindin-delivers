@@ -57,6 +57,7 @@ class RecordingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_capture_audio_stripped_before_tool_response(self):
         result = self.saved()
-        bridge = Mock(user_id=7, capture_part=AsyncMock(return_value=result))
+        bridge = Mock(user_id=7, capture_part=AsyncMock(return_value=result),
+                      send_command=AsyncMock(return_value={"status": "ok", "args": [5, 1]}))  # MIDI track with one device
         response = await main._execute_tool("audition_part", {"track": 5, "scene": 0, "seconds": 12}, bridge)
         self.assertNotIn("audio_base64", response)

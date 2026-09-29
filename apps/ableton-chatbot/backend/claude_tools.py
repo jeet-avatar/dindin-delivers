@@ -737,8 +737,9 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
 - BeatMind Starter sets (from Downloads) have empty MIDI tracks Kick, Drums, Percussion, Bass, Chords and Lead, an
   audio FX track, a muted "Reference (muted)" audio track, Reverb and Delay returns, and scenes Intro, Build, Drop,
   Break, Drop 2 and Outro. When those names are present, put each part on its matching empty track instead of
-  creating a new one; create a new track only when no matching empty track exists. Rename scenes with set_scene_name
-  when the agreed sections differ. Keep reference audio muted.
+  creating a new one; create a new track only when no matching empty track exists. Starter tracks contain no
+  instrument: discover a suitable kit or instrument and load it with load_instrument before writing notes, then
+  audition. Rename scenes with set_scene_name when the agreed sections differ. Keep reference audio muted.
 
 ### Mix Guidelines
 - Do not assign fixed native fader values as a loudness target. Sample gain, envelopes,

@@ -920,6 +920,19 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     return "Production paused at the action limit. Some requested work may remain; review the action log before continuing.", tool_calls_log
 
 
+async def _missing_instrument(track: int, bridge: BridgeConnection) -> str | None:
+    """A MIDI track with no devices cannot make sound; say so instead of recording silence."""
+    def value(reply):
+        args = reply.get("args") or []
+        return args[-1] if reply.get("status") == "ok" and args else None
+    midi = value(await bridge.send_command("/live/track/get/has_midi_input", [track], True))
+    devices = value(await bridge.send_command("/live/track/get/num_devices", [track], True))
+    if midi and devices == 0:
+        return (f"Track {track + 1} has no instrument, so it cannot make sound yet. Discover an instrument or kit "
+                "with list_browser, load it with load_instrument, then audition again. The notes are kept.")
+    return None
+
+
 async def _execute_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection | None) -> dict:
     if not bridge:
         return {"status": "failed", "error": "No Ableton bridge connected.", "summary": "No Ableton bridge connected.", "steps": []}
@@ -934,6 +947,9 @@ async def _execute_tool(tool_name: str, tool_input: dict, bridge: BridgeConnecti
             return {"status": "failed", "summary": error.message, "steps": []}
         if tool_name != "audition_part":
             return await bridge.local_operation("sample_library", {"operation": tool_name, "data": tool_input})
+        missing = await _missing_instrument(tool_input["track"], bridge)
+        if missing:
+            return {"status": "failed", "error": missing, "summary": missing, "steps": []}
         result = await bridge.capture_part(tool_input["track"], tool_input["scene"], tool_input.get("seconds", 12))
         return save_recording(bridge.user_id, result)
     return await execute_verified(tool_name, tool_input, bridge.send_command)
