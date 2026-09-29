@@ -8,10 +8,13 @@ from pathlib import Path
 import shutil
 import signal
 import sys
+import tempfile
 from typing import Literal
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field
+
+import mastering
 
 RATE = 44100
 BANDS = ((25, 80), (80, 200), (200, 800), (800, 2500), (2500, 8000), (8000, 20000))
@@ -53,10 +56,16 @@ def measure(samples):
     mid = (samples[:, 0] + samples[:, 1]) / 2
     side = (samples[:, 0] - samples[:, 1]) / 2
     side_fraction = float(np.mean(side ** 2) / max(float(np.mean(mid ** 2) + np.mean(side ** 2)), 1e-20))
+    with tempfile.TemporaryDirectory() as scratch:
+        from scipy.io import wavfile as _wavfile
+        scratch_path = Path(scratch) / 'excerpt.wav'
+        _wavfile.write(scratch_path, RATE, (samples * 32767).round().astype('<i2'))
+        lufs, true_peak_dbtp = mastering.loudness(scratch_path)
     return {'rms_dbfs': round(rms_db, 3), 'peak_dbfs': round(float(20 * np.log10(peak)), 3),
             'crest_db': round(float(20 * np.log10(peak) - rms_db), 3),
             'spectral_centroid_hz': round(float(np.sum(frequencies * energy) / total), 2),
             'side_energy_percent': round(100 * side_fraction, 3),
+            'lufs': round(lufs, 1), 'true_peak_dbtp': round(true_peak_dbtp, 1),
             'bands_percent': {f'{low}-{high} Hz': round(100 * float(energy[(frequencies >= low) & (frequencies < high)].sum()) / total, 3)
                               for low, high in BANDS}}
 
@@ -69,7 +78,7 @@ def compare_arrays(reference, candidate):
     target = min(-20.0, a['rms_dbfs'], b['rms_dbfs'], -3 - a['crest_db'], -3 - b['crest_db'])
     gains = {'reference': round(target - a['rms_dbfs'], 3), 'candidate': round(target - b['rms_dbfs'], 3)}
     deltas = {key: round(b[key] - a[key], 3) for key in
-              ('rms_dbfs', 'crest_db', 'spectral_centroid_hz', 'side_energy_percent')}
+              ('rms_dbfs', 'crest_db', 'spectral_centroid_hz', 'side_energy_percent', 'lufs')}
     band_deltas = {key: round(b['bands_percent'][key] - a['bands_percent'][key], 3) for key in a['bands_percent']}
     notes = []
     if abs(deltas['rms_dbfs']) >= 6:
@@ -79,6 +88,8 @@ def compare_arrays(reference, candidate):
         notes.append(f'The candidate spectral centroid is {direction}. Different notes or instruments can cause this; compare register before proposing a filter or EQ change.')
     if abs(deltas['crest_db']) >= 3:
         notes.append('Peak-to-average dynamics differ. Listen to attack and decay before proposing envelope or compression changes.')
+    if abs(deltas['lufs']) >= 3:
+        notes.append('Integrated loudness differs by 3 LU or more. Level-match by ear before judging tone or dynamics.')
     if abs(deltas['side_energy_percent']) >= 10:
         notes.append('Stereo side energy differs. Check the source and phase before considering width, reverb or delay.')
     if not notes:

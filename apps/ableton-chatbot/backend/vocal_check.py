@@ -10,10 +10,10 @@ fixed chain is applied. Measurements, not taste: the user listens as well.
 import numpy as np
 
 import engineering_rules
-import mix_check
+import mastering
 import recordings
 
-RATE = mix_check.RATE
+RATE = mastering.RATE
 # Octave-ish regions the rulebook searches, with the rule each one maps to.
 BANDS = [("boom", "Boominess", 100, 250), ("mud", "Mud", 200, 500), ("box", "Boxiness", 300, 800),
          ("nasal", "Nasal", 700, 1500), ("presence", "Poor intelligibility", 1000, 4000),
@@ -109,12 +109,12 @@ def phrase_spread(mono):
 
 
 def presence_level(path):
-    freqs, power = spectrum(mix_check.stereo_samples(path).mean(axis=1))
+    freqs, power = spectrum(mastering.stereo_samples(path).mean(axis=1))
     return band_db(freqs, power, 1000, 5000)
 
 
 def analyse(path):
-    samples = mix_check.stereo_samples(path)
+    samples = mastering.stereo_samples(path)
     mono = samples.mean(axis=1)
     peak = float(np.abs(samples).max())
     clipped_runs = int(np.sum(np.diff((np.abs(mono) > 0.999).astype(int)) == 1))

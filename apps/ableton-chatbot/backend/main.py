@@ -982,8 +982,9 @@ async def _mix_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection) 
     try:
         if tool_name == "mix_check":
             return await mix_check.run(bridge.user_id, tool_input["recording_id"], query,
-                                       tool_input.get("target_lufs", mix_check.TARGET_LUFS),
-                                       tool_input.get("ceiling_dbtp", mix_check.CEILING_DBTP))
+                                       target_lufs=tool_input.get("target_lufs"),
+                                       ceiling=tool_input.get("ceiling_dbtp", mix_check.CEILING_DBTP),
+                                       reference_id=tool_input.get("reference_id"))
         return await master_chain.apply(query, send, tool_input["measured_lufs"],
                                         tool_input.get("target_lufs", -14.0), tool_input.get("ceiling_dbtp", -1.0))
     except (RuntimeError, ValueError, OSError) as error:
@@ -1032,6 +1033,39 @@ async def _song_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection)
     return await bridge.local_operation("record_arrangement", request, timeout=bars * 4 * 60 / max(bpm, 20) + 90)
 
 
+async def _bus_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection) -> dict:
+    """Per-bus reference comparison: needs both query/send (like _mix_tool) and local_operation (like
+    _song_tool) to bounce and measure one bus, so it gets its own small dispatcher."""
+    from jsonschema import validate, ValidationError
+    import bus_mastering
+    try:
+        validate(tool_input, next(t["input_schema"] for t in ABLETON_TOOLS if t["name"] == tool_name))
+    except ValidationError as error:
+        return {"status": "failed", "summary": error.message, "steps": []}
+    if "scene_audition_v1" not in bridge.capabilities:
+        message = ("This needs BeatMind Bridge 1.3 or later. Click Install update in the Bridge window "
+                   "(your Ableton set stays open), then ask again.")
+        return {"status": "failed", "error": message, "summary": message, "steps": []}
+
+    async def query(address, args):
+        reply = await bridge.send_command(address, list(args), True)
+        if reply.get("status") != "ok":
+            raise RuntimeError(f"Ableton did not confirm {address}.")
+        return reply.get("args") or []
+
+    async def send(address, args):
+        await bridge.send_command(address, list(args))
+
+    async def capture_scene(request):
+        return save_recording(bridge.user_id, await bridge.local_operation("capture_scene", request))
+
+    try:
+        return await bus_mastering.compare_bus(bridge.user_id, tool_input["reference_id"], tool_input["bus"],
+                                               tool_input["scene"], query, send, capture_scene)
+    except (RuntimeError, ValueError, OSError) as error:
+        return {"status": "failed", "summary": str(error), "steps": []}
+
+
 async def _missing_instrument(track: int, bridge: BridgeConnection) -> str | None:
     """A MIDI track with no devices cannot make sound; say so instead of recording silence."""
     def value(reply):
@@ -1062,6 +1096,8 @@ async def _execute_tool(tool_name: str, tool_input: dict, bridge: BridgeConnecti
         return await _song_tool(tool_name, tool_input, bridge)
     if tool_name in {"mix_check", "apply_master_chain"}:
         return await _mix_tool(tool_name, tool_input, bridge)
+    if tool_name == "compare_bus_to_reference":
+        return await _bus_tool(tool_name, tool_input, bridge)
     if tool_name in {"audition_part", "list_sample_packs", "search_pack_samples", "inspect_pack_sample", "load_pack_sample"}:
         from jsonschema import validate, ValidationError
         try:

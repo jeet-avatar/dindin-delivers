@@ -472,7 +472,9 @@ ABLETON_TOOLS.append({
     "input_schema": {"type": "object", "properties": {
         "recording_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
         "target_lufs": {"type": "number", "minimum": -20, "maximum": -6},
-        "ceiling_dbtp": {"type": "number", "minimum": -3, "maximum": -0.1}},
+        "ceiling_dbtp": {"type": "number", "minimum": -3, "maximum": -0.1},
+        "reference_id": {"type": "string", "pattern": "^[a-f0-9]{32}$",
+                         "description": "An attached reference track's id. When given and no explicit target_lufs or saved producer preference exists, the mastering target is derived from the reference's own measured loudness instead of the -14 LUFS default."}},
         "required": ["recording_id"], "additionalProperties": False}
 })
 
@@ -484,6 +486,20 @@ ABLETON_TOOLS.append({
         "target_lufs": {"type": "number", "minimum": -20, "maximum": -6},
         "ceiling_dbtp": {"type": "number", "minimum": -3, "maximum": -0.1}},
         "required": ["measured_lufs"], "additionalProperties": False}
+})
+
+ABLETON_TOOLS.append({
+    "name": "compare_bus_to_reference",
+    "description": "Compare one bus of the user's own tracks (drums, bass, vocals or other) against the "
+                   "matching stem of an attached reference track. Mutes tracks outside the bus, bounces "
+                   "it, measures it and restores mutes. Advisory only — reports differences, never "
+                   "changes a device or fader itself. Requires the reference's stem review to be "
+                   "complete for that bus.",
+    "input_schema": {"type": "object", "properties": {
+        "reference_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+        "bus": {"type": "string", "enum": ["drums", "bass", "vocals", "other"]},
+        "scene": {"type": "integer", "minimum": 0}},
+        "required": ["reference_id", "bus", "scene"], "additionalProperties": False}
 })
 
 ABLETON_TOOLS.append({

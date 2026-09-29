@@ -4,53 +4,21 @@ Audio is measured on the saved full-mix recording (EBU R128 loudness and true pe
 from Ableton through the Bridge. Every item says pass, warn or fail with a concrete fix; nothing is changed here.
 """
 
-import re
-import subprocess
-
 import numpy as np
+from fastapi import HTTPException
 
+import mastering
+import producer_profile
 import recordings
+import references
 
 TARGET_LUFS = -14.0
 CEILING_DBTP = -1.0
-RATE = 44100
-
-
-def loudness(path):
-    """Integrated loudness (LUFS) and true peak (dBTP) of an audio file."""
-    report = subprocess.run(["ffmpeg", "-nostdin", "-hide_banner", "-i", str(path), "-filter_complex",
-                             "ebur128=peak=true", "-f", "null", "-"], capture_output=True, text=True, timeout=60).stderr
-    summary = report[report.rfind("Summary:"):]
-    integrated = re.search(r"I:\s+(-?[\d.]+|-inf) LUFS", summary)
-    peak = re.search(r"Peak:\s+(-?[\d.]+|-inf) dBFS", summary)
-    if not integrated or not peak:
-        raise ValueError("Loudness could not be measured.")
-    value = lambda match: float("-inf") if match.group(1) == "-inf" else float(match.group(1))
-    return value(integrated), value(peak)
-
-
-def stereo_samples(path):
-    decoded = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-i", str(path), "-ac", "2", "-ar", str(RATE),
-                              "-f", "f32le", "pipe:1"], capture_output=True, timeout=60)
-    samples = np.frombuffer(decoded.stdout, dtype="<f4").astype(float).reshape(-1, 2)
-    if samples.shape[0] < RATE:
-        raise ValueError("The recording is too short to analyse.")
-    return samples
-
-
-def band_shares(samples):
-    """Percent of spectral energy (20 Hz and up) in each named band."""
-    mono = samples.mean(axis=1)
-    spectrum = np.abs(np.fft.rfft(mono * np.hanning(mono.size))) ** 2
-    frequencies = np.fft.rfftfreq(mono.size, 1 / RATE)
-    total = float(spectrum[frequencies >= 20].sum()) or 1.0
-    share = lambda low, high: round(100 * float(spectrum[(frequencies >= low) & (frequencies < high)].sum()) / total, 1)
-    return {"low": share(20, 120), "mud": share(200, 500), "harsh": share(2000, 5000)}
 
 
 def low_end_correlation(samples):
     """Left/right correlation below 120 Hz: 1 is mono, below about 0.8 the low end is wide and weakens on club systems."""
-    frequencies = np.fft.rfftfreq(samples.shape[0], 1 / RATE)
+    frequencies = np.fft.rfftfreq(samples.shape[0], 1 / mastering.RATE)
     keep = frequencies < 120
     left, right = (np.fft.irfft(np.fft.rfft(samples[:, c]) * keep, samples.shape[0]) for c in (0, 1))
     energy = float(np.sqrt((left ** 2).sum() * (right ** 2).sum()))
@@ -64,7 +32,7 @@ def section_energy(user_id, session_id):
         name = (rec.get("scene_name") or "").strip()
         path = recordings.ROOT / f"{rec['id']}.m4a"
         if rec.get("kind") == "scene" and name and name not in levels and path.exists():
-            levels[name] = loudness(path)[0]
+            levels[name] = mastering.loudness(path)[0]
     return levels
 
 
@@ -87,17 +55,34 @@ def item(key, label, status, detail, fix=None):
     return {"id": key, "label": label, "status": status, "detail": detail, **({"fix": fix} if fix else {})}
 
 
-async def run(user_id, recording_id, query, target_lufs=TARGET_LUFS, ceiling=CEILING_DBTP):
-    """`query(address, args)` returns the Ableton reply args (track/scene index prefixes included)."""
+async def run(user_id, recording_id, query, target_lufs=None, ceiling=CEILING_DBTP, reference_id=None):
+    """`query(address, args)` returns the Ableton reply args (track/scene index prefixes included).
+
+    `target_lufs` precedence when not given explicitly: the producer's saved profile preference, then an
+    uploaded reference track's measured loudness, then the TARGET_LUFS constant.
+    """
     recording = recordings.owned_recording(recording_id, user_id)
     if not recording:
         return {"status": "failed", "summary": "That recording was not found.", "steps": []}
     if recording.get("kind") != "scene":
         return {"status": "failed", "summary": "Run the mix check on a full-mix preview (audition_scene), not a single part.", "steps": []}
+    if target_lufs is None:
+        profile_target = producer_profile.stored(user_id).get("loudness_target_lufs")
+        if profile_target is not None:
+            target_lufs = profile_target
+        elif reference_id:
+            try:
+                references.owned(reference_id, user_id)
+                target_lufs = mastering.reference_targets(reference_id)["target_lufs"]
+            except (ValueError, HTTPException) as error:
+                summary = error.detail if isinstance(error, HTTPException) else str(error)
+                return {"status": "failed", "summary": summary, "steps": []}
+        else:
+            target_lufs = TARGET_LUFS
     path = recordings.ROOT / f"{recording_id}.m4a"
-    lufs, true_peak = loudness(path)
-    samples = stereo_samples(path)
-    bands = band_shares(samples)
+    lufs, true_peak = mastering.loudness(path)
+    samples = mastering.stereo_samples(path)
+    bands = mastering.band_shares(samples)
     low = bands["low"]
     correlation = low_end_correlation(samples)
     levels = section_energy(user_id, recording.get("session_id"))
