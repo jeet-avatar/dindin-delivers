@@ -914,8 +914,14 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
 
         if any(action['result'].get('comparison') for action in tool_calls_log):
             return 'The saved sounds have been compared. Play A and B below at matched RMS levels. These measurements are not a match percentage. Which difference would you like to refine?', tool_calls_log
+        failed = [action for action in tool_calls_log if action['result'].get('status') in {'failed', 'partial'}
+                  and not str(action['result'].get('summary', '')).startswith('Skipped after')]
+        caveat = (f" Note: {len(failed)} step{'s' if len(failed) != 1 else ''} did not complete "
+                  f"({', '.join(sorted({action['tool'].replace('_', ' ') for action in failed}))}); see Production details."
+                  if failed else "")
         if audition_ready and any(action['result'].get('recording', {}).get('kind') == 'scene' for action in tool_calls_log):
-            return "Your full-mix preview is ready. Listen to the whole scene together, then accept it or request a change to the balance.", tool_calls_log
+            return ("Your full-mix preview is ready." + caveat + " Listen to the whole scene together, then accept it or "
+                    "request a change to the balance."), tool_calls_log
         if audition_ready:
             revised = any(action.get('result', {}).get('recording', {}).get('supersedes') for action in tool_calls_log)
             if revised:
@@ -925,9 +931,10 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                     if a["tool"] == "delete_device" and a["result"].get("status") == "verified" and a["input"]["expected_name"] in added:
                         added.remove(a["input"]["expected_name"])
                 effects = f" Effects added this time: {', '.join(added)}." if added else ""
-                return ("Your updated preview is ready." + effects + " The earlier recording and its decision remain saved. "
+                return ("Your updated preview is ready." + effects + caveat + " The earlier recording and its decision remain saved. "
                         "Compare before and after, then accept it or request a change."), tool_calls_log
-            return "Your first preview of this part is ready. Listen, then accept the sound or request a change. Nothing else will be built until you choose the next step.", tool_calls_log
+            return ("Your first preview of this part is ready." + caveat + " Listen, then accept the sound or request a change. "
+                    "Nothing else will be built until you choose the next step."), tool_calls_log
         if any(action["tool"] in {"audition_part", "audition_scene"} for action in tool_calls_log):
             return "The part remains in Ableton, but its audition did not pass verification. No recording is ready for approval. Review the audition details before retrying; do not recreate the track or notes.", tool_calls_log
 

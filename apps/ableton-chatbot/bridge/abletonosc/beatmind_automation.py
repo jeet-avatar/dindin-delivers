@@ -56,7 +56,7 @@ def parse_display(text):
     return number, unit
 
 
-def native_value(parameter, value, unit):
+def native_value(parameter, value, unit, nearest=False):
     if not parameter.is_enabled:
         raise ValueError("This parameter is disabled or controlled by a macro/remote assignment.")
     if getattr(parameter, "state", 0) != 0:
@@ -103,7 +103,8 @@ def native_value(parameter, value, unit):
             else:
                 hi = candidate
         actual, _ = parse_display(parameter.str_for_value(candidate))
-        if abs(actual - target) > max(abs(target) * 0.005, 0.02):
+        # A single setting must be exact; an automation ramp uses the nearest value Live can show.
+        if not nearest and abs(actual - target) > max(abs(target) * 0.005, 0.02):
             raise ValueError("Live's display precision cannot represent the requested value accurately.")
     if not parameter.min <= candidate <= parameter.max:
         raise ValueError("Value is outside the native parameter range.")
@@ -295,11 +296,12 @@ def register(handler, app):
             while beat < end["beat"] - 1e-9:
                 fraction = (beat - start["beat"]) / (end["beat"] - start["beat"])
                 value = start["value"] + (end["value"] - start["value"]) * fraction
-                native = native_value(parameter, value, data["unit"])
+                native = native_value(parameter, value, data["unit"], nearest=True)
                 envelope.insert_step(beat, min(step, end["beat"] - beat), native)
                 written += 1
                 beat += step
-        first = parameter.str_for_value(envelope.value_at_time(points[0]["beat"]))
+        # Read inside the first and last steps; exactly at a step boundary Live can report the previous value.
+        first = parameter.str_for_value(envelope.value_at_time(points[0]["beat"] + step / 2))
         last = parameter.str_for_value(envelope.value_at_time(max(points[-1]["beat"] - step / 2, 0)))
         return {"status": "verified", "summary": "%s automated in the clip from %s to %s over %.1f beats (%d steps)." % (
                     parameter.name, first, last, points[-1]["beat"] - points[0]["beat"], written),
