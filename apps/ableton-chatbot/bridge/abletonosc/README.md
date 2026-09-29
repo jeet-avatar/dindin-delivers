@@ -1,22 +1,31 @@
-# Exact Sample Loading
+# BeatMind extensions for AbletonOSC
 
-Copy beatmind_samples.py alongside AbletonOSC's abletonosc/browser.py. At the
-end of BrowserHandler.init_api, after the existing handler registrations, add:
+Copy every `beatmind_*.py` file beside AbletonOSC's `abletonosc/browser.py`. At the end of
+`BrowserHandler.init_api`, after the existing handler registrations, add:
 
 ```python
 from .beatmind_samples import register
-register(self, Live.Application.get_application())
+register(self, Live.Application.get_application())   # also registers beatmind_automation
 from .beatmind_mixer import register as register_mixer
 register_mixer(self, Live.Application.get_application())
-from .beatmind_automation import register as register_automation
-register_automation(self, Live.Application.get_application())
 from .beatmind_master import register as register_master
 register_master(self, Live.Application.get_application())
+from .beatmind_sidechain import register as register_sidechain
+register_sidechain(self, Live.Application.get_application())
 ```
 
-Also copy `beatmind_mixer.py`, `beatmind_automation.py`, `beatmind_stems.py` and `beatmind_master.py` beside `browser.py`.
-`beatmind_master.py` loads built-in effects on the Main track and reads/sets their parameters (master chain).
-`beatmind_stems.py` places reference stems on new audio tracks at the start of the Arrangement (Live 12).
+What each file adds:
+- `beatmind_samples.py`: exact sample loading (and registers the automation module).
+- `beatmind_automation.py`: device discovery and control, clip automation with curves (linear, exponential,
+  logarithmic, step) that land exactly on their end values, "-inf" dB for fully off, reading stored clip
+  automation (including inside Drum Racks), reading a track's real mixer and send levels, the Groove Pool
+  (factory grooves, per-clip grooves, amounts, global Groove Amount) and note feel (chance, velocity deviation,
+  millisecond timing nudges).
+- `beatmind_mixer.py`: fader mapping from Live's own display strings.
+- `beatmind_master.py`: built-in effects on the Main track (master Limiter).
+- `beatmind_sidechain.py`: Compressor sidechain source routing.
+- `beatmind_stems.py`: reference stems on new audio tracks at the start of the Arrangement (Live 12).
+
 The mixer mapping returns Live's
 native fader values and actual display strings; no guessed dB conversion is used.
 Writes reject stale track/sample identities, changed faders and automation.
