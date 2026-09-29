@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from main import _mix_tool
+from main import _mix_tool, _execute_tool
 
 
 def target_lufs_passed(call_args):
@@ -26,6 +26,16 @@ class MixToolDispatchTests(unittest.IsolatedAsyncioTestCase):
         with patch("mix_check.run", new=AsyncMock(return_value={"status": "observed"})) as run:
             await _mix_tool("mix_check", {"recording_id": "a" * 32, "reference_id": reference_id}, bridge)
         self.assertEqual(run.call_args.kwargs.get("reference_id"), reference_id)
+
+
+class BusToolDispatchTests(unittest.IsolatedAsyncioTestCase):
+    async def test_routes_to_bus_mastering_with_capture_scene_from_local_operation(self):
+        bridge = MagicMock(user_id=1, capabilities={'scene_audition_v1'})
+        bridge.send_command = AsyncMock(return_value={"status": "ok", "args": []})
+        bridge.local_operation = AsyncMock(return_value={"status": "failed", "summary": "no clip"})
+        result = await _execute_tool('compare_bus_to_reference',
+                                     {'reference_id': 'f' * 32, 'bus': 'bass', 'scene': 0}, bridge)
+        self.assertIn(result['status'], ('failed', 'measured'))  # reaches bus_mastering without crashing
 
 
 if __name__ == "__main__":

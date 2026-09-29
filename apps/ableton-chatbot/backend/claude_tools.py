@@ -489,6 +489,20 @@ ABLETON_TOOLS.append({
 })
 
 ABLETON_TOOLS.append({
+    "name": "compare_bus_to_reference",
+    "description": "Compare one bus of the user's own tracks (drums, bass, vocals or other) against the "
+                   "matching stem of an attached reference track. Mutes tracks outside the bus, bounces "
+                   "it, measures it and restores mutes. Advisory only — reports differences, never "
+                   "changes a device or fader itself. Requires the reference's stem review to be "
+                   "complete for that bus.",
+    "input_schema": {"type": "object", "properties": {
+        "reference_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+        "bus": {"type": "string", "enum": ["drums", "bass", "vocals", "other"]},
+        "scene": {"type": "integer", "minimum": 0}},
+        "required": ["reference_id", "bus", "scene"], "additionalProperties": False}
+})
+
+ABLETON_TOOLS.append({
     "name": "delete_device",
     "description": "Remove one device from a track, for example to undo an effect chain the user rejected. Give the device's current index and its exact name from get_device_names; nothing is deleted if the name at that index differs. Never remove the part's instrument unless the user asked.",
     "input_schema": {"type": "object", "properties": {
