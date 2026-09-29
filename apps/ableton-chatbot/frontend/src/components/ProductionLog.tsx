@@ -40,6 +40,8 @@ export interface ProductionAction {
     /** false when a notes check found an empty scene slot. */
     has_clip?: boolean;
     /** record_arrangement: the sections as recorded on the Arrangement timeline. */
+    checks?: { id: string; label: string; status: "pass" | "warn" | "fail"; detail: string; fix?: string }[];
+    measurements?: Record<string, number>;
     sections?: { scene: number; name: string; bars: number; start_bar: number }[];
     devices?: { name: string }[];
     observations?: Record<string, unknown[]>;
@@ -146,6 +148,14 @@ export default function ProductionLog({ actions, requestStatus }: { actions: Pro
                 <p><strong>Source:</strong> {action.result.section_brief.pack_name || (action.result.section_brief.source_mode === "existing" ? "Existing sounds" : "Discover sources")}</p>
                 <p>Brief saved; musical clips and audio still require verification.</p>
               </div>}
+              {action.tool === "mix_check" && action.result?.checks && <ul aria-label="Mix check" className="text-xs mt-2 space-y-2">
+                {action.result.checks.map(check => <li key={check.id} className="break-words">
+                  <span className={check.status === "pass" ? "text-emerald-300" : check.status === "warn" ? "text-amber-200" : "text-red-300"}>
+                    {check.status === "pass" ? "Pass" : check.status === "warn" ? "Improve" : "Must fix"}</span>{" "}
+                  <strong>{check.label}:</strong> {check.detail}
+                  {check.fix && <p style={{ color: "var(--text-secondary)" }}>Fix: {check.fix}</p>}
+                </li>)}
+              </ul>}
               {action.tool === "record_arrangement" && action.result?.sections && <ol aria-label="Arrangement sections" className="text-xs mt-2 space-y-1">
                 {action.result.sections.map((section, i) => <li key={i}>
                   Bars {section.start_bar}–{section.start_bar + section.bars - 1}: <strong>{section.name}</strong> ({section.bars} bars)

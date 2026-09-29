@@ -160,3 +160,59 @@ def test_full_mix_recordings_are_not_linked_to_a_planned_part():
     with tempfile.TemporaryDirectory() as directory, patch.object(recordings, "ROOT", Path(directory)):
         saved = recordings.save_recording(7, result)
     assert saved["recording"]["kind"] == "scene" and saved["recording"]["scene_name"] == "Drop"
+
+
+def test_effect_recipe_follows_the_reference_and_offers_installed_plugins_only_on_opt_in():
+    import chat_tools
+    result = asyncio.run(chat_tools.execute("get_effect_recipe", {"role": "Bass", "genre": "melodic techno",
+                                                                   "band_deltas": {"25-80 Hz": -9.2, "200-800 Hz": 5.1},
+                                                                   "installed_plugins": ["FabFilter Pro-Q 3"]}, 1))
+    assert result["role"] == "bass" and result["chain"][0]["device"] == "EQ Eight"
+    assert "installed_alternatives" not in result["chain"][0], "third-party only after the user opts in"
+    assert result["reference_adjustments"][0].startswith("boost 3-4 dB in the sub")
+    opted = asyncio.run(chat_tools.execute("get_effect_recipe", {"role": "Bass", "installed_plugins": ["FabFilter Pro-Q 3"],
+                                                                  "allow_third_party": True}, 1))
+    assert opted["chain"][0]["installed_alternatives"] == ["FabFilter Pro-Q 3"]
+
+
+def test_mix_check_flags_clipping_and_names_the_armed_track():
+    import json, tempfile
+    import mix_check, recordings
+    live = FakeLive()
+    live.arm = [0, 1, 0]
+    async def query(address, args):
+        extra = {"/live/track/get/mute": lambda: [args[0], 0], "/live/track/get/volume": lambda: [args[0], 0.85]}
+        if address in extra:
+            return extra[address]()
+        return (await live._query_osc("t", address, args, 4))["args"]
+    with tempfile.TemporaryDirectory() as directory, patch.object(recordings, "ROOT", Path(directory)), \
+         patch.object(mix_check, "loudness", return_value=(-9.6, 0.7)), patch.object(mix_check, "low_end_share", return_value=17.0):
+        (Path(directory) / ("b" * 32 + ".json")).write_text(json.dumps({"id": "b" * 32, "user_id": 3, "kind": "scene", "scene": 1, "scene_name": "Drop"}))
+        result = asyncio.run(mix_check.run(3, "b" * 32, query))
+    checks = {c["id"]: c for c in result["checks"]}
+    assert checks["headroom"]["status"] == "fail" and checks["loudness"]["status"] == "warn"
+    assert checks["safety"]["fix"] == "Before exporting: unsolo Bass, disarm Bass."
+    part = asyncio.run(mix_check.run(3, "c" * 32, query))
+    assert part["status"] == "failed"
+
+
+def test_master_limiter_picks_values_from_live_display_curve():
+    import json, master_chain
+    state = {"devices": ["Glue Compressor"], "set": {}}
+    curve = lambda unit_range: json.dumps({"min": 0.0, "max": 1.0, "displays": [f"{unit_range[0] + i * (unit_range[1] - unit_range[0]) / 10:.1f} dB" for i in range(11)]})
+    async def query(address, args):
+        if address.endswith("/devices"):
+            return state["devices"]
+        if address.endswith("/load"):
+            state["devices"].append(args[0]); return ["loaded", args[0]]
+        if address.endswith("/parameters"):
+            return ["ok", json.dumps({"parameters": [{"name": "Input Gain"}, {"name": "Ceiling"}]})]
+        if address.endswith("/curve"):
+            return ["ok", curve((-3.0, 0.0) if args[1] == "Ceiling" else (0.0, 10.0))]
+        if address.endswith("/set"):
+            state["set"][args[1]] = args[2]; return ["ok", args[2], "set"]
+    result = asyncio.run(master_chain.apply(query, AsyncMock(), measured_lufs=-18.0))
+    assert result["status"] == "verified" and state["devices"][-1] == "Limiter"
+    assert state["set"] == {"Ceiling": 0.7, "Input Gain": 0.4}  # -1.0 dB ceiling and +4 dB gain for -18 -> -14 LUFS
+    loud = asyncio.run(master_chain.apply(query, AsyncMock(), measured_lufs=-9.6))
+    assert loud["master"]["gain_db"] == 0.0 and "no gain" in loud["summary"]

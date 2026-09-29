@@ -927,6 +927,36 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
 SONG_TOOL_CAPABILITY = {"audition_scene": "scene_audition_v1", "record_arrangement": "arrangement_record_v1"}
 
 
+async def _mix_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection) -> dict:
+    """The engineering checklist and the master chain read and write Ableton through the Bridge's OSC relay."""
+    from jsonschema import validate, ValidationError
+    import master_chain
+    import mix_check
+    try:
+        validate(tool_input, next(t["input_schema"] for t in ABLETON_TOOLS if t["name"] == tool_name))
+    except ValidationError as error:
+        return {"status": "failed", "summary": error.message, "steps": []}
+
+    async def query(address, args):
+        reply = await bridge.send_command(address, list(args), True)
+        if reply.get("status") != "ok":
+            raise RuntimeError(f"Ableton did not confirm {address}.")
+        return reply.get("args") or []
+
+    async def send(address, args):
+        await bridge.send_command(address, list(args))
+
+    try:
+        if tool_name == "mix_check":
+            return await mix_check.run(bridge.user_id, tool_input["recording_id"], query,
+                                       tool_input.get("target_lufs", mix_check.TARGET_LUFS),
+                                       tool_input.get("ceiling_dbtp", mix_check.CEILING_DBTP))
+        return await master_chain.apply(query, send, tool_input["measured_lufs"],
+                                        tool_input.get("target_lufs", -14.0), tool_input.get("ceiling_dbtp", -1.0))
+    except (RuntimeError, ValueError, OSError) as error:
+        return {"status": "failed", "summary": str(error), "steps": []}
+
+
 async def _song_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection) -> dict:
     """Full-mix scene previews and Arrangement recording run inside the Bridge (1.3.0 and later)."""
     from jsonschema import validate, ValidationError
@@ -968,6 +998,8 @@ async def _execute_tool(tool_name: str, tool_input: dict, bridge: BridgeConnecti
         return await execute_automation(tool_name, tool_input, bridge.send_command)
     if tool_name in {"audition_scene", "record_arrangement"}:
         return await _song_tool(tool_name, tool_input, bridge)
+    if tool_name in {"mix_check", "apply_master_chain"}:
+        return await _mix_tool(tool_name, tool_input, bridge)
     if tool_name in {"audition_part", "list_sample_packs", "search_pack_samples", "inspect_pack_sample", "load_pack_sample"}:
         from jsonschema import validate, ValidationError
         try:

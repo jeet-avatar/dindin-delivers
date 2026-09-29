@@ -193,6 +193,20 @@ class VerifiedExecutor:
                               "notes": notes, "note_count": len(notes),
                               "inspection": inspection["observations"]}}
 
+        if name == "delete_device":
+            names = await self.read("/live/track/get/devices/name", [t])
+            index = data["device"]
+            if index >= len(names) or names[index] != data["expected_name"]:
+                raise ExecutionError(f"Device {index + 1} on track {t + 1} is not {data['expected_name']!r}; nothing was removed.")
+            self.mutations += 1
+            await self.command("/live/track/delete_device", [t, index], False, 5)
+            await asyncio.sleep(0.2)
+            after = await self.read("/live/track/get/devices/name", [t])
+            if len(after) != len(names) - 1 or after != names[:index] + names[index + 1:]:
+                raise ExecutionError("Device removal could not be verified; inspect the track's devices.")
+            return {"status": "verified", "summary": f"Removed {data['expected_name']} from track {t + 1}.",
+                    "devices": after, "steps": self.steps}
+
         if name == "get_clip_notes" and not await self.scalar("/live/clip_slot/get/has_clip", [t, s]):
             return {"status": "observed", "summary": f"Track {t + 1}, scene {s + 1} has no clip yet.", "notes": [],
                     "has_clip": False, "observations": {}}
@@ -295,6 +309,8 @@ class VerifiedExecutor:
                    "set_track_volume": ("/live/track/get/volume", [t], fader_from_db(data["volume_db"]) if "volume_db" in data else data.get("volume")),
                    "set_track_pan": ("/live/track/get/panning", [t], data.get("pan")),
                    "set_track_mute": ("/live/track/get/mute", [t], data.get("muted")),
+                   "set_track_arm": ("/live/track/get/arm", [t], data.get("armed")),
+                   "set_track_solo": ("/live/track/get/solo", [t], data.get("soloed")),
                    "set_track_send": ("/live/track/get/send", [t, data.get("send")], data.get("value")),
                    "set_track_monitoring": ("/live/track/get/current_monitoring_state", [t], data.get("state")),
                    "set_clip_looping": ("/live/clip/get/looping", [t, s], data.get("looping")),

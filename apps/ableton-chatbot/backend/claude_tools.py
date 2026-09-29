@@ -437,6 +437,41 @@ ABLETON_TOOLS.append({
         "seconds": {"type": "number", "minimum": 2, "maximum": 16}}, "required": ["track", "scene"]}
 })
 
+for _name, _flag, _about in (("set_track_arm", "armed", "Arm or disarm a track for recording. New MIDI tracks may arrive armed; disarm them before exporting or recording the Arrangement."),
+                             ("set_track_solo", "soloed", "Solo or unsolo a track. Leave nothing soloed when finishing a mix.")):
+    ABLETON_TOOLS.append({"name": _name, "description": _about, "input_schema": {"type": "object", "properties": {
+        "track": {"type": "integer", "minimum": 0}, _flag: {"type": "boolean"}}, "required": ["track", _flag],
+        "additionalProperties": False}})
+
+ABLETON_TOOLS.append({
+    "name": "mix_check",
+    "description": "Run the engineering checklist on a full-mix preview from audition_scene: true peak/headroom, integrated loudness against the target, low-end share, every part audible, empty sections, and session safety (solo, arm, reference muted). Read-only. Show the user each failed or warned item with its fix, fix the must-fix items with verified tools, then preview and check again.",
+    "input_schema": {"type": "object", "properties": {
+        "recording_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+        "target_lufs": {"type": "number", "minimum": -20, "maximum": -6},
+        "ceiling_dbtp": {"type": "number", "minimum": -3, "maximum": -0.1}},
+        "required": ["recording_id"], "additionalProperties": False}
+})
+
+ABLETON_TOOLS.append({
+    "name": "apply_master_chain",
+    "description": "Put Ableton's Limiter last on the Main track and set its ceiling and gain from the measured mix (measured_lufs from mix_check). Only after mix_check shows no clipping and the user agreed to master. Adds no gain when the mix is already at or above the target.",
+    "input_schema": {"type": "object", "properties": {
+        "measured_lufs": {"type": "number", "minimum": -60, "maximum": 0},
+        "target_lufs": {"type": "number", "minimum": -20, "maximum": -6},
+        "ceiling_dbtp": {"type": "number", "minimum": -3, "maximum": -0.1}},
+        "required": ["measured_lufs"], "additionalProperties": False}
+})
+
+ABLETON_TOOLS.append({
+    "name": "delete_device",
+    "description": "Remove one device from a track, for example to undo an effect chain the user rejected. Give the device's current index and its exact name from get_device_names; nothing is deleted if the name at that index differs. Never remove the part's instrument unless the user asked.",
+    "input_schema": {"type": "object", "properties": {
+        "track": {"type": "integer", "minimum": 0}, "device": {"type": "integer", "minimum": 0},
+        "expected_name": {"type": "string", "minLength": 1, "maxLength": 120}},
+        "required": ["track", "device", "expected_name"], "additionalProperties": False}
+})
+
 ABLETON_TOOLS.append({
     "name": "audition_scene",
     "description": "Record the FULL MIX of one scene for frontend listening: every clip in the scene plays together with the user's mutes kept and solos cleared, then transport, solos and quantization are restored. Use it when the user wants to hear sections or the whole song together. Requires stopped transport. This pauses production for user review; do not call more tools in the same batch.",
@@ -571,6 +606,10 @@ def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
             return [{"address": "/live/track/set/volume", "args": [tool_input["track"], level]}]
         case "set_track_pan":
             return [{"address": "/live/track/set/panning", "args": [tool_input["track"], tool_input["pan"]]}]
+        case "set_track_arm":
+            return [{"address": "/live/track/set/arm", "args": [tool_input["track"], int(tool_input["armed"])]}]
+        case "set_track_solo":
+            return [{"address": "/live/track/set/solo", "args": [tool_input["track"], int(tool_input["soloed"])]}]
         case "set_track_mute":
             return [{"address": "/live/track/set/mute", "args": [tool_input["track"], int(tool_input["muted"])]}]
         case "set_track_send":
@@ -746,6 +785,25 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
   explicit approval, then call record_arrangement once with exactly those sections. It needs an empty Arrangement.
 - To let the user hear several parts together (a section, or the whole mix), use audition_scene on that scene;
   audition_part only records one track.
+
+### Effects and polish (per part)
+- Built-in Ableton devices by default. Offer third-party plugins only when list_browser (plugins) shows them installed
+  AND the user said yes to using their own plugins; say that a set using them needs those plugins to open cleanly.
+- After a part's dry sound is accepted and the user wants polish (or chooses "Shape tone or effects"): call
+  get_effect_recipe for its role and genre. With a reference, first run compare_reference_sound for the matching
+  layer and pass its band_deltas so the EQ moves follow the reference.
+- Propose the chain in plain words, one line per device (what it does and why for this part), plus send levels.
+  Wait for the user's approval. Then load each device with load_effect, set its controls with get_device_control_map
+  and set_device_control, set sends with set_track_send, and audition_part so the user compares before and after.
+- Keep the processed peak at or below the dry peak unless loudness is the goal. If the user rejects the result,
+  remove exactly the devices you added with delete_device (newest first) and audition again.
+
+### Finishing: mix check, master, Arrangement
+1. audition_scene on the fullest section (usually the Drop) and let the user listen.
+2. mix_check on that recording. Present each warn/fail item with its fix. Fix must-fix items (clipping first:
+   lower the loudest faders with set_track_volume in dB), preview again, and re-run mix_check until nothing fails.
+3. With the user's agreement, apply_master_chain with the measured loudness, preview and mix_check again.
+4. Propose the section order and bar counts, get approval, then record_arrangement.
 - Preserve the user's explicit tempo, time signature, instruments, source constraints and edit scope.
 - Genre labels are creative context, not fixed tempo ranges, track counts or device chains.
 - Inspect the current set and discover installed sources before choosing instruments or effects.

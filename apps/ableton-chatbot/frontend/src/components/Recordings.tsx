@@ -5,6 +5,7 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/auth";
 import { backgroundPollingAllowed } from "@/lib/background-polling";
 import ProductionLog, { type ProductionAction } from "@/components/ProductionLog";
+import BeforeAfter from "@/components/BeforeAfter";
 import ChatTimestamp from "@/components/ChatTimestamp";
 import TrackLevel from "@/components/TrackLevel";
 import { levelHint } from "@/lib/audio-level";
@@ -119,6 +120,7 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
     </div>
     <ChatTimestamp value={item.created_at} label="Captured" />
     {item.supersedes && <p className="text-xs mt-1 text-emerald-200">Updated preview. Your earlier recording and its decision are saved.</p>}
+    {item.supersedes && !superseded && <BeforeAfter beforeId={item.supersedes} afterId={item.id} afterRms={item.metrics.rms_dbfs} />}
     {superseded && <p className="text-xs mt-1">Historical version. A newer recording is available.</p>}
     <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
       Ableton reference at capture: {item.kind === "scene" ? "Full mix, all tracks"

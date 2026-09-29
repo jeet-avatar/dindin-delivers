@@ -10,9 +10,12 @@ from .beatmind_mixer import register as register_mixer
 register_mixer(self, Live.Application.get_application())
 from .beatmind_automation import register as register_automation
 register_automation(self, Live.Application.get_application())
+from .beatmind_master import register as register_master
+register_master(self, Live.Application.get_application())
 ```
 
-Also copy `beatmind_mixer.py`, `beatmind_automation.py` and `beatmind_stems.py` beside `browser.py`.
+Also copy `beatmind_mixer.py`, `beatmind_automation.py`, `beatmind_stems.py` and `beatmind_master.py` beside `browser.py`.
+`beatmind_master.py` loads built-in effects on the Main track and reads/sets their parameters (master chain).
 `beatmind_stems.py` places reference stems on new audio tracks at the start of the Arrangement (Live 12).
 The mixer mapping returns Live's
 native fader values and actual display strings; no guessed dB conversion is used.

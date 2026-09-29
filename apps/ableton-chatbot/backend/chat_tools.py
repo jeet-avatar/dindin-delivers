@@ -17,6 +17,13 @@ TOOLS = [
                       'required': ['reference_id', 'recording_id', 'layer', 'reference_start_seconds', 'recording_start_seconds', 'duration_seconds'],
                       'additionalProperties': False}}
 ]
+TOOLS.append({'name': 'get_effect_recipe', 'description': 'Get a starting effect chain for one part role (kick, drums, percussion, bass, chords, lead, fx, vocal) built from Ableton built-in devices, with send levels, genre notes and, when band_deltas from compare_reference_sound are given, reference-based EQ moves. Pass installed_plugins (from list_browser plugins) and allow_third_party=true only when the user opted in to their own plugins. Read-only; propose the chain to the user before loading anything.',
+     'input_schema': {'type': 'object', 'properties': {
+         'role': {'type': 'string', 'maxLength': 40}, 'genre': {'type': 'string', 'maxLength': 60},
+         'band_deltas': {'type': 'object', 'additionalProperties': {'type': 'number'}},
+         'installed_plugins': {'type': 'array', 'items': {'type': 'string', 'maxLength': 120}, 'maxItems': 200},
+         'allow_third_party': {'type': 'boolean'}},
+      'required': ['role'], 'additionalProperties': False}})
 NAMES = {tool['name'] for tool in TOOLS}
 
 
@@ -24,6 +31,10 @@ async def execute(name, inputs, user_id):
     from jsonschema import validate, ValidationError as SchemaError
     try:
         validate(inputs, next(tool['input_schema'] for tool in TOOLS if tool['name'] == name))
+        if name == 'get_effect_recipe':
+            import effect_recipes
+            return effect_recipes.recipe(inputs['role'], inputs.get('genre'), inputs.get('band_deltas'),
+                                         inputs.get('installed_plugins'), inputs.get('allow_third_party', False))
         if name == 'list_reference_sounds':
             saved = []
             for path in references.ROOT.glob('*/meta.json'):
@@ -44,6 +55,7 @@ async def execute(name, inputs, user_id):
         return {'status': 'observed', 'summary': 'Saved audio compared. RMS-matched previews are ready; no Ableton changes or approvals.',
                 'comparison': {'id': result['id'], 'reference_id': reference_id},
                 'measurements': result['candidate_minus_reference'], 'next_checks': result['next_checks'],
+                'band_deltas': result.get('band_delta_percentage_points', {}),
                 'limitations': result['limitations'], 'steps': []}
     except (HTTPException, ValidationError, SchemaError) as error:
         return {'status': 'failed', 'summary': error.detail if isinstance(error, HTTPException) else
