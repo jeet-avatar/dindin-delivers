@@ -39,7 +39,7 @@ def rejected_sign_in(error):
     return status in (401, 403) or code == 4001
 
 # AbletonOSC defaults
-BRIDGE_VERSION = "1.3.4"
+BRIDGE_VERSION = "1.3.5"
 OSC_HOST = "127.0.0.1"
 OSC_SEND_PORT = 11000
 OSC_RECV_PORT = 11001
@@ -202,7 +202,7 @@ class AbletonBridge:
                 "type": "bridge_hello",
                 "version": BRIDGE_VERSION,
                 "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
-                "capabilities": ["scene_audition_v1", "scene_transition_v1", "scene_transition_v2", "arrangement_record_v1"]
+                "capabilities": ["scene_audition_v1", "scene_transition_v1", "scene_transition_v2", "arrangement_record_v1", "arrangement_rides_v1"]
                                 + (["local_separation_v1"] if local_separation_available() else []),
             }))
             # Deliver separation results that finished while the connection was down.
@@ -267,7 +267,8 @@ class AbletonBridge:
 
         elif msg_type == "record_arrangement":
             from arrangement import record_arrangement
-            await self._reply(request_id, await record_arrangement(self, msg.get("sections")))
+            await self._reply(request_id, await record_arrangement(self, msg.get("sections"), msg.get("rides"),
+                                                                   bool(msg.get("replace_existing"))))
 
         elif msg_type == "sample_library":
             from sample_library import SampleLibrary, load_exact

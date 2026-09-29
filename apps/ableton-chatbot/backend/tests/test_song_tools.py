@@ -1,3 +1,4 @@
+import json
 import numpy as np
 import asyncio
 from pathlib import Path
@@ -399,3 +400,54 @@ def test_transition_preview_needs_the_new_bridge_and_passes_then_scene():
     assert new.local_operation.call_args.args == ("capture_scene", {"scene": 7, "seconds": 20, "then_scene": 8, "first_bars": 4})
     long_single = asyncio.run(main._song_tool("audition_scene", {"scene": 7, "seconds": 20}, new))
     assert long_single["status"] == "failed" and "16 seconds" in long_single["summary"]
+
+
+class RideLive(FakeLive):
+    """FakeLive plus faders, Automation Arm and the BeatMind arrangement extension."""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.volume = [0.85, 0.75, 0.6]
+        self.volume_log = []
+        self.automation_arm = False
+        self.extension_calls = []
+
+    async def _query_osc(self, request, address, args, timeout):
+        if address == "/live/track/get/volume":
+            return {"status": "ok", "args": [args[0], self.volume[args[0]]]}
+        if address == "/live/beatmind/arrangement":
+            payload = json.loads(args[0])
+            self.extension_calls.append(payload)
+            if payload["action"] == "arm":
+                self.automation_arm = payload["on"]
+            if payload["action"] == "clear":
+                self.arrangement = {}
+            return {"status": "ok", "args": [json.dumps({"status": "verified", "automation_arm": self.automation_arm,
+                                                          "summary": "ok"})]}
+        return await super()._query_osc(request, address, args, timeout)
+
+    def _send_osc(self, address, args):
+        if address == "/live/track/set/volume":
+            self.volume[args[0]] = args[1]
+            self.volume_log.append((args[0], round(self.time, 2), round(args[1], 4), self.automation_arm))
+        super()._send_osc(address, args)
+
+
+def test_entry_rides_are_recorded_with_automation_arm_and_end_at_the_real_level():
+    live = RideLive(arrangement_clips={0: ["old take"]})
+    rides = [{"track": 2, "start_bar": 3, "bars": 2, "from_db": -30, "curve": "logarithmic"}]
+    with patch.object(arrangement.asyncio, "sleep", AsyncMock()):
+        refused = asyncio.run(arrangement.record_arrangement(live, SECTIONS, rides))
+        assert refused["status"] == "failed" and live.fired == []
+        result = asyncio.run(arrangement.record_arrangement(live, SECTIONS, rides, replace_existing=True))
+    assert result["status"] == "verified", result
+    assert {"action": "clear"} in live.extension_calls
+    moves = [(t, v, armed) for track, t, v, armed in live.volume_log if track == 2]
+    during = [(t, v) for t, v, armed in moves if armed and 8 <= t < 16]
+    assert all(armed for t, v, armed in moves if t <= 16), "every ride move happens with Automation Arm on"
+    before = [v for t, v, armed in moves if 4 <= t < 8]
+    assert before and all(abs(v - arrangement.fader_from_db(-30)) < 1e-3 for v in before), "the bar before sits at -30 dB"
+    assert during == sorted(during) and during[-1][1] < 0.6, "the fader rises during the ride"
+    assert live.volume[2] == 0.6 and live.automation_arm is False, "real level and Automation Arm restored"
+    assert result["rides"][0]["to_db"] == round(arrangement.db_from_fader(0.6), 1)
+    assert "entry ride" in result["summary"]
+    assert arrangement.validate_rides([{"track": 0, "start_bar": 0, "bars": 2, "from_db": -30}])

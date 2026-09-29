@@ -507,12 +507,21 @@ ABLETON_TOOLS.append({
 
 ABLETON_TOOLS.append({
     "name": "record_arrangement",
-    "description": "Record the song into Ableton's Arrangement timeline by playing the given scenes in order, each for its number of bars, with Arrangement Record on. Refuses when the Arrangement already has clips. Takes real time (the song's length). ONLY call it after the user explicitly approved this exact section order and bar counts in chat; propose them first.",
+    "description": "Record the song into Ableton's Arrangement timeline by playing the given scenes in order, each for its number of bars, with Arrangement Record on. Refuses when the Arrangement already has clips unless replace_existing is true (only after the user explicitly agreed to replace the current Arrangement). entry_rides smooth each part's first entrance: with Automation Arm on, the part's fader rises from from_db to its real level over the given bars and Live records it as Arrangement automation (the red lines). Takes real time (the song's length). ONLY call it after the user explicitly approved this exact section order, bar counts and rides in chat; propose them first.",
     "input_schema": {"type": "object", "properties": {
         "sections": {"type": "array", "minItems": 1, "maxItems": 32, "items": {
             "type": "object", "properties": {"scene": {"type": "integer", "minimum": 0},
                                              "bars": {"type": "integer", "minimum": 1, "maximum": 128}},
-            "required": ["scene", "bars"], "additionalProperties": False}}},
+            "required": ["scene", "bars"], "additionalProperties": False}},
+        "replace_existing": {"type": "boolean", "description": "Delete the current Arrangement clips first. Only with the user's explicit agreement."},
+        "entry_rides": {"type": "array", "maxItems": 32, "items": {
+            "type": "object", "properties": {
+                "track": {"type": "integer", "minimum": 0},
+                "start_bar": {"type": "integer", "minimum": 1, "description": "Song bar where the part first enters (1 = first bar)."},
+                "bars": {"type": "number", "minimum": 0.25, "maximum": 16},
+                "from_db": {"type": "number", "minimum": -70, "maximum": 0, "description": "Starting fader level; -70 is silent."},
+                "curve": {"type": "string", "enum": ["logarithmic", "linear", "exponential"]}},
+            "required": ["track", "start_bar", "bars", "from_db"], "additionalProperties": False}}},
         "required": ["sections"]}
 })
 
@@ -924,6 +933,15 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
   EQ, leveling compression, saturation, parallel, reverb/delay sends (filtered, ducked from the vocal), automation.
   Priority: intelligibility, tonal balance, dynamics, masking, character, space, effects. Never fix an
   unintelligible vocal with reverb; keep the lead vocal centred and get width from doubles and returns.
+
+### Smooth entrances (Arrangement automation)
+- When a part first enters, it should arrive, not switch on. Record the Arrangement with entry_rides: pads and
+  chords swell from about -30 dB over 4-8 bars (logarithmic); hats and percussion creep up from about -18 dB over
+  2-4 bars; the bass enters over 1-2 bars from about -12 dB (or a filter opening); the lead fades in over 1-2 bars;
+  FX and risers as their section needs. Never ride the kick, and never soften the first beat of a drop: drops hit at
+  full level. Only a part's first entrance (and re-entries after a break) gets a ride.
+- Session clip automation loops with the clip, so a long one-time fade belongs in the Arrangement. The rides are
+  written there as real automation lanes by recording with Automation Arm on.
 
 ### Choosing and balancing a lead
 - A lead must serve the groove, not cover it. Choose by: register (above the chords, clear of 200-800 Hz mud),

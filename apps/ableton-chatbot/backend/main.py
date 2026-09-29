@@ -1018,8 +1018,15 @@ async def _song_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection)
     tempo = await bridge.send_command("/live/song/get/tempo", [], True)
     bpm = float((tempo.get("args") or [60])[-1]) if tempo.get("status") == "ok" else 60.0
     bars = sum(section["bars"] for section in tool_input["sections"])
-    return await bridge.local_operation("record_arrangement", {"sections": tool_input["sections"]},
-                                        timeout=bars * 4 * 60 / max(bpm, 20) + 90)
+    request = {"sections": tool_input["sections"]}
+    if tool_input.get("entry_rides") or tool_input.get("replace_existing"):
+        if "arrangement_rides_v1" not in bridge.capabilities:
+            message = ("Entry rides and replacing the Arrangement need BeatMind Bridge 1.3.5. Click Install update in the "
+                       "Bridge window, then ask again.")
+            return {"status": "failed", "error": message, "summary": message, "steps": []}
+        request.update(rides=[{**r, "curve": r.get("curve", "logarithmic")} for r in tool_input.get("entry_rides", [])],
+                       replace_existing=bool(tool_input.get("replace_existing")))
+    return await bridge.local_operation("record_arrangement", request, timeout=bars * 4 * 60 / max(bpm, 20) + 90)
 
 
 async def _missing_instrument(track: int, bridge: BridgeConnection) -> str | None:

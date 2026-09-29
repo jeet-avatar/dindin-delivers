@@ -555,9 +555,38 @@ def register(handler, app):
                 g.name, g.timing_amount, g.random_amount, g.velocity_amount, g.quantization_amount)}
         raise ValueError("Groove action must be library, pool, clips, global, load, assign or amounts.")
 
+    def arrangement(data):
+        """Arrangement housekeeping. state: Automation Arm and clip counts. arm: set Automation Arm (so moves made
+        while recording are written as Arrangement automation). re_enable: Re-Enable Automation. clear: delete every
+        Arrangement clip (only after the user explicitly agreed to replace the Arrangement)."""
+        song = handler.song
+        action = data["action"]
+        if action == "state":
+            counts = {track.name: len(list(track.arrangement_clips)) for track in song.tracks}
+            return {"status": "observed", "automation_arm": bool(song.session_automation_record), "clips": counts,
+                    "summary": "Automation Arm is %s; %d Arrangement clip(s)." % (
+                        "on" if song.session_automation_record else "off", sum(counts.values()))}
+        if action == "arm":
+            song.session_automation_record = bool(data["on"])
+            return {"status": "verified", "automation_arm": bool(song.session_automation_record),
+                    "summary": "Automation Arm is %s." % ("on" if song.session_automation_record else "off")}
+        if action == "re_enable":
+            song.re_enable_automation()
+            return {"status": "verified", "summary": "Automation re-enabled."}
+        if action == "clear":
+            removed = 0
+            for track in song.tracks:
+                for clip in list(track.arrangement_clips):
+                    track.delete_clip(clip)
+                    removed += 1
+            left = sum(len(list(track.arrangement_clips)) for track in song.tracks)
+            return {"status": "verified" if left == 0 else "partial", "removed": removed, "left": left,
+                    "summary": "Removed %d Arrangement clip(s); %d left." % (removed, left)}
+        raise ValueError("Arrangement action must be state, arm, re_enable or clear.")
+
     for operation, function in {"catalog": catalog, "device_tree": device_tree, "clip_envelope": clip_envelope,
                                 "clip_automation": clip_automation, "mixer_state": mixer_state,
-                                "note_feel": note_feel, "groove": groove,
+                                "note_feel": note_feel, "groove": groove, "arrangement": arrangement,
                                 "control_map": control_map, "set_control": set_control, "load_item": load_item}.items():
         def callback(params, function=function):
             try:
