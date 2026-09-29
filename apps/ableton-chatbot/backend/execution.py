@@ -281,7 +281,13 @@ class VerifiedExecutor:
                 expected_notes = [n for n in before_notes
                                   if not (low <= n["pitch"] <= high and data["start"] - 1e-6 <= n["start"] < end - 1e-6)]
                 if len(expected_notes) == len(before_notes):
-                    raise ExecutionError("No notes start in that range; nothing was removed.")
+                    # Already empty is the requested end state, not a failure; say so and note held notes.
+                    held = [n for n in before_notes if low <= n["pitch"] <= high and n["start"] < data["start"]
+                            and n["start"] + n["duration"] > data["start"] + 1e-6]
+                    return {"status": "observed", "notes": before_notes, "steps": self.steps,
+                            "summary": "No notes start in that range, so nothing needed removing." + (
+                                f" {len(held)} earlier note(s) still sound into it; shorten them to empty the range."
+                                if held else "")}
         if name in {"set_device_parameter", "automate_parameter"}:
             params = (await self.perform("get_device_parameters", {"track": t, "device": data["device"]}))["parameters"]
             if data["parameter"] >= len(params):

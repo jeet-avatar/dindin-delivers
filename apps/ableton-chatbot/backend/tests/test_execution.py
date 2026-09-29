@@ -72,7 +72,9 @@ class LiveDouble:
                      for i in range(2, len(args), 5)]
             self.notes.extend(notes[:-1] if self.drop_last_note else notes)
         elif address == "/live/clip/remove/notes":
-            self.notes.clear()
+            low, span, start, length = args[2], args[3], args[4], args[5]
+            self.notes[:] = [n for n in self.notes
+                             if not (low <= n["pitch"] < low + span and start <= n["start"] < start + length)]
         elif address == "/live/clip_slot/create_clip":
             self.has_clip = 1
             self.values["/live/clip/get/length"] = [args[2]]
@@ -87,6 +89,17 @@ class ExecutionTests(unittest.IsolatedAsyncioTestCase):
 
     async def run_tool(self, name, data):
         return await execute_verified(name, data, self.live.send)
+
+    async def test_remove_notes_keeps_every_note_outside_the_range(self):
+        self.live.notes = [{"pitch": 57, "start": float(b), "duration": 0.9, "velocity": 100, "muted": False} for b in range(16)]
+        result = await self.run_tool("remove_notes", {"track": 0, "scene": 0, "start": 15, "length": 1})
+        self.assertEqual(result["status"], "verified", result)
+        self.assertEqual([n["start"] for n in self.live.notes], [float(b) for b in range(15)])
+        empty = await self.run_tool("remove_notes", {"track": 0, "scene": 0, "start": 15.5, "length": 0.5})
+        self.assertEqual(empty["status"], "observed")
+        self.assertIn("nothing needed removing", empty["summary"])
+        held = await self.run_tool("remove_notes", {"track": 0, "scene": 0, "start": 14.5, "length": 0.5})
+        self.assertIn("still sound into it", held["summary"])
 
     async def test_notes_of_an_empty_slot_answer_without_querying_notes(self):
         self.live.has_clip = 0
