@@ -1006,6 +1006,11 @@ async def _song_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection)
                            "window (your Ableton set stays open), or preview each scene on its own.")
                 return {"status": "failed", "error": message, "summary": message, "steps": []}
             request["then_scene"] = tool_input["then_scene"]
+            if "first_bars" in tool_input:
+                request["first_bars"] = tool_input["first_bars"]
+            if request["seconds"] > 16 and "scene_transition_v2" not in bridge.capabilities:
+                message = "Transition previews longer than 16 seconds need BeatMind Bridge 1.3.4; use seconds 16 or update the Bridge."
+                return {"status": "failed", "error": message, "summary": message, "steps": []}
         elif request["seconds"] > 16:
             return {"status": "failed", "summary": "A single-scene preview is at most 16 seconds.", "steps": []}
         result = await bridge.local_operation("capture_scene", request)

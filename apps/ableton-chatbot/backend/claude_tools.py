@@ -497,11 +497,12 @@ ABLETON_TOOLS.append({
 
 ABLETON_TOOLS.append({
     "name": "audition_scene",
-    "description": "Record the FULL MIX of one scene for frontend listening: every clip in the scene plays together with the user's mutes kept and solos cleared, then transport, solos and quantization are restored. Use it when the user wants to hear sections or the whole song together. Requires stopped transport. To hear a TRANSITION, pass then_scene: the scene plays from its start and the next scene launches on the bar where it ends (for example scene T3 with then_scene Drop 2, seconds 16-24), so the user hears the change itself. This pauses production for user review; do not call more tools in the same batch.",
+    "description": "Record the FULL MIX of one scene for frontend listening: every clip in the scene plays together with the user's mutes kept and solos cleared, then transport, solos and quantization are restored. Use it when the user wants to hear sections or the whole song together. Requires stopped transport. To hear a TRANSITION, pass then_scene and first_bars (how many bars the first scene plays in the song): it plays from its start and the next scene launches on that bar line (for example scene T3, first_bars 4, then_scene Drop 2, seconds 16), so the user hears the change itself. Up to 30 seconds on Bridge 1.3.4, 16 on 1.3.3. This pauses production for user review; do not call more tools in the same batch.",
     "input_schema": {"type": "object", "properties": {
         "scene": {"type": "integer", "minimum": 0},
         "then_scene": {"type": "integer", "minimum": 0},
-        "seconds": {"type": "number", "minimum": 4, "maximum": 24, "description": "Up to 16 for one scene, up to 24 with then_scene."}}, "required": ["scene"]}
+        "first_bars": {"type": "integer", "minimum": 1, "maximum": 16},
+        "seconds": {"type": "number", "minimum": 4, "maximum": 30, "description": "Up to 16 for one scene; with then_scene up to 30 (16 on Bridge 1.3.3)."}}, "required": ["scene"]}
 })
 
 ABLETON_TOOLS.append({

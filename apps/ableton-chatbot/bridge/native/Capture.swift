@@ -104,7 +104,7 @@ struct BeatMindAudio {
             emit(["authorized": CGRequestScreenCaptureAccess()])
             return
         }
-        guard args.count == 3, let duration = Double(args[2]), duration >= 1, duration <= 16 else {
+        guard args.count == 3, let duration = Double(args[2]), duration >= 1, duration <= 30 else {
             emit(["error": "Usage: BeatMindAudio output.m4a duration_seconds"])
             exit(2)
         }

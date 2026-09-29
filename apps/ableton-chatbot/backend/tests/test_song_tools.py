@@ -392,7 +392,10 @@ def test_transition_preview_needs_the_new_bridge_and_passes_then_scene():
     assert refused["status"] == "failed" and "1.3.3" in refused["summary"] and not old.local_operation.called
     new = NS(capabilities={"scene_audition_v1", "scene_transition_v1"}, user_id=3,
              local_operation=AsyncMock(return_value={"status": "failed", "error": "stop playback first"}))
-    asyncio.run(main._song_tool("audition_scene", {"scene": 7, "then_scene": 8, "seconds": 20}, new))
-    assert new.local_operation.call_args.args == ("capture_scene", {"scene": 7, "seconds": 20, "then_scene": 8})
+    too_long = asyncio.run(main._song_tool("audition_scene", {"scene": 7, "then_scene": 8, "seconds": 20}, new))
+    assert too_long["status"] == "failed" and "1.3.4" in too_long["summary"] and not new.local_operation.called
+    new.capabilities.add("scene_transition_v2")
+    asyncio.run(main._song_tool("audition_scene", {"scene": 7, "then_scene": 8, "first_bars": 4, "seconds": 20}, new))
+    assert new.local_operation.call_args.args == ("capture_scene", {"scene": 7, "seconds": 20, "then_scene": 8, "first_bars": 4})
     long_single = asyncio.run(main._song_tool("audition_scene", {"scene": 7, "seconds": 20}, new))
     assert long_single["status"] == "failed" and "16 seconds" in long_single["summary"]
