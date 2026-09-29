@@ -1,11 +1,14 @@
 """Shared loudness and spectral-balance measurement, used by mix_check, sound_comparison and bus_mastering."""
 
+import os
+from pathlib import Path
 import re
 import subprocess
 
 import numpy as np
 
 RATE = 44100
+REFERENCES_ROOT = Path(os.getenv('BEATMIND_REFERENCES_DIR', '/tmp/beatmind-references'))
 
 
 def loudness(path):
@@ -38,3 +41,14 @@ def band_shares(samples):
     total = float(spectrum[frequencies >= 20].sum()) or 1.0
     share = lambda low, high: round(100 * float(spectrum[(frequencies >= low) & (frequencies < high)].sum()) / total, 1)
     return {"low": share(20, 120), "mud": share(200, 500), "harsh": share(2000, 5000)}
+
+
+def reference_targets(reference_id):
+    """Loudness/spectral-balance profile of an uploaded reference track's full mix, for use as a mastering target."""
+    path = REFERENCES_ROOT / reference_id / "mix.wav"
+    if not path.is_file():
+        raise ValueError("That reference has no saved mix audio to measure.")
+    target_lufs, true_peak = loudness(path)
+    bands = band_shares(stereo_samples(path))
+    return {"target_lufs": round(target_lufs, 1), "reference_true_peak_dbtp": round(true_peak, 1),
+            "band_percent": bands}

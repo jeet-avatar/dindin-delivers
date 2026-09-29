@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 from scipy.io import wavfile
@@ -41,3 +42,26 @@ class LoudnessTests(unittest.TestCase):
             first = mastering.loudness(path)
             second = mastering.loudness(path)
             self.assertEqual(first, second)
+
+
+class ReferenceTargetsTests(unittest.TestCase):
+    """`REFERENCES_ROOT` is read once at import time (see Step 3), so patching the
+    BEATMIND_REFERENCES_DIR env var after import has no effect — patch the module attribute
+    directly, the same technique that already has to be used for producer_profile.ROOT elsewhere."""
+
+    def test_reads_the_reference_mix_file(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reference_id = 'a' * 32
+            (root / reference_id).mkdir()
+            wavfile.write(root / reference_id / 'mix.wav', 44100, tone(gain=0.5))
+            with mock.patch.object(mastering, 'REFERENCES_ROOT', root):
+                target = mastering.reference_targets(reference_id)
+            self.assertTrue(-20 < target['target_lufs'] < -5)
+            self.assertIn('band_percent', target)
+
+    def test_missing_reference_raises(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            with mock.patch.object(mastering, 'REFERENCES_ROOT', Path(temporary)):
+                with self.assertRaises(ValueError):
+                    mastering.reference_targets('b' * 32)
