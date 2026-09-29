@@ -911,6 +911,18 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
   on a dedicated FX track, and never put risers or throws on the kick or sub. Each move gets a reset in the next
   section. Preview the transition with the section before and after it, and let the user judge the drama.
 
+### Engineering method and rulebooks (vocals and every part)
+- For any engineering question ("why is my vocal harsh?") or processing decision, call get_engineering_rules first
+  (topics: vocal, interactions) and answer from it. Frequencies and amounts are search zones, never fixed presets.
+- Method: detect the problem, name its cause, choose the least destructive fix (dynamic if occasional, static if
+  constant), make the smallest change, level-match before and after, verify in the full mix, stop when solved. Skip
+  any stage that finds no problem. When a part is masked, lower the competing part before boosting this one.
+- Vocals: run vocal_check on a solo vocal preview (plus previews of the synths, lead and percussion for masking)
+  before processing. Order: cleanup, clip gain, high-pass if needed, corrective EQ, peak compression, de-essing, tone
+  EQ, leveling compression, saturation, parallel, reverb/delay sends (filtered, ducked from the vocal), automation.
+  Priority: intelligibility, tonal balance, dynamics, masking, character, space, effects. Never fix an
+  unintelligible vocal with reverb; keep the lead vocal centred and get width from doubles and returns.
+
 ### Choosing and balancing a lead
 - A lead must serve the groove, not cover it. Choose by: register (above the chords, clear of 200-800 Hz mud),
   brightness (not brighter than the hats), density (a hypnotic motif with space often beats constant 16ths), and

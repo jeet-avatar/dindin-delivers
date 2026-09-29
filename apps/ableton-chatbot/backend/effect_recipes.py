@@ -41,9 +41,14 @@ RECIPES = {
         ("EQ Eight", "Keep effects out of the low end", ["high-pass 300 Hz"]),
         ("Auto Filter", "Sweeps for builds", ["high-pass or low-pass, automated per section"]),
     ],
+    # Vocal stages are applied only when vocal_check (or the user's ears) finds the problem; see engineering_rules.
     "vocal": [
-        ("EQ Eight", "Clean and present", ["high-pass 100 Hz", "-2 dB around 300 Hz", "+2 dB presence at 3-5 kHz"]),
-        ("Compressor", "Steady level", ["ratio 3:1", "attack 5-10 ms", "3-5 dB gain reduction"]),
+        ("EQ Eight", "Only if rumble, mud or a resonance is found", ["high-pass searched 50-100 Hz (deep) or 70-140 Hz (higher voice), stop before thin", "mud: 1-4 dB cut, moderate Q, in 200-500 Hz where it is found"]),
+        ("Compressor", "Peak control, only if syllables leap out", ["Peak mode", "ratio 2:1-4:1", "fast-to-medium attack", "2-4 dB gain reduction"]),
+        ("Multiband Dynamics", "De-esser, only if sibilance is found", ["high band around the singer's 4-10 kHz sibilance", "compress only above threshold, no lisp"]),
+        ("EQ Eight", "Tone, only if dull after sibilance control", ["gentle air shelf 8-16 kHz", "presence only if not masked by synths"]),
+        ("Compressor", "Leveling, only if phrases still move too much", ["RMS mode", "ratio 1.5:1-3:1", "medium/slower attack", "1-3 dB gain reduction"]),
+        ("Saturator", "Only if clean but lacking density", ["Analog Clip or Soft Sine", "add until noticed, then back off"]),
     ],
 }
 
@@ -74,9 +79,9 @@ BAND_LABELS = {"25-80": "sub", "80-200": "low", "200-800": "low-mids", "800-2500
 
 def normalize_role(role):
     text = str(role or "").casefold()
-    for key, words in (("kick", ("kick",)), ("bass", ("bass", "sub")), ("percussion", ("perc", "shaker", "conga", "tom")),
+    for key, words in (("vocal", ("vocal", "vox", "voice")), ("kick", ("kick",)), ("bass", ("bass", "sub")), ("percussion", ("perc", "shaker", "conga", "tom")),
                        ("drums", ("drum", "clap", "snare", "hat", "cymbal")), ("chords", ("chord", "pad", "keys", "stab")),
-                       ("lead", ("lead", "pluck", "arp", "synth", "melody")), ("vocal", ("vocal", "vox")),
+                       ("lead", ("lead", "pluck", "arp", "synth", "melody")),
                        ("fx", ("fx", "riser", "sweep", "impact"))):
         if any(word in text for word in words):
             return key
