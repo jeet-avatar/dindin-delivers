@@ -134,6 +134,7 @@ async def record_arrangement(bridge, sections, rides=None, replace_existing=Fals
         if occupied and replace_existing:
             cleared = await extension({"action": "clear"})
             steps.append({"number": len(steps) + 1, "kind": "note", "summary": cleared.get("summary"), "status": "ok", "elapsed_ms": 0})
+            await asyncio.sleep(0.5)
             occupied = [names[i] for i in range(len(names)) if len((await query("/live/track/get/arrangement_clips/name", [i]))[1:])]
         if occupied:
             raise RuntimeError("The Arrangement already has clips on " + ", ".join(occupied) +

@@ -567,9 +567,10 @@ def register(handler, app):
                     "summary": "Automation Arm is %s; %d Arrangement clip(s)." % (
                         "on" if song.session_automation_record else "off", sum(counts.values()))}
         if action == "arm":
+            # Live applies the change on its next tick, so report the requested state; read state to confirm.
             song.session_automation_record = bool(data["on"])
-            return {"status": "verified", "automation_arm": bool(song.session_automation_record),
-                    "summary": "Automation Arm is %s." % ("on" if song.session_automation_record else "off")}
+            return {"status": "sent", "automation_arm": bool(data["on"]),
+                    "summary": "Automation Arm set %s." % ("on" if data["on"] else "off")}
         if action == "re_enable":
             song.re_enable_automation()
             return {"status": "verified", "summary": "Automation re-enabled."}
@@ -579,9 +580,8 @@ def register(handler, app):
                 for clip in list(track.arrangement_clips):
                     track.delete_clip(clip)
                     removed += 1
-            left = sum(len(list(track.arrangement_clips)) for track in song.tracks)
-            return {"status": "verified" if left == 0 else "partial", "removed": removed, "left": left,
-                    "summary": "Removed %d Arrangement clip(s); %d left." % (removed, left)}
+            return {"status": "sent", "removed": removed,
+                    "summary": "Deleted %d Arrangement clip(s); read the Arrangement again to confirm." % removed}
         raise ValueError("Arrangement action must be state, arm, re_enable or clear.")
 
     for operation, function in {"catalog": catalog, "device_tree": device_tree, "clip_envelope": clip_envelope,
