@@ -28,6 +28,16 @@ class Parameter:
 
 
 class MappingTests(unittest.TestCase):
+    def test_minus_inf_db_means_fully_off(self):
+        class Send:
+            name, min, max, value, is_enabled, is_quantized, state, automation_state = "B-Delay", 0.0, 1.0, 0.0, True, False, 0, 0
+            def str_for_value(self, v):
+                return "-inf dB" if v <= 0 else f"{20 * math.log10(v):.1f} dB"
+        self.assertEqual(extension.native_value(Send(), "-inf", "dB"), 0.0)
+        self.assertEqual(extension.native_value(Send(), "\u2212inf", "dB"), 0.0)
+        with self.assertRaises(ValueError):
+            extension.native_value(Parameter("Frequency"), "-inf", "Hz")
+
     def test_mixer_state_reads_sends_as_live_displays_them(self):
         def parameter(text, automated=0):
             return SimpleNamespace(value=0.5, automation_state=automated, str_for_value=lambda v: text)

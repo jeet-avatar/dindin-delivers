@@ -81,8 +81,14 @@ def native_value(parameter, value, unit, nearest=False):
         if len(matches) != 1 or len(choices) != int(parameter.max - parameter.min + 1):
             raise ValueError("Enum label is unavailable or ambiguous; inspect the control map.")
         return parameter.min + matches[0]
+    if unit == "dB" and str(value).strip().replace("\u2212", "-").casefold() in ("-inf", "-infinity"):
+        # Off: the end of the range that Live shows as "-inf dB" (a send or gain turned fully down).
+        for end in (parameter.min, parameter.max):
+            if parse_display(parameter.str_for_value(end))[0] == float("-inf"):
+                return end
+        raise ValueError("This control has no -inf dB (off) position.")
     if type(value) not in (int, float) or not math.isfinite(value):
-        raise ValueError("A finite numeric value is required.")
+        raise ValueError("A finite numeric value is required (or -inf for a dB control that can be fully off).")
     if unit == "native":
         candidate = value
     elif unit == "normalized":
@@ -319,6 +325,10 @@ def register(handler, app):
         if envelope is None:
             raise ValueError("Live does not allow automation of this control in a clip.")
         written = 0
+        for start, end in zip(points, points[1:]):
+            if (start.get("curve") != "step" and str(start["value"]) != str(end["value"])
+                    and "inf" in (str(start["value"]) + str(end["value"])).casefold()):
+                raise ValueError("A move to or from -inf dB (off) must use a step curve; ramp from a finite level such as -60 dB instead.")
         for start, end in zip(points, points[1:]):
             span = end["beat"] - start["beat"]
             count = max(1, int(math.ceil(span / step - 1e-9)))
