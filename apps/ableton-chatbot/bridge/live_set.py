@@ -34,6 +34,22 @@ async def window_title():
     end tell''')
 
 
+async def empty_set(bridge, track_count):
+    """True when no track has a Session clip or an Arrangement clip."""
+    scenes = await bridge._query_osc("new-set-check", "/live/song/get/num_scenes", [], 4)
+    if scenes.get("status") != "ok":
+        return False
+    for track in range(track_count):
+        arranged = await bridge._query_osc("new-set-check", "/live/track/get/arrangement_clips/name", [track], 4)
+        if arranged.get("status") != "ok" or len(arranged.get("args", [])) > 1:
+            return False
+        for scene in range(scenes["args"][-1]):
+            slot = await bridge._query_osc("new-set-check", "/live/clip_slot/get/has_clip", [track, scene], 4)
+            if slot.get("status") != "ok" or slot["args"][-1]:
+                return False
+    return True
+
+
 async def live_set_operation(bridge, operation):
     if sys.platform != "darwin":
         return {"status": "failed", "summary": "Automatic File-menu actions currently require macOS. Save and open a new set in Ableton manually."}
@@ -45,25 +61,23 @@ async def live_set_operation(bridge, operation):
             return {"status": "observed", "summary": "Ableton brought forward. No set was changed."}
         title = await window_title()
         if operation in MENUS:
-            if operation == "new" and title.casefold().startswith("untitled"):
-                return {"status": "awaiting_user", "summary": "Save the current untitled set with a name first, then choose Open new Live Set. This lets BeatMind distinguish the new set from the current one."}
             await applescript(f'''tell application "System Events"
                 tell {PROCESS}
                     set frontmost to true
                     click menu item "{MENUS[operation]}" of menu 1 of menu bar item "File" of menu bar 1
                 end tell
             end tell''')
-            if operation == "new":
-                bridge.new_set_previous_title = title
             return {"status": "awaiting_user", "summary": (
                 "Save requested. Complete any save-location dialog in Ableton before opening a new set."
-                if operation == "save" else "New Live Set requested. If Ableton asks to save, choose Save and finish that dialog. BeatMind will not discard your work.")}
+                if operation == "save" else "New Live Set requested. If Ableton asks to save, choose Save to keep your work, "
+                "or Don't Save if you chose to close it. BeatMind never answers that dialog for you.")}
         state = await bridge._query_osc("new-set-check", "/live/song/get/track_names", [], 4)
         if state.get("status") != "ok":
             return {"status": "unverified", "summary": "Ableton is not responding yet. Finish its dialogs and check again."}
-        previous = getattr(bridge, "new_set_previous_title", None)
-        fresh = bool(previous and previous != title and title.casefold().startswith("untitled"))
+        # A set is ready for a new song when it is untitled and empty. No title comparison is needed, so this works
+        # when Live was just launched (the current set is already "Untitled") and after "Close it without saving".
+        fresh = title.casefold().startswith("untitled") and await empty_set(bridge, len(state.get("args", [])))
         return {"status": "observed", "title": title, "tracks": state.get("args", []), "new_set_ready": fresh,
-                "summary": "A new untitled Live Set is open and responding." if fresh else "Current set inspected. A new untitled set has not been confirmed; no production will start automatically."}
+                "summary": "A new, empty Live Set is open and responding." if fresh else "Current set inspected. It is not a new empty set (it is saved or already has clips); no production will start automatically."}
     except Exception as error:
         return {"status": "failed", "summary": "Unable to complete the Live Set step: " + str(error)}
