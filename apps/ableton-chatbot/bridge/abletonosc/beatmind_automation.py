@@ -317,14 +317,16 @@ def register(handler, app):
                 raise ValueError("Device mapping changed. Discover the controls again before writing.")
             index, parameter = resolve_parameter(device.parameters, data["control"])
         points = sorted(data["points"], key=lambda point: point["beat"])
-        if len(points) < 2 or points[0]["beat"] < 0 or points[-1]["beat"] > clip.length + 1e-6:
+        if (len(points) < 2 or any(not math.isfinite(point["beat"]) for point in points)
+                or points[0]["beat"] < 0 or points[-1]["beat"] > clip.length + 1e-6):
             raise ValueError("Give at least two points inside the clip (0 to %.2f beats)." % clip.length)
+        if any(end["beat"] <= start["beat"] for start, end in zip(points, points[1:])):
+            raise ValueError("Automation points must have distinct beat positions.")
         step = 1.0 / max(1, min(16, int(data.get("steps_per_beat", 4))))
-        clip.clear_envelope(parameter)
-        envelope = clip.automation_envelope(parameter) or clip.create_automation_envelope(parameter)
-        if envelope is None:
-            raise ValueError("Live does not allow automation of this control in a clip.")
-        written = 0
+        # Validate and convert the entire replacement before clearing an approved envelope.
+        for point in points:
+            native_value(parameter, point["value"], data["unit"], nearest=True)
+        planned = []
         for start, end in zip(points, points[1:]):
             if (start.get("curve") != "step" and str(start["value"]) != str(end["value"])
                     and "inf" in (str(start["value"]) + str(end["value"])).casefold()):
@@ -343,11 +345,26 @@ def register(handler, app):
                 else:
                     value = curve_value(start["value"], end["value"], fraction, start.get("curve", "linear"))
                 native = native_value(parameter, value, data["unit"], nearest=True)
-                envelope.insert_step(beat, min(step, end["beat"] - beat), native)
-                written += 1
+                planned.append((beat, min(step, end["beat"] - beat), native))
+        envelope = clip.automation_envelope(parameter) or clip.create_automation_envelope(parameter)
+        if envelope is None:
+            raise ValueError("Live does not allow automation of this control in a clip.")
+        clip.clear_envelope(parameter)
+        envelope = clip.automation_envelope(parameter) or clip.create_automation_envelope(parameter)
+        if envelope is None:
+            raise ValueError("Automation was cleared but could not be recreated; inspect this clip before retrying.")
+        for beat, length, native in planned:
+            envelope.insert_step(beat, length, native)
+        written = len(planned)
+        tolerance = max(1e-6, (parameter.max - parameter.min) * 1e-5)
+        observed = [envelope.value_at_time(beat + length / 2) for beat, length, _ in planned]
+        if any(not math.isfinite(actual) or abs(actual - native) > tolerance
+               for actual, (_, _, native) in zip(observed, planned)):
+            return {"status": "partial", "summary": "Automation was written but its readback differs; inspect the clip before retrying.",
+                    "control": {"index": index, "name": parameter.name}}
         # Read inside the first and last steps; exactly at a step boundary Live can report the previous value.
-        first = parameter.str_for_value(envelope.value_at_time(points[0]["beat"] + step / 2))
-        last = parameter.str_for_value(envelope.value_at_time(max(points[-1]["beat"] - step / 2, 0)))
+        first = parameter.str_for_value(observed[0])
+        last = parameter.str_for_value(observed[-1])
         return {"status": "verified", "summary": "%s automated in the clip from %s to %s over %.1f beats (%d steps)." % (
                     parameter.name, first, last, points[-1]["beat"] - points[0]["beat"], written),
                 "control": {"index": index, "name": parameter.name}, "start_display": first, "end_display": last}
