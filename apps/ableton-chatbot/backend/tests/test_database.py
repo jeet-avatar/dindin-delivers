@@ -25,6 +25,7 @@ class DatabaseTests(unittest.TestCase):
         finally:
             connection.close()
 
+    @unittest.skipIf(database.is_postgres(), "SQLite-only: journal-mode/PRAGMA behavior")
     def test_production_uses_rollback_journal_and_preserves_existing_accounts(self):
         with patch.dict(os.environ, {"ENV": "development", "DB_JOURNAL_MODE": "WAL"}):
             database.init_db()
@@ -35,6 +36,7 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(self.journal(), "delete")
         self.assertEqual(database.get_user_by_id(user["id"])["email"], user["email"])
 
+    @unittest.skipIf(database.is_postgres(), "SQLite-only: journal-mode/PRAGMA behavior")
     def test_account_reads_do_not_reconfigure_journaling(self):
         with patch.dict(os.environ, {"ENV": "production"}, clear=True):
             database.init_db()
@@ -50,6 +52,7 @@ class DatabaseTests(unittest.TestCase):
             self.assertIsNone(database.get_user_by_id(1))
         self.assertFalse(any("journal_mode" in query.lower() for query in statements))
 
+    @unittest.skipIf(database.is_postgres(), "SQLite-only: journal-mode/PRAGMA behavior")
     def test_concurrent_account_reads_and_updates(self):
         with patch.dict(os.environ, {"ENV": "production"}, clear=True):
             database.init_db()
@@ -73,6 +76,7 @@ class DatabaseTests(unittest.TestCase):
                 raise RuntimeError("rollback")
         self.assertIsNone(database.get_user_by_email("rollback@example.invalid"))
 
+    @unittest.skipIf(database.is_postgres(), "SQLite-only: journal-mode/PRAGMA behavior")
     def test_rejects_invalid_journal_configuration(self):
         with patch.dict(os.environ, {"DB_JOURNAL_MODE": "OFF"}):
             with self.assertRaises(ValueError):

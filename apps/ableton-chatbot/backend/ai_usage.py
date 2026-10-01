@@ -24,7 +24,7 @@ import os
 
 from fastapi import HTTPException
 
-from database import add_columns, db
+from database import add_columns, autoincrement_pk, db, now_sql
 
 log = logging.getLogger("beatmind.ai_usage")
 
@@ -47,9 +47,9 @@ TRIAL_MESSAGE = "Your free trial's AI messages are used up. Choose a plan to kee
 
 
 def init(conn):
-    conn.execute("""
+    conn.execute(f"""
         CREATE TABLE IF NOT EXISTS ai_usage (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {autoincrement_pk()},
             user_id INTEGER,
             feature TEXT NOT NULL,
             request_id TEXT,
@@ -62,7 +62,7 @@ def init(conn):
             audio_input_tokens INTEGER NOT NULL DEFAULT 0,
             estimated_usd REAL NOT NULL DEFAULT 0,
             rate_basis TEXT NOT NULL,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TEXT DEFAULT ({now_sql()})
         )""")
     add_columns(conn, 'ai_usage', {'request_id': 'TEXT'})
     conn.execute("CREATE INDEX IF NOT EXISTS ai_usage_user ON ai_usage (user_id, created_at)")
@@ -157,7 +157,8 @@ def month_to_date(user_id, tier):
         row = conn.execute("""SELECT COUNT(*) AS calls, COALESCE(SUM(estimated_usd), 0) AS usd,
                               COALESCE(SUM(input_tokens), 0) AS input, COALESCE(SUM(output_tokens), 0) AS output,
                               COALESCE(SUM(cache_read_tokens), 0) AS cache_read, COALESCE(SUM(cache_write_tokens), 0) AS cache_write,
-                              COALESCE(SUM(audio_input_tokens), 0) AS audio, COALESCE(SUM(rate_basis = 'placeholder'), 0) AS placeholder
+                              COALESCE(SUM(audio_input_tokens), 0) AS audio,
+                              COALESCE(SUM(CASE WHEN rate_basis = 'placeholder' THEN 1 ELSE 0 END), 0) AS placeholder
                               FROM ai_usage WHERE user_id=? AND substr(created_at, 1, 7)=?""",
                            (user_id, datetime.now(timezone.utc).strftime('%Y-%m'))).fetchone()
     cap = cap_usd(tier)
@@ -210,7 +211,7 @@ def trial_limits():
 def trial_usage(user_id):
     """AI used during the free trial (all of the user's usage: the trial is their first week)."""
     with db() as conn:
-        row = conn.execute("""SELECT COUNT(DISTINCT CASE WHEN feature='chat' THEN COALESCE(request_id, id) END) AS messages,
+        row = conn.execute("""SELECT COUNT(DISTINCT CASE WHEN feature='chat' THEN COALESCE(request_id, CAST(id AS TEXT)) END) AS messages,
                               COALESCE(SUM(estimated_usd), 0) AS usd FROM ai_usage WHERE user_id=?""", (user_id,)).fetchone()
     limits = trial_limits()
     return {'chat_messages': row['messages'], 'estimated_usd': round(row['usd'], 4), 'limits': limits,

@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 import ai_usage
 import billing
 import catalog
+import database
 from database import db, is_subscribed, mixmind_access, parse_utc, subscription_access
 
 log = logging.getLogger("beatmind.stripe")
@@ -342,15 +343,19 @@ def _iso(timestamp):
 
 
 def _find_user(conn, subscription, user_id=None):
+    """Looks up the matching user row. Inside apply_subscription's transaction on Postgres, this also
+    locks whichever row is found (FOR UPDATE) so a second webhook for the same user waits its turn;
+    SQLite never runs two of these at once, so no lock keyword is needed there."""
+    lock = " FOR UPDATE" if database.is_postgres() else ""
     metadata = _field(subscription, "metadata", {})
     if not user_id and _field(metadata, "app") == APP:
         user_id = _field(metadata, "user_id")
     if str(user_id or "").isdigit():
-        row = conn.execute("SELECT * FROM users WHERE id=?", (int(user_id),)).fetchone()
+        row = conn.execute(f"SELECT * FROM users WHERE id=?{lock}", (int(user_id),)).fetchone()
         if row:
             return dict(row)
     for column, value in (("subscription_id", subscription["id"]), ("stripe_customer_id", _id(_field(subscription, "customer")))):
-        row = conn.execute(f"SELECT * FROM users WHERE {column}=?", (value,)).fetchone() if value else None
+        row = conn.execute(f"SELECT * FROM users WHERE {column}=?{lock}", (value,)).fetchone() if value else None
         if row:
             return dict(row)
     return None
@@ -402,7 +407,8 @@ def apply_subscription(subscription, user_id=None, legacy=False) -> bool:
     """Copy a subscription's status and plan onto its user. Returns False when it belongs to no user or is stale."""
     status = subscription["status"]
     with db() as conn:
-        conn.execute("BEGIN IMMEDIATE")
+        if not database.is_postgres():
+            conn.execute("BEGIN IMMEDIATE")  # SQLite: _find_user below carries no lock keyword.
         user = _find_user(conn, subscription, user_id)
         if not user:
             log.warning("Subscription %s matches no BeatMind user", subscription["id"])
@@ -523,5 +529,5 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         log.exception("Stripe webhook %s (%s) failed; Stripe will retry", event_id, event["type"])
         raise HTTPException(500, "Webhook handling failed")
     with db() as conn:
-        conn.execute("INSERT OR IGNORE INTO stripe_events (id, type) VALUES (?, ?)", (event_id, event["type"]))
+        conn.execute("INSERT INTO stripe_events (id, type) VALUES (?, ?) ON CONFLICT (id) DO NOTHING", (event_id, event["type"]))
     return {"received": True}
