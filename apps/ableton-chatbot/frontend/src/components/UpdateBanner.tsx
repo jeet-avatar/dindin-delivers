@@ -56,7 +56,8 @@ export default function UpdateBanner() {
     </span>}
     {notice.bridge && (legacy
       ? <span>BeatMind Bridge {notice.bridge} is available{notes ? `: ${notes}` : "."} <a href={download} className="underline">Download it</a>, then replace the old app when your song is saved.</span>
-      : <span>BeatMind Bridge {notice.bridge} is available. Click Install update in the Bridge window when you are ready.</span>)}
+      : <span>BeatMind Bridge {notice.bridge} is available{notes ? `: ${notes}` : "."} Click Install update in the Bridge window when you are ready.</span>)}
+    {notice.bridge && <a href="/changelog" className="underline whitespace-nowrap">Full changelog</a>}
     <button type="button" onClick={() => setDismissed(true)} className="ml-auto text-xs underline">Later</button>
   </div>;
 }

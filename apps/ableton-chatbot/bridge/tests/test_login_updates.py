@@ -90,6 +90,27 @@ class SavedSignInTests(unittest.TestCase):
         thread.assert_not_called()
         self.assertIn('separating', self.app.update_label.cget('text'))
 
+    def test_update_shows_whats_new_when_the_manifest_has_notes(self):
+        self.app, _ = make_app(None)
+        self.app._show_update({'version': '9.9.9', 'url': 'https://www.beatmind.io/x.dmg', 'sha256': '0' * 64,
+                               'notes': 'longer transition previews'})
+        text = self.app.update_label.cget('text')
+        self.assertIn('9.9.9', text)
+        self.assertIn('longer transition previews', text)
+
+    def test_update_falls_back_cleanly_when_the_manifest_has_no_notes(self):
+        self.app, _ = make_app(None)
+        self.app._show_update({'version': '9.9.9', 'url': 'https://www.beatmind.io/x.dmg', 'sha256': '0' * 64})
+        text = self.app.update_label.cget('text')
+        self.assertIn('9.9.9', text)
+        self.assertNotIn('What\'s new', text)
+
+    def test_changelog_link_opens_the_website_changelog(self):
+        self.app, _ = make_app(None)
+        with patch.object(bridge_app.webbrowser, 'open') as opened:
+            self.app._open_changelog()
+        opened.assert_called_once_with('https://www.beatmind.io/changelog')
+
 
 class RejectionTests(unittest.TestCase):
     def test_only_auth_failures_sign_out(self):
