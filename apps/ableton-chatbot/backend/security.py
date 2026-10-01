@@ -191,10 +191,11 @@ _token_tables_ready: set[str] = set()
 
 
 def _token_table(conn, kind: str) -> str:
+    from database import now_sql
     table = _TOKEN_TABLES[kind]
     if table not in _token_tables_ready:
         conn.execute(f"""CREATE TABLE IF NOT EXISTS {table} (
-            jti TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TEXT DEFAULT (datetime('now')),
+            jti TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TEXT DEFAULT ({now_sql()}),
             last_seen TEXT, revoked INTEGER NOT NULL DEFAULT 0)""")
         _token_tables_ready.add(table)
     return table
@@ -234,7 +235,8 @@ def _app_token_owner(kind: str, token: str) -> int | None:
         row = conn.execute(f"SELECT user_id, revoked FROM {table} WHERE jti=?", (claims["jti"],)).fetchone()
         if not row or row[1] or str(row[0]) != claims["sub"]:
             return None
-        conn.execute(f"UPDATE {table} SET last_seen=datetime('now') WHERE jti=?", (claims["jti"],))
+        from database import now_sql
+        conn.execute(f"UPDATE {table} SET last_seen={now_sql()} WHERE jti=?", (claims["jti"],))
         return int(row[0])
 
 

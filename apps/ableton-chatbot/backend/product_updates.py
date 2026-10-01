@@ -8,7 +8,7 @@ import os
 import time
 from html import escape
 
-from database import db
+from database import db, now_sql
 from email_transport import send_email
 
 API_URL = os.getenv("SERVER_URL", "https://api.beatmind.io").rstrip("/")
@@ -17,12 +17,12 @@ SEND_INTERVAL_SECONDS = float(os.getenv("BEATMIND_EMAIL_INTERVAL", "1.1"))  # SE
 
 
 def init(conn):
-    conn.execute("""CREATE TABLE IF NOT EXISTS email_preferences (
+    conn.execute(f"""CREATE TABLE IF NOT EXISTS email_preferences (
         user_id INTEGER PRIMARY KEY, product_updates INTEGER NOT NULL DEFAULT 1,
-        updated_at TEXT DEFAULT (datetime('now')))""")
-    conn.execute("""CREATE TABLE IF NOT EXISTS email_sends (
+        updated_at TEXT DEFAULT ({now_sql()}))""")
+    conn.execute(f"""CREATE TABLE IF NOT EXISTS email_sends (
         campaign TEXT NOT NULL, user_id INTEGER NOT NULL, message_id TEXT,
-        sent_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (campaign, user_id))""")
+        sent_at TEXT DEFAULT ({now_sql()}), PRIMARY KEY (campaign, user_id))""")
 
 
 def unsubscribe_token(user_id: int) -> str:
@@ -42,8 +42,8 @@ def unsubscribe(token: str) -> bool:
         return False
     with db() as conn:
         init(conn)
-        conn.execute("""INSERT INTO email_preferences (user_id, product_updates) VALUES (?, 0)
-                        ON CONFLICT(user_id) DO UPDATE SET product_updates=0, updated_at=datetime('now')""",
+        conn.execute(f"""INSERT INTO email_preferences (user_id, product_updates) VALUES (?, 0)
+                        ON CONFLICT(user_id) DO UPDATE SET product_updates=0, updated_at={now_sql()}""",
                      (int(claims["sub"]),))
     return True
 
@@ -96,7 +96,8 @@ def send_campaign(campaign, subject, headline, lines, cta_label, cta_url, only_e
             errors.append((user["email"], type(error).__name__))
             continue
         with db() as conn:
-            conn.execute("INSERT OR IGNORE INTO email_sends (campaign, user_id, message_id) VALUES (?, ?, ?)",
+            conn.execute("""INSERT INTO email_sends (campaign, user_id, message_id) VALUES (?, ?, ?)
+                            ON CONFLICT (campaign, user_id) DO NOTHING""",
                          (campaign, user["id"], message_id))
         sent += 1
         if index + 1 < len(targets):

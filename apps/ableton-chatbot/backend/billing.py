@@ -17,7 +17,8 @@ import os
 import re
 
 import catalog
-from database import add_columns, db, subscription_access, trial_active
+import database
+from database import add_columns, autoincrement_pk, db, now_sql, subscription_access, trial_active
 
 KINDS = ('track', 'cloud')
 MODES = ('local', 'cloud', 'server')
@@ -106,27 +107,27 @@ def allowance(user):
 
 
 def init(conn):
-    conn.execute("""
+    conn.execute(f"""
         CREATE TABLE IF NOT EXISTS credit_ledger (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {autoincrement_pk()},
             user_id INTEGER NOT NULL,
             kind TEXT NOT NULL,
             delta INTEGER NOT NULL,
             reason TEXT NOT NULL,
             reference_id TEXT,
             stripe_session TEXT UNIQUE,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TEXT DEFAULT ({now_sql()})
         )""")
-    conn.execute("""
+    conn.execute(f"""
         CREATE TABLE IF NOT EXISTS separations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {autoincrement_pk()},
             user_id INTEGER NOT NULL,
             reference_id TEXT UNIQUE NOT NULL,
             mode TEXT NOT NULL,
             source TEXT NOT NULL,
             cloud INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'charged',
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TEXT DEFAULT ({now_sql()})
         )""")
     # Where the cloud track came from: 'allowance' or 'credit'. NULL on older rows, which always used a credit.
     add_columns(conn, 'separations', {'cloud_source': 'TEXT'})
@@ -226,7 +227,12 @@ def charge(user_id, reference_id, mode):
     assert mode in MODES
     is_enforced = enforced()  # May load the Stripe catalog: never inside the write lock.
     with db() as conn:
-        conn.execute('BEGIN IMMEDIATE')  # Check and spend under one write lock.
+        if database.is_postgres():
+            # Lock this user's row for the transaction: serializes concurrent charge() calls for
+            # the same user (two separations racing the same balance) without blocking other users.
+            conn.execute("SELECT id FROM users WHERE id=? FOR UPDATE", (user_id,))
+        else:
+            conn.execute('BEGIN IMMEDIATE')  # SQLite's single writer: this is the whole database's lock.
         if conn.execute("SELECT 1 FROM separations WHERE reference_id=?", (reference_id,)).fetchone():
             return
         source, cloud_source = _sources(conn, user_id, mode, is_enforced)
@@ -244,8 +250,13 @@ def refund(reference_id):
     Allowance and trial tracks come back by marking the separation refunded; purchased credits are re-added.
     """
     with db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
-        row = conn.execute("SELECT * FROM separations WHERE reference_id=? AND status='charged'", (reference_id,)).fetchone()
+        if database.is_postgres():
+            # Lock the matching row itself (if any) for the transaction.
+            row = conn.execute("SELECT * FROM separations WHERE reference_id=? AND status='charged' FOR UPDATE",
+                               (reference_id,)).fetchone()
+        else:
+            conn.execute('BEGIN IMMEDIATE')
+            row = conn.execute("SELECT * FROM separations WHERE reference_id=? AND status='charged'", (reference_id,)).fetchone()
         if not row:
             return
         if row['source'] == 'credit':
@@ -270,6 +281,7 @@ def grant(user_id, pack_id, stripe_session, kind=None, credits=None):
     if not item:
         return False
     with db() as conn:
-        cursor = conn.execute("""INSERT OR IGNORE INTO credit_ledger (user_id, kind, delta, reason, stripe_session)
-                                 VALUES (?, ?, ?, ?, ?)""", (user_id, item['kind'], item['credits'], 'purchase:' + pack_id, stripe_session))
+        cursor = conn.execute("""INSERT INTO credit_ledger (user_id, kind, delta, reason, stripe_session)
+                                 VALUES (?, ?, ?, ?, ?) ON CONFLICT (stripe_session) DO NOTHING""",
+                             (user_id, item['kind'], item['credits'], 'purchase:' + pack_id, stripe_session))
         return cursor.rowcount == 1

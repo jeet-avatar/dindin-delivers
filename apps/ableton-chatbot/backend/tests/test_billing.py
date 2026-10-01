@@ -956,6 +956,7 @@ class UsageCallSiteTests(unittest.IsolatedAsyncioTestCase):
 
 
 class MigrationTests(unittest.TestCase):
+    @unittest.skipIf(database.is_postgres(), "SQLite-only: simulates a pre-plans SQLite file on disk")
     def test_startup_adds_plan_columns_to_an_existing_database_without_losing_rows(self):
         with tempfile.TemporaryDirectory() as folder:
             path = str(Path(folder) / "old.db")
