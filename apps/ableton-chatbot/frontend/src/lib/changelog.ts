@@ -9,6 +9,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.3.6",
+    date: "2026-09-30",
+    notes: [
+      "Bridge's update prompt now tells you what's new before you install, with a link to the full changelog.",
+    ],
+  },
+  {
     version: "1.3.5",
     date: "2026-09-29",
     notes: [
