@@ -198,12 +198,18 @@ class BeatMindBridgeApp:
 
         # ── Update (installed only when the user clicks) ──
         self.update_frame = tk.Frame(self.root, bg=BG)
-        self.update_label = tk.Label(self.update_frame, text="", font=self.font_small, bg=BG, fg=ACCENT,
-                                     wraplength=250, justify='left')
-        self.update_label.pack(side="left")
+        update_text_frame = tk.Frame(self.update_frame, bg=BG)
+        update_text_frame.pack(side="left", fill="x", expand=True)
+        self.update_label = tk.Label(update_text_frame, text="", font=self.font_small, bg=BG, fg=ACCENT,
+                                     wraplength=230, justify='left')
+        self.update_label.pack(anchor="w")
+        changelog_link = tk.Label(update_text_frame, text="Full changelog ↗", font=self.font_small,
+                                  bg=BG, fg=TEXT_DIM, cursor="hand2")
+        changelog_link.pack(anchor="w", pady=(2, 0))
+        changelog_link.bind("<Button-1>", lambda _e: self._open_changelog())
         self.update_btn = ttk.Button(self.update_frame, text='Install update', style='Disconnect.TButton',
                                      command=self._install_update, takefocus=True)
-        self.update_btn.pack(side="right")
+        self.update_btn.pack(side="right", anchor="n")
 
         # ── Footer ──
         tk.Label(self.root, text=f"BeatMind Bridge {BRIDGE_VERSION} by Zietra Technologies Inc.",
@@ -220,6 +226,9 @@ class BeatMindBridgeApp:
             webbrowser.open(CHAT_URL)
         else:
             self._connect()
+
+    def _open_changelog(self):
+        webbrowser.open(f"{CHAT_URL.rsplit('/', 1)[0]}/changelog")
 
     def _connect(self):
         if self.busy or self.connected:
@@ -410,7 +419,9 @@ class BeatMindBridgeApp:
 
     def _show_update(self, latest):
         self.latest = latest
-        self.update_label.config(text=f"BeatMind Bridge {latest['version']} is available. "
+        notes = str(latest.get('notes') or '').strip()
+        whats_new = f" What's new: {notes}." if notes else ''
+        self.update_label.config(text=f"BeatMind Bridge {latest['version']} is available.{whats_new} "
                                       "Your Ableton set stays open.", fg=ACCENT)
         self.update_btn.config(state='normal')
         self.update_frame.pack(pady=(14, 0), fill="x", padx=24)
