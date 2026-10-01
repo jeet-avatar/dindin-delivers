@@ -40,7 +40,7 @@ jobs:
         env:
           PYTHON_DOTENV_DISABLED: '1'
         run: |
-          pip install -r requirements.txt -r requirements-test.txt -r ../bridge/requirements.txt
+          pip install -r requirements.txt -r requirements-test.txt -r requirements-reference.txt -r ../bridge/requirements.txt
           python -m unittest discover -s tests
       - name: Frontend regression tests and production build
         working-directory: apps/ableton-chatbot/frontend
