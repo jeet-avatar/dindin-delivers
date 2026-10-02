@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { liveSetMessage } from "@/lib/live-set-status";
 
@@ -15,25 +15,34 @@ export default function NewSongDialog({ sessionId, onCancel, onReady }: {
   const [ready, setReady] = useState(false);
   const [title, setTitle] = useState("");
   const [tracks, setTracks] = useState<string[]>([]);
+  const [diagnostics, setDiagnostics] = useState<unknown>(null);
+  const inspectedSession = useRef<string | null>(null);
   // A new set replaces what is open in Ableton, so the user must first save it or choose to close it.
   const [current, setCurrent] = useState<"saved" | "close" | null>(null);
   useEffect(() => { dialog.current?.showModal(); }, []);
 
-  async function step(operation: string) {
-    setBusy(true); setError(false); setReady(false);
+  const step = useCallback(async (operation: string) => {
+    setBusy(true); setError(false); setReady(false); setTitle(""); setTracks([]); setDiagnostics(null);
+    setSummary(operation === "inspect" ? "Checking your open Live Set..." : "Waiting for Ableton...");
     try {
       const response = await apiFetch("/api/live-set", { method: "POST", body: JSON.stringify({ operation, session_id: sessionId }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail || "Live Set setup is unavailable.");
       const failed = ["failed", "unverified"].includes(result.status);
-      setSummary(result.summary); setError(failed);
+      setSummary(result.summary); setError(failed); setDiagnostics(result.diagnostics || null);
       if (operation === "save" && !failed) setCurrent("saved");
       if (operation === "inspect") {
         setReady(result.new_set_ready === true); setTitle(result.title || ""); setTracks(result.tracks || []);
       }
     } catch (error) { setError(true); setSummary(error instanceof Error ? error.message : "Live Set setup failed."); }
     finally { setBusy(false); }
-  }
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (inspectedSession.current === sessionId) return;
+    inspectedSession.current = sessionId;
+    void step("inspect");
+  }, [sessionId, step]);
 
   async function start(fresh: boolean) {
     setBusy(true);
@@ -62,13 +71,16 @@ export default function NewSongDialog({ sessionId, onCancel, onReady }: {
       </div>
       <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>
         {current === null && "First save the set that is open in Ableton, or choose to close it. "}
-        {current === "saved" && "Current set saved. "}
+        {current === "saved" && "Save requested. Complete any save prompt in Ableton. "}
         {current === "close" && "When Ableton asks to save, choose Don't Save. "}
         Existing chats and sound reviews stay saved. Any save-location prompt must be completed in Ableton.</p>
       <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
         A new Live Set starts from your Ableton default set. For a clean BeatMind layout, set up the BeatMind Starter template from Downloads first.</p>
       {summary && <p role={error ? "alert" : "status"} className={`text-sm mt-3 ${error ? "text-red-300" : "text-emerald-200"}`}>{liveSetMessage(summary)}</p>}
-      {liveSetMessage(summary) !== summary && <details className="mt-2 text-xs break-words"><summary>Technical details</summary>{summary}</details>}
+      {error && <button disabled={busy} onClick={() => step("inspect")} className={`${button} mt-3`}>Retry inspection</button>}
+      {(liveSetMessage(summary) !== summary || !!diagnostics) && <details className="mt-2 text-xs break-words"><summary>Technical details</summary>
+        {summary}<pre className="whitespace-pre-wrap">{diagnostics ? JSON.stringify(diagnostics, null, 2) : ""}</pre>
+      </details>}
       {title && <p className="text-sm mt-2 break-words">{title}</p>}
       {!!tracks.length && <details className="text-xs mt-2"><summary>Tracks in this set ({tracks.length})</summary>
         <ol className="mt-2 space-y-1">{tracks.map((track, i) => <li key={i}>{i + 1}. {track}</li>)}</ol></details>}

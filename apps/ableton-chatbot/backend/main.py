@@ -544,7 +544,7 @@ async def live_set_action(req: LiveSetRequest, user: dict = Depends(require_subs
         result = await bridge.local_operation("live_set", {"operation": 'inspect' if confirming else req.operation})
         if confirming:
             if result.get('status') not in {'observed', 'verified'} or not result.get('title'):
-                raise HTTPException(409, 'Could not verify the current Live Set. Check Ableton and retry.')
+                raise HTTPException(409, result.get('summary') or 'Could not verify the current Live Set. Check Ableton and retry.')
             if req.operation == 'confirm_new' and result.get('new_set_ready') is not True:
                 raise HTTPException(409, 'The new set is not confirmed. Complete any save prompt in Ableton and check again.')
             session.project['live_set'] = {'title': result['title'], 'choice': req.operation,

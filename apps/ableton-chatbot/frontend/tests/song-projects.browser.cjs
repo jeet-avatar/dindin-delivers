@@ -17,7 +17,7 @@ async function main() {
     for (const width of [1440, 390]) {
       const context = await browser.newContext({ viewport: { width, height: 900 } });
       const songs = {}, calls = [], errors = [], refId = 'c'.repeat(32);
-      let uploaded = false, listened = false;
+      let uploaded = false, listened = false, inspections = 0;
       const ref = () => ({ id: refId, name: 'Original reference.wav', status: 'ready', created_at: '2026-09-26',
         report: { duration_seconds: 6, tempo: { bpm: 123 }, key_candidates: [], waveform: [0.1, 0.2, 0.5],
           possible_change_points_seconds: [], stems: [], limitations: [] },
@@ -62,6 +62,7 @@ async function main() {
         if (path.includes('/audio/')) return route.fulfill({ contentType: 'audio/wav', body: wave() });
         if (path.endsWith('/listen-whole')) { assert.equal(body.consent, true); listened = true; return reply(ref().listening); }
         if (path === '/api/live-set') {
+          if (body.operation === 'inspect' && ++inspections === 1) return reply({ status: 'failed', summary: '502:608: execution error: Unable to identify one Ableton document window. Close extra document or plug-in windows and check again. (-2700)' });
           if (body.operation === 'save') return reply({ status: 'failed', summary: 'System Events: osascript is not allowed assistive access. (-25211)' });
           const result = { status: 'observed', title: 'Disposable QA set', tracks: ['MIDI'], new_set_ready: true };
           if (body.operation.startsWith('confirm_')) {
@@ -152,7 +153,12 @@ async function main() {
       await page.getByLabel('Reference audio file').waitFor();
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'Choose Live Set', exact: true }).click();
+      await page.getByRole('alert').filter({ hasText: 'could not identify your Live Set window' }).waitFor();
+      assert.equal(await page.getByRole('alert').filter({ hasText: 'macOS blocked' }).count(), 0);
       assert.equal(await page.getByRole('button', { name: 'Use inspected set instead', exact: true }).isDisabled(), true);
+      await page.screenshot({ path: `/tmp/beatmind-live-set-recovery-${width}.png` });
+      await page.getByRole('button', { name: 'Retry inspection', exact: true }).click();
+      await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent === 'Use inspected set instead' && !b.disabled));
       const openNew = page.getByRole('button', { name: '2. Open new Live Set', exact: true });
       assert.equal(await openNew.isDisabled(), true, 'A new set needs the open set saved or closed first');
       await page.getByRole('button', { name: '1. Close it without saving', exact: true }).click();
@@ -165,7 +171,7 @@ async function main() {
       await page.getByRole('button', { name: 'Use inspected set instead', exact: true }).click();
       await page.getByText('Selected set: Disposable QA set', { exact: true }).waitFor();
       assert.equal(calls.filter(c => c.path === '/api/chat/stream').length, 1, 'Set selection must not start production');
-      assert.deepEqual(calls.filter(c => c.path === '/api/live-set').map(c => c.body.operation), ['save', 'inspect', 'confirm_current']);
+      assert.deepEqual(calls.filter(c => c.path === '/api/live-set').map(c => c.body.operation), ['inspect', 'inspect', 'save', 'inspect', 'confirm_current']);
       assert.deepEqual(errors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: `/tmp/beatmind-song-projects-${width}.png` });

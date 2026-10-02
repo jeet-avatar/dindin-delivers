@@ -157,6 +157,16 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(error.exception.status_code, 409)
         self.assertIsNone((await main.chat_details(self.id, self.user))['project']['live_set'])
 
+    async def test_confirmation_preserves_actionable_window_failure(self):
+        bridge = self.bridge()
+        message = 'Ableton is waiting on a dialog. Finish or cancel it in Ableton, then retry inspection.'
+        bridge.local_operation.return_value = {'status': 'failed', 'summary': message, 'error_code': 'live_dialog'}
+        with self.assertRaises(main.HTTPException) as error:
+            await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id=self.id), self.user)
+        self.assertEqual(error.exception.detail, message)
+        self.assertIsNone((await main.chat_details(self.id, self.user))['project']['live_set'])
+        bridge.send_command.assert_not_awaited()
+
     async def test_changed_set_stops_before_model_or_music(self):
         bridge = self.bridge()
         await main.update_song_project(self.id, main.SongProjectRequest(starting_point='idea'), self.user)

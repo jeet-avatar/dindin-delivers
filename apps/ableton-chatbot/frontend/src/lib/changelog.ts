@@ -9,6 +9,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.3.11",
+    date: "2026-10-02",
+    notes: [
+      "Live Set inspection uses document identity and main-window evidence instead of requiring one standard window.",
+      "Choose Live Set automatically checks the open set and offers in-app retry with clear diagnostics. Ambiguous windows and save dialogs still block changes.",
+    ],
+  },
+  {
     version: "1.3.10",
     date: "2026-10-02",
     notes: [
