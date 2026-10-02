@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import anthropic
 import httpx
 
-from ai_provider import create_client, failure_message, model_name, request_message
+from ai_provider import create_client, failure_message, model_name, request_message, request_history
 
 
 class ProviderTests(unittest.TestCase):
@@ -120,3 +120,31 @@ class ModelFallbackTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(anthropic.APIStatusError):
             await request_message(client, model='primary', messages=[])
         self.assertEqual(client.messages.create.await_count, 2)
+
+    async def test_request_removes_prefix_bound_reasoning_but_preserves_tool_evidence(self):
+        import copy
+        thinking = anthropic.types.ThinkingBlock(type='thinking', thinking='private', signature='old')
+        call = {'type': 'tool_use', 'id': 't1', 'name': 'get_session_state', 'input': {}}
+        history = [
+            {'role': 'user', 'content': 'Inspect'},
+            {'role': 'assistant', 'content': [thinking, call]},
+            {'role': 'user', 'content': [{'type': 'tool_result', 'tool_use_id': 't1', 'content': 'verified'}]},
+            {'role': 'assistant', 'content': [{'type': 'redacted_thinking', 'data': 'opaque'}, {'type': 'text', 'text': 'Done'}]},
+            {'role': 'user', 'content': 'Continue'},
+        ]
+        before = copy.deepcopy(history)
+        client = MagicMock()
+        client.messages.create = AsyncMock(return_value='response')
+        await request_message(client, model='primary', messages=history)
+        sent = client.messages.create.call_args.kwargs['messages']
+        self.assertEqual(sent[1]['content'], [call])
+        self.assertEqual(sent[2], history[2])
+        self.assertEqual(sent[3]['content'], [{'type': 'text', 'text': 'Done'}])
+        self.assertEqual(history, before)
+        self.assertEqual(request_history(sent), sent)
+
+    def test_reasoning_only_message_is_not_sent_as_empty_content(self):
+        self.assertEqual(request_history([
+            {'role': 'assistant', 'content': [{'type': 'thinking', 'thinking': 'x', 'signature': 'old'}]},
+            {'role': 'user', 'content': 'continue'},
+        ]), [{'role': 'user', 'content': 'continue'}])

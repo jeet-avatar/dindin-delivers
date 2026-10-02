@@ -3,7 +3,7 @@
 import os
 
 import anthropic
-from model_history import HistoryBudgetError
+from model_history import HistoryBudgetError, as_dict
 
 
 def provider_name():
@@ -28,8 +28,26 @@ def create_client():
     return anthropic.AsyncAnthropic(api_key=key) if key else None
 
 
+def request_history(messages):
+    # Live context and tool results can change between requests. Signed reasoning
+    # is prefix-bound; retain all conversation/tool evidence, not stale signatures.
+    result = []
+    for message in messages:
+        content = message.get('content')
+        if message.get('role') == 'assistant' and isinstance(content, list):
+            blocks = [block for block in content
+                      if as_dict(block).get('type') not in {'thinking', 'redacted_thinking'}]
+            if not blocks:
+                continue
+            result.append({**message, 'content': blocks})
+        else:
+            result.append(message)
+    return result
+
+
 async def request_message(client, *, model, emit=None, **kwargs):
     """Retry only an unexecuted model request, using the same provider and history."""
+    kwargs = {**kwargs, 'messages': request_history(kwargs['messages'])}
     try:
         return await client.messages.create(model=model, **kwargs), model
     except anthropic.APIStatusError as error:
