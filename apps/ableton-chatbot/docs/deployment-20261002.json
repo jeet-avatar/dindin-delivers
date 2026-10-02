@@ -1,0 +1,53 @@
+{
+  "status": "live",
+  "date": "2026-10-02",
+  "authorization": "User requested production publication while deferring payment verification. Payment configuration was not changed.",
+  "application_commit": "4b59bc21172eb62eb6db2d2a76af851026a73857",
+  "backend_task": "beatmind-api:78",
+  "backend_image_digest": "sha256:7f400cc2c162babab46ccda2f0f25f34304b94b043879d294b6276877a18b0db",
+  "workflow": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/36984781052",
+  "bridge": {
+    "version": "1.3.7",
+    "source_commit": "7a111acddc544995c8b3bebf0611a8140df92d3e",
+    "sha256": "e81f789c6dbbadcf50ed1707d9e11a29d4977d359c7641c4b33fa1550794a165",
+    "bytes": 310550883,
+    "notarization_submission": "e9cc1b66-45bf-4e3e-b0f1-0d5a4f318c20",
+    "versioned_url": "https://www.beatmind.io/BeatMind-Bridge-1.3.7.dmg",
+    "stable_url": "https://www.beatmind.io/BeatMind-Bridge.dmg",
+    "public_downloads_checksum_verified": true,
+    "update_manifest_published": true
+  },
+  "passed": [
+    "Deployment workflow: validation, backend and frontend jobs all successful",
+    "505 SQLite backend tests; 500 PostgreSQL tests with 5 SQLite-specific skips",
+    "20 frontend test files and production build",
+    "61 local Bridge tests before publication",
+    "Release container: cached model separation, four aligned stems, two non-silent comparison previews and owner-scoped chat storage",
+    "ECS stable on the intended image and task revision; all environment settings except the release SHA preserved",
+    "Secret references, payment configuration, roles, storage mounts and log configuration unchanged",
+    "Public API healthy with one connected Bridge and no active production session at verification",
+    "Protected chat and Bridge-status endpoints reject unauthenticated requests",
+    "Live browser smoke at 1440px and 390px: login, signup, forgot-password, setup guide and 1.3.7 changelog load successfully",
+    "Live invalid-email login returns HTTP 422 and a readable message without leaking validation inputs",
+    "Logged-out dashboard redirects to login; no browser runtime errors, broken Next assets or horizontal overflow",
+    "Public release identity matches deployed frontend/backend commit and Bridge 1.3.7",
+    "Website and installer CloudFront invalidations completed"
+  ],
+  "rollback": {
+    "backend_task": "beatmind-api:77",
+    "frontend_snapshot": "s3://beatmind-frontend/releases/before-20261002-4b59bc21/",
+    "snapshot_manifest": "releases/before-20261002-4b59bc21/rollback.json",
+    "objects_backed_up": 51,
+    "old_chunks_preserved": true,
+    "installer": "BeatMind-Bridge-1.3.6.dmg"
+  },
+  "limitations": [
+    "Payment completion was intentionally not tested; no charge was made",
+    "Fresh-Mac privacy permissions and first-time stock integration running inside Live remain unverified; clean upstream file installation and existing-Mac workflows were tested separately",
+    "Reset-email SMTP acceptance was verified previously; inbox arrival and recipient link confirmation remain unverified",
+    "Post-deployment browser checks did not create an authenticated production song or alter an Ableton set",
+    "Intel and Windows installers were not published or tested in this release"
+  ],
+  "user_upgrade": "Install Bridge 1.3.7, save your Live Set, click Set up Ableton integration, restart Ableton and reconnect.",
+  "scope": "Only product changes published. No marketing media, replay tools, QA accounts, recordings, tracks or scripted approvals included. The user's installed Bridge and Ableton music were not changed."
+}
