@@ -400,6 +400,7 @@ export default function DashboardPage() {
     requestRef.current = controller;
     const createdAt = new Date().toISOString();
     setLoading(true);
+    setHistoryError("");
     setStreamNotice("");
     let lastEvent = Date.now();
     let lastProgress = lastEvent;

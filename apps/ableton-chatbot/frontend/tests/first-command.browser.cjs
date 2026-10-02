@@ -35,6 +35,10 @@ async function main() {
             { role: 'assistant', content: 'This saved request has no confirmed completion. Inspect the action log before retrying.',
               requestStatus: 'interrupted', toolCalls: actions }] });
         if (path === '/api/chats/fresh-song') return reply({ project, referenceId: null });
+        if (path === '/api/chat/stream' && calls.filter(c => c.path === path).length > 1) {
+          return route.fulfill({ contentType: 'application/x-ndjson', body:
+            JSON.stringify({ type: 'complete', response: 'Retry completed', tool_calls: [] }) + '\n' });
+        }
         if (path === '/api/chat/stream') return route.fulfill({ contentType: 'application/x-ndjson', body:
           [ { type: 'session', session_id: 'fresh-song', project, referenceId: null },
             ...actions.map(action => ({ type: 'action_completed', action })) ].map(e => JSON.stringify(e)).join('\n') + '\n' });
@@ -59,9 +63,15 @@ async function main() {
       await page.getByRole('heading', { name: 'Request interrupted', exact: true }).waitFor();
       assert.equal(calls.find(c => c.path === '/api/chat/stream').body.session_id, 'fresh-song');
       assert.equal(await page.getByRole('heading', { name: 'Changes checked', exact: true }).count(), 0);
+      await page.getByRole('alert').filter({ hasText: 'Connection ended before completion' }).waitFor();
+      await page.locator('#chat-input').fill('Inspect existing work; do not recreate it.');
+      await page.locator('#chat-input').press('Enter');
+      await page.getByText('Retry completed', { exact: true }).waitFor();
+      assert.equal(await page.getByRole('alert').filter({ hasText: 'Connection ended before completion' }).count(), 0,
+        'A new request must clear the stale global error, while retaining historical interruption details');
       await page.reload();
       await page.getByRole('heading', { name: 'Request interrupted', exact: true }).waitFor();
-      assert.equal(calls.filter(c => c.path === '/api/chat/stream').length, 1, 'Reload must never retry music');
+      assert.equal(calls.filter(c => c.path === '/api/chat/stream').length, 2, 'Reload must never retry music');
       assert.deepEqual(errors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: `/tmp/beatmind-first-command-${width}.png` });
