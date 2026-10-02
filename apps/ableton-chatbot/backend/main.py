@@ -687,7 +687,7 @@ async def produce_chat(req, session, bridge, emit=None):
                     raise HTTPException(409, 'The open Ableton set no longer matches this song. Use Choose Live Set before making changes. Nothing was changed.')
             state = await bridge.send_command("/live/song/get/track_names", [], True)
             if state.get("status") != "ok" or not isinstance(state.get("args"), list):
-                raise HTTPException(409, "Unable to inspect the current Live Set. Reconnect the bridge before continuing.")
+                raise HTTPException(409, "The Bridge is connected, but Ableton did not return its track list. Open Live with a set loaded. In the latest Bridge, run Set up Ableton integration; save and restart Live, then select AbletonOSC under Settings > Link/Tempo/MIDI > Control Surface. Nothing was changed.")
             session.current_track_names = state["args"]
             # A new song's planning must not inherit approvals from the old open set.
             session.current_recordings = [] if session.project and not session.project.get('live_set') else matching_recordings(

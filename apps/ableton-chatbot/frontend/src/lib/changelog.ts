@@ -9,6 +9,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.3.10",
+    date: "2026-10-02",
+    notes: [
+      "Set up Ableton integration now installs bundled AbletonOSC on a new Mac, without a separate download.",
+      "Setup shows progress and visible errors, preserves existing integrations, and supports a custom User Library location.",
+      "After setup, save and restart Live, then select AbletonOSC in Settings > Link/Tempo/MIDI.",
+    ],
+  },
+  {
     version: "1.3.9",
     date: "2026-10-02",
     notes: [

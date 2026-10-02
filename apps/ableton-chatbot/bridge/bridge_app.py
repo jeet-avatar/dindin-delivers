@@ -14,7 +14,7 @@ import os
 import sys
 import threading
 import tkinter as tk
-from tkinter import font as tkfont, ttk
+from tkinter import font as tkfont, ttk, filedialog
 import webbrowser
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -84,6 +84,8 @@ class BeatMindBridgeApp:
         self.bridge_token = None
         self.latest = None
         config = load_config()
+        self.user_library = Path(config.get('user_library') or Path.home() / 'Music/Ableton/User Library')
+        self.integration_running = False
 
         # ── Fonts ──
         self.font_title = tkfont.Font(family="Helvetica Neue", size=20, weight="bold")
@@ -236,6 +238,9 @@ class BeatMindBridgeApp:
             self.integration_btn = ttk.Button(integration, text="Set up Ableton integration",
                 style='Disconnect.TButton', command=self._install_integration)
             self.integration_btn.pack(anchor="w")
+            self.library_btn = ttk.Button(integration, text="Choose User Library...",
+                style='Disconnect.TButton', command=self._choose_user_library)
+            self.library_btn.pack(anchor="w", pady=(6, 0))
             self.integration_status = tk.Label(integration, text="", bg=BG, fg=TEXT_DIM,
                 font=self.font_small, wraplength=350, justify="left")
             self.integration_status.pack(anchor="w")
@@ -251,18 +256,44 @@ class BeatMindBridgeApp:
         self.status_dot.create_oval(1, 1, 9, 9, fill=color, outline="", tags="dot")
 
     def _install_integration(self):
-        from extension_installer import install
-        if self.busy or (self.bridge and self.bridge.local.jobs):
-            self.integration_status.config(text="Wait for the current connection or separation task to finish.")
+        if self.integration_running:
             return
+        if self.bridge and self.bridge.local.jobs:
+            self._integration_message("A track is separating. Run setup after it finishes.")
+            return
+        self.integration_running = True
+        self.integration_btn.config(state='disabled', text='Installing integration...')
+        self.library_btn.config(state='disabled')
+        self._integration_message(f"Installing into {self.user_library}. Ableton will need a restart.")
+        threading.Thread(target=self._integration_worker, args=(self.user_library,), daemon=True).start()
+
+    def _integration_message(self, message):
+        self.integration_status.config(text=message)
+        self._fit_window()
+
+    def _choose_user_library(self):
+        selected = filedialog.askdirectory(parent=self.root, title="Select the User Library shown in Ableton Settings > Library",
+                                           initialdir=str(self.user_library))
+        if selected:
+            self.user_library = Path(selected)
+            save_config({**load_config(), 'user_library': str(self.user_library)})
+            self._integration_message(f"User Library: {self.user_library}. Click Set up Ableton integration.")
+
+    def _integration_worker(self, library):
+        from extension_installer import install
         try:
-            result = install()
-            action = "set up" if result.get("first_setup") else "updated"
-            self.integration_status.config(text=f"Integration {action}; backup saved. Save your set, restart Ableton, then reconnect the Bridge.")
+            install(target=library / 'Remote Scripts/AbletonOSC/abletonosc')
         except Exception as error:
-            self.integration_status.config(text=str(error))
-        self.root.update_idletasks()
-        self.root.geometry(f"{self.root.winfo_width()}x{max(self.root.winfo_height(), self.root.winfo_reqheight())}")
+            self._post(self._integration_finished, str(error))
+        else:
+            self._post(self._integration_finished, None)
+
+    def _integration_finished(self, error):
+        self.integration_running = False
+        self.integration_btn.config(state='normal', text='Set up Ableton integration')
+        self.library_btn.config(state='normal')
+        self._integration_message(error or
+            "Files installed. Save your set and restart Ableton. In Settings > Link/Tempo/MIDI, select AbletonOSC in an empty Control Surface slot. Then reconnect the Bridge. Live has not been checked yet.")
 
     def _toggle_connection(self):
         if self.connected:
@@ -286,9 +317,9 @@ class BeatMindBridgeApp:
             return
 
         if self.remember_var.get():
-            save_config({"email": email, "remember": True})
+            save_config({"email": email, "remember": True, "user_library": str(self.user_library)})
         else:
-            save_config({"remember": False})
+            save_config({"remember": False, "user_library": str(self.user_library)})
             credentials.forget()
 
         self._set_status("Logging in...", ACCENT)
@@ -535,7 +566,10 @@ class BeatMindBridgeApp:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3 and sys.argv[1] == '--network-check':
+    if len(sys.argv) == 3 and sys.argv[1] == '--integration-check':
+        from extension_installer import self_check
+        Path(sys.argv[2]).write_text(json.dumps(self_check()))
+    elif len(sys.argv) == 3 and sys.argv[1] == '--network-check':
         result = asyncio.run(network_check())
         Path(sys.argv[2]).write_text(json.dumps(result))
     elif len(sys.argv) == 3 and sys.argv[1] == '--separate':

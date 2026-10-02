@@ -132,6 +132,49 @@ class BridgeAppTests(unittest.TestCase):
     def test_initial_window_fits_setup_and_footer(self):
         self.assertGreaterEqual(self.app.root.winfo_height(), self.app.root.winfo_reqheight())
 
+    def test_integration_click_shows_progress_and_rejects_duplicate_clicks(self):
+        self.app.busy = True  # Cloud reconnecting must not block local setup.
+        with patch.object(bridge_app.threading, 'Thread') as worker:
+            self.app._install_integration()
+            self.app._install_integration()
+        self.app.root.update()
+        worker.assert_called_once()
+        self.assertTrue(self.app.integration_running)
+        self.assertTrue(self.app.integration_btn.instate(['disabled']))
+        self.assertIn('Installing into', self.app.integration_status.cget('text'))
+        self.assertGreaterEqual(self.app.root.winfo_height(), self.app.root.winfo_reqheight())
+
+    def test_integration_error_is_visible_and_retry_enabled(self):
+        self.app.integration_running = True
+        self.app._integration_finished('Permission denied. Choose your User Library folder.')
+        self.assertFalse(self.app.integration_running)
+        self.assertFalse(self.app.integration_btn.instate(['disabled']))
+        self.assertIn('Permission denied', self.app.integration_status.cget('text'))
+        self.assertGreaterEqual(self.app.root.winfo_height(), self.app.root.winfo_reqheight())
+
+    def test_integration_separation_notice_fits_window(self):
+        self.app.bridge = SimpleNamespace(local=SimpleNamespace(jobs={'active': object()}))
+        with patch.object(bridge_app.threading, 'Thread') as worker:
+            self.app._install_integration()
+        worker.assert_not_called()
+        self.assertIn('separating', self.app.integration_status.cget('text'))
+        self.assertGreaterEqual(self.app.root.winfo_height(), self.app.root.winfo_reqheight())
+
+    def test_integration_success_requires_restart_not_fake_connection(self):
+        self.app._integration_finished(None)
+        self.assertIn('Live has not been checked yet', self.app.integration_status.cget('text'))
+        self.assertIn('Control Surface', self.app.integration_status.cget('text'))
+        self.assertFalse(self.app.connected)
+
+    def test_choose_library_persists_folder(self):
+        with patch.object(bridge_app.filedialog, 'askdirectory', return_value='/tmp/Custom User Library'), \
+             patch.object(bridge_app, 'load_config', return_value={'email': 'fixture@example.invalid'}), \
+             patch.object(bridge_app, 'save_config') as save:
+            self.app._choose_user_library()
+        self.assertEqual(str(self.app.user_library), '/tmp/Custom User Library')
+        self.assertEqual(save.call_args.args[0]['email'], 'fixture@example.invalid')
+        self.assertEqual(save.call_args.args[0]['user_library'], '/tmp/Custom User Library')
+
     def test_login_is_single_flight_and_preserves_password_spaces(self):
         self.app.email_var.set('fixture@example.invalid')
         self.app.password_var.set(' fixture-only ')

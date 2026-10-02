@@ -55,12 +55,16 @@ def registration(target):
     return manager, updated.encode()
 
 
-def install(source=None, target=None, backup_root=None):
+def install(source=None, target=None, backup_root=None, bundle=None):
     source = source or Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / "abletonosc"
     target = target or Path.home() / "Music/Ableton/User Library/Remote Scripts/AbletonOSC/abletonosc"
     backup_root = backup_root or Path.home() / ".beatmind/extension-backups"
-    if target.is_symlink() or target.parent.is_symlink() or not target.is_dir():
-        raise RuntimeError("Install and enable AbletonOSC in your User Library first. No files changed.")
+    if target.is_symlink() or target.parent.is_symlink():
+        raise RuntimeError("Integration destination is a symbolic link. Choose the actual User Library folder. No files changed.")
+    if not target.is_dir():
+        if target.parent.exists():
+            raise RuntimeError("An incomplete AbletonOSC folder already exists. Choose the correct User Library or move that folder aside after backing it up. No files changed.")
+        return install_first_time(source, target, backup_root, bundle)
     setup = registration(target)
     files = sorted(source.glob("beatmind_*.py"))
     required = {"beatmind_" + name + ".py" for name in (
@@ -101,3 +105,38 @@ def install(source=None, target=None, backup_root=None):
                 shutil.copy2(backup / path.name, path)
         raise
     return {"files": len(payload), "backup": str(backup), "restart_required": True, "first_setup": bool(setup)}
+
+
+def install_first_time(source, target, backup_root, bundle=None):
+    from abletonosc_bundle import payload
+    bundle = bundle or Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / "AbletonOSC.zip"
+    if not bundle.is_file():
+        raise RuntimeError("This Bridge is missing the first-time integration bundle. Install the latest BeatMind Bridge. No files changed.")
+    files = payload(bundle)
+    scripts = target.parent.parent
+    scripts.mkdir(parents=True, exist_ok=True)
+    # Stage the complete base and extensions before publishing a new control surface.
+    with tempfile.TemporaryDirectory(prefix=".beatmind-setup-", dir=scripts) as temporary:
+        staged = Path(temporary) / "AbletonOSC"
+        for relative, data in files.items():
+            path = staged / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        result = install(source, staged / "abletonosc", backup_root)
+        if target.parent.exists() or target.parent.is_symlink():
+            raise RuntimeError("AbletonOSC appeared during setup. Nothing was replaced; run setup again.")
+        os.rename(staged, target.parent)
+    return {**result, "first_setup": True, "base_installed": True}
+
+
+def self_check():
+    with tempfile.TemporaryDirectory(prefix='beatmind-integration-check-') as temporary:
+        root = Path(temporary)
+        target = root / 'User Library/Remote Scripts/AbletonOSC/abletonosc'
+        first = install(target=target, backup_root=root / 'backups')
+        second = install(target=target, backup_root=root / 'backups')
+        assert first['base_installed'] and not second['first_setup']
+        assert (target.parent / 'LICENSE.md').is_file()
+        assert (target.parent / 'pythonosc/osc_server.py').is_file()
+        assert 'attach_beatmind(self)' in (target.parent / 'manager.py').read_text()
+    return {'fresh_install': True, 'repeat_install': True, 'user_library_unchanged': True}

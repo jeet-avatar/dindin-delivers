@@ -1,6 +1,14 @@
 BeatMind Bridge third-party notices
 ===================================
 
+AbletonOSC
+----------
+https://github.com/ideoforms/AbletonOSC
+Pinned revision: 0ca68214bd62c9b5cb641ca34006cfd70ba94430
+The unmodified upstream archive is bundled as AbletonOSC.zip. Its LICENSE.md
+contains the MIT license and copyright notice, retained when installed.
+BeatMind adds its extensions and registers them in manager.py during setup.
+
 Model weights
 -------------
 drumsep (kick/snare/toms/cymbals model, checkpoint 49469ca8), https://github.com/inagoy/drumsep
@@ -6510,6 +6518,5 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 
 

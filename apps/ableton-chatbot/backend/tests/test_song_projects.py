@@ -90,6 +90,20 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         main.bridges['test'] = bridge
         return bridge
 
+    async def test_missing_osc_explains_setup_before_model_or_music(self):
+        bridge = self.bridge()
+        bridge.send_command.return_value = {'status': 'timeout'}
+        with patch.object(main, 'claude_client', SimpleNamespace()), patch.object(main, '_run_claude_loop', AsyncMock()) as model:
+            request = main.ChatRequest(message='Inspect my set', session_id=self.id)
+            session, bridge = main.prepare_chat(request, self.user)
+            with self.assertRaises(main.HTTPException) as error:
+                await main.produce_chat(request, session, bridge)
+        self.assertEqual(error.exception.status_code, 409)
+        self.assertIn('Control Surface', error.exception.detail)
+        self.assertIn('Nothing was changed', error.exception.detail)
+        model.assert_not_awaited()
+        bridge.send_command.assert_awaited_once_with('/live/song/get/track_names', [], True)
+
     async def test_raw_first_message_cannot_bypass_song_setup(self):
         for session_id in (None, 'old-client-new-session'):
             with self.subTest(session_id=session_id):

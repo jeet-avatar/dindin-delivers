@@ -16,6 +16,7 @@ WORK=$(mktemp -d "${TMPDIR:-/tmp}/beatmind-build.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 "${PYTHON:-python3}" -m venv "$WORK/venv"
 "$WORK/venv/bin/pip" install -r requirements-build.txt -r requirements-separation.txt
+"$WORK/venv/bin/python" abletonosc_bundle.py "$WORK/AbletonOSC.zip"
 # The on-device separation worker is the backend's own reference_worker/separation code.
 "$WORK/venv/bin/pyinstaller" --noconfirm --windowed --onedir \
   --name "BeatMind Bridge" --osx-bundle-identifier com.zietra.beatmind-bridge \
@@ -28,6 +29,7 @@ trap 'rm -rf "$WORK"' EXIT
   --collect-data demucs --collect-submodules demucs --collect-data librosa \
   --add-data "$PWD/THIRD_PARTY_NOTICES.txt:." \
   --add-data "$PWD/abletonosc:abletonosc" \
+  --add-data "$WORK/AbletonOSC.zip:." \
   --distpath "$WORK/dist" --workpath "$WORK/work" --specpath "$WORK" bridge_app.py
 APP="$WORK/dist/BeatMind Bridge.app"
 "$WORK/venv/bin/python" bundle_metadata.py "$APP/Contents/Info.plist"
@@ -40,6 +42,13 @@ xcrun swiftc native/Capture.swift -parse-as-library -O -target arm64-apple-macos
 codesign --force --options runtime --timestamp --sign "$SIGNING_ID" "$HELPER"
 codesign --force --options runtime --timestamp --entitlements entitlements.plist --sign "$SIGNING_ID" "$APP"
 codesign --verify --deep --strict "$APP"
+"$APP/Contents/MacOS/BeatMind Bridge" --integration-check "$WORK/integration-check.json"
+"$WORK/venv/bin/python" - "$WORK/integration-check.json" <<'PY'
+import json, sys
+from pathlib import Path
+assert json.loads(Path(sys.argv[1]).read_text()) == {'fresh_install': True, 'repeat_install': True, 'user_library_unchanged': True}
+print('Packaged offline first-time and repeat integration setup passed.')
+PY
 # Separation smoke test inside the signed bundle: real models, a generated tone, no network credentials.
 "$WORK/venv/bin/python" - "$APP" "$WORK/separation-check" <<'PY'
 import json, math, subprocess, sys, wave, struct
