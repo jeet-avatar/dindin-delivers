@@ -32,6 +32,9 @@ export interface ProductionAction {
     recording?: { id: string };
     comparison?: { id: string; reference_id: string };
     status?: string;
+    execution_status?: string;
+    view?: { status: string; track_name?: string | null; device_name?: string | null; clip_name?: string | null;
+      summary?: string; target?: { view?: string }; envelope_selector_readback_available?: boolean };
     section_brief?: { name: string; sound: string; bars: number; source_mode: string; pack_name?: string; scene_candidates: number[] };
     summary?: string;
     error?: string;
@@ -99,11 +102,17 @@ export default function ProductionLog({ actions, requestStatus }: { actions: Pro
   const tracks = trackOutcomes(actions);
   const section = actions.map(action => action.result?.section_brief).filter(Boolean).at(-1);
   const mixCheck = actions.filter(action => action.tool === "mix_check").at(-1);
+  const display = actions.filter(action => action.result?.view).at(-1)?.result?.view;
   return (
     <section className="min-w-0 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }} aria-label="Production actions">
       <div className="mb-3">
         <h3 className="text-sm font-semibold" style={{ color: summary.issues.length ? "#fda4af" : "var(--text-primary)" }}>{summary.title}</h3>
         <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{summary.detail}</p>
+        {display && <p className="text-xs mt-2 break-words" aria-label="Ableton display verification">
+          {display.status === "verified" ? "Display checked in Ableton: " : "Ableton display needs checking: "}
+          {[display.track_name, display.device_name, display.clip_name].filter(Boolean).join(" / ") || display.target?.view || "View"}
+          {display.envelope_selector_readback_available === false && " (envelope selection requested; not independently readable)"}
+        </p>}
         {summary.repairs > 0 && <p className="text-xs mt-2 text-emerald-300">{summary.repairs} earlier {summary.repairs === 1 ? "issue repaired" : "issues repaired"} and rechecked.</p>}
       </div>
       {section && <div aria-label="Requested section" className="text-sm mb-3 space-y-1 break-words">

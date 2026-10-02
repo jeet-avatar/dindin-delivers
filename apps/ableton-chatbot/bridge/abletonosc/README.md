@@ -25,6 +25,13 @@ What each file adds:
 - `beatmind_master.py`: built-in effects on the Main track (master Limiter).
 - `beatmind_sidechain.py`: Compressor sidechain source routing.
 - `beatmind_stems.py`: reference stems on new audio tracks at the start of the Arrangement (Live 12).
+- `beatmind_view.py`: checked track, device, MIDI-clip and Arrangement display selection.
+- `beatmind_arrangement_preview.py`: checked playback-start marker for Arrangement previews.
+
+Bridge 1.3.7 advertises these new features only after the installed extensions report
+support. Copy all extension files, save your set, restart Ableton, then reconnect
+the Bridge. Existing commands remain available on older Bridge versions; the new
+display and Arrangement-preview commands require the matching update.
 
 The mixer mapping returns Live's
 native fader values and actual display strings; no guessed dB conversion is used.

@@ -798,7 +798,7 @@ DISCUSSION_TOOLS = {
     tool['name'] for tool in ABLETON_TOOLS
     if tool['name'].startswith('get_') or tool['name'] in {
         'list_browser', 'inspect_track', 'list_sample_packs',
-        'search_pack_samples', 'inspect_pack_sample',
+        'search_pack_samples', 'inspect_pack_sample', 'show_live_view',
     }
 } | {'list_reference_sounds'}
 
@@ -952,13 +952,13 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                         "Compare before and after, then accept it or request a change."), tool_calls_log
             return ("Your first preview of this part is ready." + caveat + " Listen, then accept the sound or request a change. "
                     "Nothing else will be built until you choose the next step."), tool_calls_log
-        if any(action["tool"] in {"audition_part", "audition_scene"} for action in tool_calls_log):
+        if any(action["tool"] in {"audition_part", "audition_scene", "audition_arrangement"} for action in tool_calls_log):
             return "The part remains in Ableton, but its audition did not pass verification. No recording is ready for approval. Review the audition details before retrying; do not recreate the track or notes.", tool_calls_log
 
     return "Production paused at the action limit. Some requested work may remain; review the action log before continuing.", tool_calls_log
 
 
-SONG_TOOL_CAPABILITY = {"audition_scene": "scene_audition_v1", "record_arrangement": "arrangement_record_v1"}
+SONG_TOOL_CAPABILITY = {"audition_scene": "scene_audition_v1", "record_arrangement": "arrangement_record_v1", "audition_arrangement": "arrangement_audition_v1"}
 
 
 async def _mix_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection) -> dict:
@@ -1000,9 +1000,13 @@ async def _song_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection)
     except ValidationError as error:
         return {"status": "failed", "summary": error.message, "steps": []}
     if SONG_TOOL_CAPABILITY[tool_name] not in bridge.capabilities:
-        message = ("This needs BeatMind Bridge 1.3 or later. Click Install update in the Bridge window "
-                   "(your Ableton set stays open), then ask again.")
+        message = ("Arrangement previews need Bridge 1.3.7 and matching Ableton integration. Install the Bridge update, choose Update Ableton integration, save your set, restart Ableton and reconnect the Bridge."
+                   if tool_name == "audition_arrangement" else
+                   "This needs BeatMind Bridge 1.3 or later. Click Install update in the Bridge window (your Ableton set stays open), then ask again.")
         return {"status": "failed", "error": message, "summary": message, "steps": []}
+    if tool_name == "audition_arrangement":
+        return save_recording(bridge.user_id, await bridge.local_operation("capture_arrangement", {
+            "track": tool_input["track"], "start_beat": tool_input["start_beat"], "seconds": tool_input.get("seconds", 8)}))
     if tool_name == "audition_scene":
         request = {"scene": tool_input["scene"], "seconds": tool_input.get("seconds", 12)}
         if "then_scene" in tool_input:
@@ -1081,6 +1085,25 @@ async def _missing_instrument(track: int, bridge: BridgeConnection) -> str | Non
 
 
 async def _execute_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection | None) -> dict:
+    from action_view import execute_with_view
+    from execution import VALIDATORS, _finite
+    validator = VALIDATORS.get(tool_name)
+    if validator is None:
+        return {"status": "failed", "summary": "Unknown tool.", "steps": []}
+    errors = list(validator.iter_errors(tool_input))
+    if errors or not _finite(tool_input):
+        return {"status": "failed", "summary": errors[0].message if errors else "All numbers must be finite.", "steps": []}
+    capabilities = getattr(bridge, "capabilities", set())
+    follow = isinstance(capabilities, (set, list, tuple)) and "verified_view_v1" in capabilities
+    if tool_name == "show_live_view" and not follow:
+        return {"status": "failed", "summary": "Update BeatMind Bridge and its AbletonOSC extensions, then restart Ableton and reconnect the Bridge to verify screen selection. No music was changed.", "steps": []}
+    if not follow:
+        return await _execute_tool_unfocused(tool_name, tool_input, bridge)
+    return await execute_with_view(tool_name, tool_input, bridge.send_command,
+                                   lambda: _execute_tool_unfocused(tool_name, tool_input, bridge))
+
+
+async def _execute_tool_unfocused(tool_name: str, tool_input: dict, bridge: BridgeConnection | None) -> dict:
     if not bridge:
         return {"status": "failed", "error": "No Ableton bridge connected.", "summary": "No Ableton bridge connected.", "steps": []}
     if tool_name in {item["name"] for item in AUTOMATION_TOOLS}:
@@ -1093,7 +1116,7 @@ async def _execute_tool(tool_name: str, tool_input: dict, bridge: BridgeConnecti
         if tool_name == "write_clip_automation" and result.get("status") in ("verified", "partial"):
             result = note_density(bridge.automated_controls, tool_input, result)
         return result
-    if tool_name in {"audition_scene", "record_arrangement"}:
+    if tool_name in {"audition_scene", "record_arrangement", "audition_arrangement"}:
         return await _song_tool(tool_name, tool_input, bridge)
     if tool_name in {"mix_check", "apply_master_chain"}:
         return await _mix_tool(tool_name, tool_input, bridge)

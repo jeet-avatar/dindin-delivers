@@ -79,6 +79,28 @@ class AudioTests(unittest.IsolatedAsyncioTestCase):
         result = await self.run_capture(bridge)
         self.assertEqual(result["status"], "failed")
         self.assertEqual(bridge.values, before)
+        self.assertEqual(sum(address == "/live/clip/fire" for address, _ in bridge.writes), 1)
+
+    async def test_delayed_launch_is_read_again_without_refiring(self):
+        bridge = FakeBridge()
+        before = bridge.values.copy()
+        query = bridge._query_osc
+        reads = 0
+
+        async def delayed(request, address, args, timeout):
+            nonlocal reads
+            if address == "/live/clip/get/is_playing":
+                reads += 1
+                if reads <= 3:
+                    return {"status": "ok", "args": [*args, False]}
+            return await query(request, address, args, timeout)
+
+        bridge._query_osc = delayed
+        result = await self.run_capture(bridge)
+        self.assertEqual(result["status"], "verified")
+        self.assertEqual(reads, 4)
+        self.assertEqual(sum(address == "/live/clip/fire" for address, _ in bridge.writes), 1)
+        self.assertEqual(bridge.values, before)
 
     async def test_active_transport_and_recording_are_never_changed(self):
         for mode in ("is_playing", "record_mode", "session_record"):

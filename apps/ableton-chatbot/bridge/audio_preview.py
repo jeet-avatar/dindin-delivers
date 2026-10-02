@@ -58,6 +58,16 @@ async def record_with_helper(helper, seconds, on_ready):
         return complete["metrics"], audio.read_bytes()
 
 
+async def confirm_stopped(query):
+    # Transport state updates on Live's scheduler, after the stop command returns.
+    for attempt in range(6):
+        if not (await query("/live/song/get/is_playing", []))[-1]:
+            return
+        if attempt < 5:
+            await asyncio.sleep(.2)
+    raise RuntimeError("Transport did not stop; inspect Ableton.")
+
+
 async def capture_part(bridge, track, scene, seconds):
     if type(track) is not int or track < 0 or type(scene) is not int or scene < 0:
         return {"status": "failed", "error": "Invalid clip coordinates."}
@@ -119,8 +129,13 @@ async def capture_part(bridge, track, scene, seconds):
 
         async def start():
             await command("/live/clip/fire", [track, scene])
-            if not (await query("/live/clip/get/is_playing", [track, scene]))[-1]:
-                raise RuntimeError("Clip did not start playing.")
+            # Live can acknowledge launch on a later scheduler tick. Never re-fire.
+            for attempt in range(6):
+                if (await query("/live/clip/get/is_playing", [track, scene]))[-1]:
+                    return
+                if attempt < 5:
+                    await asyncio.sleep(0.2)
+            raise RuntimeError("Clip did not start playing.")
 
         metrics, audio_bytes = await record_with_helper(helper, seconds, start)
         if not metrics.get("has_signal"):
@@ -150,8 +165,7 @@ async def capture_part(bridge, track, scene, seconds):
             await restore(command("/live/clip/stop", [track, scene]))
             await restore(command("/live/song/stop_playing", []))
             try:
-                if (await query("/live/song/get/is_playing", []))[-1]:
-                    restore_errors.append("Transport did not stop.")
+                await confirm_stopped(query)
                 if await query("/live/song/get/track_names", []) != names:
                     raise RuntimeError("Track list changed during recording; inspect the solo states manually.")
                 for i, solo in enumerate(solos):
@@ -281,8 +295,7 @@ async def capture_scene(bridge, scene, seconds, then_scene=None, first_bars=None
                 await command("/live/song/stop_all_clips", [])
                 await command("/live/song/stop_playing", [])
                 await asyncio.sleep(0.3)
-                if (await query("/live/song/get/is_playing", []))[-1]:
-                    restore_errors.append("Transport did not stop.")
+                await confirm_stopped(query)
                 for i, solo in enumerate(solos):
                     if solo:
                         bridge._send_osc("/live/track/set/solo", [i, 1])

@@ -107,10 +107,27 @@ class ConnectionEventsTests(unittest.IsolatedAsyncioTestCase):
         connection = AsyncMock()
         connection.__aenter__.return_value = socket
         client = bridge.AbletonBridge('wss://example.invalid/ws', 'fixture', on_connection=events.append)
-        with patch.object(bridge.websockets, 'connect', return_value=connection):
+        with patch.object(bridge.websockets, 'connect', return_value=connection), \
+             patch.object(client, '_query_osc', AsyncMock(return_value={'status': 'timeout'})):
             await client._connect_websocket()
         self.assertEqual(events, ['hello', True, False])
         self.assertIsNone(client.ws)
+        import json
+        self.assertNotIn('verified_view_v1', json.loads(socket.send.call_args.args[0])['capabilities'])
+
+    async def test_new_capabilities_require_live_extension_confirmation(self):
+        import json
+        socket = Mock(send=AsyncMock())
+        socket.__aiter__ = Mock(return_value=self.empty_messages())
+        connection = AsyncMock()
+        connection.__aenter__.return_value = socket
+        client = bridge.AbletonBridge('wss://example.invalid/ws', 'fixture')
+        confirmed = ['verified_view_v1', 'arrangement_audition_v1', 'automation_readback_v2']
+        with patch.object(bridge.websockets, 'connect', return_value=connection), \
+             patch.object(bridge.sys, 'platform', 'darwin'), \
+             patch.object(client, '_query_osc', AsyncMock(return_value={'status': 'ok', 'args': confirmed})):
+            await client._connect_websocket()
+        self.assertTrue(set(confirmed) <= set(json.loads(socket.send.call_args.args[0])['capabilities']))
 
     async def empty_messages(self):
         if False:

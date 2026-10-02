@@ -556,6 +556,13 @@ for name, description, properties, required in [
                           "input_schema": {"type": "object", "properties": properties, "required": required}})
 
 from automation import AUTOMATION_TOOLS
+from action_view import VIEWS_TOOL
+ABLETON_TOOLS.append(VIEWS_TOOL)
+ABLETON_TOOLS.append({"name": "audition_arrangement", "description": "Record a 2-16 second preview of an existing track in Arrangement. Inspect clip timing first. start_beat is zero-based quarter-note beats, not bars. Requires stopped transport and recording off. Returns to Arrangement, restores position, loop, solos and mute, then stops. Never edits clips. Listen before approval.",
+    "input_schema": {"type": "object", "additionalProperties": False, "required": ["track", "start_beat"],
+                     "properties": {"track": {"type": "integer", "minimum": 0},
+                                    "start_beat": {"type": "number", "minimum": 0, "maximum": 32768},
+                                    "seconds": {"type": "number", "minimum": 2, "maximum": 16}}}})
 from production import PLAN_TOOL
 ABLETON_TOOLS.append(PLAN_TOOL)
 ABLETON_TOOLS.extend({key: value for key, value in item.items() if key != "operation"} for item in AUTOMATION_TOOLS)
@@ -853,6 +860,7 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
   audition_part only records one track.
 
 ### Effects and polish (per part)
+- On compatible Bridge/OSC versions, musical commands select and independently read back their Ableton display target. Use show_live_view to show an existing track, device, MIDI clip or Arrangement without changing music. Inspect names and indices first. Never repeat a completed musical write to fix its display selection. Older Bridges can continue existing commands but need an update for these new display and Arrangement preview features.
 - Built-in Ableton devices by default. Offer third-party plugins only when list_browser (plugins) shows them installed
   AND the user said yes to using their own plugins; say that a set using them needs those plugins to open cleanly.
 - After a part's dry sound is accepted and the user wants polish (or chooses "Shape tone or effects"): call

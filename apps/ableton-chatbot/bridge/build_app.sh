@@ -22,11 +22,12 @@ trap 'rm -rf "$WORK"' EXIT
   --codesign-identity "$SIGNING_ID" --osx-entitlements-file entitlements.plist --target-arch arm64 \
   --paths ../backend \
   --hidden-import audio_preview --hidden-import live_set --hidden-import arrangement \
-  --hidden-import mixer_preview --hidden-import sample_library \
+  --hidden-import mixer_preview --hidden-import arrangement_preview --hidden-import sample_library \
   --hidden-import local_separation --hidden-import stem_import \
   --hidden-import reference_worker --hidden-import separation --hidden-import stems \
   --collect-data demucs --collect-submodules demucs --collect-data librosa \
   --add-data "$PWD/THIRD_PARTY_NOTICES.txt:." \
+  --add-data "$PWD/abletonosc:abletonosc" \
   --distpath "$WORK/dist" --workpath "$WORK/work" --specpath "$WORK" bridge_app.py
 APP="$WORK/dist/BeatMind Bridge.app"
 "$WORK/venv/bin/python" bundle_metadata.py "$APP/Contents/Info.plist"

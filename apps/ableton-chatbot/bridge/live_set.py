@@ -37,9 +37,12 @@ async def window_title():
         if (count of (application processes whose bundle identifier is "com.ableton.live")) is not 1 then error "Open exactly one Ableton Live application."
         tell {PROCESS}
             if (count of windows) is 0 then error "No Ableton window is available."
-            if (count of sheets of window 1) > 0 then error "Finish or cancel the dialog in Ableton first."
+            set documentWindows to windows whose subrole is "AXStandardWindow"
+            if (count of documentWindows) is not 1 then error "Unable to identify one Ableton document window. Close extra document or plug-in windows and check again."
+            set documentWindow to item 1 of documentWindows
+            if (count of sheets of documentWindow) > 0 then error "Finish or cancel the dialog in Ableton first."
             if not enabled of menu item "New Live Set" of menu 1 of menu bar item "File" of menu bar 1 then error "Finish or cancel the dialog in Ableton first."
-            return name of window 1
+            return name of documentWindow
         end tell
     end tell''')
 

@@ -32,6 +32,27 @@ def test_locked_screen_is_reported_plainly():
 
 
 class LiveSetTests(unittest.TestCase):
+    def test_document_identity_ignores_recorder_auxiliary_window(self):
+        with patch.object(live_set, "screen_locked", AsyncMock(return_value=False)), \
+             patch.object(live_set, "applescript", AsyncMock(return_value="Fixture Set")) as script:
+            self.assertEqual(asyncio.run(live_set.window_title()), "Fixture Set")
+        source = script.call_args.args[0]
+        self.assertIn('windows whose subrole is "AXStandardWindow"', source)
+        self.assertIn('(count of documentWindows) is not 1', source)
+        self.assertIn('sheets of documentWindow', source)
+        self.assertIn('not enabled of menu item "New Live Set"', source)
+        self.assertNotIn('window 1', source)
+
+    def test_ambiguous_document_prevents_file_actions(self):
+        for operation in ("inspect", "save", "new"):
+            with self.subTest(operation=operation), \
+                 patch.object(live_set.sys, "platform", "darwin"), \
+                 patch.object(live_set, "window_title", AsyncMock(side_effect=RuntimeError("Ambiguous document"))), \
+                 patch.object(live_set, "applescript", AsyncMock()) as script:
+                result = asyncio.run(live_set.live_set_operation(FakeBridge(), operation))
+                self.assertEqual(result["status"], "failed")
+                script.assert_not_awaited()
+
     def test_empty_untitled_set_is_ready_even_right_after_launch(self):
         result = inspect("Untitled", FakeBridge())
         self.assertTrue(result["new_set_ready"])

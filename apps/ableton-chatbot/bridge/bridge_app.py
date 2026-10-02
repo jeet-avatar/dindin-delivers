@@ -216,6 +216,16 @@ class BeatMindBridgeApp:
                                      command=self._install_update, takefocus=True)
         self.update_btn.pack(side="right", anchor="n")
 
+        if sys.platform == "darwin":
+            integration = tk.Frame(self.root, bg=BG)
+            integration.pack(fill="x", padx=24, pady=(12, 0))
+            self.integration_btn = ttk.Button(integration, text="Update Ableton integration",
+                style='Disconnect.TButton', command=self._install_integration)
+            self.integration_btn.pack(anchor="w")
+            self.integration_status = tk.Label(integration, text="", bg=BG, fg=TEXT_DIM,
+                font=self.font_small, wraplength=350, justify="left")
+            self.integration_status.pack(anchor="w")
+
         # ── Footer ──
         tk.Label(self.root, text=f"BeatMind Bridge {BRIDGE_VERSION} by Zietra Technologies Inc.",
                  font=tkfont.Font(family="Helvetica Neue", size=10),
@@ -225,6 +235,19 @@ class BeatMindBridgeApp:
         self.status_label.config(text=text, fg=color)
         self.status_dot.delete("dot")
         self.status_dot.create_oval(1, 1, 9, 9, fill=color, outline="", tags="dot")
+
+    def _install_integration(self):
+        from extension_installer import install
+        if self.busy or (self.bridge and self.bridge.local.jobs):
+            self.integration_status.config(text="Wait for the current connection or separation task to finish.")
+            return
+        try:
+            install()
+            self.integration_status.config(text="Integration updated; backup saved. Save your set, restart Ableton, then reconnect the Bridge.")
+        except Exception as error:
+            self.integration_status.config(text=str(error))
+        self.root.update_idletasks()
+        self.root.geometry(f"{self.root.winfo_width()}x{max(self.root.winfo_height(), self.root.winfo_reqheight())}")
 
     def _toggle_connection(self):
         if self.connected:
