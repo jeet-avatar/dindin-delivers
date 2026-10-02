@@ -34,7 +34,7 @@ export interface ProductionAction {
     status?: string;
     execution_status?: string;
     view?: { status: string; track_name?: string | null; device_name?: string | null; clip_name?: string | null;
-      summary?: string; target?: { view?: string }; envelope_selector_readback_available?: boolean };
+      summary?: string; target?: { view?: string; track?: number; scope?: string }; envelope_selector_readback_available?: boolean };
     section_brief?: { name: string; sound: string; bars: number; source_mode: string; pack_name?: string; scene_candidates: number[] };
     summary?: string;
     error?: string;

@@ -346,6 +346,11 @@ def register(handler, app):
                     value = curve_value(start["value"], end["value"], fraction, start.get("curve", "linear"))
                 native = native_value(parameter, value, data["unit"], nearest=True)
                 planned.append((beat, min(step, end["beat"] - beat), native))
+        # Live's insert_step restores the old value after its duration. Keep the
+        # final point active through the loop boundary, including step resets.
+        if points[-1]["beat"] < clip.length:
+            native = native_value(parameter, points[-1]["value"], data["unit"], nearest=True)
+            planned.append((points[-1]["beat"], clip.length - points[-1]["beat"], native))
         envelope = clip.automation_envelope(parameter) or clip.create_automation_envelope(parameter)
         if envelope is None:
             raise ValueError("Live does not allow automation of this control in a clip.")

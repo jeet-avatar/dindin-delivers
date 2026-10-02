@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { saveAuth, API_URL } from "@/lib/auth";
 import { parsePlanIntent, planIntentQuery } from "@/lib/billing";
 import { EyeIcon, EyeOffIcon } from "@/components/Icons";
+import { authError } from "@/lib/auth-error";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export default function LoginPage() {
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Login failed");
+      if (!res.ok) throw new Error(authError(data.detail, "Sign-in failed. Please try again."));
       saveAuth(data.token, data.user);
       // Users without a plan choose one in the dashboard; never force Stripe Checkout at sign-in.
       router.push(redirectTo || `/dashboard${planQuery}`);

@@ -76,3 +76,9 @@ assert.equal(summarizeProduction([failed], 'interrupted').issues.length, 1);
   ]).issues.length, 0);
 }
 console.log('Empty-slot note checks and recovered browser searches passed.');
+
+const view = {status:'verified', target:{track:3,view:'clip'}, track_name:'Bass'};
+assert.equal(trackOutcomes([action('add_notes','verified',{track:3},{view,notes:[]})])[0].name,'Bass');
+for (const invalid of [{...view,status:'unverified'}, {...view,target:{track:2}}, {...view,target:{track:3,scope:'return'}}]) {
+  assert.equal(trackOutcomes([action('add_notes','verified',{track:3},{view:invalid,notes:[]})])[0].name,'Track 4');
+}

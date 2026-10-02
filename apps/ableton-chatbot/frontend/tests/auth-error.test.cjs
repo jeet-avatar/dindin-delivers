@@ -1,0 +1,11 @@
+const assert = require('node:assert/strict'), fs = require('node:fs'), Module = require('node:module'), ts = require('typescript');
+const file = require('node:path').resolve(__dirname, '../src/lib/auth-error.ts');
+const mod = new Module(file, module);
+mod._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, file);
+const { authError } = mod.exports;
+assert.equal(authError('Invalid email or password', 'Fallback'), 'Invalid email or password');
+assert.equal(authError([{loc:['body','email'], input:'private@example.invalid'}], 'Fallback'), 'Please enter a valid email address.');
+assert.equal(authError([{loc:['body','password'], input:'secret', msg:'secret'}], 'Fallback'), 'Please check your password and try again.');
+assert.equal(authError([{loc:['body','name']}], 'Fallback'), 'Please enter your name.');
+for (const value of [null, undefined, {}, [], [null, {}], '', ' ']) assert.equal(authError(value, 'Fallback'), 'Fallback');
+console.log('PASS auth errors are readable and never echo validation inputs');

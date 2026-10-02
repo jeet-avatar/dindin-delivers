@@ -118,6 +118,9 @@ export function trackOutcomes(actions: ProductionAction[]) {
     if (typeof track !== "number" || !action.result) continue;
     if (!["set_track_name", "load_pack_sample", "load_library_item", "load_instrument", "load_sample", "add_notes", "clear_notes", "remove_notes", "duplicate_clip", "audition_part", "audition_arrangement", "get_track_device_tree", "get_clip_notes"].includes(action.tool)) continue;
     const item = tracks.get(track) || { track, name: typeof names[track] === "string" ? String(names[track]) : `Track ${track + 1}`, recording: false };
+    const view = action.result.view;
+    if (view?.status === "verified" && view.target?.track === track && (!view.target.scope || view.target.scope === "track")
+        && typeof view.track_name === "string" && view.track_name.trim()) item.name = view.track_name;
     if (action.tool === "set_track_name" && typeof action.input.name === "string") item.name = action.input.name;
     if (action.tool === "load_pack_sample" && action.result.source) item.source = `${action.result.source.pack_name} / ${action.result.source.relative_path.split("/").at(-1)}`;
     if (action.tool === "load_library_item" && action.input.kind === "instrument" && Array.isArray(action.input.folders)) item.source = action.input.folders.join(" / ");

@@ -34,7 +34,8 @@ class MappingTests(unittest.TestCase):
         class Envelope:
             def insert_step(self, beat, length, value): steps.append((beat, length, value))
             def value_at_time(self, t):
-                return readback if readback is not None else [v for b, length, v in steps if b <= t][-1]
+                active = [v for b, length, v in steps if b <= t < b + length]
+                return readback if readback is not None else (active[-1] if active else 0.5)
         envelope = Envelope()
         def clear(parameter):
             clears.append(parameter)
@@ -79,6 +80,14 @@ class MappingTests(unittest.TestCase):
         self.assertEqual(len(clears), 1)
         self.assertAlmostEqual(steps[0][2], 0.2)
         self.assertAlmostEqual(steps[-1][2], 0.5)
+
+    def test_final_automation_value_holds_until_clip_end(self):
+        for curve in ("linear", "step"):
+            with self.subTest(curve=curve):
+                write, steps, _ = self.envelope_writer()
+                result = write([{"beat": 0, "value": 0.2, "curve": curve}, {"beat": 7.5, "value": 0.3}])
+                self.assertEqual(result["status"], "verified", result)
+                self.assertEqual(steps[-1], (7.5, 0.5, 0.3))
 
     def test_minus_inf_db_means_fully_off(self):
         class Send:
