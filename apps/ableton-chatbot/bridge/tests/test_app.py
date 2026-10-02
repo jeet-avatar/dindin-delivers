@@ -30,6 +30,85 @@ class BridgeAppTests(unittest.TestCase):
         self.app.closing = True
         self.app.root.destroy()
 
+    def test_update_check_is_always_visible_including_after_connect(self):
+        self.assertTrue(self.app.check_update_btn.winfo_ismapped())
+        self.app._on_connected()
+        self.app.root.update()
+        self.assertTrue(self.app.check_update_btn.winfo_ismapped())
+
+    def test_manual_check_disables_duplicate_requests(self):
+        with patch.object(bridge_app.threading, 'Thread') as thread:
+            self.app.check_update_btn.invoke()
+            self.app._check_updates()
+        thread.assert_called_once()
+        self.assertTrue(self.app.update_checking)
+        self.assertTrue(self.app.check_update_btn.instate(['disabled']))
+        self.assertIn('Checking', self.app.update_label.cget('text'))
+
+    def test_update_worker_failure_is_reported_to_ui(self):
+        with patch.object(bridge_app.updater, 'check', side_effect=OSError('offline')), \
+             patch.object(self.app, '_post') as post:
+            self.app._fetch_update()
+        self.assertEqual(post.call_args.args[0], self.app._update_checked)
+        self.assertIsNone(post.call_args.args[1])
+        self.assertIn('Could not check', post.call_args.args[2])
+
+    def test_failed_check_shows_download_and_retries_in_one_minute(self):
+        with patch.object(self.app.root, 'after', return_value='fixture') as schedule:
+            self.app._update_checked(None, 'Could not check for updates.')
+        schedule.assert_called_once_with(bridge_app.UPDATE_RETRY_MS, self.app._check_updates)
+        self.app.root.update()
+        self.assertTrue(self.app.download_update_btn.winfo_ismapped())
+        self.assertFalse(self.app.check_update_btn.instate(['disabled']))
+
+    def test_successful_check_shows_install_then_clears_withdrawn_update(self):
+        latest = {'version': '9.9.9', 'notes': 'Fixture only'}
+        self.app._update_checked(latest, None)
+        self.app.root.update()
+        self.assertTrue(self.app.update_btn.winfo_ismapped())
+        self.assertFalse(self.app.update_btn.instate(['disabled']))
+        self.assertIn('9.9.9', self.app.update_label.cget('text'))
+        self.app._update_checked(None, None)
+        self.app.root.update()
+        self.assertIsNone(self.app.latest)
+        self.assertFalse(self.app.update_btn.winfo_ismapped())
+        self.assertIn("up to date", self.app.update_label.cget('text'))
+
+    def test_install_and_check_cannot_run_twice_or_overlap(self):
+        self.app._show_update({'version': '9.9.9'})
+        with patch.object(bridge_app.threading, 'Thread') as thread:
+            self.app._install_update()
+            self.app._install_update()
+            self.app._check_updates()
+        thread.assert_called_once()
+        self.assertTrue(self.app.update_installing)
+        self.assertTrue(self.app.check_update_btn.instate(['disabled']))
+
+    def test_failed_install_restores_retry_and_official_download(self):
+        self.app.update_installing = True
+        self.app._update_failed('Fixture failure: nothing installed.')
+        self.app.root.update()
+        self.assertFalse(self.app.update_installing)
+        self.assertFalse(self.app.update_btn.instate(['disabled']))
+        self.assertFalse(self.app.check_update_btn.instate(['disabled']))
+        with patch.object(bridge_app.webbrowser, 'open') as browser:
+            self.app.download_update_btn.invoke()
+        browser.assert_called_once_with('https://www.beatmind.io/BeatMind-Bridge.dmg')
+
+    def test_integration_and_app_replacement_do_not_overlap(self):
+        self.app._show_update({'version': '9.9.9'})
+        self.app.integration_running = True
+        with patch.object(bridge_app.threading, 'Thread') as thread:
+            self.app._install_update()
+        thread.assert_not_called()
+        self.assertIn('Integration setup is running', self.app.update_label.cget('text'))
+        self.app.integration_running = False
+        self.app.update_installing = True
+        with patch.object(bridge_app.threading, 'Thread') as thread:
+            self.app._install_integration()
+        thread.assert_not_called()
+        self.assertIn('updating', self.app.integration_status.cget('text'))
+
     def test_idle_and_disabled_contrast(self):
         self.assertEqual(self.app.connect_btn.cget('text'), "Let's make music")
         for states in ((), ('active',), ('pressed',), ('disabled',)):

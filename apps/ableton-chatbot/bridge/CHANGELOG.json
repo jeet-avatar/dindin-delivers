@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.3.12",
+    "date": "2026-10-02",
+    "notes": [
+      "Check for updates is always visible, with checking, up-to-date and update-available states.",
+      "Failed checks are visible, retry after one minute and offer the official installer download. Duplicate checks and overlapping installations are prevented."
+    ]
+  },
+  {
     "version": "1.3.11",
     "date": "2026-10-02",
     "notes": [
