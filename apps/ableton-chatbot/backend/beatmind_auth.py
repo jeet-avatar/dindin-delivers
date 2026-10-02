@@ -3,6 +3,7 @@ Auth utilities for BeatMind — JWT tokens and password hashing.
 """
 
 import os
+import hmac
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -38,4 +39,12 @@ def create_token(user_id: int, email: str) -> str:
 
 def decode_token(token: str) -> dict:
     """Raises JWTError if invalid, expired, or tampered."""
-    return jwt.decode(token, _get_secret(), algorithms=[ALGORITHM])
+    claims = jwt.decode(token, _get_secret(), algorithms=[ALGORITHM])
+    if claims.get("purpose") is not None:
+        raise JWTError("Purpose-specific tokens cannot authenticate sessions")
+    return claims
+
+
+def password_reset_state(password_hash: str) -> str:
+    """Bind a reset link to the current password without exposing its stored hash."""
+    return hmac.new(_get_secret().encode(), password_hash.encode(), "sha256").hexdigest()

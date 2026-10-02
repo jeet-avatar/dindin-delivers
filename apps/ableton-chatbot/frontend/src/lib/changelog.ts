@@ -9,10 +9,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.3.9",
+    date: "2026-10-02",
+    notes: [
+      "Signed-in Bridge now shows your account instead of a locked email and password form.",
+      "Sign out restores editable login fields; Disconnect keeps your saved sign-in for reconnecting.",
+    ],
+  },
+  {
     version: "1.3.8",
     date: "2026-10-02",
     notes: [
       "Reconnect after clicking Disconnect without re-entering your password; Sign out remains available.",
+      "Email and password fields keep readable colors after connecting.",
       "The Bridge window now fits its setup controls and version footer on first launch.",
     ],
   },

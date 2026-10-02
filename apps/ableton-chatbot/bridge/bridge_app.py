@@ -141,6 +141,15 @@ class BeatMindBridgeApp:
         form = tk.Frame(self.root, bg=BG_CARD, highlightbackground=BORDER,
                         highlightthickness=1, padx=24, pady=20)
         form.pack(padx=24, pady=(20, 0), fill="x")
+        self.login_fields = tk.Frame(form, bg=BG_CARD)
+        self.login_fields.pack(fill="x")
+        self.account_fields = tk.Frame(form, bg=BG_CARD)
+        tk.Label(self.account_fields, text="Account", font=self.font_small,
+                 bg=BG_CARD, fg=TEXT_DIM, anchor="w").pack(fill="x", pady=(0, 6))
+        self.account_email_var = tk.StringVar()
+        tk.Label(self.account_fields, textvariable=self.account_email_var, font=self.font_body,
+                 bg=BG_CARD, fg=TEXT, anchor="w", justify="left", wraplength=310).pack(fill="x")
+        form = self.login_fields
 
         # Email
         tk.Label(form, text="Email", font=self.font_small, bg=BG_CARD, fg=TEXT,
@@ -390,13 +399,24 @@ class BeatMindBridgeApp:
         self.connected = True
         self.busy = False
         self.password_var.set('')
-        self.email_entry.config(state='disabled')
-        self.password_entry.config(state='disabled')
+        self._show_identity(True)
         self.connect_btn.config(state="normal", text=START_LABEL)
         self.disconnect_btn.pack(side='right', padx=(8, 0))
         self.sign_out_btn.pack(side='right', padx=(8, 0))
         self.connect_btn.focus_set()
         self._set_status("Connected to BeatMind", SUCCESS)
+
+    def _show_identity(self, signed_in):
+        self.email_entry.config(state='disabled' if signed_in else 'normal')
+        self.password_entry.config(state='disabled' if signed_in else 'normal')
+        if signed_in:
+            self.account_email_var.set(self.email_var.get().strip() or 'Saved sign-in')
+            self.login_fields.pack_forget()
+            self.account_fields.pack(fill='x')
+        else:
+            self.account_fields.pack_forget()
+            self.login_fields.pack(fill='x')
+        self._fit_window()
 
     def _disconnect(self):
         self._set_status("Disconnecting...", TEXT_DIM)
@@ -414,8 +434,7 @@ class BeatMindBridgeApp:
         self.bridge = None
         self.loop = None
         signed_in = bool(self.bridge_token)
-        self.email_entry.config(state='disabled' if signed_in else 'normal')
-        self.password_entry.config(state='disabled' if signed_in else 'normal')
+        self._show_identity(signed_in)
         self.disconnect_btn.pack_forget()
         if signed_in:
             self.sign_out_btn.pack(side='right', padx=(8, 0))

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { API_URL } from "@/lib/auth";
+import { authError } from "@/lib/auth-error";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -22,7 +23,7 @@ export default function ForgotPasswordPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.detail || "Something went wrong");
+        throw new Error(authError(data.detail, "Could not request a reset link. Please try again."));
       }
       setSubmitted(true);
     } catch (err) {

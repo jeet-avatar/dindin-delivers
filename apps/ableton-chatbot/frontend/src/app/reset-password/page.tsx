@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { API_URL } from "@/lib/auth";
+import { authError } from "@/lib/auth-error";
 import { EyeIcon, EyeOffIcon } from "@/components/Icons";
 
 function ResetPasswordForm() {
@@ -39,7 +40,7 @@ function ResetPasswordForm() {
         body: JSON.stringify({ token, new_password: password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Reset failed");
+      if (!res.ok) throw new Error(authError(data.detail, "Could not reset your password. Please try again."));
       setDone(true);
       setTimeout(() => router.push("/login"), 2500);
     } catch (err) {
@@ -63,7 +64,8 @@ function ResetPasswordForm() {
     <form onSubmit={submit} className="rounded-2xl border p-8 space-y-4" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} noValidate>
       {error && (
         <div role="alert" className="text-sm px-4 py-3 rounded-lg" style={{ background: "#3f1212", color: "#fca5a5" }}>
-          {error}
+          <p>{error}</p>
+          <Link href="/forgot-password" className="inline-block mt-2 underline">Request a new link</Link>
         </div>
       )}
       <div>

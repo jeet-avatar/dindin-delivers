@@ -3,6 +3,7 @@ BeatMind Backend — FastAPI server orchestrating Claude AI + AbletonOSC bridge.
 """
 
 import asyncio
+import hmac
 import json
 import logging
 import os
@@ -37,8 +38,8 @@ import song_projects
 import chat_tools
 from sections import SECTION_TOOL, get_brief, set_brief, source_error
 from recordings import ROOT as RECORDINGS_ROOT, save_recording, list_recordings, owned_recording, decide_recording, attach_evidence
-from database import init_db, get_user_by_email, get_users_by_email_any_case, get_user_by_id, create_user, is_subscribed, mixmind_access, update_user_password
-from beatmind_auth import hash_password, verify_password, create_token, decode_token
+from database import init_db, get_user_by_email, get_users_by_email_any_case, get_user_by_id, create_user, is_subscribed, mixmind_access, reset_user_password
+from beatmind_auth import hash_password, verify_password, create_token, decode_token, password_reset_state
 from stripe_routes import router as stripe_router
 from security import (
     enforce_secrets, rate_limit, get_client_ip,
@@ -335,10 +336,14 @@ class ResetPasswordRequest(BaseModel):
 
 def _create_reset_token(user_id: int, email: str) -> str:
     from jose import jwt as jose_jwt
+    user = get_user_by_id(user_id)
+    if not user:
+        raise ValueError("Account no longer exists")
     payload = {
         "sub": str(user_id),
         "email": email,
         "purpose": "password_reset",
+        "password_state": password_reset_state(user["password_hash"]),
         "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
     }
     secret = os.getenv("JWT_SECRET", "")
@@ -398,14 +403,21 @@ async def reset_password(req: ResetPasswordRequest):
     from jose import jwt as jose_jwt, JWTError as JoseJWTError
     try:
         secret = os.getenv("JWT_SECRET", "")
-        payload = jose_jwt.decode(req.token, secret, algorithms=["HS256"])
-    except JoseJWTError:
+        payload = jose_jwt.decode(req.token, secret, algorithms=["HS256"], options={"require_exp": True})
+        user_id = int(payload["sub"])
+    except (JoseJWTError, ValueError, KeyError, TypeError):
         raise HTTPException(400, "Reset link is invalid or has expired.")
     if payload.get("purpose") != "password_reset":
         raise HTTPException(400, "Invalid reset token.")
+    user = get_user_by_id(user_id)
+    state = payload.get("password_state")
+    if not user or not isinstance(state, str) or not hmac.compare_digest(
+        state, password_reset_state(user["password_hash"])
+    ):
+        raise HTTPException(400, "Reset link is invalid or has expired. Request a new link.")
     validate_password(req.new_password)
-    user_id = int(payload["sub"])
-    update_user_password(user_id, hash_password(req.new_password))
+    if not reset_user_password(user_id, user["password_hash"], hash_password(req.new_password)):
+        raise HTTPException(400, "Reset link has already been used. Request a new link.")
     return {"message": "Password updated. You can now sign in."}
 
 

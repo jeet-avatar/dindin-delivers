@@ -86,6 +86,49 @@ class BridgeAppTests(unittest.TestCase):
         resume.assert_not_called()
         self.assertEqual(self.app.email_entry.cget('state'), 'normal')
 
+    def test_signed_in_account_replaces_login_even_when_disconnected(self):
+        self.app.email_var.set('listener@example.invalid')
+        self.app.bridge_token = 'fixture-token'
+        self.app._on_connected()
+        self.app.root.update()
+        self.assertFalse(self.app.password_entry.winfo_ismapped())
+        self.assertTrue(self.app.account_fields.winfo_ismapped())
+        self.assertEqual(self.app.account_email_var.get(), 'listener@example.invalid')
+        self.app._on_disconnected()
+        self.app.root.update()
+        self.assertFalse(self.app.login_fields.winfo_ismapped())
+        self.assertTrue(self.app.account_fields.winfo_ismapped())
+        self.assertTrue(self.app.sign_out_btn.winfo_ismapped())
+
+    def test_sign_out_restores_editable_fields(self):
+        self.app.bridge_token = 'fixture-token'
+        self.app._on_connected()
+        with patch.object(bridge_app.threading, 'Thread'):
+            self.app._sign_out()
+        self.app.root.update()
+        self.assertFalse(self.app.account_fields.winfo_ismapped())
+        self.assertTrue(self.app.password_entry.winfo_ismapped())
+        self.app.password_entry.insert(0, 'fixture-new-password')
+        self.assertEqual(self.app.password_var.get(), 'fixture-new-password')
+        self.assertEqual(self.app.email_entry.cget('state'), 'normal')
+        self.assertGreaterEqual(self.app.root.winfo_height(), self.app.root.winfo_reqheight())
+
+    def test_rejected_saved_sign_in_restores_form(self):
+        self.app._show_identity(True)
+        self.app.bridge_token = None
+        self.app._on_disconnected('Please sign in to BeatMind again.')
+        self.app.root.update()
+        self.assertTrue(self.app.password_entry.winfo_ismapped())
+        self.assertFalse(self.app.account_fields.winfo_ismapped())
+        self.assertEqual(self.app.password_entry.cget('state'), 'normal')
+
+    def test_long_account_email_stays_inside_window(self):
+        self.app.email_var.set('a' * 64 + '@' + 'b' * 63 + '.example.invalid')
+        self.app._on_connected()
+        self.app.root.update()
+        self.assertLessEqual(self.app.account_fields.winfo_width(), self.app.root.winfo_width() - 48)
+        self.assertGreaterEqual(self.app.root.winfo_height(), self.app.root.winfo_reqheight())
+
     def test_initial_window_fits_setup_and_footer(self):
         self.assertGreaterEqual(self.app.root.winfo_height(), self.app.root.winfo_reqheight())
 

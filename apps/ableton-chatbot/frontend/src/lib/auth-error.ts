@@ -6,7 +6,7 @@ export function authError(detail: unknown, fallback: string): string {
       return issue.loc.slice(-1);
     });
     if (fields.includes("email")) return "Please enter a valid email address.";
-    if (fields.includes("password")) return "Please check your password and try again.";
+    if (fields.includes("password") || fields.includes("new_password")) return "Please check your password and try again.";
     if (fields.includes("name")) return "Please enter your name.";
   }
   return fallback;
