@@ -1,0 +1,48 @@
+{
+  "application_commit": "295256733223e620c221ebdf8be81242407d9a28",
+  "bridge_version": "1.3.10",
+  "product_fixes_deployed": true,
+  "unrestricted_launch_signoff": false,
+  "deployment_run": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/37063616462",
+  "backend_task": "beatmind-api:83",
+  "fixes": [
+    "First-time setup installs checksum-pinned AbletonOSC and BeatMind extensions from the signed bundle without a separate runtime download.",
+    "Setup runs in the background with visible progress, completion and error messages; cloud reconnect does not block local setup.",
+    "Custom User Library selection is persisted; incomplete or unrecognized existing integrations are not overwritten.",
+    "A connected Bridge that cannot inspect Live returns actionable setup and Control Surface instructions before any production action."
+  ],
+  "tests": {
+    "bridge_passed": 83,
+    "backend_sqlite_passed": 528,
+    "backend_postgres_passed": 523,
+    "backend_postgres_sqlite_specific_skipped": 5,
+    "frontend_test_files_passed": 20,
+    "production_build": "Passed locally and in CI",
+    "real_setup_button": "Source GUI button invoked with the actual pinned AbletonOSC archive and an empty temporary User Library. Setup completed during simulated cloud reconnect; completion instructions were visible in the screenshot.",
+    "packaged_integration": "Signed binary passed fresh-install and repeated-install checks in a temporary library.",
+    "packaged_audio": "Actual four-stem separation passed using a generated tone; HTTPS and WebSocket TLS checks passed.",
+    "updater": "Actual updater using local DMG transport rejected a bad checksum without replacing the previous app, installed the signed replacement, and retained the previous app. Fresh-copy signature and Gatekeeper checks passed.",
+    "production_browser": "1440px and 390px: login, signup, forgot-password, guide and changelog returned 200 without page errors, broken assets or horizontal overflow. Invalid sign-in produced readable validation; logged-out dashboard redirected to login.",
+    "production_api": "ECS stable; health ok; Bedrock configured; unauthenticated chats and Bridge status returned 401."
+  },
+  "installer": {
+    "url": "https://www.beatmind.io/BeatMind-Bridge-1.3.10.dmg",
+    "sha256": "e1527a1527358e630d1ea91bc315fed7d3e11dd10d082b554d338a91709d0a88",
+    "notarization_submission": "4a7ffcc6-6b85-41de-a13c-d5f2c0a87df5",
+    "notarization": "Accepted; ticket stapled; disk image verified",
+    "public_download_checksum_matched": true,
+    "public_latest_manifest_verified": true,
+    "scope": "Apple Silicon; local testing on macOS 15.7.7. Sylvia's independent Mac remains unverified."
+  },
+  "preservation": {
+    "music_and_integration": "No Ableton music commands, original project edits or changes to the user's existing AbletonOSC integration were made during these release checks.",
+    "production_configuration": "Only BEATMIND_RELEASE_SHA changed. Payment settings, secret references, provider configuration, ECS roles and storage were preserved.",
+    "rollback": "Frontend snapshot releases/before-20261002-29525673/; prior ECS task beatmind-api:82; immutable Bridge 1.3.9 retained.",
+    "excluded": "No credentials, marketing media, music projects or temporary QA scripts included in release commits."
+  },
+  "remaining_confirmation": [
+    "On Sylvia's Mac: install Bridge 1.3.10, choose the correct User Library if customized, run setup, save and restart Live, select AbletonOSC in an empty Control Surface slot, then perform read-only Live Set inspection.",
+    "Fresh macOS privacy-permission prompts and independent first-time audio capture remain unverified.",
+    "Live payments remain deferred by the user. This release does not certify every third-party plugin or subjective music quality."
+  ]
+}
