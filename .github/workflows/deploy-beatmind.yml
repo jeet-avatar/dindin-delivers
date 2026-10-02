@@ -107,7 +107,7 @@ jobs:
       - name: Register task definition with image and audio secret reference
         id: register-task-def
         env:
-          BEATMIND_FALLBACK_MODEL: us.anthropic.claude-sonnet-5-5
+          BEATMIND_FALLBACK_MODEL: us.anthropic.claude-sonnet-4-6
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
