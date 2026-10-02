@@ -9,6 +9,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.3.7",
+    date: "2026-10-02",
+    notes: [
+      "Set up Ableton integration from the Bridge, with automatic registration, backups and rollback.",
+      "Supported actions can show the corresponding track, device or MIDI clip in Ableton and verify the displayed selection.",
+      "Arrangement auditions check their playback start; clip automation verifies written values and holds the final value through the clip end.",
+      "Improved packaged stem-separation startup and installer version reporting. Save your Live Set, run integration setup and restart Ableton after updating.",
+    ],
+  },
+  {
     version: "1.3.6",
     date: "2026-09-30",
     notes: [
