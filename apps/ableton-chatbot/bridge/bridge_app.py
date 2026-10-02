@@ -109,6 +109,7 @@ class BeatMindBridgeApp:
 
         # ── Build UI ──
         self._build_ui(config)
+        self._fit_window()
         if sys.platform == 'darwin':
             register_mac_launch(self.root)
 
@@ -253,6 +254,8 @@ class BeatMindBridgeApp:
     def _toggle_connection(self):
         if self.connected:
             webbrowser.open(CHAT_URL)
+        elif self.bridge_token:
+            self._resume(self.bridge_token)
         else:
             self._connect()
 
@@ -406,10 +409,14 @@ class BeatMindBridgeApp:
         self.busy = False
         self.bridge = None
         self.loop = None
-        self.email_entry.config(state='normal')
-        self.password_entry.config(state='normal')
+        signed_in = bool(self.bridge_token)
+        self.email_entry.config(state='disabled' if signed_in else 'normal')
+        self.password_entry.config(state='disabled' if signed_in else 'normal')
         self.disconnect_btn.pack_forget()
-        self.sign_out_btn.pack_forget()
+        if signed_in:
+            self.sign_out_btn.pack(side='right', padx=(8, 0))
+        else:
+            self.sign_out_btn.pack_forget()
         self.connect_btn.config(state="normal", text=START_LABEL)
         self.connect_btn.focus_set()
         self._set_status(message, TEXT_DIM if message == 'Disconnected' else ERROR)

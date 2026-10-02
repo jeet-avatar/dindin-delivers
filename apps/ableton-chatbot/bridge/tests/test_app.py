@@ -64,6 +64,31 @@ class BridgeAppTests(unittest.TestCase):
             browser.assert_called_once_with('https://www.beatmind.io/dashboard')
         self.assertTrue(self.app.connected)
 
+    def test_manual_disconnect_keeps_sign_in_for_reconnect(self):
+        self.app.bridge_token = 'fixture-token'
+        self.app._on_connected()
+        self.app._on_disconnected()
+        self.app.root.update()
+        self.assertEqual(self.app.email_entry.cget('state'), 'disabled')
+        self.assertEqual(self.app.password_entry.cget('state'), 'disabled')
+        self.assertTrue(self.app.sign_out_btn.winfo_ismapped())
+        with patch.object(self.app, '_resume') as resume, patch.object(self.app, '_connect') as login:
+            self.app.connect_btn.invoke()
+        resume.assert_called_once_with('fixture-token')
+        login.assert_not_called()
+
+    def test_signed_out_button_uses_login(self):
+        self.app.bridge_token = None
+        self.app._on_disconnected()
+        with patch.object(self.app, '_resume') as resume, patch.object(self.app, '_connect') as login:
+            self.app.connect_btn.invoke()
+        login.assert_called_once()
+        resume.assert_not_called()
+        self.assertEqual(self.app.email_entry.cget('state'), 'normal')
+
+    def test_initial_window_fits_setup_and_footer(self):
+        self.assertGreaterEqual(self.app.root.winfo_height(), self.app.root.winfo_reqheight())
+
     def test_login_is_single_flight_and_preserves_password_spaces(self):
         self.app.email_var.set('fixture@example.invalid')
         self.app.password_var.set(' fixture-only ')

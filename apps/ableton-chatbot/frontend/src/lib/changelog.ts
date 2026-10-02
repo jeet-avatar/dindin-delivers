@@ -9,6 +9,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.3.8",
+    date: "2026-10-02",
+    notes: [
+      "Reconnect after clicking Disconnect without re-entering your password; Sign out remains available.",
+      "The Bridge window now fits its setup controls and version footer on first launch.",
+    ],
+  },
+  {
     version: "1.3.7",
     date: "2026-10-02",
     notes: [
