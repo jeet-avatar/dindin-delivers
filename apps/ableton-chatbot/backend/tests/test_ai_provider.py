@@ -38,6 +38,19 @@ class ProviderTests(unittest.TestCase):
         self.assertIn("Some actions may already have run", failure_message(RuntimeError("private data"), True))
         self.assertNotIn("private data", failure_message(RuntimeError("private data"), True))
 
+    def test_transient_provider_failure_is_not_configuration_rejection(self):
+        for status in (500, 502, 503, 504, 529):
+            with self.subTest(status=status):
+                error = anthropic.APIStatusError("private upstream details",
+                    response=httpx.Response(status, request=httpx.Request("POST", "https://example.com")),
+                    body={"message": "private upstream details"})
+                message = failure_message(error, False)
+                self.assertIn("temporarily unavailable after retries", message)
+                self.assertIn("No Ableton actions were started", message)
+                self.assertNotIn("configuration", message)
+                self.assertNotIn("private upstream details", message)
+                self.assertIn("Some actions may already have run", failure_message(error, True))
+
 
 if __name__ == "__main__":
     unittest.main()
