@@ -1,5 +1,7 @@
 "use client";
 
+import { streamHealth } from "@/lib/stream-health";
+
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { getUser, getToken, clearAuth, apiFetch, API_URL } from "@/lib/auth";
@@ -10,6 +12,7 @@ import FailedAudition from "@/components/FailedAudition";
 import ReviewMessage from "@/components/ReviewMessage";
 import Recordings, { useRecordings, type Recording } from "@/components/Recordings";
 import ChatTimestamp from "@/components/ChatTimestamp";
+import ChatTimeline from "@/components/ChatTimeline";
 import { messageRecordingIds } from "@/lib/chat-recordings";
 import NewSongDialog from "@/components/NewSongDialog";
 import References from "@/components/References";
@@ -206,6 +209,7 @@ export default function DashboardPage() {
   const recordingIdsByMessage = useMemo(() => messageRecordingIds(messages, recordings.items), [messages, recordings.items]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [streamNotice, setStreamNotice] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
   const { status: bridgeStatus, refresh: refreshBridge } = useBridgeStatus(user?.id);
@@ -214,8 +218,14 @@ export default function DashboardPage() {
   const [historyReady, setHistoryReady] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const requestRef = useRef<AbortController | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
+  }, [input, nav]);
 
   useEffect(() => {
     const u = getUser();
@@ -382,10 +392,6 @@ export default function DashboardPage() {
 
   useEffect(() => () => requestRef.current?.abort(), []);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [messages.length]);
-
   const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, selectedReference?: string | null, planningOnly = false) => {
     const text = (messageOverride ?? input).trim();
     if (!text || !historyReady || loading || requestRef.current) return;
@@ -394,6 +400,14 @@ export default function DashboardPage() {
     requestRef.current = controller;
     const createdAt = new Date().toISOString();
     setLoading(true);
+    setStreamNotice("");
+    let lastEvent = Date.now();
+    let lastProgress = lastEvent;
+    const watchdog = window.setInterval(() => {
+      const health = streamHealth(Date.now(), lastEvent, lastProgress);
+      setStreamNotice(health.notice);
+      if (health.disconnected) controller.abort(new Error(health.notice));
+    }, 1000);
     try {
       const activeSession = continuationSession ?? sessionId ?? await createProject();
       setMessages(p => [...p, { role: "user", content: text, createdAt }, { id: runId, role: "assistant", createdAt, requestStatus: "running", content: "Planning the next steps...", toolCalls: [] }]);
@@ -424,6 +438,8 @@ export default function DashboardPage() {
       const consume = (line: string) => {
         if (!line.trim()) return;
         const event = JSON.parse(line);
+        lastEvent = Date.now();
+        if (event.type !== "heartbeat") lastProgress = lastEvent;
         if (event.type === "session") {
           setSessionId(event.session_id);
           if ("project" in event) setProject(event.project);
@@ -474,10 +490,13 @@ export default function DashboardPage() {
         const stopped = inspectionOnly
           ? "Request stopped. Only inspections are recorded in the action log; no completed music changes are shown."
           : "Request stopped. Any actions already sent may remain in Ableton; inspect the log before continuing.";
-        return { ...m, requestStatus: "interrupted", content: controller.signal.aborted ? stopped : `Production interrupted: ${err instanceof Error ? err.message : "Unknown error"}`,
+        const timeoutReason = controller.signal.reason;
+        return { ...m, requestStatus: "interrupted", content: controller.signal.aborted
+          ? (timeoutReason instanceof Error && timeoutReason.name !== "AbortError" ? timeoutReason.message : stopped)
+          : `Production interrupted: ${err instanceof Error ? err.message : "Unknown error"}`,
           toolCalls: m.toolCalls?.map(a => a.result ? a : { ...a, result: { status: "unverified", summary: "Interrupted before confirmation. Inspect Ableton before repeating this action." } }) };
       }));
-    } finally { requestRef.current = null; setLoading(false); }
+    } finally { window.clearInterval(watchdog); requestRef.current = null; setLoading(false); setStreamNotice(""); }
   }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject]);
 
   // Subscribers manage or change plans in the Stripe portal; everyone else picks a plan.
@@ -528,10 +547,10 @@ export default function DashboardPage() {
   const reviewRef = useRef(reviewRecording);
   reviewRef.current = reviewRecording;
   const supersededIds = useMemo(() => new Set(recordings.items.flatMap(item => item.supersedes ? [item.supersedes] : [])), [recordings.items]);
-  const lastUserIndex = messages.map(m => m.role).lastIndexOf("user");
+  const conversationFollowKey = `${chatId}:${messages.filter(m => m.role === "user").length}`;
   const conversation = useMemo(() => (<>
         {messages.map((msg, i) => (
-          <div key={i} ref={i === lastUserIndex ? messagesEndRef : undefined}
+          <div key={i}
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className="min-w-0 max-w-full sm:max-w-[90%] rounded-lg px-4 py-3"
               style={{ background: msg.role === "user" ? "var(--accent)" : "var(--bg-secondary)", color: msg.role === "user" ? "#fff" : "var(--text-primary)" }}>
@@ -560,7 +579,7 @@ export default function DashboardPage() {
         ))}
   </>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [messages, recordings, recordingIdsByMessage, supersededIds, loading, historyReady, lastUserIndex]);
+  ), [messages, recordings, recordingIdsByMessage, supersededIds, loading, historyReady]);
 
 
   // Derived subscription state
@@ -726,8 +745,9 @@ export default function DashboardPage() {
     <div className="flex flex-col flex-1 h-full overflow-hidden">
       {/* Bridge offline banner */}
 
-      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-4" aria-live="polite">
+      <ChatTimeline followKey={conversationFollowKey}>
         {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
+        {loading && streamNotice && <p role="status" className="text-xs text-amber-300">{streamNotice}</p>}
         {(messages.length === 0 || (project && !project.starting_point)) && (
           <div className="flex flex-col items-center justify-center py-8 gap-6 text-center">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "var(--bg-secondary)", color: "var(--accent)" }}>
@@ -757,7 +777,7 @@ export default function DashboardPage() {
           </div>
         )}
         {recordings.error && <p role="alert" className="text-xs text-red-300">{recordings.error}</p>}
-      </div>
+      </ChatTimeline>
 
       <div className="px-3 sm:px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
         <div className="flex gap-3 items-end">
@@ -770,11 +790,6 @@ export default function DashboardPage() {
             rows={1}
             className="flex-1 min-w-0 resize-none rounded-lg px-4 py-3 text-sm outline-none"
             style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-            onInput={e => {
-              const t = e.target as HTMLTextAreaElement;
-              t.style.height = "auto";
-              t.style.height = Math.min(t.scrollHeight, 120) + "px";
-            }}
           />
           {loading && (
             <button type="button" onClick={() => requestRef.current?.abort()}

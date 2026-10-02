@@ -25,6 +25,17 @@ jobs:
   test:
     name: Validate Release
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: beatmind_ci_test_only
+          POSTGRES_DB: beatmind_release_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,7 +52,8 @@ jobs:
           PYTHON_DOTENV_DISABLED: '1'
         run: |
           pip install -r requirements.txt -r requirements-test.txt -r requirements-reference.txt -r ../bridge/requirements.txt
-          python -m unittest discover -s tests
+          DB_BACKEND=sqlite python -m pytest tests -q
+          DB_BACKEND=postgres DATABASE_URL=postgresql://postgres:beatmind_ci_test_only@localhost:5432/beatmind_release_test python -m pytest tests -q
       - name: Frontend regression tests and production build
         working-directory: apps/ableton-chatbot/frontend
         env:
@@ -56,6 +68,8 @@ jobs:
     needs: [test]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    outputs:
+      task_definition: ${{ steps.register-task-def.outputs.task_def_arn }}
 
     steps:
       - name: Checkout code
@@ -95,8 +109,6 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
-          SMTP_USER: ${{ secrets.BEATMIND_SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.BEATMIND_SMTP_PASSWORD }}
         run: |
           set -euo pipefail
           umask 077
@@ -183,8 +195,20 @@ jobs:
 
       - name: Deploy to S3
         working-directory: apps/ableton-chatbot/frontend
-        # Installers are published separately; a web release must not delete them.
-        run: aws s3 sync out/ s3://${{ env.S3_BUCKET }}/ --delete --exclude '*.dmg' --exclude '*.exe' --exclude '*.zip'
+        # Preserve installers, model files, release history and chunks used by open tabs.
+        run: |
+          aws s3 sync out/_next/ s3://${{ env.S3_BUCKET }}/_next/ --cache-control 'public,max-age=31536000,immutable'
+          aws s3 sync out/ s3://${{ env.S3_BUCKET }}/ --exclude '_next/*' --exclude 'release.json' --cache-control 'no-cache'
+
+      - name: Publish release identity
+        env:
+          RELEASE_TASK: ${{ needs.deploy-backend.outputs.task_definition }}
+        run: |
+          aws s3 cp s3://${{ env.S3_BUCKET }}/release.json /tmp/beatmind-previous-release.json
+          python3 apps/ableton-chatbot/scripts/write_release_manifest.py \
+            /tmp/beatmind-previous-release.json /tmp/beatmind-release.json \
+            --commit "$GITHUB_SHA" --task "$RELEASE_TASK"
+          aws s3 cp /tmp/beatmind-release.json s3://${{ env.S3_BUCKET }}/release.json --content-type application/json --cache-control no-store
 
       - name: Invalidate CloudFront cache
         run: |

@@ -679,7 +679,8 @@ async def produce_chat(req, session, bridge, emit=None):
             session.current_track_names = state["args"]
             # A new song's planning must not inherit approvals from the old open set.
             session.current_recordings = [] if session.project and not session.project.get('live_set') else matching_recordings(
-                list_recordings(session.user_id, session.session_id) if session.project else list_recordings(session.user_id), state["args"])
+                list_recordings(session.user_id, session.session_id) if session.project else list_recordings(session.user_id),
+                state["args"], session_scoped=bool(session.project and session.project.get('live_set')))
             session.pending_review = any(item["decision"] == "pending" for item in session.current_recordings)
         session.messages.append({"role": "user", "content": req.message})
         now = datetime.now(timezone.utc).isoformat()
@@ -904,7 +905,7 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                               if blocked or audition_ready else await _execute_tool(tu.name, tu.input, bridge))
                     if tu.name in {"create_midi_track", "create_audio_track"} and not blocked and not audition_ready:
                         track_creation_attempted = True
-                blocked = blocked or result.get("status") in {"failed", "partial"}
+                blocked = blocked or result.get("status") in BAD_STATUSES
                 audition_ready = audition_ready or bool(result.get("recording") or result.get('comparison'))
                 action["result"] = result
                 tool_calls_log.append(action)

@@ -60,6 +60,13 @@ class AudioTaskTests(unittest.TestCase):
         self.assertNotIn('SMTP_PASSWORD', [s['name'] for s in container['secrets']])
         self.assertIn({'name': 'SMTP_PASSWORD', 'value': 'new-fixture-password'}, container['environment'])
 
+    def test_release_sha_matches_immutable_image_without_replacing_other_secrets(self):
+        self.task['containerDefinitions'][1]['secrets'].append({'name': 'DATABASE_URL', 'valueFrom': 'postgres-secret'})
+        result = module.prepare_task(self.task, 'registry/release:' + 'a' * 40, self.ARN)
+        container = result['containerDefinitions'][1]
+        self.assertIn({'name': 'BEATMIND_RELEASE_SHA', 'value': 'a' * 40}, container['environment'])
+        self.assertIn({'name': 'DATABASE_URL', 'valueFrom': 'postgres-secret'}, container['secrets'])
+
     def test_rejects_value_or_wrong_secret(self):
         for bad in ('sk-not-a-real-key', self.ARN.replace('production', 'staging'),
                     self.ARN.replace('134607809447', '000000000000')):
