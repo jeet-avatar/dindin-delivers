@@ -29,10 +29,11 @@
     "version": "1.3.7",
     "minimum_macos": "14.0",
     "architecture": "arm64",
-    "code_commit": "668689a5",
+    "code_commit": "7a111acddc544995c8b3bebf0611a8140df92d3e",
+    "ci_run": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/36983488858",
     "notarized": true,
-    "notarization_submission": "45f5f160-652f-469b-b506-0724cf787c4c",
-    "sha256": "b10b4f28fea2beb0922fceb02efe63f91994bd43850c813078c27397f766b0d5",
+    "notarization_submission": "e9cc1b66-45bf-4e3e-b0f1-0d5a4f318c20",
+    "sha256": "e81f789c6dbbadcf50ed1707d9e11a29d4977d359c7641c4b33fa1550794a165",
     "published": false,
     "included_fixes": [
       "Validate automation before clearing envelopes and verify numeric envelope readback",
@@ -41,6 +42,8 @@
       "Fail the build if separation or resource tracking unexpectedly starts application code",
       "Gate verified display following and Arrangement previews on confirmed Bridge/OSC capabilities; preserve legacy commands",
       "User-triggered integration module updates with backups and rollback",
+      "First-time registration on standard AbletonOSC without manual Python editing; preserve recognized custom registration and refuse unfamiliar modifications",
+      "Exact browser-item loading with explicit errors for missing, ambiguous or folder selections",
       "Hold the last automation value until the clip ends, with numeric readback",
       "Readable sign-in/sign-up validation errors without echoing private validation inputs",
       "Use verified Ableton track names in production summaries"
@@ -48,7 +51,7 @@
     "passed": [
       "505 backend tests on isolated SQLite",
       "500 backend tests passed on isolated PostgreSQL; 5 SQLite-specific tests skipped",
-      "47 Bridge tests including GUI states, sign-in handling, updates and packaging",
+      "61 Bridge tests including GUI states, sign-in handling, updates, packaging, first-time registration, idempotency, rollback and real extension registration in a fixture",
       "20 frontend unit-test files and Next production build",
       "15 browser test files on the final production build, including desktop/mobile workflows, references, audio players, errors and chat scrolling",
       "Developer ID signature, accepted Apple notarization, stapled ticket, disk image checksum and Gatekeeper verification",
@@ -57,9 +60,33 @@
       "Bundle version and build version 1.3.7 with minimum macOS 14.0",
       "Fresh app copy and actual updater replacement/signature path in temporary folders; bad checksum leaves old app unchanged",
       "Final packaged GUI opened with isolated empty sign-in configuration; controls visible and readable",
+      "All nine packaged integration modules byte-match committed source; no replay module included",
+      "First and repeat integration setup against a clean git archive of upstream AbletonOSC 0ca68214bd62c9b5cb641ca34006cfd70ba94430, with backup and Python syntax checks",
+      "Updated setup guide checked in the production build at 1440px and 390px without browser errors or horizontal overflow",
       "Real frontend sign-in, connected status, set selection, kick, Operator bass, effect controls, automation, revision and Arrangement audition",
       "Real browser audio decode and advancing playback; accepted decisions persist, do not start production, and remain paused after reload"
     ]
+  },
+  "production_services": {
+    "deployment_changed": false,
+    "health": "Healthy; one Bridge connected and no active production sessions at last check",
+    "stripe": {
+      "primary_and_legacy": "Live API authentication passed; both production webhooks enabled at the exact API URL with all required subscription, invoice and checkout events",
+      "portals": "Both portals active with cancellation at period end",
+      "signature_rejection": "Public webhook rejected an unsigned request with HTTP 400",
+      "plans": "Public plans endpoint returned 12 available monthly/yearly plans",
+      "payment_created": false,
+      "payment_completion_verified": false
+    },
+    "email": {
+      "active_provider": "SMTP, not SES",
+      "smtp_authentication": "STARTTLS and login passed",
+      "public_frontend_test": "One reset email requested through the production forgot-password form; HTTP 200 and confirmation page shown",
+      "server_result": "CloudWatch recorded Password-reset email accepted after SMTP send",
+      "password_changed": false,
+      "recipient_arrival_and_link": "Awaiting user confirmation; server acceptance does not prove inbox delivery",
+      "ses": "Identity and DKIM verified but SES remains in sandbox; it is not the current production mail provider"
+    }
   },
   "live_qa": {
     "set": "BeatMind Launch QA 2026-10-02",
@@ -79,8 +106,8 @@
     "data_policy": "No QA recordings, chats, credentials, approvals, music or marketing scripts included in the product commit."
   },
   "remaining_release_gates": [
-    "First-time setup on a clean supported Mac: Gatekeeper launch, fresh privacy permissions, core AbletonOSC installation and extension registration. The integration updater updates an existing registration; it is not a complete first-install wizard.",
-    "Production checkout/webhook and password-reset email delivery smoke tests; automated billing and auth regressions passed but no real charge or email was initiated in this audit.",
+    "First-time end-to-end setup on a clean supported Mac: fresh privacy permissions and the stock AbletonOSC integration running inside Live. File installation and registration passed against a clean upstream archive; core AbletonOSC still must be installed separately in the default User Library.",
+    "Production payment completion/webhook handling and recipient confirmation that the reset email arrives and its button opens the reset page. Read-only live billing checks and SMTP acceptance passed; no payment was initiated.",
     "Coordinated installer, backend and frontend publication followed by production smoke verification. PR 26 remains the release candidate."
   ],
   "limitations": [
@@ -88,6 +115,8 @@
     "Generated-tone stem health verifies packaging and alignment, not musical separation quality",
     "Actual music tests used source Bridge with the same candidate integration, plus the signed capture helper. Packaged GUI/runtime and updater were tested separately, not a complete newly installed end-to-end session.",
     "Updater download transport used the local final DMG; published HTTPS download for the new version is not yet available",
+    "New stock bootstrap was tested with the actual extension modules outside Live and on a clean upstream archive, not inside a fresh Live installation",
+    "This session's System Events GUI automation was denied assistive access. The final packaged login window was activated and visually inspected through a window screenshot; no first-time setup button was clicked in the user's installed environment",
     "Full-song reference interpretation and separation quality are not guaranteed by generated-tone packaging checks or browser fixtures",
     "Intel, Windows and other macOS versions were not tested",
     "No new production installer or application deployment was performed"
