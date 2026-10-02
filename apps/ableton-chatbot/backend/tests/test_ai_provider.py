@@ -1,11 +1,11 @@
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import anthropic
 import httpx
 
-from ai_provider import create_client, failure_message, model_name
+from ai_provider import create_client, failure_message, model_name, request_message
 
 
 class ProviderTests(unittest.TestCase):
@@ -63,3 +63,60 @@ class BedrockRetryTests(unittest.TestCase):
         import ai_provider
         with patch.dict(os.environ, {"BEATMIND_AI_PROVIDER": "bedrock"}):
             self.assertEqual(ai_provider.create_client().max_retries, 6)
+
+
+class ModelFallbackTests(unittest.IsolatedAsyncioTestCase):
+    def error(self, status):
+        return anthropic.APIStatusError('unavailable', response=httpx.Response(
+            status, request=httpx.Request('POST', 'https://example.com')), body={})
+
+    @patch.dict(os.environ, {'BEATMIND_FALLBACK_MODEL': 'backup'}, clear=True)
+    async def test_primary_success_does_not_call_backup(self):
+        client = MagicMock()
+        client.messages.create = AsyncMock(return_value='response')
+        self.assertEqual(await request_message(client, model='primary', messages=[]), ('response', 'primary'))
+        client.messages.create.assert_awaited_once_with(model='primary', messages=[])
+
+    @patch.dict(os.environ, {'BEATMIND_FALLBACK_MODEL': 'backup'}, clear=True)
+    async def test_transient_failure_reuses_only_model_request_and_reports_actual_model(self):
+        for status in (500, 502, 503, 504, 529):
+            client, emit = MagicMock(), AsyncMock()
+            client.messages.create = AsyncMock(side_effect=[self.error(status), 'response'])
+            history = [{'role': 'user', 'content': 'continue'}]
+            result = await request_message(client, model='primary', emit=emit, messages=history, tools=[])
+            self.assertEqual(result, ('response', 'backup'))
+            self.assertEqual(client.messages.create.await_count, 2)
+            client.messages.create.assert_awaited_with(model='backup', messages=history, tools=[])
+            emit.assert_awaited_once()
+
+    @patch.dict(os.environ, {'BEATMIND_FALLBACK_MODEL': 'backup'}, clear=True)
+    async def test_auth_bad_request_and_rate_limit_do_not_fallback(self):
+        for status in (400, 401, 403, 429):
+            client = MagicMock()
+            client.messages.create = AsyncMock(side_effect=self.error(status))
+            with self.assertRaises(anthropic.APIStatusError):
+                await request_message(client, model='primary', messages=[])
+            self.assertEqual(client.messages.create.await_count, 1)
+
+    async def test_missing_or_already_active_fallback_does_not_repeat(self):
+        for fallback in ('', 'primary'):
+            with patch.dict(os.environ, {'BEATMIND_FALLBACK_MODEL': fallback}, clear=True):
+                client = MagicMock()
+                client.messages.create = AsyncMock(side_effect=self.error(503))
+                with self.assertRaises(anthropic.APIStatusError):
+                    await request_message(client, model='primary', messages=[])
+                self.assertEqual(client.messages.create.await_count, 1)
+
+    @patch.dict(os.environ, {'BEATMIND_AI_PROVIDER': 'bedrock', 'BEATMIND_FALLBACK_MODEL': 'backup'}, clear=True)
+    async def test_fallback_has_bounded_primary_retries(self):
+        with patch('ai_provider.anthropic.AsyncAnthropicBedrock') as client:
+            create_client()
+        client.assert_called_once_with(aws_region='us-east-1', max_retries=2)
+
+    @patch.dict(os.environ, {'BEATMIND_FALLBACK_MODEL': 'backup'}, clear=True)
+    async def test_backup_failure_propagates_without_more_attempts(self):
+        client = MagicMock()
+        client.messages.create = AsyncMock(side_effect=self.error(503))
+        with self.assertRaises(anthropic.APIStatusError):
+            await request_message(client, model='primary', messages=[])
+        self.assertEqual(client.messages.create.await_count, 2)

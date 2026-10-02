@@ -23,9 +23,25 @@ def create_client():
     if provider_name() == "bedrock":
         # Bedrock returns transient 503s under load; the SDK retries them with exponential backoff.
         return anthropic.AsyncAnthropicBedrock(aws_region=os.getenv("AWS_REGION", "us-east-1"),
-                                               max_retries=int(os.getenv("BEATMIND_AI_MAX_RETRIES", "6")))
+                                               max_retries=int(os.getenv("BEATMIND_AI_MAX_RETRIES", "2" if os.getenv("BEATMIND_FALLBACK_MODEL") else "6")))
     key = os.getenv("ANTHROPIC_API_KEY")
     return anthropic.AsyncAnthropic(api_key=key) if key else None
+
+
+async def request_message(client, *, model, emit=None, **kwargs):
+    """Retry only an unexecuted model request, using the same provider and history."""
+    try:
+        return await client.messages.create(model=model, **kwargs), model
+    except anthropic.APIStatusError as error:
+        fallback = os.getenv("BEATMIND_FALLBACK_MODEL", "").strip()
+        if (error.status_code not in {500, 502, 503, 504, 529}
+                or not fallback or fallback == model):
+            raise
+        if emit:
+            await emit({"type": "narration", "text":
+                "The primary AI model is temporarily unavailable. Continuing with the configured "
+                f"backup model ({fallback}) on the same provider. Completed Ableton actions are not being repeated."})
+        return await client.messages.create(model=fallback, **kwargs), fallback
 
 
 def failure_message(error, actions_started):

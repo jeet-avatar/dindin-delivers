@@ -148,6 +148,8 @@ class BeatMindBridgeApp:
         self.email_var = tk.StringVar(value=config.get("email", ""))
         email_entry = tk.Entry(form, textvariable=self.email_var, font=self.font_body,
                                bg=BG_INPUT, fg=TEXT, insertbackground=TEXT,
+                               disabledbackground=BG_INPUT, disabledforeground=TEXT_DIM,
+                               readonlybackground=BG_INPUT,
                                relief="flat", highlightthickness=1,
                                highlightbackground=BORDER, highlightcolor=ACCENT)
         email_entry.pack(fill="x", ipady=6, pady=(0, 12))
@@ -159,6 +161,8 @@ class BeatMindBridgeApp:
         self.password_var = tk.StringVar()
         pw_entry = tk.Entry(form, textvariable=self.password_var, font=self.font_body,
                             bg=BG_INPUT, fg=TEXT, insertbackground=TEXT,
+                            disabledbackground=BG_INPUT, disabledforeground=TEXT_DIM,
+                            readonlybackground=BG_INPUT,
                             show="*", relief="flat", highlightthickness=1,
                             highlightbackground=BORDER, highlightcolor=ACCENT)
         pw_entry.pack(fill="x", ipady=6, pady=(0, 4))

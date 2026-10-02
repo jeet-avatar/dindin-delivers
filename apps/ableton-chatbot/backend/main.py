@@ -22,7 +22,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 from claude_tools import ABLETON_TOOLS, SYSTEM_PROMPT
 from execution import BAD_STATUSES, MAX_PRODUCTION_ROUNDS, execute_verified
-from ai_provider import create_client, failure_message, model_name, provider_name
+from ai_provider import create_client, failure_message, model_name, provider_name, request_message
 from automation import AUTOMATION_TOOLS, execute_automation, note_density
 from production import create_plan, get_plan, link_audition, review_part, replace_audition
 from session_context import matching_recordings, context_note
@@ -837,15 +837,16 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
         bridge_note += "\nSome historical previews are pending review. Their decisions are informational, not a lock on this request. Follow the user's explicit edit or continuation request without requiring approval of another sound. Never mark a preview accepted on their behalf. Inspect current devices and clips; do not treat a prior recording as unchanged current audio."
 
     continued_text = []
+    active_model = MODEL
     for _ in range(MAX_PRODUCTION_ROUNDS):
-        response = await claude_client.messages.create(
-            model=MODEL,
+        response, active_model = await request_message(
+            claude_client, model=active_model, emit=emit,
             max_tokens=MAX_OUTPUT_TOKENS,
             system=_build_system(bridge_note),
             tools=[tool for tool in _build_tools() if not planning_only or tool['name'] in DISCUSSION_TOOLS],
             messages=bounded_history(messages),
         )
-        ai_usage.record(session.user_id, 'chat', provider_name(), MODEL, ai_usage.anthropic_tokens(response), usage_request)
+        ai_usage.record(session.user_id, 'chat', provider_name(), active_model, ai_usage.anthropic_tokens(response), usage_request)
 
         text_parts = []
         tool_uses = []

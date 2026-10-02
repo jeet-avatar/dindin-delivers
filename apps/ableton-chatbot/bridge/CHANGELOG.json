@@ -4,6 +4,7 @@
     "date": "2026-10-02",
     "notes": [
       "Reconnect after clicking Disconnect without re-entering your password; Sign out remains available.",
+      "Email and password fields keep readable colors after connecting.",
       "The Bridge window now fits its setup controls and version footer on first launch."
     ]
   },
