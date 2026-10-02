@@ -38,7 +38,7 @@ export const BEATMIND_STEPS: GuideStep[] = [
     text: "Download BeatMind Bridge, open the disk image and drag BeatMind Bridge into Applications. The disk image also contains an AbletonOSC-Extensions folder with its own README.",
     details: [
       "The dashboard links the same installer under “Need to install the bridge?” while the Bridge is disconnected.",
-      "Optional: the AbletonOSC-Extensions files add exact sample-pack loading, fader mapping, automation and placing reference stems in Live 12. Follow their README, then save your Set and restart Live.",
+      "After installing AbletonOSC, click Set up Ableton integration in Bridge 1.3.7 or later. This adds sample loading, fader mapping, automation and reference stems without editing Python files. Save your Set and restart Live afterward.",
       "Bridge checks for updates when it launches and every few hours. It installs an update only when you click, never in the middle of a stem separation.",
     ],
     link: { href: BRIDGE_MAC_DOWNLOAD, label: "Download BeatMind Bridge for Mac" },
@@ -46,7 +46,7 @@ export const BEATMIND_STEPS: GuideStep[] = [
   {
     id: "abletonosc",
     name: "Enable AbletonOSC as a Control Surface in Live",
-    text: "Put the AbletonOSC folder in your User Library's Remote Scripts folder, restart Live, then open Settings (Preferences in Live 11) → Link/Tempo/MIDI and choose AbletonOSC in an empty Control Surface slot.",
+    text: "Put the AbletonOSC folder in your User Library's Remote Scripts folder. On Mac, click Set up Ableton integration in the Bridge, then save your Set and restart Live. Open Settings (Preferences in Live 11) → Link/Tempo/MIDI and choose AbletonOSC in an empty Control Surface slot.",
     details: [
       "macOS: ~/Music/Ableton/User Library/Remote Scripts/AbletonOSC",
       "Windows: \\Users\\[you]\\Documents\\Ableton\\User Library\\Remote Scripts\\AbletonOSC",

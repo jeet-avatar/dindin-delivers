@@ -219,7 +219,7 @@ class BeatMindBridgeApp:
         if sys.platform == "darwin":
             integration = tk.Frame(self.root, bg=BG)
             integration.pack(fill="x", padx=24, pady=(12, 0))
-            self.integration_btn = ttk.Button(integration, text="Update Ableton integration",
+            self.integration_btn = ttk.Button(integration, text="Set up Ableton integration",
                 style='Disconnect.TButton', command=self._install_integration)
             self.integration_btn.pack(anchor="w")
             self.integration_status = tk.Label(integration, text="", bg=BG, fg=TEXT_DIM,
@@ -242,8 +242,9 @@ class BeatMindBridgeApp:
             self.integration_status.config(text="Wait for the current connection or separation task to finish.")
             return
         try:
-            install()
-            self.integration_status.config(text="Integration updated; backup saved. Save your set, restart Ableton, then reconnect the Bridge.")
+            result = install()
+            action = "set up" if result.get("first_setup") else "updated"
+            self.integration_status.config(text=f"Integration {action}; backup saved. Save your set, restart Ableton, then reconnect the Bridge.")
         except Exception as error:
             self.integration_status.config(text=str(error))
         self.root.update_idletasks()
