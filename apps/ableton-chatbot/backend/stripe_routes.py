@@ -93,8 +93,10 @@ def _ensure_customer(user: dict) -> str:
         email=user["email"], name=user["name"], metadata={"user_id": str(user["id"]), "app": APP},
         idempotency_key=f"beatmind-customer-{user['id']}")
     with db() as conn:
-        conn.execute("UPDATE users SET stripe_customer_id=?, stripe_account=? WHERE id=? AND stripe_customer_id IS ?",
-                     (customer["id"], _account_tag(), user["id"], user.get("stripe_customer_id")))
+        conn.execute("""UPDATE users SET stripe_customer_id=?, stripe_account=? WHERE id=?
+                     AND (stripe_customer_id=? OR (stripe_customer_id IS NULL AND ? IS NULL))""",
+                     (customer["id"], _account_tag(), user["id"],
+                      user.get("stripe_customer_id"), user.get("stripe_customer_id")))
         return conn.execute("SELECT stripe_customer_id FROM users WHERE id=?", (user["id"],)).fetchone()[0]
 
 

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import main
 import recordings
+import chat_store
 
 
 class RecordingTests(unittest.IsolatedAsyncioTestCase):
@@ -13,8 +14,11 @@ class RecordingTests(unittest.IsolatedAsyncioTestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.patcher = patch.object(recordings, "ROOT", Path(self.directory.name))
         self.patcher.start()
+        self.chat_patcher = patch.object(chat_store, "ROOT", Path(self.directory.name) / "chats")
+        self.chat_patcher.start()
 
     def tearDown(self):
+        self.chat_patcher.stop()
         self.patcher.stop()
         self.directory.cleanup()
 
@@ -40,6 +44,10 @@ class RecordingTests(unittest.IsolatedAsyncioTestCase):
         self.saved()
         import asyncio
         session = main.ChatSession("s", 7)
+        # An existing legacy conversation can review unscoped recordings; a new
+        # song intentionally starts in planning without inheriting old approvals.
+        session.messages = [{"role": "user", "content": "Continue this existing set"}]
+        chat_store.save(session, "complete")
         bridge = Mock(lock=asyncio.Lock(), send_command=AsyncMock(return_value={"status": "ok", "args": ["A", "B", "C", "D", "E", "Drift"]}))
         with patch.object(main, "_run_claude_loop", AsyncMock(return_value=("Inspected", []))) as run:
             await main.produce_chat(main.ChatRequest(message="Inspect current part"), session, bridge)

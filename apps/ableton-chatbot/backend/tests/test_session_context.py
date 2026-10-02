@@ -36,6 +36,12 @@ class SessionContextTests(unittest.TestCase):
         plan = {"parts": [{"status": "planned"}]}
         self.assertEqual(current_plan(plan, []), plan)
 
+    def test_song_scoped_mix_review_is_retained_without_matching_a_track(self):
+        item = {"id": "mix", "kind": "scene", "track": -1, "track_name": "Full mix - Drop 2", "decision": "accepted"}
+        self.assertEqual(matching_recordings([item], ["Kick"]), [])
+        self.assertEqual(matching_recordings([item], ["Kick"], session_scoped=True), [item])
+        self.assertIn('"decision": "accepted"', context_note(["Kick"], [item], None))
+
 
 if __name__ == "__main__":
     unittest.main()

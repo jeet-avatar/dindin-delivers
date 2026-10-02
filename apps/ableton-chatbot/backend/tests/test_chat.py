@@ -75,6 +75,18 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(session.messages[-1]["content"][0]["is_error"])
         self.assertEqual([call.args[0]["type"] for call in emit.await_args_list], ["action_started", "action_completed", "action_started", "action_completed"])
 
+    async def test_unverified_action_stops_dependent_batch_without_retry(self):
+        session = main.ChatSession("unverified", 1)
+        self.client.messages.create.side_effect = [
+            response(tool("create_clip"), tool("add_notes", "action-2")),
+            response(SimpleNamespace(type="text", text="Inspect the clip before continuing.")),
+        ]
+        with patch.object(main, "_execute_tool", AsyncMock(return_value={"status": "unverified", "steps": []})) as execute:
+            _, actions = await main._run_claude_loop(session, None)
+        execute.assert_awaited_once()
+        self.assertEqual(actions[0]["result"]["status"], "unverified")
+        self.assertIn("Skipped", actions[1]["result"]["summary"])
+
     async def test_cancelled_action_leaves_valid_tool_history(self):
         session = main.ChatSession("s", 1)
         self.client.messages.create.return_value = response(tool("add_notes"), tool("fire_clip", "action-2"))

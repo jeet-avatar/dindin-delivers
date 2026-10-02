@@ -25,6 +25,9 @@ def prepare_task(task, image, secret_arn, smtp=None):
     container = containers[0]
     container['image'] = image
     environment = {e['name']: e['value'] for e in container.get('environment', [])}
+    release_sha = image.rsplit(':', 1)[-1]
+    if re.fullmatch(r'[a-f0-9]{40}', release_sha):
+        environment['BEATMIND_RELEASE_SHA'] = release_sha
     secrets = {s['name']: s['valueFrom'] for s in container.get('secrets', [])}
     # Never leave an old plaintext audio key or fallback in the registered task.
     for name in ('BEATMIND_AUDIO_API_KEY', 'OPENAI_API_KEY'):
