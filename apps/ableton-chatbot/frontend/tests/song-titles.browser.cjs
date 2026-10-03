@@ -30,6 +30,7 @@ async function run() {
           return reply({ project: song.project, referenceId: null });
         }
         if (path === '/api/chats/title-fixture') return reply(song);
+        if (path.endsWith('/allowance')) return reply({ included: 10, used: 0, remaining: 10, authorized: false, started: false, period: '2026-10' });
         if (path === '/api/chat/stream') {
           if (body.message === 'Make deep minimal at 124 BPM') {
             Object.assign(song.project, { title: 'Deep minimal - 124 BPM', title_source: 'auto', genre: 'deep minimal', bpm: 124 });

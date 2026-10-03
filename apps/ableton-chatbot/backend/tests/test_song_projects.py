@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 import main
 import recordings
 import song_projects
+from test_song_usage import subscriber
 
 
 class SongProjectTests(unittest.IsolatedAsyncioTestCase):
@@ -26,7 +27,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         main.bridges.clear()
         self.addCleanup(main.sessions.clear)
         self.addCleanup(main.bridges.clear)
-        self.user = {'id': 42}
+        self.user = subscriber()
         self.song = await main.create_song_project(self.user)
         self.id = self.song['sessionId']
 
@@ -63,7 +64,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(changed['referenceId'])
 
     async def test_project_update_respects_production_lease(self):
-        with main.chat_store.acquire(42, self.id):
+        with main.chat_store.acquire(self.user['id'], self.id):
             with self.assertRaises(main.HTTPException) as error:
                 await main.update_song_project(self.id, main.SongProjectRequest(title='Busy'), self.user)
         self.assertEqual(error.exception.status_code, 409)
@@ -85,7 +86,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('create_midi_track', {t['name'] for t in client.messages.create.call_args.kwargs['tools']})
 
     def bridge(self, title='My Song', ready=True):
-        bridge = SimpleNamespace(user_id=42, lock=asyncio.Lock(),
+        bridge = SimpleNamespace(user_id=self.user['id'], lock=asyncio.Lock(),
             local_operation=AsyncMock(return_value={'status': 'observed', 'title': title, 'new_set_ready': ready, 'tracks': []}),
             send_command=AsyncMock(return_value={'status': 'ok', 'args': []}))
         main.bridges['test'] = bridge
@@ -129,7 +130,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(saved['messages'][-1]['requestStatus'], 'complete')
 
     async def test_saved_legacy_chat_is_not_reset_as_a_new_song(self):
-        legacy = main.ChatSession('legacy-song', 42)
+        legacy = main.ChatSession('legacy-song', self.user['id'])
         legacy.messages = [{'role': 'user', 'content': 'Existing song'}, {'role': 'assistant', 'content': 'Saved.'}]
         main.chat_store.save(legacy, 'complete')
         with patch.object(main, 'claude_client', SimpleNamespace()):
@@ -138,7 +139,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(restored.messages, legacy.messages)
 
     async def test_direct_producer_initializes_new_session_under_lease(self):
-        session = main.ChatSession('direct-new', 42)
+        session = main.ChatSession('direct-new', self.user['id'])
         with patch.object(main, '_run_claude_loop', AsyncMock(return_value=('Reference or idea?', []))):
             await main.produce_chat(main.ChatRequest(message='New song'), session, None)
         self.assertTrue(session.planning_only)
@@ -146,7 +147,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_confirmation_only_inspects_and_never_sends_music(self):
         bridge = self.bridge()
-        result = await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id=self.id), self.user)
+        result = await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id=self.id, authorize_song=True), self.user)
         bridge.local_operation.assert_awaited_once_with('live_set', {'operation': 'inspect'})
         bridge.send_command.assert_not_awaited()
         self.assertEqual(result['project']['live_set']['title'], 'My Song')
@@ -156,7 +157,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         await main.update_song_project(self.id, main.SongProjectRequest(starting_point='idea'), self.user)
         tutorial = SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text='Drag the 909 by hand, then switch building on.')])
         with patch.object(main, 'request_message', AsyncMock(return_value=(tutorial, main.MODEL))):
-            session = main.ChatSession(self.id, 42)
+            session = main.ChatSession(self.id, self.user['id'])
             session.project = (await main.chat_details(self.id, self.user))['project']
             response, actions = await main._run_claude_loop(session, None)
         self.assertIn('Choose Live Set', response)
@@ -166,7 +167,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
     async def test_confirmed_idea_restores_production_tools_after_planning_history(self):
         bridge = self.bridge()
         await main.update_song_project(self.id, main.SongProjectRequest(starting_point='idea'), self.user)
-        await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id=self.id), self.user)
+        await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id=self.id, authorize_song=True), self.user)
         client = SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(return_value=SimpleNamespace(
             stop_reason='end_turn', content=[SimpleNamespace(type='text', text='Inspecting your requested kit.')]))))
         request = main.ChatRequest(message='Continue the agreed kick', session_id=self.id)
@@ -198,7 +199,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
     async def test_changed_set_stops_before_model_or_music(self):
         bridge = self.bridge()
         await main.update_song_project(self.id, main.SongProjectRequest(starting_point='idea'), self.user)
-        await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id=self.id), self.user)
+        await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id=self.id, authorize_song=True), self.user)
         bridge.local_operation.return_value = {'status': 'observed', 'title': 'Different Song'}
         with patch.object(main, 'claude_client', SimpleNamespace()), patch.object(main, '_run_claude_loop', AsyncMock()) as model:
             req = main.ChatRequest(message='Add a kick', session_id=self.id)

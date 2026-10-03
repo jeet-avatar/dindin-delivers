@@ -10,6 +10,14 @@ def new_project():
             'created_at': datetime.now(timezone.utc).isoformat()}
 
 
+def from_saved(saved):
+    if saved.get('project'):
+        return saved['project']
+    title = next((message['content'][:70] for message in saved.get('messages', [])
+                  if message.get('role') == 'user' and isinstance(message.get('content'), str)), 'New song')
+    return {**new_project(), 'title': title}
+
+
 def setup_reply(project):
     """Missing user choices are UI actions, not an invitation to a manual Live tutorial."""
     if not project:

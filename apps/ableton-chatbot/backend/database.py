@@ -182,8 +182,10 @@ def init_db():
             )""")
         import billing
         import ai_usage
+        import song_usage
         billing.init(conn)
         ai_usage.init(conn)
+        song_usage.init(conn)
 
 
 # The subscriber's plan, copied from Stripe by the webhook. Rows from before plans existed keep NULLs.

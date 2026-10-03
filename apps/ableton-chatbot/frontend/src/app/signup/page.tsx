@@ -128,7 +128,7 @@ export default function SignupPage() {
           </button>
 
           <p className="text-xs text-center" style={{ color: "var(--text-secondary)" }}>
-            No card needed &middot; includes 3 tracks &middot; choose a plan any time
+            No card needed &middot; 3 new songs and 3 reference separations &middot; limited AI usage
           </p>
         </form>
 

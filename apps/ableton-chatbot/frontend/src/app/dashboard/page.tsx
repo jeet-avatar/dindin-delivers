@@ -15,6 +15,7 @@ import ChatTimestamp from "@/components/ChatTimestamp";
 import ChatTimeline from "@/components/ChatTimeline";
 import { messageRecordingIds } from "@/lib/chat-recordings";
 import NewSongDialog from "@/components/NewSongDialog";
+import SongAllowance from "@/components/SongAllowance";
 import References from "@/components/References";
 import ChatComparisons from "@/components/ChatComparisons";
 import PlanPicker from "@/components/PlanPicker";
@@ -504,8 +505,8 @@ export default function DashboardPage() {
           : `Production interrupted: ${err instanceof Error ? err.message : "Unknown error"}`,
           toolCalls: m.toolCalls?.map(a => a.result ? a : { ...a, result: { status: "unverified", summary: "Interrupted before confirmation. Inspect Ableton before repeating this action." } }) };
       }));
-    } finally { window.clearInterval(watchdog); requestRef.current = null; setLoading(false); setStreamNotice(""); }
-  }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject]);
+    } finally { window.clearInterval(watchdog); requestRef.current = null; setLoading(false); setStreamNotice(""); void reloadUsage().catch(() => undefined); }
+  }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject, reloadUsage]);
 
   // Subscribers manage or change plans in the Stripe portal; everyone else picks a plan.
   const openBilling = async () => {
@@ -634,7 +635,7 @@ export default function DashboardPage() {
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           {planChecking && checkingPlanText}
           {!planChecking && (isSubscribed
-            ? `${currentPlan} plan${usage ? ` · ${usage.tracks_used} of ${usage.included_per_month} tracks used this month` : ""}`
+            ? `${currentPlan} plan${usage?.songs ? ` · ${usage.songs.used} of ${usage.songs.included} new songs used this month` : ""}`
             : trialActive
               ? trialSummary
               : "Your free trial has ended — choose a plan to continue")}
@@ -788,6 +789,8 @@ export default function DashboardPage() {
       </ChatTimeline>
 
       <div className="px-3 sm:px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
+        <SongAllowance sessionId={sessionId} busy={loading} refreshKey={songSetup} usage={usage}
+          onSetup={() => setSongSetup("")} onUpgrade={() => void openBilling()} />
         {project && messages.length > 0 && (project.starting_point !== "reference" || !project.live_set) && (
           <section aria-label="Song setup" className="mb-3 space-y-2 text-sm">
             {project.starting_point !== "reference" && <ol aria-label="Song setup progress" className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
@@ -998,7 +1001,7 @@ export default function DashboardPage() {
             </div>
             {usage?.plan.status === "past_due" && <p className="text-xs mb-3 text-amber-200">Update your card in Manage billing to keep your plan.</p>}
             {usage && <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-              {usage.tracks_used} of {usage.included_per_month} tracks{usage.included_cloud_per_month > 0 ? ` · ${usage.cloud_used} of ${usage.included_cloud_per_month} Cloud HQ separations` : ""} used this month · {usage.track_credits} purchased tracks · {usage.cloud_credits} purchased Cloud HQ separations
+              {usage.songs && `${usage.songs.used} of ${usage.songs.included} new songs · `}{usage.tracks_used} of {usage.included_per_month} reference separations{usage.included_cloud_per_month > 0 ? ` · ${usage.cloud_used} of ${usage.included_cloud_per_month} Cloud HQ separations` : ""} used this month (UTC) · {usage.track_credits} purchased reference separations · {usage.cloud_credits} purchased Cloud HQ separations
             </p>}
             {usage
               ? <SubscriptionControls usage={usage} onChanged={reloadUsage} onManage={openBilling} />
@@ -1122,7 +1125,7 @@ export default function DashboardPage() {
           {!planChecking && (isSubscribed ? (
             <div className="rounded-xl p-3 border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
               <p className="text-xs font-semibold mb-0.5" style={{ color: "#4ade80" }}>✓ {currentPlan} plan</p>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage ? `${usage.allowance_left} of ${usage.included_per_month} tracks left this month` : "Active"}</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage?.songs ? `${usage.songs.remaining} of ${usage.songs.included} new songs left this month` : "Active"}</p>
             </div>
           ) : (
             <button onClick={choosePlan}

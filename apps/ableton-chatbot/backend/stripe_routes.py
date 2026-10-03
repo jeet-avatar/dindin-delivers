@@ -222,8 +222,9 @@ async def usage(request: Request):
     packs = [{"id": p["id"], "kind": p["kind"], "credits": p["credits"], "price": p["price"] or _price(p["price_id"])}
              for p in billing.packs()]
     summary = billing.summary(user["id"])
+    import song_usage
     entry = catalog.resolve()["plans"].get(user.get("plan_lookup_key") or "")
-    return {**summary, "packs": [p for p in packs if p["price"]],
+    return {**summary, "songs": song_usage.summary(user), "packs": [p for p in packs if p["price"]],
             "plan_price": {"amount": entry["amount"], "currency": entry["currency"]} if entry else None,
             "renewal_terms": catalog.renewal_terms(entry) if entry else None,
             "subscribed": is_subscribed(user), "mixmind_access": mixmind_access(user),

@@ -8,14 +8,14 @@ export const STARTER_TEMPLATE_URL = "/templates/BeatMind-Starter.als";
 export const LEGAL_POSTAL_ADDRESS = "12 Teaberry, Rancho Santa Margarita, CA 92688, USA";
 
 export const GOVERNING_LAW_STATE = "California";
-export const LEGAL_LAST_UPDATED = "September 28, 2026";
+export const LEGAL_LAST_UPDATED = "October 3, 2026";
 
 export const TRIAL_DAYS = 7;
 export const TRIAL_TRACKS = 3;
 export const TRIAL_AI_MESSAGES = 50;
-export const TRIAL_TERMS = `${TRIAL_DAYS}-day free trial with ${TRIAL_TRACKS} tracks included. No credit card required.`;
-export const TRIAL_SHORT = `Free trial: ${TRIAL_DAYS} days · ${TRIAL_TRACKS} tracks · no card`;
-export const TRIAL_DETAILS = `The ${TRIAL_DAYS}-day free trial needs no credit card and includes ${TRIAL_TRACKS} tracks, separated on your own Mac, and limited AI (about ${TRIAL_AI_MESSAGES} messages). Cloud HQ separations and packs need a paid plan. You're never charged unless you choose a plan, and starting a plan during the trial ends the trial and begins the plan immediately.`;
+export const TRIAL_TERMS = `${TRIAL_DAYS}-day free trial with ${TRIAL_TRACKS} new songs, ${TRIAL_TRACKS} reference separations and limited AI usage. No credit card required.`;
+export const TRIAL_SHORT = `Free trial: ${TRIAL_DAYS} days · ${TRIAL_TRACKS} new songs · no card`;
+export const TRIAL_DETAILS = `The ${TRIAL_DAYS}-day free trial needs no credit card and includes ${TRIAL_TRACKS} new songs, ${TRIAL_TRACKS} reference separations on your Mac, and limited AI (up to ${TRIAL_AI_MESSAGES} messages or the trial AI usage limit, whichever comes first). Cloud HQ separations and packs need a paid plan. You're never charged unless you choose a plan, and starting a plan during the trial ends the trial and begins the plan immediately.`;
 
 export const OG_IMAGE = "/og.png";
 export const OG_IMAGE_MIXMIND = "/og-mixmind.png";
@@ -35,7 +35,7 @@ export const SOCIAL_PROFILES: string[] = SOCIAL_LINKS.map((link) => link.url);
 
 export const HOME_TITLE = "BeatMind — AI Music Producer for Ableton";
 export const HOME_DESCRIPTION =
-  "BeatMind is an AI music producer that works inside Ableton Live — describe a sound and build drums, bass and melodies part by part in your own Live Set. Plans from $19/month; 7-day free trial with 3 tracks, no card.";
+  "BeatMind is an AI music producer that works inside Ableton Live — describe a sound and build drums, bass and melodies part by part in your own Live Set. Plans from $19/month; 7-day free trial with 3 new songs, 3 reference separations and limited AI usage, no card.";
 
 export function absoluteUrl(path: string): string {
   return path === "/" ? `${BASE_URL}/` : `${BASE_URL}${path}`;

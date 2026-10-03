@@ -19,7 +19,7 @@ type Props = {
 function features(option: PlanOption): string[] {
   const list: string[] = [];
   if (option.tier !== "mixmind") {
-    list.push("BeatMind AI for Ableton Live", `${option.included_tracks} track separations / month`);
+    list.push("BeatMind AI for Ableton Live (monthly AI allowance)", `${option.included_tracks} new songs / month`, `${option.included_tracks} reference separations / month`, "Saving, archiving and deleting do not restore song credits");
   }
   if (option.included_cloud > 0) list.push(`${option.included_cloud} Cloud HQ separations / month`);
   if (option.mixmind) list.push("MixMind for Mac (Apple Silicon)");

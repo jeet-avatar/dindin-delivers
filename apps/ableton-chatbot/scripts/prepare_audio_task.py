@@ -5,6 +5,7 @@ import json
 import os
 import re
 from pathlib import Path
+from datetime import datetime, timezone
 
 
 def prepare_task(task, image, secret_arn, smtp=None, fallback_model=None):
@@ -25,6 +26,8 @@ def prepare_task(task, image, secret_arn, smtp=None, fallback_model=None):
     container = containers[0]
     container['image'] = image
     environment = {e['name']: e['value'] for e in container.get('environment', [])}
+    environment['AI_FAIR_USE_ENFORCED'] = 'true'
+    environment.setdefault('AI_FAIR_USE_START_AT', datetime.now(timezone.utc).isoformat())
     if fallback_model:
         if environment.get('BEATMIND_AI_PROVIDER') != 'bedrock' or not re.fullmatch(
                 r'us\.anthropic\.[a-zA-Z0-9.:-]+', fallback_model):

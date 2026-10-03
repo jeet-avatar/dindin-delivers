@@ -46,6 +46,7 @@ async function main() {
           return reply({ chats: Object.values(songs).map(song => ({ id: song.sessionId, title: song.project.title })) });
         }
         if (path.startsWith('/api/chats/')) {
+          if (path.endsWith('/allowance')) return reply({ included: 10, used: 0, remaining: 10, authorized: false, started: false, period: '2026-10', live_title: null });
           const song = songs[path.split('/')[3]];
           if (request.method() === 'PATCH') {
             if (body.title) song.project.title = body.title;
@@ -66,6 +67,7 @@ async function main() {
           if (body.operation === 'save') return reply({ status: 'failed', summary: 'System Events: osascript is not allowed assistive access. (-25211)' });
           const result = { status: 'observed', title: 'Disposable QA set', tracks: ['MIDI'], new_set_ready: true };
           if (body.operation.startsWith('confirm_')) {
+            assert.equal(body.authorize_song, true);
             songs[body.session_id].project.live_set = { title: result.title, choice: body.operation };
             result.project = songs[body.session_id].project;
           }
@@ -158,6 +160,7 @@ async function main() {
       assert.equal(await page.getByRole('button', { name: 'Use this Live Set', exact: true }).isDisabled(), true);
       await page.screenshot({ path: `/tmp/beatmind-live-set-recovery-${width}.png` });
       await page.getByRole('button', { name: 'Retry inspection', exact: true }).click();
+      await page.getByLabel(/I agree to use one song credit/).check();
       await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent === 'Use this Live Set' && !b.disabled));
       await page.getByText('Start a new Live Set instead', { exact: true }).click();
       const openNew = page.getByRole('button', { name: '2. Open new Live Set', exact: true });
@@ -187,6 +190,7 @@ async function main() {
       await page.screenshot({ path: `/tmp/beatmind-setup-next-step-${width}.png` });
       await setup.getByRole('button', { name: 'Start from an idea', exact: true }).click();
       await page.getByRole('button', { name: 'Use this Live Set', exact: true }).waitFor();
+      await page.getByLabel(/I agree to use one song credit/).check();
       assert.equal(await page.getByRole('button', { name: '1. Close it without saving', exact: true }).isVisible(), false);
       await page.screenshot({ path: `/tmp/beatmind-confirm-current-${width}.png` });
       await page.getByRole('button', { name: 'Use this Live Set', exact: true }).click();

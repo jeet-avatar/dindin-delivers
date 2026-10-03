@@ -63,7 +63,7 @@ export default function TermsPage() {
 
           <Section title="4. Subscriptions, Billing and Cancellation">
             <Clause title="Free trial">
-              <p>New accounts get a {TRIAL_DAYS}-day free trial. No credit card is needed. The trial includes {TRIAL_TRACKS} tracks, separated on your own Mac, and limited AI use (about {TRIAL_AI_MESSAGES} messages). Cloud HQ separations and packs are not part of the trial. The trial never turns into a paid plan on its own and we never charge you for it. If you start a paid plan during the trial, the trial ends and the plan begins, and is billed, immediately.</p>
+              <p>New accounts get a {TRIAL_DAYS}-day free trial. No credit card is needed. The trial includes {TRIAL_TRACKS} new songs, {TRIAL_TRACKS} reference separations on your Mac, and limited AI use (up to {TRIAL_AI_MESSAGES} messages or the trial AI usage limit, whichever comes first). Cloud HQ separations and packs are not part of the trial. The trial never turns into a paid plan on its own and we never charge you for it. If you start a paid plan during the trial, the trial ends and the plan begins, and is billed, immediately.</p>
             </Clause>
             <Clause title="Automatic renewal">
               <p>Paid plans renew automatically at the end of each billing period (monthly or yearly, whichever you chose) at the then-current price, until you cancel. The price, billing interval and renewal terms are shown to you before you buy.</p>
@@ -80,8 +80,9 @@ export default function TermsPage() {
             <Clause title="Promotions and discount codes">
               <p>Promotional discounts (for example launch or creator codes) apply only for the period stated with the offer. After that, your subscription renews at the standard price unless you cancel. Only one code can be used per customer, and codes may have a limited number of redemptions. The {FOUNDING_CODE} code gives the first {FOUNDING_SEATS} annual subscribers who use it {FOUNDING_DISCOUNT_PERCENT}% off for as long as your subscription stays active; it applies to annual plans only.</p>
             </Clause>
-            <Clause title="Track allowances and packs">
-              <p>Each plan includes a monthly allowance of tracks (and, on some plans, cloud HQ separations). Allowances reset on the 1st of each calendar month (UTC) and unused amounts don&apos;t roll over. Track packs and cloud HQ packs are one-time purchases that never expire. They are used only after your monthly allowance runs out, they require an active paid plan, and they are non-refundable once used.</p>
+            <Clause title="Song allowances and separation packs">
+              <p>Each BeatMind plan includes separate allowances for new songs and reference separations. One song is one song chat and its composition, including instruments and revisions. After your confirmation, the first production action consumes one song credit. Planning alone does not. Saving, archiving or deleting never restores it; a different composition requires a new song and another credit. Interrupted production is not automatically refunded because changes may already exist in Ableton. Contact support to review an unsuccessful start.</p>
+              <p>Allowances reset on the 1st of each calendar month (UTC), including annual plans; unused amounts do not roll over. Monthly AI usage limits apply separately, including to revisions of previously counted songs. Usage is shown in chat. At the AI limit, further AI requests pause until reset or an eligible upgrade, but saved work remains accessible. Separation packs do not add songs or AI usage. Reference-separation and Cloud HQ packs are one-time purchases that never expire, require an active paid plan, and are non-refundable once used.</p>
             </Clause>
             <Clause title="Price changes">
               <p>If we change the price of your plan, we&apos;ll email you at least 30 days before the new price takes effect at your next renewal. You can cancel before then if you don&apos;t want to continue at the new price.</p>

@@ -171,7 +171,7 @@ export default function LandingPage() {
           <div className="border-l-2 pl-5 py-1" style={{ borderColor: "var(--accent)" }}>
             <h2 id="what-is-heading" className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>What is BeatMind?</h2>
             <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              BeatMind is an AI music-production assistant that works inside Ableton Live 11 and 12. Through the local BeatMind Bridge and AbletonOSC, it builds drums, bass and melodies one part at a time as Session-view clips and scenes in your own Live Set, with a captured audition to review before the next part. You keep control of the arrangement. Plans start at {formatUsd(LOWEST_MONTHLY_USD)}/month, and you can try it first with a 7-day free trial that includes 3 tracks and needs no credit card.
+              BeatMind is an AI music-production assistant that works inside Ableton Live 11 and 12. Through the local BeatMind Bridge and AbletonOSC, it builds drums, bass and melodies one part at a time as Session-view clips and scenes in your own Live Set, with a captured audition to review before the next part. You keep control of the arrangement. Plans start at {formatUsd(LOWEST_MONTHLY_USD)}/month. The 7-day free trial includes 3 new songs, 3 reference separations and limited AI usage, with no credit card.
             </p>
           </div>
         </section>
