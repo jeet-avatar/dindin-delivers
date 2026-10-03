@@ -51,7 +51,10 @@ async function run() {
       const page = await context.newPage();
       page.on('pageerror', e => errors.push(e.message));
       await page.goto((process.env.BEATMIND_UI_URL || 'http://127.0.0.1:3023') + '/dashboard');
+      const created = page.waitForResponse(r => new URL(r.url()).pathname === '/api/chats' && r.request().method() === 'POST');
       await page.getByRole('button', { name: 'New song', exact: true }).click();
+      await created;
+      await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent === 'New song' && !b.disabled));
       await page.getByRole('heading', { name: 'How would you like to start?', exact: true }).waitFor();
       const send = async text => {
         await page.getByLabel('Message BeatMind', { exact: true }).fill(text);
