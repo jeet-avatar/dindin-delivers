@@ -1,0 +1,38 @@
+{
+  "backend_commit": "d6d559fddc56bc7bfe01607bdcd223d336396bfd",
+  "frontend_commit": "82a90a30f60770e1cc8deb3ceb9a9179ea714151",
+  "backend_task": "beatmind-api:86",
+  "bridge_version_unchanged": "1.3.12",
+  "backend_deployment_run": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/37149515864",
+  "frontend_delivery": "Validated static build published separately after the backend deployment; frontend-only diff verified. Public release identity preserves the distinct backend and Bridge commits.",
+  "root_cause": "The affected song had neither a saved starting point nor a confirmed Live Set. Production tools were intentionally withheld, but the model gave a manual tutorial and invented a building-mode switch instead of directing the user to the actual setup actions.",
+  "fixes": [
+    "Return definitive missing-starting-point and missing-Live-Set guidance instead of a model-generated manual tutorial; preserve read-only inspection and all music-write gates.",
+    "Keep numbered setup steps beside the chat composer. Choosing an idea opens set inspection when connected; set confirmation alone never starts music production.",
+    "Make Use this Live Set the primary dialog action. Put fresh-set save/close/new actions in an optional section.",
+    "Expose Build agreed sound after idea/set confirmation; explicit click sends a production continuation preserving existing parts.",
+    "Add discovered-label track output destination/channel tools with independent readback, idempotent writes and honest partial-failure reporting.",
+    "Instruct production to load discovered instruments, inspect actual drum pads, create musical clips and audition through tools. Load an instrument before diagnosing an empty MIDI track's No Output state."
+  ],
+  "verification": {
+    "backend_sqlite_passed": 538,
+    "backend_postgres_passed": 533,
+    "backend_postgres_sqlite_specific_skipped": 5,
+    "frontend_tests_passed": 20,
+    "frontend_production_build": "Passed for both published frontend commits",
+    "browser_workflow": "Local and deployed frontend passed isolated API-fixture tests at 1440px and 390px: visible setup steps, source choice, automatic inspection, explicit existing-set confirmation, optional fresh-set safeguards and an explicit production continuation. Screenshots inspected. No real customer account or Ableton writes used.",
+    "interrupted_chat": "Local desktop/mobile fixtures passed: preserved action history, interruption recovery and no automatic replay on reload.",
+    "public_site": "Login, signup, password-reset, guide and changelog returned 200 at both widths; readable invalid-login validation and protected-dashboard redirect passed. No broken Next.js assets, page errors or horizontal overflow observed.",
+    "provider": "Actual configured Bedrock model requested get_session_state and get_library_catalog after synthetic stale read-only history and explicit set confirmation. Tool selection only; no Ableton actions executed.",
+    "deployed_backend": "Pure checks inside the deployed task verified the missing-choice responses, readiness after confirmation and presence of instrument, MIDI, audition and routing tools. No music actions executed.",
+    "routing": "Tests cover discovered destinations/channels, ambiguous/unavailable choices, idempotency, stale tracks, partial channel failure and lost readback without duplicate writes. Routing endpoints verified in the pinned AbletonOSC bundled with Bridge 1.3.12.",
+    "infrastructure": "Single stable task, API healthy, protected routes return 401, secret references/storage/roles/provider/payment settings preserved. Only BEATMIND_RELEASE_SHA changed in the backend environment.",
+    "cloudfront_invalidation": "I7OIE98CIIRX9DEX7IJH6ZJ3ZV",
+    "cloudfront_invalidation_status": "Completed"
+  },
+  "rollback": {
+    "backend_and_initial_frontend": "releases/before-20261003-d6d559fd/ with task beatmind-api:85",
+    "guidance_frontend_only": "releases/before-20261003-82a90a30/; backend task 86 unchanged"
+  },
+  "limitations": "The customer must refresh the existing chat, select a starting point and explicitly confirm the intended Live Set. Successful loading and audible preview on that customer's Mac have not been observed. No existing music, saved decisions or account settings were changed by this investigation."
+}
