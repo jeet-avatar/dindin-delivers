@@ -1,0 +1,41 @@
+{
+  "application_commit": "1228a798e9bc17695eaa38e5ad8d990d264e43fe",
+  "product_fixes_deployed": true,
+  "unrestricted_launch_signoff": false,
+  "deployment_run": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/37079956900",
+  "backend_task": "beatmind-api:85",
+  "bridge_version": "1.3.12",
+  "fixes": [
+    "Keep Check for updates and the installed version visible before and after sign-in.",
+    "Show checking, up-to-date, update-available and failed-check states; show Install update when a newer version is available.",
+    "Retry failed checks after one minute and offer the official installer download instead of silently waiting six hours.",
+    "Prevent duplicate checks and overlapping update/integration installations; restore retry controls after failed installation.",
+    "Preserve compact release notes and the full changelog link."
+  ],
+  "tests": {
+    "bridge_passed": 102,
+    "backend_sqlite_passed": 529,
+    "backend_postgres_passed": 524,
+    "backend_postgres_sqlite_specific_skipped": 5,
+    "frontend_tests_passed": 20,
+    "frontend_build": "Passed in CI",
+    "source_gui": "Real HTTPS check against the then-current 1.3.11 public feed with an isolated older-version fixture showed Install update. A simulated subsequent check failure showed retry/download controls. Screenshots inspected for readability and visibility.",
+    "signed_gui": "Launched the signed 1.3.12 app with an isolated HOME and no account credentials. Check for updates was visible before sign-in, reported installed version 1.3.12 and remained visible after a native click completed the check. Screenshots inspected; test app then quit.",
+    "installer": "Apple notarization accepted and stapled. Signed binary passed fresh/repeat integration setup, real four-stem separation and HTTPS/WebSocket TLS checks. Isolated updater with local DMG transport rejected a bad checksum, retained the previous app and passed fresh-copy signature/Gatekeeper checks.",
+    "browser_deployed": "Public login/signup/password-reset/guide/changelog returned 200 at 1440px and 390px. Invalid sign-in returned readable validation; protected dashboard redirected to login. No page errors, broken Next.js assets or horizontal overflow observed.",
+    "production_health": "ECS stable with one task; API healthy with Bedrock configured. Protected routes returned 401 without authentication."
+  },
+  "installer": {
+    "url": "https://www.beatmind.io/BeatMind-Bridge-1.3.12.dmg",
+    "sha256": "fde89e03acde4c798ba9c48fc9598ec3ce59353ab362d43d114a4cf9aaa0c228",
+    "notarization_submission": "dc20c436-911f-4517-9594-b1a6ae09a298",
+    "notarization": "Accepted; stapled; disk image verified",
+    "public_download_checksum_matched": true,
+    "public_latest_manifest_verified": true,
+    "cloudfront_invalidation": "I2BAB5GK95X3VSQFZQQL3QPZDO",
+    "cloudfront_invalidation_status": "Completed"
+  },
+  "preservation": "No Ableton music commands, original-set edits or changes to the user's installed Bridge/AbletonOSC. Only the release SHA changed in the ECS environment; provider settings, secret references, roles, storage and deferred payment settings were preserved.",
+  "rollback": "Frontend snapshot releases/before-20261002-1228a798/; previous task beatmind-api:84; Bridge 1.3.11 retained.",
+  "remaining_confirmation": "Sylvia's existing copy still requires updating. If it does not offer Install update, quit Bridge, download the signed DMG and replace the app through Finder. Her actual Mac installation and Live Set inspection have not been verified. A public-network in-place update of her app was not performed by these tests."
+}
