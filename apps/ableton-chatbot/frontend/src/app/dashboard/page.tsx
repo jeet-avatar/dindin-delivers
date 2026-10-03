@@ -784,20 +784,32 @@ export default function DashboardPage() {
       </ChatTimeline>
 
       <div className="px-3 sm:px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
-        {project && messages.length > 0 && (!project.starting_point || !project.live_set) && (
-          <section aria-label="Song setup" className="mb-3 flex flex-wrap items-center gap-3 text-sm">
-            <span style={{ color: "var(--text-secondary)" }}>{!project.starting_point ? "Choose a starting point" : "No Live Set selected"}</span>
+        {project && messages.length > 0 && (project.starting_point !== "reference" || !project.live_set) && (
+          <section aria-label="Song setup" className="mb-3 space-y-2 text-sm">
+            {project.starting_point !== "reference" && <ol aria-label="Song setup progress" className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+              {["Starting point", "Live Set", "Create sound"].map((step, index) => {
+                const currentStep = !project.starting_point ? 0 : !project.live_set ? 1 : 2;
+                return <li key={step} aria-current={currentStep === index ? "step" : undefined}
+                  style={{ color: currentStep === index ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: currentStep === index ? 600 : 400 }}>
+                  {index + 1}. {step}{index < currentStep ? " (done)" : ""}
+                </li>;
+              })}
+            </ol>}
+            <div className="flex flex-wrap items-center gap-3">
             {!project.starting_point ? <>
               <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("idea")}
                 className="underline disabled:opacity-40">Start from an idea</button>
               <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("reference")}
                 className="underline disabled:opacity-40">Upload a reference track</button>
-            </> : <>
+            </> : !project.live_set ? <>
               <button type="button" disabled={loading || projectBusy || !bridgeConnected} onClick={() => setSongSetup("")}
                 className="underline disabled:opacity-40">Choose Live Set</button>
               {project.starting_point === "reference" && <button type="button" onClick={() => setNav("references")}
                 className="underline">Reference review</button>}
-            </>}
+            </> : <button type="button" disabled={loading || projectBusy || !bridgeConnected || !historyReady}
+              onClick={() => void sendMessage("Build our agreed sound and record a preview, keeping existing parts. If we haven't chosen a sound yet, ask me first.")}
+              className="underline disabled:opacity-40">Build agreed sound</button>}
+            </div>
           </section>
         )}
         <div className="flex gap-3 items-end">

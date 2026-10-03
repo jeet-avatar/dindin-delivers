@@ -61,9 +61,24 @@ export default function NewSongDialog({ sessionId, onCancel, onReady }: {
     style={{ background: "var(--bg-primary)", borderColor: "var(--border)", color: "var(--text-primary)" }}>
     <h2 id="song-setup-title" className="text-lg font-semibold">Choose Live Set</h2>
     <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
-      <h3 className="text-sm font-semibold">Fresh Live Set</h3>
+      <h3 className="text-sm font-semibold">Current Live Set</h3>
+      {summary && <p role={error ? "alert" : "status"} className={`text-sm mt-3 ${error ? "text-red-300" : "text-emerald-200"}`}>{liveSetMessage(summary)}</p>}
+      {(liveSetMessage(summary) !== summary || !!diagnostics) && <details className="mt-2 text-xs break-words"><summary>Technical details</summary>
+        {summary}<pre className="whitespace-pre-wrap">{diagnostics ? JSON.stringify(diagnostics, null, 2) : ""}</pre>
+      </details>}
+      {title && <p className="text-sm mt-2 break-words">{title}</p>}
+      {!!tracks.length && <details className="text-xs mt-2"><summary>Tracks in this set ({tracks.length})</summary>
+        <ol className="mt-2 space-y-1">{tracks.map((track, i) => <li key={i}>{i + 1}. {track}</li>)}</ol></details>}
       <div className="flex flex-wrap gap-2 mt-3">
+        <button disabled={busy || !title || error} onClick={() => start(false)} className={button}
+          style={{ background: "var(--accent)", color: "white" }}>Use this Live Set</button>
+        <button disabled={busy} onClick={() => step("inspect")} className={button}>{error ? "Retry inspection" : "Check again"}</button>
         <button disabled={busy} onClick={() => step("activate")} className={button}>Open Ableton</button>
+      </div>
+    </div>
+    <details className="mt-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+      <summary className="text-sm font-semibold cursor-pointer">Start a new Live Set instead</summary>
+      <div className="flex flex-wrap gap-2 mt-3">
         <button disabled={busy} onClick={() => step("save")} className={button}>1. Save current set</button>
         <button disabled={busy} onClick={() => setCurrent("close")} aria-pressed={current === "close"} className={button}>1. Close it without saving</button>
         <button disabled={busy || !current} onClick={() => step("new")} className={button}>2. Open new Live Set</button>
@@ -76,20 +91,11 @@ export default function NewSongDialog({ sessionId, onCancel, onReady }: {
         Existing chats and sound reviews stay saved. Any save-location prompt must be completed in Ableton.</p>
       <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
         A new Live Set starts from your Ableton default set. For a clean BeatMind layout, set up the BeatMind Starter template from Downloads first.</p>
-      {summary && <p role={error ? "alert" : "status"} className={`text-sm mt-3 ${error ? "text-red-300" : "text-emerald-200"}`}>{liveSetMessage(summary)}</p>}
-      {error && <button disabled={busy} onClick={() => step("inspect")} className={`${button} mt-3`}>Retry inspection</button>}
-      {(liveSetMessage(summary) !== summary || !!diagnostics) && <details className="mt-2 text-xs break-words"><summary>Technical details</summary>
-        {summary}<pre className="whitespace-pre-wrap">{diagnostics ? JSON.stringify(diagnostics, null, 2) : ""}</pre>
-      </details>}
-      {title && <p className="text-sm mt-2 break-words">{title}</p>}
-      {!!tracks.length && <details className="text-xs mt-2"><summary>Tracks in this set ({tracks.length})</summary>
-        <ol className="mt-2 space-y-1">{tracks.map((track, i) => <li key={i}>{i + 1}. {track}</li>)}</ol></details>}
       <button disabled={busy || !ready} onClick={() => start(true)}
         className={`${button} mt-3`} style={{ background: "var(--accent)", color: "white" }}>Use this new set</button>
-    </div>
+    </details>
     <div className="flex flex-wrap justify-between gap-2 mt-5 border-t pt-4" style={{ borderColor: "var(--border)" }}>
       <button disabled={busy} onClick={onCancel} className={button}>Cancel</button>
-      <button disabled={busy || !title || error} onClick={() => start(false)} className={button}>Use inspected set instead</button>
     </div>
   </dialog>;
 }
