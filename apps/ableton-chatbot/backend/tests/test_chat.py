@@ -103,7 +103,7 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
             stream = await main.chat_stream(main.ChatRequest(message="Inspect"), {"id": 1})
             events = [json.loads(chunk) async for chunk in stream.body_iterator]
         self.assertEqual([e["type"] for e in events], ["session", "action_started", "action_completed", "complete"])
-        self.assertEqual(events[-1]["response"], "Inspected.")
+        self.assertIn("Start from an idea", events[-1]["response"])
 
     async def test_stream_error_does_not_emit_completion(self):
         self.client.messages.create.side_effect = RuntimeError("test failure")

@@ -175,6 +175,23 @@ async function main() {
       assert.deepEqual(errors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: `/tmp/beatmind-song-projects-${width}.png` });
+      await page.getByRole('button', { name: 'New song', exact: true }).click();
+      await page.getByRole('heading', { name: 'How would you like to start?', exact: true }).waitFor();
+      await page.getByLabel('Message BeatMind', { exact: true }).fill('Load a 909 kit and make a human four-bar kick loop.');
+      await page.getByRole('button', { name: 'Send', exact: true }).click();
+      const setup = page.getByRole('region', { name: 'Song setup', exact: true });
+      await setup.getByRole('button', { name: 'Start from an idea', exact: true }).waitFor();
+      const bounds = await setup.boundingBox();
+      assert.ok(bounds.y >= 0 && bounds.y + bounds.height < 900, 'Setup choices stay beside the composer');
+      await page.screenshot({ path: `/tmp/beatmind-setup-next-step-${width}.png` });
+      await setup.getByRole('button', { name: 'Start from an idea', exact: true }).click();
+      await page.getByRole('button', { name: 'Use inspected set instead', exact: true }).click();
+      await page.getByText('Selected set: Disposable QA set', { exact: true }).waitFor();
+      assert.equal(await setup.count(), 0, 'The setup blocker disappears after the actual set is confirmed');
+      assert.equal(songs['song-3'].project.starting_point, 'idea');
+      assert.equal(songs['song-3'].messages[0].content, 'Load a 909 kit and make a human four-bar kick loop.');
+      assert.deepEqual(errors, []);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       console.log(`PASS ${width}px: durable named song history, reference upload/consent/listening/discussion, isolated new song, restored reference, explicit set confirmation without production`);
       await context.close();
     }

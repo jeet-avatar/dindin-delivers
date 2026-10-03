@@ -826,6 +826,7 @@ def _build_tools() -> list[dict]:
 
 
 async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None, emit=None) -> tuple[str, list]:
+    setup = song_projects.setup_reply(session.project)
     usage_request = uuid.uuid4().hex  # Groups this message's model calls in the usage log.
     tool_calls_log = []
     pack_scoped = False
@@ -837,7 +838,7 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     bridge_note += '\n' + getattr(session, 'project_note', '')
     planning_only = getattr(session, 'planning_only', False)
     if planning_only:
-        bridge_note += "\nThis turn is discussion only. Ask one next question. Do not play, audition, change music or create a production plan; only read-only discovery is available."
+        bridge_note += "\nThis turn is discussion only. Ask one next question. Do not play, audition, change music or create a production plan; only read-only discovery is available. Explain the exact pending setup/review action above, not an imaginary switch to enable building. Do not substitute manual instrument loading, note drawing or routing instructions for a production request."
     if bridge and (not session.project or session.project.get('live_set')):
         previous_section = get_brief(session.user_id, session.session_id)
         if previous_section:
@@ -875,6 +876,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
             messages.append({"role": "user", "content": "Continue exactly where you stopped. Do not repeat what you already wrote."})
             continue
         if response.stop_reason == "end_turn" or not tool_uses:
+            if setup:
+                return setup, tool_calls_log
             answer = "".join(continued_text) + "\n".join(text_parts)
             if not answer.strip():
                 answer = ("I finished checking the set but did not produce an answer. Nothing was changed. "

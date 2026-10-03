@@ -385,7 +385,10 @@ export default function DashboardPage() {
     try {
       const id = await updateProject({ starting_point });
       if (starting_point === "reference") setNav("references");
-      else await sendMessage("I'd like to start from my own idea, without a reference.", id, null, true);
+      else {
+        await sendMessage("I'd like to start from my own idea, without a reference.", id, null, true);
+        if (!project?.live_set && bridgeConnected) setSongSetup("");
+      }
     } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not save your choice."); }
     finally { setProjectBusy(false); }
   }
@@ -749,7 +752,7 @@ export default function DashboardPage() {
       <ChatTimeline followKey={conversationFollowKey}>
         {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
         {loading && streamNotice && <p role="status" className="text-xs text-amber-300">{streamNotice}</p>}
-        {(messages.length === 0 || (project && !project.starting_point)) && (
+        {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-8 gap-6 text-center">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "var(--bg-secondary)", color: "var(--accent)" }}>
               <WaveIcon size={28} />
@@ -781,6 +784,22 @@ export default function DashboardPage() {
       </ChatTimeline>
 
       <div className="px-3 sm:px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
+        {project && messages.length > 0 && (!project.starting_point || !project.live_set) && (
+          <section aria-label="Song setup" className="mb-3 flex flex-wrap items-center gap-3 text-sm">
+            <span style={{ color: "var(--text-secondary)" }}>{!project.starting_point ? "Choose a starting point" : "No Live Set selected"}</span>
+            {!project.starting_point ? <>
+              <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("idea")}
+                className="underline disabled:opacity-40">Start from an idea</button>
+              <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("reference")}
+                className="underline disabled:opacity-40">Upload a reference track</button>
+            </> : <>
+              <button type="button" disabled={loading || projectBusy || !bridgeConnected} onClick={() => setSongSetup("")}
+                className="underline disabled:opacity-40">Choose Live Set</button>
+              {project.starting_point === "reference" && <button type="button" onClick={() => setNav("references")}
+                className="underline">Reference review</button>}
+            </>}
+          </section>
+        )}
         <div className="flex gap-3 items-end">
           <label htmlFor="chat-input" className="sr-only">Message BeatMind</label>
           <textarea
@@ -1146,8 +1165,10 @@ export default function DashboardPage() {
             style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>Upload song</button>}
           {project && <div className="w-full flex flex-wrap items-center gap-3 text-xs">
             <span style={{ color: "var(--text-secondary)" }}>{project.live_set ? `Selected set: ${project.live_set.title}` : "Planning / No Live Set selected"}</span>
-            <button disabled={loading || projectBusy || !bridgeConnected} onClick={() => setSongSetup("")} className="underline disabled:opacity-40">Choose Live Set</button>
-            {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
+            {!(nav === "beatmind" && messages.length > 0 && project.starting_point && !project.live_set) && <>
+              <button disabled={loading || projectBusy || !bridgeConnected} onClick={() => setSongSetup("")} className="underline disabled:opacity-40">Choose Live Set</button>
+              {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
+            </>}
           </div>}
         </div>}
 

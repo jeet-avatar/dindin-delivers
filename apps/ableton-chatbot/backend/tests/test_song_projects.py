@@ -81,6 +81,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         execute.assert_not_awaited()
         self.assertTrue(session.planning_only)
         self.assertEqual(result['tool_calls'][0]['result']['status'], 'failed')
+        self.assertIn('Start from an idea', result['response'])
         self.assertNotIn('create_midi_track', {t['name'] for t in client.messages.create.call_args.kwargs['tools']})
 
     def bridge(self, title='My Song', ready=True):
@@ -122,6 +123,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIsNone(project['starting_point'])
                 self.assertIsNone(project['live_set'])
                 self.assertEqual(events[-1]['tool_calls'][0]['result']['status'], 'failed')
+                self.assertIn('Start from an idea', events[-1]['response'])
                 saved = await main.chat_details(events[0]['session_id'], self.user)
                 self.assertEqual(saved['project'], project)
                 self.assertEqual(saved['messages'][-1]['requestStatus'], 'complete')
@@ -149,6 +151,32 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         bridge.send_command.assert_not_awaited()
         self.assertEqual(result['project']['live_set']['title'], 'My Song')
         self.assertEqual((await main.chat_details(self.id, self.user))['project'], result['project'])
+
+    async def test_missing_live_set_gives_real_next_action_without_provider_tutorial(self):
+        await main.update_song_project(self.id, main.SongProjectRequest(starting_point='idea'), self.user)
+        tutorial = SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text='Drag the 909 by hand, then switch building on.')])
+        with patch.object(main, 'request_message', AsyncMock(return_value=(tutorial, main.MODEL))):
+            session = main.ChatSession(self.id, 42)
+            session.project = (await main.chat_details(self.id, self.user))['project']
+            response, actions = await main._run_claude_loop(session, None)
+        self.assertIn('Choose Live Set', response)
+        self.assertNotIn('switch building', response)
+        self.assertEqual(actions, [])
+
+    async def test_confirmed_idea_restores_production_tools_after_planning_history(self):
+        bridge = self.bridge()
+        await main.update_song_project(self.id, main.SongProjectRequest(starting_point='idea'), self.user)
+        await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id=self.id), self.user)
+        client = SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(return_value=SimpleNamespace(
+            stop_reason='end_turn', content=[SimpleNamespace(type='text', text='Inspecting your requested kit.')]))))
+        request = main.ChatRequest(message='Continue the agreed kick', session_id=self.id)
+        with patch.object(main, 'claude_client', client):
+            session, _ = main.prepare_chat(request, self.user)
+            await main.produce_chat(request, session, bridge)
+        self.assertFalse(session.planning_only)
+        offered = {t['name'] for t in client.messages.create.call_args.kwargs['tools']}
+        self.assertTrue({'load_instrument', 'create_clip', 'add_notes', 'audition_part',
+                         'get_track_output_routing', 'set_track_output_routing'} <= offered)
 
     async def test_unverified_new_set_never_becomes_bound(self):
         self.bridge(ready=False)
