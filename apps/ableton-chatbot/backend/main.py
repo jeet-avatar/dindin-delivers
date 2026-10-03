@@ -552,6 +552,7 @@ async def live_set_action(req: LiveSetRequest, user: dict = Depends(require_subs
             if req.operation == 'confirm_new' and result.get('new_set_ready') is not True:
                 raise HTTPException(409, 'The new set is not confirmed. Complete any save prompt in Ableton and check again.')
             usage = song_usage.summary(user, session.session_id)
+            song_usage.check_empty_replacement(usage, result)
             if req.operation == 'confirm_new' and usage['started']:
                 raise HTTPException(409, 'A new Live Set needs a new song chat and a song credit. This chat remains linked to its existing song.')
             song_usage.authorize(user['id'], session.session_id, result['title'],
@@ -702,6 +703,7 @@ async def produce_chat(req, session, bridge, emit=None):
                 if live.get('status') not in {'observed', 'verified'}:
                     # Say why Ableton could not be checked (for example a locked Mac) instead of blaming the set.
                     raise HTTPException(409, (live.get('summary') or 'Ableton could not be checked.') + ' Nothing was changed.')
+                song_usage.check_empty_replacement(song_state, live)
                 if live.get('title') != session.project['live_set']['title']:
                     raise HTTPException(409, 'The open Ableton set no longer matches this song. Use Choose Live Set before making changes. Nothing was changed.')
             state = await bridge.send_command("/live/song/get/track_names", [], True)
@@ -1035,7 +1037,12 @@ async def _execute_song_tool(session, tool_name, tool_input, bridge):
             song_usage.start(session.user_id, session.session_id, live_title)
         except HTTPException as error:
             return {'status': 'failed', 'summary': error.detail, 'steps': []}
-    return await _execute_tool(tool_name, tool_input, bridge)
+    result = await _execute_tool(tool_name, tool_input, bridge)
+    if bridge and result.get('status') == 'verified' and tool_name in {
+        'create_clip', 'add_notes', 'duplicate_clip', 'record_arrangement',
+    }:
+        song_usage.record_music(session.user_id, session.session_id)
+    return result
 
 
 async def _mix_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection) -> dict:

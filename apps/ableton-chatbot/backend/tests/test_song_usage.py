@@ -171,8 +171,22 @@ def test_new_set_confirmation_cannot_recycle_a_started_song(tmp_path):
                 await main.live_set_action(main.LiveSetRequest(operation='confirm_new', session_id=sid, authorize_song=True, same_song=True), user)
             assert error.value.status_code == 409
             assert song_usage.summary(user)['used'] == 1
+            song_usage.record_music(user['id'], sid)
+            with pytest.raises(HTTPException) as error:
+                await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id=sid, same_song=True), user)
+            assert 'empty Live Set' in error.value.detail
             bridge.send_command.assert_not_awaited()
     asyncio.run(run())
+
+
+def test_empty_set_guard_does_not_block_initial_tempo_and_setup():
+    user = subscriber()
+    begin(user, 'song')
+    song_usage.check_empty_replacement(song_usage.summary(user, 'song'), {'new_set_ready': True})
+    song_usage.record_music(user['id'], 'song')
+    song_usage.check_empty_replacement(song_usage.summary(user, 'song'), {'new_set_ready': False})
+    with pytest.raises(HTTPException):
+        song_usage.check_empty_replacement(song_usage.summary(user, 'song'), {'new_set_ready': True})
 
 
 def test_paid_ai_limit_checked_between_model_rounds():

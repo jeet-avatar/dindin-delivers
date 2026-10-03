@@ -29,6 +29,7 @@ def init(conn):
         source TEXT,
         PRIMARY KEY (user_id, song_id)
     )""")
+    database.add_columns(conn, 'song_starts', {'music_seen': 'INTEGER NOT NULL DEFAULT 0'})
     conn.execute('CREATE INDEX IF NOT EXISTS song_starts_period ON song_starts (user_id, period, source)')
     conn.execute(f"""CREATE TABLE IF NOT EXISTS song_set_relinks (
         id {database.autoincrement_pk()}, user_id INTEGER NOT NULL, song_id TEXT NOT NULL,
@@ -67,6 +68,7 @@ def _summary(conn, user, song_id=None):
     return {'policy': POLICY, 'included': included, 'used': used, 'remaining': max(0, included - used),
             'period': period, 'source': source,
             'authorized': bool(row), 'started': bool(row and row['started_at']),
+            'music_seen': bool(row and row['music_seen']),
             'live_title': row['live_title'] if row else None}
 
 
@@ -112,6 +114,18 @@ def start(user_id, song_id, live_title):
                          WHERE user_id=? AND song_id=? AND started_at IS NULL""",
                      (state['period'], state['source'], user_id, song_id))
         return _summary(conn, user, song_id)
+
+
+def record_music(user_id, song_id):
+    with db() as conn:
+        conn.execute('UPDATE song_starts SET music_seen=1 WHERE user_id=? AND song_id=? AND started_at IS NOT NULL',
+                     (user_id, song_id))
+
+
+def check_empty_replacement(state, live):
+    if state['started'] and state['music_seen'] and live.get('new_set_ready') is True:
+        raise HTTPException(409, 'A new empty Live Set is open, but this song already contains music. '
+                            'Reopen its saved set, or choose New song to use another song credit. Nothing was changed.')
 
 
 def explicit_restart(message):
