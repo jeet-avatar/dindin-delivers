@@ -35,6 +35,7 @@ import catalog
 import references
 import chat_store
 import song_projects
+import song_identity
 import chat_tools
 from sections import SECTION_TOOL, get_brief, set_brief, source_error
 from recordings import ROOT as RECORDINGS_ROOT, save_recording, list_recordings, owned_recording, decide_recording, attach_evidence
@@ -591,6 +592,7 @@ async def update_song_project(session_id: str, req: SongProjectRequest, user: di
             if not req.title.strip():
                 raise HTTPException(422, 'Give your song a name.')
             session.project['title'] = req.title.strip()
+            session.project['title_source'] = 'user'
         if req.starting_point is not None:
             session.project['starting_point'] = req.starting_point
             if req.starting_point == 'idea':
@@ -709,6 +711,8 @@ async def produce_chat(req, session, bridge, emit=None):
                 action = event['action']
                 session.actions = [a for a in session.actions if a['id'] != action['id']] + [action]
                 session.ui_messages[-1]['toolCalls'] = session.actions
+                if event['type'] == 'action_completed' and action['tool'] in {'update_song_details', 'create_production_plan', 'set_tempo'}:
+                    event = {**event, 'project': session.project}
             chat_store.journal(session, event)
             chat_store.save(session, 'running')
             if emit:
@@ -812,7 +816,7 @@ DISCUSSION_TOOLS = {
         'list_browser', 'inspect_track', 'list_sample_packs',
         'search_pack_samples', 'inspect_pack_sample', 'show_live_view',
     }
-} | {'list_reference_sounds'}
+} | {'list_reference_sounds', song_identity.TOOL['name']}
 
 
 def _build_system(bridge_note: str) -> list[dict]:
@@ -820,7 +824,7 @@ def _build_system(bridge_note: str) -> list[dict]:
 
 
 def _build_tools() -> list[dict]:
-    tools = [dict(t) for t in ABLETON_TOOLS] + [dict(t) for t in chat_tools.TOOLS] + [dict(SECTION_TOOL)]
+    tools = [dict(t) for t in ABLETON_TOOLS] + [dict(t) for t in chat_tools.TOOLS] + [dict(song_identity.TOOL), dict(SECTION_TOOL)]
     tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
     return tools
 
@@ -833,9 +837,12 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     track_creation_attempted = False
     section_brief = None
     messages = session.messages
+    user_message = next((m['content'] for m in reversed(messages) if m['role'] == 'user' and isinstance(m['content'], str)), '')
     bridge_note = "" if bridge else "\n\nNOTE: No Ableton bridge connected. No live music changes are possible. Server-side saved-audio discovery and comparison remain available."
     bridge_note += getattr(session, 'reference_note', '')
     bridge_note += '\n' + getattr(session, 'project_note', '')
+    if session.project:
+        bridge_note += '\nCurrent song details: ' + json.dumps({k: session.project.get(k) for k in ('title', 'title_source', 'genre', 'bpm')})
     planning_only = getattr(session, 'planning_only', False)
     if planning_only:
         bridge_note += "\nThis turn is discussion only. Ask one next question. Do not play, audition, change music or create a production plan; only read-only discovery is available. Explain the exact pending setup/review action above, not an imaginary switch to enable building. Do not substitute manual instrument loading, note drawing or routing instructions for a production request."
@@ -900,6 +907,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                 constraint = source_error(section_brief, tu.name, tu.input)
                 if planning_only and tu.name not in DISCUSSION_TOOLS:
                     result = {"status": "failed", "summary": "Discussion only: no playback or music changes were authorized. Ask for the user's next choice.", "steps": []}
+                elif tu.name == song_identity.TOOL['name'] and not blocked and not audition_ready:
+                    result = song_identity.update(session.project, tu.input, user_message)
                 elif tu.name in chat_tools.NAMES and not blocked and not audition_ready:
                     result = await chat_tools.execute(tu.name, tu.input, session.user_id)
                 elif tu.name == "set_section_brief" and not blocked and not audition_ready:
@@ -910,6 +919,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                     result = {"status": "failed", "summary": constraint, "steps": []}
                 elif tu.name == "create_production_plan" and not blocked and not audition_ready:
                     result = create_plan(session.user_id, session.session_id, tu.input)
+                    if result.get('plan') and session.project:
+                        session.project = song_identity.refresh(session.project, result['plan'])
                 elif tu.name in {"create_midi_track", "create_audio_track"} and not get_plan(session.user_id, session.session_id):
                     result = {"status": "failed", "summary": "Save a production brief with create_production_plan before creating music.", "steps": []}
                 elif tu.name in {"create_midi_track", "create_audio_track"} and track_creation_attempted:
@@ -921,6 +932,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                               if blocked or audition_ready else await _execute_tool(tu.name, tu.input, bridge))
                     if tu.name in {"create_midi_track", "create_audio_track"} and not blocked and not audition_ready:
                         track_creation_attempted = True
+                    if tu.name == 'set_tempo' and result.get('status') == 'verified' and session.project:
+                        session.project = song_identity.refresh({**session.project, 'bpm': tu.input['bpm']})
                 blocked = blocked or result.get("status") in BAD_STATUSES
                 audition_ready = audition_ready or bool(result.get("recording") or result.get('comparison'))
                 action["result"] = result

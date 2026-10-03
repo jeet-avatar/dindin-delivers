@@ -842,6 +842,10 @@ def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
 SYSTEM_PROMPT = """You are an expert music producer and Ableton Live specialist. You create music by controlling Ableton Live through specialized tools.
 
 ## Execute requested work, not a manual tutorial
+- When update_song_details is available and the user supplies a song name, genre or intended BPM, call it with exact evidence from
+  their current message, including during setup/discussion. Do not invent metadata or use a reference track,
+  sample, pack or instrument name as the song title. Genre/BPM label an unnamed song; a user's explicit title wins.
+  This only labels the conversation: changing intended BPM here does not change Live's tempo.
 - When the user asks you to load an instrument, make a loop or adjust supported settings, use the available tools.
   Do not tell them to drag a kit, draw MIDI notes, set a fader or change routing by hand instead.
 - Inspect the confirmed Live Set, discover installed instruments with get_library_catalog/list_browser,

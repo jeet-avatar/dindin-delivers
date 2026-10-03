@@ -25,7 +25,7 @@ import { useAbletonLaunch } from "@/lib/use-ableton-launch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
 import { bridgeStatusLabel } from "@/lib/bridge-status";
 import { STARTER_TEMPLATE_URL } from "@/lib/site";
-import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/chat-index";
+import { restoreChatIndex, unmatchedServerChats, refreshPlaceholderTitles, type ChatEntry } from "@/lib/chat-index";
 import { acceptedSound, type MusicChoice } from "@/lib/music-workflow";
 import {
   daysLeft, hasMixMindAccess, hasPaidPlan, openBillingPortal, parsePlanIntent, planIntentQuery, planName, useUsage, withoutPlanIntent,
@@ -116,6 +116,7 @@ interface SavedChat {
 }
 interface SongProject {
   title: string; starting_point: "reference" | "idea" | null;
+  title_source?: "auto" | "user"; genre?: string; bpm?: number;
   live_set: { title: string; choice: string } | null;
 }
 
@@ -212,6 +213,7 @@ export default function DashboardPage() {
   const [streamNotice, setStreamNotice] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
+  const titledChats = refreshPlaceholderTitles(chats, serverChats);
   const { status: bridgeStatus, refresh: refreshBridge } = useBridgeStatus(user?.id);
   const bridgeConnected = bridgeStatus === "connected";
   const ableton = useAbletonLaunch(bridgeStatus, user?.id);
@@ -453,6 +455,7 @@ export default function DashboardPage() {
           narration += `${narration ? "\n\n" : ""}${event.text}`;
           setMessages(p => p.map(m => m.id === runId ? { ...m, content: narration } : m));
         } else if (event.type === "action_started" || event.type === "action_completed") {
+          if ("project" in event) setProject(event.project);
           const action = event.action as ProductionAction;
           setMessages(p => p.map(m => {
             if (m.id !== runId) return m;
@@ -466,6 +469,7 @@ export default function DashboardPage() {
           }));
         } else if (event.type === "complete") {
           completed = true;
+          if ("project" in event) setProject(event.project);
           setMessages(p => p.map(m => m.id === runId ? { ...m, requestStatus: "complete", content: event.response,
             toolCalls: event.tool_calls.map((action: ProductionAction) => ({ ...m.toolCalls?.find(a => a.id === action.id), ...action })) } : m));
         } else if (event.type === "error") {
@@ -1096,7 +1100,7 @@ export default function DashboardPage() {
             <button className="sm:hidden text-sm p-2" onClick={() => setHistoryOpen(false)}>Close</button>
           </div>
           <div className="space-y-1">
-            {[...chats].reverse().map(chat => <button key={chat.id} type="button" disabled={!historyReady || loading || projectBusy}
+            {[...titledChats].reverse().map(chat => <button key={chat.id} type="button" disabled={!historyReady || loading || projectBusy}
               aria-label={`Open saved song: ${chat.title}`}
               onClick={() => chat.sessionId && (chat.id.startsWith("server-") || serverChats.some(item => item.id === chat.sessionId)) ? void openServerChat(chat.sessionId) : openChat(chat.id)}
               aria-current={chat.id === chatId ? "true" : undefined}

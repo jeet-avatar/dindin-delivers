@@ -1,5 +1,11 @@
 export interface ChatEntry { id: string; title: string; sessionId?: string | null }
 
+export function refreshPlaceholderTitles(local: ChatEntry[], server: ChatEntry[]): ChatEntry[] {
+  const titles = new Map(server.map(chat => [chat.id, chat.title]));
+  return local.map(chat => chat.title === "New song" && chat.sessionId && titles.get(chat.sessionId)
+    ? { ...chat, title: titles.get(chat.sessionId)! } : chat);
+}
+
 export function restoreChatIndex(entries: ChatEntry[], read: (id: string) => string | null): ChatEntry[] {
   return entries.map(entry => {
     if (entry.sessionId) return entry;
