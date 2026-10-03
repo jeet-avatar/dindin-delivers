@@ -1,0 +1,97 @@
+{
+  "release_date": "2026-10-03",
+  "product_commit": "d5f36f81f26971a36dea78da720ae989e7de3db3",
+  "branch": "fix/beatmind-installer-readiness-20261002",
+  "site": "https://www.beatmind.io",
+  "backend_task": "beatmind-api:88",
+  "image_digest": "sha256:95226ce6e6094c1c890e56f4bf334f2551d6c02bc5202a724e504c9949a86890",
+  "cloudfront_invalidation": {
+    "id": "IA8SRQVEDRF3D1Q5D66BLZVF9T",
+    "status": "Completed"
+  },
+  "policy": {
+    "starter_new_songs_per_utc_month": 10,
+    "first_valid_music_write_consumes_song": true,
+    "planning_and_setup_consume_song": false,
+    "saving_archiving_deleting_refund_song": false,
+    "same_song_revisions_consume_another_song": false,
+    "separation_credits_are_separate": true,
+    "paid_ai_fair_use_enforced": true,
+    "paid_ai_activation": "2026-10-03T22:02:30.216738+00:00",
+    "pre_activation_paid_ai_usage_excluded": true
+  },
+  "delivery": {
+    "ci_run": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/37156282228",
+    "ci_exact_product_commit_passed": true,
+    "method": "Manual deployment of the exact CI-validated commit using the repository Dockerfile and release helpers.",
+    "reason": "Workflow 37156409531 stalled at Node setup and was cancelled before production steps; no overlapping deployment remained.",
+    "frontend_and_backend_public_manifest_match": true,
+    "backend_stable": true,
+    "environment_changes": [
+      "AI_FAIR_USE_ENFORCED",
+      "AI_FAIR_USE_START_AT",
+      "BEATMIND_RELEASE_SHA"
+    ]
+  },
+  "verification": {
+    "sqlite_backend": {"passed": 560},
+    "postgresql_backend": {"passed": 555, "skipped": 5},
+    "frontend_unit": {"passed": 20},
+    "frontend_production_build": "passed",
+    "container_runtime_smoke": "passed; cached separation, four aligned stems, comparison previews and owner-scoped chat storage",
+    "deployed_runtime_policy": "passed in an isolated temporary SQLite database inside the running production container",
+    "production_schema": "read-only queries for song_starts.music_seen and song_set_relinks succeeded",
+    "policy_cases": [
+      "Ten starts allowed; eleventh rejected",
+      "Continuing the same song counts once",
+      "Explicit same-song Save As does not refund usage",
+      "Reported fresh empty set cannot recycle a previously produced song",
+      "Unauthorized music writes are blocked",
+      "Paid AI allowance is enforced"
+    ],
+    "public_frontend_fixture_tests": {
+      "widths_px": [1440, 390],
+      "song_allowance": "passed",
+      "song_projects": "passed",
+      "song_titles": "passed",
+      "scope": "Published frontend assets with intercepted API fixtures; not real customer production sessions"
+    },
+    "public_site_smoke": {
+      "widths_px": [1440, 390],
+      "pages": ["/login", "/signup", "/forgot-password", "/guide", "/changelog"],
+      "all_pages_http_200": true,
+      "invalid_login_readable_422": true,
+      "anonymous_dashboard_redirect": true,
+      "javascript_errors": 0,
+      "broken_next_assets": 0,
+      "horizontal_overflow": false
+    },
+    "api_health": "ok",
+    "ai_provider": "bedrock",
+    "anonymous_protected_routes": 401,
+    "customer_rows_changed_by_policy_tests": 0,
+    "ableton_actions_executed_by_tests": 0
+  },
+  "unchanged": {
+    "bridge_version": "1.3.12",
+    "bridge_commit": "1228a798e9bc17695eaa38e5ad8d990d264e43fe",
+    "payment_configuration": true,
+    "provider_secret_references": true,
+    "ecs_roles_storage_mounts_ports_logging": true,
+    "user_music_and_marketing_media": true
+  },
+  "limitations": [
+    "Same-composition identity uses Live Set metadata, explicit user attestation and the Bridge fresh-set signal; this is not perfect detection of every rewritten composition.",
+    "AI usage estimates are checked between provider calls, not reserved as an exact hard spending ceiling before concurrent calls.",
+    "Existing-song revisions remain subject to the separate AI allowance.",
+    "A potentially applied or interrupted music write does not automatically refund a song credit.",
+    "This policy release did not perform an actual customer audio audition or create a real Ableton song."
+  ],
+  "rollback": {
+    "s3_bucket": "beatmind-frontend",
+    "snapshot_prefix": "releases/before-20261003-d5f36f81/",
+    "backend_task": "beatmind-api:87",
+    "previous_product_commit": "0880a468bcebeac50aa39066e0b830d6765b39a7",
+    "database": "Additive migration; retain song ledger data during rollback."
+  }
+}
