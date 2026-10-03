@@ -1,0 +1,100 @@
+{
+  "core_production_smoke_passed": true,
+  "unrestricted_launch_signoff": false,
+  "scope": "Product fixes deployed; signed Apple Silicon installer upgraded through the actual public updater. Real production browser, packaged Bridge and Ableton tested in a disposable set. This is not a guarantee that every feature or installation environment is defect-free.",
+  "application_commit": "7a64c07fba837458116d4f96d32e5faaa70f11cc",
+  "bridge_commit": "dda73c9cd61a4cc47e950ccefb5596ea00e66c79",
+  "release_tag": "beatmind-20261002-1.3.8",
+  "backend_task": "beatmind-api:81",
+  "deployment_run": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/37047552273",
+  "bridge": {
+    "version": "1.3.8",
+    "url": "https://www.beatmind.io/BeatMind-Bridge-1.3.8.dmg",
+    "sha256": "7e09f10af1154499183e08b7f3057c64df0afbaec12dd6554c72c801160985fe",
+    "notarization_submission": "95809acb-1d9d-4000-bdfa-74de0656244f",
+    "notarization": "Accepted; ticket stapled and disk image checksum verified",
+    "passed": [
+      "Public HTTPS download of all 310740895 bytes matches the release SHA-256",
+      "Real updater downloaded, verified, replaced and relaunched the installed app from 1.3.7 to 1.3.8",
+      "Saved sign-in reconnects without entering a password",
+      "Actual Disconnect and Let's make music buttons disconnect and reconnect; browser status agrees",
+      "Connected email and password fields have readable dark backgrounds; setup controls and version footer are visible",
+      "Browser removes the obsolete Bridge update prompt after the new version connects",
+      "Bad checksum leaves the previous application untouched; fresh-copy Gatekeeper and signature checks pass",
+      "Packaged real four-stem separation, resource-tracker dispatch and production HTTPS/WebSocket checks pass",
+      "Clean upstream AbletonOSC archive 0ca68214bd62c9b5cb641ca34006cfd70ba94430 installed through the actual setup button and used inside Live for production chat actions"
+    ],
+    "signed_in_password_behavior": "Credentials are intentionally disabled while signed in, including after manual Disconnect. Sign out makes them editable. The disabled password field remains visible; an account-only signed-in layout is a remaining usability improvement."
+  },
+  "provider": {
+    "provider": "bedrock",
+    "primary": "us.anthropic.claude-opus-5-5",
+    "fallback": "us.anthropic.claude-sonnet-4-6",
+    "sdk_retries": 2,
+    "fixed": [
+      "Transient 5xx responses are no longer described as invalid model configuration",
+      "Configured same-provider fallback handles 500, 502, 503, 504 and 529 before any tool dispatch; the active fallback is retained for the rest of that production loop",
+      "Usage records identify the model that actually returned the response",
+      "Outgoing requests omit prefix-bound reasoning blocks when Live context changes, retaining conversation text, tool calls and tool results; saved history is not mutated",
+      "A new request clears the stale frontend error banner without deleting historical errors"
+    ],
+    "production_diagnostic": "The previously failing real QA history contained 10 reasoning blocks. The corrected request path succeeded inside the production task through Sonnet 4.6 after primary-model unavailability, without executing any Ableton actions.",
+    "disabled_candidate": "Sonnet 5.5 worked under the local operator credentials but the production task was refused with INVALID_PAYMENT_INSTRUMENT for its Marketplace subscription. It is not configured. Its four temporary IAM resources were removed; the existing role policy was preserved.",
+    "provider_guidance": "https://platform.claude.com/docs/en/build-with-claude/preserved-thinking",
+    "limits": "Fallback cannot guarantee availability during an AWS-wide outage and does not bypass authentication, bad-request or rate-limit errors."
+  },
+  "tests": {
+    "backend_sqlite_passed": 516,
+    "backend_postgres_passed": 511,
+    "backend_postgres_sqlite_specific_skipped": 5,
+    "bridge_passed": 65,
+    "frontend_unit_files_passed": 20,
+    "browser_regression_files_passed": 15,
+    "production_build": "Passed",
+    "container_runtime": "Passed real four-stem separation, aligned outputs, audible comparison previews and owner-scoped chat storage",
+    "production_public_browser": "1440px and 390px: login, signup, password reset, guide and changelog return 200 with no page errors, broken assets or horizontal overflow. Invalid sign-in shows readable validation; logged-out dashboard redirects to login.",
+    "protected_api_routes": "Unauthenticated chats and Bridge status return 401"
+  },
+  "live_qa": {
+    "set": "BeatMind Public Launch QA 2026-10-02",
+    "tempo_bpm": 124,
+    "kick": {
+      "track": 1,
+      "instrument": "Simpler",
+      "sample": "AS_DH_14_bd.aif",
+      "notes": 16,
+      "actions": 16,
+      "preview_seconds": 8.5106667,
+      "peak_amplitude": 0.46043378,
+      "rms_amplitude": 0.12031378,
+      "approved_through_ui": true
+    },
+    "bass": {
+      "track": 4,
+      "instrument": "Operator",
+      "clip": "Bass offbeat roll - Am - Intro",
+      "notes": 16,
+      "actions": 24,
+      "preview_seconds": 8.5746667,
+      "peak_amplitude": 0.35181794,
+      "rms_amplitude": 0.04344189,
+      "approved_through_ui": true
+    },
+    "audio_checks": "Actual browser playback advances; decoded previews contain signal without clipping. Approval persists after reload, does not send another chat request, and leaves audio paused.",
+    "preservation": "Saved ALS comparison confirms kick MIDI notes, sample paths and mixer volume are identical before and after bass creation; Bass changes from zero to 16 notes.",
+    "follow_up": "A subsequent no-edit chat request correctly named Kick and Bass as accepted, with no Ableton tools or audition.",
+    "failures_before_fixes": "Two initial Opus 503 interruptions and one later invalid thinking-signature rejection; no Ableton actions began in those failed requests. Their historical logs remain intact."
+  },
+  "preservation": {
+    "music": "Original saved set retained as Before Launch QA 2026-10-02. Disposable QA saved separately; original AbletonOSC directory restored after the clean-integration test.",
+    "configuration": "Existing payment, secret references, IAM policy, storage mounts and ECS role settings preserved. Runtime changes are release identity, fallback model and retry count only.",
+    "release_contents": "No marketing music, videos, QA recordings, chats, credentials or replay scripts included in release commits or installer assets.",
+    "rollback": "Previous immutable installer and tasks retained; frontend snapshots at releases/before-20261002-dda73c9c/ and releases/before-20261002-7a64c07f/."
+  },
+  "remaining_launch_checks": [
+    "Independent first-time installation on another supported Apple Silicon Mac with fresh privacy permissions has not been performed. This Mac already had those permissions.",
+    "Payment completion remains explicitly deferred by the user; no Stripe payment was initiated and payment settings were unchanged. AI test requests consume provider usage.",
+    "Reset email was accepted by SMTP in the preceding audit; recipient confirmation of this test message and its button is still unverified.",
+    "Full-song separation quality, subjective musical quality, every third-party plug-in, Intel Macs and Windows are not established by this audit."
+  ]
+}

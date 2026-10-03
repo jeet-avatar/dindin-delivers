@@ -1,15 +1,18 @@
 """Explicit, user-triggered File-menu actions. Never dismiss save/discard dialogs."""
 
 import asyncio
+import json
 import sys
+
+from live_window import SNAPSHOT, WindowCheckError, select_document
 
 MENUS = {"save": "Save Live Set", "new": "New Live Set"}
 PROCESS = '(first application process whose bundle identifier is "com.ableton.live")'
 
 
-async def applescript(script):
+async def applescript(script, language="AppleScript"):
     process = await asyncio.create_subprocess_exec(
-        "/usr/bin/osascript", "-e", script,
+        "/usr/bin/osascript", "-l", language, "-e", script,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     try:
         out, error = await asyncio.wait_for(process.communicate(), 12)
@@ -33,15 +36,8 @@ async def screen_locked():
 async def window_title():
     if await screen_locked():
         raise RuntimeError("Your Mac is locked. Unlock it so BeatMind can see Ableton, then try again.")
-    return await applescript(f'''tell application "System Events"
-        if (count of (application processes whose bundle identifier is "com.ableton.live")) is not 1 then error "Open exactly one Ableton Live application."
-        tell {PROCESS}
-            if (count of windows) is 0 then error "No Ableton window is available."
-            if (count of sheets of window 1) > 0 then error "Finish or cancel the dialog in Ableton first."
-            if not enabled of menu item "New Live Set" of menu 1 of menu bar item "File" of menu bar 1 then error "Finish or cancel the dialog in Ableton first."
-            return name of window 1
-        end tell
-    end tell''')
+    snapshot = json.loads(await applescript(SNAPSHOT, language="JavaScript"))
+    return select_document(snapshot)
 
 
 async def empty_set(bridge, track_count):
@@ -89,5 +85,8 @@ async def live_set_operation(bridge, operation):
         fresh = title.casefold().startswith("untitled") and await empty_set(bridge, len(state.get("args", [])))
         return {"status": "observed", "title": title, "tracks": state.get("args", []), "new_set_ready": fresh,
                 "summary": "A new, empty Live Set is open and responding." if fresh else "Current set inspected. It is not a new empty set (it is saved or already has clips); no production will start automatically."}
+    except WindowCheckError as error:
+        return {"status": "failed", "summary": str(error), "error_code": error.code,
+                "diagnostics": error.diagnostics}
     except Exception as error:
         return {"status": "failed", "summary": "Unable to complete the Live Set step: " + str(error)}

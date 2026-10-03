@@ -184,6 +184,28 @@ class VerifiedExecutor:
 
     async def perform(self, name, data):
         t, s = data.get("track"), data.get("scene")
+        if name == "set_track_output_routing":
+            destination = data['destination']
+            available = await self.read('/live/track/get/available_output_routing_types', [t])
+            if available.count(destination) != 1:
+                raise ExecutionError('Output destination is unavailable or ambiguous; inspect current routing choices.',
+                                     available_destinations=available)
+            current = await self.scalar('/live/track/get/output_routing_type', [t])
+            if current != destination:
+                await self.command('/live/track/set/output_routing_type', [t, destination])
+            await self.expect('/live/track/get/output_routing_type', [t], destination)
+            if 'channel' in data:
+                channels = await self.read('/live/track/get/available_output_routing_channels', [t])
+                if channels.count(data['channel']) != 1:
+                    raise ExecutionError('Output channel is unavailable or ambiguous for this destination. '
+                                         'Inspect routing before retrying; the destination may already have changed.',
+                                         available_channels=channels)
+                if await self.scalar('/live/track/get/output_routing_channel', [t]) != data['channel']:
+                    await self.command('/live/track/set/output_routing_channel', [t, data['channel']])
+                await self.expect('/live/track/get/output_routing_channel', [t], data['channel'])
+            return {'status': 'verified', 'summary': f'Track {t + 1} output is {destination}; routing read back from Ableton.',
+                    'destination': destination,
+                    'channel': await self.scalar('/live/track/get/output_routing_channel', [t])}
         if name == "describe_sound":
             inspection = await self.perform("inspect_track", {"track": t})
             notes = await self.notes(t, s)

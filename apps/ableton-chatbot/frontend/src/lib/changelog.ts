@@ -9,6 +9,58 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.3.12",
+    date: "2026-10-02",
+    notes: [
+      "Check for updates is always visible, with checking, up-to-date and update-available states.",
+      "Failed checks are visible, retry after one minute and offer the official installer download. Duplicate checks and overlapping installations are prevented.",
+    ],
+  },
+  {
+    version: "1.3.11",
+    date: "2026-10-02",
+    notes: [
+      "Live Set inspection uses document identity and main-window evidence instead of requiring one standard window.",
+      "Choose Live Set automatically checks the open set and offers in-app retry with clear diagnostics. Ambiguous windows and save dialogs still block changes.",
+    ],
+  },
+  {
+    version: "1.3.10",
+    date: "2026-10-02",
+    notes: [
+      "Set up Ableton integration now installs bundled AbletonOSC on a new Mac, without a separate download.",
+      "Setup shows progress and visible errors, preserves existing integrations, and supports a custom User Library location.",
+      "After setup, save and restart Live, then select AbletonOSC in Settings > Link/Tempo/MIDI.",
+    ],
+  },
+  {
+    version: "1.3.9",
+    date: "2026-10-02",
+    notes: [
+      "Signed-in Bridge now shows your account instead of a locked email and password form.",
+      "Sign out restores editable login fields; Disconnect keeps your saved sign-in for reconnecting.",
+    ],
+  },
+  {
+    version: "1.3.8",
+    date: "2026-10-02",
+    notes: [
+      "Reconnect after clicking Disconnect without re-entering your password; Sign out remains available.",
+      "Email and password fields keep readable colors after connecting.",
+      "The Bridge window now fits its setup controls and version footer on first launch.",
+    ],
+  },
+  {
+    version: "1.3.7",
+    date: "2026-10-02",
+    notes: [
+      "Set up Ableton integration from the Bridge, with automatic registration, backups and rollback.",
+      "Supported actions can show the corresponding track, device or MIDI clip in Ableton and verify the displayed selection.",
+      "Arrangement auditions check their playback start; clip automation verifies written values and holds the final value through the clip end.",
+      "Improved packaged stem-separation startup and installer version reporting. Save your Live Set, run integration setup and restart Ableton after updating.",
+    ],
+  },
+  {
     version: "1.3.6",
     date: "2026-09-30",
     notes: [

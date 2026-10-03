@@ -41,6 +41,7 @@ export interface PlanState {
 export interface Pack { id: string; kind: "track" | "cloud"; credits: number; price: { amount: number; currency: string } }
 
 export interface Usage {
+  songs?: SongAllowance;
   enforced: boolean;
   plan: PlanState;
   included_per_month: number;
@@ -61,8 +62,14 @@ export interface Usage {
   ai_usage: {
     estimated_usd: number;
     fair_use_cap_usd: number;
+    fair_use_enforced?: boolean;
     trial?: { chat_messages: number; estimated_usd: number; exhausted: boolean; limits: { chat_messages: number; estimated_usd: number } };
   };
+}
+
+export interface SongAllowance {
+  included: number; used: number; remaining: number; period: string;
+  authorized: boolean; started: boolean; live_title: string | null;
 }
 
 export const BEATMIND_PLANS: PlanId[] = ["starter", "pro", "studio"];

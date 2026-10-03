@@ -43,7 +43,8 @@ export const PLANS: Plan[] = [
     includedTracks: 10,
     includedCloud: 0,
     features: [
-      "10 tracks / month",
+      "10 new songs / month",
+      "10 reference stem separations / month",
       "High-quality stem separation on your computer via the Bridge",
       "AI producer inside Ableton Live (fair use)",
       "BeatMind Bridge for Mac (Apple Silicon, macOS 15+)",
@@ -60,7 +61,8 @@ export const PLANS: Plan[] = [
     includedCloud: 5,
     features: [
       "Everything in Starter, plus:",
-      "30 tracks / month",
+      "30 new songs / month",
+      "30 reference stem separations / month",
       "5 cloud HQ separations / month (no powerful computer needed)",
     ],
     highlight: true,
@@ -75,7 +77,8 @@ export const PLANS: Plan[] = [
     includedCloud: 20,
     features: [
       "Everything in Pro, plus:",
-      "80 tracks / month",
+      "80 new songs / month",
+      "80 reference stem separations / month",
       "20 cloud HQ separations / month",
       "MixMind for Rekordbox included",
       "Priority support",
@@ -90,7 +93,7 @@ export const HIGHEST_MONTHLY_USD = Math.max(...PLANS.map((plan) => plan.monthly)
 export const ANNUAL_DISCOUNT_LABEL = "2 months free";
 
 export const TRACK_DEFINITION =
-  "A track is one stem separation of a reference track. High-quality separation runs on your own Mac via the Bridge.";
+  "One song is one BeatMind song chat, including its instruments and revisions. Its first production action uses a song credit. Saving, archiving or deleting never restores it. New-song and reference-separation allowances are separate and reset on the 1st of each month (UTC), including annual plans. Monthly AI fair-use limits also apply.";
 export const CLOUD_HQ_DEFINITION =
   "Cloud HQ separations run on our cloud GPU, for computers that can't run high-quality separation locally. They need a paid plan.";
 
@@ -106,7 +109,7 @@ export const CLOUD_HQ_PACKS: Pack[] = [
 ];
 
 export const PACK_TERMS =
-  "Packs never expire. They're used after your monthly allowance and need a paid plan.";
+  "Separation packs never expire. They're used after your monthly separation allowance and need a paid plan. They do not add song credits or AI usage.";
 
 export const FOUNDING_CODE = "FOUNDING100";
 export const FOUNDING_DISCOUNT_PERCENT = 40;

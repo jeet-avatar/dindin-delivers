@@ -24,6 +24,8 @@ def save_recording(user_id, result):
                 "track_name": result["track_name"], "track": result["track"], "scene": result["scene"],
                 "metrics": result["metrics"], "source": "Ableton Live application audio", "decision": "pending",
                 "kind": result.get("kind", "part"), **({"scene_name": result["scene_name"]} if result.get("scene_name") else {})}
+    if "arrangement_start_beat" in result:
+        metadata["arrangement_start_beat"] = result["arrangement_start_beat"]
     (ROOT / f"{recording_id}.m4a").write_bytes(data)
     (ROOT / f"{recording_id}.json").write_text(json.dumps(metadata))
     return {**result, "recording": metadata}

@@ -1,4 +1,5 @@
 import asyncio
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -6,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import live_set
+from live_window import WindowCheckError, select_document
 
 
 class FakeBridge:
@@ -32,6 +34,41 @@ def test_locked_screen_is_reported_plainly():
 
 
 class LiveSetTests(unittest.TestCase):
+    def test_document_identity_ignores_recorder_auxiliary_window(self):
+        snapshot = {'process_count': 1, 'new_enabled': True, 'windows': [
+            {'title': 'Recorder', 'subrole': 'AXFloatingWindow'},
+            {'title': 'Fixture Set', 'document': 'file:///tmp/Fixture.als'}]}
+        with patch.object(live_set, "screen_locked", AsyncMock(return_value=False)), \
+             patch.object(live_set, "applescript", AsyncMock(return_value=json.dumps(snapshot))) as script:
+            self.assertEqual(asyncio.run(live_set.window_title()), "Fixture Set")
+        source = script.call_args.args[0]
+        self.assertEqual(script.call_args.kwargs['language'], 'JavaScript')
+        self.assertIn('AXDocument', source)
+        self.assertIn('window.sheets()', source)
+        self.assertIn("menuItems.byName('New Live Set').enabled()", source)
+
+    def test_ambiguous_document_prevents_file_actions(self):
+        for operation in ("inspect", "save", "new"):
+            with self.subTest(operation=operation), \
+                 patch.object(live_set.sys, "platform", "darwin"), \
+                 patch.object(live_set, "window_title", AsyncMock(side_effect=RuntimeError("Ambiguous document"))), \
+                 patch.object(live_set, "applescript", AsyncMock()) as script:
+                result = asyncio.run(live_set.live_set_operation(FakeBridge(), operation))
+                self.assertEqual(result["status"], "failed")
+                script.assert_not_awaited()
+
+    def test_window_failure_returns_in_app_diagnostics_without_file_paths(self):
+        snapshot = {'process_count': 1, 'new_enabled': True,
+                    'windows': [{'title': 'Fixture', 'subrole': 'AXUnknown', 'main': False,
+                                 'document': 'file:///private/not-a-set.wav'}]}
+        with patch.object(live_set.sys, 'platform', 'darwin'), \
+             patch.object(live_set, 'screen_locked', AsyncMock(return_value=False)), \
+             patch.object(live_set, 'applescript', AsyncMock(return_value=json.dumps(snapshot))):
+            result = asyncio.run(live_set.live_set_operation(FakeBridge(), 'inspect'))
+        self.assertEqual(result['error_code'], 'ambiguous_window')
+        self.assertEqual(result['diagnostics']['windows'][0]['subrole'], 'AXUnknown')
+        self.assertNotIn('/private/', json.dumps(result))
+
     def test_empty_untitled_set_is_ready_even_right_after_launch(self):
         result = inspect("Untitled", FakeBridge())
         self.assertTrue(result["new_set_ready"])
@@ -50,3 +87,55 @@ class LiveSetTests(unittest.TestCase):
             result = asyncio.run(live_set.live_set_operation(FakeBridge(), "new"))
         self.assertEqual(result["status"], "awaiting_user")
         self.assertIn("New Live Set", script.call_args.args[0])
+
+
+class WindowSelectionTests(unittest.TestCase):
+    def select(self, *windows, count=1, enabled=True):
+        return select_document({'process_count': count, 'new_enabled': enabled, 'windows': windows})
+
+    def test_saved_set_without_standard_subrole(self):
+        self.assertEqual(self.select({'title': 'Saved', 'subrole': 'AXUnknown',
+                                      'document': 'file:///Users/test/My%20Set.als'}), 'Saved')
+
+    def test_single_unsaved_main_window_without_standard_subrole(self):
+        for subrole in ('AXUnknown', '', 'AXStandardWindow'):
+            self.assertEqual(self.select({'title': 'Untitled', 'main': True, 'subrole': subrole}), 'Untitled')
+
+    def test_saved_set_and_plugin_both_standard(self):
+        self.assertEqual(self.select({'title': 'Plugin', 'subrole': 'AXStandardWindow'},
+            {'title': 'Saved', 'subrole': 'AXStandardWindow', 'document': 'file:///tmp/Saved.als'}), 'Saved')
+
+    def test_second_view_of_same_saved_document(self):
+        self.assertEqual(self.select({'title': 'Second View', 'document': 'file:///tmp/Saved.als'},
+            {'title': 'Saved', 'document': 'file:///tmp/Saved.als', 'main': True}), 'Saved')
+
+    def test_unknown_window_without_document_or_main_evidence_is_not_guessed(self):
+        with self.assertRaises(WindowCheckError):
+            self.select({'title': 'Plugin', 'subrole': 'AXUnknown'})
+
+    def test_dialog_and_sheets_block_even_with_valid_document(self):
+        for dialog in ({'title': 'Save', 'modal': True}, {'title': 'Settings', 'sheets': 1}):
+            with self.assertRaises(WindowCheckError) as raised:
+                self.select({'title': 'Saved', 'document': 'file:///tmp/Saved.als'}, dialog)
+            self.assertEqual(raised.exception.code, 'live_dialog')
+
+    def test_disabled_new_menu_blocks(self):
+        with self.assertRaises(WindowCheckError) as raised:
+            self.select({'title': 'Saved', 'document': 'file:///tmp/Saved.als'}, enabled=False)
+        self.assertEqual(raised.exception.code, 'live_dialog')
+
+    def test_two_distinct_documents_are_never_guessed(self):
+        with self.assertRaises(WindowCheckError):
+            self.select({'title': 'A', 'document': 'file:///tmp/A.als'},
+                        {'title': 'B', 'document': 'file:///tmp/B.als', 'main': True})
+
+    def test_minimized_document_requires_bringing_forward(self):
+        with self.assertRaises(WindowCheckError) as raised:
+            self.select({'title': 'Saved', 'document': 'file:///tmp/Saved.als', 'minimized': True})
+        self.assertEqual(raised.exception.code, 'window_minimized')
+
+    def test_no_window_and_multiple_apps_have_distinct_codes(self):
+        for count, code in ((0, 'live_not_open'), (1, 'window_unavailable'), (2, 'multiple_live_apps')):
+            with self.assertRaises(WindowCheckError) as raised:
+                self.select(count=count)
+            self.assertEqual(raised.exception.code, code)

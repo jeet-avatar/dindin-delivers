@@ -28,6 +28,67 @@ class Parameter:
 
 
 class MappingTests(unittest.TestCase):
+    def envelope_writer(self, readback=None):
+        steps = [(0.0, 8.0, 0.3)]
+        clears = []
+        class Envelope:
+            def insert_step(self, beat, length, value): steps.append((beat, length, value))
+            def value_at_time(self, t):
+                active = [v for b, length, v in steps if b <= t < b + length]
+                return readback if readback is not None else (active[-1] if active else 0.5)
+        envelope = Envelope()
+        def clear(parameter):
+            clears.append(parameter)
+            steps.clear()
+        parameter = Parameter()
+        clip = SimpleNamespace(length=8.0, clear_envelope=clear, automation_envelope=lambda p: envelope,
+                               create_automation_envelope=lambda p: envelope)
+        track = SimpleNamespace(devices=[], mixer_device=SimpleNamespace(volume=parameter),
+                                clip_slots=[SimpleNamespace(has_clip=True, clip=clip)])
+        handlers = {}
+        server = SimpleNamespace(add_handler=lambda address, callback: handlers.update({address: callback}))
+        extension.register(SimpleNamespace(song=SimpleNamespace(tracks=[track]), osc_server=server), SimpleNamespace())
+        def write(points):
+            return json.loads(handlers["/live/beatmind/clip_envelope"]((json.dumps({
+                "track": 0, "scene": 0, "mixer": "volume", "unit": "native", "points": points}),))[0])
+        return write, steps, clears
+
+    def test_invalid_automation_preserves_existing_envelope(self):
+        for points in ([{"beat": 0, "value": 0.2}, {"beat": 8, "value": 2}],
+                       [{"beat": 0, "value": 0.2}, {"beat": 0, "value": 0.5}],
+                       [{"beat": 0, "value": 0.2}, {"beat": 8, "value": "invalid"}],
+                       [{"beat": 0, "value": 0.2}, {"beat": float("nan"), "value": 0.5}]):
+            with self.subTest(points=points):
+                write, steps, clears = self.envelope_writer()
+                result = write(points)
+                self.assertEqual(result["status"], "failed", result)
+                self.assertEqual(steps, [(0.0, 8.0, 0.3)])
+                self.assertEqual(clears, [])
+
+    def test_automation_does_not_claim_verified_when_live_ignores_values(self):
+        for readback in (0.9, float("nan")):
+            with self.subTest(readback=readback):
+                write, _, _ = self.envelope_writer(readback)
+                result = write([{"beat": 0, "value": 0.2}, {"beat": 8, "value": 0.5}])
+                self.assertEqual(result["status"], "partial", result)
+                self.assertIn("readback differs", result["summary"])
+
+    def test_valid_automation_replaces_and_verifies_existing_envelope(self):
+        write, steps, clears = self.envelope_writer()
+        result = write([{"beat": 0, "value": 0.2}, {"beat": 8, "value": 0.5}])
+        self.assertEqual(result["status"], "verified", result)
+        self.assertEqual(len(clears), 1)
+        self.assertAlmostEqual(steps[0][2], 0.2)
+        self.assertAlmostEqual(steps[-1][2], 0.5)
+
+    def test_final_automation_value_holds_until_clip_end(self):
+        for curve in ("linear", "step"):
+            with self.subTest(curve=curve):
+                write, steps, _ = self.envelope_writer()
+                result = write([{"beat": 0, "value": 0.2, "curve": curve}, {"beat": 7.5, "value": 0.3}])
+                self.assertEqual(result["status"], "verified", result)
+                self.assertEqual(steps[-1], (7.5, 0.5, 0.3))
+
     def test_minus_inf_db_means_fully_off(self):
         class Send:
             name, min, max, value, is_enabled, is_quantized, state, automation_state = "B-Delay", 0.0, 1.0, 0.0, True, False, 0, 0

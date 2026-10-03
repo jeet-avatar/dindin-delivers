@@ -17,7 +17,8 @@ export interface Recording {
   created_at?: string;
   supersedes?: string;
   track?: number;
-  scene?: number;
+  scene?: number | null;
+  arrangement_start_beat?: number;
   track_name: string;
   /** "scene" for a full-mix preview of a whole scene. */
   kind?: "part" | "scene";
@@ -126,6 +127,7 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
       Ableton reference at capture: {item.kind === "scene" ? "Full mix, all tracks"
         : typeof item.track === "number" && item.track >= 0 ? `Track ${item.track + 1}` : "Track not recorded"}
       {typeof item.scene === "number" && item.scene >= 0 ? ` / Scene ${item.scene + 1}${item.scene_name ? ` (${item.scene_name})` : ""}` : ""}
+      {typeof item.arrangement_start_beat === "number" ? ` / Arrangement, beat ${item.arrangement_start_beat + 1}` : ""}
     </p>
     <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
       {item.source} · {item.metrics.duration_seconds.toFixed(1)}s · Peak {item.metrics.peak_dbfs.toFixed(1)} dBFS

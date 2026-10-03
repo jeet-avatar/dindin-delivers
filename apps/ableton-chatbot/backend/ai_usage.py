@@ -153,14 +153,20 @@ def cap_usd(tier):
 
 
 def month_to_date(user_id, tier):
+    # Activation is preserved across releases: do not retroactively cap usage logged
+    # while paid fair use was observation-only.
+    activation = os.getenv('AI_FAIR_USE_START_AT', '')
+    since = (datetime.fromisoformat(activation).astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+             if activation else '0001-01-01 00:00:00')
     with db() as conn:
         row = conn.execute("""SELECT COUNT(*) AS calls, COALESCE(SUM(estimated_usd), 0) AS usd,
                               COALESCE(SUM(input_tokens), 0) AS input, COALESCE(SUM(output_tokens), 0) AS output,
                               COALESCE(SUM(cache_read_tokens), 0) AS cache_read, COALESCE(SUM(cache_write_tokens), 0) AS cache_write,
                               COALESCE(SUM(audio_input_tokens), 0) AS audio,
                               COALESCE(SUM(CASE WHEN rate_basis = 'placeholder' THEN 1 ELSE 0 END), 0) AS placeholder
-                              FROM ai_usage WHERE user_id=? AND substr(created_at, 1, 7)=?""",
-                           (user_id, datetime.now(timezone.utc).strftime('%Y-%m'))).fetchone()
+                              FROM ai_usage WHERE user_id=? AND substr(created_at, 1, 7)=?
+                              AND replace(substr(created_at, 1, 19), 'T', ' ')>=?""",
+                           (user_id, datetime.now(timezone.utc).strftime('%Y-%m'), since)).fetchone()
     cap = cap_usd(tier)
     return {'month': datetime.now(timezone.utc).strftime('%Y-%m'), 'calls': row['calls'],
             'estimated_usd': round(row['usd'], 4), 'input_tokens': row['input'], 'output_tokens': row['output'],

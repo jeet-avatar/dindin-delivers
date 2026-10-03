@@ -3,13 +3,18 @@ BeatMind Bridge — macOS/Windows GUI app.
 Double-click to launch. Connects to your BeatMind account and controls Ableton Live.
 """
 
+# Frozen workers must dispatch before importing or initializing the GUI.
+if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
+
 import asyncio
 import json
 import os
 import sys
 import threading
 import tkinter as tk
-from tkinter import font as tkfont, ttk
+from tkinter import font as tkfont, ttk, filedialog
 import webbrowser
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -29,6 +34,7 @@ DEFAULT_API = "https://api.beatmind.io"
 CHAT_URL = "https://www.beatmind.io/dashboard"
 START_LABEL = "Let's make music"
 UPDATE_CHECK_MS = 6 * 60 * 60 * 1000
+UPDATE_RETRY_MS = 60 * 1000
 USER_AGENT = f"BeatMind-Bridge/{BRIDGE_VERSION}"
 
 # ── Colors (match BeatMind dark theme) ──
@@ -78,7 +84,12 @@ class BeatMindBridgeApp:
         self.closing = False
         self.bridge_token = None
         self.latest = None
+        self.update_checking = False
+        self.update_installing = False
+        self.update_timer = None
         config = load_config()
+        self.user_library = Path(config.get('user_library') or Path.home() / 'Music/Ableton/User Library')
+        self.integration_running = False
 
         # ── Fonts ──
         self.font_title = tkfont.Font(family="Helvetica Neue", size=20, weight="bold")
@@ -104,6 +115,7 @@ class BeatMindBridgeApp:
 
         # ── Build UI ──
         self._build_ui(config)
+        self._fit_window()
         if sys.platform == 'darwin':
             register_mac_launch(self.root)
 
@@ -113,7 +125,7 @@ class BeatMindBridgeApp:
         saved = credentials.load() if config.get("remember", True) else None
         if saved:
             self.root.after(300, self._resume, saved)
-        self.root.after(2000, self._check_updates)
+        self.update_timer = self.root.after(2000, self._check_updates)
         updater.clean_previous()
 
     def _build_ui(self, config: dict):
@@ -135,6 +147,15 @@ class BeatMindBridgeApp:
         form = tk.Frame(self.root, bg=BG_CARD, highlightbackground=BORDER,
                         highlightthickness=1, padx=24, pady=20)
         form.pack(padx=24, pady=(20, 0), fill="x")
+        self.login_fields = tk.Frame(form, bg=BG_CARD)
+        self.login_fields.pack(fill="x")
+        self.account_fields = tk.Frame(form, bg=BG_CARD)
+        tk.Label(self.account_fields, text="Account", font=self.font_small,
+                 bg=BG_CARD, fg=TEXT_DIM, anchor="w").pack(fill="x", pady=(0, 6))
+        self.account_email_var = tk.StringVar()
+        tk.Label(self.account_fields, textvariable=self.account_email_var, font=self.font_body,
+                 bg=BG_CARD, fg=TEXT, anchor="w", justify="left", wraplength=310).pack(fill="x")
+        form = self.login_fields
 
         # Email
         tk.Label(form, text="Email", font=self.font_small, bg=BG_CARD, fg=TEXT,
@@ -142,6 +163,8 @@ class BeatMindBridgeApp:
         self.email_var = tk.StringVar(value=config.get("email", ""))
         email_entry = tk.Entry(form, textvariable=self.email_var, font=self.font_body,
                                bg=BG_INPUT, fg=TEXT, insertbackground=TEXT,
+                               disabledbackground=BG_INPUT, disabledforeground=TEXT_DIM,
+                               readonlybackground=BG_INPUT,
                                relief="flat", highlightthickness=1,
                                highlightbackground=BORDER, highlightcolor=ACCENT)
         email_entry.pack(fill="x", ipady=6, pady=(0, 12))
@@ -153,6 +176,8 @@ class BeatMindBridgeApp:
         self.password_var = tk.StringVar()
         pw_entry = tk.Entry(form, textvariable=self.password_var, font=self.font_body,
                             bg=BG_INPUT, fg=TEXT, insertbackground=TEXT,
+                            disabledbackground=BG_INPUT, disabledforeground=TEXT_DIM,
+                            readonlybackground=BG_INPUT,
                             show="*", relief="flat", highlightthickness=1,
                             highlightbackground=BORDER, highlightcolor=ACCENT)
         pw_entry.pack(fill="x", ipady=6, pady=(0, 4))
@@ -198,18 +223,38 @@ class BeatMindBridgeApp:
 
         # ── Update (installed only when the user clicks) ──
         self.update_frame = tk.Frame(self.root, bg=BG)
+        self.update_frame.pack(pady=(14, 0), fill="x", padx=24)
         update_text_frame = tk.Frame(self.update_frame, bg=BG)
-        update_text_frame.pack(side="left", fill="x", expand=True)
-        self.update_label = tk.Label(update_text_frame, text="", font=self.font_small, bg=BG, fg=ACCENT,
-                                     wraplength=230, justify='left')
+        update_text_frame.pack(fill="x")
+        self.update_label = tk.Label(update_text_frame, text=f"Installed: BeatMind Bridge {BRIDGE_VERSION}", font=self.font_small, bg=BG, fg=TEXT_DIM,
+                                     wraplength=350, justify='left')
         self.update_label.pack(anchor="w")
         changelog_link = tk.Label(update_text_frame, text="Full changelog ↗", font=self.font_small,
                                   bg=BG, fg=TEXT_DIM, cursor="hand2")
         changelog_link.pack(anchor="w", pady=(2, 0))
         changelog_link.bind("<Button-1>", lambda _e: self._open_changelog())
-        self.update_btn = ttk.Button(self.update_frame, text='Install update', style='Disconnect.TButton',
+        update_buttons = tk.Frame(self.update_frame, bg=BG)
+        update_buttons.pack(fill="x", pady=(6, 0))
+        self.check_update_btn = ttk.Button(update_buttons, text='Check for updates', style='Disconnect.TButton',
+                                          command=self._check_updates, takefocus=True)
+        self.check_update_btn.pack(side="left")
+        self.update_btn = ttk.Button(update_buttons, text='Install update', style='Disconnect.TButton',
                                      command=self._install_update, takefocus=True)
-        self.update_btn.pack(side="right", anchor="n")
+        self.download_update_btn = ttk.Button(self.update_frame, text='Download installer', style='Disconnect.TButton',
+                                              command=self._open_update_download, takefocus=True)
+
+        if sys.platform == "darwin":
+            integration = tk.Frame(self.root, bg=BG)
+            integration.pack(fill="x", padx=24, pady=(12, 0))
+            self.integration_btn = ttk.Button(integration, text="Set up Ableton integration",
+                style='Disconnect.TButton', command=self._install_integration)
+            self.integration_btn.pack(anchor="w")
+            self.library_btn = ttk.Button(integration, text="Choose User Library...",
+                style='Disconnect.TButton', command=self._choose_user_library)
+            self.library_btn.pack(anchor="w", pady=(6, 0))
+            self.integration_status = tk.Label(integration, text="", bg=BG, fg=TEXT_DIM,
+                font=self.font_small, wraplength=350, justify="left")
+            self.integration_status.pack(anchor="w")
 
         # ── Footer ──
         tk.Label(self.root, text=f"BeatMind Bridge {BRIDGE_VERSION} by Zietra Technologies Inc.",
@@ -221,9 +266,54 @@ class BeatMindBridgeApp:
         self.status_dot.delete("dot")
         self.status_dot.create_oval(1, 1, 9, 9, fill=color, outline="", tags="dot")
 
+    def _install_integration(self):
+        if self.integration_running:
+            return
+        if self.update_installing:
+            self._integration_message("The Bridge is updating. Run setup after it reopens.")
+            return
+        if self.bridge and self.bridge.local.jobs:
+            self._integration_message("A track is separating. Run setup after it finishes.")
+            return
+        self.integration_running = True
+        self.integration_btn.config(state='disabled', text='Installing integration...')
+        self.library_btn.config(state='disabled')
+        self._integration_message(f"Installing into {self.user_library}. Ableton will need a restart.")
+        threading.Thread(target=self._integration_worker, args=(self.user_library,), daemon=True).start()
+
+    def _integration_message(self, message):
+        self.integration_status.config(text=message)
+        self._fit_window()
+
+    def _choose_user_library(self):
+        selected = filedialog.askdirectory(parent=self.root, title="Select the User Library shown in Ableton Settings > Library",
+                                           initialdir=str(self.user_library))
+        if selected:
+            self.user_library = Path(selected)
+            save_config({**load_config(), 'user_library': str(self.user_library)})
+            self._integration_message(f"User Library: {self.user_library}. Click Set up Ableton integration.")
+
+    def _integration_worker(self, library):
+        from extension_installer import install
+        try:
+            install(target=library / 'Remote Scripts/AbletonOSC/abletonosc')
+        except Exception as error:
+            self._post(self._integration_finished, str(error))
+        else:
+            self._post(self._integration_finished, None)
+
+    def _integration_finished(self, error):
+        self.integration_running = False
+        self.integration_btn.config(state='normal', text='Set up Ableton integration')
+        self.library_btn.config(state='normal')
+        self._integration_message(error or
+            "Files installed. Save your set and restart Ableton. In Settings > Link/Tempo/MIDI, select AbletonOSC in an empty Control Surface slot. Then reconnect the Bridge. Live has not been checked yet.")
+
     def _toggle_connection(self):
         if self.connected:
             webbrowser.open(CHAT_URL)
+        elif self.bridge_token:
+            self._resume(self.bridge_token)
         else:
             self._connect()
 
@@ -241,9 +331,9 @@ class BeatMindBridgeApp:
             return
 
         if self.remember_var.get():
-            save_config({"email": email, "remember": True})
+            save_config({"email": email, "remember": True, "user_library": str(self.user_library)})
         else:
-            save_config({"remember": False})
+            save_config({"remember": False, "user_library": str(self.user_library)})
             credentials.forget()
 
         self._set_status("Logging in...", ACCENT)
@@ -354,13 +444,24 @@ class BeatMindBridgeApp:
         self.connected = True
         self.busy = False
         self.password_var.set('')
-        self.email_entry.config(state='disabled')
-        self.password_entry.config(state='disabled')
+        self._show_identity(True)
         self.connect_btn.config(state="normal", text=START_LABEL)
         self.disconnect_btn.pack(side='right', padx=(8, 0))
         self.sign_out_btn.pack(side='right', padx=(8, 0))
         self.connect_btn.focus_set()
         self._set_status("Connected to BeatMind", SUCCESS)
+
+    def _show_identity(self, signed_in):
+        self.email_entry.config(state='disabled' if signed_in else 'normal')
+        self.password_entry.config(state='disabled' if signed_in else 'normal')
+        if signed_in:
+            self.account_email_var.set(self.email_var.get().strip() or 'Saved sign-in')
+            self.login_fields.pack_forget()
+            self.account_fields.pack(fill='x')
+        else:
+            self.account_fields.pack_forget()
+            self.login_fields.pack(fill='x')
+        self._fit_window()
 
     def _disconnect(self):
         self._set_status("Disconnecting...", TEXT_DIM)
@@ -377,10 +478,13 @@ class BeatMindBridgeApp:
         self.busy = False
         self.bridge = None
         self.loop = None
-        self.email_entry.config(state='normal')
-        self.password_entry.config(state='normal')
+        signed_in = bool(self.bridge_token)
+        self._show_identity(signed_in)
         self.disconnect_btn.pack_forget()
-        self.sign_out_btn.pack_forget()
+        if signed_in:
+            self.sign_out_btn.pack(side='right', padx=(8, 0))
+        else:
+            self.sign_out_btn.pack_forget()
         self.connect_btn.config(state="normal", text=START_LABEL)
         self.connect_btn.focus_set()
         self._set_status(message, TEXT_DIM if message == 'Disconnected' else ERROR)
@@ -404,27 +508,62 @@ class BeatMindBridgeApp:
             pass  # The local copy is already gone; the server token expires on its own.
 
     def _check_updates(self):
-        if self.closing:
+        if self.closing or self.update_checking or self.update_installing:
             return
+        if self.update_timer is not None:
+            self.root.after_cancel(self.update_timer)
+            self.update_timer = None
+        self.update_checking = True
+        self.check_update_btn.config(state='disabled')
+        self.update_btn.config(state='disabled')
+        self._update_message("Checking for updates...")
         threading.Thread(target=self._fetch_update, daemon=True).start()
-        self.root.after(UPDATE_CHECK_MS, self._check_updates)
 
     def _fetch_update(self):
         try:
             latest = updater.check(BRIDGE_VERSION)
         except Exception:
-            return  # Offline or bad metadata: try again at the next check.
-        if latest:
-            self._post(self._show_update, latest)
+            self._post(self._update_checked, None, "Could not check for updates. Check your connection and retry, or download the installer.")
+        else:
+            self._post(self._update_checked, latest, None)
+
+    def _update_checked(self, latest, error):
+        if self.closing:
+            return
+        self.update_checking = False
+        self.check_update_btn.config(state='normal')
+        if error:
+            self._update_message(error, ERROR)
+            self.download_update_btn.pack(anchor='w', pady=(6, 0))
+            if self.latest:
+                self.update_btn.config(state='normal')
+        elif latest:
+            self.download_update_btn.pack_forget()
+            self._show_update(latest)
+        else:
+            self.latest = None
+            self.update_btn.pack_forget()
+            self.download_update_btn.pack_forget()
+            self._update_message(f"You're up to date. Installed: {BRIDGE_VERSION}")
+        self.update_timer = self.root.after(UPDATE_RETRY_MS if error else UPDATE_CHECK_MS, self._check_updates)
+        self._fit_window()
+
+    def _update_message(self, message, color=TEXT_DIM):
+        self.update_label.config(text=message, fg=color)
+        self._fit_window()
+
+    def _open_update_download(self):
+        webbrowser.open("https://www.beatmind.io/BeatMind-Bridge.dmg")
 
     def _show_update(self, latest):
         self.latest = latest
         notes = str(latest.get('notes') or '').strip()
-        whats_new = f" What's new: {notes}." if notes else ''
-        self.update_label.config(text=f"BeatMind Bridge {latest['version']} is available.{whats_new} "
-                                      "Your Ableton set stays open.", fg=ACCENT)
+        if len(notes) > 180:
+            notes = notes[:177] + '...'
+        whats_new = f" What's new: {notes}" if notes else ''
+        self._update_message(f"BeatMind Bridge {latest['version']} is available.{whats_new} Your Ableton set stays open.", ACCENT)
         self.update_btn.config(state='normal')
-        self.update_frame.pack(pady=(14, 0), fill="x", padx=24)
+        self.update_btn.pack(side='left', padx=(8, 0))
         self._fit_window()
 
     def _fit_window(self):
@@ -438,17 +577,22 @@ class BeatMindBridgeApp:
         return bool(self.bridge and self.bridge.local.jobs)
 
     def _install_update(self):
-        if not self.latest:
+        if not self.latest or self.update_installing or self.update_checking:
+            return
+        if self.integration_running:
+            self._update_message("Integration setup is running. Install the update when it finishes.")
             return
         if self._separating():
-            self.update_label.config(text="A track is separating. Install when it finishes.", fg=TEXT_DIM)
+            self._update_message("A track is separating. Install when it finishes.")
             return
+        self.update_installing = True
         self.update_btn.config(state='disabled')
+        self.check_update_btn.config(state='disabled')
         threading.Thread(target=self._download_update, args=(self.latest,), daemon=True).start()
 
     def _download_update(self, latest):
         def progress(text):
-            self._post(self.update_label.config, {"text": text, "fg": TEXT_DIM})
+            self._post(self._update_message, text)
         try:
             app = updater.install(latest, progress)
         except Exception as error:
@@ -457,8 +601,12 @@ class BeatMindBridgeApp:
         self._post(self._restart_into, app)
 
     def _update_failed(self, message):
-        self.update_label.config(text=message, fg=ERROR)
+        self.update_installing = False
+        self._update_message(message, ERROR)
         self.update_btn.config(state='normal')
+        self.check_update_btn.config(state='normal')
+        self.download_update_btn.pack(anchor='w', pady=(6, 0))
+        self._fit_window()
 
     def _restart_into(self, app):
         """Relaunch the new Bridge. It signs back in on its own; Ableton is not touched."""
@@ -476,7 +624,10 @@ class BeatMindBridgeApp:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3 and sys.argv[1] == '--network-check':
+    if len(sys.argv) == 3 and sys.argv[1] == '--integration-check':
+        from extension_installer import self_check
+        Path(sys.argv[2]).write_text(json.dumps(self_check()))
+    elif len(sys.argv) == 3 and sys.argv[1] == '--network-check':
         result = asyncio.run(network_check())
         Path(sys.argv[2]).write_text(json.dumps(result))
     elif len(sys.argv) == 3 and sys.argv[1] == '--separate':

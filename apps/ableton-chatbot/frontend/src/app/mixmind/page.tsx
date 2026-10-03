@@ -118,7 +118,7 @@ const PRICE_CARDS: MixMindPriceCard[] = [
       },
       features: [
         "Everything in MixMind",
-        `BeatMind ${beatmind.name}: ${beatmind.includedTracks} tracks / month`,
+        `BeatMind ${beatmind.name}: ${beatmind.includedTracks} new songs and ${beatmind.includedTracks} reference separations / month`,
         ...(beatmind.includedCloud > 0 ? [`${beatmind.includedCloud} cloud HQ separations / month`] : []),
         "AI producer inside Ableton Live (fair use)",
       ],

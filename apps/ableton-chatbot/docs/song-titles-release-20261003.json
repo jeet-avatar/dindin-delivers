@@ -1,0 +1,35 @@
+{
+  "application_commit": "0880a468bcebeac50aa39066e0b830d6765b39a7",
+  "backend_task": "beatmind-api:87",
+  "bridge_version_unchanged": "1.3.12",
+  "deployment_run": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/37151651399",
+  "deployment_result": "success",
+  "behavior": [
+    "Use an explicit user song title; otherwise label the song with supplied genre and BPM, including partial known metadata.",
+    "Update the chat header and saved-song list from project events and preserve metadata across reloads.",
+    "Protect manual and legacy named titles. Fill missing automatic labels from saved production briefs without treating generated plan titles as user names.",
+    "Validate metadata against the current user request. Naming is available during planning and does not itself change Ableton."
+  ],
+  "verification": {
+    "backend_sqlite_passed": 546,
+    "backend_postgres_passed": 541,
+    "backend_postgres_sqlite_specific_skipped": 5,
+    "frontend_tests_passed": 20,
+    "frontend_production_build": "Passed locally and in deployment CI",
+    "browser_titles": "Local and public-site API-fixture tests passed at 1440px and 390px: automatic names, BPM revisions, explicit song names, manual rename protection, saved list and reload. No page errors or horizontal overflow observed. Screenshots inspected.",
+    "browser_test_correction": "The first public mobile test typed before new-song creation finished. The test now waits for creation and composer readiness; both public viewport runs passed on rerun. No application change was required.",
+    "guided_setup": "Existing guided-song workflow passed locally and on the public site at both widths.",
+    "public_smoke": "Login, signup, password reset, guide and changelog returned 200. Invalid-login validation and protected dashboard redirect passed; no broken Next.js assets observed.",
+    "actual_provider": "Four real Bedrock cases passed: explicit genre/BPM, explicit song name, instrument name not mistaken for song name, and an uncommitted tempo comparison leaving the title unchanged. No musical tools executed.",
+    "provider_schema": "An unsupported root anyOf was caught in provider testing and removed before deployment; runtime validation still requires metadata.",
+    "deployed_runtime": "Pure checks inside the deployed task passed for title updates, discussion-tool availability, explicit-name protection and legacy brief fallback. No customer chats modified or Ableton actions executed.",
+    "infrastructure": "Frontend and backend release identities match the application commit. Service stable, API healthy, protected routes return 401. Secret references, roles, storage, provider and payment settings preserved; only BEATMIND_RELEASE_SHA changed from task 86."
+  },
+  "rollback": {
+    "snapshot": "releases/before-20261003-0880a468/",
+    "backend_task": "beatmind-api:86",
+    "previous_frontend_commit": "82a90a30f60770e1cc8deb3ceb9a9179ea714151",
+    "previous_backend_commit": "d6d559fddc56bc7bfe01607bdcd223d336396bfd"
+  },
+  "limitations": "Unknown metadata is not guessed. Existing unnamed chats receive a derived label only when saved brief metadata is available. Browser tests use isolated API fixtures, not customer sessions. This release does not constitute an audible music or customer-Mac integration test. Refresh the browser; no Bridge reinstall is needed."
+}

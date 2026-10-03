@@ -30,6 +30,10 @@ def load(user_id, session_id):
         data = json.loads(path.read_text())
         if data['user_id'] != user_id or data['session_id'] != session_id:
             raise ValueError('Owner mismatch')
+        if data.get('project'):
+            from production import get_plan
+            from song_identity import refresh
+            data['project'] = refresh(data['project'], get_plan(user_id, session_id))
         return data
     except (ValueError, KeyError):
         raise HTTPException(409, 'Conversation recovery failed. Saved files are unchanged; do not repeat music commands.')

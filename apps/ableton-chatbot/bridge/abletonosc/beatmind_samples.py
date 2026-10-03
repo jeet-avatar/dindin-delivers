@@ -4,6 +4,10 @@ from pathlib import Path
 
 
 def register(handler, app):
+    from .beatmind_view import register as register_view
+    register_view(handler, app)
+    from .beatmind_arrangement_preview import register as register_preview
+    register_preview(handler, app)
     from .beatmind_automation import register as register_automation
     register_automation(handler, app)
     from .beatmind_stems import register as register_stems
@@ -50,6 +54,7 @@ def register(handler, app):
             handler.song.view.selected_track = previous
         return ("loaded", str(path))
 
-    handler.osc_server.add_handler("/live/browser/beatmind_capabilities", lambda params: ("exact_sample_v1",))
+    handler.osc_server.add_handler("/live/browser/beatmind_capabilities", lambda params: (
+        "exact_sample_v1", "verified_view_v1", "arrangement_audition_v1", "automation_readback_v2"))
     handler.osc_server.add_handler("/live/browser/load_sample_exact", load_exact)
     handler.osc_server.add_handler("/live/browser/get_loaded_sample", loaded_sample)

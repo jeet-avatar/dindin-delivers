@@ -3,6 +3,7 @@ BeatMind Backend — FastAPI server orchestrating Claude AI + AbletonOSC bridge.
 """
 
 import asyncio
+import hmac
 import json
 import logging
 import os
@@ -22,7 +23,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 from claude_tools import ABLETON_TOOLS, SYSTEM_PROMPT
 from execution import BAD_STATUSES, MAX_PRODUCTION_ROUNDS, execute_verified
-from ai_provider import create_client, failure_message, model_name, provider_name
+from ai_provider import create_client, failure_message, model_name, provider_name, request_message
 from automation import AUTOMATION_TOOLS, execute_automation, note_density
 from production import create_plan, get_plan, link_audition, review_part, replace_audition
 from session_context import matching_recordings, context_note
@@ -34,11 +35,13 @@ import catalog
 import references
 import chat_store
 import song_projects
+import song_identity
+import song_usage
 import chat_tools
 from sections import SECTION_TOOL, get_brief, set_brief, source_error
 from recordings import ROOT as RECORDINGS_ROOT, save_recording, list_recordings, owned_recording, decide_recording, attach_evidence
-from database import init_db, get_user_by_email, get_users_by_email_any_case, get_user_by_id, create_user, is_subscribed, mixmind_access, update_user_password
-from beatmind_auth import hash_password, verify_password, create_token, decode_token
+from database import init_db, get_user_by_email, get_users_by_email_any_case, get_user_by_id, create_user, is_subscribed, mixmind_access, reset_user_password
+from beatmind_auth import hash_password, verify_password, create_token, decode_token, password_reset_state
 from stripe_routes import router as stripe_router
 from security import (
     enforce_secrets, rate_limit, get_client_ip,
@@ -335,10 +338,14 @@ class ResetPasswordRequest(BaseModel):
 
 def _create_reset_token(user_id: int, email: str) -> str:
     from jose import jwt as jose_jwt
+    user = get_user_by_id(user_id)
+    if not user:
+        raise ValueError("Account no longer exists")
     payload = {
         "sub": str(user_id),
         "email": email,
         "purpose": "password_reset",
+        "password_state": password_reset_state(user["password_hash"]),
         "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
     }
     secret = os.getenv("JWT_SECRET", "")
@@ -398,14 +405,21 @@ async def reset_password(req: ResetPasswordRequest):
     from jose import jwt as jose_jwt, JWTError as JoseJWTError
     try:
         secret = os.getenv("JWT_SECRET", "")
-        payload = jose_jwt.decode(req.token, secret, algorithms=["HS256"])
-    except JoseJWTError:
+        payload = jose_jwt.decode(req.token, secret, algorithms=["HS256"], options={"require_exp": True})
+        user_id = int(payload["sub"])
+    except (JoseJWTError, ValueError, KeyError, TypeError):
         raise HTTPException(400, "Reset link is invalid or has expired.")
     if payload.get("purpose") != "password_reset":
         raise HTTPException(400, "Invalid reset token.")
+    user = get_user_by_id(user_id)
+    state = payload.get("password_state")
+    if not user or not isinstance(state, str) or not hmac.compare_digest(
+        state, password_reset_state(user["password_hash"])
+    ):
+        raise HTTPException(400, "Reset link is invalid or has expired. Request a new link.")
     validate_password(req.new_password)
-    user_id = int(payload["sub"])
-    update_user_password(user_id, hash_password(req.new_password))
+    if not reset_user_password(user_id, user["password_hash"], hash_password(req.new_password)):
+        raise HTTPException(400, "Reset link has already been used. Request a new link.")
     return {"message": "Password updated. You can now sign in."}
 
 
@@ -508,6 +522,8 @@ os.execl(sys.executable, sys.executable, bridge_path, "--server", "{ws_url}", "-
 class LiveSetRequest(BaseModel):
     operation: str = Field(pattern="^(activate|save|new|inspect|confirm_current|confirm_new)$")
     session_id: str | None = Field(default=None, pattern=r'^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$')
+    authorize_song: bool = False
+    same_song: bool = False
 
 
 @app.post("/api/live-set")
@@ -532,9 +548,15 @@ async def live_set_action(req: LiveSetRequest, user: dict = Depends(require_subs
         result = await bridge.local_operation("live_set", {"operation": 'inspect' if confirming else req.operation})
         if confirming:
             if result.get('status') not in {'observed', 'verified'} or not result.get('title'):
-                raise HTTPException(409, 'Could not verify the current Live Set. Check Ableton and retry.')
+                raise HTTPException(409, result.get('summary') or 'Could not verify the current Live Set. Check Ableton and retry.')
             if req.operation == 'confirm_new' and result.get('new_set_ready') is not True:
                 raise HTTPException(409, 'The new set is not confirmed. Complete any save prompt in Ableton and check again.')
+            usage = song_usage.summary(user, session.session_id)
+            song_usage.check_empty_replacement(usage, result)
+            if req.operation == 'confirm_new' and usage['started']:
+                raise HTTPException(409, 'A new Live Set needs a new song chat and a song credit. This chat remains linked to its existing song.')
+            song_usage.authorize(user['id'], session.session_id, result['title'],
+                                 consent=req.authorize_song, same_song=req.same_song)
             session.project['live_set'] = {'title': result['title'], 'choice': req.operation,
                                            'confirmed_at': datetime.now(timezone.utc).isoformat()}
             chat_store.save(session, saved['status'])
@@ -544,14 +566,14 @@ async def live_set_action(req: LiveSetRequest, user: dict = Depends(require_subs
 
 def saved_project(user_id, session_id):
     saved = chat_store.load(user_id, session_id)
-    if not saved or not saved.get('project'):
+    if not saved:
         raise HTTPException(404, 'Song project not found.')
     session = ChatSession(session_id, user_id)
     session.messages = saved['messages']
     session.ui_messages = saved.get('ui_messages', [])
     session.actions = saved.get('actions', [])
     session.reference_id = saved.get('reference_id')
-    session.project = saved['project']
+    session.project = song_projects.from_saved(saved)
     return session, saved
 
 
@@ -571,6 +593,12 @@ async def create_song_project(user: dict = Depends(get_current_user)):
     return {'sessionId': session.session_id, 'messages': [], 'referenceId': None, 'project': session.project}
 
 
+@app.get('/api/chats/{session_id}/allowance')
+async def song_allowance(session_id: str, user: dict = Depends(get_current_user)):
+    saved_project(user['id'], session_id)
+    return song_usage.summary(user, session_id)
+
+
 @app.patch('/api/chats/{session_id}/project')
 async def update_song_project(session_id: str, req: SongProjectRequest, user: dict = Depends(get_current_user)):
     with chat_store.acquire(user['id'], session_id):
@@ -579,6 +607,7 @@ async def update_song_project(session_id: str, req: SongProjectRequest, user: di
             if not req.title.strip():
                 raise HTTPException(422, 'Give your song a name.')
             session.project['title'] = req.title.strip()
+            session.project['title_source'] = 'user'
         if req.starting_point is not None:
             session.project['starting_point'] = req.starting_point
             if req.starting_point == 'idea':
@@ -661,6 +690,9 @@ async def produce_chat(req, session, bridge, emit=None):
         session.reference_note = song_projects.reference_note(reference_id, session.user_id)
         session.project_note = song_projects.planning_reason(session.project, reference_id, session.user_id)
         session.planning_only = req.planning_only or bool(session.project_note)
+        song_state = song_usage.summary(get_user_by_id(session.user_id) or {'id': session.user_id}, session.session_id)
+        if song_state['started'] and song_usage.explicit_restart(req.message):
+            raise HTTPException(409, 'Start a new song chat to begin another composition. It uses another song credit. Your existing song is unchanged.')
         session.pending_review = False
         session.current_track_names = []
         session.current_recordings = []
@@ -671,11 +703,12 @@ async def produce_chat(req, session, bridge, emit=None):
                 if live.get('status') not in {'observed', 'verified'}:
                     # Say why Ableton could not be checked (for example a locked Mac) instead of blaming the set.
                     raise HTTPException(409, (live.get('summary') or 'Ableton could not be checked.') + ' Nothing was changed.')
+                song_usage.check_empty_replacement(song_state, live)
                 if live.get('title') != session.project['live_set']['title']:
                     raise HTTPException(409, 'The open Ableton set no longer matches this song. Use Choose Live Set before making changes. Nothing was changed.')
             state = await bridge.send_command("/live/song/get/track_names", [], True)
             if state.get("status") != "ok" or not isinstance(state.get("args"), list):
-                raise HTTPException(409, "Unable to inspect the current Live Set. Reconnect the bridge before continuing.")
+                raise HTTPException(409, "The Bridge is connected, but Ableton did not return its track list. Open Live with a set loaded. In the latest Bridge, run Set up Ableton integration; save and restart Live, then select AbletonOSC under Settings > Link/Tempo/MIDI > Control Surface. Nothing was changed.")
             session.current_track_names = state["args"]
             # A new song's planning must not inherit approvals from the old open set.
             session.current_recordings = [] if session.project and not session.project.get('live_set') else matching_recordings(
@@ -697,6 +730,8 @@ async def produce_chat(req, session, bridge, emit=None):
                 action = event['action']
                 session.actions = [a for a in session.actions if a['id'] != action['id']] + [action]
                 session.ui_messages[-1]['toolCalls'] = session.actions
+                if event['type'] == 'action_completed' and action['tool'] in {'update_song_details', 'create_production_plan', 'set_tempo'}:
+                    event = {**event, 'project': session.project}
             chat_store.journal(session, event)
             chat_store.save(session, 'running')
             if emit:
@@ -735,7 +770,7 @@ async def chat_details(session_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(404, 'Conversation not found.')
     visible = chat_store.visible_messages(data)
     return {'sessionId': session_id, 'messages': visible, 'referenceId': data.get('reference_id'),
-            'project': data.get('project'),
+            'project': song_projects.from_saved(data),
             'status': data['status'], 'updatedAt': data['updated_at']}
 
 
@@ -798,9 +833,10 @@ DISCUSSION_TOOLS = {
     tool['name'] for tool in ABLETON_TOOLS
     if tool['name'].startswith('get_') or tool['name'] in {
         'list_browser', 'inspect_track', 'list_sample_packs',
-        'search_pack_samples', 'inspect_pack_sample',
+        'search_pack_samples', 'inspect_pack_sample', 'show_live_view',
+        'read_clip_automation', 'read_track_mixer',
     }
-} | {'list_reference_sounds'}
+} | {'list_reference_sounds', song_identity.TOOL['name']}
 
 
 def _build_system(bridge_note: str) -> list[dict]:
@@ -808,24 +844,32 @@ def _build_system(bridge_note: str) -> list[dict]:
 
 
 def _build_tools() -> list[dict]:
-    tools = [dict(t) for t in ABLETON_TOOLS] + [dict(t) for t in chat_tools.TOOLS] + [dict(SECTION_TOOL)]
+    tools = [dict(t) for t in ABLETON_TOOLS] + [dict(t) for t in chat_tools.TOOLS] + [dict(song_identity.TOOL), dict(SECTION_TOOL)]
     tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
     return tools
 
 
 async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None, emit=None) -> tuple[str, list]:
+    setup = song_projects.setup_reply(session.project)
     usage_request = uuid.uuid4().hex  # Groups this message's model calls in the usage log.
     tool_calls_log = []
     pack_scoped = False
     track_creation_attempted = False
     section_brief = None
     messages = session.messages
+    user_message = next((m['content'] for m in reversed(messages) if m['role'] == 'user' and isinstance(m['content'], str)), '')
     bridge_note = "" if bridge else "\n\nNOTE: No Ableton bridge connected. No live music changes are possible. Server-side saved-audio discovery and comparison remain available."
     bridge_note += getattr(session, 'reference_note', '')
     bridge_note += '\n' + getattr(session, 'project_note', '')
+    if session.project:
+        bridge_note += '\nCurrent song details: ' + json.dumps({k: session.project.get(k) for k in ('title', 'title_source', 'genre', 'bpm')})
+    bridge_note += ('\nEach chat is one song. Never reset or repurpose an existing song chat to build another composition. '
+                    'For a new song, whole-composition replacement, or starting over, direct the user to New song; '
+                    'do not delete the old composition. Ordinary sound, tempo, mix and arrangement revisions stay in this song. '
+                    'Only the server can authorize and count song credits; you cannot grant, refund or bypass them.')
     planning_only = getattr(session, 'planning_only', False)
     if planning_only:
-        bridge_note += "\nThis turn is discussion only. Ask one next question. Do not play, audition, change music or create a production plan; only read-only discovery is available."
+        bridge_note += "\nThis turn is discussion only. Ask one next question. Do not play, audition, change music or create a production plan; only read-only discovery is available. Explain the exact pending setup/review action above, not an imaginary switch to enable building. Do not substitute manual instrument loading, note drawing or routing instructions for a production request."
     if bridge and (not session.project or session.project.get('live_set')):
         previous_section = get_brief(session.user_id, session.session_id)
         if previous_section:
@@ -837,15 +881,19 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
         bridge_note += "\nSome historical previews are pending review. Their decisions are informational, not a lock on this request. Follow the user's explicit edit or continuation request without requiring approval of another sound. Never mark a preview accepted on their behalf. Inspect current devices and clips; do not treat a prior recording as unchanged current audio."
 
     continued_text = []
+    active_model = MODEL
     for _ in range(MAX_PRODUCTION_ROUNDS):
-        response = await claude_client.messages.create(
-            model=MODEL,
+        current_user = get_user_by_id(session.user_id)
+        if current_user:
+            ai_usage.enforce(current_user)
+        response, active_model = await request_message(
+            claude_client, model=active_model, emit=emit,
             max_tokens=MAX_OUTPUT_TOKENS,
             system=_build_system(bridge_note),
             tools=[tool for tool in _build_tools() if not planning_only or tool['name'] in DISCUSSION_TOOLS],
             messages=bounded_history(messages),
         )
-        ai_usage.record(session.user_id, 'chat', provider_name(), MODEL, ai_usage.anthropic_tokens(response), usage_request)
+        ai_usage.record(session.user_id, 'chat', provider_name(), active_model, ai_usage.anthropic_tokens(response), usage_request)
 
         text_parts = []
         tool_uses = []
@@ -862,6 +910,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
             messages.append({"role": "user", "content": "Continue exactly where you stopped. Do not repeat what you already wrote."})
             continue
         if response.stop_reason == "end_turn" or not tool_uses:
+            if setup:
+                return setup, tool_calls_log
             answer = "".join(continued_text) + "\n".join(text_parts)
             if not answer.strip():
                 answer = ("I finished checking the set but did not produce an answer. Nothing was changed. "
@@ -884,6 +934,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                 constraint = source_error(section_brief, tu.name, tu.input)
                 if planning_only and tu.name not in DISCUSSION_TOOLS:
                     result = {"status": "failed", "summary": "Discussion only: no playback or music changes were authorized. Ask for the user's next choice.", "steps": []}
+                elif tu.name == song_identity.TOOL['name'] and not blocked and not audition_ready:
+                    result = song_identity.update(session.project, tu.input, user_message)
                 elif tu.name in chat_tools.NAMES and not blocked and not audition_ready:
                     result = await chat_tools.execute(tu.name, tu.input, session.user_id)
                 elif tu.name == "set_section_brief" and not blocked and not audition_ready:
@@ -894,6 +946,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                     result = {"status": "failed", "summary": constraint, "steps": []}
                 elif tu.name == "create_production_plan" and not blocked and not audition_ready:
                     result = create_plan(session.user_id, session.session_id, tu.input)
+                    if result.get('plan') and session.project:
+                        session.project = song_identity.refresh(session.project, result['plan'])
                 elif tu.name in {"create_midi_track", "create_audio_track"} and not get_plan(session.user_id, session.session_id):
                     result = {"status": "failed", "summary": "Save a production brief with create_production_plan before creating music.", "steps": []}
                 elif tu.name in {"create_midi_track", "create_audio_track"} and track_creation_attempted:
@@ -902,9 +956,11 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                     result = {"status": "failed", "summary": "A pack-scoped source was selected. Global filename or synth fallback is disabled; use load_pack_sample.", "steps": []}
                 else:
                     result = ({"status": "failed", "summary": "Skipped after an earlier failure or while awaiting audition review.", "steps": []}
-                              if blocked or audition_ready else await _execute_tool(tu.name, tu.input, bridge))
+                              if blocked or audition_ready else await _execute_song_tool(session, tu.name, tu.input, bridge))
                     if tu.name in {"create_midi_track", "create_audio_track"} and not blocked and not audition_ready:
                         track_creation_attempted = True
+                    if tu.name == 'set_tempo' and result.get('status') == 'verified' and session.project:
+                        session.project = song_identity.refresh({**session.project, 'bpm': tu.input['bpm']})
                 blocked = blocked or result.get("status") in BAD_STATUSES
                 audition_ready = audition_ready or bool(result.get("recording") or result.get('comparison'))
                 action["result"] = result
@@ -952,13 +1008,41 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                         "Compare before and after, then accept it or request a change."), tool_calls_log
             return ("Your first preview of this part is ready." + caveat + " Listen, then accept the sound or request a change. "
                     "Nothing else will be built until you choose the next step."), tool_calls_log
-        if any(action["tool"] in {"audition_part", "audition_scene"} for action in tool_calls_log):
+        if any(action["tool"] in {"audition_part", "audition_scene", "audition_arrangement"} for action in tool_calls_log):
             return "The part remains in Ableton, but its audition did not pass verification. No recording is ready for approval. Review the audition details before retrying; do not recreate the track or notes.", tool_calls_log
 
     return "Production paused at the action limit. Some requested work may remain; review the action log before continuing.", tool_calls_log
 
 
-SONG_TOOL_CAPABILITY = {"audition_scene": "scene_audition_v1", "record_arrangement": "arrangement_record_v1"}
+SONG_TOOL_CAPABILITY = {"audition_scene": "scene_audition_v1", "record_arrangement": "arrangement_record_v1", "audition_arrangement": "arrangement_audition_v1"}
+
+
+async def _execute_song_tool(session, tool_name, tool_input, bridge):
+    non_production = {'play', 'stop', 'fire_scene', 'fire_clip', 'audition_part', 'audition_scene', 'audition_arrangement', 'mix_check', 'compare_bus_to_reference', 'describe_sound'}
+    groove_read = tool_name == 'groove' and (tool_input.get('action') in {'library', 'pool', 'clips'}
+                                            or (tool_input.get('action') == 'global' and 'amount' not in tool_input))
+    if bridge and tool_name not in DISCUSSION_TOOLS | non_production and not groove_read:
+        from jsonschema import validate, ValidationError
+        definition = next((tool for tool in _build_tools() if tool['name'] == tool_name), None)
+        if not definition:
+            return {'status': 'failed', 'summary': 'Unknown production tool. No song credit used.', 'steps': []}
+        try:
+            validate(tool_input, definition['input_schema'])
+        except ValidationError as error:
+            return {'status': 'failed', 'summary': error.message, 'steps': []}
+        try:
+            live_title = ((session.project or {}).get('live_set') or {}).get('title')
+            if not live_title:
+                raise HTTPException(409, song_usage.CONSENT_MESSAGE)
+            song_usage.start(session.user_id, session.session_id, live_title)
+        except HTTPException as error:
+            return {'status': 'failed', 'summary': error.detail, 'steps': []}
+    result = await _execute_tool(tool_name, tool_input, bridge)
+    if bridge and result.get('status') == 'verified' and tool_name in {
+        'create_clip', 'add_notes', 'duplicate_clip', 'record_arrangement',
+    }:
+        song_usage.record_music(session.user_id, session.session_id)
+    return result
 
 
 async def _mix_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection) -> dict:
@@ -1000,9 +1084,13 @@ async def _song_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection)
     except ValidationError as error:
         return {"status": "failed", "summary": error.message, "steps": []}
     if SONG_TOOL_CAPABILITY[tool_name] not in bridge.capabilities:
-        message = ("This needs BeatMind Bridge 1.3 or later. Click Install update in the Bridge window "
-                   "(your Ableton set stays open), then ask again.")
+        message = ("Arrangement previews need Bridge 1.3.7 and matching Ableton integration. Install the Bridge update, choose Update Ableton integration, save your set, restart Ableton and reconnect the Bridge."
+                   if tool_name == "audition_arrangement" else
+                   "This needs BeatMind Bridge 1.3 or later. Click Install update in the Bridge window (your Ableton set stays open), then ask again.")
         return {"status": "failed", "error": message, "summary": message, "steps": []}
+    if tool_name == "audition_arrangement":
+        return save_recording(bridge.user_id, await bridge.local_operation("capture_arrangement", {
+            "track": tool_input["track"], "start_beat": tool_input["start_beat"], "seconds": tool_input.get("seconds", 8)}))
     if tool_name == "audition_scene":
         request = {"scene": tool_input["scene"], "seconds": tool_input.get("seconds", 12)}
         if "then_scene" in tool_input:
@@ -1081,6 +1169,25 @@ async def _missing_instrument(track: int, bridge: BridgeConnection) -> str | Non
 
 
 async def _execute_tool(tool_name: str, tool_input: dict, bridge: BridgeConnection | None) -> dict:
+    from action_view import execute_with_view
+    from execution import VALIDATORS, _finite
+    validator = VALIDATORS.get(tool_name)
+    if validator is None:
+        return {"status": "failed", "summary": "Unknown tool.", "steps": []}
+    errors = list(validator.iter_errors(tool_input))
+    if errors or not _finite(tool_input):
+        return {"status": "failed", "summary": errors[0].message if errors else "All numbers must be finite.", "steps": []}
+    capabilities = getattr(bridge, "capabilities", set())
+    follow = isinstance(capabilities, (set, list, tuple)) and "verified_view_v1" in capabilities
+    if tool_name == "show_live_view" and not follow:
+        return {"status": "failed", "summary": "Update BeatMind Bridge and its AbletonOSC extensions, then restart Ableton and reconnect the Bridge to verify screen selection. No music was changed.", "steps": []}
+    if not follow:
+        return await _execute_tool_unfocused(tool_name, tool_input, bridge)
+    return await execute_with_view(tool_name, tool_input, bridge.send_command,
+                                   lambda: _execute_tool_unfocused(tool_name, tool_input, bridge))
+
+
+async def _execute_tool_unfocused(tool_name: str, tool_input: dict, bridge: BridgeConnection | None) -> dict:
     if not bridge:
         return {"status": "failed", "error": "No Ableton bridge connected.", "summary": "No Ableton bridge connected.", "steps": []}
     if tool_name in {item["name"] for item in AUTOMATION_TOOLS}:
@@ -1093,7 +1200,7 @@ async def _execute_tool(tool_name: str, tool_input: dict, bridge: BridgeConnecti
         if tool_name == "write_clip_automation" and result.get("status") in ("verified", "partial"):
             result = note_density(bridge.automated_controls, tool_input, result)
         return result
-    if tool_name in {"audition_scene", "record_arrangement"}:
+    if tool_name in {"audition_scene", "record_arrangement", "audition_arrangement"}:
         return await _song_tool(tool_name, tool_input, bridge)
     if tool_name in {"mix_check", "apply_master_chain"}:
         return await _mix_tool(tool_name, tool_input, bridge)

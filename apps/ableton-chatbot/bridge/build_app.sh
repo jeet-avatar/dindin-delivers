@@ -16,30 +16,23 @@ WORK=$(mktemp -d "${TMPDIR:-/tmp}/beatmind-build.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 "${PYTHON:-python3}" -m venv "$WORK/venv"
 "$WORK/venv/bin/pip" install -r requirements-build.txt -r requirements-separation.txt
+"$WORK/venv/bin/python" abletonosc_bundle.py "$WORK/AbletonOSC.zip"
 # The on-device separation worker is the backend's own reference_worker/separation code.
 "$WORK/venv/bin/pyinstaller" --noconfirm --windowed --onedir \
   --name "BeatMind Bridge" --osx-bundle-identifier com.zietra.beatmind-bridge \
   --codesign-identity "$SIGNING_ID" --osx-entitlements-file entitlements.plist --target-arch arm64 \
   --paths ../backend \
   --hidden-import audio_preview --hidden-import live_set --hidden-import arrangement \
-  --hidden-import mixer_preview --hidden-import sample_library \
+  --hidden-import mixer_preview --hidden-import arrangement_preview --hidden-import sample_library \
   --hidden-import local_separation --hidden-import stem_import \
   --hidden-import reference_worker --hidden-import separation --hidden-import stems \
   --collect-data demucs --collect-submodules demucs --collect-data librosa \
   --add-data "$PWD/THIRD_PARTY_NOTICES.txt:." \
+  --add-data "$PWD/abletonosc:abletonosc" \
+  --add-data "$WORK/AbletonOSC.zip:." \
   --distpath "$WORK/dist" --workpath "$WORK/work" --specpath "$WORK" bridge_app.py
 APP="$WORK/dist/BeatMind Bridge.app"
-"$WORK/venv/bin/python" - "$APP/Contents/Info.plist" <<'PY'
-import plistlib
-import sys
-from launch_link import URL_TYPES
-path = sys.argv[1]
-with open(path, 'rb') as source:
-    info = plistlib.load(source)
-info['CFBundleURLTypes'] = URL_TYPES
-with open(path, 'wb') as target:
-    plistlib.dump(info, target)
-PY
+"$WORK/venv/bin/python" bundle_metadata.py "$APP/Contents/Info.plist"
 HELPER="$APP/Contents/Helpers/BeatMind Audio.app"
 mkdir -p "$HELPER/Contents/MacOS"
 cp native/Info.plist "$HELPER/Contents/Info.plist"
@@ -49,6 +42,13 @@ xcrun swiftc native/Capture.swift -parse-as-library -O -target arm64-apple-macos
 codesign --force --options runtime --timestamp --sign "$SIGNING_ID" "$HELPER"
 codesign --force --options runtime --timestamp --entitlements entitlements.plist --sign "$SIGNING_ID" "$APP"
 codesign --verify --deep --strict "$APP"
+"$APP/Contents/MacOS/BeatMind Bridge" --integration-check "$WORK/integration-check.json"
+"$WORK/venv/bin/python" - "$WORK/integration-check.json" <<'PY'
+import json, sys
+from pathlib import Path
+assert json.loads(Path(sys.argv[1]).read_text()) == {'fresh_install': True, 'repeat_install': True, 'user_library_unchanged': True}
+print('Packaged offline first-time and repeat integration setup passed.')
+PY
 # Separation smoke test inside the signed bundle: real models, a generated tone, no network credentials.
 "$WORK/venv/bin/python" - "$APP" "$WORK/separation-check" <<'PY'
 import json, math, subprocess, sys, wave, struct
@@ -60,8 +60,14 @@ with wave.open(str(work / 'tone.wav'), 'wb') as out:
     out.writeframes(b''.join(struct.pack('<hh', *(int(8000 * math.sin(2 * math.pi * f * i / 44100)) for f in (110, 220)))
                              for i in range(44100 * 8)))
 (work / 'meta.json').write_text(json.dumps({'id': 'check', 'name': 'tone.wav', 'source_file': str(work / 'tone.wav')}))
-subprocess.run([str(app / 'Contents/MacOS/BeatMind Bridge'), '--separate', str(work)], check=True, timeout=1800,
+worker = subprocess.run([str(app / 'Contents/MacOS/BeatMind Bridge'), '--separate', str(work)], check=True, timeout=1800,
+               capture_output=True, text=True,
                env={'DEMUCS_MODEL': 'htdemucs', 'DEMUCS_DEVICE': 'cpu', 'BEATMIND_DECODER': 'afconvert', 'HOME': str(Path.home())})
+assert 'Starting Ableton Chat Bridge' not in worker.stdout + worker.stderr, 'Separation unexpectedly started a Bridge connection.'
+tracker = subprocess.run([str(app / 'Contents/MacOS/BeatMind Bridge'), '-B', '-S', '-I', '-c',
+                          'from multiprocessing.resource_tracker import main;main(0)'],
+                         stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=20, check=True)
+assert not tracker.stdout + tracker.stderr, 'A resource-tracker subprocess unexpectedly ran application code.'
 report = json.loads((work / 'report.json').read_text())
 assert report['stem_health']['checks_passed'], report['stem_health']
 print('Packaged separation check passed:', [s['name'] for s in report['stems']])

@@ -1,0 +1,124 @@
+{
+  "release_ready": false,
+  "scope": "Product-only release candidate. Existing music preserved in a separately saved copy and reopened after testing. Music changes and approvals were confined to a disposable QA Live Set and isolated account. Installed production Bridge and production deployment unchanged.",
+  "published_installer": {
+    "version": "1.3.6",
+    "url": "https://www.beatmind.io/BeatMind-Bridge-1.3.6.dmg",
+    "sha256": "89282654395c74657b270312f43f3cd892232ce4d9090cdc5f2123ddbc425f18",
+    "passed": [
+      "SHA-256 matches published update manifest",
+      "Disk image checksum and read-only mount",
+      "Deep strict app signature verification",
+      "Gatekeeper accepts the app and disk image as Notarized Developer ID",
+      "Stapled notarization ticket validation",
+      "Packaged HTTPS, WebSocket TLS and rejection of unauthenticated connections",
+      "Packaged audio helper reports capture permission granted on this Mac",
+      "Packaged separation of an eight-second generated tone: four aligned, finite stem files"
+    ],
+    "defects": [
+      "Bundle version is 0.0.0 and CFBundleVersion is missing",
+      "Separation worker execution logged an unexpected Bridge startup; entry point lacks the frozen multiprocessing guard",
+      "Shipped OSC automation fails four invalid-input preservation cases and two mismatched-readback cases in an in-memory Live fixture"
+    ],
+    "missing_pending_features": [
+      "Verified Ableton screen following and MIDI-view selection",
+      "Position-checked Arrangement auditions"
+    ]
+  },
+  "candidate": {
+    "version": "1.3.7",
+    "minimum_macos": "14.0",
+    "architecture": "arm64",
+    "code_commit": "7a111acddc544995c8b3bebf0611a8140df92d3e",
+    "ci_run": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/36983488858",
+    "notarized": true,
+    "notarization_submission": "e9cc1b66-45bf-4e3e-b0f1-0d5a4f318c20",
+    "sha256": "e81f789c6dbbadcf50ed1707d9e11a29d4977d359c7641c4b33fa1550794a165",
+    "published": false,
+    "included_fixes": [
+      "Validate automation before clearing envelopes and verify numeric envelope readback",
+      "Dispatch frozen multiprocessing workers before GUI imports",
+      "Stamp bundle and runtime versions consistently and declare the dependency minimum OS",
+      "Fail the build if separation or resource tracking unexpectedly starts application code",
+      "Gate verified display following and Arrangement previews on confirmed Bridge/OSC capabilities; preserve legacy commands",
+      "User-triggered integration module updates with backups and rollback",
+      "First-time registration on standard AbletonOSC without manual Python editing; preserve recognized custom registration and refuse unfamiliar modifications",
+      "Exact browser-item loading with explicit errors for missing, ambiguous or folder selections",
+      "Hold the last automation value until the clip ends, with numeric readback",
+      "Readable sign-in/sign-up validation errors without echoing private validation inputs",
+      "Use verified Ableton track names in production summaries"
+    ],
+    "passed": [
+      "505 backend tests on isolated SQLite",
+      "500 backend tests passed on isolated PostgreSQL; 5 SQLite-specific tests skipped",
+      "61 Bridge tests including GUI states, sign-in handling, updates, packaging, first-time registration, idempotency, rollback and real extension registration in a fixture",
+      "20 frontend unit-test files and Next production build",
+      "15 browser test files on the final production build, including desktop/mobile workflows, references, audio players, errors and chat scrolling",
+      "Developer ID signature, accepted Apple notarization, stapled ticket, disk image checksum and Gatekeeper verification",
+      "Packaged real four-stem separation and production HTTPS/WebSocket TLS smoke checks",
+      "Packaged resource-tracker dispatch exits successfully without GUI or Bridge output",
+      "Bundle version and build version 1.3.7 with minimum macOS 14.0",
+      "Fresh app copy and actual updater replacement/signature path in temporary folders; bad checksum leaves old app unchanged",
+      "Final packaged GUI opened with isolated empty sign-in configuration; controls visible and readable",
+      "All nine packaged integration modules byte-match committed source; no replay module included",
+      "First and repeat integration setup against a clean git archive of upstream AbletonOSC 0ca68214bd62c9b5cb641ca34006cfd70ba94430, with backup and Python syntax checks",
+      "Updated setup guide checked in the production build at 1440px and 390px without browser errors or horizontal overflow",
+      "Real frontend sign-in, connected status, set selection, kick, Operator bass, effect controls, automation, revision and Arrangement audition",
+      "Real browser audio decode and advancing playback; accepted decisions persist, do not start production, and remain paused after reload"
+    ]
+  },
+  "production_services": {
+    "deployment_changed": false,
+    "health": "Healthy; one Bridge connected and no active production sessions at last check",
+    "stripe": {
+      "primary_and_legacy": "Live API authentication passed; both production webhooks enabled at the exact API URL with all required subscription, invoice and checkout events",
+      "portals": "Both portals active with cancellation at period end",
+      "signature_rejection": "Public webhook rejected an unsigned request with HTTP 400",
+      "plans": "Public plans endpoint returned 12 available monthly/yearly plans",
+      "payment_created": false,
+      "payment_completion_verified": false
+    },
+    "email": {
+      "active_provider": "SMTP, not SES",
+      "smtp_authentication": "STARTTLS and login passed",
+      "public_frontend_test": "One reset email requested through the production forgot-password form; HTTP 200 and confirmation page shown",
+      "server_result": "CloudWatch recorded Password-reset email accepted after SMTP send",
+      "password_changed": false,
+      "recipient_arrival_and_link": "Awaiting user confirmation; server acceptance does not prove inbox delivery",
+      "ses": "Identity and DKIM verified but SES remains in sandbox; it is not the current production mail provider"
+    }
+  },
+  "live_qa": {
+    "set": "BeatMind Launch QA 2026-10-02",
+    "preserved_set": "Before Launch QA 2026-10-02",
+    "model": "us.anthropic.claude-opus-5-5",
+    "completed_actions": 61,
+    "verified_actions": 27,
+    "observed_actions": 34,
+    "failed_actions": 0,
+    "automation_regression": "Live returned to the old value after the final point. Fixed and retested: beat 15.99 reads -17.984 dB for a -18 dB request.",
+    "effect_readback": "Saturator Drive +1.0 dB and Dry/Wet 5 percent",
+    "arrangement": "8 bars at 124 BPM; Kick and Bass begin at bar 1. Kick audition requested at zero-based beat 8, recorded 4.24 seconds with signal, stopped and restored temporary state.",
+    "interruptions": [
+      "Initial planning request was interrupted by the test harness closing its browser; no musical actions ran and the UI reported interruption.",
+      "Isolated QA reached its 5 USD AI allowance. Increased only QA to 12 USD, signed in again, inspected before continuing. Production limits unchanged."
+    ],
+    "data_policy": "No QA recordings, chats, credentials, approvals, music or marketing scripts included in the product commit."
+  },
+  "remaining_release_gates": [
+    "First-time end-to-end setup on a clean supported Mac: fresh privacy permissions and the stock AbletonOSC integration running inside Live. File installation and registration passed against a clean upstream archive; core AbletonOSC still must be installed separately in the default User Library.",
+    "Production payment completion/webhook handling and recipient confirmation that the reset email arrives and its button opens the reset page. Read-only live billing checks and SMTP acceptance passed; no payment was initiated.",
+    "Coordinated installer, backend and frontend publication followed by production smoke verification. PR 26 remains the release candidate."
+  ],
+  "limitations": [
+    "Unit fixtures do not establish that all features work in a real Ableton session",
+    "Generated-tone stem health verifies packaging and alignment, not musical separation quality",
+    "Actual music tests used source Bridge with the same candidate integration, plus the signed capture helper. Packaged GUI/runtime and updater were tested separately, not a complete newly installed end-to-end session.",
+    "Updater download transport used the local final DMG; published HTTPS download for the new version is not yet available",
+    "New stock bootstrap was tested with the actual extension modules outside Live and on a clean upstream archive, not inside a fresh Live installation",
+    "This session's System Events GUI automation was denied assistive access. The final packaged login window was activated and visually inspected through a window screenshot; no first-time setup button was clicked in the user's installed environment",
+    "Full-song reference interpretation and separation quality are not guaranteed by generated-tone packaging checks or browser fixtures",
+    "Intel, Windows and other macOS versions were not tested",
+    "No new production installer or application deployment was performed"
+  ]
+}

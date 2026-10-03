@@ -182,8 +182,10 @@ def init_db():
             )""")
         import billing
         import ai_usage
+        import song_usage
         billing.init(conn)
         ai_usage.init(conn)
+        song_usage.init(conn)
 
 
 # The subscriber's plan, copied from Stripe by the webhook. Rows from before plans existed keep NULLs.
@@ -273,6 +275,16 @@ def update_user_subscription(
 def update_user_password(user_id: int, password_hash: str) -> None:
     with db() as conn:
         conn.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash, user_id))
+
+
+def reset_user_password(user_id: int, previous_hash: str, password_hash: str) -> bool:
+    """Only one request can consume a reset link, including concurrent submissions."""
+    with db() as conn:
+        row = conn.execute(
+            "UPDATE users SET password_hash=? WHERE id=? AND password_hash=? RETURNING id",
+            (password_hash, user_id, previous_hash),
+        ).fetchone()
+        return row is not None
 
 
 PAST_DUE_GRACE_DAYS = 7

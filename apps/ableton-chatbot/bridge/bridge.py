@@ -39,7 +39,7 @@ def rejected_sign_in(error):
     return status in (401, 403) or code == 4001
 
 # AbletonOSC defaults
-BRIDGE_VERSION = "1.3.6"
+BRIDGE_VERSION = "1.3.12"
 OSC_HOST = "127.0.0.1"
 OSC_SEND_PORT = 11000
 OSC_RECV_PORT = 11001
@@ -198,12 +198,16 @@ class AbletonBridge:
 
             # Send capabilities/status
             from local_separation import available as local_separation_available
+            extension = await self._query_osc("extensions", "/live/browser/beatmind_capabilities", [], 2)
+            supported = extension.get("args", []) if extension.get("status") == "ok" else []
+            new_capabilities = [name for name in ("verified_view_v1", "arrangement_audition_v1", "automation_readback_v2")
+                                if name in supported and sys.platform == "darwin"]
             await ws.send(json.dumps({
                 "type": "bridge_hello",
                 "version": BRIDGE_VERSION,
                 "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
                 "capabilities": ["scene_audition_v1", "scene_transition_v1", "scene_transition_v2", "arrangement_record_v1", "arrangement_rides_v1"]
-                                + (["local_separation_v1"] if local_separation_available() else []),
+                                + new_capabilities + (["local_separation_v1"] if local_separation_available() else []),
             }))
             # Deliver separation results that finished while the connection was down.
             await self.local.flush()
@@ -254,6 +258,10 @@ class AbletonBridge:
         elif msg_type == "mixer_preview":
             from mixer_preview import mixer_preview
             await self._reply(request_id, await mixer_preview(self, msg.get("operation"), msg.get("data", {})))
+
+        elif msg_type == "capture_arrangement":
+            from arrangement_preview import capture_arrangement
+            await self._reply(request_id, await capture_arrangement(self, msg.get("track"), msg.get("start_beat"), msg.get("seconds", 8)))
 
         elif msg_type == "capture_part":
             from audio_preview import capture_part
@@ -339,6 +347,15 @@ class AbletonBridge:
 
     async def _query_osc(self, request_id: str, address: str, args: list, timeout: float) -> dict:
         """Send OSC query and wait for response."""
+        display_query = address in {"/live/beatmind/focus_view", "/live/beatmind/inspect_view"}
+        if display_query:
+            if sys.platform != "darwin":
+                return {"status": "failed", "summary": "Visible-window verification currently requires macOS."}
+            from live_set import window_title
+            try:
+                await window_title()
+            except Exception as error:
+                return {"status": "failed", "summary": str(error)}
         loop = asyncio.get_event_loop()
         future = loop.create_future()
 
@@ -361,7 +378,8 @@ class AbletonBridge:
 
         try:
             result = await asyncio.wait_for(future, timeout=timeout)
-            return {"status": "ok", "address": result[0], "args": result[1]}
+            return {"status": "ok", "address": result[0], "args": result[1],
+                    **({"display_window_checked": True} if display_query else {})}
         except asyncio.TimeoutError:
             return {"status": "timeout", "address": address}
         finally:

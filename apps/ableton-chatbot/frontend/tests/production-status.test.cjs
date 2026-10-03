@@ -21,8 +21,12 @@ assert.equal(actionOutcomes([failed, action('clear_notes', 'verified', { track: 
 assert.equal(actionOutcomes([action('load_pack_sample', 'partial', { track: 0 }), action('load_pack_sample', 'verified', { track: 0 })])[0].kind, 'issue');
 assert.equal(actionOutcomes([action('create_midi_track', 'partial'), action('create_midi_track', 'verified')])[0].kind, 'issue');
 assert.equal(summarizeProduction([action('get_tempo', 'observed')]).title, 'Inspection complete');
+assert.equal(summarizeProduction([action('show_live_view', 'observed')]).title, 'Inspection complete');
+assert.equal(trackOutcomes([action('audition_part', 'verified', clip), action('show_live_view', 'observed', { view: 'track', track: 18 })])[0].recording, true);
 assert.equal(summarizeProduction([action('set_device_control', 'failed', {}, { summary: 'Listen and approve the current sound, or request changes, before further production.' })]).title, 'Earlier production pause');
 assert.equal(summarizeProduction([...rebuilt, action('audition_part', 'verified', clip)]).title, 'Audio ready');
+assert.equal(summarizeProduction([action('audition_arrangement', 'verified', { track: 7, start_beat: 256 })]).title, 'Audio ready');
+assert.equal(trackOutcomes([action('audition_arrangement', 'verified', { track: 7, start_beat: 256 })])[0].recording, true);
 assert.equal(summarizeProduction([failed, action('audition_part', 'verified', clip)]).title, 'Needs attention');
 assert.equal(summarizeProduction([action('audition_part', 'verified', clip), action('set_track_volume', 'verified', { track: 18, volume: .4 })]).title, 'Changes checked');
 assert.equal(summarizeProduction([{ tool: 'load_pack_sample', input: { track: 0 } }]).title, 'Working in Ableton');
@@ -73,3 +77,8 @@ assert.equal(summarizeProduction([failed], 'interrupted').issues.length, 1);
 }
 console.log('Empty-slot note checks and recovered browser searches passed.');
 
+const view = {status:'verified', target:{track:3,view:'clip'}, track_name:'Bass'};
+assert.equal(trackOutcomes([action('add_notes','verified',{track:3},{view,notes:[]})])[0].name,'Bass');
+for (const invalid of [{...view,status:'unverified'}, {...view,target:{track:2}}, {...view,target:{track:3,scope:'return'}}]) {
+  assert.equal(trackOutcomes([action('add_notes','verified',{track:3},{view:invalid,notes:[]})])[0].name,'Track 4');
+}

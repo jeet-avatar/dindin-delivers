@@ -10,6 +10,29 @@ def new_project():
             'created_at': datetime.now(timezone.utc).isoformat()}
 
 
+def from_saved(saved):
+    if saved.get('project'):
+        return saved['project']
+    title = next((message['content'][:70] for message in saved.get('messages', [])
+                  if message.get('role') == 'user' and isinstance(message.get('content'), str)), 'New song')
+    return {**new_project(), 'title': title}
+
+
+def setup_reply(project):
+    """Missing user choices are UI actions, not an invitation to a manual Live tutorial."""
+    if not project:
+        return ''
+    if not project.get('starting_point'):
+        return ('Before I can build, choose Start from an idea or Upload a reference track beside the message box. '
+                'Your request is saved in this chat. No instruments or notes have been changed.')
+    if project['starting_point'] == 'idea' and not project.get('live_set'):
+        return ('Choose Live Set beside the message box, then confirm the set you want me to work in. '
+                'This protects any other song already open in Ableton. Your request is saved; '
+                'after confirmation, ask me to continue. I will load the instrument, create the pattern '
+                'and record a preview using the available tools. Nothing has been changed yet.')
+    return ''
+
+
 def reference_note(reference_id, user_id):
     if not reference_id:
         return ''

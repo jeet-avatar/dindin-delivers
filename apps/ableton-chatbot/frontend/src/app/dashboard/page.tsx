@@ -15,6 +15,7 @@ import ChatTimestamp from "@/components/ChatTimestamp";
 import ChatTimeline from "@/components/ChatTimeline";
 import { messageRecordingIds } from "@/lib/chat-recordings";
 import NewSongDialog from "@/components/NewSongDialog";
+import SongAllowance from "@/components/SongAllowance";
 import References from "@/components/References";
 import ChatComparisons from "@/components/ChatComparisons";
 import PlanPicker from "@/components/PlanPicker";
@@ -25,7 +26,7 @@ import { useAbletonLaunch } from "@/lib/use-ableton-launch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
 import { bridgeStatusLabel } from "@/lib/bridge-status";
 import { STARTER_TEMPLATE_URL } from "@/lib/site";
-import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/chat-index";
+import { restoreChatIndex, unmatchedServerChats, refreshPlaceholderTitles, type ChatEntry } from "@/lib/chat-index";
 import { acceptedSound, type MusicChoice } from "@/lib/music-workflow";
 import {
   daysLeft, hasMixMindAccess, hasPaidPlan, openBillingPortal, parsePlanIntent, planIntentQuery, planName, useUsage, withoutPlanIntent,
@@ -116,6 +117,7 @@ interface SavedChat {
 }
 interface SongProject {
   title: string; starting_point: "reference" | "idea" | null;
+  title_source?: "auto" | "user"; genre?: string; bpm?: number;
   live_set: { title: string; choice: string } | null;
 }
 
@@ -212,6 +214,7 @@ export default function DashboardPage() {
   const [streamNotice, setStreamNotice] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
+  const titledChats = refreshPlaceholderTitles(chats, serverChats);
   const { status: bridgeStatus, refresh: refreshBridge } = useBridgeStatus(user?.id);
   const bridgeConnected = bridgeStatus === "connected";
   const ableton = useAbletonLaunch(bridgeStatus, user?.id);
@@ -385,7 +388,10 @@ export default function DashboardPage() {
     try {
       const id = await updateProject({ starting_point });
       if (starting_point === "reference") setNav("references");
-      else await sendMessage("I'd like to start from my own idea, without a reference.", id, null, true);
+      else {
+        await sendMessage("I'd like to start from my own idea, without a reference.", id, null, true);
+        if (!project?.live_set && bridgeConnected) setSongSetup("");
+      }
     } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not save your choice."); }
     finally { setProjectBusy(false); }
   }
@@ -400,6 +406,7 @@ export default function DashboardPage() {
     requestRef.current = controller;
     const createdAt = new Date().toISOString();
     setLoading(true);
+    setHistoryError("");
     setStreamNotice("");
     let lastEvent = Date.now();
     let lastProgress = lastEvent;
@@ -449,6 +456,7 @@ export default function DashboardPage() {
           narration += `${narration ? "\n\n" : ""}${event.text}`;
           setMessages(p => p.map(m => m.id === runId ? { ...m, content: narration } : m));
         } else if (event.type === "action_started" || event.type === "action_completed") {
+          if ("project" in event) setProject(event.project);
           const action = event.action as ProductionAction;
           setMessages(p => p.map(m => {
             if (m.id !== runId) return m;
@@ -462,6 +470,7 @@ export default function DashboardPage() {
           }));
         } else if (event.type === "complete") {
           completed = true;
+          if ("project" in event) setProject(event.project);
           setMessages(p => p.map(m => m.id === runId ? { ...m, requestStatus: "complete", content: event.response,
             toolCalls: event.tool_calls.map((action: ProductionAction) => ({ ...m.toolCalls?.find(a => a.id === action.id), ...action })) } : m));
         } else if (event.type === "error") {
@@ -496,8 +505,8 @@ export default function DashboardPage() {
           : `Production interrupted: ${err instanceof Error ? err.message : "Unknown error"}`,
           toolCalls: m.toolCalls?.map(a => a.result ? a : { ...a, result: { status: "unverified", summary: "Interrupted before confirmation. Inspect Ableton before repeating this action." } }) };
       }));
-    } finally { window.clearInterval(watchdog); requestRef.current = null; setLoading(false); setStreamNotice(""); }
-  }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject]);
+    } finally { window.clearInterval(watchdog); requestRef.current = null; setLoading(false); setStreamNotice(""); void reloadUsage().catch(() => undefined); }
+  }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject, reloadUsage]);
 
   // Subscribers manage or change plans in the Stripe portal; everyone else picks a plan.
   const openBilling = async () => {
@@ -591,7 +600,7 @@ export default function DashboardPage() {
   const planChecking = !usage && authStatus === "Checking sign-in";
   const checkingPlanText = "Checking your plan…";
   const currentPlan = isSubscribed && usage ? planName(usage.plan) : "BeatMind";
-  const trialTracks = usage?.plan?.source === "trial" ? `${usage.allowance_left} of ${usage.included_per_month} tracks left · ` : "";
+  const trialTracks = usage?.plan?.source === "trial" ? `${usage.allowance_left} of ${usage.included_per_month} reference separations left · ` : "";
   const trialSummary = `Free trial · ${trialTracks}${trialDays} day${trialDays !== 1 ? "s" : ""} left`;
   const trialOutOfTracks = usage?.plan?.source === "trial" && usage.allowance_left === 0;
   let trialBanner = "Your free trial has ended";
@@ -626,7 +635,7 @@ export default function DashboardPage() {
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           {planChecking && checkingPlanText}
           {!planChecking && (isSubscribed
-            ? `${currentPlan} plan${usage ? ` · ${usage.tracks_used} of ${usage.included_per_month} tracks used this month` : ""}`
+            ? `${currentPlan} plan${usage?.songs ? ` · ${usage.songs.used} of ${usage.songs.included} new songs used this month` : ""}`
             : trialActive
               ? trialSummary
               : "Your free trial has ended — choose a plan to continue")}
@@ -748,7 +757,7 @@ export default function DashboardPage() {
       <ChatTimeline followKey={conversationFollowKey}>
         {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
         {loading && streamNotice && <p role="status" className="text-xs text-amber-300">{streamNotice}</p>}
-        {(messages.length === 0 || (project && !project.starting_point)) && (
+        {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-8 gap-6 text-center">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "var(--bg-secondary)", color: "var(--accent)" }}>
               <WaveIcon size={28} />
@@ -780,6 +789,36 @@ export default function DashboardPage() {
       </ChatTimeline>
 
       <div className="px-3 sm:px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
+        <SongAllowance sessionId={sessionId} busy={loading} refreshKey={songSetup} usage={usage}
+          onSetup={() => setSongSetup("")} onUpgrade={() => void openBilling()} />
+        {project && messages.length > 0 && (project.starting_point !== "reference" || !project.live_set) && (
+          <section aria-label="Song setup" className="mb-3 space-y-2 text-sm">
+            {project.starting_point !== "reference" && <ol aria-label="Song setup progress" className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+              {["Starting point", "Live Set", "Create sound"].map((step, index) => {
+                const currentStep = !project.starting_point ? 0 : !project.live_set ? 1 : 2;
+                return <li key={step} aria-current={currentStep === index ? "step" : undefined}
+                  style={{ color: currentStep === index ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: currentStep === index ? 600 : 400 }}>
+                  {index + 1}. {step}{index < currentStep ? " (done)" : ""}
+                </li>;
+              })}
+            </ol>}
+            <div className="flex flex-wrap items-center gap-3">
+            {!project.starting_point ? <>
+              <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("idea")}
+                className="underline disabled:opacity-40">Start from an idea</button>
+              <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("reference")}
+                className="underline disabled:opacity-40">Upload a reference track</button>
+            </> : !project.live_set ? <>
+              <button type="button" disabled={loading || projectBusy || !bridgeConnected} onClick={() => setSongSetup("")}
+                className="underline disabled:opacity-40">Choose Live Set</button>
+              {project.starting_point === "reference" && <button type="button" onClick={() => setNav("references")}
+                className="underline">Reference review</button>}
+            </> : <button type="button" disabled={loading || projectBusy || !bridgeConnected || !historyReady}
+              onClick={() => void sendMessage("Build our agreed sound and record a preview, keeping existing parts. If we haven't chosen a sound yet, ask me first.")}
+              className="underline disabled:opacity-40">Build agreed sound</button>}
+            </div>
+          </section>
+        )}
         <div className="flex gap-3 items-end">
           <label htmlFor="chat-input" className="sr-only">Message BeatMind</label>
           <textarea
@@ -962,7 +1001,7 @@ export default function DashboardPage() {
             </div>
             {usage?.plan.status === "past_due" && <p className="text-xs mb-3 text-amber-200">Update your card in Manage billing to keep your plan.</p>}
             {usage && <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-              {usage.tracks_used} of {usage.included_per_month} tracks{usage.included_cloud_per_month > 0 ? ` · ${usage.cloud_used} of ${usage.included_cloud_per_month} Cloud HQ separations` : ""} used this month · {usage.track_credits} purchased tracks · {usage.cloud_credits} purchased Cloud HQ separations
+              {usage.songs && `${usage.songs.used} of ${usage.songs.included} new songs · `}{usage.tracks_used} of {usage.included_per_month} reference separations{usage.included_cloud_per_month > 0 ? ` · ${usage.cloud_used} of ${usage.included_cloud_per_month} Cloud HQ separations` : ""} used this month (UTC) · {usage.track_credits} purchased reference separations · {usage.cloud_credits} purchased Cloud HQ separations
             </p>}
             {usage
               ? <SubscriptionControls usage={usage} onChanged={reloadUsage} onManage={openBilling} />
@@ -1064,7 +1103,7 @@ export default function DashboardPage() {
             <button className="sm:hidden text-sm p-2" onClick={() => setHistoryOpen(false)}>Close</button>
           </div>
           <div className="space-y-1">
-            {[...chats].reverse().map(chat => <button key={chat.id} type="button" disabled={!historyReady || loading || projectBusy}
+            {[...titledChats].reverse().map(chat => <button key={chat.id} type="button" disabled={!historyReady || loading || projectBusy}
               aria-label={`Open saved song: ${chat.title}`}
               onClick={() => chat.sessionId && (chat.id.startsWith("server-") || serverChats.some(item => item.id === chat.sessionId)) ? void openServerChat(chat.sessionId) : openChat(chat.id)}
               aria-current={chat.id === chatId ? "true" : undefined}
@@ -1086,7 +1125,7 @@ export default function DashboardPage() {
           {!planChecking && (isSubscribed ? (
             <div className="rounded-xl p-3 border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
               <p className="text-xs font-semibold mb-0.5" style={{ color: "#4ade80" }}>✓ {currentPlan} plan</p>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage ? `${usage.allowance_left} of ${usage.included_per_month} tracks left this month` : "Active"}</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage?.songs ? `${usage.songs.remaining} of ${usage.songs.included} new songs left this month` : "Active"}</p>
             </div>
           ) : (
             <button onClick={choosePlan}
@@ -1145,8 +1184,10 @@ export default function DashboardPage() {
             style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>Upload song</button>}
           {project && <div className="w-full flex flex-wrap items-center gap-3 text-xs">
             <span style={{ color: "var(--text-secondary)" }}>{project.live_set ? `Selected set: ${project.live_set.title}` : "Planning / No Live Set selected"}</span>
-            <button disabled={loading || projectBusy || !bridgeConnected} onClick={() => setSongSetup("")} className="underline disabled:opacity-40">Choose Live Set</button>
-            {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
+            {!(nav === "beatmind" && messages.length > 0 && project.starting_point && !project.live_set) && <>
+              <button disabled={loading || projectBusy || !bridgeConnected} onClick={() => setSongSetup("")} className="underline disabled:opacity-40">Choose Live Set</button>
+              {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
+            </>}
           </div>}
         </div>}
 

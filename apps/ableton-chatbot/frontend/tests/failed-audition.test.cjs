@@ -8,6 +8,7 @@ assert.equal(failedAudition([]), null);
 assert.equal(failedAudition([{ ...failure, result: undefined }]), null);
 assert.equal(failedAudition([failure]).reason, 'Solo state needs attention.');
 assert.equal(failedAudition([failure]).target, 'Track 2 / Scene 9');
+assert.equal(failedAudition([{ ...failure, tool: 'audition_arrangement', input: { track: 7, start_beat: 256 } }]).target, 'Track 8 / Arrangement');
 assert.match(failedAudition([failure]).prompt, /Read-only inspection first/);
 assert.equal(failedAudition([failure, { ...failure, result: { status: 'verified', recording: { id: 'abc' } } }]), null);
 assert.equal(failedAudition([{ ...failure, input: {} }]).target, 'Existing part');

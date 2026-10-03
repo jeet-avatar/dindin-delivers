@@ -45,6 +45,15 @@ class SavedSignInTests(unittest.TestCase):
         resume.assert_not_called()
         self.assertEqual(self.app.email_entry.cget('state'), 'normal')
 
+    def test_connected_fields_keep_explicit_readable_colors(self):
+        self.app, _ = make_app(None)
+        self.app._on_connected()
+        for entry in (self.app.email_entry, self.app.password_entry):
+            self.assertEqual(entry.cget('state'), 'disabled')
+            self.assertEqual(entry.cget('disabledbackground'), bridge_app.BG_INPUT)
+            self.assertEqual(entry.cget('disabledforeground'), bridge_app.TEXT_DIM)
+            self.assertNotEqual(entry.cget('disabledbackground'), entry.cget('disabledforeground'))
+
     def test_rejected_sign_in_forgets_token(self):
         self.app, _ = make_app(None)
         fake = MagicMock()

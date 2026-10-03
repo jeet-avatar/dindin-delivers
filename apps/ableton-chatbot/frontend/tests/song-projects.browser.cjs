@@ -17,7 +17,7 @@ async function main() {
     for (const width of [1440, 390]) {
       const context = await browser.newContext({ viewport: { width, height: 900 } });
       const songs = {}, calls = [], errors = [], refId = 'c'.repeat(32);
-      let uploaded = false, listened = false;
+      let uploaded = false, listened = false, inspections = 0;
       const ref = () => ({ id: refId, name: 'Original reference.wav', status: 'ready', created_at: '2026-09-26',
         report: { duration_seconds: 6, tempo: { bpm: 123 }, key_candidates: [], waveform: [0.1, 0.2, 0.5],
           possible_change_points_seconds: [], stems: [], limitations: [] },
@@ -46,6 +46,7 @@ async function main() {
           return reply({ chats: Object.values(songs).map(song => ({ id: song.sessionId, title: song.project.title })) });
         }
         if (path.startsWith('/api/chats/')) {
+          if (path.endsWith('/allowance')) return reply({ included: 10, used: 0, remaining: 10, authorized: false, started: false, period: '2026-10', live_title: null });
           const song = songs[path.split('/')[3]];
           if (request.method() === 'PATCH') {
             if (body.title) song.project.title = body.title;
@@ -62,9 +63,11 @@ async function main() {
         if (path.includes('/audio/')) return route.fulfill({ contentType: 'audio/wav', body: wave() });
         if (path.endsWith('/listen-whole')) { assert.equal(body.consent, true); listened = true; return reply(ref().listening); }
         if (path === '/api/live-set') {
+          if (body.operation === 'inspect' && ++inspections === 1) return reply({ status: 'failed', summary: '502:608: execution error: Unable to identify one Ableton document window. Close extra document or plug-in windows and check again. (-2700)' });
           if (body.operation === 'save') return reply({ status: 'failed', summary: 'System Events: osascript is not allowed assistive access. (-25211)' });
           const result = { status: 'observed', title: 'Disposable QA set', tracks: ['MIDI'], new_set_ready: true };
           if (body.operation.startsWith('confirm_')) {
+            assert.equal(body.authorize_song, true);
             songs[body.session_id].project.live_set = { title: result.title, choice: body.operation };
             result.project = songs[body.session_id].project;
           }
@@ -152,7 +155,14 @@ async function main() {
       await page.getByLabel('Reference audio file').waitFor();
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'Choose Live Set', exact: true }).click();
-      assert.equal(await page.getByRole('button', { name: 'Use inspected set instead', exact: true }).isDisabled(), true);
+      await page.getByRole('alert').filter({ hasText: 'could not identify your Live Set window' }).waitFor();
+      assert.equal(await page.getByRole('alert').filter({ hasText: 'macOS blocked' }).count(), 0);
+      assert.equal(await page.getByRole('button', { name: 'Use this Live Set', exact: true }).isDisabled(), true);
+      await page.screenshot({ path: `/tmp/beatmind-live-set-recovery-${width}.png` });
+      await page.getByRole('button', { name: 'Retry inspection', exact: true }).click();
+      await page.getByLabel(/I agree to use one song credit/).check();
+      await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent === 'Use this Live Set' && !b.disabled));
+      await page.getByText('Start a new Live Set instead', { exact: true }).click();
       const openNew = page.getByRole('button', { name: '2. Open new Live Set', exact: true });
       assert.equal(await openNew.isDisabled(), true, 'A new set needs the open set saved or closed first');
       await page.getByRole('button', { name: '1. Close it without saving', exact: true }).click();
@@ -162,13 +172,42 @@ async function main() {
       await page.getByRole('alert').filter({ hasText: 'macOS blocked bridge control.' }).waitFor();
       assert.equal(await page.getByRole('button', { name: 'Use this new set', exact: true }).isDisabled(), true);
       await page.getByRole('button', { name: '3. Inspect open set', exact: true }).click();
-      await page.getByRole('button', { name: 'Use inspected set instead', exact: true }).click();
+      await page.getByRole('button', { name: 'Use this Live Set', exact: true }).click();
       await page.getByText('Selected set: Disposable QA set', { exact: true }).waitFor();
       assert.equal(calls.filter(c => c.path === '/api/chat/stream').length, 1, 'Set selection must not start production');
-      assert.deepEqual(calls.filter(c => c.path === '/api/live-set').map(c => c.body.operation), ['save', 'inspect', 'confirm_current']);
+      assert.deepEqual(calls.filter(c => c.path === '/api/live-set').map(c => c.body.operation), ['inspect', 'inspect', 'save', 'inspect', 'confirm_current']);
       assert.deepEqual(errors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: `/tmp/beatmind-song-projects-${width}.png` });
+      await page.getByRole('button', { name: 'New song', exact: true }).click();
+      await page.getByRole('heading', { name: 'How would you like to start?', exact: true }).waitFor();
+      await page.getByLabel('Message BeatMind', { exact: true }).fill('Load a 909 kit and make a human four-bar kick loop.');
+      await page.getByRole('button', { name: 'Send', exact: true }).click();
+      const setup = page.getByRole('region', { name: 'Song setup', exact: true });
+      await setup.getByRole('button', { name: 'Start from an idea', exact: true }).waitFor();
+      const bounds = await setup.boundingBox();
+      assert.ok(bounds.y >= 0 && bounds.y + bounds.height < 900, 'Setup choices stay beside the composer');
+      await page.screenshot({ path: `/tmp/beatmind-setup-next-step-${width}.png` });
+      await setup.getByRole('button', { name: 'Start from an idea', exact: true }).click();
+      await page.getByRole('button', { name: 'Use this Live Set', exact: true }).waitFor();
+      await page.getByLabel(/I agree to use one song credit/).check();
+      assert.equal(await page.getByRole('button', { name: '1. Close it without saving', exact: true }).isVisible(), false);
+      await page.screenshot({ path: `/tmp/beatmind-confirm-current-${width}.png` });
+      await page.getByRole('button', { name: 'Use this Live Set', exact: true }).click();
+      await page.getByText('Selected set: Disposable QA set', { exact: true }).waitFor();
+      await setup.getByRole('button', { name: 'Build agreed sound', exact: true }).waitFor();
+      assert.equal(await setup.locator('[aria-current="step"]').innerText(), '3. Create sound');
+      assert.equal(songs['song-3'].project.starting_point, 'idea');
+      assert.equal(songs['song-3'].messages[0].content, 'Load a 909 kit and make a human four-bar kick loop.');
+      const beforeBuild = calls.filter(c => c.path === '/api/chat/stream').length;
+      await setup.getByRole('button', { name: 'Build agreed sound', exact: true }).click();
+      await page.waitForFunction(() => document.querySelector('[aria-label="Send"]')?.disabled === true && !document.querySelector('[aria-label="Thinking"]'));
+      const buildRequests = calls.filter(c => c.path === '/api/chat/stream');
+      assert.equal(buildRequests.length, beforeBuild + 1, 'Only an explicit build click sends the continuation');
+      assert.equal(buildRequests.at(-1).body.planning_only, false);
+      assert.match(buildRequests.at(-1).body.message, /keeping existing parts/);
+      assert.deepEqual(errors, []);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       console.log(`PASS ${width}px: durable named song history, reference upload/consent/listening/discussion, isolated new song, restored reference, explicit set confirmation without production`);
       await context.close();
     }

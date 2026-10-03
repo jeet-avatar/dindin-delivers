@@ -86,3 +86,22 @@ class AudioTaskTests(unittest.TestCase):
     def test_repeated_preparation_is_idempotent(self):
         once = module.prepare_task(self.task, 'new-image', self.ARN)
         self.assertEqual(once, module.prepare_task(once, 'new-image', self.ARN))
+
+    def test_explicit_bedrock_fallback_preserves_primary_and_payment_settings(self):
+        self.task['containerDefinitions'][1]['environment'].extend([
+            {'name': 'BEATMIND_AI_PROVIDER', 'value': 'bedrock'},
+            {'name': 'BEATMIND_MODEL', 'value': 'us.anthropic.claude-opus-5-5'},
+            {'name': 'STRIPE_PRICE_ID', 'value': 'unchanged'},
+        ])
+        result = module.prepare_task(self.task, 'new-image', self.ARN,
+                                     fallback_model='us.anthropic.claude-sonnet-5-5')
+        env = {e['name']: e['value'] for e in result['containerDefinitions'][1]['environment']}
+        self.assertEqual(env['BEATMIND_MODEL'], 'us.anthropic.claude-opus-5-5')
+        self.assertEqual(env['STRIPE_PRICE_ID'], 'unchanged')
+        self.assertEqual(env['BEATMIND_FALLBACK_MODEL'], 'us.anthropic.claude-sonnet-5-5')
+        self.assertEqual(env['BEATMIND_AI_MAX_RETRIES'], '2')
+
+    def test_fallback_cannot_change_provider(self):
+        with self.assertRaises(ValueError):
+            module.prepare_task(self.task, 'new-image', self.ARN,
+                                fallback_model='us.anthropic.claude-sonnet-5-5')

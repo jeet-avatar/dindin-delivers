@@ -556,12 +556,24 @@ for name, description, properties, required in [
                           "input_schema": {"type": "object", "properties": properties, "required": required}})
 
 from automation import AUTOMATION_TOOLS
+from action_view import VIEWS_TOOL
+ABLETON_TOOLS.append(VIEWS_TOOL)
+ABLETON_TOOLS.append({"name": "audition_arrangement", "description": "Record a 2-16 second preview of an existing track in Arrangement. Inspect clip timing first. start_beat is zero-based quarter-note beats, not bars. Requires stopped transport and recording off. Returns to Arrangement, restores position, loop, solos and mute, then stops. Never edits clips. Listen before approval.",
+    "input_schema": {"type": "object", "additionalProperties": False, "required": ["track", "start_beat"],
+                     "properties": {"track": {"type": "integer", "minimum": 0},
+                                    "start_beat": {"type": "number", "minimum": 0, "maximum": 32768},
+                                    "seconds": {"type": "number", "minimum": 2, "maximum": 16}}}})
 from production import PLAN_TOOL
 ABLETON_TOOLS.append(PLAN_TOOL)
 ABLETON_TOOLS.extend({key: value for key, value in item.items() if key != "operation"} for item in AUTOMATION_TOOLS)
 
 # Inspection tools use the same schemas as the execution layer.
 for name, description, properties, required in [
+    ("get_track_output_routing", "Read a track's current output destination and channel and all currently available choices. Read again after loading an instrument: an empty MIDI track may have No Output until it can produce audio.",
+     {"track": {"type": "integer", "minimum": 0}}, ["track"]),
+    ("set_track_output_routing", "Set an authorized track output destination by its exact discovered label, then independently read it back. Use get_track_output_routing first; never assume Main/Master is the available label. Optional channel must match the choices for the selected destination. This changes routing only, not the audio interface or master output. Preserve intentional group/bus routing.",
+     {"track": {"type": "integer", "minimum": 0}, "destination": {"type": "string", "minLength": 1, "maxLength": 200},
+      "channel": {"type": "string", "minLength": 1, "maxLength": 200}}, ["track", "destination"]),
     ("get_clip_notes", "Read every MIDI note, timing, duration, velocity and mute state from a clip.",
      {"track": {"type": "integer"}, "scene": {"type": "integer"}}, ["track", "scene"]),
     ("inspect_track", "Inspect the real device chain, monitoring, mute/solo, routing and output meters. Meter readings indicate signal, not an audio listening analysis. Drum Rack pad mappings are not exposed by this API; never assume General MIDI mappings.",
@@ -807,6 +819,10 @@ def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
 
         case "get_clip_notes":
             return [{"address": "/live/clip/get/notes", "args": [tool_input["track"], tool_input["scene"], 0, 128, -8192.0, 32768.0], "query": True}]
+        case "get_track_output_routing":
+            return [{"address": f"/live/track/get/{prop}", "args": [tool_input["track"]], "query": True}
+                    for prop in ("output_routing_type", "available_output_routing_types",
+                                 "output_routing_channel", "available_output_routing_channels")]
         case "inspect_track":
             return [{"address": f"/live/track/get/{prop}", "args": [tool_input["track"]], "query": True}
                     for prop in ("name", "devices/name", "devices/type", "mute", "solo", "current_monitoring_state",
@@ -824,6 +840,26 @@ def tool_to_osc(tool_name: str, tool_input: dict) -> list[dict]:
 
 # System prompt for Claude with music production knowledge
 SYSTEM_PROMPT = """You are an expert music producer and Ableton Live specialist. You create music by controlling Ableton Live through specialized tools.
+
+## Execute requested work, not a manual tutorial
+- When update_song_details is available and the user supplies a song name, genre or intended BPM, call it with exact evidence from
+  their current message, including during setup/discussion. Do not invent metadata or use a reference track,
+  sample, pack or instrument name as the song title. Genre/BPM label an unnamed song; a user's explicit title wins.
+  This only labels the conversation: changing intended BPM here does not change Live's tempo.
+- When the user asks you to load an instrument, make a loop or adjust supported settings, use the available tools.
+  Do not tell them to drag a kit, draw MIDI notes, set a fader or change routing by hand instead.
+- Inspect the confirmed Live Set, discover installed instruments with get_library_catalog/list_browser,
+  load the exact discovered source, inspect populated drum pads with get_track_device_tree, create the clip
+  and notes with verified tools, then audition_part for an actual audio preview. Do not guess kit pad pitches.
+- Four bars means 4 * time-signature numerator * 4 / denominator quarter-note beats; inspect the signature first.
+- An empty MIDI track showing No Output is not proof of broken audio routing. Load its instrument first,
+  then inspect_track and get_track_output_routing. If an authorized repair is needed, use
+  set_track_output_routing with an available destination and read back the result. Preserve group/bus routes.
+- If setup, consent, unavailable content or a failed tool blocks the request, name that exact blocker and the
+  real next in-app action. Do not invent a "switch building on" setting or claim all automation is unavailable.
+  Manual instructions are appropriate only when explicitly requested or for an unsupported action identified as such.
+- A prior turn's read-only tools are not permanent: use THIS turn's tool definitions and setup state.
+  Never claim a load, loop or routing repair completed without successful tool evidence.
 
 ## Your Capabilities
 - Plan original music from natural language and build supported parts one at a time
@@ -853,6 +889,7 @@ For a requested drop, build, chorus, intro, breakdown, outro or other section:
   audition_part only records one track.
 
 ### Effects and polish (per part)
+- On compatible Bridge/OSC versions, musical commands select and independently read back their Ableton display target. Use show_live_view to show an existing track, device, MIDI clip or Arrangement without changing music. Inspect names and indices first. Never repeat a completed musical write to fix its display selection. Older Bridges can continue existing commands but need an update for these new display and Arrangement preview features.
 - Built-in Ableton devices by default. Offer third-party plugins only when list_browser (plugins) shows them installed
   AND the user said yes to using their own plugins; say that a set using them needs those plugins to open cleanly.
 - After a part's dry sound is accepted and the user wants polish (or chooses "Shape tone or effects"): call

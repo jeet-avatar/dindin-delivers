@@ -1,20 +1,24 @@
 # BeatMind extensions for AbletonOSC
 
-Copy every `beatmind_*.py` file beside AbletonOSC's `abletonosc/browser.py`. At the end of
-`BrowserHandler.init_api`, after the existing handler registrations, add:
+1. Install [AbletonOSC](https://github.com/ideoforms/AbletonOSC) in
+   `~/Music/Ableton/User Library/Remote Scripts/AbletonOSC` on your Mac.
+   The folder must contain `manager.py` and the `abletonosc` subfolder.
+2. Open BeatMind Bridge 1.3.7 or later and click **Set up Ableton integration**.
+   Setup installs these modules and registers them automatically. No Python editing
+   is needed. It backs up changed files under `~/.beatmind/extension-backups` and
+   restores them if installation fails. Existing recognized BeatMind registration
+   is preserved; unfamiliar custom integrations are not overwritten.
+3. Save your Live Set, quit and reopen Ableton. In Settings (Preferences in Live 11),
+   open Link/Tempo/MIDI and select AbletonOSC in an empty Control Surface slot.
+4. Reconnect the Bridge using the same BeatMind account as your browser.
+   Allow macOS audio capture when prompted so you can hear recorded previews.
 
-```python
-from .beatmind_samples import register
-register(self, Live.Application.get_application())   # also registers beatmind_automation
-from .beatmind_mixer import register as register_mixer
-register_mixer(self, Live.Application.get_application())
-from .beatmind_master import register as register_master
-register_master(self, Live.Application.get_application())
-from .beatmind_sidechain import register as register_sidechain
-register_sidechain(self, Live.Application.get_application())
-```
+The setup button currently expects the default User Library location above.
+If you use a different location, do not create a second conflicting installation;
+the Python installer API accepts an explicit `target` directory.
 
 What each file adds:
+- `beatmind_bootstrap.py`: first-time registration for standard AbletonOSC.
 - `beatmind_samples.py`: exact sample loading (and registers the automation module).
 - `beatmind_automation.py`: device discovery and control, clip automation with curves (linear, exponential,
   logarithmic, step) that land exactly on their end values, "-inf" dB for fully off, reading stored clip
@@ -25,6 +29,13 @@ What each file adds:
 - `beatmind_master.py`: built-in effects on the Main track (master Limiter).
 - `beatmind_sidechain.py`: Compressor sidechain source routing.
 - `beatmind_stems.py`: reference stems on new audio tracks at the start of the Arrangement (Live 12).
+- `beatmind_view.py`: checked track, device, MIDI-clip and Arrangement display selection.
+- `beatmind_arrangement_preview.py`: checked playback-start marker for Arrangement previews.
+
+Bridge 1.3.7 advertises these new features only after the installed extensions report
+support. Run setup, save your set, restart Ableton, then reconnect
+the Bridge. Existing commands remain available on older Bridge versions; the new
+display and Arrangement-preview commands require the matching update.
 
 The mixer mapping returns Live's
 native fader values and actual display strings; no guessed dB conversion is used.

@@ -111,6 +111,11 @@ async def listen_whole(directory, reference_id, request, user_id=None):
                 save_listening(directory, data)
                 continue
             try:
+                if user_id is not None:
+                    from database import get_user_by_id
+                    current_user = get_user_by_id(user_id)
+                    if current_user:
+                        ai_usage.enforce(current_user)
                 result = await audio_listener.listen(directory / 'mix.wav', audio_listener.ListeningRequest(
                     consent=True, intent=request.intent, start_seconds=start, duration_seconds=length), user_id)
                 result.update(created_at=datetime.now(timezone.utc).isoformat(), id=uuid.uuid4().hex)
@@ -118,6 +123,8 @@ async def listen_whole(directory, reference_id, request, user_id=None):
                 job['completed'] += 1
             except HTTPException as error:
                 job['failures'].append({'start': start, 'end': start + length, 'error': str(error.detail)})
+                if error.status_code in {402, 429}:
+                    break
             save_listening(directory, data)
         job['status'] = 'needs_review' if job['failures'] else 'complete'
     except asyncio.CancelledError:

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { saveAuth, API_URL } from "@/lib/auth";
 import { parsePlanIntent, planIntentQuery } from "@/lib/billing";
 import { EyeIcon, EyeOffIcon } from "@/components/Icons";
+import { authError } from "@/lib/auth-error";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function SignupPage() {
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Registration failed");
+      if (!res.ok) throw new Error(authError(data.detail, "Registration failed. Please try again."));
       saveAuth(data.token, data.user);
       // The free trial needs no card: go straight to the app. Plans are chosen from the dashboard.
       router.push(`/dashboard${planQuery}`);
@@ -127,7 +128,7 @@ export default function SignupPage() {
           </button>
 
           <p className="text-xs text-center" style={{ color: "var(--text-secondary)" }}>
-            No card needed &middot; includes 3 tracks &middot; choose a plan any time
+            No card needed &middot; 3 new songs and 3 reference separations &middot; limited AI usage
           </p>
         </form>
 

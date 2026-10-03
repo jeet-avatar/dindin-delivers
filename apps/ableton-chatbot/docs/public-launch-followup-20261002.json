@@ -1,0 +1,76 @@
+{
+  "product_fixes_deployed": true,
+  "core_production_smoke_passed": true,
+  "unrestricted_launch_signoff": false,
+  "application_commit": "b48bce396a9580e2fef8b7e5849e01a8c36b98eb",
+  "bridge_commit": "b48bce396a9580e2fef8b7e5849e01a8c36b98eb",
+  "backend_task": "beatmind-api:82",
+  "release_tag": "beatmind-20261002-1.3.9",
+  "deployment_run": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/37052444460",
+  "preceding_audit": "public-launch-audit-20261002.json",
+  "fixes": [
+    "Bridge shows an account panel instead of disabled email and password fields when signed in, including after manual Disconnect.",
+    "Sign out restores editable credentials. Keyboard-event input and account layout have automated GUI coverage.",
+    "Reset links are bound to the current password state and consumed by an atomic conditional database update; reused or stale links cannot change the password.",
+    "Purpose-specific reset tokens cannot authenticate as web or Bridge sessions.",
+    "Invalid, expired, missing-expiry and malformed reset claims fail without changing the password.",
+    "Forgot-password and reset pages show readable validation errors; reset errors provide a direct request-new-link action."
+  ],
+  "reset_compatibility": "Reset links issued before this release must be replaced by requesting a fresh link. Existing passwords and ordinary sign-in tokens are unchanged. This change does not introduce revocation of all existing web sessions on password reset.",
+  "bridge": {
+    "version": "1.3.9",
+    "url": "https://www.beatmind.io/BeatMind-Bridge-1.3.9.dmg",
+    "sha256": "f006a9e1a4764ba4c7389ab136fdc9fe94e07bbc5e859139abb4bff5997b845b",
+    "notarization_submission": "b3494356-0982-4fd6-9d4e-01ce20f4db66",
+    "notarization": "Accepted; ticket stapled; disk image verified",
+    "checks": [
+      "Public installer download checksum matches the signed build.",
+      "Actual installed 1.3.8 app downloaded and upgraded to 1.3.9 using its Install update button, then reconnected using the saved sign-in.",
+      "Installed app signature verification and Gatekeeper assessment passed.",
+      "Installed signed-in account screen has no locked password field; visible connection is green.",
+      "Production browser reports bridge_connected=true and bridge_version=1.3.9 for the signed-in account.",
+      "Isolated updater checks reject a bad checksum without replacing the prior app and verify the replacement and fresh-copy signatures.",
+      "Packaged real four-stem separation and HTTPS/WebSocket TLS checks passed."
+    ],
+    "scope": "Apple Silicon on this macOS 15.7.7 machine. Not independent first-time macOS privacy-permission verification."
+  },
+  "tests": {
+    "backend_sqlite_passed": 527,
+    "backend_postgres_passed": 522,
+    "backend_postgres_sqlite_specific_skipped": 5,
+    "bridge_passed": 70,
+    "frontend_unit_files_passed": 20,
+    "browser_regression_files_passed": 16,
+    "production_build": "Passed locally and in release CI",
+    "reset_flow": "Isolated real backend: registration, captured email link, single-use reset, old-password rejection and new-password login. Expired/invalid links, token scope, stale writes and unknown-email response tested. No real user password changed.",
+    "password_browser": "1440px and 390px, local build and deployed frontend with API fixtures: typing, show/hide, validation, expired-link recovery, success and sign-in redirect.",
+    "public_browser": "1440px and 390px: login, signup, forgot-password, guide and changelog return 200; no page errors, broken assets or horizontal overflow. Real invalid sign-in returns readable validation; logged-out dashboard redirects to login.",
+    "signed_in_production": "Saved sign-in, connected Bridge 1.3.9, editable chat input and existing accepted recordings checked; zero production/chat requests and no page errors.",
+    "protected_api": "Unauthenticated chats and Bridge status return 401. Invalid reset link returns 400."
+  },
+  "production_audio": {
+    "source": "Previously captured disposable Public Launch QA recordings, not newly generated music",
+    "kick": {"seconds": 8.5106667, "peak": 0.46043378, "rms": 0.12031378},
+    "bass": {"seconds": 8.5746667, "peak": 0.35181794, "rms": 0.04344189},
+    "checks": "Browser playback advanced for both recordings; decoded audio has signal without clipping. Accepted status remained visible. Reload left all players paused. No Ableton commands were sent."
+  },
+  "provider": {
+    "production_request_passed": true,
+    "model_used": "us.anthropic.claude-opus-5-5",
+    "configured_fallback": "us.anthropic.claude-sonnet-4-6",
+    "scope": "Real request from deployed ECS container using its configured credentials; acknowledgment received with no Ableton tools or actions."
+  },
+  "preservation": {
+    "music": "Original Before Launch QA 2026-10-02 set remains open. Saved original and preserved backup share SHA-256 7b202cb39c69be015c634dfb4a5737487a28a3aced870519449fa82cb35f60b2.",
+    "integration": "User's existing customized AbletonOSC directory left intact.",
+    "production_configuration": "Only release identity changed. Payment settings, secret references, model configuration, ECS roles and storage configuration preserved.",
+    "rollback": "Frontend snapshot releases/before-20261002-b48bce39/; prior task beatmind-api:81; immutable Bridge 1.3.8 retained.",
+    "excluded": "No marketing music, videos, QA recordings, credentials, browser profiles or temporary test scripts included in release commits."
+  },
+  "remaining_launch_checks": [
+    "Independent first-time install on another supported Apple Silicon Mac, including fresh privacy permission prompts, remains unverified.",
+    "Recipient confirmation that the password-reset email arrives and its link opens remains unverified; backend and browser reset behavior passed separately.",
+    "Live payment completion remains explicitly deferred by the user. Isolated billing regression tests passed; no live payment or payment configuration change was made.",
+    "These checks do not certify every third-party plug-in, full-song separation quality, subjective music quality, Intel Macs or Windows."
+  ]
+}

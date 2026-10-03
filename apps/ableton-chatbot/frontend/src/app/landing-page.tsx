@@ -171,7 +171,7 @@ export default function LandingPage() {
           <div className="border-l-2 pl-5 py-1" style={{ borderColor: "var(--accent)" }}>
             <h2 id="what-is-heading" className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>What is BeatMind?</h2>
             <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              BeatMind is an AI music-production assistant that works inside Ableton Live 11 and 12. Through the local BeatMind Bridge and AbletonOSC, it builds drums, bass and melodies one part at a time as Session-view clips and scenes in your own Live Set, with a captured audition to review before the next part. You keep control of the arrangement. Plans start at {formatUsd(LOWEST_MONTHLY_USD)}/month, and you can try it first with a 7-day free trial that includes 3 tracks and needs no credit card.
+              BeatMind is an AI music-production assistant that works inside Ableton Live 11 and 12. Through the local BeatMind Bridge and AbletonOSC, it builds drums, bass and melodies one part at a time as Session-view clips and scenes in your own Live Set, with a captured audition to review before the next part. You keep control of the arrangement. Plans start at {formatUsd(LOWEST_MONTHLY_USD)}/month. The 7-day free trial includes 3 new songs, 3 reference separations and limited AI usage, with no credit card.
             </p>
           </div>
         </section>
@@ -227,7 +227,7 @@ export default function LandingPage() {
         <section id="pricing" className="max-w-6xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
           <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Pricing</h2>
           <p className="mb-8 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>
-            Every plan includes the AI producer inside Ableton Live. Pick how many reference tracks you separate each month.
+            Every plan includes the AI producer inside Ableton Live. Choose how many new songs you start and references you separate each month. AI usage limits apply separately.
           </p>
 
           {/* Billing interval toggle */}
@@ -312,10 +312,10 @@ export default function LandingPage() {
 
           {/* Packs */}
           <div className="mt-10 rounded-2xl border p-6 text-left" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-            <h3 className="text-lg font-semibold mb-4">Need more? Track packs &amp; Cloud HQ packs</h3>
+            <h3 className="text-lg font-semibold mb-4">Reference-separation packs &amp; Cloud HQ packs</h3>
             <div className="grid gap-4 md:grid-cols-2 text-sm">
               <div>
-                <div className="font-medium mb-1">Track packs</div>
+                <div className="font-medium mb-1">Reference-separation packs</div>
                 <div style={{ color: "var(--text-secondary)" }}>{packList(TRACK_PACKS)}</div>
               </div>
               <div>
