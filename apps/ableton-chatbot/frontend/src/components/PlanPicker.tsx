@@ -164,7 +164,7 @@ export default function PlanPicker({ onClose, reason, inTrial, intent = null }: 
         </div>
       </>}
 
-      <p className="mt-5 text-xs" style={{ color: "var(--text-secondary)" }}>Each separation uses one track; a cloud separation also uses one Cloud HQ separation. Failed separations are refunded. Need more? Track packs top up any paid plan.</p>
+      <p className="mt-5 text-xs" style={{ color: "var(--text-secondary)" }}>Song and reference-separation allowances are separate and reset on the 1st (UTC), including annual plans. Separation packs add reference separations only, not songs or AI usage. Failed separations are refunded. Monthly AI usage limits also apply to song revisions.</p>
       {error && <p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
     </div>
   </div>;

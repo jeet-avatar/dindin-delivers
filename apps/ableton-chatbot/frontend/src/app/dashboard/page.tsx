@@ -600,7 +600,7 @@ export default function DashboardPage() {
   const planChecking = !usage && authStatus === "Checking sign-in";
   const checkingPlanText = "Checking your plan…";
   const currentPlan = isSubscribed && usage ? planName(usage.plan) : "BeatMind";
-  const trialTracks = usage?.plan?.source === "trial" ? `${usage.allowance_left} of ${usage.included_per_month} tracks left · ` : "";
+  const trialTracks = usage?.plan?.source === "trial" ? `${usage.allowance_left} of ${usage.included_per_month} reference separations left · ` : "";
   const trialSummary = `Free trial · ${trialTracks}${trialDays} day${trialDays !== 1 ? "s" : ""} left`;
   const trialOutOfTracks = usage?.plan?.source === "trial" && usage.allowance_left === 0;
   let trialBanner = "Your free trial has ended";

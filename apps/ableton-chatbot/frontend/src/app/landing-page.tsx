@@ -227,7 +227,7 @@ export default function LandingPage() {
         <section id="pricing" className="max-w-6xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
           <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Pricing</h2>
           <p className="mb-8 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>
-            Every plan includes the AI producer inside Ableton Live. Pick how many reference tracks you separate each month.
+            Every plan includes the AI producer inside Ableton Live. Choose how many new songs you start and references you separate each month. AI usage limits apply separately.
           </p>
 
           {/* Billing interval toggle */}
@@ -312,10 +312,10 @@ export default function LandingPage() {
 
           {/* Packs */}
           <div className="mt-10 rounded-2xl border p-6 text-left" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-            <h3 className="text-lg font-semibold mb-4">Need more? Track packs &amp; Cloud HQ packs</h3>
+            <h3 className="text-lg font-semibold mb-4">Reference-separation packs &amp; Cloud HQ packs</h3>
             <div className="grid gap-4 md:grid-cols-2 text-sm">
               <div>
-                <div className="font-medium mb-1">Track packs</div>
+                <div className="font-medium mb-1">Reference-separation packs</div>
                 <div style={{ color: "var(--text-secondary)" }}>{packList(TRACK_PACKS)}</div>
               </div>
               <div>
