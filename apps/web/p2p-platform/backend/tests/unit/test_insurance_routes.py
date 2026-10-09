@@ -39,6 +39,13 @@ def override_get_db():
 test_app = FastAPI()
 test_app.include_router(insurance_router)
 test_app.dependency_overrides[get_db] = override_get_db
+
+# The webhook / API-key management endpoints are admin-only (require_admin_dep was
+# restored for security). These unit tests exercise the management logic, so bypass the
+# admin dependency here — production auth is covered elsewhere.
+from insurance.routes import require_admin_dep as _require_admin_dep  # noqa: E402
+test_app.dependency_overrides[_require_admin_dep] = lambda: {"id": 1, "role": "admin", "email": "admin@test"}
+
 client = TestClient(test_app)
 
 
