@@ -5,7 +5,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends gcc curl ffmpeg libsndfile1 && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements-reference.txt ./
-RUN pip install --no-cache-dir torch==2.5.1+cpu torchaudio==2.5.1+cpu --index-url https://download.pytorch.org/whl/cpu \
+RUN pip install --no-cache-dir torch==2.6.0+cpu torchaudio==2.6.0+cpu --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir -r requirements-reference.txt
 
 # Ship weights in the image; user requests must not trigger model downloads.
