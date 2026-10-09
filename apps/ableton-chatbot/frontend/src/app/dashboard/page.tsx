@@ -1167,7 +1167,7 @@ export default function DashboardPage() {
             setNav("beatmind");
             void sendMessage(template
               ? "Let's choose the first sound for my reference-inspired track."
-              : "Let's talk about what I like in this reference and what I'd change.", undefined, id, true);
+              : "Let's talk about what I like in this reference and what I'd change.", undefined, id, !template);
           }} />}
           {nav === "recordings" && <section className="p-4 sm:p-6 min-w-0">
             <h2 className="text-lg font-semibold">Saved recordings</h2>
