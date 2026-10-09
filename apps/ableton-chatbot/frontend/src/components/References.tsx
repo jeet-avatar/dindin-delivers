@@ -289,8 +289,8 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
     {pollError && <p role="status" className="text-sm text-amber-200">{pollError}</p>}
     {transfer && file ? <ReferenceStatus reference={{ name: file.name, status: "uploading", created_at: new Date(transfer.startedAt).toISOString() }} checkedAt={checkedAt} transfer={transfer} startedAt={transfer.startedAt} />
-      : item && <ReferenceStatus reference={item} checkedAt={checkedAt} pollError={pollError} onListen={() => { setStage("stems"); audioSection.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }} />}
-    {observedJob && !transfer && <ReferenceStatus reference={observedJob} checkedAt={checkedAt} pollError={pollError} onOpen={() => { if (!busy && !chatBusy) void select(observedJob.id); }} />}
+      : item && <ReferenceStatus reference={item} checkedAt={checkedAt} pollError={pollError} onDelete={() => void remove(item.id)} onListen={() => { setStage("stems"); audioSection.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }} />}
+    {observedJob && !transfer && <ReferenceStatus reference={observedJob} checkedAt={checkedAt} pollError={pollError} onDelete={() => void remove(observedJob.id)} onOpen={() => { if (!busy && !chatBusy) void select(observedJob.id); }} />}
     {processingBusy && !transfer && <p role="status" className="text-sm break-words text-amber-200">
       {activeReference ? "Reference processing is in progress." : "Another reference operation is running."}
       {file && !uploadedReference ? " Your selected file has not been uploaded or queued. Keep this tab open; upload will become available when processing finishes." : " New uploads are paused until it finishes."}
@@ -300,9 +300,9 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     <LocalSeparation available={localAvailable} disabled={busy || chatBusy} onStarted={async reference => {
       setObservedJobId(reference.id); await refresh(); await select(reference.id);
     }} />
-    {!localAvailable && <div className="space-y-3 border-b border-neutral-700 pb-5">
-      <h3 className="text-sm font-medium">{cloudAvailable ? "Upload and separate on BeatMind GPU (pay as you go)" : "Upload to BeatMind"}</h3>
-      {cloudAvailable && <p className="text-sm text-neutral-400">Highest quality with detailed drums. BeatMind deletes the uploaded file after separation.</p>}
+    {cloudAvailable && <div className="space-y-3 border-b border-neutral-700 pb-5">
+      <h3 className="text-sm font-medium">{localAvailable ? "Or upload and separate on BeatMind GPU (faster)" : "Upload and separate on BeatMind GPU (pay as you go)"}</h3>
+      <p className="text-sm text-neutral-400">{localAvailable ? "Faster than local separation. Your file is uploaded, separated on a GPU, then deleted." : "Highest quality with detailed drums. BeatMind deletes the uploaded file after separation."}</p>
       <label className="block text-sm">Audio file <span className="text-neutral-400">{limits ? `(${Math.floor(limits.maxBytes / (1024 * 1024))} MB, ${limits.minSeconds} seconds to ${limits.maxSeconds / 60} minutes)` : "(Checking upload limits...)"}</span>
         <input ref={fileInput} type="file" aria-label="Reference audio file" accept=".wav,.aif,.aiff,.mp3,.m4a,.flac,.ogg"
           disabled={!available || !limits || busy || chatBusy} onChange={e => void chooseFile(e.target.files?.[0] || null)}

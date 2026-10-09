@@ -6,10 +6,10 @@ import type { UploadProgress } from "@/lib/reference-upload";
 type StatusReference = { name: string; status: string; stage?: string; created_at: string; error?: string; storage?: string };
 const elapsed = (seconds: number) => `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60).toString().padStart(2, "0")}s`;
 
-export default function ReferenceStatus({ reference, checkedAt, pollError, transfer, startedAt, onOpen, onListen }: {
+export default function ReferenceStatus({ reference, checkedAt, pollError, transfer, startedAt, onOpen, onListen, onDelete }: {
   reference: StatusReference; checkedAt: number | null; pollError?: string;
   transfer?: UploadProgress | null; startedAt?: number;
-  onOpen?: () => void; onListen?: () => void;
+  onOpen?: () => void; onListen?: () => void; onDelete?: () => void;
 }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -66,5 +66,6 @@ export default function ReferenceStatus({ reference, checkedAt, pollError, trans
     </div>
     {onOpen && <button type="button" onClick={onOpen} className="text-sm underline">{ready ? "Open ready reference" : failed ? "Review failed reference" : "Open processing reference"}</button>}
     {ready && onListen && <button type="button" onClick={onListen} className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white">Listen to stems</button>}
+    {onDelete && !transfer && <button type="button" onClick={onDelete} className="text-sm text-red-300">Delete reference</button>}
   </div>;
 }

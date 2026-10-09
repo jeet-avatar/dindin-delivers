@@ -21,6 +21,16 @@ import database
 from database import add_columns, autoincrement_pk, db, now_sql, subscription_access, trial_active
 
 KINDS = ('track', 'cloud')
+
+
+def _exempt(user_id):
+    raw = os.getenv('AI_EXEMPT_EMAILS', '')
+    if not raw:
+        return False
+    exempt = {e.strip().lower() for e in raw.split(',') if e.strip()}
+    with db() as conn:
+        row = conn.execute("SELECT email FROM users WHERE id=?", (user_id,)).fetchone()
+        return bool(row and (row['email'] or '').lower() in exempt)
 MODES = ('local', 'cloud', 'server')
 LEGACY_INCLUDED_TRACKS = 10  # Subscribers from before plans existed are Starter.
 TRIAL_INCLUDED_TRACKS = 3
@@ -217,6 +227,8 @@ def _trial_sources(conn, user_id, mode, plan):
 
 def check(user_id, mode):
     """Raise NoCredits before any work starts, without charging."""
+    if _exempt(user_id):
+        return
     is_enforced = enforced()
     with db() as conn:
         _sources(conn, user_id, mode, is_enforced)
@@ -225,6 +237,8 @@ def check(user_id, mode):
 def charge(user_id, reference_id, mode):
     """Record a separation and take its credits once. Raises NoCredits."""
     assert mode in MODES
+    if _exempt(user_id):
+        return
     is_enforced = enforced()  # May load the Stripe catalog: never inside the write lock.
     with db() as conn:
         if database.is_postgres():
