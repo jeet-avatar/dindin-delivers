@@ -350,7 +350,12 @@ def import_cloud(directory, item):
         cloud_separation.import_results(item['id'], directory)
         item.update(status='ready')
     except Exception:
-        item.update(status='processing')  # Retried on the next status check.
+        retries = item.get('import_retries', 0) + 1
+        item['import_retries'] = retries
+        if retries >= 3:
+            item.update(status='failed', error='Stem import failed after multiple attempts. Please delete this reference and upload again.')
+        else:
+            item.update(status='processing')
     if directory.is_dir():
         write_json(directory / 'meta.json', item)
 

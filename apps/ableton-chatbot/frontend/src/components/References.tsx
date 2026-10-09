@@ -300,9 +300,9 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     <LocalSeparation available={localAvailable} disabled={busy || chatBusy} onStarted={async reference => {
       setObservedJobId(reference.id); await refresh(); await select(reference.id);
     }} />
-    <div className="space-y-3 border-b border-neutral-700 pb-5">
-      <h3 className="text-sm font-medium">{cloudAvailable ? "Or let BeatMind separate it on a GPU (pay as you go)" : "Or upload to BeatMind"}</h3>
-      {cloudAvailable && <p className="text-sm text-neutral-400">Highest quality with detailed drums, for computers that separate slowly. BeatMind deletes the uploaded file after separation.</p>}
+    {!localAvailable && <div className="space-y-3 border-b border-neutral-700 pb-5">
+      <h3 className="text-sm font-medium">{cloudAvailable ? "Upload and separate on BeatMind GPU (pay as you go)" : "Upload to BeatMind"}</h3>
+      {cloudAvailable && <p className="text-sm text-neutral-400">Highest quality with detailed drums. BeatMind deletes the uploaded file after separation.</p>}
       <label className="block text-sm">Audio file <span className="text-neutral-400">{limits ? `(${Math.floor(limits.maxBytes / (1024 * 1024))} MB, ${limits.minSeconds} seconds to ${limits.maxSeconds / 60} minutes)` : "(Checking upload limits...)"}</span>
         <input ref={fileInput} type="file" aria-label="Reference audio file" accept=".wav,.aif,.aiff,.mp3,.m4a,.flac,.ogg"
           disabled={!available || !limits || busy || chatBusy} onChange={e => void chooseFile(e.target.files?.[0] || null)}
@@ -313,7 +313,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
         I have permission to upload and analyze this audio.</label>
       <button type="button" onClick={upload} disabled={!available || !file || !rights || !uploadReady || !limits || file.size > limits.maxBytes || busy || chatBusy || uploadUnconfirmed || (processingBusy && !cloudAvailable && !uploadedReference)}
         className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{transfer ? transfer.sent ? "Confirming upload..." : "Uploading..." : busy ? "Saving selection..." : uploadedReference ? "Attach uploaded reference" : processingBusy ? "Waiting for processing" : "Upload and analyze"}</button>
-    </div>
+    </div>}
     {guided && <button type="button" aria-expanded={showSaved} aria-controls="saved-reference-library"
       onClick={() => setShowSaved(value => !value)} className="text-sm underline">
       {showSaved ? "Hide saved references" : "Choose a saved reference"}
@@ -343,19 +343,21 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
               <div><span className="text-neutral-400">Duration </span><span>{time(item.report.duration_seconds)}</span></div>
             </dl>
             {item.storage === "local" && <LocalStemActions key={`ready-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh} />}
-            {item.storage !== "local" && <div ref={audioSection} className="space-y-3">
-              <ReferenceAudio key={item.id} id={item.id} cue={cue} stems={audioStems(item.report)} />
-              <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id, true)}
-                className="rounded bg-emerald-700 px-5 py-3 text-sm font-medium disabled:opacity-40 flex items-center gap-2">
-                <span className="inline-block w-4 h-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
-                Use these stems in Ableton
-              </button>
-              <p className="text-xs text-neutral-400">Opens a chat with BeatMind to build your track using this reference.</p>
-            </div>}
+            {item.storage !== "local" && <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id, true)}
+              className="rounded bg-emerald-700 px-5 py-3 text-sm font-medium disabled:opacity-40 flex items-center gap-2">
+              <span className="inline-block w-4 h-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+              Use these stems in Ableton
+            </button>}
             <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id)}
               className="text-sm underline disabled:opacity-40">
               Discuss this reference in chat
             </button>
+            {item.storage !== "local" && <details className="text-sm">
+              <summary className="cursor-pointer text-neutral-400">Preview stems audio</summary>
+              <div ref={audioSection} className="mt-3 space-y-3">
+                <ReferenceAudio key={item.id} id={item.id} cue={cue} stems={audioStems(item.report)} />
+              </div>
+            </details>}
           </div>
           <details className="text-sm">
             <summary className="cursor-pointer text-neutral-400">Advanced: review stems, timing, listening and template</summary>
@@ -391,7 +393,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
             </div>
           </details>
         </>}
-        {!['processing', 'uploading'].includes(item.status) && <button type="button" onClick={() => remove(item.id)} className="block text-sm text-red-300">Delete reference</button>}
+        <button type="button" onClick={() => remove(item.id)} disabled={busy || chatBusy} className="block text-sm text-red-300 disabled:opacity-40">Delete reference</button>
       </div>}
     </div>
   </section>;
