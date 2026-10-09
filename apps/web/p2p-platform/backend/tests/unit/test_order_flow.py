@@ -381,7 +381,18 @@ class TestUtilityFunctions:
 # ==================== ORDER CREATION TESTS ====================
 
 class TestOrderCreation:
-    """Test order creation endpoint"""
+    """Test order creation endpoint.
+
+    Food delivery is gated off in production (rideshare-only launch) via the
+    DELIVERY_ENABLED flag in order_flow.create_order. These tests exercise the
+    underlying order-creation logic, so they enable the flag for their duration;
+    the production default (delivery disabled) is unchanged.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _enable_delivery(self, monkeypatch):
+        monkeypatch.setenv("DELIVERY_ENABLED", "true")
+        yield
 
     @pytest.mark.asyncio
     async def test_create_order_success(self, mock_db_session, mock_vendor, mock_menu_item, mock_customer):
