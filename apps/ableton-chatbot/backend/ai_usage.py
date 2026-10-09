@@ -9,11 +9,11 @@ The estimate is for monitoring, not invoicing. Rates are USD per million tokens:
 - AI_RATES_JSON='{"<model substring>": {"input": .., "output": .., "cache_read": .., "cache_write": .., "audio_input": ..}}'
   overrides any model.
 
-Paid plans: a monthly cap (AI_FAIR_USE_USD_STARTER/PRO/STUDIO, default $8/$15/$30 per UTC month) blocks AI
-features only when AI_FAIR_USE_ENFORCED=true (429); otherwise usage is only logged.
-MixMind AI (the desktop app's proxy, feature 'mixmind'): its own monthly cap MIXMIND_AI_CAP_USD (default $10 per UTC
-month), enforced only when MIXMIND_AI_FAIR_USE_ENFORCED=true (429); otherwise over-cap calls are logged.
-Free trial: always capped at TRIAL_CHAT_MESSAGES (default 50) chat messages or TRIAL_AI_USD (default $2) of
+Paid plans: a monthly cap (AI_FAIR_USE_USD_STARTER/PRO/STUDIO, default $12/$20/$40 per UTC month) blocks AI
+features when AI_FAIR_USE_ENFORCED=true (429); otherwise usage is only logged.
+MixMind AI (the desktop app's proxy, feature 'mixmind'): its own monthly cap MIXMIND_AI_CAP_USD (default $12 per UTC
+month), enforced when MIXMIND_AI_FAIR_USE_ENFORCED=true (429); otherwise over-cap calls are logged.
+Free trial: always capped at TRIAL_CHAT_MESSAGES (default 50) chat messages or TRIAL_AI_USD (default $3) of
 estimated spend over the whole trial, whichever comes first (402: choose a plan).
 """
 
@@ -31,15 +31,15 @@ log = logging.getLogger("beatmind.ai_usage")
 CLAUDE_HAIKU_45 = {'input': 1.0, 'output': 5.0, 'cache_read': 0.1, 'cache_write': 1.25, 'audio_input': 1.0}
 # Published list rates (input, output) by model-id fragment; the most specific fragment comes first.
 CLAUDE_LIST_RATES = (('opus-5-5', 4.0, 20.0), ('opus-5', 5.0, 25.0), ('sonnet-4-6', 3.0, 15.0), ('haiku-4-5', 1.0, 5.0))
-MIXMIND_AI_CAP_USD = 10.0
+MIXMIND_AI_CAP_USD = 12.0
 MIXMIND_CAP_MESSAGE = "Monthly MixMind AI allowance reached"
 # PLACEHOLDERS, not OpenAI's prices: deliberately round numbers so an unconfigured estimate is visibly provisional.
 OPENAI_PLACEHOLDER = {'input': 5.0, 'cached_input': 0.5, 'audio_input': 40.0, 'output': 20.0}
 # PLACEHOLDER for Claude models other than Haiku 4.5 (e.g. BEATMIND_MODEL switched to a larger model).
 CLAUDE_PLACEHOLDER = {'input': 5.0, 'output': 25.0}
-FAIR_USE_USD = {'starter': 8.0, 'pro': 15.0, 'studio': 30.0}
+FAIR_USE_USD = {'starter': 12.0, 'pro': 20.0, 'studio': 40.0}
 TRIAL_CHAT_MESSAGES = 50
-TRIAL_AI_USD = 2.0
+TRIAL_AI_USD = 3.0
 FAIR_USE_MESSAGE = ("You've reached this month's fair-use limit for BeatMind AI on your plan. "
                     "Upgrade your plan to keep going, or wait until the 1st of next month (UTC). "
                     "Your songs, stems and track packs are unaffected.")
@@ -144,7 +144,7 @@ def record(user_id, feature, provider, model, tokens, request_id=None):
 
 
 def fair_use_enforced():
-    return os.getenv('AI_FAIR_USE_ENFORCED', 'false').lower() == 'true'
+    return os.getenv('AI_FAIR_USE_ENFORCED', 'true').lower() == 'true'
 
 
 def cap_usd(tier):
@@ -180,7 +180,7 @@ def mixmind_cap_usd():
 
 
 def mixmind_fair_use_enforced():
-    return os.getenv('MIXMIND_AI_FAIR_USE_ENFORCED', 'false').lower() == 'true'
+    return os.getenv('MIXMIND_AI_FAIR_USE_ENFORCED', 'true').lower() == 'true'
 
 
 def mixmind_month_usd(user_id):

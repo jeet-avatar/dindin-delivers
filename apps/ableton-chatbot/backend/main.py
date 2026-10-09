@@ -792,7 +792,7 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(require_subscriptio
 
 
 MODEL = model_name()
-MAX_OUTPUT_TOKENS = int(os.getenv("BEATMIND_MAX_OUTPUT_TOKENS", "8192"))
+MAX_OUTPUT_TOKENS = int(os.getenv("BEATMIND_MAX_OUTPUT_TOKENS", "4096"))
 
 DISCUSSION_TOOLS = {
     tool['name'] for tool in ABLETON_TOOLS

@@ -14,7 +14,7 @@ Anthropic's message JSON, or its server-sent events when `"stream": true`.
   comes back as the text block the caller asked for, so the caller cannot tell the difference.
 - Responses report the requested public model id, not the Bedrock profile.
 - Streams send a `ping` event whenever Bedrock is quiet for PING_SECONDS, so long thinking never trips the
-  load balancer's 60 s idle timeout. Non-streaming calls get no keepalive: use streaming for long calls.
+  load balancer's 60 s idle timeout. Non-streaming calls time out at MIXMIND_AI_READ_TIMEOUT (default 180 s).
 - Every call is logged in ai_usage (provider 'bedrock', feature 'mixmind') with an estimated cost.
 """
 
@@ -74,7 +74,7 @@ def client() -> anthropic.AsyncAnthropicBedrock:
     """One Bedrock client for the process. Read timeout covers a long non-streaming answer or a quiet stream."""
     global _client
     if _client is None:
-        read_timeout = float(os.getenv("MIXMIND_AI_READ_TIMEOUT", "600"))
+        read_timeout = float(os.getenv("MIXMIND_AI_READ_TIMEOUT", "180"))
         _client = anthropic.AsyncAnthropicBedrock(aws_region=REGION, max_retries=2,
                                                   timeout=anthropic.Timeout(read_timeout, connect=10.0))
     return _client

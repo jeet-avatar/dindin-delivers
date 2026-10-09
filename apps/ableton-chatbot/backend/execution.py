@@ -13,7 +13,7 @@ from claude_tools import ABLETON_TOOLS, tool_to_osc, fader_from_db, db_from_fade
 VALIDATORS = {t["name"]: Draft202012Validator(t["input_schema"]) for t in ABLETON_TOOLS}
 READ_TOOLS = {name for name in VALIDATORS if name.startswith("get_")} | {"list_browser", "inspect_track"}
 BAD_STATUSES = {"failed", "partial", "unverified"}
-MAX_PRODUCTION_ROUNDS = max(1, min(100, int(os.getenv("BEATMIND_MAX_ROUNDS", "60"))))
+MAX_PRODUCTION_ROUNDS = max(1, min(100, int(os.getenv("BEATMIND_MAX_ROUNDS", "30"))))
 
 
 class ExecutionError(Exception):
