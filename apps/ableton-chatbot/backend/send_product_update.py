@@ -18,6 +18,13 @@ CAMPAIGNS = {
                "cymbals, bass, vocals and other) and place them straight into Ableton.",
                "Future Bridge updates install from the Bridge window with one click, when it suits you."],
         cta_label="Download BeatMind Bridge 1.2", cta_url="https://www.beatmind.io/BeatMind-Bridge.dmg"),
+    "mixmind-1.2.1": dict(
+        subject="MixMind 1.2.1: faster AI and improved reliability",
+        headline="MixMind 1.2.1 is ready",
+        lines=["AI responses are faster and more reliable — no more chat timeouts while building a set.",
+               "Download and install when it suits you. Your library, playlists and settings are not affected.",
+               "Sign in to your BeatMind dashboard and go to Downloads to get the latest version."],
+        cta_label="Download MixMind 1.2.1", cta_url="https://www.beatmind.io/dashboard"),
 }
 
 
