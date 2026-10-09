@@ -226,8 +226,18 @@ def status(user_id, plan):
     return usage
 
 
+def _exempt(user):
+    raw = os.getenv('AI_EXEMPT_EMAILS', '')
+    if not raw:
+        return False
+    exempt = {e.strip().lower() for e in raw.split(',') if e.strip()}
+    return (user.get('email') or '').lower() in exempt
+
+
 def enforce(user):
     """Raise before an AI call when the free trial's AI is used up, or an enforced fair-use cap is reached."""
+    if _exempt(user):
+        return
     import billing
     plan = billing.allowance(user)
     if plan['source'] == 'trial':

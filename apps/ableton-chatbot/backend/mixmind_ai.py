@@ -316,7 +316,7 @@ async def handle(request: Request, user: dict | None):
             rate_limit(f"mixmind_ai:{user['id']}", RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW_SECONDS)
         except HTTPException:
             raise ProxyError(429, "rate_limit_error", "Too many MixMind AI requests; try again in a few minutes")
-        if ai_usage.mixmind_over_cap(user["id"]):
+        if not ai_usage._exempt(user) and ai_usage.mixmind_over_cap(user["id"]):
             raise ProxyError(429, "rate_limit_error", ai_usage.MIXMIND_CAP_MESSAGE)
         try:
             body = json.loads(raw)
