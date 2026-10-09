@@ -3552,6 +3552,14 @@ def set_driver_online(
                 detail=detail
             )
 
+        # TNC gate (CPUC 13-09-045): explicit Checkr background-check requirement,
+        # independent of status, so no approval path can bypass driver vetting.
+        if not driver.background_check:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Background check not passed. You cannot go online until your background check clears."
+            )
+
     driver.is_online = online_status
     driver.location_updated_at = datetime.utcnow()
     if online_status:
@@ -5175,6 +5183,17 @@ def post_driver_status(
     if driver.id != driver_id:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    # TNC gate (CPUC 13-09-045): a driver may only go ONLINE if approved AND the
+    # Checkr background check has passed. Prevents this route from bypassing vetting.
+    if is_online:
+        from models import DriverStatus
+        status_val = driver.status.value if hasattr(driver.status, "value") else str(driver.status)
+        approved_states = (DriverStatus.APPROVED.value, DriverStatus.ACTIVE.value, DriverStatus.ONLINE.value)
+        if status_val not in approved_states:
+            raise HTTPException(status_code=403, detail="Driver not approved. Complete verification and background check before going online.")
+        if not driver.background_check:
+            raise HTTPException(status_code=403, detail="Background check not passed. You cannot go online until your background check clears.")
+
     driver.is_online = is_online
     driver.updated_at = datetime.utcnow()
 
@@ -6172,6 +6191,12 @@ async def complete_ride_and_pay_driver(
 
     Used after customer payment is captured.
     """
+    # G2 fix: DEPRECATED duplicate payout path. The canonical completion + driver payout is
+    # POST /api/rides/request/{id}/complete (bid_routes.py). This legacy endpoint used different
+    # payout math (+tip, no Access-for-All deduction) and a separate Stripe idempotency key, so
+    # if it ever fired alongside the canonical path the driver would be PAID TWICE. No app calls
+    # it (verified across web/iOS/Android). Disabled to eliminate the double-pay risk.
+    raise HTTPException(status_code=410, detail="Deprecated endpoint. Use POST /api/rides/request/{id}/complete.")
     check_rate_limit(request, payment_limiter, "payment", identifier=str(_auth_driver.id))
     import stripe
     import os
@@ -14535,8 +14560,10 @@ async def persona_webhook(
                 print(f"Driver {driver_id} documents VERIFIED via Persona")
 
                 # Check if driver can be auto-approved (all required docs verified)
+                # TNC gate (CPUC 13-09-045): a passed Checkr background check is REQUIRED
+                # for approval — not just license + insurance.
                 was_pending = driver.status == DriverStatus.PENDING.value or driver.status == "pending"
-                if driver.drivers_license and driver.insurance:
+                if driver.drivers_license and driver.insurance and driver.background_check:
                     from models import DriverStatus
                     if was_pending:
                         driver.status = DriverStatus.APPROVED.value
@@ -16602,6 +16629,14 @@ app.include_router(insurance_router)
 # TNC Compliance (CPUC) — background checks, DMV, inspections, zero-tolerance, reporting
 from tnc_compliance import router as tnc_compliance_router
 app.include_router(tnc_compliance_router)
+
+# Checkr-Hosted background checks (provider named in Zietra's CPUC TNC permit)
+from checkr_service import router as checkr_router
+app.include_router(checkr_router)
+
+# Founding Member program ("Founding 10,000 per state") — $100 lifetime platform-fee lock
+from founding_members import router as founding_router
+app.include_router(founding_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create
@@ -20243,6 +20278,29 @@ def unregister_push_token(
 
 
 # ==================== IN-APP NOTIFICATION ENDPOINTS ====================
+
+@app.post("/api/feedback")
+async def submit_feedback(request: Request):
+    """Customer bug report / feedback. Reliably logged (captured in server logs) + best-effort
+    email to support — fixes the prior silent-loss where the button faked success against a 404."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    ftype = str(body.get("type", "feedback"))[:50]
+    desc = str(body.get("description", ""))[:5000]
+    cust = body.get("customer_id")
+    appv = str(body.get("app_version", ""))[:50]
+    logging.warning(f"[FEEDBACK] type={ftype} customer={cust} app_version={appv} :: {desc}")
+    try:
+        from email_service import send_email
+        send_email(to_email="support@dollor.ai",
+                   subject=f"[{ftype}] Dollor feedback (customer {cust})",
+                   body=f"App version: {appv}\nCustomer: {cust}\nType: {ftype}\n\n{desc}")
+    except Exception as _e:
+        logging.info(f"[FEEDBACK] email not sent (non-blocking): {_e}")
+    return {"success": True, "message": "Feedback received"}
+
 
 @app.get("/api/customer/notifications")
 def get_customer_notifications(

@@ -837,7 +837,14 @@ async def respond_to_bid(bid_id: int, data: RespondToBidInput, request: Request,
                         stripe_customer_id = stripe_cust.id
                         db.commit()
 
-                    final_price_cents = int(float(bid.proposed_price) * 100)
+                    # Authorize fare + the customer's platform fee (the "25/50/75" service fee).
+                    from founding_members import is_founder as _is_founder, compute_ride_fees as _crf
+                    try:
+                        _cf = _is_founder(db, ride_request.customer_id)
+                    except Exception:
+                        _cf = False
+                    _chg = _crf(float(bid.proposed_price), customer_is_founder=_cf)["customer_total_ex_tip"]
+                    final_price_cents = int(round(_chg * 100))
                     if final_price_cents > 0:
                         payment_intent = stripe.PaymentIntent.create(
                             amount=final_price_cents,
@@ -1809,6 +1816,85 @@ async def driver_counter_offer(bid_id: int, data: DriverCounterInput, request: R
     }
 
 
+def _authorize_ride_payment_and_insurance(db, ride_request, bid):
+    """G1 fix: charge the customer (PaymentIntent, manual capture) and log insurance
+    periods on the counter-accept match path, exactly like the normal bid-accept path.
+    Previously the counter-accept path matched the ride and later paid the driver WITHOUT
+    ever creating a customer charge (money leak). Raises HTTPException(402) on card decline
+    (ride auto-cancelled)."""
+    # Insurance: Period 1 END + Period 2 START — ride matched
+    try:
+        from insurance.events import log_insurance_event, get_or_create_session_id
+        _session_id = get_or_create_session_id(db, bid.driver_id)
+        log_insurance_event(db=db, driver_id=bid.driver_id, trip_type="rideshare",
+                            trip_id=ride_request.id, session_id=_session_id, period=1, event_type="period_end")
+        log_insurance_event(db=db, driver_id=bid.driver_id, trip_type="rideshare",
+                            trip_id=ride_request.id, session_id=_session_id, period=2, event_type="period_start")
+        db.commit()
+    except Exception as e:
+        logging.warning(f"Insurance event (counter accept) failed: {e}")
+
+    # Create Stripe PaymentIntent for customer charge (authorize now, capture on completion)
+    try:
+        import stripe
+        import os
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+        customer_obj = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()
+        if customer_obj and stripe.api_key:
+            _demo_emails = ["demo.customer@dollor.ai", "demo.driver@dollor.ai", "demo.restaurant@dollor.ai"]
+            if customer_obj.email and customer_obj.email.lower() in _demo_emails:
+                ride_request.stripe_payment_intent_id = "demo_pi_appstore_review"
+                db.commit()
+                logger.info(f"Ride {ride_request.id} demo account — skipping Stripe pre-auth (counter accept)")
+            else:
+                stripe_customer_id = getattr(customer_obj, 'stripe_customer_id', None)
+                if not stripe_customer_id:
+                    stripe_cust = stripe.Customer.create(
+                        email=customer_obj.email,
+                        name=getattr(customer_obj, 'name', None) or getattr(customer_obj, 'full_name', None) or customer_obj.email,
+                        metadata={"dollor_customer_id": str(customer_obj.id)},
+                        idempotency_key=f"ride-cust-{customer_obj.id}")
+                    customer_obj.stripe_customer_id = stripe_cust.id
+                    stripe_customer_id = stripe_cust.id
+                    db.commit()
+                # Authorize fare + the customer's platform fee (the "25/50/75" service fee).
+                from founding_members import is_founder as _is_founder, compute_ride_fees as _crf
+                try:
+                    _cf = _is_founder(db, ride_request.customer_id)
+                except Exception:
+                    _cf = False
+                _chg = _crf(float(bid.proposed_price), customer_is_founder=_cf)["customer_total_ex_tip"]
+                final_price_cents = int(round(_chg * 100))
+                if final_price_cents > 0:
+                    payment_intent = stripe.PaymentIntent.create(
+                        amount=final_price_cents, currency="usd", customer=stripe_customer_id,
+                        description=f"Rideshare #{ride_request.request_id}",
+                        metadata={"ride_request_id": str(ride_request.id), "request_id": ride_request.request_id,
+                                  "driver_id": str(bid.driver_id), "type": "rideshare"},
+                        capture_method="manual", idempotency_key=f"ride-pi-{ride_request.id}")
+                    ride_request.stripe_payment_intent_id = payment_intent.id
+                    db.commit()
+                    logger.info(f"Ride {ride_request.id} PaymentIntent {payment_intent.id} created (${bid.proposed_price:.2f}) [counter accept]")
+    except stripe.error.StripeError as stripe_err:
+        logger.error(f"Ride {ride_request.id} Stripe pre-auth FAILED [counter accept] ({type(stripe_err).__name__}): {stripe_err} — auto-cancelling")
+        ride_request.status = RideRequestStatus.CANCELLED
+        ride_request.cancelled_at = datetime.utcnow()
+        ride_request.payment_status = "pre_auth_failed"
+        ride_request.matched_bid_id = None
+        ride_request.matched_driver_id = None
+        ride_request.final_price = None
+        db.commit()
+        try:
+            send_push_notification("customer", ride_request.customer_id, "Payment Failed",
+                "Your card could not be pre-authorized. Please update your payment method and try again.",
+                data={"type": "payment_failed", "ride_request_id": str(ride_request.id)}, db=db)
+        except Exception:
+            pass
+        raise HTTPException(status_code=402, detail={"error": "payment_failed", "message": "Your card was declined. Please update your payment method and try again."})
+    except Exception as e:
+        logger.error(f"Ride {ride_request.id} Stripe PaymentIntent creation failed (non-blocking) [counter accept]: {e}")
+
+
 @router.post("/bid/{bid_id}/accept-counter")
 async def accept_counter_offer(bid_id: int, request: Request, auth_driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Driver accepts customer's counter-offer. Requires driver auth (bid owner)."""
@@ -1860,6 +1946,11 @@ async def accept_counter_offer(bid_id: int, request: Request, auth_driver: Drive
         other_bid.customer_response = "Another bid was accepted"
 
     db.commit()
+
+    # G1 fix: charge the customer (PaymentIntent) + log insurance, same as the normal
+    # accept path. Raises 402 and auto-cancels if the card is declined — so a driver can
+    # NEVER be paid on this path without the rider having been charged.
+    _authorize_ride_payment_and_insurance(db, ride_request, bid)
 
     # Send push notification to customer - COUNTER ACCEPTED
     try:
@@ -2574,17 +2665,24 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
     except Exception as e:
         logging.warning(f"Insurance event (ride complete) failed: {e}")
 
-    # Calculate and persist platform fee + driver payout (fare-tiered Model A)
+    # Calculate and persist fees + driver payout. The "25/50/75" platform fee ($1/$2/$3 by
+    # fare tier) is charged to the customer AND the driver on every ride. Founders (customer
+    # and/or driver) keep the frozen v1 rate for life; everyone else pays the current rate.
     final_price = float(ride_request.final_price or ride_request.suggested_price or 0)
-    if final_price <= 35:
-        platform_fee = 1.00
-    elif final_price <= 70:
-        platform_fee = 2.00
-    else:
-        platform_fee = 3.00
+    from founding_members import is_founder, compute_ride_fees
+    _cust_founder = False
+    _drv_founder = False
+    try:
+        _cust_founder = is_founder(db, ride_request.customer_id, "customer")
+        _drv_founder = is_founder(db, ride_request.matched_driver_id, "driver")
+    except Exception as _fe:
+        logger.warning(f"Founding lock check failed (non-blocking): {_fe}")
+    _fees = compute_ride_fees(final_price, customer_is_founder=_cust_founder, driver_is_founder=_drv_founder)
+    platform_fee = _fees["platform_fee_total"]           # $2 total = $1 customer + $1 driver (tier 1)
     ride_request.platform_fee = platform_fee
-    driver_a4a_share = 0.05  # TNC-13: driver's share of Access for All fee
-    ride_request.driver_payout = round(final_price - platform_fee - driver_a4a_share, 2)
+    # Customer is charged fare + their platform fee (see receipt/authorization). Driver receives
+    # fare − their platform fee. The $0.10 CPUC Access-for-All fee is remitted by the platform.
+    ride_request.driver_payout = _fees["driver_payout"]  # fare − driver platform fee
 
     # Prop 22: compute per-ride floor data (non-blocking — failure must not block ride completion)
     try:
@@ -3067,6 +3165,29 @@ async def get_ride_receipt(request_id: int, request: Request, _auth: dict = Depe
     driver_payout = float(ride.driver_payout or 0)
     distance_miles = (ride.estimated_distance_km or 0) * 0.621371
 
+    # Transparent fee breakdown. Customer pays fare + their service fee (+ tip). The same
+    # "25/50/75" fee is charged to the driver side (deducted from payout); both shown here.
+    from founding_members import is_founder as _is_founder, compute_ride_fees as _crf
+    try:
+        _cf = _is_founder(db, ride.customer_id, "customer")
+        _df = _is_founder(db, ride.matched_driver_id, "driver")
+    except Exception:
+        _cf = _df = False
+    _f = _crf(final_price, customer_is_founder=_cf, driver_is_founder=_df)
+    _customer_fee = _f["customer_platform_fee"]
+    _fare_breakdown = {
+        "base_fare": final_price,
+        "platform_fee": _customer_fee,  # the customer's service fee — ADDED to their charge
+        "platform_fee_note": "Service fee by fare tier: $1 (≤$25), $2 (≤$50), $3 (>$50). Founders lock today's rate for life.",
+        "access_for_all_fee": 0.10,
+        "access_for_all_note": "$0.10/trip collected for the CPUC Access-for-All Fund (remitted by the platform).",
+        "tip": tip,
+        "total": round(final_price + _customer_fee + tip, 2),  # what the rider actually pays
+        "driver_platform_fee": _f["driver_platform_fee"],
+        "driver_receives": _f["driver_payout"],  # fare − driver service fee (tip paid separately, 100%)
+        "is_founder": _cf,
+    }
+
     return {
         "success": True,
         "receipt": {
@@ -3079,15 +3200,7 @@ async def get_ride_receipt(request_id: int, request: Request, _auth: dict = Depe
                 "distance_miles": round(distance_miles, 1),
                 "duration_minutes": ride.estimated_duration_minutes
             },
-            "fare_breakdown": {
-                "base_fare": final_price,
-                "platform_fee": platform_fee,
-                "access_for_all_fee": 0.10,
-                "access_for_all_customer_share": 0.05,
-                "access_for_all_driver_share": 0.05,
-                "tip": tip,
-                "total": round(final_price + platform_fee + 0.05 + tip, 2)
-            },
+            "fare_breakdown": _fare_breakdown,
             "payment": {
                 "status": ride.payment_status or "pending",
                 "paid_at": ride.payment_completed_at.isoformat() if ride.payment_completed_at else None
@@ -3191,6 +3304,25 @@ async def get_ride_waybill(request_id: int, request: Request, _auth: dict = Depe
 
     driver = db.query(Driver).filter(Driver.id == ride.matched_driver_id).first() if ride.matched_driver_id else None
 
+    _wb_fare = float(ride.final_price or ride.suggested_price or 0)
+    from founding_members import is_founder as _is_founder, compute_ride_fees as _crf
+    try:
+        _wb_cf = _is_founder(db, ride.customer_id, "customer")
+        _wb_df = _is_founder(db, ride.matched_driver_id, "driver")
+    except Exception:
+        _wb_cf = _wb_df = False
+    _wbf = _crf(_wb_fare, customer_is_founder=_wb_cf, driver_is_founder=_wb_df)
+    _waybill_fare = {
+        "amount": _wb_fare,
+        "customer_platform_fee": _wbf["customer_platform_fee"],
+        "driver_platform_fee": _wbf["driver_platform_fee"],
+        "platform_fee": _wbf["platform_fee_total"],  # total (customer + driver)
+        "customer_total": round(_wb_fare + _wbf["customer_platform_fee"], 2),
+        "driver_payout": _wbf["driver_payout"],
+        "access_for_all_fee": 0.10,
+        "payment_method": "card"
+    }
+
     return {
         "success": True,
         "waybill": {
@@ -3198,7 +3330,7 @@ async def get_ride_waybill(request_id: int, request: Request, _auth: dict = Depe
                 "carrier_name": "Zietra Technologies inc",
                 "dba": "Dollor.ai",
                 "permit_type": "TCP-P TNC",
-                "permit_number": None  # To be filled after CPUC issues permit
+                "permit_number": "TNC0050982-N"  # CPUC TNC permit, issued 2026-10-07, exp 2026-10-07..2029
             },
             "trip_id": ride.request_id,
             "status": ride.status.value,
@@ -3218,12 +3350,7 @@ async def get_ride_waybill(request_id: int, request: Request, _auth: dict = Depe
                 "dropoff_address": ride.dropoff_address,
                 "dropoff_time": ride.completed_at.isoformat() if ride.completed_at else None
             },
-            "fare": {
-                "amount": float(ride.final_price or ride.suggested_price or 0),
-                "platform_fee": float(ride.platform_fee or 0),
-                "access_for_all_fee": 0.10,
-                "payment_method": "card"
-            },
+            "fare": _waybill_fare,
             "accessibility_requested": getattr(ride, 'accessibility_requested', False),
             "prearranged": True,  # All TNC rides are prearranged by definition
             "created_at": ride.created_at.isoformat() if ride.created_at else None

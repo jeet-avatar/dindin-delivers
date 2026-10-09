@@ -163,13 +163,13 @@ const CustomerSettings: React.FC = () => {
           app_version: APP_VERSION
         },
         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-      ).catch(() => {});
+      );
 
       message.success('Thank you for your feedback! We\'ll review your report.');
       setBugDescription('');
       setShowBugReportModal(false);
     } catch (error) {
-      message.success('Report submitted. Thank you!');
+      message.error('Could not submit your report. Please email support@dollor.ai.');
     } finally {
       setSubmittingBug(false);
     }
@@ -184,7 +184,7 @@ const CustomerSettings: React.FC = () => {
     setDeletingAccount(true);
     try {
       const token = localStorage.getItem('customer_token');
-      await axios.delete(`${API_URL}/api/customers/${customerId}`, {
+      await axios.delete(`${API_URL}/api/customers/${customerId}/delete`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
 

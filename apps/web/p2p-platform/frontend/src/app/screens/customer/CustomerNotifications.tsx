@@ -96,7 +96,7 @@ const CustomerNotifications: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('customer_token');
-      const response = await axios.get(`${API_URL}/api/customer/notifications/${customerId}`, {
+      const response = await axios.get(`${API_URL}/api/customer/notifications`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       setNotifications(response.data?.notifications || []);
@@ -112,11 +112,11 @@ const CustomerNotifications: React.FC = () => {
   const handleMarkAsRead = async (notification: NotificationItem) => {
     try {
       const token = localStorage.getItem('customer_token');
-      await axios.post(
-        `${API_URL}/api/customer/notifications/${customerId}/${notification.id}/read`,
+      await axios.put(
+        `${API_URL}/api/customer/notifications/${notification.id}/read`,
         {},
         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-      ).catch(() => {});
+      );
 
       // Update local state
       setNotifications(prev =>
@@ -134,9 +134,9 @@ const CustomerNotifications: React.FC = () => {
     setClearing(true);
     try {
       const token = localStorage.getItem('customer_token');
-      await axios.delete(`${API_URL}/api/customer/notifications/${customerId}/clear`, {
+      await axios.delete(`${API_URL}/api/customer/notifications`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
-      }).catch(() => {});
+      });
 
       setNotifications([]);
       message.success('All notifications cleared');

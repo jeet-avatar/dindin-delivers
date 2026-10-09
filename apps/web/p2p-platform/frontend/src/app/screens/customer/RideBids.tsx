@@ -265,7 +265,7 @@ const RideBids: React.FC<RideBidsProps> = ({ rideRequestId, customerId }) => {
             </div>
           }
         >
-          <Button type="primary" href="/customer/book-ride">
+          <Button type="primary" href="/customer/ride">
             Request a Ride
           </Button>
         </Empty>

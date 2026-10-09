@@ -319,7 +319,7 @@ const RideBooking: React.FC = () => {
   const pollRideStatus = useCallback(async (rideId: number) => {
     const checkStatus = async () => {
       try {
-        const response = await axios.get(`${API_URL}/api/erp/orders/${rideId}/full-tracking`);
+        const response = await axios.get(`${API_URL}/api/erp/rides/${rideId}/full-tracking`);
 
         if (response.data.success) {
           const order = response.data.order;

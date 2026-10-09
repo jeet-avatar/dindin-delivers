@@ -66,9 +66,13 @@ const DriverDocuments: React.FC = () => {
 
   const driverId = getCurrentDriverId();
 
+  const [bgCheck, setBgCheck] = useState<{ status: string; invitation_url?: string | null; passed?: boolean } | null>(null);
+  const [bgStarting, setBgStarting] = useState(false);
+
   useEffect(() => {
     if (driverId) {
       fetchDocuments();
+      fetchBgCheck();
     }
   }, [driverId]);
 
@@ -88,6 +92,42 @@ const DriverDocuments: React.FC = () => {
       // Don't show error - documents might not exist yet
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBgCheck = async () => {
+    if (!driverId) return;
+    try {
+      const token = localStorage.getItem('driver_token') || localStorage.getItem('access_token');
+      const res = await axios.get(`${API_URL}/api/checkr/background-check/${driverId}/status`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      setBgCheck(res.data);
+    } catch (error) {
+      // 404 / not started yet — treat as not started
+      setBgCheck({ status: 'not_started' });
+    }
+  };
+
+  const startBackgroundCheck = async () => {
+    setBgStarting(true);
+    try {
+      const token = localStorage.getItem('driver_token') || localStorage.getItem('access_token');
+      const res = await axios.post(`${API_URL}/api/checkr/background-check/initiate`, {}, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      const url = res.data.invitation_url;
+      if (url) {
+        message.success('Background check started — opening Checkr…');
+        window.open(url, '_blank');
+      } else {
+        message.success('Background check started.');
+      }
+      fetchBgCheck();
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || 'Failed to start background check');
+    } finally {
+      setBgStarting(false);
     }
   };
 
@@ -278,7 +318,9 @@ const DriverDocuments: React.FC = () => {
               View
             </Button>
           )}
-          {record.id && (
+          {/* Delete hidden: no backend endpoint for driver document delete (would 404).
+              Drivers replace a document by re-uploading. */}
+          {false && record.id && (
             <Button
               type="link"
               danger
@@ -342,6 +384,42 @@ const DriverDocuments: React.FC = () => {
           style={{ marginBottom: 24 }}
         />
       )}
+
+      {/* Background Check (Checkr) — required for passenger/rideshare driving, not food delivery */}
+      <Card
+        title={<Space><SafetyCertificateOutlined style={{ fontSize: 20 }} /> Background Check</Space>}
+        style={{ marginBottom: 24 }}
+      >
+        <p style={{ color: '#666', marginTop: 0 }}>
+          A criminal + driving-record (MVR) background check by Checkr is required before you can accept
+          <strong> passenger rides</strong> (CPUC TNC requirement). It is <strong>not</strong> required for food delivery.
+        </p>
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <div>
+            Status:{' '}
+            {bgCheck?.status === 'passed' ? (
+              <Tag color="success" icon={<CheckCircleOutlined />}>PASSED</Tag>
+            ) : bgCheck?.status === 'pending' ? (
+              <Tag color="processing" icon={<ClockCircleOutlined />}>IN PROGRESS</Tag>
+            ) : bgCheck?.status === 'failed' ? (
+              <Tag color="error" icon={<CloseCircleOutlined />}>NOT CLEARED</Tag>
+            ) : (
+              <Tag color="default">NOT STARTED</Tag>
+            )}
+          </div>
+          {bgCheck?.status === 'pending' && bgCheck?.invitation_url ? (
+            <Button type="primary" icon={<SafetyCertificateOutlined />} onClick={() => window.open(bgCheck.invitation_url!, '_blank')}>
+              Continue Background Check
+            </Button>
+          ) : bgCheck?.status === 'failed' ? (
+            <Alert type="error" showIcon message="Your background check did not clear. Please contact support." />
+          ) : bgCheck?.status !== 'passed' ? (
+            <Button type="primary" icon={<SafetyCertificateOutlined />} loading={bgStarting} onClick={startBackgroundCheck}>
+              Start Background Check
+            </Button>
+          ) : null}
+        </Space>
+      </Card>
 
       {/* Upload Cards */}
       <div className="upload-grid">

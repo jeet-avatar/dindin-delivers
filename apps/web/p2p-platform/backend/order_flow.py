@@ -1214,6 +1214,14 @@ async def create_order(
     Create a new order - Called from iOS Customer App
     AI Employee: OrderBot Alpha
     """
+    import os
+    # DELIVERY "COMING SOON": current commercial liability insurance (CPA-111956, Crum &
+    # Forster) covers RIDESHARE ONLY — food delivery must stay disabled to avoid uninsured
+    # activity. Restaurants can still onboard (vendor register stays open). Flip
+    # DELIVERY_ENABLED=true in the backend env once delivery insurance is in force.
+    if os.getenv("DELIVERY_ENABLED", "false").lower() not in ("true", "1", "yes"):
+        raise HTTPException(status_code=503, detail="Food delivery is coming soon and not yet available.")
+
     ai_employee = AI_EMPLOYEES["ORDER_PROCESSOR"]
 
     # Verify vendor exists and is approved
