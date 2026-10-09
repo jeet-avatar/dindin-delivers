@@ -120,6 +120,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [limits, setLimits] = useState<{ maxBytes: number; minSeconds: number; maxSeconds: number } | null>(null);
   const [selected, setSelected] = useState<string | null>(selectedId || null);
   const [showSaved, setShowSaved] = useState(false);
+  const autoLoadedRef = useRef<Set<string>>(new Set());
   const [stage, setStage] = useState(guided ? "listening" : "stems");
   const pollDelay = useRef(4000);
   useEffect(() => {
@@ -177,6 +178,22 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     void poll();
     return () => { controller.abort(); clearTimeout(timer); document.removeEventListener("visibilitychange", visible); };
   }, [refresh]);
+
+  const initialLoadDone = useRef(false);
+  useEffect(() => {
+    if (!items.length) return;
+    if (!initialLoadDone.current) {
+      items.forEach(ref => { if (ref.status === "ready") autoLoadedRef.current.add(ref.id); });
+      initialLoadDone.current = true;
+      return;
+    }
+    for (const ref of items) {
+      if (ref.status === "ready" && ref.storage === "local" && !autoLoadedRef.current.has(ref.id)) {
+        autoLoadedRef.current.add(ref.id);
+        void apiFetch(`/api/references/${ref.id}/local-open`, { method: "POST", body: JSON.stringify({ action: "ableton" }) }).catch(() => {});
+      }
+    }
+  }, [items]);
 
   async function chooseFile(next: File | null) {
     if (!next) return;
@@ -313,60 +330,59 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       {item && <div className="min-w-0 space-y-4">
         <h3 className="text-base font-semibold break-all">{item.name}</h3>
         <p className="text-xs text-neutral-400">{new Date(item.created_at).toLocaleString()}</p>
-        {item.storage === "local" && <LocalStemActions key={`local-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh} />}
+        {item.storage === "local" && item.status !== "ready" && <LocalStemActions key={`local-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh} />}
         {item.report && item.status === "ready" && <>
-          {guided && <div className="border-l-2 border-emerald-400 pl-3 space-y-2 text-sm">
-            {item.storage !== "local" && !listeningFinished(item.listening) ? <>
-              <p>{item.listening?.job?.status === "running" ? "Listening is in progress. Completed notes will appear in the Listening step." : "Would you like me to listen to this track? What stands out to you?"}</p>
-              {stage !== "listening" && <button className="underline" onClick={() => setStage("listening")}>Review listening consent</button>}
-            </> : <>
-              <p>{item.storage === "local" ? "Your stems are ready on this computer." : "Listening notes ready."} What would you like to borrow: the groove, bass, atmosphere, or structure?</p>
-              <button disabled={chatBusy || busy} onClick={() => onUse(item.id)} className="underline disabled:opacity-40">Discuss what I like</button>
-              <div className="flex flex-wrap gap-3">
-                <button onClick={() => setStage("stems")} className="underline">{item.stem_review?.status === "accepted" ? "Stems reviewed" : "Review estimated stems"}</button>
-                <button onClick={() => setStage("timing")} className="underline">{item.timing?.status === "confirmed" ? "Timing confirmed" : "Confirm section timing"}</button>
-                <button onClick={() => setStage("template")} className="underline">{item.template?.status === "approved" ? "Template approved" : "Shape my original template"}</button>
-              </div>
-            </>}
-          </div>}
-          <svg role="img" aria-label="Reference waveform" viewBox="0 0 160 40" className="h-20 w-full" preserveAspectRatio="none">
-            {item.report.waveform.map((v, i) => <line key={i} x1={i} x2={i} y1={20-v*19} y2={20+v*19} stroke="#34d399" strokeWidth="0.6" />)}
-          </svg>
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            <div><dt className="text-neutral-400">Estimated tempo</dt><dd>{item.report.tempo.bpm ?? "Unknown"} BPM</dd></div>
-            <div><dt className="text-neutral-400">Duration</dt><dd>{time(item.report.duration_seconds)}</dd></div>
-            <div className="col-span-2"><dt className="text-neutral-400">Possible keys</dt><dd>{item.report.key_candidates.map(k => k.key).join(" / ") || "Not enough tonal evidence"}</dd></div>
-          </dl>
-          {item.storage !== "local" && <div ref={audioSection}><ReferenceAudio key={item.id} id={item.id} cue={cue} stems={audioStems(item.report)} /></div>}
-          <ReferenceWorkflow stage={stage} onStage={setStage} review={item.stem_review} timing={item.timing} listening={item.listening} listeningBusy={item.listening_busy}
-            template={item.template} onOpenChat={onOpenChat} />
-          {item.timing && item.stem_review && (["stems", "timing"] as const).map(mode => <div key={mode} hidden={stage!==mode}>
-            <ReferenceReview key={`${item.id}-${mode}-${item.timing!.analysis_id}`} id={item.id} name={item.name} mode={mode} timing={item.timing!} review={item.stem_review!}
-              health={item.report!.stem_health} stems={reviewStems(item.report)} local={item.storage === "local"} refresh={refresh} onCue={seconds => setCue({seconds})}
-              onStemSaved={review => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, stem_review: review } : reference))}
-              onTimingSaved={timing => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, timing } : reference))}
-              onNext={() => setStage(mode === "stems" ? "timing" : "listening")} /></div>)}
-          <div hidden={stage!=="listening"}>{item.storage === "local"
-            ? <LocalOnlyNote onNext={() => setStage("template")} />
-            : <ReferenceListening key={item.id} item={item} available={listeningAvailable} refresh={refresh}
-              checkedAt={checkedAt} pollError={pollError} onNext={() => setStage("template")} onDiscuss={chatBusy || busy ? undefined : () => onUse(item.id)} />}</div>
-          {stage === "compare" && (item.storage === "local" ? <LocalOnlyNote />
-            : <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} stems={audioStems(item.report)} />)}
-          <div hidden={stage!=="template"}>{item.timing?.status === "confirmed" && item.stem_review?.status === "accepted" ?
-            <ReferenceTemplate key={`template-${item.id}-${item.timing.revision}`} id={item.id} template={item.template} bpm={item.report.tempo.bpm} timing={item.timing}
-              refresh={refresh} onUse={() => onUse(item.id, true)} chatBusy={chatBusy} onApproved={onTemplateApproved}
-              onSaved={template => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, template } : reference))}
-              onCompare={() => setStage("compare")} /> :
-            <p role="status" className="text-sm text-amber-200">Stem review and timing confirmation required.</p>}</div>
-          <details className="text-sm"><summary className="cursor-pointer">Measured audio details</summary>
-          <h4 className="text-sm font-medium">Estimated stem activity</h4>
-          <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="text-neutral-400"><th>Stem</th><th>RMS dBFS</th><th>Onsets/sec</th></tr></thead>
-            <tbody>{item.report.stems.map(s => <tr key={s.name} className="border-t border-neutral-800"><td className="py-2">{s.name}</td><td>{s.rms_dbfs}</td><td>{s.onset_events_per_second}</td></tr>)}</tbody></table></div>
-          <p className="text-sm"><span className="text-neutral-400">Possible energy changes: </span>{item.report.possible_change_points_seconds.map(time).join(", ") || "None detected"}</p>
-          <details className="text-xs text-neutral-400"><summary className="cursor-pointer">Analysis limitations</summary>
-            <ul className="mt-2 space-y-1">{item.report.limitations.map(l => <li key={l}>{l}</li>)}</ul></details>
+          <div className="border-l-4 border-emerald-400 pl-4 py-3 space-y-3">
+            <p className="text-sm text-emerald-200 font-medium">Stems are ready</p>
+            <svg role="img" aria-label="Reference waveform" viewBox="0 0 160 40" className="h-16 w-full" preserveAspectRatio="none">
+              {item.report.waveform.map((v, i) => <line key={i} x1={i} x2={i} y1={20-v*19} y2={20+v*19} stroke="#34d399" strokeWidth="0.6" />)}
+            </svg>
+            <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+              <div><span className="text-neutral-400">Tempo </span><span>{item.report.tempo.bpm ?? "—"} BPM</span></div>
+              <div><span className="text-neutral-400">Key </span><span>{item.report.key_candidates.map(k => k.key).join(" / ") || "—"}</span></div>
+              <div><span className="text-neutral-400">Duration </span><span>{time(item.report.duration_seconds)}</span></div>
+            </dl>
+            {item.storage === "local"
+              ? <LocalStemActions key={`ready-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh} />
+              : <div ref={audioSection}><ReferenceAudio key={item.id} id={item.id} cue={cue} stems={audioStems(item.report)} /></div>}
+            <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id)}
+              className="rounded bg-emerald-700 px-5 py-3 text-sm font-medium disabled:opacity-40">
+              Discuss this reference in chat
+            </button>
+          </div>
+          <details className="text-sm">
+            <summary className="cursor-pointer text-neutral-400">Advanced: review stems, timing, listening and template</summary>
+            <div className="mt-3 space-y-4">
+              <ReferenceWorkflow stage={stage} onStage={setStage} review={item.stem_review} timing={item.timing} listening={item.listening} listeningBusy={item.listening_busy}
+                template={item.template} onOpenChat={onOpenChat} />
+              {item.timing && item.stem_review && (["stems", "timing"] as const).map(mode => <div key={mode} hidden={stage!==mode}>
+                <ReferenceReview key={`${item.id}-${mode}-${item.timing!.analysis_id}`} id={item.id} name={item.name} mode={mode} timing={item.timing!} review={item.stem_review!}
+                  health={item.report!.stem_health} stems={reviewStems(item.report)} local={item.storage === "local"} refresh={refresh} onCue={seconds => setCue({seconds})}
+                  onStemSaved={review => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, stem_review: review } : reference))}
+                  onTimingSaved={timing => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, timing } : reference))}
+                  onNext={() => setStage(mode === "stems" ? "timing" : "listening")} /></div>)}
+              <div hidden={stage!=="listening"}>{item.storage === "local"
+                ? <LocalOnlyNote onNext={() => setStage("template")} />
+                : <ReferenceListening key={item.id} item={item} available={listeningAvailable} refresh={refresh}
+                  checkedAt={checkedAt} pollError={pollError} onNext={() => setStage("template")} onDiscuss={chatBusy || busy ? undefined : () => onUse(item.id)} />}</div>
+              {stage === "compare" && (item.storage === "local" ? <LocalOnlyNote />
+                : <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} stems={audioStems(item.report)} />)}
+              <div hidden={stage!=="template"}>{item.timing?.status === "confirmed" && item.stem_review?.status === "accepted" ?
+                <ReferenceTemplate key={`template-${item.id}-${item.timing.revision}`} id={item.id} template={item.template} bpm={item.report.tempo.bpm} timing={item.timing}
+                  refresh={refresh} onUse={() => onUse(item.id, true)} chatBusy={chatBusy} onApproved={onTemplateApproved}
+                  onSaved={template => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, template } : reference))}
+                  onCompare={() => setStage("compare")} /> :
+                <p role="status" className="text-sm text-amber-200">Stem review and timing confirmation required.</p>}</div>
+              <details className="text-sm"><summary className="cursor-pointer">Measured audio details</summary>
+              <h4 className="text-sm font-medium">Estimated stem activity</h4>
+              <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="text-neutral-400"><th>Stem</th><th>RMS dBFS</th><th>Onsets/sec</th></tr></thead>
+                <tbody>{item.report.stems.map(s => <tr key={s.name} className="border-t border-neutral-800"><td className="py-2">{s.name}</td><td>{s.rms_dbfs}</td><td>{s.onset_events_per_second}</td></tr>)}</tbody></table></div>
+              <p className="text-sm"><span className="text-neutral-400">Possible energy changes: </span>{item.report.possible_change_points_seconds.map(time).join(", ") || "None detected"}</p>
+              <details className="text-xs text-neutral-400"><summary className="cursor-pointer">Analysis limitations</summary>
+                <ul className="mt-2 space-y-1">{item.report.limitations.map(l => <li key={l}>{l}</li>)}</ul></details>
+              </details>
+            </div>
           </details>
-          {!guided && <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id)} className="rounded bg-emerald-700 px-4 py-2 text-sm disabled:opacity-40">Discuss reference in chat</button>}
         </>}
         {!['processing', 'uploading'].includes(item.status) && <button type="button" onClick={() => remove(item.id)} className="block text-sm text-red-300">Delete reference</button>}
       </div>}
