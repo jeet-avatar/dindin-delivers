@@ -1,13 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import { Showcase } from "@/components/Showcase";
+import { SocialLinks } from "@/components/SocialLinks";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon } from "@/components/Icons";
 import { isLoggedIn, apiFetch } from "@/lib/auth";
+import { MIXMIND_FAQS } from "@/lib/faqs";
+import {
+  ANNUAL_DISCOUNT_LABEL,
+  MIXMIND_COMBOS,
+  MIXMIND_PRICE,
+  MIXMIND_TRIAL_NOTE,
+  type BillingInterval,
+  type CheckoutPlanId,
+  ctaHref,
+  formatUsd,
+  planById,
+} from "@/lib/pricing";
 
-const MAC_DOWNLOAD = "/MixMind-mac.dmg";
-const WIN_DOWNLOAD = "/MixMind-Setup-win.exe";
+// The installer has no public URL of its own — /api/mixmind/download hands back a signed link that
+// expires in minutes, and only to a signed-in account on a plan that includes MixMind.
+const DOWNLOAD_FALLBACK_HREF = "/mixmind#pricing";
 
 const FEATURES = [
   {
@@ -26,9 +41,14 @@ const FEATURES = [
     desc: "\"20 deep house tracks under 124 BPM in Am\" — just type it. MixMind reads your library and builds the playlist from tracks you actually own.",
   },
   {
+    emoji: "🎚️",
+    title: "Intelligent Set Builder",
+    desc: "Pick a warm-up, peak-time or closing set, set a BPM range and let MixMind sequence tracks with smooth key flow. Skip tracks you played recently, then add the finished set to Rekordbox as a playlist.",
+  },
+  {
     emoji: "💿",
     title: "Pioneer USB Support",
-    desc: "Plug in your DJ USB. MixMind detects it instantly and lets you browse the PIONEER folder directly. Mac and Windows.",
+    desc: "Plug in your DJ USB. MixMind detects it instantly and lets you browse the PIONEER folder directly.",
   },
 ];
 
@@ -36,77 +56,113 @@ const STEPS = [
   {
     n: "01",
     title: "Download",
-    desc: "Sign in or start your free trial, then download MixMind for Mac or Windows.",
+    desc: "Choose a MixMind, BeatMind + MixMind or Studio plan, then sign in with your BeatMind account to download MixMind for Mac. Requires a Mac with Apple silicon (M1 or later); Windows coming soon.",
   },
   {
     n: "02",
     title: "Connect",
-    desc: "MixMind reads your Rekordbox XML automatically. Your full library loads in seconds.",
+    desc: "MixMind reads your Rekordbox library (database or XML) automatically. Your full library loads in seconds.",
   },
   {
     n: "03",
     title: "Organize",
-    desc: "Search, clean duplicates, build AI playlists. Your library, finally under control.",
+    desc: "Search, clean duplicates, build AI playlists and full sets. Your library, finally under control.",
   },
 ];
 
-const PRICING_FEATURES = [
+const STUDIO = planById("studio");
+
+const MIXMIND_FEATURES = [
   "Full library browser — unlimited tracks",
   "Duplicate detection & cleanup",
   "AI playlist builder",
+  "Intelligent Set Builder",
   "Pioneer USB drive support",
-  "Mac + Windows",
-  "Priority support",
+  "Mac now (Apple silicon) · Windows coming soon",
 ];
 
-const FAQS = [
+interface MixMindPriceCard {
+  id: CheckoutPlanId;
+  name: string;
+  monthly: number;
+  yearly: number;
+  available: boolean;
+  highlight: boolean;
+  savings: { monthly: number; yearly: number } | null;
+  features: string[];
+}
+
+const PRICE_CARDS: MixMindPriceCard[] = [
   {
-    q: "Do I need Rekordbox?",
-    a: "Yes — MixMind reads your Rekordbox library (XML or database). It works with Rekordbox 6 and 7. You don't need Rekordbox open while using MixMind.",
+    id: MIXMIND_PRICE.id,
+    name: "MixMind",
+    monthly: MIXMIND_PRICE.monthly,
+    yearly: MIXMIND_PRICE.yearly,
+    available: MIXMIND_PRICE.available,
+    highlight: true,
+    savings: null,
+    features: MIXMIND_FEATURES,
   },
-  {
-    q: "Does it modify my Rekordbox library?",
-    a: "No. MixMind is read-only by default. Duplicate cleanup marks tracks as hidden inside MixMind — it does not delete or modify your Rekordbox files.",
-  },
-  {
-    q: "Mac or Windows?",
-    a: "Both. The Mac DMG runs natively on Apple Silicon (M1/M2/M3/M4). Intel Macs need Rosetta 2 — if you don't have it, macOS will prompt you to install it free. The EXE installer works on Windows 10/11.",
-  },
-  {
-    q: "Is this the same as BeatMind?",
-    a: "No — they're separate tools. BeatMind makes music inside Ableton Live. MixMind organizes your existing DJ library. Both are $19/month.",
-  },
-  {
-    q: "Can I cancel anytime?",
-    a: "Yes. Cancel from your account with one click. No questions, no lock-in.",
-  },
+  ...MIXMIND_COMBOS.map((combo) => {
+    const beatmind = planById(combo.beatmindPlan);
+    return {
+      id: combo.id,
+      name: combo.name,
+      monthly: combo.monthly,
+      yearly: combo.yearly,
+      available: combo.available,
+      highlight: false,
+      savings: {
+        monthly: combo.savingsMonthly,
+        yearly: beatmind.yearly + MIXMIND_PRICE.yearly - combo.yearly,
+      },
+      features: [
+        "Everything in MixMind",
+        `BeatMind ${beatmind.name}: ${beatmind.includedTracks} tracks / month`,
+        ...(beatmind.includedCloud > 0 ? [`${beatmind.includedCloud} cloud HQ separations / month`] : []),
+        "AI producer inside Ableton Live (fair use)",
+      ],
+    };
+  }),
 ];
 
 export default function MixMindPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>("month");
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
+  // Computed after mount (not during the static export) so a signed-in visitor's pricing clicks go
+  // straight to the dashboard's plan picker instead of a redundant, failing /signup.
+  const [loggedIn, setLoggedIn] = useState(false);
+  useEffect(() => { setLoggedIn(isLoggedIn()); }, []);
   const router = useRouter();
 
-  async function handleDownload(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
+  async function handleDownload(e: React.MouseEvent<HTMLAnchorElement>) {
     e.preventDefault();
     if (!isLoggedIn()) {
       router.push("/login?redirect=/mixmind");
       return;
     }
+    setDownloadError("");
+    setDownloading(true);
     try {
-      const res = await apiFetch("/api/auth/me");
-      if (!res.ok) {
+      const res = await apiFetch("/api/mixmind/download");
+      if (res.status === 401) {
         router.push("/login?redirect=/mixmind");
         return;
       }
-      const user = await res.json();
-      if (!user.subscribed) {
-        router.push("/dashboard");
+      if (res.status === 402) {
+        router.push("/dashboard?upgrade=mixmind");
         return;
       }
+      if (!res.ok) throw new Error();
+      const { url } = await res.json();
+      window.location.href = url;
     } catch {
-      // network error — fall through and let the download attempt proceed
+      setDownloadError("Couldn't start the download. Please try again in a moment.");
+    } finally {
+      setDownloading(false);
     }
-    window.location.href = href;
   }
 
   return (
@@ -127,15 +183,16 @@ export default function MixMindPage() {
           <a href="#features" className="hover:text-white transition-colors duration-150">Features</a>
           <a href="#how" className="hover:text-white transition-colors duration-150">How it works</a>
           <a href="#pricing" className="hover:text-white transition-colors duration-150">Pricing</a>
+          <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
+          <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
           <Link href="/" className="hover:text-white transition-colors duration-150">BeatMind ↗</Link>
         </div>
         <a
-          href={MAC_DOWNLOAD}
-          onClick={(e) => handleDownload(e, MAC_DOWNLOAD)}
+          href="#pricing"
           className="text-sm px-4 py-2 rounded-lg font-medium transition-opacity duration-150 hover:opacity-90"
           style={{ background: "var(--accent)", color: "#fff" }}
         >
-          Download for Mac →
+          Get MixMind →
         </a>
       </nav>
 
@@ -144,42 +201,40 @@ export default function MixMindPage() {
         {/* Hero */}
         <section className="max-w-4xl mx-auto px-6 pt-24 pb-20 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium mb-8 border" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--accent)" }}>
-            ✦ Desktop app · Mac + Windows · Reads Rekordbox
+            ✦ Desktop app · Mac (Apple silicon) · Reads Rekordbox
           </div>
           <h1 className="text-5xl md:text-7xl font-black leading-tight mb-6 tracking-tight">
             Your DJ library,<br />
             <span style={{ color: "var(--accent)" }}>finally organized.</span>
           </h1>
           <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)", lineHeight: "1.6" }}>
-            MixMind reads your Rekordbox collection and gives you a fast library browser, an AI playlist builder, and a one-click duplicate cleaner — all in a single desktop app.
+            MixMind reads your Rekordbox collection and gives you a fast library browser, an AI playlist builder, a set builder and a one-click duplicate cleaner — all in a single desktop app.
           </p>
 
-          {/* Download buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          {/* Primary CTA + download buttons */}
+          <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center">
             <a
-              href={MAC_DOWNLOAD}
-              onClick={(e) => handleDownload(e, MAC_DOWNLOAD)}
-              className="flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90"
+              href="#pricing"
+              className="flex items-center justify-center px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-              </svg>
-              Download for Mac
+              Get MixMind · {formatUsd(MIXMIND_PRICE.monthly)}/mo
             </a>
             <a
-              href={WIN_DOWNLOAD}
-              onClick={(e) => handleDownload(e, WIN_DOWNLOAD)}
+              href={DOWNLOAD_FALLBACK_HREF}
+              onClick={handleDownload}
+              aria-disabled={downloading}
               className="flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-semibold text-lg transition-colors duration-150 border hover:border-white"
               style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M3 5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25v13.5A2.25 2.25 0 0 1 18.75 21H5.25A2.25 2.25 0 0 1 3 18.75V5.25zm9 1a1 1 0 0 0-1 1v4.586l-1.293-1.293a1 1 0 0 0-1.414 1.414l3 3a1 1 0 0 0 1.414 0l3-3a1 1 0 0 0-1.414-1.414L13 11.836V7.25a1 1 0 0 0-1-1z"/>
+                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
               </svg>
-              Download for Windows
+              {downloading ? "Preparing download…" : "Download for Mac"}
             </a>
           </div>
-          <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>7-day free trial · No credit card required · Cancel anytime</p>
+          <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>From {formatUsd(MIXMIND_PRICE.monthly)}/month · Requires a Mac with Apple silicon (M1 or later); Windows coming soon · Sign in with your BeatMind account to unlock the download</p>
+          {downloadError && <p role="alert" className="text-xs mt-2" style={{ color: "#fca5a5" }}>{downloadError}</p>}
 
           {/* App preview */}
           <div className="mt-16 rounded-2xl border text-left overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="img" aria-label="MixMind app preview showing library browser with tracks, BPM, and key columns">
@@ -229,6 +284,16 @@ export default function MixMindPage() {
           </div>
         </section>
 
+        {/* What is MixMind? — concise definition for search and answer engines */}
+        <section className="max-w-3xl mx-auto px-6 pb-4" aria-labelledby="what-is-heading">
+          <div className="border-l-2 pl-5 py-1" style={{ borderColor: "var(--accent)" }}>
+            <h2 id="what-is-heading" className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>What is MixMind?</h2>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              MixMind is a desktop DJ library manager for Mac (Apple silicon) that reads your Rekordbox 6 or 7 collection. It gives you a fast, searchable library browser, an AI playlist builder that picks from tracks you already own, a duplicate finder, Pioneer USB drive browsing and an Intelligent Set Builder that sequences warm-up, peak-time or closing techno and minimal sets by BPM and key and can add them to Rekordbox as playlists (more genres coming). Browsing, searching and finding duplicates never change your Rekordbox library; the Set Builder only writes to Rekordbox when you click Add to Rekordbox, which adds the set as a playlist after backing up your library (Rekordbox must be closed). A Windows version of MixMind is coming soon. MixMind is made by the BeatMind team and costs from {formatUsd(MIXMIND_PRICE.monthly)}/month ({formatUsd(MIXMIND_PRICE.yearly)}/year), or {formatUsd(MIXMIND_COMBOS[0].monthly)}/month bundled with BeatMind Starter. It is also included in BeatMind Studio ({formatUsd(STUDIO.monthly)}/month).
+            </p>
+          </div>
+        </section>
+
         {/* Features */}
         <section id="features" className="max-w-6xl mx-auto px-6 py-20" aria-labelledby="features-heading">
           <h2 id="features-heading" className="text-3xl md:text-4xl font-bold text-center mb-4">
@@ -266,38 +331,108 @@ export default function MixMindPage() {
                 </li>
               ))}
             </ol>
+            <p className="text-center text-sm mt-12">
+              <Link href="/guide#mixmind" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
+                Step-by-step MixMind guide &rarr;
+              </Link>
+            </p>
           </div>
         </section>
 
+        <Showcase product="mixmind" />
+
         {/* Pricing */}
-        <section id="pricing" className="max-w-2xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
-          <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Simple pricing</h2>
-          <p className="mb-12" style={{ color: "var(--text-secondary)" }}>
-            One plan. Everything included. Cancel anytime.
+        <section id="pricing" className="max-w-6xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
+          <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Pricing</h2>
+          <p className="mb-8 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>
+            Get MixMind on its own, or bundle it with BeatMind and save {formatUsd(MIXMIND_COMBOS[0].savingsMonthly)}/month. Cancel anytime.
           </p>
-          <div className="rounded-2xl border p-8 relative overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--accent)" }}>
-            <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "#fff" }}>
-              7-DAY FREE TRIAL
-            </div>
-            <div className="text-6xl font-black mb-2" aria-label="19 dollars per month">$19</div>
-            <div className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>per month · billed monthly · cancel anytime</div>
-            <ul className="text-sm space-y-3 text-left mb-8 max-w-xs mx-auto">
-              {PRICING_FEATURES.map((item) => (
-                <li key={item} className="flex items-center gap-2">
-                  <CheckIcon size={16} color="var(--accent)" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <a
-              href={MAC_DOWNLOAD}
-              onClick={(e) => handleDownload(e, MAC_DOWNLOAD)}
-              className="block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
-              style={{ background: "var(--accent)", color: "#fff" }}
-            >
-              Download for Mac →
-            </a>
-            <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>No credit card required for trial</p>
+
+          {/* Billing interval toggle */}
+          <div className="inline-flex p-1 rounded-xl border mb-3" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="group" aria-label="Billing interval">
+            {(["month", "year"] as const).map((option) => {
+              const selected = billingInterval === option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setBillingInterval(option)}
+                  aria-pressed={selected}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150"
+                  style={{ background: selected ? "var(--accent)" : "transparent", color: selected ? "#fff" : "var(--text-secondary)" }}
+                >
+                  {option === "month" ? "Monthly" : `Yearly · ${ANNUAL_DISCOUNT_LABEL}`}
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="text-xs mb-10" style={{ color: "var(--text-secondary)" }}>{MIXMIND_TRIAL_NOTE}</p>
+
+          {/* Price cards */}
+          <div className="grid gap-6 md:grid-cols-3 text-left">
+            {PRICE_CARDS.map((card) => {
+              const price = billingInterval === "month" ? card.monthly : card.yearly;
+              const unit = billingInterval === "month" ? "month" : "year";
+              let savingsLabel: string | null = null;
+              if (card.savings) {
+                savingsLabel = billingInterval === "month"
+                  ? `Save ${formatUsd(card.savings.monthly)}/mo vs separate`
+                  : `Save ${formatUsd(card.savings.yearly)}/yr vs separate`;
+              }
+              return (
+                <div
+                  key={card.id}
+                  className="rounded-2xl border p-8 relative overflow-hidden flex flex-col"
+                  style={{ background: "var(--bg-secondary)", borderColor: card.highlight ? "var(--accent)" : "var(--border)" }}
+                >
+                  {card.highlight && (
+                    <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "#fff" }}>
+                      FOR DJS
+                    </div>
+                  )}
+                  <h3 className="text-xl font-semibold mb-4">{card.name}</h3>
+                  <div className="text-5xl font-black mb-2" aria-label={`${price} dollars per ${unit}`}>{formatUsd(price)}</div>
+                  <div className="text-sm mb-2" style={{ color: "var(--text-secondary)" }}>
+                    per {unit}
+                    {billingInterval === "year" ? ` · ${ANNUAL_DISCOUNT_LABEL}` : " · cancel anytime"}
+                  </div>
+                  <div className="text-sm font-semibold mb-6 min-h-5" style={{ color: "var(--accent)" }}>{savingsLabel}</div>
+                  <ul className="text-sm space-y-3 mb-8 flex-1">
+                    {card.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2">
+                        <span className="mt-0.5 flex-shrink-0"><CheckIcon size={16} color="var(--accent)" /></span>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  {card.available ? (
+                    <Link
+                      href={ctaHref(card.id, billingInterval, loggedIn)}
+                      className={card.highlight
+                        ? "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
+                        : "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-colors duration-150 border hover:border-white"}
+                      style={card.highlight ? { background: "var(--accent)", color: "#fff" } : { borderColor: "var(--border)", color: "var(--text-primary)" }}
+                    >
+                      Choose {card.name} &rarr;
+                    </Link>
+                  ) : (
+                    <span className="block w-full py-4 rounded-xl font-semibold text-lg text-center border opacity-60" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }} aria-disabled="true">
+                      Not available yet
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Studio */}
+          <div className="mt-6 p-5 rounded-xl border text-sm text-left md:text-center" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
+            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Included in BeatMind {STUDIO.name}: </span>
+            MixMind comes with Studio ({formatUsd(STUDIO.monthly)}/mo or {formatUsd(STUDIO.yearly)}/yr), along with {STUDIO.includedTracks} BeatMind tracks and {STUDIO.includedCloud} cloud HQ separations a month and priority support.{" "}
+            <Link href={ctaHref(STUDIO.id, billingInterval, loggedIn)} className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
+              Choose Studio &rarr;
+            </Link>
           </div>
 
           {/* Also have BeatMind? */}
@@ -306,7 +441,7 @@ export default function MixMindPage() {
             <Link href="/" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
               Check out BeatMind →
             </Link>
-            {" "}— our AI that builds full tracks inside Ableton Live.
+            {" "}— our AI that builds drums, bass and melodies part by part inside your Ableton Live Set.
           </div>
         </section>
 
@@ -314,7 +449,7 @@ export default function MixMindPage() {
         <section className="max-w-2xl mx-auto px-6 pb-20" aria-labelledby="faq-heading">
           <h2 id="faq-heading" className="text-3xl font-bold text-center mb-10">Frequently asked</h2>
           <div className="space-y-3">
-            {FAQS.map((faq, i) => (
+            {MIXMIND_FAQS.map((faq, i) => (
               <div key={i} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
@@ -342,26 +477,20 @@ export default function MixMindPage() {
         <section className="border-t py-20 text-center" style={{ borderColor: "var(--border)" }}>
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to clean up your library?</h2>
           <p className="mb-8" style={{ color: "var(--text-secondary)" }}>
-            Download MixMind. Your Rekordbox library loads in seconds.
+            MixMind is {formatUsd(MIXMIND_PRICE.monthly)}/month, or included with BeatMind + MixMind and Studio. Sign in with your BeatMind account to download. Your Rekordbox library loads in seconds.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
-              href={MAC_DOWNLOAD}
-              onClick={(e) => handleDownload(e, MAC_DOWNLOAD)}
+              href={DOWNLOAD_FALLBACK_HREF}
+              onClick={handleDownload}
+              aria-disabled={downloading}
               className="inline-block px-10 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
-              Download for Mac →
-            </a>
-            <a
-              href={WIN_DOWNLOAD}
-              onClick={(e) => handleDownload(e, WIN_DOWNLOAD)}
-              className="inline-block px-10 py-4 rounded-xl font-semibold text-lg border transition-colors duration-150 hover:border-white"
-              style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
-            >
-              Download for Windows →
+              {downloading ? "Preparing download…" : "Download for Mac →"}
             </a>
           </div>
+          {downloadError && <p role="alert" className="text-xs mt-3" style={{ color: "#fca5a5" }}>{downloadError}</p>}
         </section>
       </main>
 
@@ -378,11 +507,16 @@ export default function MixMindPage() {
             </div>
             <nav aria-label="Footer links">
               <div className="flex items-center gap-6 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
+                <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
                 <Link href="/privacy" className="hover:text-white transition-colors duration-150">Privacy</Link>
                 <Link href="/terms" className="hover:text-white transition-colors duration-150">Terms</Link>
                 <a href="mailto:support@beatmind.io" className="hover:text-white transition-colors duration-150">Support</a>
               </div>
             </nav>
+          </div>
+          <div className="mt-6">
+            <SocialLinks />
           </div>
           <div className="mt-6 text-xs text-center" style={{ color: "var(--text-secondary)" }}>
             Made with <span className="heart-pulse" style={{ color: "var(--accent)" }} aria-label="love">♥</span> for DJs everywhere

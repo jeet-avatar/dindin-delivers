@@ -1,6 +1,10 @@
 name: Deploy BeatMind
 
 on:
+  pull_request:
+    paths:
+      - 'apps/ableton-chatbot/**'
+      - '.github/workflows/deploy-beatmind.yml'
   push:
     branches:
       - main
@@ -18,9 +22,54 @@ env:
   CLOUDFRONT_DISTRIBUTION_ID: E3F24X4TEVJ9X2
 
 jobs:
+  test:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: beatmind_ci_test_only
+          POSTGRES_DB: beatmind_release_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Audio comparison test runtime
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Backend regression tests
+        working-directory: apps/ableton-chatbot/backend
+        env:
+          PYTHON_DOTENV_DISABLED: '1'
+        run: |
+          pip install -r requirements.txt -r requirements-test.txt -r requirements-reference.txt -r ../bridge/requirements.txt
+          DB_BACKEND=sqlite python -m pytest tests -q
+          DB_BACKEND=postgres DATABASE_URL=postgresql://postgres:beatmind_ci_test_only@localhost:5432/beatmind_release_test python -m pytest tests -q
+      - name: Frontend regression tests and production build
+        working-directory: apps/ableton-chatbot/frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://api.beatmind.io
+        run: |
+          npm ci
+          node --test tests/*.test.cjs
+          npm run build
+
   deploy-backend:
     name: Deploy Backend to ECS
+    needs: [test]
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    outputs:
+      task_definition: ${{ steps.register-task-def.outputs.task_def_arn }}
 
     steps:
       - name: Checkout code
@@ -47,59 +96,42 @@ jobs:
           docker build --platform linux/amd64 \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker run --rm --platform linux/amd64 --network none --memory 6g --cpus 2 \
+            --env PYTHONPATH=/app \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/apps/ableton-chatbot/scripts/release_runtime_smoke.py,target=/tmp/release_runtime_smoke.py,readonly" \
+            $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG python /tmp/release_runtime_smoke.py
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Register task definition with new image and SMTP vars
+      - name: Register task definition with image and audio secret reference
         id: register-task-def
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
-          SMTP_USER: ${{ secrets.BEATMIND_SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.BEATMIND_SMTP_PASSWORD }}
         run: |
-          # Fetch current task definition into a temp file
+          set -euo pipefail
+          umask 077
+          TASK_DIR=$(mktemp -d)
+          trap 'rm -rf "$TASK_DIR"' EXIT
+          # Resolve metadata only. The key value is fetched by ECS, never this job.
+          export AUDIO_SECRET_ARN=$(aws secretsmanager describe-secret \
+            --secret-id beatmind/production/audio-provider \
+            --query ARN --output text)
+          export RELEASE_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          CURRENT_TASK=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' --output text)
           aws ecs describe-task-definition \
-            --task-definition beatmind-api \
+            --task-definition "$CURRENT_TASK" \
             --query 'taskDefinition' \
-            --output json > /tmp/current-task-def.json
-
-          # Rewrite image and SMTP env vars using Python heredoc (no inline quoting issues)
-          python3 << 'PYEOF'
-          import json, os
-
-          with open('/tmp/current-task-def.json') as f:
-              td = json.load(f)
-
-          # Strip read-only fields AWS rejects on register
-          for key in ['taskDefinitionArn', 'revision', 'status', 'requiresAttributes',
-                      'placementConstraints', 'compatibilities', 'registeredAt',
-                      'registeredBy', 'deregisteredAt']:
-              td.pop(key, None)
-
-          # Stamp the newly-built image
-          registry   = os.environ['ECR_REGISTRY']
-          repository = os.environ['ECR_REPOSITORY']
-          tag        = os.environ['IMAGE_TAG']
-          td['containerDefinitions'][0]['image'] = f"{registry}/{repository}:{tag}"
-
-          # Inject / overwrite SMTP credentials
-          env_list = td['containerDefinitions'][0].get('environment', [])
-          env_dict = {e['name']: e['value'] for e in env_list}
-          env_dict['SMTP_USER']     = os.environ['SMTP_USER']
-          env_dict['SMTP_PASSWORD'] = os.environ['SMTP_PASSWORD']
-          td['containerDefinitions'][0]['environment'] = [
-              {'name': k, 'value': v} for k, v in env_dict.items()
-          ]
-
-          with open('/tmp/new-task-def.json', 'w') as f:
-              json.dump(td, f)
-          PYEOF
+            --output json > "$TASK_DIR/current.json"
+          python3 apps/ableton-chatbot/scripts/prepare_audio_task.py \
+            "$TASK_DIR/current.json" "$TASK_DIR/prepared.json"
 
           # Register the updated task definition
           NEW_REVISION=$(aws ecs register-task-definition \
-            --cli-input-json file:///tmp/new-task-def.json \
+            --cli-input-json "file://$TASK_DIR/prepared.json" \
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)
 
@@ -130,8 +162,8 @@ jobs:
 
   deploy-frontend:
     name: Deploy Frontend to CloudFront
+    needs: [test, deploy-backend]
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.message, '[frontend]') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code
@@ -163,7 +195,20 @@ jobs:
 
       - name: Deploy to S3
         working-directory: apps/ableton-chatbot/frontend
-        run: aws s3 sync out/ s3://${{ env.S3_BUCKET }}/ --delete
+        # Preserve installers, model files, release history and chunks used by open tabs.
+        run: |
+          aws s3 sync out/_next/ s3://${{ env.S3_BUCKET }}/_next/ --cache-control 'public,max-age=31536000,immutable'
+          aws s3 sync out/ s3://${{ env.S3_BUCKET }}/ --exclude '_next/*' --exclude 'release.json' --cache-control 'no-cache'
+
+      - name: Publish release identity
+        env:
+          RELEASE_TASK: ${{ needs.deploy-backend.outputs.task_definition }}
+        run: |
+          aws s3 cp s3://${{ env.S3_BUCKET }}/release.json /tmp/beatmind-previous-release.json
+          python3 apps/ableton-chatbot/scripts/write_release_manifest.py \
+            /tmp/beatmind-previous-release.json /tmp/beatmind-release.json \
+            --commit "$GITHUB_SHA" --task "$RELEASE_TASK"
+          aws s3 cp /tmp/beatmind-release.json s3://${{ env.S3_BUCKET }}/release.json --content-type application/json --cache-control no-store
 
       - name: Invalidate CloudFront cache
         run: |
@@ -174,14 +219,16 @@ jobs:
   notify:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [deploy-backend]
+    needs: [test, deploy-backend, deploy-frontend]
     if: always()
 
     steps:
       - name: Summary
         run: |
           echo "==================================="
-          echo "BeatMind Deployment Complete!"
+          echo "Validation: ${{ needs.test.result }}"
+          echo "Backend: ${{ needs.deploy-backend.result }}"
+          echo "Frontend: ${{ needs.deploy-frontend.result }}"
           echo "==================================="
           echo ""
           echo "Production URLs:"

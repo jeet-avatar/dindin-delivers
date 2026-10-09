@@ -1,0 +1,20 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+*.db
+*.db-*
+
+# The parent repository ignores every lib directory, including application source.
+!frontend/src/lib/
+!frontend/src/lib/**

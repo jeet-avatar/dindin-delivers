@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveAuth, apiFetch, API_URL } from "@/lib/auth";
+import { saveAuth, API_URL } from "@/lib/auth";
+import { parsePlanIntent, planIntentQuery } from "@/lib/billing";
 import { EyeIcon, EyeOffIcon } from "@/components/Icons";
 
 export default function LoginPage() {
@@ -12,6 +13,16 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // A plan picked on the public site (?plan=&interval=) is carried to the dashboard plan picker.
+  const [planQuery, setPlanQuery] = useState("");
+  // Where to send the user after signing in — a page like /mixmind that sent them here to authenticate
+  // first. Only an internal path is honored, so this can't be turned into an open redirect.
+  const [redirectTo, setRedirectTo] = useState("");
+  useEffect(() => {
+    setPlanQuery(planIntentQuery(parsePlanIntent(window.location.search)));
+    const redirect = new URLSearchParams(window.location.search).get("redirect");
+    setRedirectTo(redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "");
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,27 +37,8 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Login failed");
       saveAuth(data.token, data.user);
-
-      // Redirect to checkout if trial expired and not yet subscribed
-      const trialExpired = data.user.trial_ends_at
-        ? new Date(data.user.trial_ends_at) < new Date()
-        : true;
-      if (!data.user.subscribed && trialExpired) {
-        try {
-          const checkoutRes = await apiFetch("/api/stripe/checkout", {
-            method: "POST",
-            body: JSON.stringify({}),
-          });
-          const checkout = await checkoutRes.json();
-          if (checkout.url) {
-            window.location.href = checkout.url;
-            return;
-          }
-        } catch {
-          // Fall through to dashboard — 402 gate will prompt on next action
-        }
-      }
-      router.push("/dashboard");
+      // Users without a plan choose one in the dashboard; never force Stripe Checkout at sign-in.
+      router.push(redirectTo || `/dashboard${planQuery}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -127,7 +119,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm mt-6" style={{ color: "var(--text-secondary)" }}>
           No account?{" "}
-          <Link href="/signup" className="font-medium" style={{ color: "var(--accent)" }}>Start free trial</Link>
+          <Link href={`/signup${planQuery}`} className="font-medium" style={{ color: "var(--accent)" }}>Start free trial</Link>
         </p>
       </div>
     </div>

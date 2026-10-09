@@ -1,7 +1,12 @@
+# AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, etc.) are
+# intentionally NOT blocked: they follow the "*" rules below, so marketing
+# pages, the blog and /llms.txt stay available to answer engines.
 User-agent: *
 Allow: /
 Disallow: /dashboard
 Disallow: /login
 Disallow: /signup
+Disallow: /forgot-password
+Disallow: /reset-password
 
 Sitemap: https://www.beatmind.io/sitemap.xml

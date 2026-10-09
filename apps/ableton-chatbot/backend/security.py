@@ -13,8 +13,14 @@ from collections import defaultdict
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+from reference_limits import MAX_BYTES as MAX_REFERENCE_BYTES
 
 log = logging.getLogger("beatmind.security")
+
+# The MixMind AI proxy carries whole Anthropic Messages requests (tool schemas, track lists); the endpoint
+# enforces the same limit while reading a body sent without Content-Length.
+MIXMIND_AI_PATH = "/api/mixmind/ai/v1/messages"
+MIXMIND_AI_MAX_BODY_BYTES = 2 * 1024 * 1024
 
 # ---- Startup enforcement ----
 
@@ -22,10 +28,12 @@ def enforce_secrets():
     errors = []
     if not os.getenv("JWT_SECRET"):
         errors.append("JWT_SECRET env var is required")
-    if not os.getenv("ANTHROPIC_API_KEY"):
+    if os.getenv("BEATMIND_AI_PROVIDER", "anthropic").lower() != "bedrock" and not os.getenv("ANTHROPIC_API_KEY"):
         errors.append("ANTHROPIC_API_KEY env var is required")
     if os.getenv("STRIPE_SECRET_KEY") and not os.getenv("STRIPE_WEBHOOK_SECRET"):
         errors.append("STRIPE_WEBHOOK_SECRET is required when STRIPE_SECRET_KEY is set")
+    if os.getenv("STRIPE_LEGACY_SECRET_KEY") and not os.getenv("STRIPE_LEGACY_WEBHOOK_SECRET"):
+        errors.append("STRIPE_LEGACY_WEBHOOK_SECRET is required when STRIPE_LEGACY_SECRET_KEY is set")
     if errors:
         raise RuntimeError("Missing required env vars:\n" + "\n".join(f"  - {e}" for e in errors))
 
@@ -170,18 +178,104 @@ def validate_password(password: str):
         raise HTTPException(400, "Password must contain at least one number")
 
 
-# ---- Bridge token store ----
+# ---- Bridge and MixMind tokens ----
+# Signed and recorded in the database, so a signed-in Bridge or MixMind app survives deploys and restarts.
+# A revoked row ends a token early. Each kind carries its own `typ` claim and table, so a token of one kind
+# never works as the other, and neither works as a web login token.
 
-_bridge_tokens: set[str] = set()
+BRIDGE_TOKEN_DAYS = 180
+MIXMIND_TOKEN_DAYS = 365
+_TOKEN_TABLES = {"bridge": "bridge_tokens", "mixmind": "mixmind_tokens"}
+_TOKEN_DAYS = {"bridge": BRIDGE_TOKEN_DAYS, "mixmind": MIXMIND_TOKEN_DAYS}
+_token_tables_ready: set[str] = set()
 
-def register_bridge_token(token: str):
-    _bridge_tokens.add(token)
+
+def _token_table(conn, kind: str) -> str:
+    from database import now_sql
+    table = _TOKEN_TABLES[kind]
+    if table not in _token_tables_ready:
+        conn.execute(f"""CREATE TABLE IF NOT EXISTS {table} (
+            jti TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TEXT DEFAULT ({now_sql()}),
+            last_seen TEXT, revoked INTEGER NOT NULL DEFAULT 0)""")
+        _token_tables_ready.add(table)
+    return table
+
+
+def _create_app_token(kind: str, user_id: int) -> str:
+    import uuid
+    from datetime import datetime, timedelta, timezone
+    from jose import jwt
+    from beatmind_auth import ALGORITHM, _get_secret
+    from database import db
+    jti = uuid.uuid4().hex
+    now = datetime.now(timezone.utc)
+    with db() as conn:
+        conn.execute(f"INSERT INTO {_token_table(conn, kind)} (jti, user_id) VALUES (?, ?)", (jti, user_id))
+    return jwt.encode({"sub": str(user_id), "typ": kind, "jti": jti, "iat": now,
+                       "exp": now + timedelta(days=_TOKEN_DAYS[kind])}, _get_secret(), algorithm=ALGORITHM)
+
+
+def _app_token_claims(kind: str, token: str):
+    from jose import JWTError
+    from beatmind_auth import decode_token
+    try:
+        claims = decode_token(token)
+    except (JWTError, RuntimeError):
+        return None
+    return claims if claims.get("typ") == kind and claims.get("jti") else None
+
+
+def _app_token_owner(kind: str, token: str) -> int | None:
+    claims = _app_token_claims(kind, token or "")
+    if not claims:
+        return None
+    from database import db
+    with db() as conn:
+        table = _token_table(conn, kind)
+        row = conn.execute(f"SELECT user_id, revoked FROM {table} WHERE jti=?", (claims["jti"],)).fetchone()
+        if not row or row[1] or str(row[0]) != claims["sub"]:
+            return None
+        from database import now_sql
+        conn.execute(f"UPDATE {table} SET last_seen={now_sql()} WHERE jti=?", (claims["jti"],))
+        return int(row[0])
+
+
+def _revoke_app_token(kind: str, token: str):
+    claims = _app_token_claims(kind, token or "")
+    if not claims:
+        return
+    from database import db
+    with db() as conn:
+        conn.execute(f"UPDATE {_token_table(conn, kind)} SET revoked=1 WHERE jti=?", (claims["jti"],))
+
+
+def create_bridge_token(user_id: int) -> str:
+    return _create_app_token("bridge", user_id)
+
+
+def bridge_token_owner(token: str) -> int | None:
+    return _app_token_owner("bridge", token)
+
 
 def validate_bridge_token(token: str) -> bool:
-    return token in _bridge_tokens
+    return bridge_token_owner(token) is not None
+
 
 def revoke_bridge_token(token: str):
-    _bridge_tokens.discard(token)
+    _revoke_app_token("bridge", token)
+
+
+def create_mixmind_token(user_id: int) -> str:
+    """The MixMind desktop app's long-lived sign-in (365 days, revocable)."""
+    return _create_app_token("mixmind", user_id)
+
+
+def mixmind_token_owner(token: str) -> int | None:
+    return _app_token_owner("mixmind", token)
+
+
+def revoke_mixmind_token(token: str):
+    _revoke_app_token("mixmind", token)
 
 
 # ---- Global DoS protection middleware ----
@@ -203,8 +297,14 @@ class DoSProtectionMiddleware(BaseHTTPMiddleware):
 
         # 1. Block obviously oversized bodies early (before parsing)
         content_length = request.headers.get("content-length")
+        # The authenticated reference endpoint enforces this limit while streaming too.
+        max_body = self.MAX_BODY_BYTES
+        if request.method == "POST" and request.url.path == "/api/references":
+            max_body = MAX_REFERENCE_BYTES
+        elif request.method == "POST" and request.url.path == MIXMIND_AI_PATH:
+            max_body = MIXMIND_AI_MAX_BODY_BYTES
         try:
-            if content_length and int(content_length) > self.MAX_BODY_BYTES:
+            if content_length and int(content_length) > max_body:
                 return JSONResponse({"detail": "Request too large"}, status_code=413)
         except ValueError:
             return JSONResponse({"detail": "Request too large"}, status_code=413)

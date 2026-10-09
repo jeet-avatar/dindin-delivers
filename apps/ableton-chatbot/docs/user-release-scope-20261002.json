@@ -1,0 +1,20 @@
+{
+  "base": "d329de9c8a502d82fd525d5c02a2487efdfc364a",
+  "scope": "User-facing application fixes only; preserve the live PostgreSQL deployment.",
+  "included": [
+    "Chat follows streamed replies and completed results, preserves history scrolling and offers Jump to latest.",
+    "Composer shrinks after sending; stalled streams show progress notices and stop after loss of contact without replaying commands.",
+    "Persisted sound decisions include recording identity; song-scoped full-mix reviews remain in context.",
+    "Unverified actions stop dependent commands within the current tool batch.",
+    "Legacy Stripe customer replacement uses a null-safe query supported by SQLite and PostgreSQL.",
+    "CI runs pytest fixtures on SQLite and isolated PostgreSQL; deployment preserves installers, model assets and existing secret references.",
+    "Release metadata records the deployed application commit and task while preserving Bridge version identity."
+  ],
+  "excluded": [
+    "Marketing tracks, recorded videos, captions and media assets.",
+    "Marketing capture scripts, replay/restore tools and scripted sound approvals.",
+    "Automatic Ableton screen-following and updated audition capture require a separately tested, signed Bridge/OSC extension release; the published 1.3.6 installer is unchanged.",
+    "Unrelated modifications in other working directories."
+  ],
+  "deployment_gate": "Backend suites for both databases, frontend tests, production build and desktop/mobile browser verification must pass."
+}

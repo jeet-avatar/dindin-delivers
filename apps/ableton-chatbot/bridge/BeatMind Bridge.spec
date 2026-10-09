@@ -41,4 +41,6 @@ app = BUNDLE(
     name='BeatMind Bridge.app',
     icon=None,
     bundle_identifier='com.zietra.beatmind-bridge',
+    info_plist={'CFBundleURLTypes': [{'CFBundleURLName': 'com.zietra.beatmind-bridge.launch',
+        'CFBundleURLSchemes': ['beatmind-bridge'], 'CFBundleTypeRole': 'Viewer'}]},
 )

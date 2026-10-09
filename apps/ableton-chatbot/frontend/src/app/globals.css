@@ -78,3 +78,19 @@ button, [role="button"], a, label[for], select {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Browser autofill (saved passwords / password managers) paints its own light background but
+   leaves the page's light text color in place, so a filled email/password field shows light
+   text on a light background — invisible until you select it. Force our own colors to stick,
+   and delay the color-swap transition long enough that Chrome's repaint-on-interaction never
+   shows the native autofill color at all. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-primary) !important;
+  caret-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0px 1000px var(--bg-primary) inset !important;
+  box-shadow: 0 0 0px 1000px var(--bg-primary) inset !important;
+  transition: background-color 600000s ease-in-out 0s, color 600000s ease-in-out 0s;
+}
