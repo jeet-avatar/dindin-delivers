@@ -31,9 +31,4 @@ def planning_reason(project, reference_id, user_id):
         data = references.public(directory, item)
         if data['status'] != 'ready':
             return 'The reference is not ready. Check Reference review before continuing.'
-        # Local references keep their audio on the user's computer, so AI listening is not available for them.
-        if data.get('storage') != 'local' and not (data.get('listening') or {}).get('coverage', {}).get('full_coverage'):
-            return 'Ask the user to consent to AI listening in Reference review. Do not claim to have heard the whole track.'
-    if not project.get('live_set'):
-        return 'Planning only: the user must choose an Ableton set using Choose Live Set before any music is created. Continue discussing one musical choice at a time.'
     return ''

@@ -157,19 +157,15 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         model.assert_not_awaited()
         bridge.send_command.assert_not_awaited()
 
-    async def test_reference_workflow_gates_do_not_accept_partial_listening(self):
-        project = {'starting_point': 'reference', 'live_set': {'title': 'Test'}}
+    async def test_ready_reference_clears_all_gates(self):
+        project = {'starting_point': 'reference'}
         data = {'status': 'ready'}
         with patch.object(song_projects.references, 'owned', return_value=(None, {})), patch.object(song_projects.references, 'public', return_value=data):
             self.assertIn('upload', song_projects.planning_reason(project, None, 42))
-            self.assertIn('consent', song_projects.planning_reason(project, 'ref', 42))
-            data['listening'] = {'coverage': {'full_coverage': False, 'coverage_percent': 99}}
-            self.assertIn('consent', song_projects.planning_reason(project, 'ref', 42))
-            data['listening']['coverage']['full_coverage'] = True
             self.assertEqual(song_projects.planning_reason(project, 'ref', 42), '')
 
-    async def test_local_references_skip_ai_listening_gate(self):
-        project = {'starting_point': 'reference', 'live_set': {'title': 'Test'}}
+    async def test_local_reference_clears_all_gates(self):
+        project = {'starting_point': 'reference'}
         data = {'status': 'ready', 'storage': 'local'}
         with patch.object(song_projects.references, 'owned', return_value=(None, {})), patch.object(song_projects.references, 'public', return_value=data):
             self.assertEqual(song_projects.planning_reason(project, 'ref', 42), '')
