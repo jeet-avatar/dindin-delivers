@@ -51,6 +51,14 @@
         {
           "name": "REDIS_URL",
           "value": "redis://dollor-redis.uwva3u.0001.use1.cache.amazonaws.com:6379/0"
+        },
+        {
+          "name": "CHECKR_API_URL",
+          "value": "https://api.checkr-staging.com"
+        },
+        {
+          "name": "CHECKR_PACKAGE_SLUG",
+          "value": "checkrdirect_essential_criminal"
         }
       ],
       "secrets": [
@@ -105,6 +113,14 @@
         {
           "name": "ENCRYPTION_KEY",
           "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/encryption-key-31sAkk"
+        },
+        {
+          "name": "CHECKR_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/checkr-5utsG3:CHECKR_API_KEY::"
+        },
+        {
+          "name": "CHECKR_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:134607809447:secret:dollor/production/checkr-5utsG3:CHECKR_WEBHOOK_SECRET::"
         }
       ],
       "logConfiguration": {
