@@ -200,8 +200,11 @@ class JoinRequest(BaseModel):
 DEMO_EMAILS = ["demo.customer@dollor.ai", "demo.driver@dollor.ai", "demo.restaurant@dollor.ai"]
 
 
-def _founding_status_payload(db: Session, member_type: str, member_id: int, state: str | None) -> dict:
-    """Shared status payload for a customer or driver — founder state, eligibility, slots."""
+def _founding_status_payload(db: Session, member_type: str, member_id: int, state: str | None,
+                             email: str | None = None) -> dict:
+    """Shared status payload for a customer or driver — founder state, eligibility, slots.
+    Includes `is_demo` (so the mobile apps skip the card UI for App Store review demo
+    accounts) and `publishable_key` (the driver app has no other Stripe flow to set it)."""
     founder = get_founder(db, member_id, member_type)
     rides = member_ride_count(db, member_id, member_type)
     eligible = (founder is None) and (rides < CLAIM_WINDOW_RIDES)
@@ -215,6 +218,8 @@ def _founding_status_payload(db: Session, member_type: str, member_id: int, stat
         "deposit_usd": FOUNDING_DEPOSIT_CENTS / 100,
         "cap_per_state": FOUNDING_CAP_PER_STATE,
         "benefit": "Lock today's platform fee for life and stay protected from future fee / surge increases. Government fees still apply.",
+        "is_demo": bool(email and email.lower() in DEMO_EMAILS),
+        "publishable_key": os.getenv("STRIPE_PUBLISHABLE_KEY", ""),
     }
     st = (state or "").strip().upper()
     if st in _US_STATES:
@@ -300,7 +305,7 @@ def _do_founding_join(db: Session, *, member_type: str, entity, state: str,
 async def founding_status(request: Request, state: str | None = None,
                           customer: Customer = Depends(require_customer), db: Session = Depends(get_db)):
     """Customer: am I a founder / still eligible, and how many slots remain in a state."""
-    return _founding_status_payload(db, "customer", customer.id, state)
+    return _founding_status_payload(db, "customer", customer.id, state, email=customer.email)
 
 
 @router.post("/join")
@@ -315,7 +320,7 @@ async def founding_join(data: JoinRequest, request: Request,
 async def founding_driver_status(request: Request, state: str | None = None,
                                  driver: Driver = Depends(require_driver), db: Session = Depends(get_db)):
     """Driver: am I a founder / still eligible, and how many driver slots remain in a state."""
-    return _founding_status_payload(db, "driver", driver.id, state)
+    return _founding_status_payload(db, "driver", driver.id, state, email=driver.email)
 
 
 @router.post("/driver/join")

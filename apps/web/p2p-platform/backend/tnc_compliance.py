@@ -756,7 +756,7 @@ async def get_quarterly_report(
         "report": {
             "title": f"CPUC Quarterly Compliance Report — Q{quarter} {year}",
             "tnc_operator": "Zietra Technologies inc (dba Dollor.ai)",
-            "permit_number": None,  # Fill after CPUC issues permit
+            "permit_number": "TNC0050982-N",
             "period": f"Q{quarter} {year}",
             "start_date": start_date.strftime("%Y-%m-%d"),
             "end_date": (end_date - timedelta(days=1)).strftime("%Y-%m-%d"),
@@ -778,9 +778,11 @@ async def get_quarterly_report(
         "access_for_all_fund": {
             "total_trips": total_trips,
             "fee_per_trip": 0.10,
-            "total_collected": round(access_for_all_total, 2),
-            "customer_share": round(total_trips * 0.05, 2),
-            "driver_share": round(total_trips * 0.05, 2),
+            # ABSORB / platform-remit model: the platform remits the full $0.10/trip to the
+            # CPUC Access-for-All fund itself (consistent with the rider receipt). The fee is
+            # NOT split or separately collected from each side, so no per-side share is reported.
+            "remittance_model": "platform_remitted",
+            "total_remitted": round(access_for_all_total, 2),
             "amount_due_to_cpuc": round(access_for_all_total, 2),
         },
         "accessibility_metrics": {

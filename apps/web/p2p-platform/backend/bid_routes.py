@@ -2721,6 +2721,55 @@ async def complete_ride(request_id: int, request: Request, auth_driver: Driver =
     except Exception as _e:
         logger.error(f"1099 threshold check failed (non-blocking): {_e}")
 
+    # Double-entry ledger for the completed ride (non-blocking — a bookkeeping failure must
+    # NEVER block ride completion). Mirrors the food path in order_flow.py.
+    #   DR 1000 Cash                         = customer_total_ex_tip + tip
+    #   CR 4030 Platform Fee Rev – Rideshare = platform fees retained (total − $0.10 remitted)
+    #   CR 2200 Accounts Payable – Drivers   = driver_payout + tip
+    #   CR 2310 CPUC Access-for-All Payable  = $0.10 (platform-remitted)
+    try:
+        from models import JournalEntry, JournalEntryLine
+        _tip = float(ride_request.tip_amount or 0)
+        _access = float(_fees.get("access_for_all_fee") or 0.10)
+        _cash = round(float(_fees["customer_total_ex_tip"]) + _tip, 2)
+        _driver_ap = round(float(_fees["driver_payout"]) + _tip, 2)
+        # Derive platform revenue as the residual so the entry is always exactly balanced
+        # regardless of rounding: revenue = cash − driver AP − access-for-all.
+        _platform_rev = round(_cash - _driver_ap - _access, 2)
+
+        _entry_count = db.query(JournalEntry).count()
+        _entry_number = f"JE-{datetime.utcnow().strftime('%Y%m%d')}-{_entry_count + 1:05d}"
+        _je = JournalEntry(
+            entry_number=_entry_number,
+            order_id=None,
+            entry_type="RIDE_COMPLETED",
+            description=f"Ride {ride_request.request_id} completed — fare ${final_price:.2f}",
+            status="posted",
+            created_by_ai="AI_EMP_004",
+            created_by_ai_name="LedgerBot Delta",
+            posted_at=datetime.utcnow(),
+        )
+        db.add(_je)
+        db.flush()  # assign PK without committing (caller owns the transaction)
+        _lines = [
+            JournalEntryLine(journal_entry_id=_je.id, account_code="1000",
+                             account_name="Cash - Stripe", debit=_cash, credit=0,
+                             description=f"Customer charge for ride {ride_request.request_id} (fare + fee + tip)"),
+            JournalEntryLine(journal_entry_id=_je.id, account_code="4030",
+                             account_name="Platform Fee Revenue - Rideshare", debit=0, credit=_platform_rev,
+                             description="Rideshare platform fee retained (net of Access-for-All remittance)"),
+            JournalEntryLine(journal_entry_id=_je.id, account_code="2200",
+                             account_name="Accounts Payable - Drivers", debit=0, credit=_driver_ap,
+                             description="Payable to driver (payout + tip)"),
+            JournalEntryLine(journal_entry_id=_je.id, account_code="2310",
+                             account_name="CPUC Access-for-All Payable", debit=0, credit=_access,
+                             description="CPUC Access-for-All $0.10/trip (platform-remitted)"),
+        ]
+        for _ln in _lines:
+            db.add(_ln)
+    except Exception as _e:
+        logger.error(f"Ride {ride_request.id} journal entry failed (non-blocking): {_e}")
+
     # In-app notification: ride completed
     _notify_customer(db, ride_request.customer_id,
                      "Ride Complete",

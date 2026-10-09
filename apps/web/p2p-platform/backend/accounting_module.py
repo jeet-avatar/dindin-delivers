@@ -136,6 +136,7 @@ CHART_OF_ACCOUNTS = [
     {"code": "2400", "name": "Accrued Expenses", "type": AccountType.LIABILITY, "category": AccountCategory.ACCRUED_EXPENSE, "normal_balance": "credit"},
     {"code": "2500", "name": "Deferred Revenue", "type": AccountType.LIABILITY, "category": AccountCategory.DEFERRED_REVENUE, "normal_balance": "credit"},
     {"code": "2600", "name": "Customer Deposits", "type": AccountType.LIABILITY, "category": AccountCategory.DEFERRED_REVENUE, "normal_balance": "credit"},
+    {"code": "2310", "name": "CPUC Access-for-All Payable", "type": AccountType.LIABILITY, "category": AccountCategory.ACCRUED_EXPENSE, "normal_balance": "credit"},
 
     # Equity (3xxx)
     {"code": "3000", "name": "Common Stock", "type": AccountType.EQUITY, "category": AccountCategory.COMMON_STOCK, "normal_balance": "credit"},
@@ -150,6 +151,7 @@ CHART_OF_ACCOUNTS = [
     {"code": "4012", "name": "Platform Fee Revenue - WY Tier 3 (>25mi, $3)", "type": AccountType.REVENUE, "category": AccountCategory.PLATFORM_REVENUE, "normal_balance": "credit"},
     {"code": "4020", "name": "Platform Fee Revenue - P2P General", "type": AccountType.REVENUE, "category": AccountCategory.PLATFORM_REVENUE, "normal_balance": "credit"},
     {"code": "4021", "name": "Airport Fees - Wyoming (JAC/CYS/CPR)", "type": AccountType.REVENUE, "category": AccountCategory.PLATFORM_REVENUE, "normal_balance": "credit"},
+    {"code": "4030", "name": "Platform Fee Revenue - Rideshare", "type": AccountType.REVENUE, "category": AccountCategory.PLATFORM_REVENUE, "normal_balance": "credit"},
     {"code": "4100", "name": "Restaurant Commission Revenue", "type": AccountType.REVENUE, "category": AccountCategory.SERVICE_REVENUE, "normal_balance": "credit"},
     {"code": "4200", "name": "Delivery Fee Revenue", "type": AccountType.REVENUE, "category": AccountCategory.SERVICE_REVENUE, "normal_balance": "credit"},
     {"code": "4300", "name": "Subscription Revenue", "type": AccountType.REVENUE, "category": AccountCategory.SERVICE_REVENUE, "normal_balance": "credit"},
@@ -927,6 +929,21 @@ async def get_stripe_reconciliation(
         WHERE created_at BETWEEN :start_date AND :end_date
     """
 
+    # Get rideshare payment totals — RideRequest carries its own Stripe payment intent /
+    # transfer, so rideshare revenue must be reconciled alongside food orders (previously
+    # ignored). Customer-charged amount ≈ fare (final_price) + customer tip.
+    rides_query = """
+        SELECT
+            COUNT(*) as ride_count,
+            COALESCE(SUM(COALESCE(final_price, 0) + COALESCE(tip_amount, 0)), 0) as rides_total,
+            COUNT(CASE WHEN payment_status IN ('captured', 'completed', 'paid') THEN 1 END) as captured_count,
+            COUNT(CASE WHEN payment_status = 'pending' THEN 1 END) as pending_count,
+            COUNT(CASE WHEN payment_status IN ('failed', 'capture_failed') THEN 1 END) as failed_count
+        FROM ride_requests
+        WHERE stripe_payment_intent_id IS NOT NULL
+          AND created_at BETWEEN :start_date AND :end_date
+    """
+
     # Get Stripe payment logs
     stripe_query = """
         SELECT
@@ -945,15 +962,23 @@ async def get_stripe_reconciliation(
         orders_data = {"order_count": 0, "orders_total": 0, "paid_count": 0, "pending_count": 0, "failed_count": 0}
 
     try:
+        result = db.execute(text(rides_query), params)
+        rides_data = dict(result.fetchone()._mapping)
+    except Exception:
+        rides_data = {"ride_count": 0, "rides_total": 0, "captured_count": 0, "pending_count": 0, "failed_count": 0}
+
+    try:
         result = db.execute(text(stripe_query), params)
         stripe_data = dict(result.fetchone()._mapping)
     except Exception:
         stripe_data = {"stripe_count": 0, "stripe_total": 0, "succeeded": 0, "failed": 0}
 
     orders_total = float(orders_data.get("orders_total", 0) or 0)
+    rides_total = float(rides_data.get("rides_total", 0) or 0)
+    platform_total = orders_total + rides_total  # food orders + rideshare, compared to Stripe
     stripe_total = float(stripe_data.get("stripe_total", 0) or 0) / 100  # Stripe amounts in cents
 
-    variance = orders_total - stripe_total
+    variance = platform_total - stripe_total
     is_reconciled = abs(variance) < 1.00  # Within $1 tolerance
 
     return {
@@ -970,6 +995,14 @@ async def get_stripe_reconciliation(
                 "pending": int(orders_data.get("pending_count", 0)),
                 "failed": int(orders_data.get("failed_count", 0))
             },
+            "rides": {
+                "count": int(rides_data.get("ride_count", 0)),
+                "total": round(rides_total, 2),
+                "captured": int(rides_data.get("captured_count", 0)),
+                "pending": int(rides_data.get("pending_count", 0)),
+                "failed": int(rides_data.get("failed_count", 0))
+            },
+            "platform_total": round(platform_total, 2),
             "stripe": {
                 "count": int(stripe_data.get("stripe_count", 0)),
                 "total": round(stripe_total, 2),

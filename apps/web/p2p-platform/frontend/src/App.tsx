@@ -87,6 +87,7 @@ import DriverEarnings from './app/screens/driver/Earnings';
 import RideBidding from './app/screens/driver/RideBidding';
 import DriverDocuments from './app/screens/driver/Documents';
 import RideBids from './app/screens/customer/RideBids';
+import FoundingMemberPanel from './app/components/founding/FoundingMemberPanel';
 
 // Wrapper to provide dynamic customerId from localStorage
 const RideBidsWrapper = () => {
@@ -192,6 +193,7 @@ function App() {
         <Route path="/customer/profile" element={<CustomerProfile />} />
         <Route path="/customer/addresses" element={<CustomerAddresses />} />
         <Route path="/customer/payment-methods" element={<CustomerPaymentMethods />} />
+        <Route path="/customer/founding" element={<FoundingMemberPanel role="customer" />} />
         <Route path="/customer/favorites" element={<CustomerFavorites />} />
         <Route path="/customer/settings" element={<CustomerSettings />} />
         <Route path="/customer/notifications" element={<CustomerNotifications />} />
@@ -227,6 +229,7 @@ function App() {
           <Route path="messages" element={<DriverMessages />} />
           <Route path="profile" element={<DriverProfile />} />
           <Route path="documents" element={<DriverDocuments />} />
+          <Route path="founding" element={<FoundingMemberPanel role="driver" />} />
           <Route path="dashboard" element={<DriverDashboard />} />
           <Route path="earnings" element={<DriverEarnings />} />
         </Route>

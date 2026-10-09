@@ -3107,6 +3107,35 @@ def prop22_period_reconciliation_job():
                             )
                             period.top_up_stripe_id = transfer["id"]
                             period.status = "PAID"
+
+                            # Double-entry ledger for the Prop 22 top-up transfer (non-blocking):
+                            #   DR 5100 Driver Payments / CR 1000 Cash - Stripe
+                            try:
+                                _tu_count = db.query(JournalEntry).count()
+                                _tu_number = f"JE-{datetime.now().strftime('%Y%m%d')}-{_tu_count + 1:05d}"
+                                _tu_je = JournalEntry(
+                                    entry_number=_tu_number,
+                                    order_id=None,
+                                    entry_type="PROP22_TOPUP",
+                                    description=f"Prop 22 earnings top-up — driver {driver_id} period {period.id} (${top_up:.2f})",
+                                    status="posted",
+                                    created_by_ai="AI_EMP_004",
+                                    created_by_ai_name="LedgerBot Delta",
+                                    posted_at=datetime.now(),
+                                )
+                                db.add(_tu_je)
+                                db.flush()
+                                db.add(JournalEntryLine(
+                                    journal_entry_id=_tu_je.id, account_code="5100",
+                                    account_name="Driver Payments", debit=round(float(top_up), 2), credit=0,
+                                    description=f"Prop 22 top-up to driver {driver_id} (period {period.id})"))
+                                db.add(JournalEntryLine(
+                                    journal_entry_id=_tu_je.id, account_code="1000",
+                                    account_name="Cash - Stripe", debit=0, credit=round(float(top_up), 2),
+                                    description=f"Stripe transfer {transfer['id']} for Prop 22 top-up"))
+                            except Exception as _je_err:
+                                logger.error(f"Prop 22 top-up journal entry failed (non-blocking): {_je_err}")
+
                             send_push_notification(
                                 "driver", driver_id,
                                 f"Prop 22 Top-Up: ${top_up:.2f}",

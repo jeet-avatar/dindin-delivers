@@ -90,10 +90,15 @@ def _marker(notes: Optional[str], marker: str) -> Optional[str]:
 
 
 def verify_webhook_signature(raw_body: bytes, signature_header: str) -> bool:
-    """Verify Checkr webhook signature (X-Checkr-Signature: HMAC-SHA256 hex of body)."""
+    """Verify Checkr webhook signature (X-Checkr-Signature: HMAC-SHA256 hex of body).
+
+    FAILS CLOSED: if CHECKR_WEBHOOK_SECRET is unset we cannot authenticate the caller,
+    so the request is rejected. The webhook path is the only public Checkr route, so an
+    unverifiable payload must never be allowed to mutate a driver's background-check gate.
+    """
     if not CHECKR_WEBHOOK_SECRET:
-        logger.warning("CHECKR_WEBHOOK_SECRET not set — skipping signature check (dev only)")
-        return True
+        logger.error("CHECKR_WEBHOOK_SECRET not set — rejecting Checkr webhook (fail closed)")
+        return False
     expected = hmac.new(CHECKR_WEBHOOK_SECRET.encode(), raw_body, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, (signature_header or "").strip())
 
@@ -244,16 +249,40 @@ async def checkr_webhook(request: Request, db: Session = Depends(get_db)):
     return {"received": True, "processed": True, "driver_id": driver.id, "passed": driver.background_check}
 
 
+def _caller_is_driver_or_admin(auth: dict, driver: Driver, db: Session) -> bool:
+    """IDOR guard: True only if the JWT belongs to this driver or to an admin user."""
+    # Driver self-access: match by numeric id, driver code, or email claim.
+    claim_driver_id = auth.get("driver_id")
+    if claim_driver_id is not None and str(claim_driver_id) in (str(driver.id), str(driver.driver_id)):
+        return True
+    sub = auth.get("sub")
+    if sub and driver.email and sub == driver.email:
+        return True
+    # Admin override.
+    if sub:
+        from models import User, UserRole
+        user = db.query(User).filter(User.email == sub).first()
+        if user and user.role == UserRole.ADMIN:
+            return True
+    return False
+
+
 @router.get("/background-check/{driver_id}/status")
 async def get_background_check_status(
     driver_id: int,
     db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth),
+    auth: dict = Depends(require_any_auth),
 ):
-    """Background-check status for a driver, including the invitation_url if pending."""
+    """Background-check status for a driver, including the invitation_url if pending.
+
+    IDOR guard: only the driver themselves or an admin may read this.
+    """
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
+
+    if not _caller_is_driver_or_admin(auth, driver, db):
+        raise HTTPException(status_code=403, detail="Access denied")
 
     if driver.background_check:
         status = "passed"

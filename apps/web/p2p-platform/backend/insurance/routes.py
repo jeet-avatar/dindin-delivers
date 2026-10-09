@@ -5,21 +5,57 @@ Sections:
 - Webhook Management (Admin JWT auth): register, list, update, delete
 - API Key Management (Admin JWT auth): generate, list, revoke
 """
+import csv
+import io
 import secrets
 import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
 
-from auth_utils import require_admin
 from database import get_db
-from insurance.auth import hash_api_key, require_insurance_api_key
+from insurance.auth import hash_api_key, require_insurance_api_key, validate_api_key
 from insurance.models import InsuranceApiKey, InsuranceEvent, InsuranceWebhookConfig
 
 router = APIRouter()
+
+# ── Admin auth (lazy) ──────────────────────────────────────────────────────────
+# require_admin is imported lazily inside this wrapper to avoid the circular import
+# (auth_utils -> models -> ...) that previously forced admin auth to be disabled on
+# the webhook/API-key management endpoints. The wrapper is a first-class FastAPI
+# dependency, so FastAPI still resolves the token + db sub-dependencies normally.
+_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
+
+
+async def require_admin_dep(
+    token: str = Depends(_oauth2_scheme),
+    db: DBSession = Depends(get_db),
+):
+    """Admin-only dependency with a deferred import of auth_utils.require_admin."""
+    from auth_utils import require_admin
+    return await require_admin(token=token, db=db)
+
+
+async def require_admin_or_insurance_key(
+    x_insurance_api_key: Optional[str] = Header(None),
+    token: Optional[str] = Depends(_oauth2_scheme),
+    db: DBSession = Depends(get_db),
+):
+    """Allow EITHER a valid insurance API key OR an admin JWT (for report endpoints)."""
+    if x_insurance_api_key:
+        try:
+            return validate_api_key(x_insurance_api_key, db)
+        except HTTPException:
+            pass  # fall through to try admin JWT
+    if token:
+        from auth_utils import require_admin
+        return await require_admin(token=token, db=db)
+    raise HTTPException(status_code=401, detail="Admin JWT or insurance API key required")
 
 # ── Helper ─────────────────────────────────────────────────────────────────────
 
@@ -141,12 +177,15 @@ def get_driver_summary(
     total_miles = sum(e.segment_miles or 0.0 for e in events)
     total_seconds = sum(e.segment_duration_seconds or 0 for e in events)
 
-    # Aggregate seconds per UBI period (1, 2, 3)
+    # Aggregate seconds AND miles per UBI period (1, 2, 3)
     time_by_period: dict = {}
+    miles_by_period: dict = {}
     for e in events:
+        key = str(e.period)
         if e.segment_duration_seconds:
-            key = str(e.period)
             time_by_period[key] = time_by_period.get(key, 0) + e.segment_duration_seconds
+        if e.segment_miles:
+            miles_by_period[key] = round(miles_by_period.get(key, 0.0) + e.segment_miles, 4)
 
     return {
         "driver_id": driver_id,
@@ -154,6 +193,7 @@ def get_driver_summary(
         "total_miles": round(total_miles, 4),
         "total_seconds": total_seconds,
         "time_by_period": time_by_period,
+        "miles_by_period": miles_by_period,
     }
 
 
@@ -173,10 +213,13 @@ def get_platform_summary(
     total_seconds = sum(e.segment_duration_seconds or 0 for e in events)
 
     time_by_period: dict = {}
+    miles_by_period: dict = {}
     for e in events:
+        key = str(e.period)
         if e.segment_duration_seconds:
-            key = str(e.period)
             time_by_period[key] = time_by_period.get(key, 0) + e.segment_duration_seconds
+        if e.segment_miles:
+            miles_by_period[key] = round(miles_by_period.get(key, 0.0) + e.segment_miles, 4)
 
     return {
         "total_trips": total_trips,
@@ -184,7 +227,103 @@ def get_platform_summary(
         "total_miles": round(total_miles, 4),
         "total_seconds": total_seconds,
         "time_by_period": time_by_period,
+        "miles_by_period": miles_by_period,
     }
+
+
+# ── Insurance Reports: Admin JWT OR insurance API key ─────────────────────────
+
+
+def _cf_tnc_rows(report: dict) -> list:
+    """Flatten the CF/TNC report into (section, metric, value) rows for CSV/PDF."""
+    rows = [("Section", "Metric", "Value")]
+    meta = report["report"]
+    for k in ("title", "tnc_operator", "permit_number", "state", "from_date", "to_date", "generated_at"):
+        rows.append(("Report", k, meta.get(k)))
+
+    mbp = report["mileage_by_period"]
+    for period, vals in sorted(mbp["by_period"].items()):
+        rows.append((f"Mileage P{period}", "miles", vals["miles"]))
+        rows.append((f"Mileage P{period}", "hours", vals["hours"]))
+        rows.append((f"Mileage P{period}", "events", vals["events"]))
+    rows.append(("Mileage Totals", "total_miles", mbp["total_miles"]))
+    rows.append(("Mileage Totals", "total_hours", mbp["total_hours"]))
+
+    for k, v in report["trips_and_drivers"].items():
+        rows.append(("Trips & Drivers", k, v))
+    for k, v in report["financial_allocation"].items():
+        rows.append(("Financial Allocation", k, v))
+    for k, v in report["driver_age_distribution"].items():
+        rows.append(("Driver Age Distribution", k, v))
+    return rows
+
+
+@router.get("/api/insurance/reports/cf-tnc")
+def cf_tnc_report(
+    from_date: Optional[str] = Query(None),
+    to_date: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    format: str = Query("json", pattern="^(json|csv|pdf)$"),
+    _auth=Depends(require_admin_or_insurance_key),
+    db: DBSession = Depends(get_db),
+):
+    """Crum & Forster TNC insurance report (admin JWT or insurance API key).
+
+    format=json (default) | csv (stdlib csv) | pdf (reportlab).
+    """
+    from insurance.reports import build_cf_tnc_report
+
+    report = build_cf_tnc_report(db, from_date=from_date, to_date=to_date, state=state)
+
+    if format == "json":
+        return report
+
+    rows = _cf_tnc_rows(report)
+
+    if format == "csv":
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerows(rows)
+        buf.seek(0)
+        return StreamingResponse(
+            iter([buf.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=cf_tnc_report.csv"},
+        )
+
+    # format == "pdf"
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib.units import inch
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+    except ImportError:
+        raise HTTPException(status_code=501, detail="PDF generation unavailable (reportlab not installed)")
+
+    pdf_buf = io.BytesIO()
+    doc = SimpleDocTemplate(pdf_buf, pagesize=letter, title="CF TNC Insurance Report")
+    styles = getSampleStyleSheet()
+    elements = [
+        Paragraph(report["report"]["title"], styles["Title"]),
+        Spacer(1, 0.2 * inch),
+    ]
+    table = Table([[str(c) if c is not None else "" for c in row] for row in rows], repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f2937")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f3f4f6")]),
+    ]))
+    elements.append(table)
+    doc.build(elements)
+    pdf_buf.seek(0)
+    return StreamingResponse(
+        iter([pdf_buf.getvalue()]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=cf_tnc_report.pdf"},
+    )
 
 
 # ── Webhook Management: Admin JWT auth ────────────────────────────────────────
@@ -193,8 +332,7 @@ def get_platform_summary(
 @router.post("/api/insurance/webhooks", status_code=201)
 def create_webhook(
     body: WebhookCreateRequest,
-    # TODO: Add require_admin dependency after circular import is resolved
-    # admin = Depends(require_admin),
+    _admin=Depends(require_admin_dep),
     db: DBSession = Depends(get_db),
 ) -> dict:
     """Register a new webhook endpoint for insurance event delivery."""
@@ -220,8 +358,7 @@ def create_webhook(
 
 @router.get("/api/insurance/webhooks")
 def list_webhooks(
-    # TODO: Add require_admin dependency after circular import is resolved
-    # admin = Depends(require_admin),
+    _admin=Depends(require_admin_dep),
     db: DBSession = Depends(get_db),
 ) -> dict:
     """List all registered webhook configurations."""
@@ -246,8 +383,7 @@ def list_webhooks(
 def update_webhook(
     webhook_id: str,
     body: WebhookUpdateRequest,
-    # TODO: Add require_admin dependency after circular import is resolved
-    # admin = Depends(require_admin),
+    _admin=Depends(require_admin_dep),
     db: DBSession = Depends(get_db),
 ) -> dict:
     """Update an existing webhook configuration."""
@@ -285,8 +421,7 @@ def update_webhook(
 @router.delete("/api/insurance/webhooks/{webhook_id}")
 def delete_webhook(
     webhook_id: str,
-    # TODO: Add require_admin dependency after circular import is resolved
-    # admin = Depends(require_admin),
+    _admin=Depends(require_admin_dep),
     db: DBSession = Depends(get_db),
 ) -> dict:
     """Delete a webhook configuration."""
@@ -307,8 +442,7 @@ def delete_webhook(
 @router.post("/api/insurance/api-keys", status_code=201)
 def generate_api_key(
     body: ApiKeyCreateRequest,
-    # TODO: Add require_admin dependency after circular import is resolved
-    # admin = Depends(require_admin),
+    _admin=Depends(require_admin_dep),
     db: DBSession = Depends(get_db),
 ) -> dict:
     """Generate a new insurance API key. The raw key is returned ONCE — store it securely."""
@@ -337,8 +471,7 @@ def generate_api_key(
 
 @router.get("/api/insurance/api-keys")
 def list_api_keys(
-    # TODO: Add require_admin dependency after circular import is resolved
-    # admin = Depends(require_admin),
+    _admin=Depends(require_admin_dep),
     db: DBSession = Depends(get_db),
 ) -> dict:
     """List all insurance API keys (without raw keys or hashes)."""
@@ -360,8 +493,7 @@ def list_api_keys(
 @router.delete("/api/insurance/api-keys/{key_id}")
 def revoke_api_key(
     key_id: str,
-    # TODO: Add require_admin dependency after circular import is resolved
-    # admin = Depends(require_admin),
+    _admin=Depends(require_admin_dep),
     db: DBSession = Depends(get_db),
 ) -> dict:
     """Revoke an insurance API key by setting is_active=False."""

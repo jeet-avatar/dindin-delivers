@@ -23,6 +23,7 @@ import os
 import json
 import logging
 import secrets
+import hmac
 from dotenv import load_dotenv
 
 # Configure logging
@@ -360,10 +361,12 @@ async def admin_auth_middleware(request: Request, call_next):
             content={"detail": "Admin access required"}
         )
 
-    # Auth method 2: ADMIN_SECRET_KEY query param (for ops/migration endpoints)
-    secret_key = request.query_params.get("secret_key")
+    # Auth method 2: ADMIN_SECRET_KEY via X-Admin-Secret header (for ops/migration endpoints).
+    # Header-only (never a query param — query strings leak into access logs / history) and
+    # fail-closed: an unset ADMIN_SECRET_KEY authorizes no one. Constant-time compare.
+    secret_key = request.headers.get("x-admin-secret")
     expected_key = os.getenv("ADMIN_SECRET_KEY")
-    if expected_key and secret_key and secret_key == expected_key:
+    if expected_key and secret_key and hmac.compare_digest(secret_key, expected_key):
         logger.warning(
             f"ADMIN_SECRET_KEY used for admin access (bypasses JWT) "
             f"from IP={request.client.host} path={request.url.path}"
@@ -521,6 +524,9 @@ _PUBLIC_PATTERN_PATHS = [
     (_re.compile(r"^/api/onboarding/upload-menu/.*$"), {"POST"}),
     # ERP restaurant detail (public browsing, only published/approved vendors)
     (_re.compile(r"^/api/erp/restaurants/\d+$"), {"GET"}),
+    # Checkr background-check webhook (POST only) — HMAC signature-verified in the handler
+    # (verify_webhook_signature fails closed when CHECKR_WEBHOOK_SECRET is unset).
+    (_re.compile(r"^/api/checkr/webhook$"), {"POST"}),
 ]
 
 
@@ -559,7 +565,17 @@ async def require_auth_middleware(request: Request, call_next):
 
     try:
         token = auth_header[7:]
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        _payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # G3: honor the jti blacklist (logout/revocation) the same way the
+        # auth_utils.require_* dependencies do, so a revoked token can't slip past
+        # this safety-net middleware onto an endpoint that only relies on it.
+        _jti = _payload.get("jti")
+        if _jti and is_token_blacklisted(_jti):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Token has been revoked"},
+                headers={"WWW-Authenticate": "Bearer"}
+            )
     except (JWTError, Exception):
         return JSONResponse(
             status_code=401,
@@ -670,9 +686,16 @@ def _validate_password(password: str) -> None:
 
 
 def _require_admin_secret(secret_key: Optional[str] = None):
-    """Verify ADMIN_SECRET_KEY for demo/admin endpoints"""
+    """Verify ADMIN_SECRET_KEY for demo/admin endpoints.
+
+    FAILS CLOSED: if ADMIN_SECRET_KEY is not configured on the server, no caller can be
+    authorized, so access is denied (previously an unset key silently allowed everyone).
+    Uses hmac.compare_digest for a constant-time comparison.
+    """
     expected = os.getenv("ADMIN_SECRET_KEY")
-    if expected and (not secret_key or secret_key != expected):
+    if not expected:
+        raise HTTPException(status_code=403, detail="Admin secret key not configured")
+    if not secret_key or not hmac.compare_digest(secret_key, expected):
         raise HTTPException(status_code=403, detail="Admin secret key required")
 
 # Health Check Endpoint
@@ -1096,8 +1119,17 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError("CRITICAL: JWT_SECRET_KEY environment variable is required for security")
+# Enforce a minimum key length. HS256 security depends on secret entropy; a short secret
+# is brute-forceable. Require >= 32 bytes (256 bits) to match the signing algorithm strength.
+if len(SECRET_KEY.encode("utf-8")) < 32:
+    raise RuntimeError(
+        "CRITICAL: JWT_SECRET_KEY must be at least 32 bytes (256 bits). "
+        f"Current length is {len(SECRET_KEY.encode('utf-8'))} bytes."
+    )
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 43200  # 30 days - mobile apps need long-lived sessions
+# Access tokens live 24h; the mobile apps refresh via /api/auth/{role}/refresh.
+# (Was 30d — a stolen long-lived token was too valuable.)
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
 # Pydantic Models
 class UserCreate(BaseModel):
@@ -2330,9 +2362,9 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
 # Customer Demo Login - for App Store review testing (Android calls POST /api/customer/demo-login)
 @app.post("/api/auth/customer/demo-login")
 @app.post("/api/customer/demo-login")   # kept for Android backward compat
-def customer_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db), secret_key: Optional[str] = Query(None)):
+def customer_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db), x_admin_secret: Optional[str] = Header(None)):
     """Demo login for customer - creates or finds demo customer account for App Store review"""
-    _require_admin_secret(secret_key)
+    _require_admin_secret(x_admin_secret)
 
     hint = request.email_hint or request.email or ""
     print(f"Customer demo login attempt with hint: {hint}")
@@ -2380,9 +2412,9 @@ def customer_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(g
 
 # Driver Demo Login - for App Store review testing (Android calls POST /api/auth/driver/demo-login)
 @app.post("/api/auth/driver/demo-login")
-def driver_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db), secret_key: Optional[str] = Query(None)):
+def driver_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db), x_admin_secret: Optional[str] = Header(None)):
     """Demo login for driver - creates or finds demo driver account for App Store review"""
-    _require_admin_secret(secret_key)
+    _require_admin_secret(x_admin_secret)
 
     hint = request.email_hint or request.email or ""
     print(f"Driver demo login attempt with hint: {hint}")
@@ -5199,6 +5231,32 @@ def post_driver_status(
 
     if is_online:
         driver.last_online_at = datetime.utcnow()
+        # Insurance: Period 1 START — driver is now available (mirrors PUT /api/auth/driver/online).
+        # Non-blocking: an insurance logging failure must never stop a driver from going online.
+        try:
+            import uuid as _uuid
+            from insurance.events import log_insurance_event
+            _session_id = str(_uuid.uuid4())
+            driver.insurance_session_id = _session_id
+            log_insurance_event(
+                db=db, driver_id=driver.id, trip_type="available",
+                trip_id=None, session_id=_session_id, period=1,
+                event_type="period_start",
+            )
+        except Exception as e:
+            logging.warning(f"Insurance event (android online) failed: {e}")
+    else:
+        # Insurance: Period 1 END — driver going offline.
+        try:
+            from insurance.events import log_insurance_event, get_or_create_session_id
+            _session_id = get_or_create_session_id(db, driver.id)
+            log_insurance_event(
+                db=db, driver_id=driver.id, trip_type="available",
+                trip_id=None, session_id=_session_id, period=1,
+                event_type="period_end",
+            )
+        except Exception as e:
+            logging.warning(f"Insurance event (android offline) failed: {e}")
 
     db.commit()
     db.refresh(driver)

@@ -11,6 +11,7 @@ import {
   QuestionCircleOutlined,
   LogoutOutlined,
   RightOutlined,
+  CrownOutlined,
   EditOutlined,
   DeleteOutlined,
   ExclamationCircleOutlined,
@@ -118,6 +119,13 @@ const CustomerProfile: React.FC = () => {
       label: 'Favorites',
       description: 'Your favorite restaurants',
       onClick: () => navigate('/customer/favorites'),
+    },
+    {
+      key: 'founding',
+      icon: <CrownOutlined />,
+      label: 'Founding Membership',
+      description: 'Lock your platform fee for life — $100',
+      onClick: () => navigate('/customer/founding'),
     },
   ];
 

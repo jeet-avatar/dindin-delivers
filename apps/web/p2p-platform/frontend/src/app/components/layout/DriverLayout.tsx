@@ -90,6 +90,11 @@ const DriverLayout: React.FC = () => {
       icon: <FileTextOutlined />,
       label: 'Documents',
     },
+    {
+      key: '/driver/founding',
+      icon: <StarOutlined />,
+      label: 'Founding',
+    },
   ];
 
   const userMenu = (

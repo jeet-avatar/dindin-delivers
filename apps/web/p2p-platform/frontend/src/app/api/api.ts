@@ -1284,4 +1284,100 @@ export const getWebSocketUrl = () => {
   return `${baseUrl}/api/realtime/ws`;
 };
 
+// ===================== FOUNDING MEMBER PROGRAM =====================
+// "Founding 10,000 per state" — $100 non-refundable → platform fee locked for life.
+// Backend: apps/web/p2p-platform/backend/founding_members.py
+// Customer and driver share the same status/join contract on different route prefixes.
+// These calls are customer/driver-scoped, so they send the customer/driver token
+// explicitly (the shared `api` interceptor only knows the admin token keys), matching
+// the pattern already used by CustomerPaymentMethods and driver Documents.
+
+export interface FoundingStatus {
+  member_type: 'customer' | 'driver';
+  is_founder: boolean;
+  founder_state: string | null;
+  rides_taken: number;
+  claim_window_rides: number;
+  eligible_to_join: boolean;
+  deposit_usd: number;
+  cap_per_state: number;
+  benefit: string;
+  state?: string;
+  slots_remaining?: number;
+}
+
+export interface FoundingJoinResult {
+  success: boolean;
+  is_founder: boolean;
+  member_type: 'customer' | 'driver';
+  state: string;
+  deposit_usd: number;
+  benefit: string;
+  slots_remaining: number;
+}
+
+/** A card saved on the customer via Stripe. `id` is the Stripe PaymentMethod id (pm_...). */
+export interface SavedCard {
+  id: string;
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+  is_default: boolean;
+  cardholder_name?: string;
+}
+
+function customerAuthHeader(): Record<string, string> {
+  const token = globalThis.localStorage.getItem('customer_token')
+    || globalThis.localStorage.getItem('access_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function driverAuthHeader(): Record<string, string> {
+  const token = globalThis.localStorage.getItem('driver_token')
+    || globalThis.localStorage.getItem('access_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function getCustomerCards(customerId: number | string): Promise<SavedCard[]> {
+  const response = await axios.get(`${API_BASE_URL}/api/customers/${customerId}/cards`, {
+    headers: customerAuthHeader(),
+  });
+  return response.data?.cards || [];
+}
+
+export async function getFoundingStatus(state?: string): Promise<FoundingStatus> {
+  const response = await axios.get(`${API_BASE_URL}/api/founding/status`, {
+    params: state ? { state } : {},
+    headers: customerAuthHeader(),
+  });
+  return response.data;
+}
+
+export async function joinFounding(state: string, paymentMethodId?: string): Promise<FoundingJoinResult> {
+  const response = await axios.post(
+    `${API_BASE_URL}/api/founding/join`,
+    { state, payment_method_id: paymentMethodId ?? null },
+    { headers: customerAuthHeader() },
+  );
+  return response.data;
+}
+
+export async function getDriverFoundingStatus(state?: string): Promise<FoundingStatus> {
+  const response = await axios.get(`${API_BASE_URL}/api/founding/driver/status`, {
+    params: state ? { state } : {},
+    headers: driverAuthHeader(),
+  });
+  return response.data;
+}
+
+export async function joinDriverFounding(state: string, paymentMethodId?: string): Promise<FoundingJoinResult> {
+  const response = await axios.post(
+    `${API_BASE_URL}/api/founding/driver/join`,
+    { state, payment_method_id: paymentMethodId ?? null },
+    { headers: driverAuthHeader() },
+  );
+  return response.data;
+}
+
 export default api;// Trigger CI/CD rebuild - 20260106075550
