@@ -658,6 +658,8 @@ async def produce_chat(req, session, bridge, emit=None):
         if 'reference_id' in req.model_fields_set:
             session.reference_id = req.reference_id
         reference_id = getattr(session, 'reference_id', None)
+        if reference_id and session.project and not session.project.get('starting_point'):
+            session.project['starting_point'] = 'reference'
         session.reference_note = song_projects.reference_note(reference_id, session.user_id)
         session.project_note = song_projects.planning_reason(session.project, reference_id, session.user_id)
         session.planning_only = req.planning_only or bool(session.project_note)
