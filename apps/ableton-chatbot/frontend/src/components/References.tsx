@@ -342,11 +342,18 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
               <div><span className="text-neutral-400">Key </span><span>{item.report.key_candidates.map(k => k.key).join(" / ") || "—"}</span></div>
               <div><span className="text-neutral-400">Duration </span><span>{time(item.report.duration_seconds)}</span></div>
             </dl>
-            {item.storage === "local"
-              ? <LocalStemActions key={`ready-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh} />
-              : <div ref={audioSection}><ReferenceAudio key={item.id} id={item.id} cue={cue} stems={audioStems(item.report)} /></div>}
+            {item.storage === "local" && <LocalStemActions key={`ready-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh} />}
+            {item.storage !== "local" && <div ref={audioSection} className="space-y-3">
+              <ReferenceAudio key={item.id} id={item.id} cue={cue} stems={audioStems(item.report)} />
+              <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id, true)}
+                className="rounded bg-emerald-700 px-5 py-3 text-sm font-medium disabled:opacity-40 flex items-center gap-2">
+                <span className="inline-block w-4 h-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+                Use these stems in Ableton
+              </button>
+              <p className="text-xs text-neutral-400">Opens a chat with BeatMind to build your track using this reference.</p>
+            </div>}
             <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id)}
-              className="rounded bg-emerald-700 px-5 py-3 text-sm font-medium disabled:opacity-40">
+              className="text-sm underline disabled:opacity-40">
               Discuss this reference in chat
             </button>
           </div>
