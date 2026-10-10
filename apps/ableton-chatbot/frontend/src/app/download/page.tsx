@@ -40,12 +40,12 @@ export default function DownloadPage() {
         {/* Update banner */}
         <div
           className="mt-8 rounded-xl border-2 p-5"
-          style={{ borderColor: "#22c55e", background: "rgba(34, 197, 94, 0.08)" }}
+          style={{ borderColor: "var(--success)", background: "rgba(156, 195, 107, 0.08)" }}
         >
           <div className="flex items-start gap-3">
             <span className="mt-0.5 text-2xl">&#9889;</span>
             <div>
-              <p className="font-semibold" style={{ color: "#22c55e" }}>
+              <p className="font-semibold" style={{ color: "var(--success)" }}>
                 Update Available &mdash; Version 1.3.15
               </p>
               <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>

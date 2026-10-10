@@ -16,7 +16,7 @@ export default function BridgeLaunch({ status, onRetry, ableton }: { status: Bri
   }, [state]);
   useEffect(() => { if (status !== "disconnected") setState("idle"); }, [status]);
   const disconnected = status === "disconnected";
-  const color = status === "connected" ? "#4ade80" : status === "checking" ? "var(--text-secondary)" : "#fbbf24";
+  const color = status === "connected" ? "var(--success)" : status === "checking" ? "var(--text-secondary)" : "#fbbf24";
   return <section aria-label="Bridge connection" className="min-w-0 shrink-0 flex flex-wrap items-center gap-x-4 gap-y-2 py-2">
     <div className="flex items-center gap-2" style={{ color }}><span className="shrink-0">{status === "connected" ? <CheckIcon size={16} /> : status === "checking" ? <RefreshIcon size={16} /> : <AlertTriangleIcon size={16} />}</span>
       <p role="status" className="min-w-0 text-sm break-words">{disconnected && state === "requested" ? "Open request sent. Waiting for the bridge to connect..." : bridgeStatusLabel[status]}</p>

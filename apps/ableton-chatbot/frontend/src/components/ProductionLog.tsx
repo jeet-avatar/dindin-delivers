@@ -142,7 +142,7 @@ export default function ProductionLog({ actions, requestStatus }: { actions: Pro
       <ol className="divide-y" style={{ borderColor: "var(--border)" }}>
         {actions.map((action, index) => {
           const outcome = summary.outcomes[index];
-          const state = { label: outcome.label, color: outcome.kind === "issue" ? "#fda4af" : outcome.kind === "repaired" ? "#86efac" : "var(--text-secondary)" };
+          const state = { label: outcome.label, color: outcome.kind === "issue" ? "#fda4af" : outcome.kind === "repaired" ? "var(--success-text)" : "var(--text-secondary)" };
           const sound = action.result?.sound;
           const notes = sound?.notes || action.result?.notes;
           return (

@@ -1,6 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Righteous&display=swap');
 @import "tailwindcss";
 
+@theme {
+  --color-emerald-200: #d3e4bf;
+  --color-emerald-300: #b8d69a;
+  --color-emerald-400: #9cc36b;
+  --color-emerald-500: #85ad57;
+  --color-emerald-600: #6c9145;
+  --color-emerald-700: #557336;
+  --color-emerald-800: #3f5629;
+}
+
 :root {
   /* Ableton Live's charcoal greys, with a warm amber accent that reads like a lit control. */
   --bg-primary: #1e1e1e;
@@ -12,7 +22,9 @@
   --accent-dim: #e0832a;
   --on-accent: #1a1a1a;
   --border: #3a3a3a;
-  --success: #22c55e;
+  /* Muted sage, like Live's playing-clip green, so success states sit beside the amber instead of glowing. */
+  --success: #9cc36b;
+  --success-text: #b8d69a;
   --error: #ef4444;
 }
 

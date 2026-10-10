@@ -115,7 +115,7 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
   return <article className="py-4 border-b min-w-0" style={{ borderColor: "var(--border)" }} aria-label={`Recording: ${item.track_name}`}>
     <div className="flex flex-wrap justify-between gap-2 text-sm">
       <h3 className="font-semibold break-words">{item.track_name}</h3>
-      <span style={{ color: decision === "accepted" ? "#86efac" : "var(--text-secondary)" }}>
+      <span style={{ color: decision === "accepted" ? "var(--success-text)" : "var(--text-secondary)" }}>
         {decision === "pending" ? "Awaiting review" : decision === "accepted" ? "Accepted" : "Changes requested"}
       </span>
     </div>
@@ -143,7 +143,7 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
     {waveform.length > 0 && <div className="h-12 flex items-center gap-px my-2 overflow-hidden" aria-hidden="true">
       {Array.from({ length: 80 }, (_, i) => {
         const value = waveform[Math.min(waveform.length - 1, Math.floor(i * waveform.length / 80))] || 0;
-        return <span key={i} className="flex-1 min-w-0" style={{ height: `${Math.max(3, Math.min(100, value / waveformPeak * 95))}%`, background: "#34d399" }} />;
+        return <span key={i} className="flex-1 min-w-0" style={{ height: `${Math.max(3, Math.min(100, value / waveformPeak * 95))}%`, background: "var(--success)" }} />;
       })}
     </div>}
     {src ? <audio ref={audio} controls preload="auto" src={src} className="w-full min-w-0 h-10" aria-label={`Play ${item.track_name}`}

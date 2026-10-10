@@ -686,7 +686,7 @@ export default function DashboardPage() {
 
       {justSubscribed && usage && hasPaidPlan(usage.plan) && (
         <div role="status" className="mb-6 rounded-2xl border p-4 text-sm" style={{ background: "#052e16", borderColor: "#166534" }}>
-          <p className="font-semibold" style={{ color: "#4ade80" }}>Subscribed to {currentPlan}.</p>
+          <p className="font-semibold" style={{ color: "var(--success)" }}>Subscribed to {currentPlan}.</p>
           {usage.renewal_terms && <p className="mt-1" style={{ color: "var(--text-primary)" }}>{usage.renewal_terms}</p>}
         </div>
       )}
@@ -695,7 +695,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
           { label: "Songs", value: allSongs.length, color: "var(--text-primary)" },
-          { label: "Accepted", value: recStats.accepted, color: "#4ade80" },
+          { label: "Accepted", value: recStats.accepted, color: "var(--success)" },
           { label: "Pending review", value: recStats.pending, color: "#fbbf24" },
           { label: "Needs revision", value: recStats.revise, color: "#f87171" },
         ].map(stat => (
@@ -711,7 +711,7 @@ export default function DashboardPage() {
         {/* Bridge status */}
         <div className="rounded-xl border p-4 flex items-center justify-between" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
           <div className="flex items-center gap-3 min-w-0">
-            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: bridgeConnected ? "#22c55e" : "#ef4444" }} />
+            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: bridgeConnected ? "var(--success)" : "#ef4444" }} />
             <div className="min-w-0">
               <p className="text-sm font-medium">Ableton Bridge</p>
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{bridgeConnected ? "Connected — ready to produce" : "Not connected"}</p>
@@ -728,7 +728,7 @@ export default function DashboardPage() {
           : isSubscribed && usage ? <>
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium">{currentPlan}</p>
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#052e16", color: "#4ade80" }}>Active</span>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#052e16", color: "var(--success)" }}>Active</span>
             </div>
             <div className="mb-2">
               <div className="flex justify-between text-xs mb-1">
@@ -736,7 +736,7 @@ export default function DashboardPage() {
                 <span>{usage.songs_this_month ?? 0} / {usage.songs_limit ?? 10}</span>
               </div>
               <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, ((usage.songs_this_month ?? 0) / Math.max(1, usage.songs_limit ?? 10)) * 100)}%`, background: (usage.songs_this_month ?? 0) >= (usage.songs_limit ?? 10) ? "#f87171" : "#4ade80" }} />
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, ((usage.songs_this_month ?? 0) / Math.max(1, usage.songs_limit ?? 10)) * 100)}%`, background: (usage.songs_this_month ?? 0) >= (usage.songs_limit ?? 10) ? "#f87171" : "var(--success)" }} />
               </div>
             </div>
             {usage.ai_usage && usage.ai_usage.fair_use_cap_usd > 0 && <div className="mb-2">
@@ -796,16 +796,16 @@ export default function DashboardPage() {
                   style={{ background: isActive ? "var(--bg-primary)" : "var(--bg-secondary)", borderColor: isActive ? "var(--accent)" : "var(--border)" }}>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <p className="text-sm font-medium break-words line-clamp-2">{song.title || "Untitled"}</p>
-                    {isActive && <span className="flex-shrink-0 w-2 h-2 rounded-full mt-1.5" style={{ background: "#22c55e" }} />}
+                    {isActive && <span className="flex-shrink-0 w-2 h-2 rounded-full mt-1.5" style={{ background: "var(--success)" }} />}
                   </div>
                   {total > 0 ? <>
                     <div className="flex gap-3 text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
-                      {accepted > 0 && <span style={{ color: "#4ade80" }}>{accepted} accepted</span>}
+                      {accepted > 0 && <span style={{ color: "var(--success)" }}>{accepted} accepted</span>}
                       {pending > 0 && <span style={{ color: "#fbbf24" }}>{pending} pending</span>}
                       {revise > 0 && <span style={{ color: "#f87171" }}>{revise} revision</span>}
                     </div>
                     <div className="w-full h-1.5 rounded-full overflow-hidden flex" style={{ background: "var(--border)" }}>
-                      {accepted > 0 && <div className="h-full" style={{ width: `${(accepted / total) * 100}%`, background: "#4ade80" }} />}
+                      {accepted > 0 && <div className="h-full" style={{ width: `${(accepted / total) * 100}%`, background: "var(--success)" }} />}
                       {pending > 0 && <div className="h-full" style={{ width: `${(pending / total) * 100}%`, background: "#fbbf24" }} />}
                       {revise > 0 && <div className="h-full" style={{ width: `${(revise / total) * 100}%`, background: "#f87171" }} />}
                     </div>
@@ -984,7 +984,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-3">
         {["Smart AI playlists from your vibe", "Duplicate track detection", "BPM + key analysis", "Rekordbox + USB export"].map(f => (
           <div key={f} className="rounded-xl border p-3 flex items-start gap-2" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-            <span className="flex-shrink-0 mt-0.5" style={{ color: "#4ade80" }}><CheckIcon size={13} /></span>
+            <span className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }}><CheckIcon size={13} /></span>
             <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{f}</p>
           </div>
         ))}
@@ -1014,7 +1014,7 @@ export default function DashboardPage() {
               </div>
             </div>
             {bridgeConnected
-              ? <button onClick={() => setNav("beatmind")} className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90" style={{ background: "#22c55e", color: "#fff" }}>Connected</button>
+              ? <button onClick={() => setNav("beatmind")} className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90" style={{ background: "var(--success)", color: "#fff" }}>Connected</button>
               : <a href={BRIDGE_MAC_DOWNLOAD} download className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
                   <DownloadIcon size={14} /> Download .dmg
                 </a>}
@@ -1106,7 +1106,7 @@ export default function DashboardPage() {
           <>
             <div className="flex items-center gap-2 mb-3">
               <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold"
-                style={{ background: "#052e16", color: "#4ade80" }}>
+                style={{ background: "#052e16", color: "var(--success)" }}>
                 <CheckIcon size={11} />
                 {usage?.plan.status === "past_due" ? `Payment failed — ${currentPlan}` : `Active — ${currentPlan}`}
               </span>
@@ -1155,7 +1155,7 @@ export default function DashboardPage() {
         <ul className="space-y-2.5">
           {planFeatures.map(f => (
             <li key={f} className="flex items-center gap-2.5 text-sm">
-              <span style={{ color: "#4ade80" }}><CheckIcon size={14} /></span>
+              <span style={{ color: "var(--success)" }}><CheckIcon size={14} /></span>
               {f}
             </li>
           ))}
@@ -1205,7 +1205,7 @@ export default function DashboardPage() {
               <Icon size={16} />
               <span className="hidden sm:inline">{label}</span>
               {id === "beatmind" && bridgeConnected && (
-                <span className="hidden sm:block ml-auto w-2 h-2 rounded-full flex-shrink-0" style={{ background: "#22c55e" }} aria-label="Connected" />
+                <span className="hidden sm:block ml-auto w-2 h-2 rounded-full flex-shrink-0" style={{ background: "var(--success)" }} aria-label="Connected" />
               )}
             </button>
           ))}
@@ -1223,7 +1223,7 @@ export default function DashboardPage() {
               onClick={() => chat.sessionId && (chat.id.startsWith("server-") || serverChats.some(item => item.id === chat.sessionId)) ? void openServerChat(chat.sessionId) : openChat(chat.id)}
               aria-current={chat.id === chatId ? "true" : undefined}
               className="block w-full border-l-2 px-3 py-2 text-left text-sm break-words disabled:opacity-40"
-              style={{ borderColor: chat.id === chatId ? "#34d399" : "transparent", background: chat.id === chatId ? "var(--bg-primary)" : "transparent" }}>{chat.title}</button>)}
+              style={{ borderColor: chat.id === chatId ? "var(--success)" : "transparent", background: chat.id === chatId ? "var(--bg-primary)" : "transparent" }}>{chat.title}</button>)}
             {remoteChats.map(chat => <button key={`remote:${chat.id}`} type="button" disabled={!historyReady || loading || projectBusy}
               aria-label={`Open saved song: ${chat.title}`}
               onClick={() => void openServerChat(chat.id)} className="block w-full border-l-2 border-transparent px-3 py-2 text-left text-sm break-words disabled:opacity-40">{chat.title}</button>)}
@@ -1239,7 +1239,7 @@ export default function DashboardPage() {
           )}
           {!planChecking && (isSubscribed ? (
             <div className="rounded-xl p-3 border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
-              <p className="text-xs font-semibold mb-0.5" style={{ color: "#4ade80" }}>✓ {currentPlan} plan</p>
+              <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--success)" }}>✓ {currentPlan} plan</p>
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage ? `${usage.songs_this_month ?? 0} / ${usage.songs_limit ?? 10} songs` : "Active"}</p>
               {usage?.ai_usage && usage.ai_usage.fair_use_cap_usd > 0 && <p className="text-xs" style={{ color: "var(--text-secondary)" }}>AI: ${usage.ai_usage.estimated_usd.toFixed(2)} / ${usage.ai_usage.fair_use_cap_usd.toFixed(0)}</p>}
             </div>
@@ -1273,7 +1273,7 @@ export default function DashboardPage() {
             <span className="shrink-0"><UserIcon size={20} /></span>
             <span className="min-w-0 text-xs">
               <span className="block font-medium break-all">{user?.email}</span>
-              <span className="block" style={{ color: authStatus === "Signed in" ? "#86efac" : "var(--text-secondary)" }}>{authStatus}{user?.name ? ` / ${user.name}` : ""}</span>
+              <span className="block" style={{ color: authStatus === "Signed in" ? "var(--success-text)" : "var(--text-secondary)" }}>{authStatus}{user?.name ? ` / ${user.name}` : ""}</span>
             </span>
           </button>
         </header>

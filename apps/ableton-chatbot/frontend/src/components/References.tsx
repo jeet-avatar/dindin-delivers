@@ -135,8 +135,8 @@ function StemPicker({ id, stems, cue, importing, disabled, bridgeConnected, live
   const connected = bridgeConnected === true;
   return <div className="space-y-3">
     <div className="flex items-center gap-2 text-sm">
-      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: connected ? "#22c55e" : "#ef4444" }} />
-      <span style={{ color: connected ? "#86efac" : "#fca5a5" }}>
+      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: connected ? "var(--success)" : "#ef4444" }} />
+      <span style={{ color: connected ? "var(--success-text)" : "#fca5a5" }}>
         {connected
           ? (liveSet ? `Ableton connected — ${liveSet}` : "Ableton connected")
           : "Ableton not connected — open the BeatMind Bridge"}
@@ -442,7 +442,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
           <div className="border-l-4 border-emerald-400 pl-4 py-3 space-y-3">
             <p className="text-sm text-emerald-200 font-medium">Stems are ready</p>
             <svg role="img" aria-label="Reference waveform" viewBox="0 0 160 40" className="h-16 w-full" preserveAspectRatio="none">
-              {item.report.waveform.map((v, i) => <line key={i} x1={i} x2={i} y1={20-v*19} y2={20+v*19} stroke="#34d399" strokeWidth="0.6" />)}
+              {item.report.waveform.map((v, i) => <line key={i} x1={i} x2={i} y1={20-v*19} y2={20+v*19} stroke="var(--success)" strokeWidth="0.6" />)}
             </svg>
             <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
               <div><span className="text-neutral-400">Tempo </span><span>{item.report.tempo.bpm ?? "—"} BPM</span></div>
