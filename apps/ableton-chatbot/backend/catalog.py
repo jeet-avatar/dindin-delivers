@@ -20,7 +20,7 @@ MIXMIND_PLANS = ('mixmind', 'starter_mixmind', 'pro_mixmind')
 BEATMIND_PLANS = ('starter', 'pro', 'studio', 'starter_mixmind', 'pro_mixmind')
 INTERVALS = {'month': 'monthly', 'year': 'yearly'}
 PLAN_NAMES = {'starter': 'Starter', 'pro': 'Pro', 'studio': 'Studio', 'mixmind': 'MixMind',
-              'starter_mixmind': 'Starter + MixMind', 'pro_mixmind': 'Pro + MixMind'}
+              'starter_mixmind': 'MixMind Pro', 'pro_mixmind': 'MixMind Studio'}
 PACK_KEYS = ('beatmind_pack_tracks_10', 'beatmind_pack_tracks_25', 'beatmind_pack_tracks_60',
              'beatmind_pack_cloud_10', 'beatmind_pack_cloud_50')
 ROUND_PACK_KEYS = ('beatmind_rounds_10', 'beatmind_rounds_25')

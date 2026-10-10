@@ -10,7 +10,7 @@ import { isLoggedIn, apiFetch } from "@/lib/auth";
 import { MIXMIND_FAQS } from "@/lib/faqs";
 import {
   ANNUAL_DISCOUNT_LABEL,
-  MIXMIND_COMBOS,
+  MIXMIND_TIERS,
   MIXMIND_PRICE,
   MIXMIND_TRIAL_NOTE,
   type BillingInterval,
@@ -72,60 +72,6 @@ const STEPS = [
 
 const STUDIO = planById("studio");
 
-const MIXMIND_FEATURES = [
-  "Full library browser — unlimited tracks",
-  "Duplicate detection & cleanup",
-  "AI playlist builder",
-  "Intelligent Set Builder",
-  "Pioneer USB drive support",
-  "Mac now (Apple silicon) · Windows coming soon",
-];
-
-interface MixMindPriceCard {
-  id: CheckoutPlanId;
-  name: string;
-  monthly: number;
-  yearly: number;
-  available: boolean;
-  highlight: boolean;
-  savings: { monthly: number; yearly: number } | null;
-  features: string[];
-}
-
-const PRICE_CARDS: MixMindPriceCard[] = [
-  {
-    id: MIXMIND_PRICE.id,
-    name: "MixMind",
-    monthly: MIXMIND_PRICE.monthly,
-    yearly: MIXMIND_PRICE.yearly,
-    available: MIXMIND_PRICE.available,
-    highlight: true,
-    savings: null,
-    features: MIXMIND_FEATURES,
-  },
-  ...MIXMIND_COMBOS.map((combo) => {
-    const beatmind = planById(combo.beatmindPlan);
-    return {
-      id: combo.id,
-      name: combo.name,
-      monthly: combo.monthly,
-      yearly: combo.yearly,
-      available: combo.available,
-      highlight: false,
-      savings: {
-        monthly: combo.savingsMonthly,
-        yearly: beatmind.yearly + MIXMIND_PRICE.yearly - combo.yearly,
-      },
-      features: [
-        "Everything in MixMind",
-        `BeatMind ${beatmind.name}: ${beatmind.includedTracks} tracks / month`,
-        ...(beatmind.includedCloud > 0 ? [`${beatmind.includedCloud} cloud HQ separations / month`] : []),
-        "AI producer inside Ableton Live (fair use)",
-      ],
-    };
-  }),
-];
-
 export default function MixMindPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("month");
@@ -183,8 +129,15 @@ export default function MixMindPage() {
           <a href="#features" className="hover:text-white transition-colors duration-150">Features</a>
           <a href="#how" className="hover:text-white transition-colors duration-150">How it works</a>
           <a href="#pricing" className="hover:text-white transition-colors duration-150">Pricing</a>
+          <a
+            href={DOWNLOAD_FALLBACK_HREF}
+            onClick={handleDownload}
+            className="hover:text-white transition-colors duration-150"
+            style={{ color: "var(--accent)" }}
+          >
+            Download
+          </a>
           <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
-          <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
           <Link href="/" className="hover:text-white transition-colors duration-150">BeatMind ↗</Link>
         </div>
         <a
@@ -289,7 +242,7 @@ export default function MixMindPage() {
           <div className="border-l-2 pl-5 py-1" style={{ borderColor: "var(--accent)" }}>
             <h2 id="what-is-heading" className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>What is MixMind?</h2>
             <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              MixMind is a desktop DJ library manager for Mac (Apple silicon) that reads your Rekordbox 6 or 7 collection. It gives you a fast, searchable library browser, an AI playlist builder that picks from tracks you already own, a duplicate finder, Pioneer USB drive browsing and an Intelligent Set Builder that sequences warm-up, peak-time or closing techno and minimal sets by BPM and key and can add them to Rekordbox as playlists (more genres coming). Browsing, searching and finding duplicates never change your Rekordbox library; the Set Builder only writes to Rekordbox when you click Add to Rekordbox, which adds the set as a playlist after backing up your library (Rekordbox must be closed). A Windows version of MixMind is coming soon. MixMind is made by the BeatMind team and costs from {formatUsd(MIXMIND_PRICE.monthly)}/month ({formatUsd(MIXMIND_PRICE.yearly)}/year), or {formatUsd(MIXMIND_COMBOS[0].monthly)}/month bundled with BeatMind Starter. It is also included in BeatMind Studio ({formatUsd(STUDIO.monthly)}/month).
+              MixMind is a desktop DJ library manager for Mac (Apple silicon) that reads your Rekordbox 6 or 7 collection. It gives you a fast, searchable library browser, an AI playlist builder that picks from tracks you already own, a duplicate finder, Pioneer USB drive browsing and an Intelligent Set Builder that sequences warm-up, peak-time or closing techno and minimal sets by BPM and key and can add them to Rekordbox as playlists (more genres coming). Browsing, searching and finding duplicates never change your Rekordbox library; the Set Builder only writes to Rekordbox when you click Add to Rekordbox, which adds the set as a playlist after backing up your library (Rekordbox must be closed). A Windows version of MixMind is coming soon. MixMind is made by the BeatMind team with plans from {formatUsd(MIXMIND_PRICE.monthly)}/month ({formatUsd(MIXMIND_PRICE.yearly)}/year). It is also included in BeatMind Studio ({formatUsd(STUDIO.monthly)}/month).
             </p>
           </div>
         </section>
@@ -345,7 +298,7 @@ export default function MixMindPage() {
         <section id="pricing" className="max-w-6xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
           <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Pricing</h2>
           <p className="mb-8 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>
-            Get MixMind on its own, or bundle it with BeatMind and save {formatUsd(MIXMIND_COMBOS[0].savingsMonthly)}/month. Cancel anytime.
+            Three plans for every DJ. Pick the features you need. Cancel anytime.
           </p>
 
           {/* Billing interval toggle */}
@@ -371,50 +324,45 @@ export default function MixMindPage() {
 
           {/* Price cards */}
           <div className="grid gap-6 md:grid-cols-3 text-left">
-            {PRICE_CARDS.map((card) => {
-              const price = billingInterval === "month" ? card.monthly : card.yearly;
+            {MIXMIND_TIERS.map((tier) => {
+              const price = billingInterval === "month" ? tier.monthly : tier.yearly;
               const unit = billingInterval === "month" ? "month" : "year";
-              let savingsLabel: string | null = null;
-              if (card.savings) {
-                savingsLabel = billingInterval === "month"
-                  ? `Save ${formatUsd(card.savings.monthly)}/mo vs separate`
-                  : `Save ${formatUsd(card.savings.yearly)}/yr vs separate`;
-              }
               return (
                 <div
-                  key={card.id}
+                  key={tier.id}
                   className="rounded-2xl border p-8 relative overflow-hidden flex flex-col"
-                  style={{ background: "var(--bg-secondary)", borderColor: card.highlight ? "var(--accent)" : "var(--border)" }}
+                  style={{ background: "var(--bg-secondary)", borderColor: tier.highlight ? "var(--accent)" : "var(--border)" }}
                 >
-                  {card.highlight && (
+                  {tier.highlight && (
                     <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "#fff" }}>
-                      FOR DJS
+                      MOST POPULAR
                     </div>
                   )}
-                  <h3 className="text-xl font-semibold mb-4">{card.name}</h3>
+                  <h3 className="text-xl font-semibold mb-4">{tier.name}</h3>
                   <div className="text-5xl font-black mb-2" aria-label={`${price} dollars per ${unit}`}>{formatUsd(price)}</div>
-                  <div className="text-sm mb-2" style={{ color: "var(--text-secondary)" }}>
+                  <div className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
                     per {unit}
                     {billingInterval === "year" ? ` · ${ANNUAL_DISCOUNT_LABEL}` : " · cancel anytime"}
                   </div>
-                  <div className="text-sm font-semibold mb-6 min-h-5" style={{ color: "var(--accent)" }}>{savingsLabel}</div>
                   <ul className="text-sm space-y-3 mb-8 flex-1">
-                    {card.features.map((feature) => (
+                    {tier.features.map((feature) => feature.endsWith(":") ? (
+                      <li key={feature} className="font-medium" style={{ color: "var(--text-secondary)" }}>{feature}</li>
+                    ) : (
                       <li key={feature} className="flex items-start gap-2">
                         <span className="mt-0.5 flex-shrink-0"><CheckIcon size={16} color="var(--accent)" /></span>
                         {feature}
                       </li>
                     ))}
                   </ul>
-                  {card.available ? (
+                  {tier.available ? (
                     <Link
-                      href={ctaHref(card.id, billingInterval, loggedIn)}
-                      className={card.highlight
+                      href={ctaHref(tier.id, billingInterval, loggedIn)}
+                      className={tier.highlight
                         ? "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
                         : "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-colors duration-150 border hover:border-white"}
-                      style={card.highlight ? { background: "var(--accent)", color: "#fff" } : { borderColor: "var(--border)", color: "var(--text-primary)" }}
+                      style={tier.highlight ? { background: "var(--accent)", color: "#fff" } : { borderColor: "var(--border)", color: "var(--text-primary)" }}
                     >
-                      Choose {card.name} &rarr;
+                      Choose {tier.name} &rarr;
                     </Link>
                   ) : (
                     <span className="block w-full py-4 rounded-xl font-semibold text-lg text-center border opacity-60" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }} aria-disabled="true">
@@ -426,22 +374,17 @@ export default function MixMindPage() {
             })}
           </div>
 
-          {/* Studio */}
-          <div className="mt-6 p-5 rounded-xl border text-sm text-left md:text-center" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
-            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Included in BeatMind {STUDIO.name}: </span>
-            MixMind comes with Studio ({formatUsd(STUDIO.monthly)}/mo or {formatUsd(STUDIO.yearly)}/yr), along with {STUDIO.includedTracks} BeatMind tracks and {STUDIO.includedCloud} cloud HQ separations a month and priority support.{" "}
-            <Link href={ctaHref(STUDIO.id, billingInterval, loggedIn)} className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
-              Choose Studio &rarr;
-            </Link>
-          </div>
-
           {/* Also have BeatMind? */}
-          <div className="mt-8 p-5 rounded-xl border text-sm" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
-            Also a music producer?{" "}
-            <Link href="/" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
-              Check out BeatMind →
+          <div className="mt-6 p-5 rounded-xl border text-sm text-left md:text-center" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
+            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Also a music producer? </span>
+            BeatMind Studio ({formatUsd(STUDIO.monthly)}/mo) includes full MixMind access, {STUDIO.includedTracks} songs/mo, all AI models, and priority support.{" "}
+            <Link href={ctaHref(STUDIO.id, billingInterval, loggedIn)} className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
+              Choose BeatMind Studio &rarr;
             </Link>
-            {" "}— our AI that builds drums, bass and melodies part by part inside your Ableton Live Set.
+            {" · "}
+            <Link href="/" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
+              See all BeatMind plans →
+            </Link>
           </div>
         </section>
 

@@ -3,8 +3,8 @@ import {
   ANNUAL_DISCOUNT_LABEL,
   HIGHEST_MONTHLY_USD,
   LOWEST_MONTHLY_USD,
-  MIXMIND_COMBOS,
   MIXMIND_ON_SALE,
+  MIXMIND_TIERS,
   MIXMIND_PRICE,
   PLANS,
   type MixMindPlanId,
@@ -96,28 +96,19 @@ function mixmindSaleOffer(
   };
 }
 
-// The first offer is standalone MixMind ($12/month); the rest are the BeatMind + MixMind
-// combos and Studio, which also include MixMind. MixMind is not part of the free trial.
 function mixmindOffers(): JsonLdObject[] {
   const studio = planById("studio");
   return [
-    mixmindSaleOffer(
-      "MixMind",
-      MIXMIND_PRICE.id,
-      MIXMIND_PRICE.monthly,
-      MIXMIND_PRICE.yearly,
-      `MixMind for Mac and Windows: $${MIXMIND_PRICE.monthly}/month or $${MIXMIND_PRICE.yearly}/year (${ANNUAL_DISCOUNT_LABEL}). Not included in the BeatMind free trial.`,
-    ),
-    ...MIXMIND_COMBOS.map((combo) =>
+    ...MIXMIND_TIERS.map((tier) =>
       mixmindSaleOffer(
-        `BeatMind ${combo.name}`,
-        combo.id,
-        combo.monthly,
-        combo.yearly,
-        `BeatMind ${combo.name}: $${combo.monthly}/month or $${combo.yearly}/year, saving $${combo.savingsMonthly}/month compared with buying both separately.`,
+        tier.name,
+        tier.id,
+        tier.monthly,
+        tier.yearly,
+        `${tier.name}: $${tier.monthly}/month or $${tier.yearly}/year (${ANNUAL_DISCOUNT_LABEL}). ${tier.features.join(", ")}. Not included in the BeatMind free trial.`,
       ),
     ),
-    planOffer(studio, `BeatMind Studio includes MixMind: $${studio.monthly}/month or $${studio.yearly}/year.`),
+    planOffer(studio, `BeatMind Studio includes full MixMind access: $${studio.monthly}/month or $${studio.yearly}/year.`),
   ];
 }
 
@@ -185,7 +176,7 @@ export function mixmindAppSchema(): JsonLdObject {
     operatingSystem: "macOS",
     url: absoluteUrl("/mixmind"),
     image: absoluteUrl(OG_IMAGE_MIXMIND),
-    description: `DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, build AI playlists and sequence warm-up, peak-time or closing sets from music you already own. $${MIXMIND_PRICE.monthly}/month, or included with BeatMind + MixMind bundles and BeatMind Studio.`,
+    description: `DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, build AI playlists and sequence warm-up, peak-time or closing sets from music you already own. Plans from $${MIXMIND_PRICE.monthly}/month, or included in BeatMind Studio.`,
     softwareRequirements: "Rekordbox 6 or 7",
     publisher: ORGANIZATION_REF,
     offers: mixmindOffers(),

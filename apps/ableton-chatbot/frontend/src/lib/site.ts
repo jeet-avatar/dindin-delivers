@@ -35,7 +35,7 @@ export const SOCIAL_PROFILES: string[] = SOCIAL_LINKS.map((link) => link.url);
 
 export const HOME_TITLE = "BeatMind — AI Music Producer for Ableton";
 export const HOME_DESCRIPTION =
-  "BeatMind is an AI music producer that works inside Ableton Live — describe a sound and build drums, bass and melodies part by part in your own Live Set. Plans from $19/month; 7-day free trial with 3 tracks, no card.";
+  "BeatMind is an AI music producer that works inside Ableton Live — describe a sound and build drums, bass and melodies part by part in your own Live Set. Plans from $39.99/month; 7-day free trial with 3 tracks, no card.";
 
 export function absoluteUrl(path: string): string {
   return path === "/" ? `${BASE_URL}/` : `${BASE_URL}${path}`;

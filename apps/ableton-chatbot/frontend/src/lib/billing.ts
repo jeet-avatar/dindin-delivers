@@ -76,7 +76,7 @@ export const MIXMIND_PLANS: PlanId[] = ["mixmind", "starter_mixmind", "pro_mixmi
 
 const PLAN_NAMES: Record<string, string> = {
   starter: "Starter", pro: "Pro", studio: "Studio", mixmind: "MixMind",
-  starter_mixmind: "Starter + MixMind", pro_mixmind: "Pro + MixMind", trial: "Free trial",
+  starter_mixmind: "MixMind Pro", pro_mixmind: "MixMind Studio", trial: "Free trial",
 };
 
 /** True only for plans that include MixMind (Studio, MixMind, combos). Trial and Starter/Pro users are false. */

@@ -14,7 +14,6 @@ import {
   FOUNDING_DISCOUNT_PERCENT,
   FOUNDING_SEATS,
   LOWEST_MONTHLY_USD,
-  MIXMIND_COMBO_FROM_MONTHLY,
   MIXMIND_PRICE,
   PACK_TERMS,
   PLANS,
@@ -227,7 +226,7 @@ export default function LandingPage() {
         <section id="pricing" className="max-w-6xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
           <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Pricing</h2>
           <p className="mb-8 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>
-            Every plan includes the AI producer inside Ableton Live. Pick how many reference tracks you separate each month.
+            Every plan includes the AI producer inside Ableton Live and unlimited stem separations. Pick your AI models and songs per month.
           </p>
 
           {/* Billing interval toggle */}
@@ -312,10 +311,10 @@ export default function LandingPage() {
 
           {/* Packs */}
           <div className="mt-10 rounded-2xl border p-6 text-left" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-            <h3 className="text-lg font-semibold mb-4">Need more? Track packs &amp; Cloud HQ packs</h3>
+            <h3 className="text-lg font-semibold mb-4">Need more rounds?</h3>
             <div className="grid gap-4 md:grid-cols-2 text-sm">
               <div>
-                <div className="font-medium mb-1">Track packs</div>
+                <div className="font-medium mb-1">Round packs (per song)</div>
                 <div style={{ color: "var(--text-secondary)" }}>{packList(TRACK_PACKS)}</div>
               </div>
               <div>
@@ -329,7 +328,7 @@ export default function LandingPage() {
           {/* MixMind for DJs */}
           <div className="mt-6 p-5 rounded-xl border text-sm text-left" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
             <span className="font-semibold" style={{ color: "var(--text-primary)" }}>MixMind for DJs: </span>
-            {formatUsd(MIXMIND_PRICE.monthly)}/month, or save with BeatMind + MixMind from {formatUsd(MIXMIND_COMBO_FROM_MONTHLY)}/month. Studio includes MixMind.{" "}
+            DJ library manager from {formatUsd(MIXMIND_PRICE.monthly)}/month. Browse your Rekordbox library, find duplicates, build AI playlists and sets. Included in Studio.{" "}
             <Link href="/mixmind#pricing" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
               MixMind pricing &rarr;
             </Link>{" "}
@@ -386,7 +385,7 @@ export default function LandingPage() {
                   Develop drums, bass and melodies inside your Ableton Live project, with captured auditions and one part to review at a time.
                 </p>
                 <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>Web app + bridge agent · Requires Ableton Live 11 or 12</div>
-                <div className="text-sm font-semibold mb-5">From {formatUsd(LOWEST_MONTHLY_USD)}/mo</div>
+                <div className="text-sm font-semibold mb-5">From {formatUsd(LOWEST_MONTHLY_USD)}/mo · 3 AI models</div>
                 <Link href="/signup" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
                   Start free trial →
                 </Link>
@@ -400,7 +399,7 @@ export default function LandingPage() {
                   DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, and build AI playlists and full sets from music you already own.
                 </p>
                 <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>Desktop app · Mac (Apple Silicon) · Requires Rekordbox 6 or 7</div>
-                <div className="text-sm font-semibold mb-5">{formatUsd(MIXMIND_PRICE.monthly)}/mo · or included in Studio</div>
+                <div className="text-sm font-semibold mb-5">From {formatUsd(MIXMIND_PRICE.monthly)}/mo · 3 plans</div>
                 <Link href="/mixmind" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-colors duration-150 border hover:border-white" style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
                   See MixMind →
                 </Link>

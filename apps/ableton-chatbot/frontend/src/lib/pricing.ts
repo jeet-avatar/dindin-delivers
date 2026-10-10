@@ -38,14 +38,15 @@ export const PLANS: Plan[] = [
   {
     id: "starter",
     name: "Starter",
-    monthly: 19,
-    yearly: 190,
+    monthly: 39.99,
+    yearly: 399.99,
     includedTracks: 10,
     includedCloud: 0,
     features: [
-      "10 tracks / month",
-      "High-quality stem separation on your computer via the Bridge",
-      "AI producer inside Ableton Live (fair use)",
+      "Fast mode AI (Haiku 4.5)",
+      "10 songs / month · 30 AI rounds per song",
+      "$25/mo AI budget",
+      "Unlimited stem separations",
       "BeatMind Bridge for Mac (Apple Silicon, macOS 15+)",
     ],
     highlight: false,
@@ -54,14 +55,16 @@ export const PLANS: Plan[] = [
   {
     id: "pro",
     name: "Pro",
-    monthly: 39,
-    yearly: 390,
-    includedTracks: 30,
+    monthly: 69.99,
+    yearly: 699.99,
+    includedTracks: 25,
     includedCloud: 5,
     features: [
-      "Everything in Starter, plus:",
-      "30 tracks / month",
-      "5 cloud HQ separations / month (no powerful computer needed)",
+      "Fast + Pro mode AI (Haiku + Sonnet)",
+      "25 songs / month · 30 AI rounds per song",
+      "$45/mo AI budget",
+      "Unlimited stem separations",
+      "5 cloud HQ separations / month",
     ],
     highlight: true,
     available: true,
@@ -69,13 +72,15 @@ export const PLANS: Plan[] = [
   {
     id: "studio",
     name: "Studio",
-    monthly: 79,
-    yearly: 790,
-    includedTracks: 80,
+    monthly: 99.99,
+    yearly: 999.99,
+    includedTracks: 50,
     includedCloud: 20,
     features: [
-      "Everything in Pro, plus:",
-      "80 tracks / month",
+      "Fast + Pro + Ultra mode AI (all models)",
+      "50 songs / month · 30 AI rounds per song",
+      "$80/mo AI budget",
+      "Unlimited stem separations",
       "20 cloud HQ separations / month",
       "MixMind for Rekordbox included",
       "Priority support",
@@ -90,14 +95,13 @@ export const HIGHEST_MONTHLY_USD = Math.max(...PLANS.map((plan) => plan.monthly)
 export const ANNUAL_DISCOUNT_LABEL = "2 months free";
 
 export const TRACK_DEFINITION =
-  "A track is one stem separation of a reference track. High-quality separation runs on your own Mac via the Bridge.";
+  "Each song includes up to 30 AI rounds. Need more? Buy extra rounds from within a song ($1.99 for 10 rounds, $3.99 for 25 rounds).";
 export const CLOUD_HQ_DEFINITION =
   "Cloud HQ separations run on our cloud GPU, for computers that can't run high-quality separation locally. They need a paid plan.";
 
 export const TRACK_PACKS: Pack[] = [
-  { quantity: 10, price: 9 },
-  { quantity: 25, price: 19 },
-  { quantity: 60, price: 39 },
+  { quantity: 10, price: 1.99 },
+  { quantity: 25, price: 3.99 },
 ];
 
 export const CLOUD_HQ_PACKS: Pack[] = [
@@ -106,7 +110,7 @@ export const CLOUD_HQ_PACKS: Pack[] = [
 ];
 
 export const PACK_TERMS =
-  "Packs never expire. They're used after your monthly allowance and need a paid plan.";
+  "Round packs are per-song and never expire. Cloud HQ packs are used after your monthly allowance.";
 
 export const FOUNDING_CODE = "FOUNDING100";
 export const FOUNDING_DISCOUNT_PERCENT = 40;
@@ -117,16 +121,71 @@ export const FOUNDING_OFFER = `The first ${FOUNDING_SEATS} annual subscribers wh
 // their site CTAs are disabled and their JSON-LD offers are no longer InStock.
 export const MIXMIND_ON_SALE = true;
 
-export const MIXMIND_PRICE = { id: "mixmind" as const, monthly: 12, yearly: 120, available: MIXMIND_ON_SALE };
+export const MIXMIND_PRICE = { id: "mixmind" as const, monthly: 19.99, yearly: 199.99, available: MIXMIND_ON_SALE };
 
-export const MIXMIND_COMBOS: Combo[] = [
-  { id: "starter_mixmind", beatmindPlan: "starter", name: "Starter + MixMind", monthly: 25, yearly: 250, savingsMonthly: 6, available: MIXMIND_ON_SALE },
-  { id: "pro_mixmind", beatmindPlan: "pro", name: "Pro + MixMind", monthly: 45, yearly: 450, savingsMonthly: 6, available: MIXMIND_ON_SALE },
+export interface MixMindTier {
+  id: MixMindPlanId;
+  name: string;
+  monthly: number;
+  yearly: number;
+  features: string[];
+  highlight: boolean;
+  available: boolean;
+}
+
+export const MIXMIND_TIERS: MixMindTier[] = [
+  {
+    id: "mixmind",
+    name: "MixMind",
+    monthly: 19.99,
+    yearly: 199.99,
+    features: [
+      "Full library browser — unlimited tracks",
+      "Duplicate detection & cleanup",
+      "Pioneer USB drive support",
+      "Mac (Apple Silicon) · Windows coming soon",
+    ],
+    highlight: false,
+    available: MIXMIND_ON_SALE,
+  },
+  {
+    id: "starter_mixmind",
+    name: "MixMind Pro",
+    monthly: 29.99,
+    yearly: 299.99,
+    features: [
+      "Everything in MixMind, plus:",
+      "AI playlist builder",
+      "Advanced search & filters",
+      "Intelligent Set Builder",
+    ],
+    highlight: true,
+    available: MIXMIND_ON_SALE,
+  },
+  {
+    id: "pro_mixmind",
+    name: "MixMind Studio",
+    monthly: 49.99,
+    yearly: 499.99,
+    features: [
+      "Everything in MixMind Pro, plus:",
+      "Multi-genre Set Builder",
+      "Export playlists to Rekordbox",
+      "Priority support",
+    ],
+    highlight: false,
+    available: MIXMIND_ON_SALE,
+  },
 ];
 
-export const MIXMIND_COMBO_FROM_MONTHLY = Math.min(...MIXMIND_COMBOS.map((combo) => combo.monthly));
+export const MIXMIND_COMBOS: Combo[] = [
+  { id: "starter_mixmind", beatmindPlan: "starter", name: "MixMind Pro", monthly: 29.99, yearly: 299.99, savingsMonthly: 0, available: MIXMIND_ON_SALE },
+  { id: "pro_mixmind", beatmindPlan: "pro", name: "MixMind Studio", monthly: 49.99, yearly: 499.99, savingsMonthly: 0, available: MIXMIND_ON_SALE },
+];
+
+export const MIXMIND_COMBO_FROM_MONTHLY = Math.min(...MIXMIND_TIERS.map((t) => t.monthly));
 export const MIXMIND_TRIAL_NOTE =
-  "The free trial covers BeatMind only. MixMind needs a MixMind, BeatMind + MixMind or Studio plan.";
+  "The free trial covers BeatMind only. MixMind needs a MixMind plan or BeatMind Studio.";
 
 export function formatUsd(amount: number): string {
   return Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`;
