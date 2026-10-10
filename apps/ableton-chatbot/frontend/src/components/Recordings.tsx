@@ -47,7 +47,8 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
   const [logLoading, setLogLoading] = useState(false);
   const attempted = useRef(false);
   const audio = useRef<HTMLAudioElement>(null);
-  const waveformPeak = Math.max(0.000001, ...item.metrics.waveform);
+  const waveform = item.metrics.waveform || [];
+  const waveformPeak = waveform.length ? Math.max(0.000001, ...waveform) : 1;
   const hint = levelHint(item.metrics.peak_dbfs, item.metrics.rms_dbfs);
 
   useEffect(() => {
@@ -128,7 +129,7 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
       {typeof item.scene === "number" && item.scene >= 0 ? ` / Scene ${item.scene + 1}${item.scene_name ? ` (${item.scene_name})` : ""}` : ""}
     </p>
     <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-      {item.source} · {item.metrics.duration_seconds.toFixed(1)}s · Peak {item.metrics.peak_dbfs.toFixed(1)} dBFS
+      {item.source} · {(item.metrics.duration_seconds ?? 0).toFixed(1)}s · Peak {(item.metrics.peak_dbfs ?? 0).toFixed(1)} dBFS
     </p>
     {item.sample_source && <p className="text-xs mt-1 break-words">{item.sample_source.pack_name} / {item.sample_source.relative_path}</p>}
     {item.sample_source && <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -139,13 +140,12 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
       <p className="mt-1">Captured peak: {item.metrics.peak_dbfs.toFixed(1)} dBFS{Number.isFinite(item.metrics.rms_dbfs) ? ` / average: ${item.metrics.rms_dbfs!.toFixed(1)} dBFS` : ""}</p>
       <p className="mt-1">{hint.detail}</p>
     </div>}
-    <div className="h-12 flex items-center gap-px my-2 overflow-hidden" aria-hidden="true">
+    {waveform.length > 0 && <div className="h-12 flex items-center gap-px my-2 overflow-hidden" aria-hidden="true">
       {Array.from({ length: 80 }, (_, i) => {
-        const values = item.metrics.waveform;
-        const value = values[Math.min(values.length - 1, Math.floor(i * values.length / 80))] || 0;
+        const value = waveform[Math.min(waveform.length - 1, Math.floor(i * waveform.length / 80))] || 0;
         return <span key={i} className="flex-1 min-w-0" style={{ height: `${Math.max(3, Math.min(100, value / waveformPeak * 95))}%`, background: "#34d399" }} />;
       })}
-    </div>
+    </div>}
     {src ? <audio ref={audio} controls preload="auto" src={src} className="w-full min-w-0 h-10" aria-label={`Play ${item.track_name}`}
       onCanPlay={() => {
         setAudioReady(true);

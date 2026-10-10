@@ -12,6 +12,25 @@ VOICE_DIR = Path(os.getenv("BEATMIND_VOICE_DIR", "/opt/beatmind-voices"))
 RECORDINGS_DIR = Path(os.getenv("BEATMIND_RECORDINGS_DIR", "/tmp/beatmind-recordings"))
 
 _voice = None
+WAVEFORM_BINS = 80
+
+
+def _wav_waveform(wav_path: Path, bins: int = WAVEFORM_BINS) -> list[float]:
+    try:
+        with wave.open(str(wav_path), "rb") as wf:
+            n_frames = wf.getnframes()
+            if n_frames == 0:
+                return [0.0] * bins
+            raw = wf.readframes(n_frames)
+            width = wf.getsampwidth()
+            import struct
+            fmt = {1: "b", 2: "<h", 4: "<i"}.get(width, "<h")
+            scale = float(1 << (width * 8 - 1))
+            samples = [abs(v / scale) for (v,) in struct.iter_unpack(fmt, raw)]
+            per_bin = max(1, len(samples) // bins)
+            return [round(max(samples[i * per_bin:(i + 1) * per_bin], default=0.0), 4) for i in range(bins)]
+    except Exception:
+        return [0.0] * bins
 
 
 def _load_voice():
@@ -76,6 +95,8 @@ def generate(text: str, user_id: int, speed: float = 1.0) -> dict:
     except Exception:
         pass
 
+    waveform = _wav_waveform(wav_path)
+
     metadata = {
         "id": recording_id,
         "user_id": user_id,
@@ -83,7 +104,7 @@ def generate(text: str, user_id: int, speed: float = 1.0) -> dict:
         "track_name": "Voice",
         "track": -1,
         "scene": -1,
-        "metrics": {"duration_s": round(duration, 1), "peak_dbfs": round(peak, 1), "file_bytes": file_size},
+        "metrics": {"duration_seconds": round(duration, 1), "peak_dbfs": round(peak, 1), "file_bytes": file_size, "waveform": waveform},
         "source": "Piper TTS",
         "decision": "pending",
         "kind": "voice",
