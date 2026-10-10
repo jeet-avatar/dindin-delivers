@@ -1,8 +1,18 @@
 """Download cloud-separated stems from the API and place them in Ableton."""
 
+import asyncio
 import tempfile
 from pathlib import Path
 from urllib.request import urlopen, Request
+
+
+def _download_stem(base_url, name, token, dest):
+    url = f"{base_url}/{name}?token={token}"
+    req = Request(url, headers={"User-Agent": "BeatMind-Bridge"})
+    with urlopen(req, timeout=120) as resp:
+        dest.write_bytes(resp.read())
+    if not dest.stat().st_size:
+        raise RuntimeError(f"Downloaded empty file for stem '{name}'.")
 
 
 async def import_cloud_stems(bridge, reference_id, stems, base_url, token):
@@ -22,13 +32,8 @@ async def import_cloud_stems(bridge, reference_id, stems, base_url, token):
         tmp_dir = Path(tempfile.mkdtemp(prefix="beatmind_cloud_stems_"))
         files = []
         for name in stems:
-            url = f"{base_url}/{name}?token={token}"
             dest = tmp_dir / f"{name}.wav"
-            req = Request(url, headers={"User-Agent": "BeatMind-Bridge"})
-            with urlopen(req, timeout=60) as resp:
-                dest.write_bytes(resp.read())
-            if not dest.stat().st_size:
-                raise RuntimeError(f"Downloaded empty file for stem '{name}'.")
+            await asyncio.to_thread(_download_stem, base_url, name, token, dest)
             files.append((dest, name))
 
         if "stem_import_v1" not in await query("/live/song/beatmind_stem_capabilities", []):
