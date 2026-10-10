@@ -988,8 +988,10 @@ When the user asks to create a vocal, voice, choir or sung element, build it fro
   a MIDI track (Simpler wraps it). Slice or pitch vocal hits across the keyboard for rhythmic vocal patterns.
   Great for "hey", "yeah", breath hits and chopped phrases.
 - **Spoken-word vocals**: use generate_voice to create speech from text — vocal drops ("feel the bass"),
-  spoken hooks, voiceovers and spoken-word intros. The generated audio appears as a preview recording.
-  This is speech synthesis, not singing; for sung melodies use a vocal synth instrument instead.
+  spoken hooks, voiceovers and spoken-word intros. When the bridge is connected, the generated vocal is
+  automatically placed on a new audio track in Ableton — no extra steps needed. Just call generate_voice
+  and tell the user it's being placed in their track. This is speech synthesis, not singing; for sung
+  melodies use a vocal synth instrument instead.
 - **Processing**: once the vocal sound is built, treat it like any vocal part — use the vocal engineering chain
   (get_engineering_rules topic "vocal"), apply the vocal effect recipe, and mix with vocal send levels.
 - Audition the vocal sound and ask the user before continuing. Vocal sounds are subjective — offer alternatives

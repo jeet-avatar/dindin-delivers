@@ -36,7 +36,7 @@ TOOLS.append({'name': 'vocal_check', 'description': "Detect what a vocal actuall
      'input_schema': {'type': 'object', 'properties': {'recording_id': {'type': 'string', 'pattern': '^[a-f0-9]{32}$'},
                        'compare_recording_ids': {'type': 'array', 'items': {'type': 'string', 'pattern': '^[a-f0-9]{32}$'}, 'maxItems': 8}},
                       'required': ['recording_id'], 'additionalProperties': False}})
-TOOLS.append({'name': 'generate_voice', 'description': "Generate a spoken-word vocal from text using the built-in voice synthesizer (Piper TTS). Creates an audio recording the user can preview in the browser. Use for vocal drops, spoken hooks, voiceovers and spoken-word elements in a track. The result is a preview recording — present it for the user to listen to before deciding how to use it. Not for singing; for sung melodies use a vocal synth instrument instead.",
+TOOLS.append({'name': 'generate_voice', 'description': "Generate a spoken-word vocal from text using the built-in voice synthesizer (Piper TTS). When the Ableton bridge is connected, the vocal is automatically placed on a new audio track in Ableton — no extra steps needed. Use for vocal drops, spoken hooks, voiceovers and spoken-word elements. Tell the user what you're generating, then call this tool. Not for singing; for sung melodies use a vocal synth instrument instead.",
      'input_schema': {'type': 'object', 'properties': {
          'text': {'type': 'string', 'minLength': 1, 'maxLength': 500, 'description': 'The words to speak'},
          'speed': {'type': 'number', 'minimum': 0.5, 'maximum': 2.0, 'description': 'Speed (1.0 = normal, 0.7 = slow/dramatic, 1.3 = fast)'}},

@@ -300,6 +300,11 @@ class AbletonBridge:
             else:
                 await self._reply(request_id, await self.local.reveal(msg.get("reference_id")))
 
+        elif msg_type == "import_audio":
+            from audio_import import import_audio_file
+            await self._reply(request_id, await import_audio_file(
+                self, msg.get("wav_b64"), msg.get("track_name", "Voice"), msg.get("recording_id")))
+
         elif msg_type == "batch":
             # Execute multiple OSC commands in sequence
             results = []

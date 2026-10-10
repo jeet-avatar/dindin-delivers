@@ -46,7 +46,6 @@ def generate(text: str, user_id: int, speed: float = 1.0) -> dict:
         ["ffmpeg", "-y", "-i", str(wav_path), "-c:a", "aac", "-b:a", "128k", str(m4a_path)],
         capture_output=True, timeout=30,
     )
-    wav_path.unlink(missing_ok=True)
 
     if result.returncode != 0 or not m4a_path.is_file():
         return {"status": "failed", "error": "Audio conversion failed."}

@@ -663,11 +663,6 @@ async def produce_chat(req, session, bridge, emit=None):
         session.reference_note = song_projects.reference_note(reference_id, session.user_id)
         session.project_note = song_projects.planning_reason(session.project, reference_id, session.user_id)
         session.planning_only = req.planning_only or bool(session.project_note)
-        import logging as _log
-        _log.getLogger('beatmind.debug').warning(
-            "planning_only=%s  req.planning_only=%s  project_note=%r  starting_point=%s  reference_id=%s",
-            session.planning_only, req.planning_only, session.project_note,
-            session.project.get('starting_point') if session.project else None, reference_id)
         session.pending_review = False
         session.current_track_names = []
         session.current_recordings = []
@@ -902,6 +897,20 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                         result = {"status": "failed", "summary": "Title must not be empty.", "steps": []}
                 elif tu.name in chat_tools.NAMES and not blocked and not audition_ready:
                     result = await chat_tools.execute(tu.name, tu.input, session.user_id)
+                    if tu.name == "generate_voice" and bridge and result.get("status") == "verified" and result.get("recording"):
+                        rec_id = result["recording"]["id"]
+                        wav_path = RECORDINGS_ROOT / f"{rec_id}.wav"
+                        wav_b64 = ""
+                        if wav_path.is_file():
+                            import base64
+                            wav_b64 = base64.b64encode(wav_path.read_bytes()).decode()
+                        import_result = await bridge.local_operation("import_audio", {
+                            "wav_b64": wav_b64, "track_name": "Voice", "recording_id": rec_id}, timeout=30)
+                        if import_result.get("status") == "verified":
+                            result["summary"] += f' {import_result["summary"]}'
+                            result["ableton_import"] = import_result
+                        else:
+                            result["ableton_import"] = {"status": "failed", "summary": import_result.get("summary", "Could not place vocal in Ableton.")}
                 elif tu.name == "set_section_brief" and not blocked and not audition_ready:
                     result = await set_brief(session.user_id, session.session_id, tu.input, bridge)
                     if result.get("status") == "observed":
@@ -1142,6 +1151,17 @@ async def recording_audio(recording_id: str, user: dict = Depends(get_current_us
     if not owned_recording(recording_id, user["id"]):
         raise HTTPException(404, "Recording not found")
     return FileResponse(RECORDINGS_ROOT / f"{recording_id}.m4a", media_type="audio/mp4",
+                        headers={"Cache-Control": "private, no-store"})
+
+
+@app.get("/api/recordings/{recording_id}/wav")
+async def recording_wav(recording_id: str, user: dict = Depends(get_current_user)):
+    if not owned_recording(recording_id, user["id"]):
+        raise HTTPException(404, "Recording not found")
+    wav = RECORDINGS_ROOT / f"{recording_id}.wav"
+    if not wav.is_file():
+        raise HTTPException(404, "WAV not available for this recording")
+    return FileResponse(wav, media_type="audio/wav",
                         headers={"Cache-Control": "private, no-store"})
 
 
