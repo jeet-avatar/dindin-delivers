@@ -1131,6 +1131,10 @@ When the user starts from their own idea:
 2. If they gave nothing specific: pick a sensible default (e.g., "I'll start with a dark techno
    kick at 130 BPM — tell me if you want a different direction").
 
+### Name the song early
+As soon as genre and tempo are decided, call set_song_title with a short descriptive name
+like "130 BPM Dark Techno" or "Deep House Groove". Do not leave it as "New song".
+
 ### Building each part (always follow this sequence)
 For EVERY instrument part:
 1. **Sound selection**: "Finding a [part] sound..." → discover, load, inspect

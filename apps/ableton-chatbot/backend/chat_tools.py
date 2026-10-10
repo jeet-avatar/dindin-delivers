@@ -41,7 +41,11 @@ TOOLS.append({'name': 'generate_voice', 'description': "Generate a spoken-word v
          'text': {'type': 'string', 'minLength': 1, 'maxLength': 500, 'description': 'The words to speak'},
          'speed': {'type': 'number', 'minimum': 0.5, 'maximum': 2.0, 'description': 'Speed (1.0 = normal, 0.7 = slow/dramatic, 1.3 = fast)'}},
          'required': ['text'], 'additionalProperties': False}})
-NAMES = {tool['name'] for tool in TOOLS}
+TOOLS.append({'name': 'set_song_title', 'description': "Name the current song project. Call this as soon as the genre and tempo are decided — for example '130 BPM Dark Techno' or 'Deep House Groove'. The title appears in the sidebar so the user can tell their songs apart. Do not leave it as 'New song'.",
+     'input_schema': {'type': 'object', 'properties': {
+         'title': {'type': 'string', 'minLength': 1, 'maxLength': 70, 'description': 'Short descriptive title, e.g. "130 BPM Dark Techno"'}},
+         'required': ['title'], 'additionalProperties': False}})
+NAMES = {tool['name'] for tool in TOOLS} - {'set_song_title'}
 
 
 async def execute(name, inputs, user_id):

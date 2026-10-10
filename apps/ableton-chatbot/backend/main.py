@@ -802,7 +802,7 @@ DISCUSSION_TOOLS = {
         'list_browser', 'inspect_track', 'list_sample_packs',
         'search_pack_samples', 'inspect_pack_sample',
     }
-} | {'list_reference_sounds'}
+} | {'list_reference_sounds', 'set_song_title'}
 
 
 def _build_system(bridge_note: str) -> list[dict]:
@@ -886,6 +886,13 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                 constraint = source_error(section_brief, tu.name, tu.input)
                 if planning_only and tu.name not in DISCUSSION_TOOLS:
                     result = {"status": "failed", "summary": "Discussion only: no playback or music changes were authorized. Ask for the user's next choice.", "steps": []}
+                elif tu.name == "set_song_title" and session.project:
+                    title = (tu.input.get('title') or '').strip()[:70]
+                    if title:
+                        session.project['title'] = title
+                        result = {"status": "verified", "summary": f"Song titled '{title}'.", "steps": []}
+                    else:
+                        result = {"status": "failed", "summary": "Title must not be empty.", "steps": []}
                 elif tu.name in chat_tools.NAMES and not blocked and not audition_ready:
                     result = await chat_tools.execute(tu.name, tu.input, session.user_id)
                 elif tu.name == "set_section_brief" and not blocked and not audition_ready:
