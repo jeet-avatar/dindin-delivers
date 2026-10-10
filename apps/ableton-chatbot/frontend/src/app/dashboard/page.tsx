@@ -185,6 +185,12 @@ const NAV: { id: Nav; label: string; Icon: React.ComponentType<{ size?: number }
   { id: "account",   label: "Account",    Icon: UserIcon },
 ];
 
+const MODEL_BADGE: Record<ModelTier, { background: string; color: string }> = {
+  fast: { background: "rgba(255, 159, 67, 0.15)", color: "var(--accent)" },
+  pro: { background: "rgba(156, 195, 107, 0.15)", color: "var(--success-text)" },
+  ultra: { background: "rgba(91, 158, 166, 0.18)", color: "var(--cool-text)" },
+};
+
 const PROMPTS = [
   { text: "Make me an Afro House track at 122 BPM", newSong: true },
   { text: "Create a dark melodic techno loop in Am", newSong: true },
@@ -647,7 +653,7 @@ export default function DashboardPage() {
   const mixmindLocked = (
     <div className="rounded-xl border p-3 text-xs" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
       MixMind needs a MixMind, BeatMind + MixMind or Studio plan.{" "}
-      <button type="button" onClick={choosePlan} className="underline" style={{ color: "#a78bfa" }}>See plans</button>
+      <button type="button" onClick={choosePlan} className="underline" style={{ color: "var(--cool-text)" }}>See plans</button>
     </div>
   );
 
@@ -745,7 +751,7 @@ export default function DashboardPage() {
                 <span>${usage.ai_usage.estimated_usd.toFixed(2)} / ${usage.ai_usage.fair_use_cap_usd.toFixed(0)}</span>
               </div>
               <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (usage.ai_usage.estimated_usd / usage.ai_usage.fair_use_cap_usd) * 100)}%`, background: usage.ai_usage.estimated_usd >= usage.ai_usage.fair_use_cap_usd ? "#f87171" : "#60a5fa" }} />
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (usage.ai_usage.estimated_usd / usage.ai_usage.fair_use_cap_usd) * 100)}%`, background: usage.ai_usage.estimated_usd >= usage.ai_usage.fair_use_cap_usd ? "#f87171" : "var(--cool)" }} />
               </div>
             </div>}
             {usage.included_cloud_per_month > 0 && <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage.cloud_used} / {usage.included_cloud_per_month} Cloud HQ separations</p>}
@@ -792,7 +798,7 @@ export default function DashboardPage() {
                     if (song.sessionId && (song.id.startsWith("server-") || serverChats.some(s => s.id === song.sessionId))) void openServerChat(song.sessionId);
                     else openChat(song.id);
                   }}
-                  className="rounded-xl border p-4 text-left transition-all hover:border-blue-500 disabled:opacity-40"
+                  className="rounded-xl border p-4 text-left transition-all hover:border-[var(--accent)] disabled:opacity-40"
                   style={{ background: isActive ? "var(--bg-primary)" : "var(--bg-secondary)", borderColor: isActive ? "var(--accent)" : "var(--border)" }}>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <p className="text-sm font-medium break-words line-clamp-2">{song.title || "Untitled"}</p>
@@ -826,7 +832,7 @@ export default function DashboardPage() {
               if (p.newSong) void newSong(p.text);
               else { setInput(p.text); setNav("beatmind"); }
             }}
-              className="text-left text-sm p-3 rounded-xl border transition-colors hover:border-blue-500 disabled:opacity-40"
+              className="text-left text-sm p-3 rounded-xl border transition-colors hover:border-[var(--accent)] disabled:opacity-40"
               style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-secondary)" }}>
               {p.text}
             </button>
@@ -951,7 +957,7 @@ export default function DashboardPage() {
   const renderMixMind = () => (
     <div className="p-8 max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "#7c3aed" }}>
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "var(--cool)" }}>
           <DJIcon size={24} />
         </div>
         <div>
@@ -967,9 +973,9 @@ export default function DashboardPage() {
         {mixmindIncluded ? (
         <div className="grid grid-cols-1 gap-3">
           <a href="#" onClick={handleMixMindDownload} aria-disabled={mixmindDownloading}
-            className="flex flex-col items-center gap-3 p-5 rounded-xl border text-center transition-all hover:border-purple-500"
+            className="flex flex-col items-center gap-3 p-5 rounded-xl border text-center transition-all hover:border-[var(--cool)]"
             style={{ borderColor: "var(--border)", background: "var(--bg-primary)" }}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#7c3aed" }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "var(--cool)" }}>
               <DownloadIcon size={18} />
             </div>
             <div>
@@ -1028,7 +1034,7 @@ export default function DashboardPage() {
         <div className="rounded-2xl border p-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
           <div className="flex items-center justify-between gap-4 mb-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#7c3aed" }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--cool)" }}>
                 <DJIcon size={20} />
               </div>
               <div>
@@ -1039,19 +1045,19 @@ export default function DashboardPage() {
             {mixmindIncluded
               ? <a href="#" onClick={handleMixMindDownload} aria-disabled={mixmindDownloading}
                   className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                  style={{ background: "#7c3aed", color: "#fff" }}>
+                  style={{ background: "var(--cool)", color: "var(--on-accent)" }}>
                   <DownloadIcon size={14} />
                   {mixmindDownloading ? "Preparing…" : "Download .dmg"}
                 </a>
               : <button type="button" onClick={choosePlan}
                   className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                  style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "#a78bfa" }}>
+                  style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--cool-text)" }}>
                   Upgrade plan
                 </button>}
           </div>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
             AI DJ library manager. Smart playlists, duplicate track detection, BPM + key analysis, and Rekordbox + USB export.
-            {!mixmindIncluded && <span style={{ color: "#a78bfa" }}> Requires a MixMind, BeatMind + MixMind, or Studio plan.</span>}
+            {!mixmindIncluded && <span style={{ color: "var(--cool-text)" }}> Requires a MixMind, BeatMind + MixMind, or Studio plan.</span>}
           </p>
         </div>
       </div>
@@ -1246,7 +1252,7 @@ export default function DashboardPage() {
           ) : (
             <button onClick={choosePlan}
               className="w-full rounded-xl p-3 text-left transition-opacity hover:opacity-90"
-              style={{ background: "linear-gradient(135deg,#1d4ed8,#7c3aed)" }}>
+              style={{ background: "linear-gradient(135deg,var(--cool-dim),var(--cool))" }}>
               <p className="text-xs font-bold text-white mb-0.5">
                 {trialActive ? trialSummary : "Trial ended"}
               </p>
@@ -1302,13 +1308,12 @@ export default function DashboardPage() {
             {usage?.model_access && usage.model_access.length > 1 ? (
               <select value={selectedModel} onChange={e => setSelectedModel(e.target.value as ModelTier)}
                 className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium appearance-none cursor-pointer"
-                style={{ background: selectedModel === "ultra" ? "rgba(168,85,247,0.15)" : selectedModel === "pro" ? "rgba(59,130,246,0.15)" : "rgba(249,115,22,0.15)",
-                  color: selectedModel === "ultra" ? "#c084fc" : selectedModel === "pro" ? "#60a5fa" : "#fb923c", border: "none", outline: "none" }}>
+                style={{ ...MODEL_BADGE[selectedModel], border: "none", outline: "none" }}>
                 {usage.model_access.map(m => <option key={m} value={m}>{MODEL_TIER_LABELS[m]}</option>)}
               </select>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full" style={{ background: "rgba(249,115,22,0.15)", color: "#fb923c" }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#fb923c" }} />{MODEL_TIER_LABELS[selectedModel]}
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full" style={MODEL_BADGE[selectedModel]}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: MODEL_BADGE[selectedModel].color }} />{MODEL_TIER_LABELS[selectedModel]}
               </span>
             )}
             <span style={{ color: "var(--text-secondary)" }}>{project.live_set ? `Selected set: ${project.live_set.title}` : "Planning / No Live Set selected"}</span>

@@ -53,7 +53,7 @@ export default function ReferenceReview({ id, name = "reference", mode, timing, 
         <label className="text-sm">Beat unit<select className={field} value={map.denominator} onChange={e => changeMap({...map, denominator: Number(e.target.value)})}>{[2,4,8,16].map(v => <option key={v}>{v}</option>)}</select></label>
       </div>
       <div className="flex h-8 w-full overflow-hidden" aria-label="Reference section map">{map.sections.map((s, i) => <button key={i} type="button" title={`${s.name}: ${stamp(s.start_seconds)}-${stamp(s.end_seconds)}`} aria-label={`Cue ${s.name}`}
-        onClick={() => onCue(s.start_seconds)} style={{flex: Math.max(0.01,s.end_seconds-s.start_seconds)}} className={`min-w-0 border-r border-neutral-950 ${['bg-emerald-700','bg-cyan-700','bg-rose-800'][i%3]}`} />)}</div>
+        onClick={() => onCue(s.start_seconds)} style={{flex: Math.max(0.01,s.end_seconds-s.start_seconds)}} className={`min-w-0 border-r border-neutral-950 ${['bg-emerald-700','bg-[var(--cool-dim)]','bg-amber-800'][i%3]}`} />)}</div>
       {map.sections.map((s, i) => <div key={i} className="space-y-2 border-b border-neutral-800 pb-3">
         <label className="block text-sm">Section {i+1} name<input className={field} value={s.name} maxLength={80} onChange={e => changeMap({...map, sections: map.sections.map((v,j) => j===i ? {...v,name:e.target.value} : v)})} /></label>
         <div className="grid grid-cols-2 gap-2 text-sm"><p className="self-center">Start: {stamp(s.start_seconds)}</p>

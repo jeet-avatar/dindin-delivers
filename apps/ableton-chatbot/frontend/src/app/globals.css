@@ -25,6 +25,10 @@
   /* Muted sage, like Live's playing-clip green, so success states sit beside the amber instead of glowing. */
   --success: #9cc36b;
   --success-text: #b8d69a;
+  /* Muted teal for MixMind and secondary highlights; complements the amber the way Live's blue selection does. */
+  --cool: #5b9ea6;
+  --cool-dim: #3f7a82;
+  --cool-text: #9cc9cd;
   --error: #ef4444;
 }
 
