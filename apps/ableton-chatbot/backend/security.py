@@ -289,8 +289,9 @@ class DoSProtectionMiddleware(BaseHTTPMiddleware):
     - Security headers on every response
     """
     MAX_BODY_BYTES = 64 * 1024  # 64KB max body — chat messages don't need more
-    GLOBAL_RATE = 120           # requests per minute per IP (global ceiling)
+    GLOBAL_RATE = 300           # requests per minute per IP (global ceiling)
     GLOBAL_WINDOW = 60
+    _EXEMPT_PREFIXES = ("/api/health", "/api/bridge/status", "/api/recordings")
 
     async def dispatch(self, request: Request, call_next):
         ip = get_client_ip(request)
@@ -310,15 +311,17 @@ class DoSProtectionMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"detail": "Request too large"}, status_code=413)
 
         # 2. Global IP rate limit (all endpoints combined)
-        key = f"global:{ip}"
-        now = time.time()
-        cutoff = now - self.GLOBAL_WINDOW
-        hits = [t for t in _rate_store.get(key, []) if t > cutoff]
-        if len(hits) >= self.GLOBAL_RATE:
-            log.warning("Global rate limit hit from IP: %s", ip)
-            return JSONResponse({"detail": "Too many requests"}, status_code=429)
-        hits.append(now)
-        _rate_store[key] = hits
+        #    Exempt lightweight polling endpoints that the frontend hits frequently.
+        if not request.url.path.startswith(self._EXEMPT_PREFIXES):
+            key = f"global:{ip}"
+            now = time.time()
+            cutoff = now - self.GLOBAL_WINDOW
+            hits = [t for t in _rate_store.get(key, []) if t > cutoff]
+            if len(hits) >= self.GLOBAL_RATE:
+                log.warning("Global rate limit hit from IP: %s", ip)
+                return JSONResponse({"detail": "Too many requests"}, status_code=429)
+            hits.append(now)
+            _rate_store[key] = hits
 
         # 3. Call the actual endpoint
         response = await call_next(request)
