@@ -29,9 +29,9 @@ import { BRIDGE_MAC_DOWNLOAD } from "@/lib/guide";
 import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/chat-index";
 import { acceptedSound, type MusicChoice } from "@/lib/music-workflow";
 import {
-  AI_MODEL_LABEL, AI_FAIR_USE_LABELS, MIXMIND_AI_LABEL,
+  AI_FAIR_USE_LABELS, PLAN_MODEL_ACCESS, MODEL_TIER_LABELS, MIXMIND_AI_LABEL,
   daysLeft, hasMixMindAccess, hasPaidPlan, openBillingPortal, parsePlanIntent, planIntentQuery, planName, useUsage, withoutPlanIntent,
-  type PlanIntent,
+  type ModelTier, type PlanIntent,
 } from "@/lib/billing";
 
 // ─── Inline icons (avoids prop-type conflicts with existing Icons.tsx) ────────
@@ -228,6 +228,7 @@ export default function DashboardPage() {
   const queuedRef = useRef<string | null>(null);
   const [streamNotice, setStreamNotice] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<ModelTier>("fast");
   const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
   const { status: bridgeStatus, refresh: refreshBridge } = useBridgeStatus(user?.id);
   const bridgeConnected = bridgeStatus === "connected";
@@ -368,6 +369,17 @@ export default function DashboardPage() {
     if (!fresh && sessionId) return sessionId;
     writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: false });
     const response = await apiFetch("/api/chats", { method: "POST" });
+    if (response.status === 402) {
+      const body = await response.json().catch(() => ({}));
+      setPlanReason(typeof body.detail === "string" ? body.detail : "Choose a plan to keep making music.");
+      throw new Error(body.detail || "Choose a plan to keep making music.");
+    }
+    if (response.status === 429) {
+      const body = await response.json().catch(() => ({}));
+      const msg = typeof body.detail === "string" ? body.detail : "Song limit reached. Upgrade your plan for more songs.";
+      setPlanReason(msg);
+      throw new Error(msg);
+    }
     if (!response.ok) throw new Error("Your new song could not be saved. The current song is unchanged.");
     const data = await response.json();
     const id = `server-${data.sessionId}`;
@@ -431,7 +443,7 @@ export default function DashboardPage() {
       setInput("");
       const res = await apiFetch("/api/chat/stream", {
         method: "POST",
-        body: JSON.stringify({ message: text, session_id: activeSession, reference_id: selectedReference, planning_only: planningOnly }),
+        body: JSON.stringify({ message: text, session_id: activeSession, reference_id: selectedReference, planning_only: planningOnly, model_tier: selectedModel }),
         signal: controller.signal,
       });
       if (res.status === 402) {
@@ -619,15 +631,18 @@ export default function DashboardPage() {
   if (trialActive) trialBanner = trialOutOfTracks ? `Your free trial includes ${usage?.included_per_month} tracks. Choose a plan to keep going.` : trialSummary;
   const mixmindIncluded = hasMixMindAccess(usage ?? user);
   const tierLabel = usage?.plan?.tier ? AI_FAIR_USE_LABELS[usage.plan.tier] : null;
+  const modelNames = usage?.model_access?.map(m => MODEL_TIER_LABELS[m]).join(", ") ?? MODEL_TIER_LABELS.fast;
   const planFeatures = usage && isSubscribed ? [
-    `${usage.included_per_month} track separations per month`,
+    `${tierLabel ? tierLabel.songs : usage.included_per_month} songs per month`,
+    `AI models: ${modelNames}`,
+    ...(tierLabel ? [`$${tierLabel.cap}/mo AI budget`] : []),
+    "Unlimited stem separations",
     ...(usage.included_cloud_per_month > 0 ? [`${usage.included_cloud_per_month} Cloud HQ separations per month`] : []),
-    `BeatMind AI · ${AI_MODEL_LABEL}${tierLabel ? ` · $${tierLabel.cap}/mo budget · ${tierLabel.approx}` : ""}`,
     "BeatMind Bridge for Ableton Live",
     ...(usage.plan.mixmind ? [`MixMind for Mac · ${MIXMIND_AI_LABEL}`] : []),
   ] : [
-    `${usage?.plan?.source === "trial" ? usage.included_per_month : 3} tracks, separated on your own Mac`,
-    `BeatMind AI · ${AI_MODEL_LABEL} (trial allowance)`, "BeatMind Bridge for Ableton Live",
+    `${usage?.plan?.source === "trial" ? 3 : 3} trial songs`,
+    `AI model: ${MODEL_TIER_LABELS.fast} (trial)`, "BeatMind Bridge for Ableton Live",
   ];
   const mixmindLocked = (
     <div className="rounded-xl border p-3 text-xs" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
@@ -717,16 +732,16 @@ export default function DashboardPage() {
             </div>
             <div className="mb-2">
               <div className="flex justify-between text-xs mb-1">
-                <span style={{ color: "var(--text-secondary)" }}>Tracks this month</span>
-                <span>{usage.tracks_used} / {usage.included_per_month}</span>
+                <span style={{ color: "var(--text-secondary)" }}>Songs this month</span>
+                <span>{usage.songs_this_month ?? 0} / {usage.songs_limit ?? 10}</span>
               </div>
               <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (usage.tracks_used / Math.max(1, usage.included_per_month)) * 100)}%`, background: usage.tracks_used >= usage.included_per_month ? "#f87171" : "#4ade80" }} />
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, ((usage.songs_this_month ?? 0) / Math.max(1, usage.songs_limit ?? 10)) * 100)}%`, background: (usage.songs_this_month ?? 0) >= (usage.songs_limit ?? 10) ? "#f87171" : "#4ade80" }} />
               </div>
             </div>
             {usage.ai_usage && usage.ai_usage.fair_use_cap_usd > 0 && <div className="mb-2">
               <div className="flex justify-between text-xs mb-1">
-                <span style={{ color: "var(--text-secondary)" }}>AI budget ({AI_MODEL_LABEL})</span>
+                <span style={{ color: "var(--text-secondary)" }}>AI budget</span>
                 <span>${usage.ai_usage.estimated_usd.toFixed(2)} / ${usage.ai_usage.fair_use_cap_usd.toFixed(0)}</span>
               </div>
               <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
@@ -1072,9 +1087,9 @@ export default function DashboardPage() {
             </div>
             {usage?.plan.status === "past_due" && <p className="text-xs mb-3 text-amber-200">Update your card in Manage billing to keep your plan.</p>}
             {usage && <div className="text-xs mb-3 space-y-1" style={{ color: "var(--text-secondary)" }}>
-              <p>{usage.tracks_used} of {usage.included_per_month} tracks{usage.included_cloud_per_month > 0 ? ` · ${usage.cloud_used} of ${usage.included_cloud_per_month} Cloud HQ separations` : ""} used this month</p>
-              {usage.ai_usage && usage.ai_usage.fair_use_cap_usd > 0 && <p>AI budget: ${usage.ai_usage.estimated_usd.toFixed(2)} of ${usage.ai_usage.fair_use_cap_usd.toFixed(0)} used · {AI_MODEL_LABEL}</p>}
-              {usage.track_credits > 0 && <p>{usage.track_credits} purchased tracks{usage.cloud_credits > 0 ? ` · ${usage.cloud_credits} purchased Cloud HQ` : ""}</p>}
+              <p>{usage.songs_this_month ?? 0} of {usage.songs_limit ?? 10} songs this month{usage.included_cloud_per_month > 0 ? ` · ${usage.cloud_used} of ${usage.included_cloud_per_month} Cloud HQ` : ""}</p>
+              {usage.ai_usage && usage.ai_usage.fair_use_cap_usd > 0 && <p>AI budget: ${usage.ai_usage.estimated_usd.toFixed(2)} of ${usage.ai_usage.fair_use_cap_usd.toFixed(0)} used</p>}
+              <p>AI models: {modelNames}</p>
             </div>}
             {usage
               ? <SubscriptionControls usage={usage} onChanged={reloadUsage} onManage={openBilling} />
@@ -1198,7 +1213,7 @@ export default function DashboardPage() {
           {!planChecking && (isSubscribed ? (
             <div className="rounded-xl p-3 border" style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
               <p className="text-xs font-semibold mb-0.5" style={{ color: "#4ade80" }}>✓ {currentPlan} plan</p>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage ? `${usage.allowance_left} of ${usage.included_per_month} tracks left` : "Active"}</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage ? `${usage.songs_this_month ?? 0} / ${usage.songs_limit ?? 10} songs` : "Active"}</p>
               {usage?.ai_usage && usage.ai_usage.fair_use_cap_usd > 0 && <p className="text-xs" style={{ color: "var(--text-secondary)" }}>AI: ${usage.ai_usage.estimated_usd.toFixed(2)} / ${usage.ai_usage.fair_use_cap_usd.toFixed(0)}</p>}
             </div>
           ) : (
@@ -1257,9 +1272,18 @@ export default function DashboardPage() {
             className="h-10 px-3 shrink-0 rounded border text-sm font-medium disabled:opacity-40"
             style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>Upload song</button>}
           {project && <div className="w-full flex flex-wrap items-center gap-3 text-xs">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full" style={{ background: "rgba(249,115,22,0.15)", color: "#fb923c" }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#fb923c" }} />{AI_MODEL_LABEL}
-            </span>
+            {usage?.model_access && usage.model_access.length > 1 ? (
+              <select value={selectedModel} onChange={e => setSelectedModel(e.target.value as ModelTier)}
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium appearance-none cursor-pointer"
+                style={{ background: selectedModel === "ultra" ? "rgba(168,85,247,0.15)" : selectedModel === "pro" ? "rgba(59,130,246,0.15)" : "rgba(249,115,22,0.15)",
+                  color: selectedModel === "ultra" ? "#c084fc" : selectedModel === "pro" ? "#60a5fa" : "#fb923c", border: "none", outline: "none" }}>
+                {usage.model_access.map(m => <option key={m} value={m}>{MODEL_TIER_LABELS[m]}</option>)}
+              </select>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full" style={{ background: "rgba(249,115,22,0.15)", color: "#fb923c" }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#fb923c" }} />{MODEL_TIER_LABELS[selectedModel]}
+              </span>
+            )}
             <span style={{ color: "var(--text-secondary)" }}>{project.live_set ? `Selected set: ${project.live_set.title}` : "Planning / No Live Set selected"}</span>
             <button disabled={loading || projectBusy || !bridgeConnected} onClick={() => setSongSetup("")} className="underline disabled:opacity-40">Choose Live Set</button>
             {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}

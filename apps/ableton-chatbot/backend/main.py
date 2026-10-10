@@ -28,6 +28,7 @@ from production import create_plan, get_plan, link_audition, review_part, replac
 from session_context import matching_recordings, context_note
 from model_history import bounded_history
 import ai_usage
+import model_access
 import mixmind_ai
 import mixmind_download as mixmind_download_module
 import catalog
@@ -564,10 +565,13 @@ class SongProjectRequest(BaseModel):
 @app.post('/api/chats')
 async def create_song_project(user: dict = Depends(get_current_user)):
     rate_limit(f"new-song:{user['id']}", max_requests=20, window_seconds=60)
+    import billing
+    billing.enforce_song_limit(user)
     session = ChatSession(str(uuid.uuid4()), user['id'])
     session.project = song_projects.new_project()
     with chat_store.acquire(user['id'], session.session_id):
         chat_store.save(session, 'complete')
+    billing.record_song(user['id'], session.session_id)
     return {'sessionId': session.session_id, 'messages': [], 'referenceId': None, 'project': session.project}
 
 
@@ -596,6 +600,7 @@ class ChatRequest(BaseModel):
     session_id: str | None = Field(default=None, pattern=r'^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$')
     reference_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
     planning_only: bool = False
+    model_tier: str | None = Field(default=None, pattern=r'^(fast|pro|ultra)$')
 
 
 def prepare_chat(req: ChatRequest, user: dict):
@@ -609,6 +614,11 @@ def prepare_chat(req: ChatRequest, user: dict):
     check_prompt_injection(req.message)
 
     ai_usage.enforce(user)
+
+    import billing
+    plan = billing.allowance(user)
+    plan_tier = plan.get('tier') or 'starter'
+    model_id, tier_key, tier_label = model_access.resolve(req.model_tier, plan_tier, provider_name())
 
     session_id = req.session_id or str(uuid.uuid4())
     if session_id not in sessions:
@@ -635,6 +645,9 @@ def prepare_chat(req: ChatRequest, user: dict):
     reference_note = song_projects.reference_note(reference_id, user['id'])
     session.reference_id = reference_id
     session.reference_note = reference_note
+    session.model_id = model_id
+    session.model_tier = tier_key
+    session.model_label = tier_label
     return session, bridge
 
 
@@ -840,16 +853,19 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     if getattr(session, "pending_review", False):
         bridge_note += "\nSome historical previews are pending review. Their decisions are informational, not a lock on this request. Follow the user's explicit edit or continuation request without requiring approval of another sound. Never mark a preview accepted on their behalf. Inspect current devices and clips; do not treat a prior recording as unchanged current audio."
 
+    chat_model = getattr(session, 'model_id', None) or MODEL
+    import billing as _billing
+    session_max_rounds = _billing.max_rounds(session.user_id, session.session_id)
     continued_text = []
-    for _ in range(MAX_PRODUCTION_ROUNDS):
+    for _ in range(session_max_rounds):
         response = await claude_client.messages.create(
-            model=MODEL,
+            model=chat_model,
             max_tokens=MAX_OUTPUT_TOKENS,
             system=_build_system(bridge_note),
             tools=[tool for tool in _build_tools() if not planning_only or tool['name'] in DISCUSSION_TOOLS],
             messages=bounded_history(messages),
         )
-        ai_usage.record(session.user_id, 'chat', provider_name(), MODEL, ai_usage.anthropic_tokens(response), usage_request)
+        ai_usage.record(session.user_id, 'chat', provider_name(), chat_model, ai_usage.anthropic_tokens(response), usage_request)
 
         text_parts = []
         tool_uses = []

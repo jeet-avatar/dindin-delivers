@@ -40,6 +40,8 @@ export interface PlanState {
 
 export interface Pack { id: string; kind: "track" | "cloud"; credits: number; price: { amount: number; currency: string } }
 
+export type ModelTier = "fast" | "pro" | "ultra";
+
 export interface Usage {
   enforced: boolean;
   plan: PlanState;
@@ -63,6 +65,10 @@ export interface Usage {
     fair_use_cap_usd: number;
     trial?: { chat_messages: number; estimated_usd: number; exhausted: boolean; limits: { chat_messages: number; estimated_usd: number } };
   };
+  songs_this_month: number;
+  songs_limit: number;
+  model_access: ModelTier[];
+  model_labels: Record<string, string>;
 }
 
 export const BEATMIND_PLANS: PlanId[] = ["starter", "pro", "studio"];
@@ -78,12 +84,25 @@ export function hasMixMindAccess(user: Pick<User, "mixmind_access"> | null | und
   return user?.mixmind_access === true;
 }
 
-export const AI_MODEL_LABEL = "Fast mode";
-export const AI_FAIR_USE_LABELS: Record<string, { cap: number; approx: string }> = {
-  starter: { cap: 12, approx: "~24 songs" },
-  pro: { cap: 20, approx: "~40 songs" },
-  studio: { cap: 40, approx: "~80 songs" },
+export const MODEL_TIER_LABELS: Record<ModelTier, string> = {
+  fast: "Fast mode",
+  pro: "Pro mode",
+  ultra: "Ultra mode",
 };
+
+export const AI_MODEL_LABEL = "Fast mode";
+export const AI_FAIR_USE_LABELS: Record<string, { cap: number; songs: number }> = {
+  starter: { cap: 25, songs: 10 },
+  pro: { cap: 45, songs: 25 },
+  studio: { cap: 80, songs: 50 },
+};
+
+export const PLAN_MODEL_ACCESS: Record<string, ModelTier[]> = {
+  starter: ["fast"],
+  pro: ["fast", "pro"],
+  studio: ["fast", "pro", "ultra"],
+};
+
 export const MIXMIND_AI_LABEL = "$12/mo AI budget";
 
 export function planName(plan: PlanState | null | undefined): string {

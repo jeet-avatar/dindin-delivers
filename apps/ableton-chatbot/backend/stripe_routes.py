@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 import ai_usage
 import billing
 import catalog
+import model_access
 import database
 from database import db, is_subscribed, mixmind_access, parse_utc, subscription_access
 
@@ -111,9 +112,11 @@ class CheckoutRequest(BaseModel):
 async def plans():
     """The plan picker's catalog. MixMind plans stay listed as unavailable until MixMind sales open."""
     items = await asyncio.to_thread(catalog.public_plans)
+    round_packs = billing.round_pack_options()
     return {"plans": items, "trial_days": 7,
             "trial": {**billing.trial_allowance(), **ai_usage.trial_limits()},
-            "mixmind_sales_enabled": catalog.mixmind_sales_enabled()}
+            "mixmind_sales_enabled": catalog.mixmind_sales_enabled(),
+            "round_packs": [{"id": p["id"], "rounds": p["rounds"]} for p in round_packs]}
 
 
 @router.post("/checkout")
@@ -223,14 +226,20 @@ async def usage(request: Request):
              for p in billing.packs()]
     summary = billing.summary(user["id"])
     entry = catalog.resolve()["plans"].get(user.get("plan_lookup_key") or "")
+    plan_tier = summary["plan"].get("tier") or "starter"
+    models = model_access.available_models(plan_tier)
+    model_labels = {k: model_access.TIERS[k]['label'] for k in models}
+    songs_used = billing.songs_this_month(user["id"])
+    songs_max = billing.songs_limit(plan_tier)
     return {**summary, "packs": [p for p in packs if p["price"]],
+            "songs_this_month": songs_used, "songs_limit": songs_max,
             "plan_price": {"amount": entry["amount"], "currency": entry["currency"]} if entry else None,
             "renewal_terms": catalog.renewal_terms(entry) if entry else None,
             "subscribed": is_subscribed(user), "mixmind_access": mixmind_access(user),
-            # Packages top up a paid plan: they are not sold during the free trial or without a plan.
             "packs_require_plan": True, "can_buy_packs": subscription_access(user),
             "billing_account": bool(user.get("stripe_customer_id")),
-            "ai_usage": ai_usage.status(user["id"], summary["plan"])}
+            "ai_usage": ai_usage.status(user["id"], summary["plan"]),
+            "model_access": models, "model_labels": model_labels}
 
 
 @router.post("/packs/{pack_id}/checkout")
@@ -259,6 +268,40 @@ async def buy_pack(pack_id: str, request: Request):
         return {"url": session.url}
     except stripe.StripeError as e:
         log.error("Stripe package checkout error for user %s: %s", user["id"], type(e).__name__)
+        raise HTTPException(400, "Payment processing failed. Please try again.")
+
+
+class RoundPackRequest(BaseModel):
+    session_id: str = Field(pattern=r'^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$')
+
+
+@router.post("/rounds/{pack_id}/checkout")
+async def buy_rounds(pack_id: str, req: RoundPackRequest, request: Request):
+    """One-time Checkout for extra chat rounds on a specific song."""
+    user = _authenticated_user(request)
+    packs = {p['id']: p for p in billing.round_pack_options()}
+    item = packs.get(pack_id)
+    if not item:
+        raise HTTPException(404, "Unknown round pack")
+    if not stripe.api_key:
+        raise HTTPException(500, "Payment system not configured")
+    if not subscription_access(user):
+        raise HTTPException(402, "Round packs require a paid plan.")
+    metadata = {"user_id": str(user["id"]), "app": APP, "pack_id": pack_id,
+                "kind": "rounds", "rounds": str(item["rounds"]), "session_id": req.session_id}
+    try:
+        buyer = {"customer_email": user["email"]} if _on_legacy(user) else \
+            {"customer": await asyncio.to_thread(_ensure_customer, user)}
+        session = await asyncio.to_thread(
+            stripe.checkout.Session.create,
+            mode="payment", **buyer, line_items=[{"price": item["price_id"], "quantity": 1}],
+            payment_intent_data={"metadata": metadata},
+            success_url=f"{FRONTEND_URL}/dashboard?purchase=rounds&session_id={req.session_id}",
+            cancel_url=f"{FRONTEND_URL}/dashboard",
+            metadata=metadata)
+        return {"url": session.url}
+    except stripe.StripeError as e:
+        log.error("Stripe round pack checkout error for user %s: %s", user["id"], type(e).__name__)
         raise HTTPException(400, "Payment processing failed. Please try again.")
 
 
@@ -453,17 +496,27 @@ def _grant_pack(session, legacy=False):
         log.info("Package session %s not paid yet", _field(session, "id"))
         return
     user_id, pack_id = int(_field(metadata, "user_id")), _field(metadata, "pack_id")
-    try:
-        credits = int(_field(metadata, "credits"))
-    except (TypeError, ValueError):
-        credits = None
-    granted = billing.grant(user_id, pack_id, _field(session, "id"), _field(metadata, "kind"), credits)
+    kind = _field(metadata, "kind")
+    if kind == "rounds":
+        chat_session_id = _field(metadata, "session_id")
+        if chat_session_id:
+            granted = billing.grant_rounds(user_id, chat_session_id, pack_id, _field(session, "id"))
+            log.info("Round pack %s for user_id=%s session=%s granted=%s", pack_id, user_id, chat_session_id, granted)
+        else:
+            log.warning("Round pack %s missing session_id", _field(session, "id"))
+            return
+    else:
+        try:
+            credits = int(_field(metadata, "credits"))
+        except (TypeError, ValueError):
+            credits = None
+        granted = billing.grant(user_id, pack_id, _field(session, "id"), kind, credits)
+        log.info("Package %s for user_id=%s granted=%s", pack_id, user_id, granted)
     customer = _id(_field(session, "customer"))
     if customer:
         with db() as conn:
             conn.execute("UPDATE users SET stripe_customer_id=?, stripe_account=? WHERE id=? AND stripe_customer_id IS NULL",
                          (customer, _account_tag(legacy), user_id))
-    log.info("Package %s for user_id=%s granted=%s", pack_id, user_id, granted)
 
 
 def _invoice_subscription(invoice):

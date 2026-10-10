@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  AI_MODEL_LABEL, AI_FAIR_USE_LABELS, MIXMIND_AI_LABEL,
+  AI_FAIR_USE_LABELS, PLAN_MODEL_ACCESS, MODEL_TIER_LABELS, MIXMIND_AI_LABEL,
   BEATMIND_PLANS, MIXMIND_PLANS, fetchPlans, formatPrice, previewPromo, renewalTerms, startCheckout,
   planIntentNote, type Catalog, type Interval, type PlanId, type PlanIntent, type PlanOption, type PromoPreview,
 } from "@/lib/billing";
@@ -20,10 +20,21 @@ type Props = {
 function features(option: PlanOption): string[] {
   const list: string[] = [];
   const tierInfo = AI_FAIR_USE_LABELS[option.tier];
+  const models = PLAN_MODEL_ACCESS[option.tier];
   if (option.tier !== "mixmind") {
-    list.push(`BeatMind AI · ${AI_MODEL_LABEL}`);
-    if (tierInfo) list.push(`$${tierInfo.cap}/mo AI budget · ${tierInfo.approx}`);
-    list.push(`${option.included_tracks} track separations / month`);
+    if (models) {
+      const modelNames = models.map(m => MODEL_TIER_LABELS[m]);
+      if (models.length === 1) {
+        list.push(`AI model: ${modelNames[0]}`);
+      } else {
+        list.push(`AI models: ${modelNames.join(", ")}`);
+      }
+    }
+    if (tierInfo) {
+      list.push(`${tierInfo.songs} songs / month`);
+      list.push(`$${tierInfo.cap}/mo AI budget`);
+    }
+    list.push("Unlimited stem separations");
   }
   if (option.included_cloud > 0) list.push(`${option.included_cloud} Cloud HQ separations / month`);
   if (option.mixmind) list.push(`MixMind for Mac · ${MIXMIND_AI_LABEL}`);
@@ -168,7 +179,7 @@ export default function PlanPicker({ onClose, reason, inTrial, intent = null }: 
         </div>
       </>}
 
-      <p className="mt-5 text-xs" style={{ color: "var(--text-secondary)" }}>Each separation uses one track; a cloud separation also uses one Cloud HQ separation. Failed separations are refunded. Need more? Track packs top up any paid plan.</p>
+      <p className="mt-5 text-xs" style={{ color: "var(--text-secondary)" }}>Each song includes up to 30 AI rounds. Need more? Buy extra rounds from within a song. Cloud HQ separations use your monthly Cloud HQ allowance.</p>
       {error && <p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
     </div>
   </div>;

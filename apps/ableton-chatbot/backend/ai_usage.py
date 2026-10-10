@@ -37,10 +37,10 @@ MIXMIND_CAP_MESSAGE = "Monthly MixMind AI allowance reached"
 OPENAI_PLACEHOLDER = {'input': 5.0, 'cached_input': 0.5, 'audio_input': 40.0, 'output': 20.0}
 # PLACEHOLDER for Claude models other than Haiku 4.5 (e.g. BEATMIND_MODEL switched to a larger model).
 CLAUDE_PLACEHOLDER = {'input': 5.0, 'output': 25.0}
-FAIR_USE_USD = {'starter': 12.0, 'pro': 20.0, 'studio': 40.0}
+FAIR_USE_USD = {'starter': 25.0, 'pro': 45.0, 'studio': 80.0}
 TRIAL_CHAT_MESSAGES = 50
 TRIAL_AI_USD = 3.0
-FAIR_USE_MESSAGE = ("You've used your monthly AI budget on Fast mode. "
+FAIR_USE_MESSAGE = ("You've used your monthly AI budget. "
                     "Upgrade your plan for a higher budget, or wait until the 1st of next month (UTC). "
                     "Your songs, stems and track packs are unaffected.")
 TRIAL_MESSAGE = "Your free trial's AI messages are used up. Choose a plan to keep going."
@@ -245,6 +245,6 @@ def enforce(user):
             raise HTTPException(402, TRIAL_MESSAGE)
     elif fair_use_enforced() and over_cap(user['id'], plan['tier']):
         mtd = month_to_date(user['id'], plan['tier'])
-        raise HTTPException(429, f"You've used ${mtd['estimated_usd']:.2f} of your ${mtd['fair_use_cap_usd']:.0f} monthly AI budget on Fast mode. "
+        raise HTTPException(429, f"You've used ${mtd['estimated_usd']:.2f} of your ${mtd['fair_use_cap_usd']:.0f} monthly AI budget. "
                             "Upgrade your plan for a higher budget, or wait until the 1st of next month (UTC). "
                             "Your songs, stems and track packs are unaffected.")

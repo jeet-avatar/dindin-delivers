@@ -34,6 +34,8 @@ def _exempt(user_id):
 MODES = ('local', 'cloud', 'server')
 LEGACY_INCLUDED_TRACKS = 10  # Subscribers from before plans existed are Starter.
 TRIAL_INCLUDED_TRACKS = 3
+SONGS_PER_MONTH = {'starter': 10, 'pro': 25, 'studio': 50}
+TRIAL_SONGS = 3
 
 
 class NoCredits(Exception):
@@ -143,6 +145,24 @@ def init(conn):
     add_columns(conn, 'separations', {'cloud_source': 'TEXT'})
     conn.execute("CREATE INDEX IF NOT EXISTS credit_ledger_user ON credit_ledger (user_id, kind)")
     conn.execute("CREATE INDEX IF NOT EXISTS separations_user ON separations (user_id, created_at)")
+    conn.execute(f"""
+        CREATE TABLE IF NOT EXISTS song_usage (
+            id {autoincrement_pk()},
+            user_id INTEGER NOT NULL,
+            session_id TEXT NOT NULL,
+            created_at TEXT DEFAULT ({now_sql()})
+        )""")
+    conn.execute("CREATE INDEX IF NOT EXISTS song_usage_user ON song_usage (user_id, created_at)")
+    conn.execute(f"""
+        CREATE TABLE IF NOT EXISTS round_packs (
+            id {autoincrement_pk()},
+            user_id INTEGER NOT NULL,
+            session_id TEXT NOT NULL,
+            rounds INTEGER NOT NULL,
+            stripe_session TEXT UNIQUE,
+            created_at TEXT DEFAULT ({now_sql()})
+        )""")
+    conn.execute("CREATE INDEX IF NOT EXISTS round_packs_session ON round_packs (user_id, session_id)")
 
 
 def _month():
@@ -299,3 +319,77 @@ def grant(user_id, pack_id, stripe_session, kind=None, credits=None):
                                  VALUES (?, ?, ?, ?, ?) ON CONFLICT (stripe_session) DO NOTHING""",
                              (user_id, item['kind'], item['credits'], 'purchase:' + pack_id, stripe_session))
         return cursor.rowcount == 1
+
+
+def songs_limit(tier):
+    tier = tier if tier in SONGS_PER_MONTH else 'starter'
+    return _env_int(f'BEATMIND_SONGS_{tier.upper()}', SONGS_PER_MONTH[tier])
+
+
+def songs_this_month(user_id):
+    with db() as conn:
+        row = conn.execute("SELECT COUNT(*) FROM song_usage WHERE user_id=? AND substr(created_at, 1, 7)=?",
+                           (user_id, _month())).fetchone()
+    return row[0]
+
+
+def record_song(user_id, session_id):
+    with db() as conn:
+        conn.execute("INSERT INTO song_usage (user_id, session_id) VALUES (?, ?)", (user_id, session_id))
+
+
+def enforce_song_limit(user):
+    if _exempt(user['id']):
+        return
+    plan = allowance(user)
+    if plan['source'] == 'trial':
+        limit = _env_int('TRIAL_SONGS', TRIAL_SONGS)
+    elif plan['source'] in ('subscription', 'legacy'):
+        limit = songs_limit(plan['tier'])
+    else:
+        return
+    used = songs_this_month(user['id'])
+    if used >= limit:
+        from fastapi import HTTPException
+        if plan['source'] == 'trial':
+            raise HTTPException(402, f"Your free trial includes {limit} songs. Choose a plan to keep making music.")
+        raise HTTPException(429, f"You've produced {used} of {limit} songs this month. "
+                            "Upgrade your plan for more songs, or wait until the 1st of next month (UTC).")
+
+
+ROUND_PACKS_FALLBACK = {
+    'rounds_10': {'rounds': 10, 'price_id': os.getenv('BEATMIND_ROUNDS_10_PRICE_ID', '')},
+    'rounds_25': {'rounds': 25, 'price_id': os.getenv('BEATMIND_ROUNDS_25_PRICE_ID', '')},
+}
+
+
+def extra_rounds(user_id, session_id):
+    with db() as conn:
+        row = conn.execute("SELECT COALESCE(SUM(rounds), 0) FROM round_packs WHERE user_id=? AND session_id=?",
+                           (user_id, session_id)).fetchone()
+    return row[0]
+
+
+def max_rounds(user_id, session_id):
+    from execution import MAX_PRODUCTION_ROUNDS
+    return MAX_PRODUCTION_ROUNDS + extra_rounds(user_id, session_id)
+
+
+def grant_rounds(user_id, session_id, pack_id, stripe_session):
+    item = ROUND_PACKS.get(pack_id)
+    if not item:
+        return False
+    with db() as conn:
+        cursor = conn.execute("""INSERT INTO round_packs (user_id, session_id, rounds, stripe_session)
+                                 VALUES (?, ?, ?, ?) ON CONFLICT (stripe_session) DO NOTHING""",
+                             (user_id, session_id, item['rounds'], stripe_session))
+        return cursor.rowcount == 1
+
+
+def round_pack_options():
+    resolved = catalog.resolve().get('round_packs', {})
+    if resolved:
+        return [{'id': key.replace('beatmind_', ''), 'rounds': entry['rounds'], 'price_id': entry['price_id']}
+                for key, entry in resolved.items()]
+    return [{'id': pid, 'rounds': spec['rounds'], 'price_id': spec['price_id']}
+            for pid, spec in ROUND_PACKS_FALLBACK.items() if spec['price_id']]

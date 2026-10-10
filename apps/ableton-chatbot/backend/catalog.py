@@ -23,6 +23,7 @@ PLAN_NAMES = {'starter': 'Starter', 'pro': 'Pro', 'studio': 'Studio', 'mixmind':
               'starter_mixmind': 'Starter + MixMind', 'pro_mixmind': 'Pro + MixMind'}
 PACK_KEYS = ('beatmind_pack_tracks_10', 'beatmind_pack_tracks_25', 'beatmind_pack_tracks_60',
              'beatmind_pack_cloud_10', 'beatmind_pack_cloud_50')
+ROUND_PACK_KEYS = ('beatmind_rounds_10', 'beatmind_rounds_25')
 TTL_SECONDS = 600
 RETRY_SECONDS = 60
 
@@ -91,13 +92,22 @@ def _pack_entry(price):
             'lookup_key': price['lookup_key'], 'price': {'amount': price['unit_amount'], 'currency': price['currency']}}
 
 
+def _round_pack_entry(price):
+    metadata = _field(_field(price, 'product'), 'metadata', {})
+    rounds = _int(_field(metadata, 'rounds'))
+    if not rounds or _field(metadata, 'kind') != 'rounds':
+        return None
+    return {'lookup_key': price['lookup_key'], 'price_id': price['id'], 'rounds': rounds,
+            'price': {'amount': price['unit_amount'], 'currency': price['currency']}}
+
+
 def _fetch():
-    keys = list(PLAN_KEYS) + list(PACK_KEYS)
+    keys = list(PLAN_KEYS) + list(PACK_KEYS) + list(ROUND_PACK_KEYS)
     prices = []
-    for start in range(0, len(keys), 10):  # Stripe accepts at most ten lookup keys per request.
+    for start in range(0, len(keys), 10):
         page = stripe.Price.list(lookup_keys=keys[start:start + 10], active=True, expand=['data.product'], limit=100)
         prices.extend(page['data'])
-    plans, packs = {}, []
+    plans, packs, round_packs = {}, [], {}
     for price in prices:
         if not _field(_field(price, 'product'), 'active', False):
             continue
@@ -105,8 +115,10 @@ def _fetch():
             plans[price['lookup_key']] = entry
         elif price['lookup_key'] in PACK_KEYS and (entry := _pack_entry(price)):
             packs.append(entry)
+        elif price['lookup_key'] in ROUND_PACK_KEYS and (entry := _round_pack_entry(price)):
+            round_packs[price['lookup_key']] = entry
     packs.sort(key=lambda p: (p['kind'] != 'track', p['credits']))
-    return {'plans': plans, 'packs': packs}
+    return {'plans': plans, 'packs': packs, 'round_packs': round_packs}
 
 
 def _load():
@@ -117,7 +129,7 @@ def _load():
         stamp = time.monotonic()
     except stripe.StripeError as error:
         log.error("Stripe catalog could not be loaded: %s", type(error).__name__)
-        value = _cache[1] if _cache else {'plans': {}, 'packs': []}
+        value = _cache[1] if _cache else {'plans': {}, 'packs': [], 'round_packs': {}}
         stamp = time.monotonic() - TTL_SECONDS + RETRY_SECONDS  # Retry in a minute, not on every request.
     _cache = (stamp, value)
     return value
@@ -139,7 +151,7 @@ def resolve(force=False):
     """
     global _refreshing
     if not stripe.api_key:
-        return {'plans': {}, 'packs': []}
+        return {'plans': {}, 'packs': [], 'round_packs': {}}
     cached = _cache
     if cached and not force:
         if time.monotonic() - cached[0] >= TTL_SECONDS and not _refreshing:
