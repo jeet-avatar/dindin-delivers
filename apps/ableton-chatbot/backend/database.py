@@ -329,6 +329,13 @@ def trial_active(user: dict) -> bool:
     return bool(trial and datetime.now(timezone.utc) < trial)
 
 
+def _exempt_emails() -> set[str]:
+    raw = os.getenv('AI_EXEMPT_EMAILS', '')
+    return {e.strip().lower() for e in raw.split(',') if e.strip()}
+
+
 def is_subscribed(user: dict) -> bool:
-    """Return True if user has BeatMind access through a subscription or the app's free trial."""
+    """Return True if user has BeatMind access through a subscription, the free trial, or the exempt list."""
+    if str(user.get('email', '')).lower() in _exempt_emails():
+        return True
     return subscription_access(user) or trial_active(user)
