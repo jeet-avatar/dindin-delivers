@@ -884,6 +884,33 @@ export default function DashboardPage() {
       </ChatTimeline>
 
       <div className="px-3 sm:px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
+        {project && (
+          <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
+            <button type="button" disabled={loading || projectBusy || !historyReady}
+              onClick={() => { void chooseStart("reference"); }}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 border disabled:opacity-40"
+              style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+              Upload reference
+            </button>
+            {referenceId && project.starting_point === "reference" && (
+              <button type="button" onClick={() => setNav("references")}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 border disabled:opacity-40"
+                style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                Stems &amp; Send to Ableton
+              </button>
+            )}
+            {referenceId && nav !== "references" && (
+              <button type="button" disabled={loading} onClick={() => void sendMessage("Let's discuss my reference track.")}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 border disabled:opacity-40"
+                style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                Discuss reference
+              </button>
+            )}
+          </div>
+        )}
         <div className="flex gap-3 items-end">
           <label htmlFor="chat-input" className="sr-only">Message BeatMind</label>
           <textarea

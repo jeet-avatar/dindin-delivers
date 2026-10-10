@@ -3,13 +3,14 @@
 Registered by beatmind_samples.register. Requires Live 12 (Track.create_audio_clip).
 """
 
+import os
 from pathlib import Path
 
 MAX_STEMS = 12
 
 
 def register(handler, app):
-    root = (Path.home() / "Music/BeatMind Stems").resolve()
+    root = Path(os.getenv('BEATMIND_STEMS_DIR', str(Path.home() / 'Music/BeatMind Stems'))).resolve()
 
     def capabilities(params):
         import Live  # Only available inside Ableton Live.

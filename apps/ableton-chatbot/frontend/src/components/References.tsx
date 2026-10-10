@@ -227,8 +227,16 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     try {
       const body = stems?.length ? JSON.stringify({ stems }) : undefined;
       const res = await apiFetch(`/api/references/${id}/import-to-ableton`, { method: "POST", body });
-      const result = await res.json();
+      let result = await res.json();
       if (!res.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Could not place stems in Ableton.");
+      // Downloading full-length stems can take minutes, so the server works in the background.
+      const deadline = Date.now() + 11 * 60 * 1000;
+      while (result.status === "importing" && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const poll = await apiFetch(`/api/references/${id}/import-status`);
+        if (poll.ok) result = await poll.json();
+      }
+      if (result.status !== "verified") throw new Error(result.error || "Ableton did not confirm the stems. Check Ableton and try again.");
       setImportNotice(result.summary || "Stems placed in Ableton.");
       onUse(id, true);
     } catch (e) { setError(e instanceof Error ? e.message : "Could not place stems in Ableton."); }

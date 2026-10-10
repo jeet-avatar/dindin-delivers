@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime, timezone
 import importlib.util
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -12,6 +13,8 @@ import signal
 import sys
 from typing import Literal
 import uuid
+
+log = logging.getLogger(__name__)
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -966,9 +969,19 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
     class ImportRequest(BaseModel):
         stems: list[str] | None = None
 
-    @router.post('/{reference_id}/import-to-ableton')
+    # Placing stems can outlast the load balancer's idle timeout, so it runs in the background and is polled.
+    IMPORTS: dict[str, dict] = {}
+
+    @router.get('/{reference_id}/import-status')
+    async def import_status(reference_id: str, user=Depends(get_user)):
+        owned(reference_id, user['id'])
+        return IMPORTS.get(reference_id, {'status': 'idle'})
+
+    @router.post('/{reference_id}/import-to-ableton', status_code=202)
     async def import_to_ableton(reference_id: str, request: ImportRequest | None = None, user=Depends(require_subscription)):
         directory, item = owned(reference_id, user['id'])
+        if IMPORTS.get(reference_id, {}).get('status') == 'importing':
+            return IMPORTS[reference_id]
         if item['status'] != 'ready':
             raise HTTPException(409, 'This reference is not ready yet.')
         report = report_of(directory)
@@ -983,27 +996,39 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
             names = [n for n in all_names if n in selected]
         else:
             names = all_names
-        if item.get('storage') == 'local':
-            bridge = bridge_for(user['id'], LOCAL_CAPABILITY)
-            if not bridge:
-                raise HTTPException(409, 'Open the BeatMind Bridge on your computer to place stems in Ableton.')
-            result = await bridge.local_operation('local_reference_open',
-                                                  {'reference_id': reference_id, 'action': 'ableton', 'stems': names}, timeout=60)
+        local = item.get('storage') == 'local'
+        bridge = bridge_for(user['id'], LOCAL_CAPABILITY if local else IMPORT_CAPABILITY)
+        if not bridge:
+            raise HTTPException(409, 'Open the BeatMind Bridge on your computer to place stems in Ableton.')
+        if local:
+            operation = bridge.local_operation('local_reference_open',
+                                               {'reference_id': reference_id, 'action': 'ableton', 'stems': names}, timeout=60)
         else:
-            bridge = bridge_for(user['id'], IMPORT_CAPABILITY)
-            if not bridge:
-                raise HTTPException(409, 'Open the BeatMind Bridge on your computer to place stems in Ableton.')
             server_url = os.getenv('SERVER_URL', 'http://localhost:8000')
-            token = create_stem_download_token(user['id'], reference_id)
-            result = await bridge.local_operation('cloud_stem_import', {
+            operation = bridge.local_operation('cloud_stem_import', {
                 'reference_id': reference_id,
                 'stems': names,
                 'base_url': f'{server_url}/api/references/{reference_id}/stem-download',
-                'token': token,
-            }, timeout=120)
-        if result.get('status') not in ('verified',):
-            raise HTTPException(409, str(result.get('error') or result.get('summary') or 'Could not place stems in Ableton.'))
-        return result
+                'token': create_stem_download_token(user['id'], reference_id),
+            }, timeout=600)
+
+        async def run():
+            try:
+                result = await operation
+            except Exception as error:
+                result = {'status': 'failed', 'error': str(error)}
+            if result.get('status') == 'verified':
+                IMPORTS[reference_id] = {**result, 'status': 'verified'}
+            else:
+                log.warning("import-to-ableton %s failed: %s", reference_id[:8], result)
+                IMPORTS[reference_id] = {'status': 'failed', 'error': str(
+                    result.get('error') or result.get('summary') or 'Could not place stems in Ableton.')}
+
+        IMPORTS[reference_id] = {'status': 'importing', 'stems': names}
+        task = asyncio.create_task(run())
+        TASKS.add(task)
+        task.add_done_callback(TASKS.discard)
+        return IMPORTS[reference_id]
 
     return router
 

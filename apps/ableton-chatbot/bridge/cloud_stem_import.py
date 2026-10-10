@@ -1,16 +1,18 @@
 """Download cloud-separated stems from the API and place them in Ableton."""
 
 import asyncio
+import os
 from pathlib import Path
 from urllib.request import urlopen, Request
+from bridge_network import tls_context
 
-STEM_ROOT = Path.home() / "Music" / "BeatMind Stems"
+STEM_ROOT = Path(os.getenv('BEATMIND_STEMS_DIR', str(Path.home() / 'Music/BeatMind Stems')))
 
 
 def _download_stem(base_url, name, token, dest):
     url = f"{base_url}/{name}?token={token}"
     req = Request(url, headers={"User-Agent": "BeatMind-Bridge"})
-    with urlopen(req, timeout=120) as resp:
+    with urlopen(req, timeout=120, context=tls_context()) as resp:
         dest.write_bytes(resp.read())
     if not dest.stat().st_size:
         raise RuntimeError(f"Downloaded empty file for stem '{name}'.")

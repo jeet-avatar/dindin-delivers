@@ -39,7 +39,8 @@ def rejected_sign_in(error):
     return status in (401, 403) or code == 4001
 
 # AbletonOSC defaults
-BRIDGE_VERSION = "1.3.6"
+BRIDGE_VERSION = "1.3.15"
+BACKGROUND_TASKS = set()
 OSC_HOST = "127.0.0.1"
 OSC_SEND_PORT = 11000
 OSC_RECV_PORT = 11001
@@ -302,9 +303,19 @@ class AbletonBridge:
 
         elif msg_type == "cloud_stem_import":
             from cloud_stem_import import import_cloud_stems
-            await self._reply(request_id, await import_cloud_stems(
-                self, msg.get("reference_id"), msg.get("stems", []),
-                msg.get("base_url"), msg.get("token")))
+
+            async def run():
+                result = await import_cloud_stems(self, msg.get("reference_id"), msg.get("stems", []),
+                                                  msg.get("base_url"), msg.get("token"))
+                try:
+                    await self._reply(request_id, result)
+                except Exception as error:
+                    log.warning(f"Could not report stem import result: {error}")
+
+            # Downloading full-length stems takes minutes; keep answering status checks meanwhile.
+            task = asyncio.create_task(run())
+            BACKGROUND_TASKS.add(task)
+            task.add_done_callback(BACKGROUND_TASKS.discard)
 
         elif msg_type == "import_audio":
             from audio_import import import_audio_file
