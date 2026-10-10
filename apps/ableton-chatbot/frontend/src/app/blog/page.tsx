@@ -62,7 +62,7 @@ export default function BlogIndexPage() {
         ])}
       />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
-        style={{ background: "var(--accent)", color: "#fff" }}>
+        style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
         Skip to main content
       </a>
       <BlogNav />

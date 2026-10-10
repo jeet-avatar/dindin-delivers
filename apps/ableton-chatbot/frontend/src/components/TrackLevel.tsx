@@ -59,7 +59,7 @@ export default function TrackLevel({ recordingId, onPreview }: {
       {dirty && selected === 0 && <p className="mt-2 text-amber-200">This setting silences the track. An audible preview cannot be recorded at this level.</p>}
       <p className="mt-2" style={{ color: "var(--text-secondary)" }}>Changes the Ableton track, not just browser volume. Stop Live playback first. The existing recording will not change.</p>
       <button disabled={busy || !editable || applied} onClick={() => run("record")} className="rounded px-3 py-2 mt-3 disabled:opacity-40"
-        style={{ background: "var(--accent)", color: "white" }}>Apply fader and record preview</button>
+        style={{ background: "var(--accent)", color: "var(--on-accent)" }}>Apply fader and record preview</button>
     </div>}
     {busy && <p role="status" className="mt-2">{map ? "Applying and recording in Ableton..." : "Checking current track and sample..."}</p>}
     {notice && <p role={error ? "alert" : "status"} className={`mt-2 ${error ? "text-red-300" : "text-emerald-200"}`}>{notice}</p>}

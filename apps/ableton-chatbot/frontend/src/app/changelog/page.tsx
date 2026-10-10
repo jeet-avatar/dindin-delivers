@@ -45,7 +45,7 @@ export default function ChangelogPage() {
           <Link href="/" className="inline-flex items-center gap-2 font-bold text-xl mb-6" aria-label="BeatMind home">
             <span
               className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black"
-              style={{ background: "var(--accent)", color: "#fff" }}
+              style={{ background: "var(--accent)", color: "var(--on-accent)" }}
               aria-hidden="true"
             >
               B

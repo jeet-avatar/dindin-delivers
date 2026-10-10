@@ -679,7 +679,7 @@ export default function DashboardPage() {
         </div>
         <button disabled={projectBusy || loading || !historyReady}
           onClick={() => void newSong()} className="self-start px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-40"
-          style={{ background: "var(--accent)", color: "#fff" }}>
+          style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
           + New song
         </button>
       </div>
@@ -718,7 +718,7 @@ export default function DashboardPage() {
             </div>
           </div>
           {bridgeConnected
-            ? <button onClick={() => setNav("beatmind")} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "var(--accent)", color: "#fff" }}>Open chat</button>
+            ? <button onClick={() => setNav("beatmind")} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>Open chat</button>
             : <button onClick={() => setNav("downloads")} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs border" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>Get Bridge</button>}
         </div>
 
@@ -754,7 +754,7 @@ export default function DashboardPage() {
           : <>
             <p className="text-sm font-medium mb-1">{trialActive ? "Free trial" : "Trial ended"}</p>
             <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>{trialActive ? `${trialDays} day${trialDays !== 1 ? "s" : ""} remaining` : "Choose a plan to continue"}</p>
-            <button onClick={choosePlan} className="px-4 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "var(--accent)", color: "#fff" }}>Choose a plan</button>
+            <button onClick={choosePlan} className="px-4 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>Choose a plan</button>
           </>}
         </div>
       </div>
@@ -771,7 +771,7 @@ export default function DashboardPage() {
             <p className="text-sm font-medium mt-3">No songs yet</p>
             <p className="text-xs mt-1 mb-4" style={{ color: "var(--text-secondary)" }}>Start producing — your songs and track progress will appear here.</p>
             <button disabled={projectBusy || loading || !historyReady}
-              onClick={() => void newSong()} className="px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-40" style={{ background: "var(--accent)", color: "#fff" }}>Create your first song</button>
+              onClick={() => void newSong()} className="px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-40" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>Create your first song</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -934,7 +934,7 @@ export default function DashboardPage() {
             aria-label="Send"
             title="Send"
             className="px-4 py-3 rounded-xl transition-opacity disabled:opacity-30 flex items-center justify-center"
-            style={{ background: "var(--accent)", color: "#fff" }}>
+            style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
             <SendIcon />
           </button>
         </div>
@@ -1005,7 +1005,7 @@ export default function DashboardPage() {
         <div className="rounded-2xl border p-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
           <div className="flex items-center justify-between gap-4 mb-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#f97316" }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--accent)" }}>
                 <WaveIcon size={20} />
               </div>
               <div>
@@ -1015,7 +1015,7 @@ export default function DashboardPage() {
             </div>
             {bridgeConnected
               ? <button onClick={() => setNav("beatmind")} className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90" style={{ background: "#22c55e", color: "#fff" }}>Connected</button>
-              : <a href={BRIDGE_MAC_DOWNLOAD} download className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90" style={{ background: "#f97316", color: "#fff" }}>
+              : <a href={BRIDGE_MAC_DOWNLOAD} download className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
                   <DownloadIcon size={14} /> Download .dmg
                 </a>}
           </div>
@@ -1065,7 +1065,7 @@ export default function DashboardPage() {
           </div>
           <a href={STARTER_TEMPLATE_URL} download="BeatMind Starter.als"
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90"
-            style={{ background: "var(--accent)", color: "#0a0a0a" }}>
+            style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
             <DownloadIcon size={14} /> Download
           </a>
         </div>
@@ -1138,7 +1138,7 @@ export default function DashboardPage() {
             </p>
             <button onClick={choosePlan}
               className="px-6 py-2.5 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90"
-              style={{ background: "var(--accent)", color: "#fff" }}>
+              style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
               Start your plan
             </button>
             {usage?.billing_account && <button onClick={openBilling}
@@ -1187,7 +1187,7 @@ export default function DashboardPage() {
         {/* Logo */}
         <div className="px-3 sm:px-5 pt-5 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
           <Link href="/" aria-label="Beatmind home" className="flex items-center gap-2 font-bold text-base">
-            <span className="w-7 h-7 rounded flex items-center justify-center text-xs font-black" style={{ background: "var(--accent)", color: "#fff" }}>B</span>
+            <span className="w-7 h-7 rounded flex items-center justify-center text-xs font-black" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>B</span>
             <span className="hidden sm:inline">beatmind</span>
           </Link>
         </div>
@@ -1294,7 +1294,7 @@ export default function DashboardPage() {
             <p className="min-w-0 flex-1 text-sm break-words">{chats.find(chat => chat.id === chatId)?.title || "New song"}</p>}
           <button type="button" onClick={() => void newSong()} disabled={!historyReady || loading || projectBusy}
             className="h-10 px-3 shrink-0 rounded text-sm font-medium disabled:opacity-40"
-            style={{ background: "var(--accent)", color: "white" }}>New song</button>
+            style={{ background: "var(--accent)", color: "var(--on-accent)" }}>New song</button>
           {project && <button type="button" onClick={() => void chooseStart("reference")} disabled={!historyReady || loading || projectBusy}
             className="h-10 px-3 shrink-0 rounded border text-sm font-medium disabled:opacity-40"
             style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>Upload song</button>}

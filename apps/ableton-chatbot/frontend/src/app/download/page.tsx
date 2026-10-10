@@ -79,8 +79,8 @@ export default function DownloadPage() {
           <a
             href="/BeatMind-Bridge.dmg"
             download
-            className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium text-white text-lg"
-            style={{ background: "var(--accent, #6366f1)" }}
+            className="inline-flex items-center gap-2 rounded-lg px-6 py-3 font-semibold text-lg"
+            style={{ background: "var(--accent)", color: "var(--on-accent)" }}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

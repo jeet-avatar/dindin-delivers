@@ -84,14 +84,14 @@ export default function LandingPage() {
     <div className="min-h-screen" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
       {/* Skip to main content */}
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
-        style={{ background: "var(--accent)", color: "#fff" }}>
+        style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
         Skip to main content
       </a>
 
       {/* Nav */}
       <nav aria-label="Main navigation" className="flex items-center justify-between px-6 py-4 max-w-6xl mx-auto border-b" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center gap-2 font-bold text-xl">
-          <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black" style={{ background: "var(--accent)", color: "#fff" }} aria-hidden="true">B</span>
+          <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black" style={{ background: "var(--accent)", color: "var(--on-accent)" }} aria-hidden="true">B</span>
           beatmind
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -106,7 +106,7 @@ export default function LandingPage() {
           <Link href="/login" className="text-sm px-4 py-2 rounded-lg transition-colors duration-150 hover:text-white" style={{ color: "var(--text-secondary)" }}>
             Sign in
           </Link>
-          <Link href="/signup" className="text-sm px-4 py-2 rounded-lg font-medium transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
+          <Link href="/signup" className="text-sm px-4 py-2 rounded-lg font-medium transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
             Try free &rarr;
           </Link>
         </div>
@@ -127,7 +127,7 @@ export default function LandingPage() {
             Describe a sound in plain English. BeatMind builds drums, bass and melodies as real clips in your own Live Set, one part at a time, and lets you hear each idea before you keep it.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/signup" className="px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
+            <Link href="/signup" className="px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
               Try it free for 7 days
             </Link>
             <a href="#how" className="px-8 py-4 rounded-xl font-semibold text-lg transition-colors duration-150 border hover:border-white" style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
@@ -146,7 +146,7 @@ export default function LandingPage() {
             </div>
             <div className="p-6 space-y-4">
               <div className="flex justify-end">
-                <div className="px-4 py-3 rounded-2xl rounded-tr-sm text-sm max-w-xs" style={{ background: "var(--accent)", color: "#fff" }}>
+                <div className="px-4 py-3 rounded-2xl rounded-tr-sm text-sm max-w-xs" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
                   Make me a dark melodic techno loop at 126 BPM in Am
                 </div>
               </div>
@@ -271,7 +271,7 @@ export default function LandingPage() {
                   style={{ background: "var(--bg-secondary)", borderColor: plan.highlight ? "var(--accent)" : "var(--border)" }}
                 >
                   {plan.highlight && (
-                    <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "#fff" }}>
+                    <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
                       MOST POPULAR
                     </div>
                   )}
@@ -296,7 +296,7 @@ export default function LandingPage() {
                     className={plan.highlight
                       ? "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
                       : "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-colors duration-150 border hover:border-white"}
-                    style={plan.highlight ? { background: "var(--accent)", color: "#fff" } : { borderColor: "var(--border)", color: "var(--text-primary)" }}
+                    style={plan.highlight ? { background: "var(--accent)", color: "var(--on-accent)" } : { borderColor: "var(--border)", color: "var(--text-primary)" }}
                   >
                     {loggedIn ? `Choose ${plan.name} →` : "Start free trial →"}
                   </Link>
@@ -376,17 +376,17 @@ export default function LandingPage() {
             <div className="grid md:grid-cols-2 gap-6">
               {/* BeatMind */}
               <div className="p-6 rounded-2xl border relative" style={{ background: "var(--bg-secondary)", borderColor: "var(--accent)" }}>
-                <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "#fff" }}>
+                <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
                   YOU'RE HERE
                 </div>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 text-lg font-black" style={{ background: "var(--accent)", color: "#fff" }}>B</div>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 text-lg font-black" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>B</div>
                 <h3 className="text-xl font-semibold mb-2">BeatMind</h3>
                 <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
                   Develop drums, bass and melodies inside your Ableton Live project, with captured auditions and one part to review at a time.
                 </p>
                 <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>Web app + bridge agent · Requires Ableton Live 11 or 12</div>
                 <div className="text-sm font-semibold mb-5">From {formatUsd(LOWEST_MONTHLY_USD)}/mo · 3 AI models</div>
-                <Link href="/signup" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
+                <Link href="/signup" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
                   Start free trial →
                 </Link>
               </div>
@@ -414,7 +414,7 @@ export default function LandingPage() {
           <p className="mb-8" style={{ color: "var(--text-secondary)" }}>
             {TRIAL_TERMS} You only pay if you choose a plan.
           </p>
-          <Link href="/signup" className="inline-block px-10 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
+          <Link href="/signup" className="inline-block px-10 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
             Get started free &rarr;
           </Link>
           <p className="text-sm mt-6">
@@ -430,7 +430,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-sm font-bold">
-              <span className="w-6 h-6 rounded flex items-center justify-center text-xs font-black" style={{ background: "var(--accent)", color: "#fff" }} aria-hidden="true">B</span>
+              <span className="w-6 h-6 rounded flex items-center justify-center text-xs font-black" style={{ background: "var(--accent)", color: "var(--on-accent)" }} aria-hidden="true">B</span>
               beatmind
             </div>
             <div className="text-xs" style={{ color: "var(--text-secondary)" }}>

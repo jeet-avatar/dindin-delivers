@@ -31,7 +31,7 @@ export default function PrivacyPage() {
     <div className="min-h-screen" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
       <nav className="px-6 py-4 border-b max-w-3xl mx-auto flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
         <a className="flex items-center gap-2 font-bold" href="/">
-          <span className="w-7 h-7 rounded flex items-center justify-center text-xs font-black" style={{ background: "var(--accent)", color: "#fff" }}>B</span>
+          <span className="w-7 h-7 rounded flex items-center justify-center text-xs font-black" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>B</span>
           beatmind
         </a>
         <a className="text-sm" style={{ color: "var(--text-secondary)" }} href="/">&larr; Back to home</a>

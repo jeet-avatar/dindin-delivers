@@ -121,7 +121,7 @@ function Steps({ steps, label }: { steps: GuideStep[]; label: string }) {
                 href={step.link.href}
                 {...(step.link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 className="inline-block mt-4 px-4 py-2 rounded-lg text-sm font-medium transition-opacity duration-150 hover:opacity-90"
-                style={{ background: "var(--accent)", color: "#fff" }}
+                style={{ background: "var(--accent)", color: "var(--on-accent)" }}
               >
                 {step.link.label} &rarr;
               </a>
@@ -212,7 +212,7 @@ export default function GuidePage() {
         ])}
       />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
-        style={{ background: "var(--accent)", color: "#fff" }}>
+        style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
         Skip to main content
       </a>
       <BlogNav />
@@ -319,7 +319,7 @@ export default function GuidePage() {
         <aside className="rounded-2xl border p-8 text-center" style={{ background: "var(--bg-secondary)", borderColor: "var(--accent)" }} aria-label="Start BeatMind">
           <h2 className="text-2xl font-bold mb-3">Ready to build your first loop?</h2>
           <p className="text-sm mb-6 max-w-md mx-auto" style={MUTED}>{TRIAL_TERMS}</p>
-          <Link href="/signup" className="inline-block px-8 py-3 rounded-xl font-semibold transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
+          <Link href="/signup" className="inline-block px-8 py-3 rounded-xl font-semibold transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
             Start free trial &rarr;
           </Link>
         </aside>

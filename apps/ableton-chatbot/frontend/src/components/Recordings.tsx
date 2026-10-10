@@ -163,7 +163,7 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
     {playbackNotice && <p role="status" className="text-xs mt-2 text-amber-200">{playbackNotice}</p>}
     <div className="flex flex-wrap items-center gap-3 mt-3">
       {src && <button type="button" onClick={() => playing ? audio.current?.pause() : void playSound()}
-        className="rounded px-3 py-2 text-sm" style={{ background: "var(--accent)", color: "white" }}>
+        className="rounded px-3 py-2 text-sm" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
         {playing ? "Pause sound" : "Play sound"}
       </button>}
       {src && <span className="text-xs" style={{ color: "var(--text-secondary)" }}>

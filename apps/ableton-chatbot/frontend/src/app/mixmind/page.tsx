@@ -115,14 +115,14 @@ export default function MixMindPage() {
     <div className="min-h-screen" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
       {/* Skip link */}
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
-        style={{ background: "var(--accent)", color: "#fff" }}>
+        style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
         Skip to main content
       </a>
 
       {/* Nav */}
       <nav aria-label="Main navigation" className="flex items-center justify-between px-6 py-4 max-w-6xl mx-auto border-b" style={{ borderColor: "var(--border)" }}>
         <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-          <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black" style={{ background: "var(--accent)", color: "#fff" }} aria-hidden="true">M</span>
+          <span className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black" style={{ background: "var(--accent)", color: "var(--on-accent)" }} aria-hidden="true">M</span>
           MixMind
         </Link>
         <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -147,7 +147,7 @@ export default function MixMindPage() {
           href={DOWNLOAD_FALLBACK_HREF}
           onClick={handleDownload}
           className="text-sm px-4 py-2 rounded-lg font-medium transition-opacity duration-150 hover:opacity-90 flex items-center gap-2"
-          style={{ background: "var(--accent)", color: "#fff" }}
+          style={{ background: "var(--accent)", color: "var(--on-accent)" }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
@@ -176,7 +176,7 @@ export default function MixMindPage() {
             <a
               href="#pricing"
               className="flex items-center justify-center px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90"
-              style={{ background: "var(--accent)", color: "#fff" }}
+              style={{ background: "var(--accent)", color: "var(--on-accent)" }}
             >
               Get MixMind · {formatUsd(MIXMIND_PRICE.monthly)}/mo
             </a>
@@ -341,7 +341,7 @@ export default function MixMindPage() {
                   style={{ background: "var(--bg-secondary)", borderColor: tier.highlight ? "var(--accent)" : "var(--border)" }}
                 >
                   {tier.highlight && (
-                    <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "#fff" }}>
+                    <div className="absolute top-0 right-0 text-xs font-semibold px-3 py-1 rounded-bl-xl" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
                       MOST POPULAR
                     </div>
                   )}
@@ -367,7 +367,7 @@ export default function MixMindPage() {
                       className={tier.highlight
                         ? "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-opacity duration-150 hover:opacity-90"
                         : "block w-full py-4 rounded-xl font-semibold text-lg text-center transition-colors duration-150 border hover:border-white"}
-                      style={tier.highlight ? { background: "var(--accent)", color: "#fff" } : { borderColor: "var(--border)", color: "var(--text-primary)" }}
+                      style={tier.highlight ? { background: "var(--accent)", color: "var(--on-accent)" } : { borderColor: "var(--border)", color: "var(--text-primary)" }}
                     >
                       Choose {tier.name} &rarr;
                     </Link>
@@ -435,7 +435,7 @@ export default function MixMindPage() {
               onClick={handleDownload}
               aria-disabled={downloading}
               className="inline-block px-10 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90"
-              style={{ background: "var(--accent)", color: "#fff" }}
+              style={{ background: "var(--accent)", color: "var(--on-accent)" }}
             >
               {downloading ? "Preparing download…" : "Download for Mac →"}
             </a>
@@ -449,7 +449,7 @@ export default function MixMindPage() {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-sm font-bold">
-              <span className="w-6 h-6 rounded flex items-center justify-center text-xs font-black" style={{ background: "var(--accent)", color: "#fff" }} aria-hidden="true">M</span>
+              <span className="w-6 h-6 rounded flex items-center justify-center text-xs font-black" style={{ background: "var(--accent)", color: "var(--on-accent)" }} aria-hidden="true">M</span>
               MixMind
             </div>
             <div className="text-xs" style={{ color: "var(--text-secondary)" }}>

@@ -73,7 +73,7 @@ export default function NewSongDialog({ sessionId, onCancel, onReady }: {
       {!!tracks.length && <details className="text-xs mt-2"><summary>Tracks in this set ({tracks.length})</summary>
         <ol className="mt-2 space-y-1">{tracks.map((track, i) => <li key={i}>{i + 1}. {track}</li>)}</ol></details>}
       <button disabled={busy || !ready} onClick={() => start(true)}
-        className={`${button} mt-3`} style={{ background: "var(--accent)", color: "white" }}>Use this new set</button>
+        className={`${button} mt-3`} style={{ background: "var(--accent)", color: "var(--on-accent)" }}>Use this new set</button>
     </div>
     <div className="flex flex-wrap justify-between gap-2 mt-5 border-t pt-4" style={{ borderColor: "var(--border)" }}>
       <button disabled={busy} onClick={onCancel} className={button}>Cancel</button>

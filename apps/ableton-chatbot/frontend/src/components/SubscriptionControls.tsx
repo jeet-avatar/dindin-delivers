@@ -33,7 +33,7 @@ export default function SubscriptionControls({ usage, onChanged, onManage }: Pro
     <div className="flex flex-wrap gap-2">
       {plan.cancel_at
         ? <button type="button" disabled={busy} onClick={() => void change(false)}
-            className="rounded-lg px-4 py-2 font-semibold disabled:opacity-50" style={{ background: "var(--accent)", color: "#fff" }}>
+            className="rounded-lg px-4 py-2 font-semibold disabled:opacity-50" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
             {busy ? "Resuming..." : "Resume subscription"}
           </button>
         : <button type="button" disabled={busy} onClick={() => setConfirming(true)}

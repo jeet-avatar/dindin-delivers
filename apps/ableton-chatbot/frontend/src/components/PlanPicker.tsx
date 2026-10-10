@@ -148,7 +148,7 @@ export default function PlanPicker({ onClose, reason, inTrial, intent = null }: 
       <div role="radiogroup" aria-label="Billing interval" className="mt-5 inline-flex rounded-xl border p-1" style={{ borderColor: "var(--border)" }}>
         {(["month", "year"] as Interval[]).map(value => <button key={value} type="button" role="radio" aria-checked={interval === value}
           onClick={() => changeInterval(value)} className="rounded-lg px-4 py-1.5 text-sm font-medium"
-          style={interval === value ? { background: "var(--accent)", color: "#fff" } : { color: "var(--text-secondary)" }}>
+          style={interval === value ? { background: "var(--accent)", color: "var(--on-accent)" } : { color: "var(--text-secondary)" }}>
           {value === "month" ? "Monthly" : "Yearly · 2 months free"}
         </button>)}
       </div>

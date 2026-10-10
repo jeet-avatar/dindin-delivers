@@ -82,7 +82,7 @@ function PostCta({ product }: { product: BlogPost["product"] }) {
           ? "MixMind browses, de-duplicates and builds AI playlists and full sets from the Rekordbox collection you already own. Mac (Apple Silicon); Windows coming soon. $12/month, or save with BeatMind + MixMind from $25/month."
           : "BeatMind builds drums, bass and melodies part by part in your own Live Set, with captured auditions to review. Ableton Live 11 or 12. Plans from $19/month."}
       </p>
-      <Link href={isMixMind ? "/mixmind#pricing" : "/signup"} className="inline-block px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "#fff" }}>
+      <Link href={isMixMind ? "/mixmind#pricing" : "/signup"} className="inline-block px-8 py-4 rounded-xl font-semibold text-lg transition-opacity duration-150 hover:opacity-90" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
         {isMixMind ? "See MixMind pricing →" : "Start free trial →"}
       </Link>
       <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>{isMixMind ? MIXMIND_TRIAL_NOTE : TRIAL_TERMS}</p>
@@ -115,7 +115,7 @@ export default async function BlogPostPage({ params }: PostPageProps) {
         ])}
       />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
-        style={{ background: "var(--accent)", color: "#fff" }}>
+        style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
         Skip to main content
       </a>
       <BlogNav />
