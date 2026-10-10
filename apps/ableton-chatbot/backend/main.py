@@ -1306,6 +1306,11 @@ def bridge_for(user_id, capability):
 
 app.include_router(references.router_for(get_current_user, require_subscription, bridge_for))
 
+
+@app.get("/api/references/{reference_id}/stem-download/{stem}")
+async def stem_download(reference_id: str, stem: str, token: str = ""):
+    return references.stem_download_handler(reference_id, stem, token)
+
 # ---- Health ----
 
 @app.get("/api/health")

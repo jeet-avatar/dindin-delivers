@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 import ai_usage
 import audio_listener
+from beatmind_auth import create_stem_download_token, verify_stem_download_token
 import billing
 import cloud_separation
 import reference_listening
@@ -432,7 +433,7 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
     async def guard(request: Request, user=Depends(get_user)):
         # Local separation runs on the user's computer and never takes the server processing lease.
         last = request.url.path.rstrip('/').rsplit('/', 1)[-1]
-        if request.method not in {'POST', 'DELETE'} or last in ('listen-cancel', 'local', 'local-open', 'local-cancel', 'cloud', 'cloud-start'):
+        if request.method not in {'POST', 'DELETE'} or last in ('listen-cancel', 'local', 'local-open', 'local-cancel', 'cloud', 'cloud-start', 'import-to-ableton'):
             yield
             return
         # Verify ownership before revealing whether another worker is busy.
@@ -960,4 +961,51 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
             raise HTTPException(409, 'This reference is not separating on your computer.')
         return await local_bridge(user).local_operation('local_reference_cancel', {'reference_id': reference_id}, timeout=30)
 
+    IMPORT_CAPABILITY = 'scene_audition_v1'
+
+    @router.post('/{reference_id}/import-to-ableton')
+    async def import_to_ableton(reference_id: str, user=Depends(require_subscription)):
+        directory, item = owned(reference_id, user['id'])
+        if item['status'] != 'ready':
+            raise HTTPException(409, 'This reference is not ready yet.')
+        report = report_of(directory)
+        names = stem_sets.audio_stems(report)
+        if any(name in stem_sets.DRUM_PARTS for name in names):
+            names = [name for name in names if name != 'drums']
+        if item.get('storage') == 'local':
+            bridge = bridge_for(user['id'], LOCAL_CAPABILITY)
+            if not bridge:
+                raise HTTPException(409, 'Open the BeatMind Bridge on your computer to place stems in Ableton.')
+            result = await bridge.local_operation('local_reference_open',
+                                                  {'reference_id': reference_id, 'action': 'ableton'}, timeout=60)
+        else:
+            bridge = bridge_for(user['id'], IMPORT_CAPABILITY)
+            if not bridge:
+                raise HTTPException(409, 'Open the BeatMind Bridge on your computer to place stems in Ableton.')
+            server_url = os.getenv('SERVER_URL', 'http://localhost:8000')
+            token = create_stem_download_token(user['id'], reference_id)
+            result = await bridge.local_operation('cloud_stem_import', {
+                'reference_id': reference_id,
+                'stems': names,
+                'base_url': f'{server_url}/api/references/{reference_id}/stem-download',
+                'token': token,
+            }, timeout=120)
+        if result.get('status') not in ('verified',):
+            raise HTTPException(409, str(result.get('error') or result.get('summary') or 'Could not place stems in Ableton.'))
+        return result
+
     return router
+
+
+def stem_download_handler(reference_id: str, stem: str, token: str):
+    """Serve a stem WAV using a short-lived download token (no session auth needed)."""
+    user_id = verify_stem_download_token(token, reference_id)
+    if user_id is None:
+        raise HTTPException(401, 'Invalid or expired download token.')
+    directory, item = owned(reference_id, user_id)
+    if item['status'] != 'ready' or stem not in stem_sets.audio_stems(report_of(directory)):
+        raise HTTPException(404, 'Audio not available')
+    path = directory / (stem + '.wav')
+    if not path.is_file():
+        raise HTTPException(404, 'Audio not available')
+    return FileResponse(path, media_type='audio/wav', headers={'Cache-Control': 'private, no-store'})

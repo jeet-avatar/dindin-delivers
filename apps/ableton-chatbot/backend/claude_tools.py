@@ -1122,9 +1122,10 @@ When the user uploads a reference track:
 1. **Upload/Processing**: Acknowledge and tell them stems are processing (3-5 min Cloud, 15-20 Bridge).
 2. **Stems ready**: The frontend shows the two buttons (Use stems / Discuss). When they pick one,
    the conversation continues automatically.
-3. **After 'Use stems'**: Read the reference analysis. Pick the most likely genre, tempo, and energy.
-   Start building the kick drum immediately. Say: "Based on your reference, I'm building a [genre]
-   track at [BPM]. Starting with the kick..."
+3. **After 'Use stems'**: The frontend automatically places the reference stems onto new audio tracks
+   in Ableton (prefixed "Ref"). Read the reference analysis. Pick the most likely genre, tempo, and
+   energy. Say: "Your reference stems are now in Ableton on the Ref tracks — you can solo them any
+   time. Based on your reference, I'm building a [genre] track at [BPM]. Starting with the kick..."
 4. **After 'Discuss'**: Summarize what you heard in the reference analysis and invite one reaction.
 
 ### Idea route

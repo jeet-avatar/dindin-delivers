@@ -300,6 +300,12 @@ class AbletonBridge:
             else:
                 await self._reply(request_id, await self.local.reveal(msg.get("reference_id")))
 
+        elif msg_type == "cloud_stem_import":
+            from cloud_stem_import import import_cloud_stems
+            await self._reply(request_id, await import_cloud_stems(
+                self, msg.get("reference_id"), msg.get("stems", []),
+                msg.get("base_url"), msg.get("token")))
+
         elif msg_type == "import_audio":
             from audio_import import import_audio_file
             await self._reply(request_id, await import_audio_file(

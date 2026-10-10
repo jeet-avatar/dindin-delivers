@@ -108,6 +108,8 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [uploadUnconfirmed, setUploadUnconfirmed] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importNotice, setImportNotice] = useState("");
   const [rights, setRights] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -138,6 +140,17 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       setStage(guided ? "listening" : "stems"); setCue({seconds:0});
     } catch (error) { setError(error instanceof Error ? error.message : "Could not attach this reference to the song."); }
     finally { setBusy(false); }
+  }
+  async function importToAbleton(id: string) {
+    setImporting(true); setImportNotice(""); setError("");
+    try {
+      const res = await apiFetch(`/api/references/${id}/import-to-ableton`, { method: "POST" });
+      const result = await res.json();
+      if (!res.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Could not place stems in Ableton.");
+      setImportNotice(result.summary || "Stems placed in Ableton.");
+      onUse(id, true);
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not place stems in Ableton."); }
+    finally { setImporting(false); }
   }
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const response = await apiFetch("/api/references", { signal });
@@ -343,11 +356,12 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
               <div><span className="text-neutral-400">Duration </span><span>{time(item.report.duration_seconds)}</span></div>
             </dl>
             {item.storage === "local" && <LocalStemActions key={`ready-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh} />}
-            {item.storage !== "local" && <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id, true)}
+            {item.storage !== "local" && <button type="button" disabled={chatBusy || busy || importing} onClick={() => void importToAbleton(item.id)}
               className="rounded bg-emerald-700 px-5 py-3 text-sm font-medium disabled:opacity-40 flex items-center gap-2">
               <span className="inline-block w-4 h-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
-              Use these stems in Ableton
+              {importing ? "Placing stems in Ableton…" : "Use these stems in Ableton"}
             </button>}
+            {importNotice && <p role="status" className="text-sm text-emerald-200">{importNotice}</p>}
             <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id)}
               className="text-sm underline disabled:opacity-40">
               Discuss this reference in chat
@@ -378,7 +392,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
                 : <SoundComparison key={`compare-${item.id}`} id={item.id} duration={item.report.duration_seconds} stems={audioStems(item.report)} />)}
               <div hidden={stage!=="template"}>{item.timing?.status === "confirmed" && item.stem_review?.status === "accepted" ?
                 <ReferenceTemplate key={`template-${item.id}-${item.timing.revision}`} id={item.id} template={item.template} bpm={item.report.tempo.bpm} timing={item.timing}
-                  refresh={refresh} onUse={() => onUse(item.id, true)} chatBusy={chatBusy} onApproved={onTemplateApproved}
+                  refresh={refresh} onUse={() => void importToAbleton(item.id)} chatBusy={chatBusy || importing} onApproved={onTemplateApproved}
                   onSaved={template => setItems(previous => previous.map(reference => reference.id === item.id ? { ...reference, template } : reference))}
                   onCompare={() => setStage("compare")} /> :
                 <p role="status" className="text-sm text-amber-200">Stem review and timing confirmation required.</p>}</div>

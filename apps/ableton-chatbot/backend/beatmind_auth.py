@@ -39,3 +39,27 @@ def create_token(user_id: int, email: str) -> str:
 def decode_token(token: str) -> dict:
     """Raises JWTError if invalid, expired, or tampered."""
     return jwt.decode(token, _get_secret(), algorithms=[ALGORITHM])
+
+
+def create_stem_download_token(user_id: int, reference_id: str) -> str:
+    payload = {
+        "sub": str(user_id),
+        "ref": reference_id,
+        "purpose": "stem_download",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
+    }
+    return jwt.encode(payload, _get_secret(), algorithm=ALGORITHM)
+
+
+def verify_stem_download_token(token: str, reference_id: str) -> int | None:
+    """Returns user_id if valid, else None."""
+    try:
+        payload = jwt.decode(token, _get_secret(), algorithms=[ALGORITHM])
+    except JWTError:
+        return None
+    if payload.get("purpose") != "stem_download" or payload.get("ref") != reference_id:
+        return None
+    try:
+        return int(payload["sub"])
+    except (KeyError, ValueError):
+        return None
