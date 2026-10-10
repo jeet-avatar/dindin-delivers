@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends gcc curl ffmpeg libsndfile1 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends gcc curl ffmpeg libsndfile1 espeak-ng && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements-reference.txt ./
 RUN pip install --no-cache-dir torch==2.6.0+cpu torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu \
@@ -14,6 +14,16 @@ ARG DEMUCS_MODEL=htdemucs
 ENV TORCH_HOME=/opt/beatmind-models
 RUN python -c "from demucs.pretrained import get_model; get_model('${DEMUCS_MODEL}')" \
     && chmod -R a+rX /opt/beatmind-models
+
+# Piper TTS for spoken-word voice generation
+RUN pip install --no-cache-dir piper-tts
+ENV BEATMIND_VOICE_DIR=/opt/beatmind-voices
+RUN mkdir -p /opt/beatmind-voices && \
+    curl -L -o /opt/beatmind-voices/en_US-lessac-medium.onnx \
+    "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx" && \
+    curl -L -o /opt/beatmind-voices/en_US-lessac-medium.onnx.json \
+    "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json" && \
+    chmod -R a+rX /opt/beatmind-voices
 
 RUN groupadd -g 1000 appgroup && useradd -u 1000 -g appgroup appuser
 
