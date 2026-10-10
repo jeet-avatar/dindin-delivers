@@ -971,30 +971,35 @@ export default function DashboardPage() {
         </div>
 
         {/* MixMind */}
-        {mixmindIncluded ? (
-          <div className="rounded-2xl border p-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-            <div className="flex items-center justify-between gap-4 mb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#7c3aed" }}>
-                  <DJIcon size={20} />
-                </div>
-                <div>
-                  <p className="font-semibold text-sm">MixMind</p>
-                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>macOS · Apple Silicon (M1 or later)</p>
-                </div>
+        <div className="rounded-2xl border p-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#7c3aed" }}>
+                <DJIcon size={20} />
               </div>
-              <a href="#" onClick={handleMixMindDownload} aria-disabled={mixmindDownloading}
-                className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                style={{ background: "#7c3aed", color: "#fff" }}>
-                <DownloadIcon size={14} />
-                {mixmindDownloading ? "Preparing…" : "Download .dmg"}
-              </a>
+              <div>
+                <p className="font-semibold text-sm">MixMind</p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>macOS · Apple Silicon (M1 or later)</p>
+              </div>
             </div>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-              AI DJ library manager. Smart playlists, duplicate track detection, BPM + key analysis, and Rekordbox + USB export.
-            </p>
+            {mixmindIncluded
+              ? <a href="#" onClick={handleMixMindDownload} aria-disabled={mixmindDownloading}
+                  className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                  style={{ background: "#7c3aed", color: "#fff" }}>
+                  <DownloadIcon size={14} />
+                  {mixmindDownloading ? "Preparing…" : "Download .dmg"}
+                </a>
+              : <button type="button" onClick={choosePlan}
+                  className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                  style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", color: "#a78bfa" }}>
+                  Upgrade plan
+                </button>}
           </div>
-        ) : mixmindLocked}
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            AI DJ library manager. Smart playlists, duplicate track detection, BPM + key analysis, and Rekordbox + USB export.
+            {!mixmindIncluded && <span style={{ color: "#a78bfa" }}> Requires a MixMind, BeatMind + MixMind, or Studio plan.</span>}
+          </p>
+        </div>
       </div>
 
       {/* Starter template */}
