@@ -386,7 +386,7 @@ export default function DashboardPage() {
     try {
       const id = await updateProject({ starting_point });
       if (starting_point === "reference") setNav("references");
-      else await sendMessage("I'd like to start from my own idea, without a reference.", id, null, true);
+      else await sendMessage("I'd like to start from my own idea, without a reference.", id, null, false);
     } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not save your choice."); }
     finally { setProjectBusy(false); }
   }
