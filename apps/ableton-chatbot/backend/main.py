@@ -1297,7 +1297,16 @@ async def email_unsubscribe(token: str = ""):
 @app.get("/api/bridge/status")
 async def bridge_status(user: dict = Depends(get_current_user)):
     mine = [b for b in bridges.values() if b.user_id == user["id"]]
-    return {"bridge_connected": bool(mine), "bridge_version": getattr(mine[0], "version", "") if mine else None}
+    result = {"bridge_connected": bool(mine), "bridge_version": getattr(mine[0], "version", "") if mine else None,
+              "live_set": None}
+    if mine:
+        try:
+            live = await mine[0].local_operation('live_set', {'operation': 'inspect'})
+            if live.get('status') in ('observed', 'verified'):
+                result['live_set'] = live.get('title')
+        except Exception:
+            pass
+    return result
 
 
 def bridge_for(user_id, capability):

@@ -963,21 +963,32 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
 
     IMPORT_CAPABILITY = 'scene_audition_v1'
 
+    class ImportRequest(BaseModel):
+        stems: list[str] | None = None
+
     @router.post('/{reference_id}/import-to-ableton')
-    async def import_to_ableton(reference_id: str, user=Depends(require_subscription)):
+    async def import_to_ableton(reference_id: str, request: ImportRequest | None = None, user=Depends(require_subscription)):
         directory, item = owned(reference_id, user['id'])
         if item['status'] != 'ready':
             raise HTTPException(409, 'This reference is not ready yet.')
         report = report_of(directory)
-        names = stem_sets.audio_stems(report)
-        if any(name in stem_sets.DRUM_PARTS for name in names):
-            names = [name for name in names if name != 'drums']
+        all_names = stem_sets.audio_stems(report)
+        if any(name in stem_sets.DRUM_PARTS for name in all_names):
+            all_names = [name for name in all_names if name != 'drums']
+        selected = (request.stems if request and request.stems else None)
+        if selected:
+            invalid = [s for s in selected if s not in all_names]
+            if invalid:
+                raise HTTPException(400, f'Unknown stems: {", ".join(invalid)}')
+            names = [n for n in all_names if n in selected]
+        else:
+            names = all_names
         if item.get('storage') == 'local':
             bridge = bridge_for(user['id'], LOCAL_CAPABILITY)
             if not bridge:
                 raise HTTPException(409, 'Open the BeatMind Bridge on your computer to place stems in Ableton.')
             result = await bridge.local_operation('local_reference_open',
-                                                  {'reference_id': reference_id, 'action': 'ableton'}, timeout=60)
+                                                  {'reference_id': reference_id, 'action': 'ableton', 'stems': names}, timeout=60)
         else:
             bridge = bridge_for(user['id'], IMPORT_CAPABILITY)
             if not bridge:

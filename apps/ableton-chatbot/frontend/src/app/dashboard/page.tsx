@@ -230,7 +230,7 @@ export default function DashboardPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModelTier>("fast");
   const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
-  const { status: bridgeStatus, refresh: refreshBridge } = useBridgeStatus(user?.id);
+  const { status: bridgeStatus, liveSet: bridgeLiveSet, refresh: refreshBridge } = useBridgeStatus(user?.id);
   const bridgeConnected = bridgeStatus === "connected";
   const ableton = useAbletonLaunch(bridgeStatus, user?.id);
   const [historyReady, setHistoryReady] = useState(false);
@@ -1296,7 +1296,7 @@ export default function DashboardPage() {
           {nav === "beatmind"  && renderBeatMind()}
           {nav === "mixmind"   && renderMixMind()}
           {nav === "downloads" && renderDownloads()}
-          {nav === "references" && <References key={chatId} selectedId={referenceId} guided={Boolean(project)} onTemplateApproved={() => void ableton.open()} onOpenChat={() => setNav("beatmind")}
+          {nav === "references" && <References key={chatId} selectedId={referenceId} guided={Boolean(project)} onTemplateApproved={() => void ableton.open()} onOpenChat={() => setNav("beatmind")} bridgeConnected={bridgeConnected} bridgeLiveSet={bridgeLiveSet}
             onSelect={async id => {
               if (!project) { setReferenceId(id); return; }
               setProjectBusy(true);

@@ -90,10 +90,91 @@ function ReferenceAudio({ id, cue, stems }: { id: string; cue: { seconds: number
   </div>;
 }
 
-export default function References({ onUse, chatBusy, selectedId, onSelect, guided = false, onTemplateApproved, onOpenChat }: {
+function StemPlayer({ id, stem, cue }: { id: string; stem: string; cue: { seconds: number } }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => { if (audioRef.current) audioRef.current.currentTime = cue.seconds; }, [cue]);
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl = "";
+    setUrl(""); setError("");
+    void (async () => {
+      try {
+        const response = await apiFetch(`/api/references/${id}/audio/${stem}`, { signal: controller.signal });
+        if (!response.ok) throw new Error("Audio could not be loaded.");
+        const blob = await response.blob();
+        if (controller.signal.aborted) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Audio failed."); }
+    })();
+    return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [id, stem]);
+  if (error) return <p role="alert" className="text-xs text-red-300">{error}</p>;
+  if (!url) return <p className="text-xs text-neutral-500">Loading…</p>;
+  return <audio ref={audioRef} key={url} aria-label={`${stem} stem player`} controls preload="metadata" src={url}
+    onPlay={event => document.querySelectorAll("audio").forEach(other => { if (other !== event.currentTarget) other.pause(); })}
+    onLoadedMetadata={() => { if (audioRef.current) audioRef.current.currentTime = cue.seconds; }} className="w-full h-8" />;
+}
+
+function StemPicker({ id, stems, cue, importing, disabled, bridgeConnected, liveSet, onImport }: {
+  id: string; stems: string[]; cue: { seconds: number };
+  importing: boolean; disabled: boolean; bridgeConnected?: boolean; liveSet?: string | null; onImport: (stems: string[]) => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(stems));
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  useEffect(() => { setSelected(new Set(stems)); }, [stems.join(",")]);
+  function toggle(stem: string) {
+    setSelected(prev => { const next = new Set(prev); if (next.has(stem)) next.delete(stem); else next.add(stem); return next; });
+  }
+  function togglePreview(stem: string) {
+    setExpanded(prev => { const next = new Set(prev); if (next.has(stem)) next.delete(stem); else next.add(stem); return next; });
+  }
+  const allSelected = selected.size === stems.length;
+  const connected = bridgeConnected === true;
+  return <div className="space-y-3">
+    <div className="flex items-center gap-2 text-sm">
+      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: connected ? "#22c55e" : "#ef4444" }} />
+      <span style={{ color: connected ? "#86efac" : "#fca5a5" }}>
+        {connected
+          ? (liveSet ? `Ableton connected — ${liveSet}` : "Ableton connected")
+          : "Ableton not connected — open the BeatMind Bridge"}
+      </span>
+    </div>
+    <div className="rounded border border-neutral-700 divide-y divide-neutral-700">
+      <div className="flex items-center gap-3 px-3 py-2 text-sm">
+        <input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(stems))}
+          className="accent-emerald-500" aria-label="Select all stems" />
+        <span className="text-neutral-300 font-medium">Stems</span>
+        <span className="text-neutral-500 ml-auto">{selected.size} of {stems.length} selected</span>
+      </div>
+      {stems.map(stem => <div key={stem} className="px-3 py-2">
+        <div className="flex items-center gap-3 text-sm">
+          <input type="checkbox" checked={selected.has(stem)} onChange={() => toggle(stem)}
+            className="accent-emerald-500" aria-label={`Select ${stemLabel(stem)}`} />
+          <span>{stemLabel(stem)}</span>
+          <button type="button" onClick={() => togglePreview(stem)}
+            className="ml-auto text-xs text-neutral-400 hover:text-neutral-200">
+            {expanded.has(stem) ? "Hide" : "Preview"}
+          </button>
+        </div>
+        {expanded.has(stem) && <div className="mt-2"><StemPlayer id={id} stem={stem} cue={cue} /></div>}
+      </div>)}
+    </div>
+    <button type="button" disabled={disabled || importing || selected.size === 0 || !connected}
+      onClick={() => onImport([...selected])}
+      className="rounded bg-emerald-700 px-5 py-3 text-sm font-medium disabled:opacity-40 flex items-center gap-2">
+      <span className="inline-block w-4 h-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+      {importing ? "Placing stems in Ableton…" : `Send ${selected.size === stems.length ? "all" : selected.size} stem${selected.size === 1 ? "" : "s"} to Ableton`}
+    </button>
+  </div>;
+}
+
+export default function References({ onUse, chatBusy, selectedId, onSelect, guided = false, onTemplateApproved, onOpenChat, bridgeConnected, bridgeLiveSet }: {
   onUse: (id: string, template?: boolean) => void; chatBusy: boolean;
   selectedId?: string | null; onSelect?: (id: string | null) => Promise<void>; guided?: boolean;
-  onTemplateApproved?: () => void; onOpenChat?: () => void;
+  onTemplateApproved?: () => void; onOpenChat?: () => void; bridgeConnected?: boolean; bridgeLiveSet?: string | null;
 }) {
   const [items, setItems] = useState<Reference[]>([]);
   const [available, setAvailable] = useState(false);
@@ -141,10 +222,11 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     } catch (error) { setError(error instanceof Error ? error.message : "Could not attach this reference to the song."); }
     finally { setBusy(false); }
   }
-  async function importToAbleton(id: string) {
+  async function importToAbleton(id: string, stems?: string[]) {
     setImporting(true); setImportNotice(""); setError("");
     try {
-      const res = await apiFetch(`/api/references/${id}/import-to-ableton`, { method: "POST" });
+      const body = stems?.length ? JSON.stringify({ stems }) : undefined;
+      const res = await apiFetch(`/api/references/${id}/import-to-ableton`, { method: "POST", body });
       const result = await res.json();
       if (!res.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Could not place stems in Ableton.");
       setImportNotice(result.summary || "Stems placed in Ableton.");
@@ -201,9 +283,13 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
       return;
     }
     for (const ref of items) {
-      if (ref.status === "ready" && ref.storage === "local" && !autoLoadedRef.current.has(ref.id)) {
+      if (ref.status === "ready" && !autoLoadedRef.current.has(ref.id)) {
         autoLoadedRef.current.add(ref.id);
-        void apiFetch(`/api/references/${ref.id}/local-open`, { method: "POST", body: JSON.stringify({ action: "ableton" }) }).catch(() => {});
+        if (ref.storage === "local") {
+          void apiFetch(`/api/references/${ref.id}/local-open`, { method: "POST", body: JSON.stringify({ action: "ableton" }) }).catch(() => {});
+        } else {
+          void importToAbleton(ref.id);
+        }
       }
     }
   }, [items]);
@@ -356,22 +442,14 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
               <div><span className="text-neutral-400">Duration </span><span>{time(item.report.duration_seconds)}</span></div>
             </dl>
             {item.storage === "local" && <LocalStemActions key={`ready-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh} />}
-            {item.storage !== "local" && <button type="button" disabled={chatBusy || busy || importing} onClick={() => void importToAbleton(item.id)}
-              className="rounded bg-emerald-700 px-5 py-3 text-sm font-medium disabled:opacity-40 flex items-center gap-2">
-              <span className="inline-block w-4 h-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
-              {importing ? "Placing stems in Ableton…" : "Use these stems in Ableton"}
-            </button>}
+            {item.storage !== "local" && <StemPicker id={item.id} stems={reviewStems(item.report)} cue={cue}
+              importing={importing} disabled={chatBusy || busy} bridgeConnected={bridgeConnected} liveSet={bridgeLiveSet}
+              onImport={stems => void importToAbleton(item.id, stems)} />}
             {importNotice && <p role="status" className="text-sm text-emerald-200">{importNotice}</p>}
             <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id)}
               className="text-sm underline disabled:opacity-40">
               Discuss this reference in chat
             </button>
-            {item.storage !== "local" && <details className="text-sm">
-              <summary className="cursor-pointer text-neutral-400">Preview stems audio</summary>
-              <div ref={audioSection} className="mt-3 space-y-3">
-                <ReferenceAudio key={item.id} id={item.id} cue={cue} stems={audioStems(item.report)} />
-              </div>
-            </details>}
           </div>
           <details className="text-sm">
             <summary className="cursor-pointer text-neutral-400">Advanced: review stems, timing, listening and template</summary>
