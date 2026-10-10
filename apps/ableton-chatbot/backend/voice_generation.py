@@ -39,8 +39,10 @@ def generate(text: str, user_id: int, speed: float = 1.0) -> dict:
     wav_path = RECORDINGS_DIR / f"{recording_id}.wav"
     m4a_path = RECORDINGS_DIR / f"{recording_id}.m4a"
 
+    from piper.config import SynthesisConfig
+    syn_config = SynthesisConfig(length_scale=1.0 / max(0.5, min(2.0, speed)))
     with wave.open(str(wav_path), "wb") as wav_file:
-        voice.synthesize(text, wav_file, length_scale=1.0 / max(0.5, min(2.0, speed)))
+        voice.synthesize_wav(text, wav_file, syn_config=syn_config)
 
     result = subprocess.run(
         ["ffmpeg", "-y", "-i", str(wav_path), "-c:a", "aac", "-b:a", "128k", str(m4a_path)],
