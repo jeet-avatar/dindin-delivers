@@ -40,8 +40,8 @@ CLAUDE_PLACEHOLDER = {'input': 5.0, 'output': 25.0}
 FAIR_USE_USD = {'starter': 12.0, 'pro': 20.0, 'studio': 40.0}
 TRIAL_CHAT_MESSAGES = 50
 TRIAL_AI_USD = 3.0
-FAIR_USE_MESSAGE = ("You've reached this month's fair-use limit for BeatMind AI on your plan. "
-                    "Upgrade your plan to keep going, or wait until the 1st of next month (UTC). "
+FAIR_USE_MESSAGE = ("You've used your monthly AI budget on Fast mode. "
+                    "Upgrade your plan for a higher budget, or wait until the 1st of next month (UTC). "
                     "Your songs, stems and track packs are unaffected.")
 TRIAL_MESSAGE = "Your free trial's AI messages are used up. Choose a plan to keep going."
 
@@ -244,4 +244,7 @@ def enforce(user):
         if trial_usage(user['id'])['exhausted']:
             raise HTTPException(402, TRIAL_MESSAGE)
     elif fair_use_enforced() and over_cap(user['id'], plan['tier']):
-        raise HTTPException(429, FAIR_USE_MESSAGE)
+        mtd = month_to_date(user['id'], plan['tier'])
+        raise HTTPException(429, f"You've used ${mtd['estimated_usd']:.2f} of your ${mtd['fair_use_cap_usd']:.0f} monthly AI budget on Fast mode. "
+                            "Upgrade your plan for a higher budget, or wait until the 1st of next month (UTC). "
+                            "Your songs, stems and track packs are unaffected.")

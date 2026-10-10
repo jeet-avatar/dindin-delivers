@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  AI_MODEL_LABEL, AI_FAIR_USE_LABELS, MIXMIND_AI_LABEL,
   BEATMIND_PLANS, MIXMIND_PLANS, fetchPlans, formatPrice, previewPromo, renewalTerms, startCheckout,
   planIntentNote, type Catalog, type Interval, type PlanId, type PlanIntent, type PlanOption, type PromoPreview,
 } from "@/lib/billing";
@@ -18,11 +19,14 @@ type Props = {
 
 function features(option: PlanOption): string[] {
   const list: string[] = [];
+  const tierInfo = AI_FAIR_USE_LABELS[option.tier];
   if (option.tier !== "mixmind") {
-    list.push("BeatMind AI for Ableton Live", `${option.included_tracks} track separations / month`);
+    list.push(`BeatMind AI · ${AI_MODEL_LABEL}`);
+    if (tierInfo) list.push(`$${tierInfo.cap}/mo AI budget · ${tierInfo.approx}`);
+    list.push(`${option.included_tracks} track separations / month`);
   }
   if (option.included_cloud > 0) list.push(`${option.included_cloud} Cloud HQ separations / month`);
-  if (option.mixmind) list.push("MixMind for Mac (Apple Silicon)");
+  if (option.mixmind) list.push(`MixMind for Mac · ${MIXMIND_AI_LABEL}`);
   return list;
 }
 

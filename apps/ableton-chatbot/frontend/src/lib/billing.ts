@@ -78,6 +78,14 @@ export function hasMixMindAccess(user: Pick<User, "mixmind_access"> | null | und
   return user?.mixmind_access === true;
 }
 
+export const AI_MODEL_LABEL = "Fast mode";
+export const AI_FAIR_USE_LABELS: Record<string, { cap: number; approx: string }> = {
+  starter: { cap: 12, approx: "~24 songs" },
+  pro: { cap: 20, approx: "~40 songs" },
+  studio: { cap: 40, approx: "~80 songs" },
+};
+export const MIXMIND_AI_LABEL = "$12/mo AI budget";
+
 export function planName(plan: PlanState | null | undefined): string {
   if (!plan?.plan) return "No plan";
   // Callers add " plan" themselves ("✓ Original $19 plan", "Cancel your Original $19 plan?").
