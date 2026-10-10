@@ -49,7 +49,7 @@ export default function UpdateBanner() {
 
   if (dismissed || (!notice.web && !notice.bridge)) return null;
   return <div role="status" className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-3 sm:px-6 py-2 text-sm"
-    style={{ borderColor: "var(--border)", background: "rgba(255,107,0,0.08)" }}>
+    style={{ borderColor: "var(--border)", background: "color-mix(in oklch, var(--accent) 8%, transparent)" }}>
     {notice.web && <span className="flex flex-wrap items-center gap-2">
       A new version of BeatMind is ready. Your Ableton set is not affected.
       <button type="button" onClick={() => window.location.reload()} className="rounded border px-2 py-1 text-xs">Reload</button>

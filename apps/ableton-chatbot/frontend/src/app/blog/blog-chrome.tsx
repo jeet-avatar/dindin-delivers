@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SocialLinks } from "@/components/SocialLinks";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { LEGAL_NAME, SUPPORT_EMAIL } from "@/lib/site";
 
 export function BlogNav() {
@@ -49,8 +50,9 @@ export function BlogFooter() {
           </div>
         </nav>
       </div>
-      <div className="mt-6">
+      <div className="mt-6 flex flex-col items-center gap-4">
         <SocialLinks />
+        <ThemeToggle />
       </div>
     </footer>
   );

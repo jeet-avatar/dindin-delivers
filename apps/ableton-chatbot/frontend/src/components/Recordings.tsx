@@ -176,7 +176,7 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
       {allowReview && <>
         <button type="button" onClick={() => decide("accepted")} disabled={superseded || decision !== "pending" || !audioReady || saving}
           title={decision === "accepted" ? "This recording is already accepted" : decision === "revise" ? "Changes have been requested for this recording" : !audioReady ? "Recording is not ready to play" : "Accept this sound"}
-          className="px-3 py-2 rounded disabled:opacity-40" style={{ background: "#16734a", color: "white" }}>{decision === "accepted" ? "Accepted" : "Accept sound"}</button>
+          className="px-3 py-2 rounded disabled:opacity-40" style={{ background: "var(--success-strong)", color: "var(--on-accent)" }}>{decision === "accepted" ? "Accepted" : "Accept sound"}</button>
         <button type="button" onClick={() => decide("revise")} disabled={superseded || saving || decision === "revise"}
           className="px-3 py-2 rounded border disabled:opacity-40" style={{ borderColor: "var(--border)" }}>{decision === "revise" ? "Changes requested" : "Request changes"}</button>
       </>}

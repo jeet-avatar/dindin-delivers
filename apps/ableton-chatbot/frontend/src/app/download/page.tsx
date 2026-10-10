@@ -40,7 +40,7 @@ export default function DownloadPage() {
         {/* Update banner */}
         <div
           className="mt-8 rounded-xl border-2 p-5"
-          style={{ borderColor: "var(--success)", background: "rgba(156, 195, 107, 0.08)" }}
+          style={{ borderColor: "var(--success)", background: "color-mix(in oklch, var(--success) 8%, transparent)" }}
         >
           <div className="flex items-start gap-3">
             <span className="mt-0.5 text-2xl">&#9889;</span>

@@ -135,8 +135,8 @@ function StemPicker({ id, stems, cue, importing, disabled, bridgeConnected, live
   const connected = bridgeConnected === true;
   return <div className="space-y-3">
     <div className="flex items-center gap-2 text-sm">
-      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: connected ? "var(--success)" : "#ef4444" }} />
-      <span style={{ color: connected ? "var(--success-text)" : "#fca5a5" }}>
+      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: connected ? "var(--success)" : "var(--error)" }} />
+      <span style={{ color: connected ? "var(--success-text)" : "var(--error-text)" }}>
         {connected
           ? (liveSet ? `Ableton connected — ${liveSet}` : "Ableton connected")
           : "Ableton not connected — open the BeatMind Bridge"}

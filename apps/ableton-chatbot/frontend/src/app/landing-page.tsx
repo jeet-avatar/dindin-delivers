@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Showcase } from "@/components/Showcase";
 import { SocialLinks } from "@/components/SocialLinks";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useEffect, useState } from "react";
 import { BoltIcon, SlidersIcon, SparklesIcon, RefreshIcon, CheckIcon } from "@/components/Icons";
 import { isLoggedIn } from "@/lib/auth";
@@ -240,7 +241,7 @@ export default function LandingPage() {
                   onClick={() => setBillingInterval(option)}
                   aria-pressed={selected}
                   className="px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150"
-                  style={{ background: selected ? "var(--accent)" : "transparent", color: selected ? "#fff" : "var(--text-secondary)" }}
+                  style={{ background: selected ? "var(--accent)" : "transparent", color: selected ? "var(--on-accent)" : "var(--text-secondary)" }}
                 >
                   {option === "month" ? "Monthly" : `Yearly · ${ANNUAL_DISCOUNT_LABEL}`}
                 </button>
@@ -446,8 +447,9 @@ export default function LandingPage() {
               </div>
             </nav>
           </div>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-col items-center gap-4">
             <SocialLinks />
+            <ThemeToggle />
           </div>
           <div className="mt-6 text-xs text-center" style={{ color: "var(--text-secondary)" }}>
             Made with <span className="heart-pulse" style={{ color: "var(--accent)" }} aria-label="love">♥</span> for producers everywhere

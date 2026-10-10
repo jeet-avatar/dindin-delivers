@@ -70,7 +70,7 @@ function PlanCard({ option, busy, promo, onChoose, picked = false }: CardProps) 
     </ul>
     <button type="button" disabled={busy || !option.available} onClick={() => onChoose(option.plan)}
       className="mt-4 rounded-xl py-2.5 text-sm font-semibold disabled:opacity-50"
-      style={{ background: option.available ? "var(--accent)" : "var(--bg-secondary)", color: option.available ? "#fff" : "var(--text-secondary)" }}>
+      style={{ background: option.available ? "var(--accent)" : "var(--bg-secondary)", color: option.available ? "var(--on-accent)" : "var(--text-secondary)" }}>
       {option.available ? `Choose ${option.name}` : "Coming soon"}
     </button>
     {option.available && <>

@@ -25,6 +25,7 @@ import { useAbletonLaunch } from "@/lib/use-ableton-launch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
 import { bridgeStatusLabel } from "@/lib/bridge-status";
 import { STARTER_TEMPLATE_URL } from "@/lib/site";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { BRIDGE_MAC_DOWNLOAD } from "@/lib/guide";
 import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/chat-index";
 import { acceptedSound, type MusicChoice } from "@/lib/music-workflow";
@@ -186,9 +187,9 @@ const NAV: { id: Nav; label: string; Icon: React.ComponentType<{ size?: number }
 ];
 
 const MODEL_BADGE: Record<ModelTier, { background: string; color: string }> = {
-  fast: { background: "rgba(255, 159, 67, 0.15)", color: "var(--accent)" },
-  pro: { background: "rgba(156, 195, 107, 0.15)", color: "var(--success-text)" },
-  ultra: { background: "rgba(91, 158, 166, 0.18)", color: "var(--cool-text)" },
+  fast: { background: "color-mix(in oklch, var(--accent) 15%, transparent)", color: "var(--accent)" },
+  pro: { background: "color-mix(in oklch, var(--success) 15%, transparent)", color: "var(--success-text)" },
+  ultra: { background: "color-mix(in oklch, var(--cool) 18%, transparent)", color: "var(--cool-text)" },
 };
 
 const PROMPTS = [
@@ -592,7 +593,7 @@ export default function DashboardPage() {
           <div key={i}
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className="min-w-0 max-w-full sm:max-w-[90%] rounded-lg px-4 py-3"
-              style={{ background: msg.role === "user" ? "var(--accent)" : "var(--bg-secondary)", color: msg.role === "user" ? "#fff" : "var(--text-primary)" }}>
+              style={{ background: msg.role === "user" ? "var(--accent)" : "var(--bg-secondary)", color: msg.role === "user" ? "var(--on-accent)" : "var(--text-primary)" }}>
               <div className="mb-2"><ChatTimestamp value={msg.createdAt} label={msg.role === "user" ? "Sent" : msg.event === "sound-accepted" ? "Decision saved" : "Request started"} /></div>
               {msg.role === "user" ? <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p> : <>
                 {!!msg.toolCalls?.length && <ProductionLog actions={msg.toolCalls} requestStatus={msg.requestStatus} />}
@@ -691,7 +692,7 @@ export default function DashboardPage() {
       </div>
 
       {justSubscribed && usage && hasPaidPlan(usage.plan) && (
-        <div role="status" className="mb-6 rounded-2xl border p-4 text-sm" style={{ background: "#052e16", borderColor: "#166534" }}>
+        <div role="status" className="mb-6 rounded-2xl border p-4 text-sm" style={{ background: "var(--success-bg)", borderColor: "var(--success-border)" }}>
           <p className="font-semibold" style={{ color: "var(--success)" }}>Subscribed to {currentPlan}.</p>
           {usage.renewal_terms && <p className="mt-1" style={{ color: "var(--text-primary)" }}>{usage.renewal_terms}</p>}
         </div>
@@ -702,8 +703,8 @@ export default function DashboardPage() {
         {[
           { label: "Songs", value: allSongs.length, color: "var(--text-primary)" },
           { label: "Accepted", value: recStats.accepted, color: "var(--success)" },
-          { label: "Pending review", value: recStats.pending, color: "#fbbf24" },
-          { label: "Needs revision", value: recStats.revise, color: "#f87171" },
+          { label: "Pending review", value: recStats.pending, color: "var(--warning)" },
+          { label: "Needs revision", value: recStats.revise, color: "var(--error)" },
         ].map(stat => (
           <div key={stat.label} className="rounded-xl border p-4" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
             <p className="text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</p>
@@ -717,7 +718,7 @@ export default function DashboardPage() {
         {/* Bridge status */}
         <div className="rounded-xl border p-4 flex items-center justify-between" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
           <div className="flex items-center gap-3 min-w-0">
-            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: bridgeConnected ? "var(--success)" : "#ef4444" }} />
+            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: bridgeConnected ? "var(--success)" : "var(--error)" }} />
             <div className="min-w-0">
               <p className="text-sm font-medium">Ableton Bridge</p>
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{bridgeConnected ? "Connected — ready to produce" : "Not connected"}</p>
@@ -734,7 +735,7 @@ export default function DashboardPage() {
           : isSubscribed && usage ? <>
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium">{currentPlan}</p>
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#052e16", color: "var(--success)" }}>Active</span>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "var(--success-bg)", color: "var(--success)" }}>Active</span>
             </div>
             <div className="mb-2">
               <div className="flex justify-between text-xs mb-1">
@@ -742,7 +743,7 @@ export default function DashboardPage() {
                 <span>{usage.songs_this_month ?? 0} / {usage.songs_limit ?? 10}</span>
               </div>
               <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, ((usage.songs_this_month ?? 0) / Math.max(1, usage.songs_limit ?? 10)) * 100)}%`, background: (usage.songs_this_month ?? 0) >= (usage.songs_limit ?? 10) ? "#f87171" : "var(--success)" }} />
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, ((usage.songs_this_month ?? 0) / Math.max(1, usage.songs_limit ?? 10)) * 100)}%`, background: (usage.songs_this_month ?? 0) >= (usage.songs_limit ?? 10) ? "var(--error)" : "var(--success)" }} />
               </div>
             </div>
             {usage.ai_usage && usage.ai_usage.fair_use_cap_usd > 0 && <div className="mb-2">
@@ -751,7 +752,7 @@ export default function DashboardPage() {
                 <span>${usage.ai_usage.estimated_usd.toFixed(2)} / ${usage.ai_usage.fair_use_cap_usd.toFixed(0)}</span>
               </div>
               <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (usage.ai_usage.estimated_usd / usage.ai_usage.fair_use_cap_usd) * 100)}%`, background: usage.ai_usage.estimated_usd >= usage.ai_usage.fair_use_cap_usd ? "#f87171" : "var(--cool)" }} />
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (usage.ai_usage.estimated_usd / usage.ai_usage.fair_use_cap_usd) * 100)}%`, background: usage.ai_usage.estimated_usd >= usage.ai_usage.fair_use_cap_usd ? "var(--error)" : "var(--cool)" }} />
               </div>
             </div>}
             {usage.included_cloud_per_month > 0 && <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage.cloud_used} / {usage.included_cloud_per_month} Cloud HQ separations</p>}
@@ -807,13 +808,13 @@ export default function DashboardPage() {
                   {total > 0 ? <>
                     <div className="flex gap-3 text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
                       {accepted > 0 && <span style={{ color: "var(--success)" }}>{accepted} accepted</span>}
-                      {pending > 0 && <span style={{ color: "#fbbf24" }}>{pending} pending</span>}
-                      {revise > 0 && <span style={{ color: "#f87171" }}>{revise} revision</span>}
+                      {pending > 0 && <span style={{ color: "var(--warning)" }}>{pending} pending</span>}
+                      {revise > 0 && <span style={{ color: "var(--error)" }}>{revise} revision</span>}
                     </div>
                     <div className="w-full h-1.5 rounded-full overflow-hidden flex" style={{ background: "var(--border)" }}>
                       {accepted > 0 && <div className="h-full" style={{ width: `${(accepted / total) * 100}%`, background: "var(--success)" }} />}
-                      {pending > 0 && <div className="h-full" style={{ width: `${(pending / total) * 100}%`, background: "#fbbf24" }} />}
-                      {revise > 0 && <div className="h-full" style={{ width: `${(revise / total) * 100}%`, background: "#f87171" }} />}
+                      {pending > 0 && <div className="h-full" style={{ width: `${(pending / total) * 100}%`, background: "var(--warning)" }} />}
+                      {revise > 0 && <div className="h-full" style={{ width: `${(revise / total) * 100}%`, background: "var(--error)" }} />}
                     </div>
                   </> : <p className="text-xs" style={{ color: "var(--text-secondary)" }}>No recordings yet</p>}
                 </button>
@@ -1020,7 +1021,7 @@ export default function DashboardPage() {
               </div>
             </div>
             {bridgeConnected
-              ? <button onClick={() => setNav("beatmind")} className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90" style={{ background: "var(--success)", color: "#fff" }}>Connected</button>
+              ? <button onClick={() => setNav("beatmind")} className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90" style={{ background: "var(--success)", color: "var(--on-accent)" }}>Connected</button>
               : <a href={BRIDGE_MAC_DOWNLOAD} download className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
                   <DownloadIcon size={14} /> Download .dmg
                 </a>}
@@ -1112,7 +1113,7 @@ export default function DashboardPage() {
           <>
             <div className="flex items-center gap-2 mb-3">
               <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold"
-                style={{ background: "#052e16", color: "var(--success)" }}>
+                style={{ background: "var(--success-bg)", color: "var(--success)" }}>
                 <CheckIcon size={11} />
                 {usage?.plan.status === "past_due" ? `Payment failed — ${currentPlan}` : `Active — ${currentPlan}`}
               </span>
@@ -1133,7 +1134,7 @@ export default function DashboardPage() {
           <>
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xs px-2.5 py-1 rounded-full font-semibold"
-                style={{ background: "#1a1000", color: "#fbbf24" }}>
+                style={{ background: "var(--warning-bg)", color: "var(--warning)" }}>
                 {trialActive ? trialSummary : "Trial ended"}
               </span>
             </div>
@@ -1167,6 +1168,8 @@ export default function DashboardPage() {
           ))}
         </ul>
       </div>}
+
+      <div className="mb-3"><ThemeToggle /></div>
 
       <button onClick={logout}
         className="flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl border transition-opacity hover:opacity-70"
@@ -1252,11 +1255,11 @@ export default function DashboardPage() {
           ) : (
             <button onClick={choosePlan}
               className="w-full rounded-xl p-3 text-left transition-opacity hover:opacity-90"
-              style={{ background: "linear-gradient(135deg,var(--cool-dim),var(--cool))" }}>
+              style={{ background: "linear-gradient(135deg,var(--cool-dim),color-mix(in oklch, var(--cool) 50%, var(--cool-dim)))" }}>
               <p className="text-xs font-bold text-white mb-0.5">
                 {trialActive ? trialSummary : "Trial ended"}
               </p>
-              <p className="text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.8)" }}>
                 Start your plan →
               </p>
             </button>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Showcase } from "@/components/Showcase";
 import { SocialLinks } from "@/components/SocialLinks";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon } from "@/components/Icons";
@@ -194,7 +195,7 @@ export default function MixMindPage() {
             </a>
           </div>
           <p className="text-xs mt-4" style={{ color: "var(--text-secondary)" }}>From {formatUsd(MIXMIND_PRICE.monthly)}/month · Requires a Mac with Apple silicon (M1 or later); Windows coming soon · Sign in with your BeatMind account to unlock the download</p>
-          {downloadError && <p role="alert" className="text-xs mt-2" style={{ color: "#fca5a5" }}>{downloadError}</p>}
+          {downloadError && <p role="alert" className="text-xs mt-2" style={{ color: "var(--error-text)" }}>{downloadError}</p>}
 
           {/* App preview */}
           <div className="mt-16 rounded-2xl border text-left overflow-hidden" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} role="img" aria-label="MixMind app preview showing library browser with tracks, BPM, and key columns">
@@ -213,9 +214,9 @@ export default function MixMindPage() {
                   { label: "Duplicates", active: false, badge: "12" },
                   { label: "USB Drive", active: false, badge: "●" },
                 ].map(item => (
-                  <div key={item.label} className="flex items-center justify-between px-3 py-2 rounded-lg text-xs" style={{ background: item.active ? "var(--accent)" : "transparent", color: item.active ? "#fff" : "var(--text-secondary)" }}>
+                  <div key={item.label} className="flex items-center justify-between px-3 py-2 rounded-lg text-xs" style={{ background: item.active ? "var(--accent)" : "transparent", color: item.active ? "var(--on-accent)" : "var(--text-secondary)" }}>
                     <span>{item.label}</span>
-                    {item.badge && <span className="text-xs font-bold" style={{ color: item.active ? "#fff" : "var(--accent)" }}>{item.badge}</span>}
+                    {item.badge && <span className="text-xs font-bold" style={{ color: item.active ? "var(--on-accent)" : "var(--accent)" }}>{item.badge}</span>}
                   </div>
                 ))}
               </div>
@@ -319,7 +320,7 @@ export default function MixMindPage() {
                   onClick={() => setBillingInterval(option)}
                   aria-pressed={selected}
                   className="px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150"
-                  style={{ background: selected ? "var(--accent)" : "transparent", color: selected ? "#fff" : "var(--text-secondary)" }}
+                  style={{ background: selected ? "var(--accent)" : "transparent", color: selected ? "var(--on-accent)" : "var(--text-secondary)" }}
                 >
                   {option === "month" ? "Monthly" : `Yearly · ${ANNUAL_DISCOUNT_LABEL}`}
                 </button>
@@ -440,7 +441,7 @@ export default function MixMindPage() {
               {downloading ? "Preparing download…" : "Download for Mac →"}
             </a>
           </div>
-          {downloadError && <p role="alert" className="text-xs mt-3" style={{ color: "#fca5a5" }}>{downloadError}</p>}
+          {downloadError && <p role="alert" className="text-xs mt-3" style={{ color: "var(--error-text)" }}>{downloadError}</p>}
         </section>
       </main>
 
@@ -465,8 +466,9 @@ export default function MixMindPage() {
               </div>
             </nav>
           </div>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-col items-center gap-4">
             <SocialLinks />
+            <ThemeToggle />
           </div>
           <div className="mt-6 text-xs text-center" style={{ color: "var(--text-secondary)" }}>
             Made with <span className="heart-pulse" style={{ color: "var(--accent)" }} aria-label="love">♥</span> for DJs everywhere

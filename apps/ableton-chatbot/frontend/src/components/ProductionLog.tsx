@@ -102,7 +102,7 @@ export default function ProductionLog({ actions, requestStatus }: { actions: Pro
   return (
     <section className="min-w-0 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }} aria-label="Production actions">
       <div className="mb-3">
-        <h3 className="text-sm font-semibold" style={{ color: summary.issues.length ? "#fda4af" : "var(--text-primary)" }}>{summary.title}</h3>
+        <h3 className="text-sm font-semibold" style={{ color: summary.issues.length ? "var(--error-text)" : "var(--text-primary)" }}>{summary.title}</h3>
         <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{summary.detail}</p>
         {summary.repairs > 0 && <p className="text-xs mt-2 text-emerald-300">{summary.repairs} earlier {summary.repairs === 1 ? "issue repaired" : "issues repaired"} and rechecked.</p>}
       </div>
@@ -142,7 +142,7 @@ export default function ProductionLog({ actions, requestStatus }: { actions: Pro
       <ol className="divide-y" style={{ borderColor: "var(--border)" }}>
         {actions.map((action, index) => {
           const outcome = summary.outcomes[index];
-          const state = { label: outcome.label, color: outcome.kind === "issue" ? "#fda4af" : outcome.kind === "repaired" ? "var(--success-text)" : "var(--text-secondary)" };
+          const state = { label: outcome.label, color: outcome.kind === "issue" ? "var(--error-text)" : outcome.kind === "repaired" ? "var(--success-text)" : "var(--text-secondary)" };
           const sound = action.result?.sound;
           const notes = sound?.notes || action.result?.notes;
           return (
@@ -208,7 +208,7 @@ export default function ProductionLog({ actions, requestStatus }: { actions: Pro
                   <div><dt className="font-medium">Sound source</dt><dd style={{ color: "var(--text-secondary)" }}>{sound.devices.length ? sound.devices.join(" → ") : "No device observed"}</dd></div>
                   <div><dt className="font-medium">Rhythm</dt><dd style={{ color: "var(--text-secondary)" }}>{sound.rhythm}</dd></div>
                   <div><dt className="font-medium">Mix intention</dt><dd style={{ color: "var(--text-secondary)" }}>{sound.mix_intent}</dd></div>
-                  <div><dt className="sr-only">Evidence</dt><dd style={{ color: "#fde68a" }}>{sound.basis}</dd></div>
+                  <div><dt className="sr-only">Evidence</dt><dd style={{ color: "var(--warning-text)" }}>{sound.basis}</dd></div>
                 </dl>
               )}
               {notes && <NoteTable notes={notes} />}

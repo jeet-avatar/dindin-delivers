@@ -35,7 +35,7 @@ export function LiteYouTube({ videoId, title }: { videoId: string; title: string
       />
       <span className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
         <span className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg" style={{ background: "var(--accent)" }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" style={{ fill: "var(--on-accent)" }}><path d="M8 5v14l11-7z" /></svg>
         </span>
       </span>
     </button>

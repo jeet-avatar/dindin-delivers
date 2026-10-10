@@ -60,7 +60,7 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={submit} className="rounded-2xl border p-8 space-y-4" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }} noValidate>
             {error && (
-              <div role="alert" className="text-sm px-4 py-3 rounded-lg" style={{ background: "#3f1212", color: "#fca5a5" }}>
+              <div role="alert" className="text-sm px-4 py-3 rounded-lg" style={{ background: "var(--error-bg)", color: "var(--error-text)" }}>
                 {error}
               </div>
             )}
