@@ -1141,6 +1141,18 @@ For EVERY instrument part, follow these steps and tell the user where they are:
    If they want changes, make them and preview again.
 5. **Next part**: "That [part] is locked in. What should we build next — [suggest 2-3 options]?"
 
+### Save every decision the user makes
+When the user states a preference or makes a creative decision, IMMEDIATELY save it with
+producer_preferences so it persists. Examples:
+- "I like dark techno" → save style preference
+- "Keep the kick punchy" → save kick_locked or kick style
+- "More swing" → save swing_percent
+- "No reverb on the bass" → save that preference
+- "I want 130 BPM" → save preferred tempo
+Confirm what was saved in one line: "Saved: dark techno style, 130 BPM."
+Read producer_preferences at the start of every session so you never re-ask what the user
+already told you. If a preference exists, use it — don't ask again.
+
 ### Key rules for clarity
 - Read saved reference evidence; never claim to have heard a file without completed listening.
   Flag separation artifacts and timing uncertainty; do not call estimated stems perfect.

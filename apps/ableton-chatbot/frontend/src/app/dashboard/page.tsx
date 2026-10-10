@@ -209,6 +209,7 @@ export default function DashboardPage() {
   const recordingIdsByMessage = useMemo(() => messageRecordingIds(messages, recordings.items), [messages, recordings.items]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const queuedRef = useRef<string | null>(null);
   const [streamNotice, setStreamNotice] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
@@ -496,7 +497,11 @@ export default function DashboardPage() {
           : `Production interrupted: ${err instanceof Error ? err.message : "Unknown error"}`,
           toolCalls: m.toolCalls?.map(a => a.result ? a : { ...a, result: { status: "unverified", summary: "Interrupted before confirmation. Inspect Ableton before repeating this action." } }) };
       }));
-    } finally { window.clearInterval(watchdog); requestRef.current = null; setLoading(false); setStreamNotice(""); }
+    } finally {
+      window.clearInterval(watchdog); requestRef.current = null; setLoading(false); setStreamNotice("");
+      const queued = queuedRef.current;
+      if (queued) { queuedRef.current = null; setTimeout(() => sendMessage(queued), 50); }
+    }
   }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject]);
 
   // Subscribers manage or change plans in the Stripe portal; everyone else picks a plan.
@@ -785,8 +790,8 @@ export default function DashboardPage() {
           <textarea
             id="chat-input" ref={inputRef} value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            placeholder="Message BeatMind..."
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (loading) { queuedRef.current = input.trim() || null; setInput(""); } else sendMessage(); } }}
+            placeholder={queuedRef.current ? "Message queued — sending when ready..." : "Message BeatMind..."}
             rows={1}
             className="flex-1 min-w-0 resize-none rounded-lg px-4 py-3 text-sm outline-none"
             style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
@@ -799,7 +804,7 @@ export default function DashboardPage() {
               <span className="block w-4 h-4 bg-current" aria-hidden="true" />
             </button>
           )}
-          <button type="button" onClick={() => sendMessage()} disabled={loading || !input.trim()}
+          <button type="button" onClick={() => { if (loading) { queuedRef.current = input.trim() || null; setInput(""); } else sendMessage(); }} disabled={!input.trim()}
             aria-label="Send"
             title="Send"
             className="px-4 py-3 rounded-xl transition-opacity disabled:opacity-30 flex items-center justify-center"
@@ -808,7 +813,7 @@ export default function DashboardPage() {
           </button>
         </div>
         <p className="text-xs mt-2 text-center" style={{ color: "var(--text-secondary)" }}>
-          {bridgeStatusLabel[bridgeStatus]}
+          {queuedRef.current ? `Your message is queued — it will send when the current response finishes.` : bridgeStatusLabel[bridgeStatus]}
         </p>
       </div>
     </div>

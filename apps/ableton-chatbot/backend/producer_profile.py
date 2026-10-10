@@ -31,6 +31,10 @@ PREFERENCES = {
     "loudness_target_lufs": (-14.0, (-20.0, -6.0), "Master loudness target."),
     "ceiling_dbtp": (-1.0, (-3.0, -0.1), "Master true-peak ceiling."),
     "vocal_style": ("clear_present", ("clear_present", "airy_wide", "dark_intimate", "aggressive"), "Default vocal character."),
+    "preferred_genre": ("", str, "Preferred genre or style (e.g. 'dark techno', 'minimal house')."),
+    "preferred_tempo_bpm": (0.0, (0.0, 200.0), "Preferred tempo in BPM (0 = no preference)."),
+    "preferred_energy": ("", ("", "chill", "groovy", "driving", "intense"), "Default energy level."),
+    "notes": ("", str, "Freeform notes about this producer's taste and preferences."),
 }
 
 HUMANIZE_LEVELS = {"off": {"nudge_scale": 0.0, "velocity_deviation": 0, "chance": 1.0},
