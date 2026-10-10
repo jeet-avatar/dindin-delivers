@@ -833,6 +833,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     planning_only = getattr(session, 'planning_only', False)
     if planning_only:
         bridge_note += "\nThis turn is discussion only. Ask one next question. Do not play, audition, change music or create a production plan; only read-only discovery is available."
+    if bridge and session.project and not session.project.get('live_set'):
+        bridge_note += "\nNEW SONG: The user started a fresh song project. Ignore any existing tracks or clips in Ableton — they belong to a previous song. Start from scratch: set tempo, create new tracks, and build new sounds. Do not reference or continue previous work."
     if bridge and (not session.project or session.project.get('live_set')):
         previous_section = get_brief(session.user_id, session.session_id)
         if previous_section:

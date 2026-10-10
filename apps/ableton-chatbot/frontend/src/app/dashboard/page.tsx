@@ -762,10 +762,16 @@ export default function DashboardPage() {
               <h2 className="text-xl font-semibold mb-1">How would you like to start?</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
-              <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("reference")} className="rounded border p-3 text-sm disabled:opacity-40"
-                style={{ borderColor: "var(--border)" }}>Upload a reference track</button>
+              <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("reference")} className="rounded border p-3 text-sm text-left disabled:opacity-40"
+                style={{ borderColor: "var(--border)" }}>
+                <span className="font-medium block mb-1">Upload a reference track</span>
+                <span className="text-xs block" style={{ color: "var(--text-secondary)" }}>Upload a song you like. BeatMind will separate it into stems and help you build an original track inspired by it.</span>
+              </button>
               <button type="button" disabled={loading || projectBusy || !historyReady} onClick={() => void chooseStart("idea")}
-                className="rounded border p-3 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>Start from an idea</button>
+                className="rounded border p-3 text-sm text-left disabled:opacity-40" style={{ borderColor: "var(--border)" }}>
+                <span className="font-medium block mb-1">Start from an idea</span>
+                <span className="text-xs block" style={{ color: "var(--text-secondary)" }}>Tell BeatMind a genre and vibe, or let it pick for you. It will start building sounds one by one for you to approve.</span>
+              </button>
             </div>
           </div>
         )}
