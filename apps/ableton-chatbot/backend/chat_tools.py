@@ -71,7 +71,10 @@ async def execute(name, inputs, user_id):
             return producer_profile.update(user_id, {}, inputs.get('reset') or list(producer_profile.PREFERENCES))
         if name == 'generate_voice':
             import voice_generation
-            return voice_generation.generate(inputs['text'], user_id, inputs.get('speed', 1.0))
+            try:
+                return voice_generation.generate(inputs['text'], user_id, inputs.get('speed', 1.0))
+            except Exception as exc:
+                return {"status": "failed", "error": str(exc), "summary": f"Voice generation failed: {exc}"}
         if name == 'vocal_check':
             import vocal_check
             return vocal_check.run(user_id, inputs['recording_id'], inputs.get('compare_recording_ids'))
