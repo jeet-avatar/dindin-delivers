@@ -1,9 +1,10 @@
 """Download cloud-separated stems from the API and place them in Ableton."""
 
 import asyncio
-import tempfile
 from pathlib import Path
 from urllib.request import urlopen, Request
+
+STEM_ROOT = Path.home() / "Music" / "BeatMind Stems"
 
 
 def _download_stem(base_url, name, token, dest):
@@ -29,10 +30,11 @@ async def import_cloud_stems(bridge, reference_id, stems, base_url, token):
         if not stems:
             raise RuntimeError("No stems to import.")
 
-        tmp_dir = Path(tempfile.mkdtemp(prefix="beatmind_cloud_stems_"))
+        ref_dir = STEM_ROOT / reference_id
+        ref_dir.mkdir(parents=True, exist_ok=True)
         files = []
         for name in stems:
-            dest = tmp_dir / f"{name}.wav"
+            dest = ref_dir / f"{name}.wav"
             await asyncio.to_thread(_download_stem, base_url, name, token, dest)
             files.append((dest, name))
 
@@ -49,10 +51,6 @@ async def import_cloud_stems(bridge, reference_id, stems, base_url, token):
 
         after = await query("/live/song/get/track_names", [])
         added = after[len(before):]
-
-        for path, _ in files:
-            path.unlink(missing_ok=True)
-        tmp_dir.rmdir()
 
         return {"status": "verified",
                 "summary": f"Placed {len(files)} reference stems on new audio tracks in Ableton.",
