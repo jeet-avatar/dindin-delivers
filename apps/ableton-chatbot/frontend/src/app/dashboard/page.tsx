@@ -33,13 +33,6 @@ import {
 } from "@/lib/billing";
 
 // ─── Inline icons (avoids prop-type conflicts with existing Icons.tsx) ────────
-function HomeIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
-    </svg>
-  );
-}
 function WaveIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -96,6 +89,27 @@ function AlertIcon({ size = 16 }: { size?: number }) {
     </svg>
   );
 }
+function DashboardIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" />
+    </svg>
+  );
+}
+function MicIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+}
+function BookmarkIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Message {
@@ -108,7 +122,7 @@ interface Message {
   event?: "sound-accepted";
   requestStatus?: import("@/lib/production-status").RequestStatus;
 }
-type Nav = "home" | "beatmind" | "mixmind" | "downloads" | "account" | "recordings" | "references";
+type Nav = "dashboard" | "beatmind" | "mixmind" | "downloads" | "account" | "recordings" | "references";
 interface SavedChat {
   messages: Message[]; sessionId: string | null; input: string;
   running?: boolean; runningId?: string;
@@ -160,13 +174,13 @@ function restoredMessages(saved: SavedChat): Message[] {
 }
 
 const NAV: { id: Nav; label: string; Icon: React.ComponentType<{ size?: number }> }[] = [
-  { id: "home",      label: "Home",      Icon: HomeIcon },
-  { id: "beatmind",  label: "BeatMind",  Icon: WaveIcon },
-  { id: "mixmind",   label: "MixMind",   Icon: DJIcon },
-  { id: "recordings", label: "Recordings", Icon: DJIcon },
-  { id: "references", label: "References", Icon: WaveIcon },
-  { id: "downloads", label: "Downloads", Icon: DownloadIcon },
-  { id: "account",   label: "Account",   Icon: UserIcon },
+  { id: "dashboard", label: "Dashboard",  Icon: DashboardIcon },
+  { id: "beatmind",  label: "BeatMind",   Icon: WaveIcon },
+  { id: "mixmind",   label: "MixMind",    Icon: DJIcon },
+  { id: "recordings", label: "Recordings", Icon: MicIcon },
+  { id: "references", label: "References", Icon: BookmarkIcon },
+  { id: "downloads", label: "Downloads",  Icon: DownloadIcon },
+  { id: "account",   label: "Account",    Icon: UserIcon },
 ];
 
 const PROMPTS = [
@@ -180,7 +194,7 @@ const PROMPTS = [
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [nav, setNav] = useState<Nav>("beatmind");
+  const [nav, setNav] = useState<Nav>("dashboard");
   const [messages, setMessages] = useState<Message[]>([]);
   const [songSetup, setSongSetup] = useState<string | null>(null);
   const [project, setProject] = useState<SongProject | null>(null);
@@ -619,121 +633,172 @@ export default function DashboardPage() {
   );
 
   // ──────────────────────────────────────────────────────────────────────────
-  // HOME
+  // DASHBOARD
   // ──────────────────────────────────────────────────────────────────────────
-  const renderHome = () => (
-    <div className="p-8 max-w-4xl w-full">
-      {/* Greeting */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-1">
-          Welcome back{user?.name ? `, ${user.name.split(" ")[0]}` : ""}
-        </h1>
-        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          {planChecking && checkingPlanText}
-          {!planChecking && (isSubscribed
-            ? `${currentPlan} plan${usage ? ` · ${usage.tracks_used} of ${usage.included_per_month} tracks used this month` : ""}`
-            : trialActive
-              ? trialSummary
-              : "Your free trial has ended — choose a plan to continue")}
-        </p>
+  const allSongs = useMemo(() => [...chats, ...remoteChats], [chats, remoteChats]);
+  const recStats = useMemo(() => {
+    const accepted = recordings.items.filter(r => r.decision === "accepted").length;
+    const pending = recordings.items.filter(r => r.decision === "pending").length;
+    const revise = recordings.items.filter(r => r.decision === "revise").length;
+    return { total: recordings.items.length, accepted, pending, revise };
+  }, [recordings.items]);
+
+  const renderDashboard = () => (
+    <div className="p-4 sm:p-8 max-w-5xl w-full overflow-y-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">
+            {user?.name ? `${user.name.split(" ")[0]}'s Studio` : "Dashboard"}
+          </h1>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            {planChecking ? checkingPlanText
+              : isSubscribed ? `${currentPlan} plan`
+              : trialActive ? trialSummary
+              : "Free trial ended"}
+          </p>
+        </div>
+        <button disabled={projectBusy || loading || !historyReady}
+          onClick={() => void newSong()} className="self-start px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-40"
+          style={{ background: "var(--accent)", color: "#fff" }}>
+          + New song
+        </button>
       </div>
 
       {justSubscribed && usage && hasPaidPlan(usage.plan) && (
-        <div role="status" className="mb-8 rounded-2xl border p-5 text-sm" style={{ background: "#052e16", borderColor: "#166534" }}>
-          <p className="font-semibold" style={{ color: "#4ade80" }}>You&apos;re subscribed to {currentPlan}.</p>
+        <div role="status" className="mb-6 rounded-2xl border p-4 text-sm" style={{ background: "#052e16", borderColor: "#166534" }}>
+          <p className="font-semibold" style={{ color: "#4ade80" }}>Subscribed to {currentPlan}.</p>
           {usage.renewal_terms && <p className="mt-1" style={{ color: "var(--text-primary)" }}>{usage.renewal_terms}</p>}
-          <button type="button" onClick={() => setNav("account")} className="mt-2 underline">Open Billing</button>
         </div>
       )}
 
-      {/* Subscription CTA banner */}
-      {!isSubscribed && !planChecking && (
-        <div className="mb-8 rounded-2xl p-5 border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-          style={{ background: "linear-gradient(135deg,#0d1f3c 0%,#1a1000 100%)", borderColor: "#1e3a5f" }}>
-          <div>
-            <p className="font-semibold text-sm mb-1" style={{ color: "#93c5fd" }}>
-              {trialBanner}
-            </p>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-              Starter, Pro or Studio · monthly or yearly · cancel any time
-            </p>
+      {/* Stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {[
+          { label: "Songs", value: allSongs.length, color: "var(--text-primary)" },
+          { label: "Accepted", value: recStats.accepted, color: "#4ade80" },
+          { label: "Pending review", value: recStats.pending, color: "#fbbf24" },
+          { label: "Needs revision", value: recStats.revise, color: "#f87171" },
+        ].map(stat => (
+          <div key={stat.label} className="rounded-xl border p-4" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+            <p className="text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{stat.label}</p>
           </div>
-          <button onClick={choosePlan}
-            className="flex-shrink-0 px-6 py-2.5 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90"
-            style={{ background: "var(--accent)", color: "#fff" }}>
-            Start your plan →
-          </button>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {/* Product cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
-        {/* BeatMind */}
-        <div className="rounded-2xl border p-6 flex flex-col" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--accent)" }}>
-              <WaveIcon size={20} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold">BeatMind</h3>
-                <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: "#0d2035", color: "#60a5fa" }}>AI</span>
-              </div>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Music producer for Ableton Live</p>
+      {/* Connection + usage row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+        {/* Bridge status */}
+        <div className="rounded-xl border p-4 flex items-center justify-between" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: bridgeConnected ? "#22c55e" : "#ef4444" }} />
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Ableton Bridge</p>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{bridgeConnected ? "Connected — ready to produce" : "Not connected"}</p>
             </div>
           </div>
-          <p className="text-xs mb-5 flex-1" style={{ color: "var(--text-secondary)", lineHeight: "1.65" }}>
-            Develop music one part at a time in Ableton Live, with supported instrument controls and captured auditions to review.
-          </p>
-          <div className="flex gap-2">
-            <button onClick={() => setNav("beatmind")}
-              className="flex-1 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-              style={{ background: "var(--accent)", color: "#0a0a0a" }}>
-              {bridgeConnected ? "Let's make music" : "Open chat"}
-            </button>
-          </div>
+          {bridgeConnected
+            ? <button onClick={() => setNav("beatmind")} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "var(--accent)", color: "#fff" }}>Open chat</button>
+            : <button onClick={() => setNav("downloads")} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs border" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>Get Bridge</button>}
         </div>
 
-        {/* MixMind */}
-        <div className="rounded-2xl border p-6 flex flex-col" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#7c3aed" }}>
-              <DJIcon size={20} />
+        {/* Usage / billing summary */}
+        <div className="rounded-xl border p-4" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+          {planChecking ? <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{checkingPlanText}</p>
+          : isSubscribed && usage ? <>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium">{currentPlan}</p>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#052e16", color: "#4ade80" }}>Active</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold">MixMind</h3>
-                <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: "#1e0a3c", color: "#a78bfa" }}>Desktop</span>
+            <div className="mb-2">
+              <div className="flex justify-between text-xs mb-1">
+                <span style={{ color: "var(--text-secondary)" }}>Tracks this month</span>
+                <span>{usage.tracks_used} / {usage.included_per_month}</span>
               </div>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>DJ library manager</p>
+              <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (usage.tracks_used / Math.max(1, usage.included_per_month)) * 100)}%`, background: usage.tracks_used >= usage.included_per_month ? "#f87171" : "#4ade80" }} />
+              </div>
             </div>
-          </div>
-          <p className="text-xs mb-5 flex-1" style={{ color: "var(--text-secondary)", lineHeight: "1.65" }}>
-            AI-powered DJ library organizer with smart playlists, duplicate finder, BPM/key analysis, and Rekordbox + USB export.
-          </p>
-          {mixmindIncluded ? (
-          <a href="#" onClick={handleMixMindDownload} aria-disabled={mixmindDownloading}
-            className="py-2 rounded-xl text-sm font-semibold text-center flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
-            style={{ background: "#7c3aed", color: "#fff" }}>
-            <DownloadIcon size={13} />
-            {mixmindDownloading ? "Preparing…" : "Download for Mac"}
-          </a>
-          ) : mixmindLocked}
+            {usage.included_cloud_per_month > 0 && <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{usage.cloud_used} / {usage.included_cloud_per_month} Cloud HQ separations</p>}
+            <button onClick={openBilling} className="mt-2 text-xs underline" style={{ color: "var(--text-secondary)" }}>Manage billing</button>
+          </>
+          : <>
+            <p className="text-sm font-medium mb-1">{trialActive ? "Free trial" : "Trial ended"}</p>
+            <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>{trialActive ? `${trialDays} day${trialDays !== 1 ? "s" : ""} remaining` : "Choose a plan to continue"}</p>
+            <button onClick={choosePlan} className="px-4 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "var(--accent)", color: "#fff" }}>Choose a plan</button>
+          </>}
         </div>
       </div>
 
-      {/* Quick prompts */}
+      {/* Recent songs */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold">Recent songs</h2>
+          {allSongs.length > 6 && <button onClick={() => setNav("recordings")} className="text-xs underline" style={{ color: "var(--text-secondary)" }}>View all recordings</button>}
+        </div>
+        {allSongs.length === 0 ? (
+          <div className="rounded-xl border p-8 text-center" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+            <DashboardIcon size={32} />
+            <p className="text-sm font-medium mt-3">No songs yet</p>
+            <p className="text-xs mt-1 mb-4" style={{ color: "var(--text-secondary)" }}>Start producing — your songs and track progress will appear here.</p>
+            <button disabled={projectBusy || loading || !historyReady}
+              onClick={() => void newSong()} className="px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-40" style={{ background: "var(--accent)", color: "#fff" }}>Create your first song</button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[...allSongs].reverse().slice(0, 6).map(song => {
+              const songRecs = recordings.items.filter(r => {
+                const msgs = messages.filter(m => m.toolCalls?.some(tc => tc.result?.recording?.id === r.id));
+                return msgs.length > 0 || song.id === chatId;
+              });
+              const accepted = songRecs.filter(r => r.decision === "accepted").length;
+              const pending = songRecs.filter(r => r.decision === "pending").length;
+              const revise = songRecs.filter(r => r.decision === "revise").length;
+              const total = accepted + pending + revise;
+              const isActive = song.id === chatId;
+              return (
+                <button key={song.id} type="button" disabled={!historyReady || loading || projectBusy}
+                  onClick={() => {
+                    if (isActive) { setNav("beatmind"); return; }
+                    if (song.sessionId && (song.id.startsWith("server-") || serverChats.some(s => s.id === song.sessionId))) void openServerChat(song.sessionId);
+                    else openChat(song.id);
+                  }}
+                  className="rounded-xl border p-4 text-left transition-all hover:border-blue-500 disabled:opacity-40"
+                  style={{ background: isActive ? "var(--bg-primary)" : "var(--bg-secondary)", borderColor: isActive ? "var(--accent)" : "var(--border)" }}>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="text-sm font-medium break-words line-clamp-2">{song.title || "Untitled"}</p>
+                    {isActive && <span className="flex-shrink-0 w-2 h-2 rounded-full mt-1.5" style={{ background: "#22c55e" }} />}
+                  </div>
+                  {total > 0 ? <>
+                    <div className="flex gap-3 text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
+                      {accepted > 0 && <span style={{ color: "#4ade80" }}>{accepted} accepted</span>}
+                      {pending > 0 && <span style={{ color: "#fbbf24" }}>{pending} pending</span>}
+                      {revise > 0 && <span style={{ color: "#f87171" }}>{revise} revision</span>}
+                    </div>
+                    <div className="w-full h-1.5 rounded-full overflow-hidden flex" style={{ background: "var(--border)" }}>
+                      {accepted > 0 && <div className="h-full" style={{ width: `${(accepted / total) * 100}%`, background: "#4ade80" }} />}
+                      {pending > 0 && <div className="h-full" style={{ width: `${(pending / total) * 100}%`, background: "#fbbf24" }} />}
+                      {revise > 0 && <div className="h-full" style={{ width: `${(revise / total) * 100}%`, background: "#f87171" }} />}
+                    </div>
+                  </> : <p className="text-xs" style={{ color: "var(--text-secondary)" }}>No recordings yet</p>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Quick start prompts */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-secondary)" }}>
-          Jump right in
-        </p>
+        <h2 className="text-sm font-semibold mb-3">Quick start</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {PROMPTS.map(p => (
             <button key={p.text} disabled={projectBusy || loading || !historyReady} onClick={() => {
               if (p.newSong) void newSong(p.text);
               else { setInput(p.text); setNav("beatmind"); }
             }}
-              className="text-left text-sm p-3 rounded-xl border transition-colors hover:border-blue-500"
+              className="text-left text-sm p-3 rounded-xl border transition-colors hover:border-blue-500 disabled:opacity-40"
               style={{ background: "var(--bg-secondary)", borderColor: "var(--border)", color: "var(--text-secondary)" }}>
               {p.text}
             </button>
@@ -1163,7 +1228,7 @@ export default function DashboardPage() {
 
         {/* Content area */}
         <div className="flex-1 overflow-y-auto flex flex-col">
-          {nav === "home"      && renderHome()}
+          {nav === "dashboard" && renderDashboard()}
           {nav === "beatmind"  && renderBeatMind()}
           {nav === "mixmind"   && renderMixMind()}
           {nav === "downloads" && renderDownloads()}
