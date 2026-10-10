@@ -25,6 +25,7 @@ import { useAbletonLaunch } from "@/lib/use-ableton-launch";
 import { useBridgeStatus } from "@/lib/use-bridge-status";
 import { bridgeStatusLabel } from "@/lib/bridge-status";
 import { STARTER_TEMPLATE_URL } from "@/lib/site";
+import { BRIDGE_MAC_DOWNLOAD } from "@/lib/guide";
 import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/chat-index";
 import { acceptedSound, type MusicChoice } from "@/lib/music-workflow";
 import {
@@ -941,20 +942,67 @@ export default function DashboardPage() {
   // DOWNLOADS
   // ──────────────────────────────────────────────────────────────────────────
   const renderDownloads = () => (
-    <div className="p-8 max-w-2xl">
+    <div className="p-4 sm:p-8 max-w-2xl w-full">
       <h2 className="text-xl font-bold mb-1">Downloads</h2>
-      <p className="text-sm mb-7" style={{ color: "var(--text-secondary)" }}>Apps included with your plan.</p>
+      <p className="text-sm mb-7" style={{ color: "var(--text-secondary)" }}>Desktop apps and templates included with your plan.</p>
 
-      <section aria-label="BeatMind Bridge" className="mb-6 border-b pb-5" style={{ borderColor: "var(--border)" }}>
-        <h3 className="font-semibold text-sm">BeatMind Bridge</h3>
-        <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>macOS 15+ · Apple Silicon · Notarized</p>
-        {bridgeConnected && <button onClick={() => setNav("beatmind")} className="mt-2 rounded px-4 py-2 text-sm font-semibold" style={{ background: "var(--accent)", color: "#0a0a0a" }}>Let&apos;s make music</button>}
-      </section>
-      <section aria-label="BeatMind Starter template" className="mb-6 border-b pb-5" style={{ borderColor: "var(--border)" }}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="space-y-4 mb-8">
+        {/* BeatMind Bridge */}
+        <div className="rounded-2xl border p-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#f97316" }}>
+                <WaveIcon size={20} />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">BeatMind Bridge</p>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>macOS 15+ · Apple Silicon · Notarized</p>
+              </div>
+            </div>
+            {bridgeConnected
+              ? <button onClick={() => setNav("beatmind")} className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90" style={{ background: "#22c55e", color: "#fff" }}>Connected</button>
+              : <a href={BRIDGE_MAC_DOWNLOAD} download className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90" style={{ background: "#f97316", color: "#fff" }}>
+                  <DownloadIcon size={14} /> Download .dmg
+                </a>}
+          </div>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            Connects Ableton Live to BeatMind AI. Drag sounds, build arrangements, and separate stems — all from inside your DAW.
+          </p>
+        </div>
+
+        {/* MixMind */}
+        {mixmindIncluded ? (
+          <div className="rounded-2xl border p-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+            <div className="flex items-center justify-between gap-4 mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#7c3aed" }}>
+                  <DJIcon size={20} />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">MixMind</p>
+                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>macOS · Apple Silicon (M1 or later)</p>
+                </div>
+              </div>
+              <a href="#" onClick={handleMixMindDownload} aria-disabled={mixmindDownloading}
+                className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                style={{ background: "#7c3aed", color: "#fff" }}>
+                <DownloadIcon size={14} />
+                {mixmindDownloading ? "Preparing…" : "Download .dmg"}
+              </a>
+            </div>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              AI DJ library manager. Smart playlists, duplicate track detection, BPM + key analysis, and Rekordbox + USB export.
+            </p>
+          </div>
+        ) : mixmindLocked}
+      </div>
+
+      {/* Starter template */}
+      <div className="rounded-2xl border p-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div>
-            <h3 className="font-semibold text-sm">BeatMind Starter template</h3>
-            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Ableton Live 12 · Built-in devices only · 124 BPM</p>
+            <p className="font-semibold text-sm">BeatMind Starter Template</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Ableton Live 12 · Built-in devices only · 124 BPM · .als file</p>
           </div>
           <a href={STARTER_TEMPLATE_URL} download="BeatMind Starter.als"
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90"
@@ -962,50 +1010,19 @@ export default function DashboardPage() {
             <DownloadIcon size={14} /> Download
           </a>
         </div>
-        <p className="text-xs mt-3" style={{ color: "var(--text-secondary)" }}>
-          Empty Kick, Drums, Percussion, Bass, Chords and Lead tracks, an FX track, a muted Reference track,
-          Reverb and Delay returns, and scenes named Intro, Build, Drop, Break, Drop 2 and Outro.
+        <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
+          A pre-built Ableton Live Set with empty Kick, Drums, Percussion, Bass, Chords, Lead, and FX tracks,
+          a muted Reference track, Reverb and Delay returns, and scenes named Intro, Build, Drop, Break, Drop 2 and Outro.
           BeatMind fills these tracks with sounds you approve.
         </p>
-        <ol className="text-xs mt-3 space-y-1 list-decimal list-inside">
-          <li>Double-click the downloaded file to open it in Ableton Live.</li>
-          <li>In Ableton, choose File, then Save Live Set As Default Set, and press Return.</li>
-          <li>Every File, New Live Set now starts from BeatMind Starter, including Open new Live Set in BeatMind.</li>
-        </ol>
-      </section>
-      <div className="space-y-4">
-        {[
-          {
-            name: "MixMind for Mac",
-            sub: "Requires a Mac with Apple silicon (M1 or later)",
-            desc: "AI DJ library manager. Smart playlists, duplicate finder, Rekordbox export.",
-            onDownload: handleMixMindDownload,
-            bg: "#7c3aed",
-            icon: <DJIcon size={20} />,
-          },
-        ].filter(() => mixmindIncluded).map(app => (
-          <div key={app.name} className="rounded-2xl border p-5" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
-            <div className="flex items-center justify-between gap-4 mb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: app.bg }}>
-                  {app.icon}
-                </div>
-                <div>
-                  <p className="font-semibold text-sm">{app.name}</p>
-                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{app.sub}</p>
-                </div>
-              </div>
-              <a href="#" onClick={app.onDownload} aria-disabled={mixmindDownloading}
-                className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                style={{ background: app.bg, color: "#fff" }}>
-                <DownloadIcon size={14} />
-                {mixmindDownloading ? "Preparing…" : "Download"}
-              </a>
-            </div>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{app.desc}</p>
-          </div>
-        ))}
-        {!mixmindIncluded && mixmindLocked}
+        <div className="rounded-xl p-3" style={{ background: "var(--bg-primary)" }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>Setup</p>
+          <ol className="text-xs space-y-1 list-decimal list-inside" style={{ color: "var(--text-secondary)" }}>
+            <li>Double-click the downloaded <code className="px-1 rounded" style={{ background: "var(--bg-secondary)" }}>.als</code> file to open it in Ableton Live.</li>
+            <li>Choose File → Save Live Set As Default Set → press Return.</li>
+            <li>Every new Live Set (including &quot;Open new Live Set&quot; in BeatMind) starts from this template.</li>
+          </ol>
+        </div>
       </div>
     </div>
   );
