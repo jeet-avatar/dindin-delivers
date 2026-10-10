@@ -14,6 +14,7 @@ export function BlogNav() {
         <Link href="/" className="hover:text-white transition-colors duration-150">BeatMind</Link>
         <Link href="/mixmind" className="hover:text-white transition-colors duration-150">MixMind</Link>
         <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
+        <Link href="/download" className="hover:text-white transition-colors duration-150">Download</Link>
         <Link href="/blog" className="hover:text-white transition-colors duration-150" style={{ color: "var(--text-primary)" }}>Blog</Link>
       </div>
       <div className="flex items-center gap-3">

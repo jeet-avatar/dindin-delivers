@@ -100,6 +100,7 @@ export default function LandingPage() {
           <a href="#how" className="hover:text-white transition-colors duration-150">How it works</a>
           <a href="#pricing" className="hover:text-white transition-colors duration-150">Pricing</a>
           <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
+          <Link href="/download" className="hover:text-white transition-colors duration-150">Download</Link>
           <Link href="/blog" className="hover:text-white transition-colors duration-150">Blog</Link>
           <Link href="/mixmind" className="hover:text-white transition-colors duration-150" style={{ color: "var(--accent)" }}>MixMind ↗</Link>
         </div>

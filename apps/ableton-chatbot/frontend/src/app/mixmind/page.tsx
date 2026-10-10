@@ -5,9 +5,9 @@ import { Showcase } from "@/components/Showcase";
 import { SocialLinks } from "@/components/SocialLinks";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { CheckIcon } from "@/components/Icons";
-import { isLoggedIn, apiFetch } from "@/lib/auth";
+import { isLoggedIn } from "@/lib/auth";
+import { useMixMindDownload } from "@/lib/use-mixmind-download";
 import { MIXMIND_FAQS } from "@/lib/faqs";
 import {
   ANNUAL_DISCOUNT_LABEL,
@@ -21,8 +21,6 @@ import {
   planById,
 } from "@/lib/pricing";
 
-// The installer has no public URL of its own — /api/mixmind/download hands back a signed link that
-// expires in minutes, and only to a signed-in account on a plan that includes MixMind.
 const DOWNLOAD_FALLBACK_HREF = "/mixmind#pricing";
 
 const FEATURES = [
@@ -76,42 +74,11 @@ const STUDIO = planById("studio");
 export default function MixMindPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("month");
-  const [downloading, setDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState("");
+  const { download: handleDownload, downloading, error: downloadError } = useMixMindDownload("/mixmind");
   // Computed after mount (not during the static export) so a signed-in visitor's pricing clicks go
   // straight to the dashboard's plan picker instead of a redundant, failing /signup.
   const [loggedIn, setLoggedIn] = useState(false);
   useEffect(() => { setLoggedIn(isLoggedIn()); }, []);
-  const router = useRouter();
-
-  async function handleDownload(e: React.MouseEvent<HTMLAnchorElement>) {
-    e.preventDefault();
-    if (!isLoggedIn()) {
-      router.push("/login?redirect=/mixmind");
-      return;
-    }
-    setDownloadError("");
-    setDownloading(true);
-    try {
-      const res = await apiFetch("/api/mixmind/download");
-      if (res.status === 401) {
-        router.push("/login?redirect=/mixmind");
-        return;
-      }
-      if (res.status === 402) {
-        router.push("/dashboard?upgrade=mixmind");
-        return;
-      }
-      if (!res.ok) throw new Error();
-      const { url } = await res.json();
-      window.location.href = url;
-    } catch {
-      setDownloadError("Couldn't start the download. Please try again in a moment.");
-    } finally {
-      setDownloading(false);
-    }
-  }
-
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
       {/* Skip link */}
@@ -142,6 +109,7 @@ export default function MixMindPage() {
             Download
           </a>
           <Link href="/guide" className="hover:text-white transition-colors duration-150">Guide</Link>
+          <Link href="/download" className="hover:text-white transition-colors duration-150">Download</Link>
           <Link href="/" className="hover:text-white transition-colors duration-150">BeatMind ↗</Link>
         </div>
         <a

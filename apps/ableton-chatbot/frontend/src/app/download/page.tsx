@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BASE_URL, OG_IMAGE, OG_IMAGE_SIZE, SITE_NAME } from "@/lib/site";
 import { BlogFooter, BlogNav } from "../blog/blog-chrome";
+import { MixMindDownloadCard } from "@/components/MixMindDownloadCard";
 
 const PATH = "/download";
-const TITLE = "Download BeatMind Bridge";
+const TITLE = "Downloads — BeatMind Bridge and MixMind";
 const DESCRIPTION =
-  "Download BeatMind Bridge for macOS. Connect Ableton Live to AI-powered music production.";
+  "Download BeatMind Bridge for Ableton Live and MixMind for Rekordbox on macOS.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -29,7 +30,7 @@ export default function DownloadPage() {
       <BlogNav />
       <main className="mx-auto max-w-2xl px-4 py-16 sm:py-24">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Download BeatMind Bridge
+          Downloads
         </h1>
         <p className="mt-4 text-lg" style={{ color: "var(--text-secondary)" }}>
           BeatMind Bridge connects your Ableton Live session to AI. It runs
@@ -60,7 +61,7 @@ export default function DownloadPage() {
         {/* Download card */}
         <div
           className="mt-8 rounded-2xl border p-8"
-          style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+          style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}
         >
           <div className="flex items-center gap-3 mb-6">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -69,9 +70,9 @@ export default function DownloadPage() {
               <path d="M8 12l4 4 4-4" />
             </svg>
             <div>
-              <h2 className="text-xl font-semibold">macOS (Apple Silicon)</h2>
+              <h2 className="text-xl font-semibold">BeatMind Bridge for Ableton Live</h2>
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                Version 1.3.15 &middot; Requires macOS 13+
+                macOS (Apple Silicon) &middot; Version 1.3.15 &middot; Requires macOS 13+
               </p>
             </div>
           </div>
@@ -94,6 +95,8 @@ export default function DownloadPage() {
             Signed and notarized by Apple. ~296 MB.
           </p>
         </div>
+
+        <MixMindDownloadCard />
 
         {/* What's new */}
         <div className="mt-10 space-y-4">

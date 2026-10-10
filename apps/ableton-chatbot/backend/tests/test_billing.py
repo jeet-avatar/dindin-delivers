@@ -12,6 +12,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import ai_usage
+import model_access
 import billing
 import catalog
 import database
@@ -178,6 +179,14 @@ class AllowanceTests(CatalogCase):
         with patch.dict(os.environ, {"BEATMIND_INCLUDED_TRACKS": "15"}):
             self.assertEqual(billing.allowance(legacy)["included_tracks"], 15)
         self.assertEqual(billing.allowance(legacy)["included_cloud"], 0)
+
+    def test_exempt_testers_get_studio_with_every_model(self):
+        tester = new_user()
+        with patch.dict(os.environ, {"AI_EXEMPT_EMAILS": tester["email"].upper()}):
+            plan = billing.allowance(tester)
+            self.assertEqual((plan["source"], plan["tier"], plan["mixmind"]), ("comp", "studio", True))
+            self.assertEqual(model_access.available_models(plan["tier"]), ["fast", "pro", "ultra"])
+        self.assertEqual(billing.allowance(tester)["source"], "none")
 
     def test_trial_users_get_three_tracks_and_expired_users_nothing(self):
         trial = billing.allowance(new_user(trial_days=5))

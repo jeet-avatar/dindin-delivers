@@ -25,7 +25,7 @@ export interface Catalog {
 }
 
 export interface PlanState {
-  source: "subscription" | "legacy" | "trial" | "none";
+  source: "subscription" | "legacy" | "comp" | "trial" | "none";
   plan: string | null;
   tier: string | null;
   interval: Interval | null;
@@ -114,7 +114,7 @@ export function planName(plan: PlanState | null | undefined): string {
 
 /** A paid plan (not the free trial): active, trialing on Stripe, or past due within its grace period. */
 export function hasPaidPlan(plan: PlanState | null | undefined): boolean {
-  return plan?.source === "subscription" || plan?.source === "legacy";
+  return plan?.source === "subscription" || plan?.source === "legacy" || plan?.source === "comp";
 }
 
 /** A plan chosen on the public site, carried through signup/login to the dashboard plan picker. */

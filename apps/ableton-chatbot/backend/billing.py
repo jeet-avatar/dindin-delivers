@@ -100,6 +100,10 @@ def allowance(user):
             'included_tracks': 0, 'included_cloud': 0, 'mixmind': False, 'current_period_end': None, 'cancel_at': None}
     if not user:
         return none
+    if str(user.get('email') or '').lower() in database._exempt_emails():
+        # Comped testers get the top plan, so every model tier and feature is unlocked; charges are skipped elsewhere.
+        return {**none, 'source': 'comp', 'plan': 'studio', 'tier': 'studio', 'status': 'comp',
+                'included_tracks': SONGS_PER_MONTH['studio'], 'included_cloud': 20, 'mixmind': True}
     if subscription_access(user):
         if user.get('included_tracks') is not None:
             return {**none, 'source': 'subscription', 'plan': user.get('plan'), 'tier': user.get('plan_tier'),
