@@ -386,7 +386,7 @@ export default function DashboardPage() {
     try {
       const id = await updateProject({ starting_point });
       if (starting_point === "reference") setNav("references");
-      else await sendMessage("I'd like to start from my own idea, without a reference.", id, null, false);
+      else await sendMessage("I want to start from my own idea. Pick a genre and tempo for me and start building the first sound.", id, null, false);
     } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not save your choice."); }
     finally { setProjectBusy(false); }
   }

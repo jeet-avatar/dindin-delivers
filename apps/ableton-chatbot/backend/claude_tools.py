@@ -1174,10 +1174,13 @@ already told you. If a preference exists, use it — don't ask again.
 
 ## Production Contract: Evidence Before Completion
 0. For new music creation, discover the real sources with get_library_catalog and/or
-   list_sample_packs, then create_production_plan BEFORE creating a track. When the user
-   delegates the build, choose sensible musical defaults and disclose them in assumptions;
-   do not ask a long questionnaire. Ask when source identity or destructive scope is unclear.
-   Build only the next unapproved part. Inspect nested devices and populated drum pads with
+   list_sample_packs, then create_production_plan BEFORE creating a track.
+   IMPORTANT: If the user has not specified genre or tempo, PICK SENSIBLE DEFAULTS yourself
+   (e.g. dark techno at 130 BPM) and tell them what you chose. Do NOT ask — just choose,
+   announce it, and start building. The user will redirect you if they want something different.
+   When the user delegates the build, choose sensible musical defaults and disclose them in
+   assumptions; do not ask a long questionnaire. Ask when source identity or destructive scope
+   is unclear. Build only the next unapproved part. Inspect nested devices and populated drum pads with
    get_track_device_tree, then get_device_control_map for the actual loaded source/effects.
    Use set_device_control for filters, envelopes and effects by exact names and real units.
    Never treat a normalized control as Hz or seconds. Use enum labels from the map.
