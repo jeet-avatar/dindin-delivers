@@ -46,7 +46,7 @@ export default function DownloadPage() {
             <span className="mt-0.5 text-2xl">&#9889;</span>
             <div>
               <p className="font-semibold" style={{ color: "#22c55e" }}>
-                Update Available &mdash; Version 1.3.14
+                Update Available &mdash; Version 1.3.15
               </p>
               <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
                 If you already have BeatMind Bridge installed, download this
@@ -71,7 +71,7 @@ export default function DownloadPage() {
             <div>
               <h2 className="text-xl font-semibold">macOS (Apple Silicon)</h2>
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                Version 1.3.14 &middot; Requires macOS 13+
+                Version 1.3.15 &middot; Requires macOS 13+
               </p>
             </div>
           </div>
@@ -97,11 +97,11 @@ export default function DownloadPage() {
 
         {/* What's new */}
         <div className="mt-10 space-y-4">
-          <h2 className="text-xl font-semibold">What&apos;s New in 1.3.14</h2>
+          <h2 className="text-xl font-semibold">What&apos;s New in 1.3.15</h2>
           <ul className="list-disc list-inside space-y-2" style={{ color: "var(--text-secondary)" }}>
             <li>Fixed <strong>Send to Ableton</strong> for cloud-separated reference stems</li>
             <li>Fixed SSL certificate handling for stem downloads</li>
-            <li>Improved stem path handling with consistent directory settings</li>
+            <li>Bridge stays connected while long stem downloads run</li>
           </ul>
         </div>
 
