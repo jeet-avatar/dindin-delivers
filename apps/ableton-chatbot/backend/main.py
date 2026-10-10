@@ -663,6 +663,11 @@ async def produce_chat(req, session, bridge, emit=None):
         session.reference_note = song_projects.reference_note(reference_id, session.user_id)
         session.project_note = song_projects.planning_reason(session.project, reference_id, session.user_id)
         session.planning_only = req.planning_only or bool(session.project_note)
+        import logging as _log
+        _log.getLogger('beatmind.debug').warning(
+            "planning_only=%s  req.planning_only=%s  project_note=%r  starting_point=%s  reference_id=%s",
+            session.planning_only, req.planning_only, session.project_note,
+            session.project.get('starting_point') if session.project else None, reference_id)
         session.pending_review = False
         session.current_track_names = []
         session.current_recordings = []
