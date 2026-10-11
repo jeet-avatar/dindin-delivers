@@ -691,8 +691,17 @@ async def produce_chat(req, session, bridge, emit=None):
                 if live.get('status') not in {'observed', 'verified'}:
                     # Say why Ableton could not be checked (for example a locked Mac) instead of blaming the set.
                     raise HTTPException(409, (live.get('summary') or 'Ableton could not be checked.') + ' Nothing was changed.')
-                if session.project.get('live_set') and live.get('title') != session.project['live_set']['title']:
-                    raise HTTPException(409, 'The open Ableton set no longer matches this song. Use Choose Live Set before making changes. Nothing was changed.')
+                song_projects.link_reference_set(session.project, reference_id, session.user_id, live)
+                if (session.project.get('live_set') and live.get('title') != session.project['live_set']['title']
+                        and not song_projects.saved_under_new_name(session.project, reference_id, session.user_id, live)):
+                    raise HTTPException(409, 'The set open in Ableton isn\'t the one linked to this song. Open that set, or click Change next to the Ableton set name. Nothing was changed.')
+            elif session.project and not session.project.get('live_set') and song_projects.stems_placed(reference_id, session.user_id):
+                # Discussion turns don't change music, but should still see the set the reference stems were sent into.
+                try:
+                    live = await bridge.local_operation('live_set', {'operation': 'inspect'})
+                except Exception:
+                    live = {}
+                song_projects.link_reference_set(session.project, reference_id, session.user_id, live)
             state = await bridge.send_command("/live/song/get/track_names", [], True)
             if state.get("status") != "ok" or not isinstance(state.get("args"), list):
                 raise HTTPException(409, "Unable to inspect the current Live Set. Reconnect the bridge before continuing.")

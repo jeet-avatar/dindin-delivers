@@ -148,7 +148,7 @@ async function main() {
       await page.getByRole('button', { name: 'Discuss what I like', exact: true }).waitFor();
       assert.equal(calls.filter(c => c.path.endsWith('/listen-whole')).length, 1, 'Restoring history must not send audio again');
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
-      await page.getByRole('button', { name: 'Upload song', exact: true }).click();
+      await page.getByRole('button', { name: 'Upload reference', exact: true }).click();
       await page.getByLabel('Reference audio file').waitFor();
       await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: 'BeatMind', exact: true }).click();
       await page.getByRole('button', { name: 'Choose Live Set', exact: true }).click();
@@ -163,7 +163,7 @@ async function main() {
       assert.equal(await page.getByRole('button', { name: 'Use this new set', exact: true }).isDisabled(), true);
       await page.getByRole('button', { name: '3. Inspect open set', exact: true }).click();
       await page.getByRole('button', { name: 'Use inspected set instead', exact: true }).click();
-      await page.getByText('Selected set: Disposable QA set', { exact: true }).waitFor();
+      await page.getByText('Ableton set: Disposable QA set', { exact: true }).waitFor();
       assert.equal(calls.filter(c => c.path === '/api/chat/stream').length, 1, 'Set selection must not start production');
       assert.deepEqual(calls.filter(c => c.path === '/api/live-set').map(c => c.body.operation), ['save', 'inspect', 'confirm_current']);
       assert.deepEqual(errors, []);

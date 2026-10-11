@@ -199,6 +199,39 @@ const PROMPTS = [
   { text: "Get the current session state", newSong: false },
 ];
 
+function nothingChanged(reason: string): string {
+  const text = reason.trim().replace(/\s*Nothing was changed\.?$/i, "");
+  return `${text}${/[.!?]$/.test(text) ? "" : "."} Nothing was sent to Ableton.`;
+}
+
+// Clicking fills the message box so the user can tweak it before sending.
+const REFERENCE_COMMANDS = [
+  "Make a drum groove like the reference",
+  "Write a bassline in the reference's key",
+  "Add chords with the same mood as the reference",
+  "Build an intro like the reference",
+];
+
+function AbletonSetStatus({ linked, open, busy, canChoose, onUse, onChoose }: {
+  linked?: string; open?: string | null; busy: boolean; canChoose: boolean; onUse: () => void; onChoose: () => void;
+}) {
+  const muted = { color: "var(--text-secondary)" };
+  if (linked) return <>
+    <span>Ableton set: <strong>{linked}</strong></span>
+    <button disabled={busy || !canChoose} onClick={onChoose} className="underline disabled:opacity-40" style={muted}>Change</button>
+  </>;
+  if (open) return <>
+    <span style={muted}>Ableton has <strong style={{ color: "var(--text-primary)" }}>{open}</strong> open</span>
+    <button disabled={busy} onClick={onUse} className="rounded-full px-2.5 py-1 font-medium disabled:opacity-40"
+      style={{ background: "var(--accent)", color: "var(--on-accent)" }}>Use this set</button>
+    <button disabled={busy} onClick={onChoose} className="underline disabled:opacity-40" style={muted}>Start a new set</button>
+  </>;
+  return <>
+    <span style={muted}>No Ableton set linked yet</span>
+    <button disabled={busy || !canChoose} onClick={onChoose} className="underline disabled:opacity-40" style={muted}>Choose Live Set</button>
+  </>;
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const router = useRouter();
@@ -239,6 +272,7 @@ export default function DashboardPage() {
   const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
   const { status: bridgeStatus, liveSet: bridgeLiveSet, refresh: refreshBridge } = useBridgeStatus(user?.id);
   const bridgeConnected = bridgeStatus === "connected";
+  const referenceInAbleton = Boolean(referenceId && project?.starting_point === "reference" && project.live_set);
   const ableton = useAbletonLaunch(bridgeStatus, user?.id);
   const [historyReady, setHistoryReady] = useState(false);
   const [historyError, setHistoryError] = useState("");
@@ -415,6 +449,19 @@ export default function DashboardPage() {
     return id;
   }
 
+  // Link the song to whatever set Ableton has open, the same check the Choose Live Set dialog does.
+  async function linkOpenSet() {
+    if (!sessionId || projectBusy || loading) return;
+    setProjectBusy(true);
+    try {
+      const response = await apiFetch("/api/live-set", { method: "POST", body: JSON.stringify({ operation: "confirm_current", session_id: sessionId }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not link the open Ableton set.");
+      setProject(data.project);
+    } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not link the open Ableton set."); }
+    finally { setProjectBusy(false); }
+  }
+
   async function chooseStart(starting_point: "reference" | "idea") {
     if (projectBusy || loading) return;
     setProjectBusy(true);
@@ -435,6 +482,7 @@ export default function DashboardPage() {
     const controller = new AbortController();
     requestRef.current = controller;
     const createdAt = new Date().toISOString();
+    let actionsSent = false;
     setLoading(true);
     setStreamNotice("");
     let lastEvent = Date.now();
@@ -485,6 +533,7 @@ export default function DashboardPage() {
           narration += `${narration ? "\n\n" : ""}${event.text}`;
           setMessages(p => p.map(m => m.id === runId ? { ...m, content: narration } : m));
         } else if (event.type === "action_started" || event.type === "action_completed") {
+          actionsSent = true;
           const action = event.action as ProductionAction;
           setMessages(p => p.map(m => {
             if (m.id !== runId) return m;
@@ -519,7 +568,18 @@ export default function DashboardPage() {
         reader.releaseLock();
       }
     } catch (err) {
-      setHistoryError(err instanceof Error ? err.message : "Request failed.");
+      const reason = err instanceof Error ? err.message : "Request failed.";
+      // Most failures (trial ended, Bridge offline, set changed, AI busy) happen before anything reaches Ableton.
+      // Say that plainly instead of warning about an interrupted production.
+      if (!actionsSent) {
+        const timeoutReason = controller.signal.reason;
+        const why = controller.signal.aborted
+          ? (timeoutReason instanceof Error && timeoutReason.name !== "AbortError" ? timeoutReason.message : "Stopped.")
+          : reason;
+        setMessages(p => p.map(m => m.id === runId ? { ...m, requestStatus: "complete", toolCalls: [], content: nothingChanged(why) } : m));
+        return;
+      }
+      setHistoryError(reason);
       setMessages(p => p.map(m => {
         if (m.id !== runId) return m;
         const inspectionOnly = !!m.toolCalls?.length && m.toolCalls.every(a => a.result?.status === "observed");
@@ -853,7 +913,7 @@ export default function DashboardPage() {
       <ChatTimeline followKey={conversationFollowKey}>
         {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
         {loading && streamNotice && <p role="status" className="text-xs text-amber-300">{streamNotice}</p>}
-        {(messages.length === 0 || (project && !project.starting_point)) && (
+        {!referenceInAbleton && (messages.length === 0 || (project && !project.starting_point)) && (
           <div className="flex flex-col items-center justify-center py-8 gap-6 text-center">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "var(--bg-secondary)", color: "var(--accent)" }}>
               <WaveIcon size={28} />
@@ -891,6 +951,24 @@ export default function DashboardPage() {
       </ChatTimeline>
 
       <div className="px-3 sm:px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
+        {referenceInAbleton && !input && (
+          <div className="mb-3">
+            <p className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
+              Your reference stems are in Ableton{project?.live_set ? ` (${project.live_set.title})` : ""}. Ask for one part at a time;
+              BeatMind builds it on a new track and you keep it or ask for changes.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {REFERENCE_COMMANDS.map(command => (
+                <button key={command} type="button" disabled={loading}
+                  onClick={() => { setInput(command); inputRef.current?.focus(); }}
+                  className="rounded-full px-3 py-1.5 text-xs border transition-colors hover:border-[var(--accent)] disabled:opacity-40"
+                  style={{ borderColor: "var(--border)", color: "var(--text-primary)", background: "var(--bg-secondary)" }}>
+                  {command}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {project && (
           <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
             <button type="button" disabled={loading || projectBusy || !historyReady}
@@ -924,7 +1002,8 @@ export default function DashboardPage() {
             id="chat-input" ref={inputRef} value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (loading) { queuedRef.current = input.trim() || null; setInput(""); } else sendMessage(); } }}
-            placeholder={queuedRef.current ? "Message queued — sending when ready..." : "Message BeatMind..."}
+            placeholder={queuedRef.current ? "Message queued — sending when ready..."
+              : referenceInAbleton ? "Tell BeatMind what to build, e.g. a drum groove like the reference" : "Message BeatMind..."}
             rows={1}
             className="flex-1 min-w-0 resize-none rounded-lg px-4 py-3 text-sm outline-none"
             style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
@@ -1304,9 +1383,6 @@ export default function DashboardPage() {
           <button type="button" onClick={() => void newSong()} disabled={!historyReady || loading || projectBusy}
             className="h-10 px-3 shrink-0 rounded text-sm font-medium disabled:opacity-40"
             style={{ background: "var(--accent)", color: "var(--on-accent)" }}>New song</button>
-          {project && <button type="button" onClick={() => void chooseStart("reference")} disabled={!historyReady || loading || projectBusy}
-            className="h-10 px-3 shrink-0 rounded border text-sm font-medium disabled:opacity-40"
-            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>Upload song</button>}
           {project && <div className="w-full flex flex-wrap items-center gap-3 text-xs">
             {usage?.model_access && usage.model_access.length > 1 ? (
               <select value={selectedModel} onChange={e => setSelectedModel(e.target.value as ModelTier)}
@@ -1319,8 +1395,8 @@ export default function DashboardPage() {
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: MODEL_BADGE[selectedModel].color }} />{MODEL_TIER_LABELS[selectedModel]}
               </span>
             )}
-            <span style={{ color: "var(--text-secondary)" }}>{project.live_set ? `Selected set: ${project.live_set.title}` : "Planning / No Live Set selected"}</span>
-            <button disabled={loading || projectBusy || !bridgeConnected} onClick={() => setSongSetup("")} className="underline disabled:opacity-40">Choose Live Set</button>
+            <AbletonSetStatus linked={project.live_set?.title} open={bridgeConnected ? bridgeLiveSet : null}
+              busy={loading || projectBusy} onUse={() => void linkOpenSet()} onChoose={() => setSongSetup("")} canChoose={bridgeConnected} />
             {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
           </div>}
         </div>}

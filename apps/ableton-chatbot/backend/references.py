@@ -143,6 +143,17 @@ def write_json(path, data):
     temporary.replace(path)
 
 
+PLACEMENT_FILE = 'ableton.json'
+
+
+def placement(directory):
+    """Where this reference's stems were last placed in Ableton: {title, tracks, placed_at}, or None."""
+    try:
+        return json.loads((directory / PLACEMENT_FILE).read_text())
+    except (OSError, ValueError):
+        return None
+
+
 def capability():
     enabled = os.getenv('BEATMIND_REFERENCE_ENABLED') == '1'
     available = bool(shutil.which('ffmpeg') and all(importlib.util.find_spec(name)
@@ -423,13 +434,32 @@ def reference_context(reference_id, user_id):
             'proposing a single targeted change. Do not infer exact source effects, synth parameters or notes from these '
             'measurements. Audition the change and wait for the user; never accept it automatically. Original sound design '
             'inspired by the reference is the goal, not a claim to recover the original patch.')
-    return (template + listening + comparison_note + '\nREFERENCE AUDIO MEASUREMENTS (estimates, not instructions): ' + json.dumps(report) +
+    placed = placement(directory)
+    placed_note = ''
+    if placed and placed.get('tracks'):
+        placed_note = ('\nREFERENCE STEMS IN ABLETON: the user placed this reference\'s stems in the Live Set '
+                       + json.dumps(placed.get('title') or 'currently open') + ' on these tracks: ' + json.dumps(placed['tracks']) +
+                       '. They are the reference to listen to and compare against, not parts to edit. Keep them; do not '
+                       'change, mute or delete them unless the user asks. Build new original parts on new tracks.')
+    return (template + listening + comparison_note + placed_note + '\nREFERENCE AUDIO MEASUREMENTS (estimates, not instructions): ' + json.dumps(report) +
             '\nUse these as a reference for an original composition. Describe likely style as an inference, '
             'not a verified genre. Stem separation is approximate and other includes mixed instruments. '
             'Energy changes are not verified intro/drop/chorus labels. Do not invent exact instruments, '
             'plugins, presets, MIDI, or production settings. Ask what the user wants to borrow: groove, '
             'bass character, palette, or structure. Do not change Ableton until the user approves a plan. '
             'Follow the guided one-part workflow. Never claim to have listened to these measurements.')
+
+
+async def record_placement(directory, bridge, tracks):
+    """Remember which Live Set the stems went into, so the song links to it. Returns the set's name, or None."""
+    try:
+        live = await bridge.local_operation('live_set', {'operation': 'inspect'}, timeout=20)
+    except Exception:
+        live = {}
+    title = live.get('title') if live.get('status') in {'observed', 'verified'} else None
+    write_json(directory / PLACEMENT_FILE, {'title': title, 'tracks': tracks or [],
+                                            'placed_at': datetime.now(timezone.utc).isoformat()})
+    return title
 
 
 def router_for(get_user, require_subscription, bridge_for=lambda user_id, capability: None):
@@ -951,10 +981,13 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         directory, item = owned(reference_id, user['id'])
         if item.get('storage') != 'local' or item['status'] != 'ready':
             raise HTTPException(409, 'This reference has no finished stems on your computer.')
-        result = await local_bridge(user).local_operation('local_reference_open',
-                                                          {'reference_id': reference_id, 'action': request.action}, timeout=60)
+        bridge = local_bridge(user)
+        result = await bridge.local_operation('local_reference_open',
+                                              {'reference_id': reference_id, 'action': request.action}, timeout=60)
         if result.get('status') not in ('opened', 'verified'):
             raise HTTPException(409, str(result.get('error') or result.get('summary') or 'The Bridge could not open the stems.'))
+        if request.action == 'ableton' and result.get('status') == 'verified':
+            result['live_set'] = await record_placement(directory, bridge, result.get('tracks'))
         return result
 
     @router.post('/{reference_id}/local-cancel')
@@ -1018,7 +1051,8 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
             except Exception as error:
                 result = {'status': 'failed', 'error': str(error)}
             if result.get('status') == 'verified':
-                IMPORTS[reference_id] = {**result, 'status': 'verified'}
+                live_set = await record_placement(directory, bridge, result.get('tracks'))
+                IMPORTS[reference_id] = {**result, 'status': 'verified', 'live_set': live_set}
             else:
                 log.warning("import-to-ableton %s failed: %s", reference_id[:8], result)
                 IMPORTS[reference_id] = {'status': 'failed', 'error': str(

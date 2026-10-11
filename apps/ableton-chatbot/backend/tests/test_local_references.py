@@ -149,11 +149,15 @@ class LocalReferenceTests(unittest.TestCase):
 
     def test_open_in_finder_or_ableton_goes_to_the_bridge(self):
         reference_id = self.ready_local()
-        self.bridge = FakeBridge(lambda operation, payload: {'status': 'verified' if payload['action'] == 'ableton' else 'opened'})
+        self.bridge = FakeBridge(lambda operation, payload: {'status': 'observed', 'title': 'Night Drive'} if operation == 'live_set'
+                                 else {'status': 'verified' if payload['action'] == 'ableton' else 'opened', 'tracks': ['Ref bass']})
         for action in ('finder', 'ableton'):
             response = self.client.post(f'/api/references/{reference_id}/local-open', json={'action': action}, headers=USER)
             self.assertEqual(response.status_code, 200)
-        self.assertEqual([c[1]['action'] for c in self.bridge.calls], ['finder', 'ableton'])
+        self.assertEqual(response.json()['live_set'], 'Night Drive')
+        self.assertEqual([c[1].get('action', c[0]) for c in self.bridge.calls], ['finder', 'ableton', 'live_set'])
+        placed = references.placement(self.root / reference_id)
+        self.assertEqual((placed['title'], placed['tracks']), ('Night Drive', ['Ref bass']))
         self.bridge = FakeBridge({'status': 'failed', 'error': 'Placing stems needs Ableton Live 12.'})
         response = self.client.post(f'/api/references/{reference_id}/local-open', json={'action': 'ableton'}, headers=USER)
         self.assertEqual((response.status_code, response.json()['detail']), (409, 'Placing stems needs Ableton Live 12.'))

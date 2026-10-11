@@ -180,6 +180,54 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([item['id'] for item in selected], ['b' * 32])
         self.assertEqual(recordings.owned_recording('a' * 32, 42)['decision'], 'accepted')
 
+    def placed(self, data):
+        return patch.multiple(song_projects.references, owned=lambda *a: (Path('/x'), {}), placement=lambda d: data)
+
+    def test_sent_reference_stems_link_the_song_to_their_set(self):
+        project = {'live_set': None}
+        live = {'status': 'observed', 'title': 'Untitled', 'tracks': ['Ref drums', 'Ref bass']}
+        with self.placed({'title': 'Untitled', 'tracks': ['Ref drums', 'Ref bass']}):
+            self.assertTrue(song_projects.link_reference_set(project, 'ref', 42, live))
+        self.assertEqual(project['live_set']['title'], 'Untitled')
+        self.assertEqual(project['live_set']['choice'], 'reference_stems')
+
+    def test_saved_set_with_the_stem_tracks_still_links(self):
+        project = {'live_set': None}
+        live = {'status': 'observed', 'title': 'My Track', 'tracks': ['Kick', 'Ref drums']}
+        with self.placed({'title': 'Untitled', 'tracks': ['Ref drums']}):
+            self.assertTrue(song_projects.link_reference_set(project, 'ref', 42, live))
+        self.assertEqual(project['live_set']['title'], 'My Track')
+
+    def test_a_different_set_is_not_linked(self):
+        project = {'live_set': None}
+        live = {'status': 'observed', 'title': 'Other Song', 'tracks': ['Kick']}
+        with self.placed({'title': 'Untitled', 'tracks': ['Ref drums']}):
+            self.assertFalse(song_projects.link_reference_set(project, 'ref', 42, live))
+        with self.placed(None):
+            self.assertFalse(song_projects.link_reference_set(project, 'ref', 42, {**live, 'title': 'Untitled'}))
+        self.assertIsNone(project['live_set'])
+
+    def test_an_already_linked_song_is_left_alone(self):
+        project = {'live_set': {'title': 'Chosen'}}
+        with self.placed({'title': 'Untitled', 'tracks': ['Ref drums']}):
+            self.assertFalse(song_projects.link_reference_set(project, 'ref', 42, {'status': 'observed', 'title': 'Untitled'}))
+        self.assertEqual(project['live_set']['title'], 'Chosen')
+
+    def test_untitled_set_saved_under_a_name_is_followed_only_with_its_stems(self):
+        with self.placed({'title': 'Untitled', 'tracks': ['Ref drums']}):
+            project = {'live_set': {'title': 'Untitled'}}
+            self.assertTrue(song_projects.saved_under_new_name(project, 'ref', 42, {'title': 'Night Drive', 'tracks': ['Ref drums']}))
+            self.assertEqual(project['live_set']['title'], 'Night Drive')
+            project = {'live_set': {'title': 'Untitled'}}
+            self.assertFalse(song_projects.saved_under_new_name(project, 'ref', 42, {'title': 'Old Song', 'tracks': ['Kick']}))
+            project = {'live_set': {'title': 'Chosen'}}
+            self.assertFalse(song_projects.saved_under_new_name(project, 'ref', 42, {'title': 'Other', 'tracks': ['Ref drums']}))
+
+    def test_deleted_reference_is_not_an_error(self):
+        with patch.object(song_projects.references, 'owned', side_effect=main.HTTPException(404)):
+            self.assertFalse(song_projects.stems_placed('ref', 42))
+            self.assertFalse(song_projects.link_reference_set({'live_set': None}, 'ref', 42, {'status': 'observed', 'title': 'X'}))
+
     def test_legacy_conversations_have_no_new_project_gate(self):
         self.assertEqual(song_projects.planning_reason(None, None, 42), '')
 

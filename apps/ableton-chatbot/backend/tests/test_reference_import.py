@@ -16,6 +16,8 @@ class FakeBridge:
 
     async def local_operation(self, operation, payload, timeout=55):
         self.calls.append((operation, timeout))
+        if operation == 'live_set':
+            return {'status': 'observed', 'title': 'Untitled'}
         await asyncio.sleep(0.2)
         return self.result
 
@@ -43,11 +45,16 @@ class ImportToAbletonTests(unittest.TestCase):
             return status
 
     def test_import_returns_immediately_and_reports_success(self):
-        bridge = FakeBridge({'status': 'verified', 'summary': 'Placed 4 reference stems.'})
+        bridge = FakeBridge({'status': 'verified', 'summary': 'Placed 4 reference stems.', 'tracks': ['Ref drums']})
         status = self.run_import(bridge)
         self.assertEqual(status['status'], 'verified')
         self.assertEqual(status['summary'], 'Placed 4 reference stems.')
-        self.assertEqual(bridge.calls, [('cloud_stem_import', 600)])
+        self.assertEqual(status['live_set'], 'Untitled')
+        self.assertEqual(bridge.calls, [('cloud_stem_import', 600), ('live_set', 20)])
+        directory, _ = references.owned(self.id, 1)
+        placed = references.placement(directory)
+        self.assertEqual((placed['title'], placed['tracks']), ('Untitled', ['Ref drums']))
+        self.assertIn('REFERENCE STEMS IN ABLETON', references.reference_context(self.id, 1))
 
     def test_bridge_failure_is_reported_through_status(self):
         status = self.run_import(FakeBridge({'status': 'failed', 'error': 'Ableton did not confirm.'}))

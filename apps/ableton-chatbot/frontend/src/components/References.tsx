@@ -471,14 +471,15 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
               <div><span className="text-neutral-400">Key </span><span>{item.report.key_candidates.map(k => k.key).join(" / ") || "—"}</span></div>
               <div><span className="text-neutral-400">Duration </span><span>{time(item.report.duration_seconds)}</span></div>
             </dl>
-            {item.storage === "local" && <LocalStemActions key={`ready-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh} />}
+            {item.storage === "local" && <LocalStemActions key={`ready-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh}
+              onPlaced={chatBusy ? undefined : () => onUse(item.id, true)} />}
             {item.storage !== "local" && <StemPicker id={item.id} stems={reviewStems(item.report)} cue={cue}
               importing={importing} disabled={chatBusy || busy} bridgeConnected={bridgeConnected} liveSet={bridgeLiveSet}
               onImport={stems => void importToAbleton(item.id, stems)} />}
             {importNotice && <p role="status" className="text-sm text-emerald-200">{importNotice}</p>}
             <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id)}
               className="text-sm underline disabled:opacity-40">
-              Discuss this reference in chat
+              Discuss this reference in chat (nothing changes in Ableton)
             </button>
           </div>
           <details className="text-sm">

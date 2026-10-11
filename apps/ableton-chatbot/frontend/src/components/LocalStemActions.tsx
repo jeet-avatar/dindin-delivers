@@ -4,20 +4,21 @@ import { useState } from "react";
 import { FolderOpen, Music } from "lucide-react";
 import { apiFetch } from "@/lib/auth";
 
-export default function LocalStemActions({ id, folder, status, refresh }: {
-  id: string; folder?: string; status: string; refresh: () => Promise<void>;
+export default function LocalStemActions({ id, folder, status, refresh, onPlaced }: {
+  id: string; folder?: string; status: string; refresh: () => Promise<void>; onPlaced?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  async function post(path: string, body: object, done: (result: { summary?: string; folder?: string }) => string) {
+  async function post(path: string, body: object, done: (result: { summary?: string; folder?: string }) => string, then?: () => void) {
     setBusy(true); setError(""); setNotice("");
     try {
       const response = await apiFetch(`/api/references/${id}/${path}`, { method: "POST", body: JSON.stringify(body) });
       const result = await response.json();
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "The Bridge could not complete this.");
       setNotice(done(result));
+      then?.();
     } catch (e) { setError(e instanceof Error ? e.message : "The Bridge could not complete this."); }
     finally { setBusy(false); }
   }
@@ -27,7 +28,7 @@ export default function LocalStemActions({ id, folder, status, refresh }: {
     {status === "ready" ? <div className="flex flex-wrap gap-2">
       <button type="button" disabled={busy} onClick={() => void post("local-open", { action: "finder" }, () => "Opened the stems folder on your computer.")}
         className="inline-flex items-center gap-2 rounded border border-neutral-600 px-3 py-2 disabled:opacity-40"><FolderOpen size={16} aria-hidden="true" />Show stems in Finder</button>
-      <button type="button" disabled={busy} onClick={() => void post("local-open", { action: "ableton" }, result => result.summary || "Stems placed in Ableton.")}
+      <button type="button" disabled={busy} onClick={() => void post("local-open", { action: "ableton" }, result => result.summary || "Stems placed in Ableton.", onPlaced)}
         className="inline-flex items-center gap-2 rounded bg-emerald-700 px-3 py-2 disabled:opacity-40"><Music size={16} aria-hidden="true" />Place stems in Ableton</button>
     </div> : status === "processing" && <button type="button" disabled={busy}
       onClick={() => void post("local-cancel", {}, () => "Separation was cancelled on your computer.").then(() => refresh().catch(() => undefined))}
