@@ -121,6 +121,26 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(restored.project)
         self.assertEqual(restored.messages, legacy.messages)
 
+    async def test_older_chat_can_be_linked_to_the_open_set(self):
+        self.bridge(title='ro minimal test')
+        legacy = main.ChatSession('legacy-song', 42)
+        legacy.messages = [{'role': 'user', 'content': 'Existing song'}, {'role': 'assistant', 'content': 'Saved.'}]
+        legacy.reference_id = 'a' * 32
+        main.chat_store.save(legacy, 'complete')
+        result = await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id='legacy-song'), self.user)
+        self.assertEqual(result['project']['live_set']['title'], 'ro minimal test')
+        self.assertEqual(result['project']['starting_point'], 'reference')
+        saved = await main.chat_details('legacy-song', self.user)
+        self.assertEqual(saved['project']['live_set']['title'], 'ro minimal test')
+
+    async def test_unreadable_set_explains_why(self):
+        bridge = self.bridge()
+        bridge.local_operation.return_value = {'status': 'failed', 'summary': 'Your Mac is locked.'}
+        with self.assertRaises(main.HTTPException) as error:
+            await main.live_set_action(main.LiveSetRequest(operation='confirm_current', session_id=self.id), self.user)
+        self.assertEqual(error.exception.status_code, 409)
+        self.assertIn('Your Mac is locked.', error.exception.detail)
+
     async def test_direct_producer_initializes_new_session_under_lease(self):
         session = main.ChatSession('direct-new', 42)
         with patch.object(main, '_run_claude_loop', AsyncMock(return_value=('Reference or idea?', []))):

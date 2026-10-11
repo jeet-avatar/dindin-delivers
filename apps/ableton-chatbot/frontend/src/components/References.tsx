@@ -1,5 +1,7 @@
 "use client";
 
+import type React from "react";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { audioStems, reviewStems, stemLabel } from "@/lib/stems";
@@ -174,10 +176,10 @@ function StemPicker({ id, stems, cue, importing, disabled, bridgeConnected, live
   </div>;
 }
 
-export default function References({ onUse, chatBusy, selectedId, onSelect, guided = false, onTemplateApproved, onOpenChat, bridgeConnected, bridgeLiveSet }: {
+export default function References({ onUse, chatBusy, selectedId, onSelect, guided = false, onTemplateApproved, onOpenChat, bridgeConnected, bridgeLiveSet, abletonSet }: {
   onUse: (id: string, template?: boolean) => void; chatBusy: boolean;
   selectedId?: string | null; onSelect?: (id: string | null) => Promise<void>; guided?: boolean;
-  onTemplateApproved?: () => void; onOpenChat?: () => void; bridgeConnected?: boolean; bridgeLiveSet?: string | null;
+  onTemplateApproved?: () => void; onOpenChat?: () => void; bridgeConnected?: boolean; bridgeLiveSet?: string | null; abletonSet?: React.ReactNode;
 }) {
   const [items, setItems] = useState<Reference[]>([]);
   const [available, setAvailable] = useState(false);
@@ -477,6 +479,9 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
               importing={importing} disabled={chatBusy || busy} bridgeConnected={bridgeConnected} liveSet={bridgeLiveSet}
               onImport={stems => void importToAbleton(item.id, stems)} />}
             {importNotice && <p role="status" className="text-sm text-emerald-200">{importNotice}</p>}
+            {abletonSet && <div aria-label="Ableton set for this song" className="flex flex-wrap items-center gap-3 rounded border border-neutral-700 p-3 text-xs">
+              {abletonSet}
+            </div>}
             <button type="button" disabled={chatBusy || busy} onClick={() => onUse(item.id)}
               className="text-sm underline disabled:opacity-40">
               Discuss this reference in chat (nothing changes in Ableton)

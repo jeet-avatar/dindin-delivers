@@ -212,27 +212,22 @@ const REFERENCE_COMMANDS = [
   "Build an intro like the reference",
 ];
 
-function AbletonSetStatus({ linked, open, issue, busy, canChoose, onUse, onChoose }: {
-  linked?: string; open?: string | null; issue?: string | null; busy: boolean; canChoose: boolean; onUse: () => void; onChoose: () => void;
+function AbletonSetStatus({ linked, open, issue, busy, connected, onUse, onChoose }: {
+  linked?: string; open?: string | null; issue?: string | null; busy: boolean; connected: boolean; onUse: () => void; onChoose: () => void;
 }) {
   const muted = { color: "var(--text-secondary)" };
-  if (linked) return <>
-    <span>Ableton set: <strong>{linked}</strong></span>
-    <button disabled={busy || !canChoose} onClick={onChoose} className="underline disabled:opacity-40" style={muted}>Change</button>
-  </>;
-  if (open) return <>
-    <span style={muted}>Ableton has <strong style={{ color: "var(--text-primary)" }}>{open}</strong> open</span>
-    <button disabled={busy} onClick={onUse} className="rounded-full px-2.5 py-1 font-medium disabled:opacity-40"
-      style={{ background: "var(--accent)", color: "var(--on-accent)" }}>Use this set</button>
-    <button disabled={busy} onClick={onChoose} className="underline disabled:opacity-40" style={muted}>Start a new set</button>
-  </>;
-  if (issue) return <>
-    <span role="status" style={{ color: "var(--warning)" }}>BeatMind can&apos;t see your Ableton set: {issue}</span>
-    <button disabled={busy || !canChoose} onClick={onChoose} className="underline disabled:opacity-40" style={muted}>Choose Live Set</button>
-  </>;
+  if (!connected) return <span style={muted}>{linked ? <>Ableton set: <strong>{linked}</strong>. </> : null}Open the BeatMind Bridge to link your Ableton set.</span>;
+  const current = Boolean(linked && open && linked === open);
+  let label: React.ReactNode;
+  if (linked) label = <span>Ableton set: <strong>{linked}</strong>{open && !current ? <span style={muted}> (Ableton now has <strong>{open}</strong> open)</span> : null}</span>;
+  else if (open) label = <span style={muted}>Ableton has <strong style={{ color: "var(--text-primary)" }}>{open}</strong> open</span>;
+  else if (issue) label = <span role="status" style={{ color: "var(--warning)" }}>Can&apos;t read the Ableton set name: {issue}</span>;
+  else label = <span style={muted}>No Ableton set linked yet</span>;
   return <>
-    <span style={muted}>No Ableton set linked yet</span>
-    <button disabled={busy || !canChoose} onClick={onChoose} className="underline disabled:opacity-40" style={muted}>Choose Live Set</button>
+    {label}
+    {!current && <button disabled={busy} onClick={onUse} className="rounded-full px-2.5 py-1 font-medium disabled:opacity-40"
+      style={{ background: "var(--accent)", color: "var(--on-accent)" }}>Use this set</button>}
+    <button disabled={busy} onClick={onChoose} className="underline disabled:opacity-40" style={muted}>{linked ? "Change" : "Start a new set"}</button>
   </>;
 }
 
@@ -455,10 +450,12 @@ export default function DashboardPage() {
 
   // Link the song to whatever set Ableton has open, the same check the Choose Live Set dialog does.
   async function linkOpenSet() {
-    if (!sessionId || projectBusy || loading) return;
+    if (projectBusy || loading) return;
     setProjectBusy(true);
+    setHistoryError("");
     try {
-      const response = await apiFetch("/api/live-set", { method: "POST", body: JSON.stringify({ operation: "confirm_current", session_id: sessionId }) });
+      const id = sessionId ?? await createProject();
+      const response = await apiFetch("/api/live-set", { method: "POST", body: JSON.stringify({ operation: "confirm_current", session_id: id }) });
       const data = await response.json();
       if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not link the open Ableton set.");
       setProject(data.project);
@@ -910,6 +907,10 @@ export default function DashboardPage() {
   // ──────────────────────────────────────────────────────────────────────────
   // BEATMIND CHAT
   // ──────────────────────────────────────────────────────────────────────────
+  const abletonSet = <AbletonSetStatus linked={project?.live_set?.title} open={bridgeConnected ? bridgeLiveSet : null}
+    issue={bridgeConnected ? liveSetIssue : null} connected={bridgeConnected}
+    busy={loading || projectBusy || !historyReady} onUse={() => void linkOpenSet()} onChoose={() => setSongSetup("")} />;
+
   const renderBeatMind = () => (
     <div className="flex flex-col flex-1 h-full overflow-hidden">
       {/* Bridge offline banner */}
@@ -1387,6 +1388,9 @@ export default function DashboardPage() {
           <button type="button" onClick={() => void newSong()} disabled={!historyReady || loading || projectBusy}
             className="h-10 px-3 shrink-0 rounded text-sm font-medium disabled:opacity-40"
             style={{ background: "var(--accent)", color: "var(--on-accent)" }}>New song</button>
+          <div className="w-full flex flex-wrap items-center gap-3 text-xs" aria-label="Ableton set">
+            {abletonSet}
+          </div>
           {project && <div className="w-full flex flex-wrap items-center gap-3 text-xs">
             {usage?.model_access && usage.model_access.length > 1 ? (
               <select value={selectedModel} onChange={e => setSelectedModel(e.target.value as ModelTier)}
@@ -1399,9 +1403,7 @@ export default function DashboardPage() {
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: MODEL_BADGE[selectedModel].color }} />{MODEL_TIER_LABELS[selectedModel]}
               </span>
             )}
-            <AbletonSetStatus linked={project.live_set?.title} open={bridgeConnected ? bridgeLiveSet : null}
-              issue={bridgeConnected ? liveSetIssue : null}
-              busy={loading || projectBusy} onUse={() => void linkOpenSet()} onChoose={() => setSongSetup("")} canChoose={bridgeConnected} />
+
             {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
           </div>}
         </div>}
@@ -1412,7 +1414,7 @@ export default function DashboardPage() {
           {nav === "beatmind"  && renderBeatMind()}
           {nav === "mixmind"   && renderMixMind()}
           {nav === "downloads" && renderDownloads()}
-          {nav === "references" && <References key={chatId} selectedId={referenceId} guided={Boolean(project)} onTemplateApproved={() => void ableton.open()} onOpenChat={() => setNav("beatmind")} bridgeConnected={bridgeConnected} bridgeLiveSet={bridgeLiveSet}
+          {nav === "references" && <References key={chatId} selectedId={referenceId} guided={Boolean(project)} onTemplateApproved={() => void ableton.open()} onOpenChat={() => setNav("beatmind")} bridgeConnected={bridgeConnected} bridgeLiveSet={bridgeLiveSet} abletonSet={abletonSet}
             onSelect={async id => {
               if (!project) { setReferenceId(id); return; }
               setProjectBusy(true);

@@ -524,7 +524,7 @@ async def live_set_action(req: LiveSetRequest, user: dict = Depends(require_subs
         session = None
         if req.session_id:
             stack.enter_context(chat_store.acquire(user['id'], req.session_id))
-            session, saved = saved_project(user['id'], req.session_id)
+            session, saved = saved_project(user['id'], req.session_id, adopt_legacy=req.operation.startswith('confirm_'))
         stack.enter_context(chat_store.acquire(user['id'], '_production'))
         await stack.enter_async_context(bridge.lock)
         confirming = req.operation.startswith('confirm_')
@@ -533,7 +533,8 @@ async def live_set_action(req: LiveSetRequest, user: dict = Depends(require_subs
         result = await bridge.local_operation("live_set", {"operation": 'inspect' if confirming else req.operation})
         if confirming:
             if result.get('status') not in {'observed', 'verified'} or not result.get('title'):
-                raise HTTPException(409, 'Could not verify the current Live Set. Check Ableton and retry.')
+                raise HTTPException(409, 'BeatMind could not read the open Ableton set. '
+                                    + (result.get('summary') or 'Check Ableton and try again.'))
             if req.operation == 'confirm_new' and result.get('new_set_ready') is not True:
                 raise HTTPException(409, 'The new set is not confirmed. Complete any save prompt in Ableton and check again.')
             session.project['live_set'] = {'title': result['title'], 'choice': req.operation,
@@ -543,8 +544,12 @@ async def live_set_action(req: LiveSetRequest, user: dict = Depends(require_subs
         return result
 
 
-def saved_project(user_id, session_id):
+def saved_project(user_id, session_id, adopt_legacy=False):
     saved = chat_store.load(user_id, session_id)
+    if saved and not saved.get('project') and adopt_legacy:
+        # A chat from before song projects can still be linked to an Ableton set.
+        saved['project'] = {**song_projects.new_project(), 'title': saved.get('title') or 'Untitled song',
+                            'starting_point': 'reference' if saved.get('reference_id') else 'idea'}
     if not saved or not saved.get('project'):
         raise HTTPException(404, 'Song project not found.')
     session = ChatSession(session_id, user_id)
