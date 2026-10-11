@@ -4,6 +4,7 @@ import type React from "react";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
+import { queued } from "@/lib/fetch-queue";
 import { audioStems, reviewStems, stemLabel } from "@/lib/stems";
 import { backgroundPollingAllowed } from "@/lib/background-polling";
 import { uploadReference, UploadConfirmationError, type UploadProgress } from "@/lib/reference-upload";
@@ -67,7 +68,7 @@ function ReferenceAudio({ id, cue, stems }: { id: string; cue: { seconds: number
     setUrl(""); setError("");
     void (async () => {
       try {
-        const response = await apiFetch(`/api/references/${id}/audio/${stem}`, { signal: controller.signal });
+        const response = await queued(() => apiFetch(`/api/references/${id}/audio/${stem}`, { signal: controller.signal }));
         if (!response.ok) throw new Error("Audio could not be loaded.");
         const blob = await response.blob();
         if (controller.signal.aborted) return;
@@ -106,7 +107,7 @@ function StemPlayer({ id, stem, cue }: { id: string; stem: string; cue: { second
     setUrl(""); setError("");
     void (async () => {
       try {
-        const response = await apiFetch(`/api/references/${id}/audio/${stem}`, { signal: controller.signal });
+        const response = await queued(() => apiFetch(`/api/references/${id}/audio/${stem}`, { signal: controller.signal }));
         if (!response.ok) throw new Error("Audio could not be loaded.");
         const blob = await response.blob();
         if (controller.signal.aborted) return;

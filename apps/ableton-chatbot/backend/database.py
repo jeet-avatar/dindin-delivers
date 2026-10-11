@@ -17,6 +17,7 @@ INSERT OR IGNORE) are called out in their own modules; see MIGRATION.md.
 """
 
 import os
+import threading
 import re
 import sqlite3
 from contextlib import contextmanager
@@ -102,6 +103,11 @@ class _PGConnection:
 
 
 _pg_pool = None
+PG_POOL_MAX = 20
+PG_WAIT_SECONDS = 15
+# psycopg2's pool refuses a request outright when every connection is in use. A page that loads many
+# recordings at once briefly needs more than the pool holds, so requests wait for a free connection instead.
+_pg_slots = threading.BoundedSemaphore(PG_POOL_MAX)
 
 
 def _get_pg_pool():
@@ -110,13 +116,20 @@ def _get_pg_pool():
         from psycopg2.pool import ThreadedConnectionPool
         if not DATABASE_URL:
             raise RuntimeError("DATABASE_URL env var is required when DB_BACKEND=postgres")
-        _pg_pool = ThreadedConnectionPool(minconn=1, maxconn=20, dsn=DATABASE_URL)
+        _pg_pool = ThreadedConnectionPool(minconn=1, maxconn=PG_POOL_MAX, dsn=DATABASE_URL)
     return _pg_pool
 
 
 def get_conn():
     if is_postgres():
-        return _PGConnection(_get_pg_pool().getconn())
+        pool = _get_pg_pool()
+        if not _pg_slots.acquire(timeout=PG_WAIT_SECONDS):
+            raise RuntimeError("The database is busy. Try again in a moment.")
+        try:
+            return _PGConnection(pool.getconn())
+        except Exception:
+            _pg_slots.release()
+            raise
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
@@ -124,7 +137,10 @@ def get_conn():
 
 def _release(conn):
     if is_postgres():
-        _get_pg_pool().putconn(conn._raw)
+        try:
+            _get_pg_pool().putconn(conn._raw)
+        finally:
+            _pg_slots.release()
     else:
         conn.close()
 
@@ -144,8 +160,7 @@ def db():
 
 def init_db():
     if is_postgres():
-        conn = get_conn()
-        conn.close()  # psycopg2 needs no startup PRAGMA; durability is the server's job.
+        _release(get_conn())  # psycopg2 needs no startup PRAGMA; durability is the server's job.
     else:
         # Production stores this database on EFS. WAL's shared-memory index is not
         # supported across network filesystems; set journaling only at startup.

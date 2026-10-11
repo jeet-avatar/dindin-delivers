@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, LoaderCircle, Play } from "lucide-react";
 import { apiFetch } from "@/lib/auth";
+import { queued } from "@/lib/fetch-queue";
 
 export default function ReferenceStemAudio({ id, stem, name }: { id: string; stem: string; name: string }) {
   const [url, setUrl] = useState("");
@@ -21,7 +22,7 @@ export default function ReferenceStemAudio({ id, stem, name }: { id: string; ste
     try {
       let audioUrl = objectUrl.current;
       if (!audioUrl) {
-        const response = await apiFetch(`/api/references/${id}/audio/${stem}`, { signal: request.signal });
+        const response = await queued(() => apiFetch(`/api/references/${id}/audio/${stem}`, { signal: request.signal }));
         if (!response.ok) throw new Error(response.status === 401 ? "Sign in again to access this stem." : `${stem} audio could not be loaded. The saved review is unchanged.`);
         const blob = await response.blob();
         if (request.signal.aborted) return;

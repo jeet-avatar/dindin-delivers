@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/auth";
+import { queued } from "@/lib/fetch-queue";
 import { backgroundPollingAllowed } from "@/lib/background-polling";
 import ProductionLog, { type ProductionAction } from "@/components/ProductionLog";
 import BeforeAfter from "@/components/BeforeAfter";
@@ -47,6 +48,9 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
   const [logLoading, setLogLoading] = useState(false);
   const attempted = useRef(false);
   const audio = useRef<HTMLAudioElement>(null);
+  const card = useRef<HTMLElement>(null);
+  // A sound waiting for review loads straight away; the rest load when they scroll into view.
+  const [visible, setVisible] = useState(item.decision === "pending" && !superseded);
   const waveform = item.metrics.waveform || [];
   const waveformPeak = waveform.length ? Math.max(0.000001, ...waveform) : 1;
   const hint = levelHint(item.metrics.peak_dbfs, item.metrics.rms_dbfs);
@@ -57,10 +61,22 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
   }, [item.decision]);
 
   useEffect(() => {
+    if (visible) return;
+    const element = card.current;
+    if (!element || typeof IntersectionObserver === "undefined") { setVisible(true); return; }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { setVisible(true); observer.disconnect(); }
+    }, { rootMargin: "400px" });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
     const controller = new AbortController();
     let url = "";
     setSrc(""); setError(""); setAudioReady(false);
-    apiFetch(`/api/recordings/${item.id}/audio`, { signal: controller.signal })
+    queued(() => apiFetch(`/api/recordings/${item.id}/audio`, { signal: controller.signal }))
       .then(async response => {
         if (!response.ok) throw new Error("Recording could not be loaded.");
         const blob = await response.blob();
@@ -69,7 +85,7 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
         setSrc(url);
       }).catch(error => { if (!controller.signal.aborted) setError(error.message); });
     return () => { controller.abort(); if (url) URL.revokeObjectURL(url); };
-  }, [item.id, loadAttempt]);
+  }, [item.id, loadAttempt, visible]);
 
   async function playSound() {
     if (!audio.current) return;
@@ -112,7 +128,7 @@ function RecordingPlayer({ item, claimAutoplay, onDecision, allowReview, onPrevi
     finally { setLogLoading(false); }
   }
 
-  return <article className="py-4 border-b min-w-0" style={{ borderColor: "var(--border)" }} aria-label={`Recording: ${item.track_name}`}>
+  return <article ref={card} className="py-4 border-b min-w-0" style={{ borderColor: "var(--border)" }} aria-label={`Recording: ${item.track_name}`}>
     <div className="flex flex-wrap justify-between gap-2 text-sm">
       <h3 className="font-semibold break-words">{item.track_name}</h3>
       <span style={{ color: decision === "accepted" ? "var(--success-text)" : "var(--text-secondary)" }}>
