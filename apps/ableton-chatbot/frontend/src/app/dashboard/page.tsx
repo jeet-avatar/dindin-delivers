@@ -16,6 +16,7 @@ import ChatTimeline from "@/components/ChatTimeline";
 import { messageRecordingIds } from "@/lib/chat-recordings";
 import NewSongDialog from "@/components/NewSongDialog";
 import SpeakButton from "@/components/SpeakButton";
+import MicButton from "@/components/MicButton";
 import References from "@/components/References";
 import ChatComparisons from "@/components/ChatComparisons";
 import PlanPicker from "@/components/PlanPicker";
@@ -241,6 +242,7 @@ export default function DashboardPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [songSetup, setSongSetup] = useState<string | null>(null);
   const [project, setProject] = useState<SongProject | null>(null);
+  const [micError, setMicError] = useState("");
   const [referenceId, setReferenceId] = useState<string | null>(null);
   const [projectBusy, setProjectBusy] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -1018,6 +1020,7 @@ export default function DashboardPage() {
             className="flex-1 min-w-0 resize-none rounded-lg px-4 py-3 text-sm outline-none"
             style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
           />
+          <MicButton value={input} onChange={setInput} onError={setMicError} />
           {loading && (
             <button type="button" onClick={() => requestRef.current?.abort()}
               aria-label="Stop production" title="Stop production"
@@ -1034,6 +1037,7 @@ export default function DashboardPage() {
             <SendIcon />
           </button>
         </div>
+        {micError && <p role="alert" className="text-xs mt-2 text-center" style={{ color: "var(--warning)" }}>{micError}</p>}
         <p className="text-xs mt-2 text-center" style={{ color: "var(--text-secondary)" }}>
           {queuedRef.current ? `Your message is queued — it will send when the current response finishes.` : bridgeStatusLabel[bridgeStatus]}
         </p>

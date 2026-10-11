@@ -8,7 +8,7 @@ export const STARTER_TEMPLATE_URL = "/templates/BeatMind-Starter.als";
 export const LEGAL_POSTAL_ADDRESS = "12 Teaberry, Rancho Santa Margarita, CA 92688, USA";
 
 export const GOVERNING_LAW_STATE = "California";
-export const LEGAL_LAST_UPDATED = "October 10, 2026";
+export const LEGAL_LAST_UPDATED = "October 11, 2026";
 
 export const TRIAL_DAYS = 7;
 export const TRIAL_TRACKS = 3;
