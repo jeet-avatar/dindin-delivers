@@ -61,6 +61,48 @@ class SavedSignInTests(unittest.TestCase):
         forget.assert_called_once()
         self.assertEqual(self.app.status_label.cget('text'), 'Please sign in to BeatMind again.')
 
+    def test_start_after_disconnect_reuses_saved_sign_in(self):
+        self.app, _ = make_app(None)
+        self.app.bridge_token = 'kept-token'
+        self.app._on_disconnected()
+        self.assertIn('sign-in is saved', self.app.status_label.cget('text'))
+        with patch.object(self.app, '_resume') as resume:
+            self.app._connect()
+        resume.assert_called_once_with('kept-token')
+
+    def test_start_uses_keychain_sign_in_without_password(self):
+        self.app, _ = make_app(None)
+        with patch.object(bridge_app.credentials, 'load', return_value='keychain-token'), \
+             patch.object(self.app, '_resume') as resume:
+            self.app._connect()
+        resume.assert_called_once_with('keychain-token')
+
+    def test_typed_password_signs_in_fresh(self):
+        self.app, _ = make_app(None)
+        self.app.bridge_token = 'kept-token'
+        self.app.email_var.set('a@b.com')
+        self.app.password_var.set('pw')
+        with patch.object(bridge_app, 'save_config'), \
+             patch.object(self.app, '_resume') as resume, \
+             patch.object(bridge_app.threading, 'Thread') as thread:
+            self.app._connect()
+        resume.assert_not_called()
+        self.assertEqual(thread.call_args.kwargs['args'], ('a@b.com', 'pw'))
+
+    def test_no_saved_sign_in_still_asks_for_password(self):
+        self.app, _ = make_app(None)
+        with patch.object(bridge_app.credentials, 'load', return_value=None):
+            self.app._connect()
+        self.assertEqual(self.app.status_label.cget('text'), 'Please enter email and password')
+
+    def test_connected_fields_stay_dark_and_version_is_visible(self):
+        self.app, _ = make_app(None)
+        self.app._on_connected()
+        for entry in (self.app.email_entry, self.app.password_entry):
+            self.assertEqual(entry.cget('state'), 'disabled')
+            self.assertEqual(entry.cget('disabledbackground'), bridge_app.BG_CARD)
+        self.assertEqual(self.app.version_label.cget('text'), f'Version {bridge.BRIDGE_VERSION}')
+
     def test_sign_out_revokes_and_forgets(self):
         self.app, _ = make_app(None)
         self.app.bridge_token = 'live-token'

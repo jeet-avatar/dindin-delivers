@@ -41,6 +41,8 @@ TEXT_DIM = "#999999"
 BORDER = "#2a2a2a"
 SUCCESS = "#22c55e"
 ERROR = "#ef4444"
+# Tk's default disabled entry is light grey, which turned the text unreadable once connected.
+ENTRY_DISABLED = {"disabledbackground": BG_CARD, "disabledforeground": TEXT_DIM, "readonlybackground": BG_CARD}
 
 
 def load_config() -> dict:
@@ -104,6 +106,7 @@ class BeatMindBridgeApp:
 
         # ── Build UI ──
         self._build_ui(config)
+        self._fit_window()
         if sys.platform == 'darwin':
             register_mac_launch(self.root)
 
@@ -130,6 +133,15 @@ class BeatMindBridgeApp:
                  bg=BG, fg=TEXT).pack(pady=(8, 0))
         tk.Label(title_frame, text="Connect BeatMind to Ableton Live",
                  font=self.font_small, bg=BG, fg=TEXT_DIM).pack(pady=(2, 0))
+        version_row = tk.Frame(title_frame, bg=BG)
+        version_row.pack(pady=(4, 0))
+        self.version_label = tk.Label(version_row, text=f"Version {BRIDGE_VERSION}", font=self.font_small,
+                                      bg=BG, fg=TEXT)
+        self.version_label.pack(side="left")
+        versions_link = tk.Label(version_row, text="  ·  All versions ↗", font=self.font_small,
+                                 bg=BG, fg=ACCENT, cursor="hand2")
+        versions_link.pack(side="left")
+        versions_link.bind("<Button-1>", lambda _e: self._open_changelog())
 
         # ── Login section ──
         form = tk.Frame(self.root, bg=BG_CARD, highlightbackground=BORDER,
@@ -141,7 +153,7 @@ class BeatMindBridgeApp:
                  anchor="w").pack(fill="x", pady=(0, 4))
         self.email_var = tk.StringVar(value=config.get("email", ""))
         email_entry = tk.Entry(form, textvariable=self.email_var, font=self.font_body,
-                               bg=BG_INPUT, fg=TEXT, insertbackground=TEXT,
+                               bg=BG_INPUT, fg=TEXT, insertbackground=TEXT, **ENTRY_DISABLED,
                                relief="flat", highlightthickness=1,
                                highlightbackground=BORDER, highlightcolor=ACCENT)
         email_entry.pack(fill="x", ipady=6, pady=(0, 12))
@@ -152,7 +164,7 @@ class BeatMindBridgeApp:
                  anchor="w").pack(fill="x", pady=(0, 4))
         self.password_var = tk.StringVar()
         pw_entry = tk.Entry(form, textvariable=self.password_var, font=self.font_body,
-                            bg=BG_INPUT, fg=TEXT, insertbackground=TEXT,
+                            bg=BG_INPUT, fg=TEXT, insertbackground=TEXT, **ENTRY_DISABLED,
                             show="*", relief="flat", highlightthickness=1,
                             highlightbackground=BORDER, highlightcolor=ACCENT)
         pw_entry.pack(fill="x", ipady=6, pady=(0, 4))
@@ -214,7 +226,7 @@ class BeatMindBridgeApp:
         # ── Footer ──
         tk.Label(self.root, text=f"BeatMind Bridge {BRIDGE_VERSION} by Zietra Technologies Inc.",
                  font=tkfont.Font(family="Helvetica Neue", size=10),
-                 bg=BG, fg=BORDER).pack(side="bottom", pady=(0, 12))
+                 bg=BG, fg=TEXT_DIM).pack(side="bottom", pady=(0, 12))
 
     def _set_status(self, text: str, color: str = TEXT_DIM):
         self.status_label.config(text=text, fg=color)
@@ -236,6 +248,10 @@ class BeatMindBridgeApp:
         email = self.email_var.get().strip()
         password = self.password_var.get()
 
+        saved = None if password else self._saved_sign_in()
+        if saved:
+            self._resume(saved)
+            return
         if not email or not password:
             self._set_status("Please enter email and password", ERROR)
             return
@@ -301,6 +317,12 @@ class BeatMindBridgeApp:
             except Exception:
                 pass  # Still connects; the user just signs in again next launch.
         self._run_bridge(bridge_token)
+
+    def _saved_sign_in(self):
+        """The sign-in this computer remembers, so Start reconnects without the password."""
+        if not self.remember_var.get():
+            return None
+        return self.bridge_token or credentials.load()
 
     def _resume(self, bridge_token):
         """Reconnect with the saved sign-in, without asking for the password."""
@@ -383,7 +405,9 @@ class BeatMindBridgeApp:
         self.sign_out_btn.pack_forget()
         self.connect_btn.config(state="normal", text=START_LABEL)
         self.connect_btn.focus_set()
-        self._set_status(message, TEXT_DIM if message == 'Disconnected' else ERROR)
+        if self.bridge_token and message == 'Disconnected':
+            message = 'Disconnected. Press Start to reconnect; your sign-in is saved.'
+        self._set_status(message, TEXT_DIM if message.startswith('Disconnected') else ERROR)
 
     def _sign_out(self):
         """Forget this computer's sign-in everywhere, then disconnect."""

@@ -9,6 +9,47 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.3.16",
+    date: "2026-10-11",
+    notes: [
+      "Press Start after disconnecting and the Bridge reconnects with your saved sign-in, without asking for your password.",
+      "Email and password fields stay readable while you're connected.",
+      "Your Bridge version is shown at the top of the window, with a link to every version's notes.",
+    ],
+  },
+  {
+    version: "1.3.15",
+    date: "2026-10-10",
+    notes: [
+      "Send to Ableton works reliably for cloud-separated stems.",
+      "The Bridge stays connected while long stem imports run.",
+    ],
+  },
+  {
+    version: "1.3.14",
+    date: "2026-10-10",
+    notes: [
+      "Fixed a secure-connection (certificate) error that stopped cloud stems from downloading.",
+    ],
+  },
+  {
+    version: "1.3.12 \u2013 1.3.13",
+    date: "2026-10-10",
+    notes: [
+      "Check for updates is always visible and shows whether you're up to date.",
+      "First fix for Send to Ableton with cloud-separated references.",
+    ],
+  },
+  {
+    version: "1.3.7 \u2013 1.3.11",
+    date: "2026-10-09 \u2013 2026-10-10",
+    notes: [
+      "Cloud-separated stems download to Music › BeatMind Stems and land in Ableton.",
+      "Use stems places cloud stems in your Live set automatically.",
+      "Recorded vocals can be imported into Ableton automatically.",
+    ],
+  },
+  {
     version: "1.3.6",
     date: "2026-09-30",
     notes: [
