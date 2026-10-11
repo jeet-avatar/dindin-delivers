@@ -16,6 +16,7 @@ import LocalStemActions from "./LocalStemActions";
 import TrackCredits from "./TrackCredits";
 import { uploadToCloud } from "@/lib/cloud-upload";
 import ReferenceWorkflow from "./ReferenceWorkflow";
+import { DeleteReferenceDialog } from "./DeleteReferenceDialog";
 
 type Report = {
   duration_seconds: number;
@@ -37,6 +38,8 @@ type Reference = {
   listening?: ListeningData;
 };
 
+
+const UPLOAD_LIMIT = 5;
 
 function LocalOnlyNote({ onNext }: { onNext?: () => void }) {
   return <div role="status" className="space-y-2 border-t border-neutral-700 pt-4 text-sm">
@@ -203,6 +206,10 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [limits, setLimits] = useState<{ maxBytes: number; minSeconds: number; maxSeconds: number } | null>(null);
   const [selected, setSelected] = useState<string | null>(selectedId || null);
   const [showSaved, setShowSaved] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Reference | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  // Hitting the upload limit should show what can be deleted, not leave the list hidden.
+  useEffect(() => { if (error.includes("Delete an older reference")) setShowSaved(true); }, [error]);
   const autoLoadedRef = useRef<Set<string>>(new Set());
   const [stage, setStage] = useState(guided ? "listening" : "stems");
   const pollDelay = useRef(4000);
@@ -376,15 +383,18 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     finally { uploadController.current = null; setTransfer(null); setBusy(false); }
   }
   async function remove(id: string) {
-    if (!window.confirm("Delete this reference and all its estimated stems?")) return;
-    setError("");
+    setError(""); setDeleting(true);
     try {
       const response = await apiFetch(`/api/references/${id}`, { method: "DELETE" });
       if (!response.ok) throw new Error((await response.json()).detail || "Delete failed.");
       if (id === selected) await select(null);
+      setPendingDelete(null);
       await refresh();
-    } catch (e) { setError(e instanceof Error ? e.message : "Delete failed."); }
+    } catch (e) { setError(e instanceof Error ? e.message : "Delete failed."); setPendingDelete(null); }
+    finally { setDeleting(false); }
   }
+  // The server allows five uploaded references; references separated on the user's computer don't count.
+  const uploadsUsed = items.filter(i => i.storage !== "local").length;
   const item = file ? undefined : items.find(i => i.id === selected);
   const observedJob = items.find(i => i.id === observedJobId && i.id !== selected && ["uploading", "processing", "ready", "failed"].includes(i.status));
   const audioSection = useRef<HTMLDivElement>(null);
@@ -428,11 +438,23 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     <div className={`grid gap-6 ${!guided || showSaved ? "md:grid-cols-[minmax(0,240px)_minmax(0,1fr)]" : "grid-cols-1"}`}>
       {(!guided || showSaved) && <div id="saved-reference-library" className="space-y-1" aria-label="Saved references">
         {!items.length && <p className="text-sm text-neutral-400">No reference tracks yet.</p>}
-        {items.map(i => <button key={i.id} type="button" disabled={busy || chatBusy} onClick={() => void select(i.id)}
-          aria-pressed={selected === i.id} className={`w-full border-l-2 p-3 text-left ${selected === i.id ? "border-emerald-400 bg-neutral-800" : "border-transparent"}`}>
-          <span className="block break-all text-sm font-medium">{i.name}</span>
-          <span className="text-xs text-neutral-400">{i.stage || i.status}</span>
-        </button>)}
+        {items.length > 0 && <p className="px-1 pb-1 text-xs text-neutral-400">
+          {uploadsUsed} of {UPLOAD_LIMIT} uploads used{uploadsUsed >= UPLOAD_LIMIT ? " · delete one to upload another" : ""}
+        </p>}
+        {items.map(i => <div key={i.id} className={`group flex items-stretch border-l-2 ${selected === i.id ? "border-emerald-400 bg-neutral-800" : "border-transparent"}`}>
+          <button type="button" disabled={busy || chatBusy} onClick={() => void select(i.id)}
+            aria-pressed={selected === i.id} className="min-w-0 flex-1 p-3 text-left">
+            <span className="block break-all text-sm font-medium">{i.name}</span>
+            <span className="text-xs text-neutral-400">{i.stage || i.status}</span>
+          </button>
+          <button type="button" aria-label={`Delete ${i.name}`} title="Delete reference"
+            disabled={busy || chatBusy || deleting} onClick={() => setPendingDelete(i)}
+            className="px-3 text-neutral-500 hover:text-red-300 focus:text-red-300 disabled:opacity-40">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>
+            </svg>
+          </button>
+        </div>)}
       </div>}
       {item && <div className="min-w-0 space-y-4">
         <h3 className="text-base font-semibold break-all">{item.name}</h3>
@@ -493,8 +515,13 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
             </div>
           </details>
         </>}
-        <button type="button" onClick={() => remove(item.id)} disabled={busy || chatBusy} className="block text-sm text-red-300 disabled:opacity-40">Delete reference</button>
+        <button type="button" onClick={() => setPendingDelete(item)} disabled={busy || chatBusy || deleting}
+          className="rounded-lg border px-3 py-1.5 text-sm text-red-300 disabled:opacity-40" style={{ borderColor: "var(--border)" }}>
+          Delete reference
+        </button>
       </div>}
     </div>
+    {pendingDelete && <DeleteReferenceDialog name={pendingDelete.name} local={pendingDelete.storage === "local"} busy={deleting}
+      onCancel={() => setPendingDelete(null)} onConfirm={() => void remove(pendingDelete.id)} />}
   </section>;
 }
