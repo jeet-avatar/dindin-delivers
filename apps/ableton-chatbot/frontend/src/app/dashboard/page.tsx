@@ -15,6 +15,7 @@ import ChatTimestamp from "@/components/ChatTimestamp";
 import ChatTimeline from "@/components/ChatTimeline";
 import { messageRecordingIds } from "@/lib/chat-recordings";
 import NewSongDialog from "@/components/NewSongDialog";
+import SpeakButton from "@/components/SpeakButton";
 import References from "@/components/References";
 import ChatComparisons from "@/components/ChatComparisons";
 import PlanPicker from "@/components/PlanPicker";
@@ -656,7 +657,10 @@ export default function DashboardPage() {
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className="min-w-0 max-w-full sm:max-w-[90%] rounded-lg px-4 py-3"
               style={{ background: msg.role === "user" ? "var(--accent)" : "var(--bg-secondary)", color: msg.role === "user" ? "var(--on-accent)" : "var(--text-primary)" }}>
-              <div className="mb-2"><ChatTimestamp value={msg.createdAt} label={msg.role === "user" ? "Sent" : msg.event === "sound-accepted" ? "Decision saved" : "Request started"} /></div>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <ChatTimestamp value={msg.createdAt} label={msg.role === "user" ? "Sent" : msg.event === "sound-accepted" ? "Decision saved" : "Request started"} />
+                {msg.role === "assistant" && msg.requestStatus !== "running" && <SpeakButton text={msg.content} />}
+              </div>
               {msg.role === "user" ? <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p> : <>
                 {!!msg.toolCalls?.length && <ProductionLog actions={msg.toolCalls} requestStatus={msg.requestStatus} />}
                 {!!msg.toolCalls?.length && <FailedAudition actions={msg.toolCalls} busy={loading} onInspect={prompt => {
