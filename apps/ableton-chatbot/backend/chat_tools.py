@@ -45,6 +45,17 @@ TOOLS.append({'name': 'set_song_title', 'description': "Name the current song pr
      'input_schema': {'type': 'object', 'properties': {
          'title': {'type': 'string', 'minLength': 1, 'maxLength': 70, 'description': 'Short descriptive title, e.g. "130 BPM Dark Techno"'}},
          'required': ['title'], 'additionalProperties': False}})
+TOOLS.append({'name': 'get_reference_drum_pattern', 'description': (
+    "Read the exact kick (or snare) pattern of a reference track from its separated stem: every hit snapped to 16th "
+    "notes on the reference's tempo grid, with velocities from how loud each hit is, the main repeating bar, its "
+    "variations and which bars use them. Use it whenever the user wants the reference's kick or snare pattern copied. "
+    "Then write the notes exactly as returned with add_notes (pitch = the confirmed pad of the kick or snare in the "
+    "Drum Rack, start/duration/velocity unchanged), one clip of beats_per_bar beats per pattern, looping. Do not move, "
+    "add or remove hits to 'improve' it. Copying the rhythm is fine; the sound is the user's own. Read-only."),
+    'input_schema': {'type': 'object', 'properties': {
+        'reference_id': {'type': 'string', 'pattern': '^[a-f0-9]{32}$'},
+        'part': {'type': 'string', 'enum': ['kick', 'snare']}},
+        'required': ['reference_id', 'part'], 'additionalProperties': False}})
 NAMES = {tool['name'] for tool in TOOLS} - {'set_song_title'}
 
 
@@ -82,6 +93,12 @@ async def execute(name, inputs, user_id):
             import effect_recipes
             return effect_recipes.recipe(inputs['role'], inputs.get('genre'), inputs.get('band_deltas'),
                                          inputs.get('installed_plugins'), inputs.get('allow_third_party', False))
+        if name == 'get_reference_drum_pattern':
+            import asyncio
+            import drum_pattern
+            directory, _ = references.owned(inputs['reference_id'], user_id)
+            result = await asyncio.to_thread(drum_pattern.extract, directory, inputs['part'])
+            return {**result, 'steps': []}
         if name == 'list_reference_sounds':
             saved = []
             for path in references.ROOT.glob('*/meta.json'):

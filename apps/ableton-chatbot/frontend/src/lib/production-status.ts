@@ -1,7 +1,7 @@
 import type { ProductionAction } from "../components/ProductionLog";
 
 const BAD = new Set(["failed", "partial", "unverified"]);
-const READS = new Set(["list_browser", "list_sample_packs", "search_pack_samples", "inspect_pack_sample", "inspect_track", "describe_sound", "create_production_plan", "list_reference_sounds", "compare_reference_sound"]);
+const READS = new Set(["list_browser", "list_sample_packs", "search_pack_samples", "inspect_pack_sample", "inspect_track", "describe_sound", "create_production_plan", "list_reference_sounds", "compare_reference_sound", "get_reference_drum_pattern"]);
 const AUDIO = new Set(["audition_part", "audition_scene", "capture_combined_groove"]);
 const SEARCHES = new Set(["get_library_catalog", "list_browser", "search_pack_samples"]);
 
@@ -145,6 +145,7 @@ export function actionLabel(tool: string) {
     get_device_control_map: "Inspect instrument controls", get_track_device_tree: "Inspect devices and drum pads",
     set_device_control: "Set instrument control", create_production_plan: "Save production plan",
     capture_combined_groove: "Record combined groove",
+    get_reference_drum_pattern: "Read the reference drum pattern",
   };
   return labels[tool] || tool.replaceAll("_", " ").replace(/^./, c => c.toUpperCase());
 }

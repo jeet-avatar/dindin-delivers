@@ -834,7 +834,7 @@ DISCUSSION_TOOLS = {
         'list_browser', 'inspect_track', 'list_sample_packs',
         'search_pack_samples', 'inspect_pack_sample',
     }
-} | {'list_reference_sounds', 'set_song_title'}
+} | {'list_reference_sounds', 'set_song_title', 'get_reference_drum_pattern'}
 
 
 def _build_system(bridge_note: str) -> list[dict]:

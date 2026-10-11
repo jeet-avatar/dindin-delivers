@@ -206,6 +206,7 @@ function nothingChanged(reason: string): string {
 
 // Clicking fills the message box so the user can tweak it before sending.
 const REFERENCE_COMMANDS = [
+  "Copy the exact kick pattern from the reference",
   "Make a drum groove like the reference",
   "Write a bassline in the reference's key",
   "Add chords with the same mood as the reference",

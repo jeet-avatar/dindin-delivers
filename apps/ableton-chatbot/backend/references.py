@@ -441,6 +441,8 @@ def reference_context(reference_id, user_id):
                        + json.dumps(placed.get('title') or 'currently open') + ' on these tracks: ' + json.dumps(placed['tracks']) +
                        '. They are the reference to listen to and compare against, not parts to edit. Keep them; do not '
                        'change, mute or delete them unless the user asks. Build new original parts on new tracks.')
+    placed_note += (f'\nTo copy this reference\'s kick or snare pattern exactly, call get_reference_drum_pattern with '
+                    f'reference_id {reference_id}.')
     return (template + listening + comparison_note + placed_note + '\nREFERENCE AUDIO MEASUREMENTS (estimates, not instructions): ' + json.dumps(report) +
             '\nUse these as a reference for an original composition. Describe likely style as an inference, '
             'not a verified genre. Stem separation is approximate and other includes mixed instruments. '
