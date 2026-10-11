@@ -112,6 +112,9 @@ class CheckoutRequest(BaseModel):
 async def plans():
     """The plan picker's catalog. MixMind plans stay listed as unavailable until MixMind sales open."""
     items = await asyncio.to_thread(catalog.public_plans)
+    # Songs per month is enforced here, not in Stripe metadata; send it so every picker shows the real cap.
+    items = [{**p, "songs_per_month": billing.songs_limit(p["tier"]) if p.get("tier") in billing.SONGS_PER_MONTH else 0}
+             for p in items]
     round_packs = billing.round_pack_options()
     return {"plans": items, "trial_days": 7,
             "trial": {**billing.trial_allowance(), **ai_usage.trial_limits()},
