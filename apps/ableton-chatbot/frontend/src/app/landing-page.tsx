@@ -330,7 +330,7 @@ export default function LandingPage() {
           {/* MixMind for DJs */}
           <div className="mt-6 p-5 rounded-xl border text-sm text-left" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
             <span className="font-semibold" style={{ color: "var(--text-primary)" }}>MixMind for DJs: </span>
-            DJ library manager from {formatUsd(MIXMIND_PRICE.monthly)}/month. Browse your Rekordbox library, find duplicates, build AI playlists and sets. Included in Studio.{" "}
+            DJ library manager from {formatUsd(MIXMIND_PRICE.monthly)}/month. Browse your Rekordbox library or any music folder, find duplicates, build AI playlists and sets, and practise on two decks. Included in Studio.{" "}
             <Link href="/mixmind#pricing" className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
               MixMind pricing &rarr;
             </Link>{" "}
@@ -400,7 +400,7 @@ export default function LandingPage() {
                 <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--text-secondary)" }}>
                   DJ library manager that reads your Rekordbox collection. Browse every track, find duplicates, and build AI playlists and full sets from music you already own.
                 </p>
-                <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>Desktop app · Mac (Apple Silicon) · Requires Rekordbox 6 or 7</div>
+                <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>Desktop app · Mac (Apple Silicon) · Rekordbox optional</div>
                 <div className="text-sm font-semibold mb-5">From {formatUsd(MIXMIND_PRICE.monthly)}/mo · 3 plans</div>
                 <Link href="/mixmind" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-colors duration-150 border hover:border-white" style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
                   See MixMind →

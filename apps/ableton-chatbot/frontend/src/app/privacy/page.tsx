@@ -63,7 +63,7 @@ export default function PrivacyPage() {
               <Item label="MixMind AI features">your prompts and the relevant library metadata (such as track titles, BPM, key and genre) are sent through our server to Anthropic models on Amazon Bedrock.</Item>
             </ul>
             <p className="mt-3">Under their API terms, these providers do not use this data to train their models.</p>
-            <p className="mt-3">MixMind itself runs on your computer and reads your Rekordbox library there. Our servers only check your sign-in and relay MixMind&apos;s AI requests.</p>
+            <p className="mt-3">MixMind itself runs on your computer and reads your Rekordbox library, or the music folders you import, there. Our servers only check your sign-in and relay MixMind&apos;s AI requests.</p>
           </Section>
 
           <Section title="4. How we use your information">

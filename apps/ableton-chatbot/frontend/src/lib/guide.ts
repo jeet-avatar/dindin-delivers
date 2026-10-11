@@ -170,7 +170,7 @@ export const MIXMIND_AVAILABILITY = MIXMIND_ON_SALE
   : `MixMind isn't on sale yet. These steps describe how it works once it launches. ${MIXMIND_TRIAL_NOTE}`;
 
 export const MIXMIND_REQUIREMENTS: string[] = [
-  "Rekordbox 6 or 7 with your library in it.",
+  "Your music: a Rekordbox 6 or 7 library, or any folder of audio files (Rekordbox is optional).",
   "Mac: Apple Silicon natively; Intel Macs run it through Rosetta 2. Windows: Windows 10 or 11 (x64).",
   "A BeatMind account on a MixMind, BeatMind + MixMind or Studio plan.",
 ];
@@ -192,7 +192,7 @@ export const MIXMIND_STEPS: GuideStep[] = [
   {
     id: "library",
     name: "Let your library load",
-    text: "MixMind reads your Rekordbox library and shows every track with BPM, key, genre and duration in a searchable table. Browsing never modifies your Rekordbox files.",
+    text: "MixMind reads your Rekordbox library, or click Import Folder to add any folder of music; it analyses BPM, key and a waveform in seconds per track. Every track shows in a searchable table, and browsing never modifies your Rekordbox files.",
   },
   {
     id: "duplicates",

@@ -87,7 +87,7 @@ export const MIXMIND_FAQS: Faq[] = [
   },
   {
     q: "Do I need Rekordbox?",
-    a: "Yes — MixMind reads your Rekordbox library (database or XML). It works with Rekordbox 6 and 7. Close Rekordbox while MixMind reads or writes your library.",
+    a: "No. MixMind reads your Rekordbox 6 or 7 library (database or XML) if you have one, or you can import any folder of music and MixMind analyses BPM, key and waveforms itself. If you use Rekordbox, close it while MixMind writes to your library.",
   },
   {
     q: "Does it modify my Rekordbox library?",

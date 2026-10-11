@@ -27,7 +27,12 @@ const FEATURES = [
   {
     emoji: "📚",
     title: "Full Library Browser",
-    desc: "See every track in your Rekordbox collection — BPM, key, genre, duration — in one fast, searchable table. No more digging through Rekordbox just to find a track.",
+    desc: "See every track in one fast, searchable table: BPM, key, genre and duration. MixMind reads your Rekordbox collection automatically, or any folder of music you import.",
+  },
+  {
+    emoji: "📁",
+    title: "No Rekordbox Needed",
+    desc: "Import any folder of MP3, WAV, AIFF, FLAC or M4A files. MixMind finds the BPM, key, beat grid and a colour waveform in seconds per track, with stems, sections and cue points on demand.",
   },
   {
     emoji: "🔍",
@@ -42,12 +47,17 @@ const FEATURES = [
   {
     emoji: "🎚️",
     title: "Intelligent Set Builder",
-    desc: "Pick a warm-up, peak-time or closing set, set a BPM range and let MixMind sequence tracks with smooth key flow. Skip tracks you played recently, then add the finished set to Rekordbox as a playlist.",
+    desc: "Pick a warm-up, peak-time or closing techno or minimal set, set a BPM range and let MixMind sequence tracks with smooth key flow. Add it to Rekordbox, or save it as a playlist file for Serato, Traktor, VirtualDJ or Engine DJ.",
+  },
+  {
+    emoji: "🎛️",
+    title: "Two-Deck Practice Player",
+    desc: "Load two tracks, hit SYNC and rehearse your transitions with master tempo, loops, beat jump, hot cues and slip mode, right inside MixMind.",
   },
   {
     emoji: "💿",
-    title: "Pioneer USB Support",
-    desc: "Plug in your DJ USB. MixMind detects it instantly and lets you browse the PIONEER folder directly.",
+    title: "Pioneer USB Export",
+    desc: "Plug in your DJ USB and browse the PIONEER folder, or export tracks straight to it for CDJs with beat grids and waveforms, no Rekordbox export step.",
   },
 ];
 
@@ -60,7 +70,7 @@ const STEPS = [
   {
     n: "02",
     title: "Connect",
-    desc: "MixMind reads your Rekordbox library (database or XML) automatically. Your full library loads in seconds.",
+    desc: "MixMind reads your Rekordbox library (database or XML) automatically. No Rekordbox? Import any folder of music and MixMind analyses it for you.",
   },
   {
     n: "03",
@@ -218,7 +228,7 @@ export default function MixMindPage() {
           <div className="border-l-2 pl-5 py-1" style={{ borderColor: "var(--accent)" }}>
             <h2 id="what-is-heading" className="text-base font-semibold mb-2" style={{ color: "var(--text-primary)" }}>What is MixMind?</h2>
             <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              MixMind is a desktop DJ library manager for Mac (Apple silicon) that reads your Rekordbox 6 or 7 collection. It gives you a fast, searchable library browser, an AI playlist builder that picks from tracks you already own, a duplicate finder, Pioneer USB drive browsing and an Intelligent Set Builder that sequences warm-up, peak-time or closing techno and minimal sets by BPM and key and can add them to Rekordbox as playlists (more genres coming). Browsing, searching and finding duplicates never change your Rekordbox library; the Set Builder only writes to Rekordbox when you click Add to Rekordbox, which adds the set as a playlist after backing up your library (Rekordbox must be closed). A Windows version of MixMind is coming soon. MixMind is made by the BeatMind team with plans from {formatUsd(MIXMIND_PRICE.monthly)}/month ({formatUsd(MIXMIND_PRICE.yearly)}/year). It is also included in BeatMind Studio ({formatUsd(STUDIO.monthly)}/month).
+              MixMind is a desktop DJ library manager for Mac (Apple silicon) that reads your Rekordbox 6 or 7 collection, or any folder of music you import without Rekordbox. It gives you a fast, searchable library browser, an AI playlist builder that picks from tracks you already own, a duplicate finder, a two-deck practice player, Pioneer USB export and an Intelligent Set Builder that sequences warm-up, peak-time or closing techno and minimal sets by BPM and key and can add them to Rekordbox or save them as playlist files for other DJ apps (more genres coming). Browsing, searching and finding duplicates never change your Rekordbox library; the Set Builder only writes to Rekordbox when you click Add to Rekordbox, which adds the set as a playlist after backing up your library (Rekordbox must be closed). A Windows version of MixMind is coming soon. MixMind is made by the BeatMind team with plans from {formatUsd(MIXMIND_PRICE.monthly)}/month ({formatUsd(MIXMIND_PRICE.yearly)}/year). It is also included in BeatMind Studio ({formatUsd(STUDIO.monthly)}/month).
             </p>
           </div>
         </section>
@@ -422,7 +432,7 @@ export default function MixMindPage() {
               MixMind
             </div>
             <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
-              © 2026 Zietra Technologies Inc. · Requires Rekordbox 6 or 7
+              © 2026 Zietra Technologies Inc. · Works with Rekordbox 6 or 7, or any music folder
             </div>
             <nav aria-label="Footer links">
               <div className="flex items-center gap-6 text-xs" style={{ color: "var(--text-secondary)" }}>

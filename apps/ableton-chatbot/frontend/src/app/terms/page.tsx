@@ -54,7 +54,7 @@ export default function TermsPage() {
 
           <Section title="2. Description of Service">
             <p className="mb-3">{PRODUCT} is an AI music production assistant operated by {COMPANY}. It uses AI to plan and send Ableton Live commands through the BeatMind Bridge app on your computer. {PRODUCT} controls your Ableton Live session and can separate reference tracks into audio stems.</p>
-            <p>MixMind is a desktop DJ library manager, also operated by {COMPANY}, that reads your Rekordbox library on your computer. MixMind is currently in early access.</p>
+            <p>MixMind is a desktop DJ library manager, also operated by {COMPANY}, that reads your Rekordbox library, or music folders you import, on your computer. MixMind is currently in early access.</p>
           </Section>
 
           <Section title="3. Account and Eligibility">
@@ -118,7 +118,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="8. Third-Party Dependencies">
-            <p>{PRODUCT} requires Ableton Live 11 or 12 (sold separately by Ableton AG), and MixMind requires Rekordbox. BeatMind and MixMind are not affiliated with Ableton AG or Pioneer DJ/AlphaTheta (rekordbox). {PRODUCT} also uses AbletonOSC and AI providers: Anthropic Claude models via Amazon Bedrock, and OpenAI for optional audio listening. Service availability depends on these third parties.</p>
+            <p>{PRODUCT} requires Ableton Live 11 or 12 (sold separately by Ableton AG), and MixMind works with or without Rekordbox. BeatMind and MixMind are not affiliated with Ableton AG or Pioneer DJ/AlphaTheta (rekordbox). {PRODUCT} also uses AbletonOSC and AI providers: Anthropic Claude models via Amazon Bedrock, and OpenAI for optional audio listening. Service availability depends on these third parties.</p>
           </Section>
 
           <Section title="9. Disclaimer of Warranties">

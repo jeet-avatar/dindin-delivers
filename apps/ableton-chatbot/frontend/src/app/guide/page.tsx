@@ -200,7 +200,7 @@ export default function GuidePage() {
           description: "Sign in to MixMind with your BeatMind account, clean duplicates, build AI playlists and add a Set Builder set to Rekordbox.",
           path: PATH,
           steps: MIXMIND,
-          supply: ["Rekordbox 6 or 7 library", "A BeatMind account with MixMind"],
+          supply: ["A Rekordbox 6 or 7 library, or a folder of music", "A BeatMind account with MixMind"],
           tool: ["MixMind"],
         })}
       />
@@ -295,7 +295,7 @@ export default function GuidePage() {
         <section className="mb-20 pt-16 border-t" style={{ borderColor: "var(--border)" }} aria-labelledby="mixmind">
           <SectionHeading id="mixmind">MixMind quick start</SectionHeading>
           <p className="text-sm leading-relaxed mb-6" style={MUTED}>
-            MixMind is a desktop DJ library manager for Rekordbox. It finds duplicates, builds AI playlists from tracks you own and sequences full sets you can add to Rekordbox.
+            MixMind is a desktop DJ library manager that works with Rekordbox or any folder of music. It finds duplicates, builds AI playlists from tracks you own and sequences full sets you can add to Rekordbox.
           </p>
           <div className="p-5 rounded-2xl border text-sm mb-8" style={{ background: "var(--bg-secondary)", borderColor: "var(--accent)" }}>
             <span className="font-semibold" style={{ color: "var(--accent)" }}>Availability: </span>

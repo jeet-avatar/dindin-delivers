@@ -10,7 +10,7 @@ export function MixMindDownloadCard() {
     <div className="mt-8 rounded-2xl border p-8" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}>
       <h2 className="text-xl font-semibold">MixMind for Rekordbox</h2>
       <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-        macOS (Apple Silicon) &middot; Requires Rekordbox 6 or 7 &middot; Sign in with a plan that includes MixMind
+        macOS (Apple Silicon) &middot; Works with Rekordbox or any music folder &middot; Sign in with a plan that includes MixMind
       </p>
       <button type="button" onClick={download} disabled={downloading}
         className="mt-6 inline-flex items-center gap-2 rounded-lg px-6 py-3 text-lg font-semibold disabled:opacity-60"
