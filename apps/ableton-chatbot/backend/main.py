@@ -1312,14 +1312,17 @@ async def email_unsubscribe(token: str = ""):
 async def bridge_status(user: dict = Depends(get_current_user)):
     mine = [b for b in bridges.values() if b.user_id == user["id"]]
     result = {"bridge_connected": bool(mine), "bridge_version": getattr(mine[0], "version", "") if mine else None,
-              "live_set": None}
+              "live_set": None, "live_set_issue": None}
     if mine:
         try:
-            live = await mine[0].local_operation('live_set', {'operation': 'inspect'})
-            if live.get('status') in ('observed', 'verified'):
+            live = await mine[0].local_operation('live_set', {'operation': 'inspect'}, timeout=6)
+            if live.get('status') in ('observed', 'verified') and live.get('title'):
                 result['live_set'] = live.get('title')
+            else:
+                # Say why the set name is unknown (Mac locked, a dialog open, macOS permission) so the page can show it.
+                result['live_set_issue'] = live.get('summary') or 'Ableton did not report its open set.'
         except Exception:
-            pass
+            result['live_set_issue'] = 'Ableton did not answer. Make sure Ableton Live is open.'
     return result
 
 

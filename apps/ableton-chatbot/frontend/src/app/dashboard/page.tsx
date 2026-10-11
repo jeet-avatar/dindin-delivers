@@ -212,8 +212,8 @@ const REFERENCE_COMMANDS = [
   "Build an intro like the reference",
 ];
 
-function AbletonSetStatus({ linked, open, busy, canChoose, onUse, onChoose }: {
-  linked?: string; open?: string | null; busy: boolean; canChoose: boolean; onUse: () => void; onChoose: () => void;
+function AbletonSetStatus({ linked, open, issue, busy, canChoose, onUse, onChoose }: {
+  linked?: string; open?: string | null; issue?: string | null; busy: boolean; canChoose: boolean; onUse: () => void; onChoose: () => void;
 }) {
   const muted = { color: "var(--text-secondary)" };
   if (linked) return <>
@@ -225,6 +225,10 @@ function AbletonSetStatus({ linked, open, busy, canChoose, onUse, onChoose }: {
     <button disabled={busy} onClick={onUse} className="rounded-full px-2.5 py-1 font-medium disabled:opacity-40"
       style={{ background: "var(--accent)", color: "var(--on-accent)" }}>Use this set</button>
     <button disabled={busy} onClick={onChoose} className="underline disabled:opacity-40" style={muted}>Start a new set</button>
+  </>;
+  if (issue) return <>
+    <span role="status" style={{ color: "var(--warning)" }}>BeatMind can&apos;t see your Ableton set: {issue}</span>
+    <button disabled={busy || !canChoose} onClick={onChoose} className="underline disabled:opacity-40" style={muted}>Choose Live Set</button>
   </>;
   return <>
     <span style={muted}>No Ableton set linked yet</span>
@@ -270,7 +274,7 @@ export default function DashboardPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModelTier>("fast");
   const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
-  const { status: bridgeStatus, liveSet: bridgeLiveSet, refresh: refreshBridge } = useBridgeStatus(user?.id);
+  const { status: bridgeStatus, liveSet: bridgeLiveSet, liveSetIssue, refresh: refreshBridge } = useBridgeStatus(user?.id);
   const bridgeConnected = bridgeStatus === "connected";
   const referenceInAbleton = Boolean(referenceId && project?.starting_point === "reference" && project.live_set);
   const ableton = useAbletonLaunch(bridgeStatus, user?.id);
@@ -1396,6 +1400,7 @@ export default function DashboardPage() {
               </span>
             )}
             <AbletonSetStatus linked={project.live_set?.title} open={bridgeConnected ? bridgeLiveSet : null}
+              issue={bridgeConnected ? liveSetIssue : null}
               busy={loading || projectBusy} onUse={() => void linkOpenSet()} onChoose={() => setSongSetup("")} canChoose={bridgeConnected} />
             {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
           </div>}
