@@ -70,12 +70,12 @@ export default function SpeakButton({ text }: { text: string }) {
   return (
     <button type="button" onClick={toggle} aria-pressed={speaking}
       aria-label={speaking ? "Stop reading aloud" : "Read this reply aloud"} title={speaking ? "Stop" : "Read aloud"}
-      className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors hover:border-[var(--accent)]"
-      style={{ borderColor: "var(--border)", color: speaking ? "var(--accent)" : "var(--text-secondary)" }}>
+      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
+      style={{ borderColor: "var(--accent)", color: speaking ? "var(--on-accent)" : "var(--accent)", background: speaking ? "var(--accent)" : "transparent" }}>
       {speaking ? (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1" /></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="14" height="14" rx="1" /></svg>
       ) : (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M15.54 8.46a5 5 0 010 7.07" /><path d="M19.07 4.93a10 10 0 010 14.14" />
         </svg>
       )}
