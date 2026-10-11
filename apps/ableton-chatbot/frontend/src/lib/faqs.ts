@@ -36,27 +36,27 @@ export const BEATMIND_FAQS: Faq[] = [
   },
   {
     q: "How much does BeatMind cost?",
-    a: "Plans start at $19/month. Starter is $19/month ($190/year) with 10 tracks a month; Pro is $39/month ($390/year) with 30 tracks and 5 cloud HQ separations a month; Studio is $79/month ($790/year) with 80 tracks, 20 cloud HQ separations, MixMind and priority support. DJs can also get MixMind for $12/month, or bundle it: Starter + MixMind is $25/month and Pro + MixMind is $45/month. You can start with a 7-day free trial that includes 3 tracks and needs no credit card.",
+    a: "Starter is $39.99/month ($399.99/year): 10 songs and 10 stem separations a month. Pro is $69.99/month ($699.99/year): 25 songs and 30 stem separations, 5 of them on Cloud HQ. Studio is $99.99/month ($999.99/year): 50 songs, 80 stem separations (20 on Cloud HQ), all AI models and MixMind. DJs can get MixMind alone for $19.99/month, or bundled with BeatMind: MixMind Pro (BeatMind Starter + MixMind) is $29.99/month and MixMind Studio (BeatMind Pro + MixMind) is $49.99/month. Every BeatMind plan starts with a 7-day free trial: 3 songs and 3 stem separations, no credit card.",
   },
   {
     q: "What's included in the free trial?",
-    a: "The 7-day free trial needs no credit card and includes 3 tracks, separated on your own Mac, and limited AI (about 50 messages). It covers BeatMind only: MixMind isn't part of the trial. Cloud HQ separations and packs need a paid plan. If you start a plan during the trial, the trial ends and your plan begins immediately.",
+    a: "The 7-day free trial needs no credit card. It includes 3 songs, 3 stem separations on your own Mac, and limited AI (about 50 messages). It covers BeatMind only; MixMind isn't part of the trial. Cloud HQ separations and packs need a paid plan. If you start a plan during the trial, the trial ends and your plan begins straight away.",
   },
   {
     q: "Will I be charged after the trial?",
     a: "No. We never take a card for the trial; you only pay if you choose a plan.",
   },
   {
-    q: "What counts as a track?",
-    a: "A track is one stem separation of a reference track. High-quality separation runs on your own computer through the BeatMind Bridge, so each reference you split uses one track from your monthly allowance. The AI producer itself is included on every plan under fair use.",
+    q: "What counts as a stem separation?",
+    a: "A stem separation splits one reference track into stems (drums, bass, vocals and the rest). Each separation, on your Mac or on Cloud HQ, uses one from your monthly allowance: Starter 10, Pro 30, Studio 80. Songs are counted separately: each new song you make with the AI producer uses one of your monthly songs (10, 25 or 50).",
   },
   {
-    q: "What are cloud HQ separations?",
-    a: "Cloud HQ separations run high-quality stem separation on our cloud GPU instead of your computer. They are for machines that can't run HQ separation locally and need a paid plan (they aren't part of the free trial). Pro includes 5 a month, Studio includes 20, and Cloud HQ packs are 10 for $7.99 or 50 for $34.99.",
+    q: "What are Cloud HQ separations?",
+    a: "Cloud HQ runs high-quality stem separation on our cloud GPU instead of your computer, for Macs that can't run it locally or when you want it faster. It needs a paid plan (it isn't part of the free trial). Pro includes 5 a month and Studio 20; each one also counts toward your monthly stem separations. Cloud HQ packs are 10 for $7.99 or 50 for $34.99.",
   },
   {
-    q: "Do unused tracks roll over?",
-    a: "No. Your monthly allowance resets each month. Purchased packs never expire: track packs are 10 for $9, 25 for $19 or 60 for $39, and they are used after your monthly allowance. Packs need a paid plan.",
+    q: "Do unused separations roll over?",
+    a: "No. Your monthly allowance resets each month. Purchased packs never expire: stem separation packs are 10 for $9, 25 for $19 or 60 for $39, and they're used after your monthly allowance. AI round packs (10 for $1.99, 25 for $3.99) add extra AI rounds to one song. Packs need a paid plan.",
   },
   {
     q: "Can I switch plans?",
@@ -107,11 +107,11 @@ export const MIXMIND_FAQS: Faq[] = [
   },
   {
     q: "How much does MixMind cost?",
-    a: "MixMind is $12/month or $120/year (2 months free). You can also bundle it with BeatMind: Starter + MixMind is $25/month ($250/year) and Pro + MixMind is $45/month ($450/year), each saving $6/month compared with buying them separately. MixMind is also included in BeatMind Studio ($79/month or $790/year). Cancel anytime.",
+    a: "MixMind is $19.99/month or $199.99/year (2 months free). You can also bundle it with BeatMind for Ableton: MixMind Pro (BeatMind Starter + MixMind) is $29.99/month ($299.99/year) and MixMind Studio (BeatMind Pro + MixMind) is $49.99/month ($499.99/year). MixMind is also included in BeatMind Studio ($99.99/month). Cancel anytime.",
   },
   {
     q: "Is MixMind included in the free trial?",
-    a: "No. The 7-day free trial (3 tracks, no card) is for BeatMind. To use MixMind you need a MixMind, BeatMind + MixMind (Starter or Pro) or Studio plan.",
+    a: "No. The 7-day free trial (3 songs, no card) is for BeatMind. To use MixMind you need a MixMind, MixMind Pro, MixMind Studio or BeatMind Studio plan.",
   },
   {
     q: "Can I get BeatMind and MixMind together?",

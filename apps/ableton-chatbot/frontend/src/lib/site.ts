@@ -8,12 +8,12 @@ export const STARTER_TEMPLATE_URL = "/templates/BeatMind-Starter.als";
 export const LEGAL_POSTAL_ADDRESS = "12 Teaberry, Rancho Santa Margarita, CA 92688, USA";
 
 export const GOVERNING_LAW_STATE = "California";
-export const LEGAL_LAST_UPDATED = "September 28, 2026";
+export const LEGAL_LAST_UPDATED = "October 10, 2026";
 
 export const TRIAL_DAYS = 7;
 export const TRIAL_TRACKS = 3;
 export const TRIAL_AI_MESSAGES = 50;
-export const TRIAL_TERMS = `${TRIAL_DAYS}-day free trial with ${TRIAL_TRACKS} tracks included. No credit card required.`;
+export const TRIAL_TERMS = `${TRIAL_DAYS}-day free trial: ${TRIAL_TRACKS} songs and ${TRIAL_TRACKS} stem separations, no credit card required.`;
 export const TRIAL_SHORT = `Free trial: ${TRIAL_DAYS} days · ${TRIAL_TRACKS} tracks · no card`;
 export const TRIAL_DETAILS = `The ${TRIAL_DAYS}-day free trial needs no credit card and includes ${TRIAL_TRACKS} tracks, separated on your own Mac, and limited AI (about ${TRIAL_AI_MESSAGES} messages). Cloud HQ separations and packs need a paid plan. You're never charged unless you choose a plan, and starting a plan during the trial ends the trial and begins the plan immediately.`;
 

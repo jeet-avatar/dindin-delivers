@@ -46,7 +46,7 @@ export const PLANS: Plan[] = [
       "Fast mode AI (Haiku 4.5)",
       "10 songs / month · 30 AI rounds per song",
       "$25/mo AI budget",
-      "Unlimited stem separations",
+      "10 stem separations / month on your Mac",
       "BeatMind Bridge for Mac (Apple Silicon, macOS 15+)",
     ],
     highlight: false,
@@ -57,14 +57,14 @@ export const PLANS: Plan[] = [
     name: "Pro",
     monthly: 69.99,
     yearly: 699.99,
-    includedTracks: 25,
+    includedTracks: 30,
     includedCloud: 5,
     features: [
       "Fast + Pro mode AI (Haiku + Sonnet)",
       "25 songs / month · 30 AI rounds per song",
       "$45/mo AI budget",
-      "Unlimited stem separations",
-      "5 cloud HQ separations / month",
+      "30 stem separations / month",
+      "5 of them can run on Cloud HQ (GPU)",
     ],
     highlight: true,
     available: true,
@@ -74,15 +74,15 @@ export const PLANS: Plan[] = [
     name: "Studio",
     monthly: 99.99,
     yearly: 999.99,
-    includedTracks: 50,
+    includedTracks: 80,
     includedCloud: 20,
     features: [
       "Fast + Pro + Ultra mode AI (all models)",
       "50 songs / month · 30 AI rounds per song",
       "$80/mo AI budget",
-      "Unlimited stem separations",
-      "20 cloud HQ separations / month",
-      "MixMind for Rekordbox included",
+      "80 stem separations / month",
+      "20 of them can run on Cloud HQ (GPU)",
+      "MixMind DJ app included",
       "Priority support",
     ],
     highlight: false,
@@ -97,7 +97,7 @@ export const ANNUAL_DISCOUNT_LABEL = "2 months free";
 export const TRACK_DEFINITION =
   "Each song includes up to 30 AI rounds. Need more? Buy extra rounds from within a song ($1.99 for 10 rounds, $3.99 for 25 rounds).";
 export const CLOUD_HQ_DEFINITION =
-  "Cloud HQ separations run on our cloud GPU, for computers that can't run high-quality separation locally. They need a paid plan.";
+  "Cloud HQ separations run on our cloud GPU, for computers that can't run high-quality separation locally. They need a paid plan, and each one also counts toward your monthly stem separations.";
 
 export const TRACK_PACKS: Pack[] = [
   { quantity: 10, price: 1.99 },
@@ -140,9 +140,10 @@ export const MIXMIND_TIERS: MixMindTier[] = [
     monthly: 19.99,
     yearly: 199.99,
     features: [
-      "Full library browser — unlimited tracks",
-      "Duplicate detection & cleanup",
-      "Pioneer USB drive support",
+      "Every MixMind feature: library, duplicates, AI playlists, Set Builder (techno & minimal), two-deck player",
+      "Works with Rekordbox 6/7 or any music folder",
+      "Pioneer CDJ USB export and playlist files",
+      "$12/mo MixMind AI budget",
       "Mac (Apple Silicon) · Windows coming soon",
     ],
     highlight: false,
@@ -155,9 +156,7 @@ export const MIXMIND_TIERS: MixMindTier[] = [
     yearly: 299.99,
     features: [
       "Everything in MixMind, plus:",
-      "AI playlist builder",
-      "Advanced search & filters",
-      "Intelligent Set Builder",
+      "BeatMind Starter for Ableton: 10 songs and 10 stem separations / month",
     ],
     highlight: true,
     available: MIXMIND_ON_SALE,
@@ -168,10 +167,8 @@ export const MIXMIND_TIERS: MixMindTier[] = [
     monthly: 49.99,
     yearly: 499.99,
     features: [
-      "Everything in MixMind Pro, plus:",
-      "Multi-genre Set Builder",
-      "Export playlists to Rekordbox",
-      "Priority support",
+      "Everything in MixMind, plus:",
+      "BeatMind Pro for Ableton: 25 songs and 30 stem separations (5 on Cloud HQ) / month",
     ],
     highlight: false,
     available: MIXMIND_ON_SALE,

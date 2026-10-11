@@ -72,7 +72,7 @@ export default function DownloadPage() {
             <div>
               <h2 className="text-xl font-semibold">BeatMind Bridge for Ableton Live</h2>
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                macOS (Apple Silicon) &middot; Version 1.3.15 &middot; Requires macOS 13+
+                macOS (Apple Silicon) &middot; Version 1.3.15 &middot; Requires macOS 15 or later
               </p>
             </div>
           </div>

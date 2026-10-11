@@ -631,11 +631,11 @@ export default function DashboardPage() {
   const planChecking = !usage && authStatus === "Checking sign-in";
   const checkingPlanText = "Checking your plan…";
   const currentPlan = isSubscribed && usage ? planName(usage.plan) : "BeatMind";
-  const trialTracks = usage?.plan?.source === "trial" ? `${usage.allowance_left} of ${usage.included_per_month} tracks left · ` : "";
+  const trialTracks = usage?.plan?.source === "trial" ? `${usage.allowance_left} of ${usage.included_per_month} stem separations left · ` : "";
   const trialSummary = `Free trial · ${trialTracks}${trialDays} day${trialDays !== 1 ? "s" : ""} left`;
   const trialOutOfTracks = usage?.plan?.source === "trial" && usage.allowance_left === 0;
   let trialBanner = "Your free trial has ended";
-  if (trialActive) trialBanner = trialOutOfTracks ? `Your free trial includes ${usage?.included_per_month} tracks. Choose a plan to keep going.` : trialSummary;
+  if (trialActive) trialBanner = trialOutOfTracks ? `Your free trial includes ${usage?.included_per_month} stem separations. Choose a plan to keep going.` : trialSummary;
   const mixmindIncluded = hasMixMindAccess(usage ?? user);
   const tierLabel = usage?.plan?.tier ? AI_FAIR_USE_LABELS[usage.plan.tier] : null;
   const modelNames = usage?.model_access?.map(m => MODEL_TIER_LABELS[m]).join(", ") ?? MODEL_TIER_LABELS.fast;
@@ -643,12 +643,12 @@ export default function DashboardPage() {
     `${tierLabel ? tierLabel.songs : usage.included_per_month} songs per month`,
     `AI models: ${modelNames}`,
     ...(tierLabel ? [`$${tierLabel.cap}/mo AI budget`] : []),
-    "Unlimited stem separations",
-    ...(usage.included_cloud_per_month > 0 ? [`${usage.included_cloud_per_month} Cloud HQ separations per month`] : []),
+    `${usage.included_per_month} stem separations per month`,
+    ...(usage.included_cloud_per_month > 0 ? [`${usage.included_cloud_per_month} of them on Cloud HQ (GPU)`] : []),
     "BeatMind Bridge for Ableton Live",
     ...(usage.plan.mixmind ? [`MixMind for Mac · ${MIXMIND_AI_LABEL}`] : []),
   ] : [
-    `${usage?.plan?.source === "trial" ? 3 : 3} trial songs`,
+    "3 songs and 3 stem separations",
     `AI model: ${MODEL_TIER_LABELS.fast} (trial)`, "BeatMind Bridge for Ableton Live",
   ];
   const mixmindLocked = (
@@ -963,7 +963,7 @@ export default function DashboardPage() {
         </div>
         <div>
           <h2 className="text-xl font-bold">MixMind</h2>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>DJ library manager for Rekordbox</p>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>DJ library manager for Rekordbox or any music folder</p>
         </div>
       </div>
 
@@ -989,7 +989,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {["Smart AI playlists from your vibe", "Duplicate track detection", "BPM + key analysis", "Rekordbox + USB export"].map(f => (
+        {["Smart AI playlists from your vibe", "Duplicate track detection", "BPM + key analysis", "Two-deck player", "Rekordbox, playlist files + CDJ USB export"].map(f => (
           <div key={f} className="rounded-xl border p-3 flex items-start gap-2" style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}>
             <span className="flex-shrink-0 mt-0.5" style={{ color: "var(--success)" }}><CheckIcon size={13} /></span>
             <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{f}</p>
@@ -1057,7 +1057,7 @@ export default function DashboardPage() {
                 </button>}
           </div>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            AI DJ library manager. Smart playlists, duplicate track detection, BPM + key analysis, and Rekordbox + USB export.
+            AI DJ library manager. Smart playlists, duplicate track detection, BPM + key analysis, a two-deck player, and Rekordbox, playlist-file and CDJ USB export. Works without Rekordbox.
             {!mixmindIncluded && <span style={{ color: "var(--cool-text)" }}> Requires a MixMind, BeatMind + MixMind, or Studio plan.</span>}
           </p>
         </div>

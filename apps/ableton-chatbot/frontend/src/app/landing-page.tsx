@@ -228,7 +228,7 @@ export default function LandingPage() {
         <section id="pricing" className="max-w-6xl mx-auto px-6 py-20 text-center" aria-labelledby="pricing-heading">
           <h2 id="pricing-heading" className="text-3xl md:text-4xl font-bold mb-4">Pricing</h2>
           <p className="mb-8 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>
-            Every plan includes the AI producer inside Ableton Live and unlimited stem separations. Pick your AI models and songs per month.
+            Every plan includes the AI producer inside Ableton Live. Plans differ in AI models, songs per month and stem separations.
           </p>
 
           {/* Billing interval toggle */}

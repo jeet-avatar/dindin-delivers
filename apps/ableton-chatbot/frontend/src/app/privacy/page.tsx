@@ -51,8 +51,9 @@ export default function PrivacyPage() {
               <Item label="Account">your name, email address and a hashed version of your password (we never store the password itself).</Item>
               <Item label="Billing">payments are handled by Stripe. We don&apos;t see or store your card number. We keep your Stripe customer ID, your plan, and your purchase and subscription history.</Item>
               <Item label="Usage">what you type to BeatMind and your chat history; logs of AI usage (which feature was used and how many tokens); your track and separation usage; and records of the sign-in tokens for the BeatMind Bridge and MixMind apps, including when each was last used.</Item>
-              <Item label="IP addresses">we use your IP address for security and rate limiting.</Item>
-              <Item label="Audio">reference tracks you upload are stored on our servers at Amazon Web Services (cloud separations pass through Amazon S3) until you delete them or close your account. Captured auditions (recordings of Ableton&apos;s output that the Bridge makes so you can review a part) are also stored on our servers. When the Bridge separates a track on your Mac, the audio stays on your Mac and only a report (such as the stem list and timing) is sent to us.</Item>
+              <Item label="IP addresses">we use your IP address for security and rate limiting, and it appears in our server logs.</Item>
+              <Item label="On your Mac">the BeatMind Bridge keeps its sign-in token in your macOS Keychain and talks to Ableton Live on your computer. MixMind keeps your library, imported folders, analysis and sets in a database on your Mac; we don&apos;t receive your music files or your library database.</Item>
+              <Item label="Audio">reference tracks you upload are stored on our servers at Amazon Web Services until you delete them or your account is deleted. Audio sent for Cloud HQ separation passes through Amazon S3 and is deleted from there after separation (within one day at most). Captured auditions are recordings of Ableton Live&apos;s audio only, made by the Bridge when you ask for an audition (macOS asks you to allow audio recording first); they are stored on our servers. When the Bridge separates a track on your Mac, the audio stays on your Mac and only a report (such as the stem list and timing) is sent to us.</Item>
             </ul>
           </Section>
 
@@ -63,7 +64,7 @@ export default function PrivacyPage() {
               <Item label="MixMind AI features">your prompts and the relevant library metadata (such as track titles, BPM, key and genre) are sent through our server to Anthropic models on Amazon Bedrock.</Item>
             </ul>
             <p className="mt-3">Under their API terms, these providers do not use this data to train their models.</p>
-            <p className="mt-3">MixMind itself runs on your computer and reads your Rekordbox library, or the music folders you import, there. Our servers only check your sign-in and relay MixMind&apos;s AI requests.</p>
+            <p className="mt-3">MixMind itself runs on your computer and reads your Rekordbox library, or the music folders you import, there. Our servers only check your sign-in, relay MixMind&apos;s AI requests and offer app updates. The first time MixMind runs a deep analysis, it downloads a stem-separation model from Meta&apos;s public model server, which sees your IP address.</p>
           </Section>
 
           <Section title="4. How we use your information">
@@ -78,7 +79,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="5. Email">
-            <p>We send email from {SUPPORT_EMAIL} through Google Workspace (Gmail). Product update emails include a one-click unsubscribe link.</p>
+            <p>We send email from {SUPPORT_EMAIL} through Google Workspace (Gmail). Product update emails are sent to account holders and include a one-click unsubscribe link; you can opt out at any time.</p>
           </Section>
 
           <Section title="6. Who we share data with">
@@ -87,21 +88,22 @@ export default function PrivacyPage() {
               <Item label="Amazon Web Services">hosting, storage and Amazon Bedrock (Anthropic Claude models).</Item>
               <Item label="OpenAI">only for the optional listen-to-reference step, when you choose it.</Item>
               <Item label="Stripe">payments and billing.</Item>
-              <Item label="Google">email (Google Workspace) and the web fonts on our site.</Item>
+              <Item label="Google">email (Google Workspace), the web fonts on our site, and YouTube when you play a video on our site.</Item>
+              <Item label="Meta">MixMind downloads its stem-separation model from Meta&apos;s public model server; only your IP address is shared.</Item>
             </ul>
             <p className="mt-3">We don&apos;t sell or share your personal information, as those terms are defined in the California Consumer Privacy Act (CCPA).</p>
           </Section>
 
           <Section title="7. Browser storage and cookies">
-            <p>We keep your sign-in token and some app state (such as your saved chats) in your browser&apos;s local storage. We don&apos;t use advertising or analytics cookies. Our pages load fonts from Google Fonts, so Google sees your IP address when those fonts load.</p>
+            <p>We keep your sign-in token and some app state (such as your saved chats) in your browser&apos;s local storage. We don&apos;t use advertising or analytics cookies. Our pages load fonts from Google Fonts, so Google sees your IP address when those fonts load. Videos load from youtube-nocookie.com only when you press play.</p>
           </Section>
 
           <Section title="8. How long we keep data">
-            <p>We keep your data until you delete it or close your account. Billing and tax records are kept for as long as the law requires.</p>
+            <p>We keep your account data, chats, references and recordings until you delete them or your account is deleted. Billing and tax records are kept for as long as the law requires.</p>
           </Section>
 
           <Section title="9. Deleting your data and your rights">
-            <p>You can delete uploaded references in the app. To delete your account, or to access, correct or export your data, email <SupportLink /> from the address on your account. Depending on where you live, you may have other rights over your data; contact us and we&apos;ll help.</p>
+            <p>You can delete reference tracks yourself in the app. To delete chats, recordings or your whole account, or to access, correct or export your data, email <SupportLink /> from the address on your account and we&apos;ll respond within 30 days. Depending on where you live, you may have other rights over your data; contact us and we&apos;ll help.</p>
           </Section>
 
           <Section title="10. Security">

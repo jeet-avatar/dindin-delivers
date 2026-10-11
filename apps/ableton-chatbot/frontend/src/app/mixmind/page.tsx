@@ -363,7 +363,7 @@ export default function MixMindPage() {
           {/* Also have BeatMind? */}
           <div className="mt-6 p-5 rounded-xl border text-sm text-left md:text-center" style={{ borderColor: "var(--border)", background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
             <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Also a music producer? </span>
-            BeatMind Studio ({formatUsd(STUDIO.monthly)}/mo) includes full MixMind access, {STUDIO.includedTracks} songs/mo, all AI models, and priority support.{" "}
+            BeatMind Studio ({formatUsd(STUDIO.monthly)}/mo) includes full MixMind access, 50 songs and {STUDIO.includedTracks} stem separations a month, all AI models, and priority support.{" "}
             <Link href={ctaHref(STUDIO.id, billingInterval, loggedIn)} className="font-medium transition-colors duration-150 hover:text-white" style={{ color: "var(--accent)" }}>
               Choose BeatMind Studio &rarr;
             </Link>

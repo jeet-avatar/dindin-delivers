@@ -54,7 +54,7 @@ export default function TermsPage() {
 
           <Section title="2. Description of Service">
             <p className="mb-3">{PRODUCT} is an AI music production assistant operated by {COMPANY}. It uses AI to plan and send Ableton Live commands through the BeatMind Bridge app on your computer. {PRODUCT} controls your Ableton Live session and can separate reference tracks into audio stems.</p>
-            <p>MixMind is a desktop DJ library manager, also operated by {COMPANY}, that reads your Rekordbox library, or music folders you import, on your computer. MixMind is currently in early access.</p>
+            <p>MixMind is a desktop DJ library manager for Mac, also operated by {COMPANY}. It works with your Rekordbox library or with music folders you import, and it runs on your computer.</p>
           </Section>
 
           <Section title="3. Account and Eligibility">
@@ -63,7 +63,7 @@ export default function TermsPage() {
 
           <Section title="4. Subscriptions, Billing and Cancellation">
             <Clause title="Free trial">
-              <p>New accounts get a {TRIAL_DAYS}-day free trial. No credit card is needed. The trial includes {TRIAL_TRACKS} tracks, separated on your own Mac, and limited AI use (about {TRIAL_AI_MESSAGES} messages). Cloud HQ separations and packs are not part of the trial. The trial never turns into a paid plan on its own and we never charge you for it. If you start a paid plan during the trial, the trial ends and the plan begins, and is billed, immediately.</p>
+              <p>New accounts get a {TRIAL_DAYS}-day free trial. No credit card is needed. The trial includes {TRIAL_TRACKS} songs and {TRIAL_TRACKS} stem separations on your own Mac, and limited AI use (about {TRIAL_AI_MESSAGES} messages). Cloud HQ separations and packs are not part of the trial. The trial never turns into a paid plan on its own and we never charge you for it. If you start a paid plan during the trial, the trial ends and the plan begins, and is billed, immediately.</p>
             </Clause>
             <Clause title="Automatic renewal">
               <p>Paid plans renew automatically at the end of each billing period (monthly or yearly, whichever you chose) at the then-current price, until you cancel. The price, billing interval and renewal terms are shown to you before you buy.</p>
@@ -80,8 +80,8 @@ export default function TermsPage() {
             <Clause title="Promotions and discount codes">
               <p>Promotional discounts (for example launch or creator codes) apply only for the period stated with the offer. After that, your subscription renews at the standard price unless you cancel. Only one code can be used per customer, and codes may have a limited number of redemptions. The {FOUNDING_CODE} code gives the first {FOUNDING_SEATS} annual subscribers who use it {FOUNDING_DISCOUNT_PERCENT}% off for as long as your subscription stays active; it applies to annual plans only.</p>
             </Clause>
-            <Clause title="Track allowances and packs">
-              <p>Each plan includes a monthly allowance of tracks (and, on some plans, cloud HQ separations). Allowances reset on the 1st of each calendar month (UTC) and unused amounts don&apos;t roll over. Track packs and cloud HQ packs are one-time purchases that never expire. They are used only after your monthly allowance runs out, they require an active paid plan, and they are non-refundable once used.</p>
+            <Clause title="Plan allowances and packs">
+              <p>Each plan includes a monthly number of songs you can make with the AI producer and a monthly number of stem separations of reference tracks. On some plans, part of the separation allowance can run on Cloud HQ (our cloud GPU); each Cloud HQ separation also counts toward your stem separations. Allowances reset on the 1st of each calendar month (UTC) and unused amounts don&apos;t roll over. Stem separation packs, Cloud HQ packs and AI round packs (extra AI rounds for a song) are one-time purchases that never expire. Separation packs are used only after your monthly allowance runs out. Packs require an active paid plan and are non-refundable once used.</p>
             </Clause>
             <Clause title="Price changes">
               <p>If we change the price of your plan, we&apos;ll email you at least 30 days before the new price takes effect at your next renewal. You can cancel before then if you don&apos;t want to continue at the new price.</p>
@@ -95,15 +95,15 @@ export default function TermsPage() {
             <Clause title="Payment processing">
               <p>Payments are processed by Stripe. We never see or store your full card number.</p>
             </Clause>
-            <p>Current plans and prices are listed at {DOMAIN}/#pricing.</p>
+            <p>Current plans and prices are listed at {DOMAIN}/#pricing, at {DOMAIN}/mixmind and in the MixMind app under Plans &amp; Pricing.</p>
           </Section>
 
           <Section title="5. Your Content and IP Ownership">
-            <p>You own all music and creative output produced using {PRODUCT}. We claim no rights to your compositions, arrangements, or Ableton projects. Samples and presets you load stay under their own licences. You are responsible for having the rights to reference tracks you upload.</p>
+            <p>You own all music and creative output produced using {PRODUCT}. We claim no rights to your compositions, arrangements, or Ableton projects. Samples and presets you load stay under their own licences. You are responsible for having the rights to reference tracks and music you upload or import, and you confirm this when you upload. If you believe content on {PRODUCT} infringes your rights, email <SupportLink />.</p>
           </Section>
 
           <Section title="6. Desktop Software">
-            <p>The BeatMind Bridge and MixMind are desktop apps. We give you a personal, non-exclusive, non-transferable licence to install and use them on your own computers while you have an account with access to them. You may not sell, rent or redistribute them. Updates may be offered from time to time. The apps include open-source components that stay under their own licences. MixMind reads your Rekordbox library and only writes to it when you ask it to (for example, Add to Rekordbox); keep your own backups.</p>
+            <p>The BeatMind Bridge and MixMind are desktop apps. We give you a personal, non-exclusive, non-transferable licence to install and use them on your own computers while you have an account with access to them. You may not sell, rent or redistribute them. Updates may be offered from time to time. The apps include open-source components that stay under their own licences. MixMind reads your Rekordbox library or the folders you import. It writes only when you ask it to: adding a set to Rekordbox, exporting to a USB drive (which replaces the PIONEER folder on that drive), or saving a playlist file. Removing tracks in MixMind never deletes your music files. Keep your own backups.</p>
           </Section>
 
           <Section title="7. Acceptable Use">
@@ -118,11 +118,11 @@ export default function TermsPage() {
           </Section>
 
           <Section title="8. Third-Party Dependencies">
-            <p>{PRODUCT} requires Ableton Live 11 or 12 (sold separately by Ableton AG), and MixMind works with or without Rekordbox. BeatMind and MixMind are not affiliated with Ableton AG or Pioneer DJ/AlphaTheta (rekordbox). {PRODUCT} also uses AbletonOSC and AI providers: Anthropic Claude models via Amazon Bedrock, and OpenAI for optional audio listening. Service availability depends on these third parties.</p>
+            <p>{PRODUCT} requires Ableton Live 11 or 12 (sold separately by Ableton AG), and MixMind works with or without Rekordbox. BeatMind and MixMind are not affiliated with Ableton AG or Pioneer DJ/AlphaTheta (rekordbox). {PRODUCT} also uses AbletonOSC, Amazon Web Services for hosting, Stripe for payments, and AI providers: Anthropic Claude models via Amazon Bedrock, and OpenAI for optional audio listening. Service availability depends on these third parties.</p>
           </Section>
 
           <Section title="9. Disclaimer of Warranties">
-            <p>{PRODUCT} is provided &quot;as is&quot; without warranty of any kind. We do not guarantee uninterrupted service, error-free AI output, or compatibility with all Ableton configurations. AI-generated commands may produce unexpected results — always save your project before using {PRODUCT}.</p>
+            <p>{PRODUCT} is provided &quot;as is&quot; without warranty of any kind. We do not guarantee uninterrupted service, error-free AI output, or compatibility with all Ableton configurations. AI-generated commands may produce unexpected results, so save your project before using {PRODUCT}. MixMind&apos;s analysis (BPM, key, beat grid, cues and genre) and AI suggestions can be wrong, and its Pioneer USB export is not certified by AlphaTheta; check an exported drive on your equipment before you rely on it at a gig.</p>
           </Section>
 
           <Section title="10. Limitation of Liability">
@@ -130,7 +130,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="11. Termination">
-            <p>We may suspend or terminate your account if you violate these terms. You may delete your account at any time by contacting <a href={`mailto:${SUPPORT_EMAIL}`} className="underline" style={{ color: "var(--accent)" }}>{SUPPORT_EMAIL}</a>.</p>
+            <p>We may suspend or terminate your account if you violate these terms. You can delete reference tracks yourself in the app. To delete your account and its data, email <a href={`mailto:${SUPPORT_EMAIL}`} className="underline" style={{ color: "var(--accent)" }}>{SUPPORT_EMAIL}</a> from the address on your account; we&apos;ll confirm when it&apos;s done.</p>
           </Section>
 
           <Section title="12. Governing Law">
