@@ -87,6 +87,7 @@ class BeatMindBridgeApp:
         self.latest = None
         self.updating = False
         self.update_attempted = None
+        self.checking_update = False
         config = load_config()
 
         # ── Fonts ──
@@ -150,6 +151,13 @@ class BeatMindBridgeApp:
         versions_link.pack(side="left")
         versions_link.bind("<Button-1>", lambda _e: self._open_changelog())
 
+        self.release_status = tk.Label(title_frame, text="Checking for updates…", font=self.font_small,
+                                       bg=BG, fg=TEXT_DIM, wraplength=360, justify='center')
+        self.release_status.pack(pady=(6, 0))
+        self.check_update_btn = ttk.Button(title_frame, text="Check again", style='Disconnect.TButton',
+                                           command=self._request_update_check, takefocus=True)
+        self.check_update_btn.pack(pady=(4, 0))
+
         # ── Login section ──
         form = tk.Frame(self.root, bg=BG_CARD, highlightbackground=BORDER,
                         highlightthickness=1, padx=24, pady=20)
@@ -198,13 +206,16 @@ class BeatMindBridgeApp:
             style='Music.TButton', cursor="hand2", takefocus=True,
             command=self._toggle_connection,
         )
-        self.connect_btn.pack(side='left', fill="x", expand=True)
-        self.disconnect_btn = ttk.Button(self.btn_frame, text='Disconnect',
+        self.connect_btn.pack(fill="x")
+        self.account_frame = tk.Frame(self.btn_frame, bg=BG)
+        self.disconnect_btn = ttk.Button(self.account_frame, text='Disconnect',
                                          style='Disconnect.TButton', command=self._disconnect,
-                                         takefocus=True)
-        self.sign_out_btn = ttk.Button(self.btn_frame, text='Sign out',
+                                         takefocus=True, width=15)
+        self.sign_out_btn = ttk.Button(self.account_frame, text='Sign out',
                                        style='Disconnect.TButton', command=self._sign_out,
-                                       takefocus=True)
+                                       takefocus=True, width=15)
+        self.disconnect_btn.pack(side='left', fill='x', expand=True, padx=(0, 4))
+        self.sign_out_btn.pack(side='left', fill='x', expand=True, padx=(4, 0))
 
         # ── Status ──
         status_frame = tk.Frame(self.root, bg=BG)
@@ -219,7 +230,7 @@ class BeatMindBridgeApp:
                                      font=self.font_small, bg=BG, fg=TEXT_DIM, wraplength=340, justify='left')
         self.status_label.pack(side="left")
 
-        # ── Update (installed only when the user clicks) ──
+        # ── Update (automatically installed when idle) ──
         self.update_frame = tk.Frame(self.root, bg=BG)
         update_text_frame = tk.Frame(self.update_frame, bg=BG)
         update_text_frame.pack(side="left", fill="x", expand=True)
@@ -394,8 +405,8 @@ class BeatMindBridgeApp:
         self.password_entry.pack_forget()
         self.sign_in_label.pack(fill='x', ipady=6, pady=(0, 4))
         self.connect_btn.config(state="normal", text=START_LABEL)
-        self.disconnect_btn.pack(side='right', padx=(8, 0))
-        self.sign_out_btn.pack(side='right', padx=(8, 0))
+        self.account_frame.pack(fill='x', pady=(8, 0))
+        self._fit_window()
         self.connect_btn.focus_set()
         self._set_status("Connected to BeatMind", SUCCESS)
 
@@ -423,8 +434,7 @@ class BeatMindBridgeApp:
         self.password_entry.config(state='normal')
         self.sign_in_label.pack_forget()
         self.password_entry.pack(fill='x', ipady=6, pady=(0, 4))
-        self.disconnect_btn.pack_forget()
-        self.sign_out_btn.pack_forget()
+        self.account_frame.pack_forget()
         self.connect_btn.config(state="normal", text=START_LABEL)
         self.connect_btn.focus_set()
         if self.bridge_token and message == 'Disconnected':
@@ -452,17 +462,45 @@ class BeatMindBridgeApp:
     def _check_updates(self):
         if self.closing:
             return
-        threading.Thread(target=self._fetch_update, daemon=True).start()
+        self._request_update_check()
         self.root.after(UPDATE_CHECK_MS, self._check_updates)
+
+    def _request_update_check(self):
+        if self.closing or self.updating or self.checking_update:
+            return
+        self.checking_update = True
+        self.release_status.config(text="Checking for updates…", fg=TEXT_DIM)
+        self.check_update_btn.config(state='disabled')
+        threading.Thread(target=self._fetch_update, daemon=True).start()
 
     def _fetch_update(self):
         try:
-            latest = updater.check(BRIDGE_VERSION)
+            latest = updater.latest_release(BRIDGE_VERSION)
         except Exception:
-            return  # Offline or bad metadata: try again at the next check.
-        if latest:
-            self._post(self._show_update, latest)
-            self._post(self._automatic_update)
+            self._post(self._update_check_failed)
+            return
+        self._post(self._show_release_status, latest)
+
+    def _update_check_failed(self):
+        self.checking_update = False
+        self.check_update_btn.config(state='normal')
+        self.release_status.config(text="Couldn’t check the latest version. Check again when online.", fg=TEXT_DIM)
+        self._fit_window()
+
+    def _show_release_status(self, latest):
+        self.checking_update = False
+        self.check_update_btn.config(state='normal')
+        if self.closing or self.updating:
+            return
+        if updater.version_tuple(latest['version']) > updater.version_tuple(BRIDGE_VERSION):
+            self.release_status.config(text=f"Update available · {latest['version']}", fg=ACCENT)
+            self._show_update(latest)
+            self._automatic_update()
+        else:
+            self.release_status.config(text=f"You’re up to date · Latest release {latest['version']}", fg=SUCCESS)
+            self.latest = None
+            self.update_frame.pack_forget()
+            self._fit_window()
 
     def _automatic_update(self):
         if self.closing or self.updating or not self.latest:
@@ -501,13 +539,14 @@ class BeatMindBridgeApp:
             self.update_label.config(text="A track is separating. Install when it finishes.", fg=TEXT_DIM)
             return
         self.updating = True
+        self.release_status.config(text=f"Updating to {self.latest['version']}…", fg=ACCENT)
+        self.check_update_btn.config(state='disabled')
         self.update_attempted = self.latest['version']
         self.connected = False
         self.busy = True
         self._set_status('Updating Bridge — reconnecting after installation...', ACCENT)
         self.connect_btn.config(state='disabled', text='Updating...')
-        self.disconnect_btn.pack_forget()
-        self.sign_out_btn.pack_forget()
+        self.account_frame.pack_forget()
         self.update_btn.config(state='disabled')
         threading.Thread(target=self._download_update, args=(self.latest,), daemon=True).start()
 
@@ -526,6 +565,8 @@ class BeatMindBridgeApp:
 
     def _update_failed(self, message):
         self.updating = False
+        self.release_status.config(text=f"Update failed · Still running {BRIDGE_VERSION}", fg=ERROR)
+        self.check_update_btn.config(state='normal')
         self._on_disconnected('Update failed. Your previous version is still installed. Press Start to reconnect.')
         self.update_label.config(text=message, fg=ERROR)
         self.update_btn.config(state='normal', text='Retry update')

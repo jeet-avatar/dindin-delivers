@@ -122,6 +122,48 @@ class SavedSignInTests(unittest.TestCase):
         self.assertLessEqual(frame.winfo_y() + frame.winfo_height(), self.app.root.winfo_height())
         self.assertGreaterEqual(self.app.root.winfo_height(), self.app.root.winfo_reqheight())
 
+    def test_account_controls_have_their_own_unclipped_row(self):
+        self.app, _ = make_app(None)
+        self.app._on_connected()
+        self.app.root.update_idletasks()
+        self.assertEqual(self.app.disconnect_btn.master, self.app.account_frame)
+        self.assertEqual(self.app.sign_out_btn.master, self.app.account_frame)
+        self.assertGreaterEqual(self.app.account_frame.winfo_y(),
+                                self.app.connect_btn.winfo_y() + self.app.connect_btn.winfo_height())
+        for widget in (self.app.disconnect_btn, self.app.sign_out_btn):
+            self.assertGreaterEqual(widget.winfo_width(), widget.winfo_reqwidth())
+            self.assertLessEqual(widget.winfo_x() + widget.winfo_width(), self.app.account_frame.winfo_width())
+        self.app._on_disconnected()
+        self.assertEqual(self.app.account_frame.winfo_manager(), '')
+
+    def test_latest_installed_release_is_explicit_even_without_an_update(self):
+        self.app, _ = make_app(None)
+        self.app._show_release_status({'version': bridge.BRIDGE_VERSION})
+        self.assertIn('up to date', self.app.release_status.cget('text'))
+        self.assertIn(bridge.BRIDGE_VERSION, self.app.release_status.cget('text'))
+        self.assertIsNone(self.app.latest)
+        self.assertEqual(self.app.update_frame.winfo_manager(), '')
+
+    def test_new_release_stays_visible_while_automatic_install_waits(self):
+        self.app, _ = make_app(None)
+        self.app.busy = True
+        self.app._show_release_status({'version':'9.9.9','url':'https://www.beatmind.io/x.dmg','sha256':'0'*64})
+        self.assertIn('9.9.9', self.app.release_status.cget('text'))
+        self.assertEqual(self.app.update_frame.winfo_manager(), 'pack')
+        self.assertFalse(self.app.updating)
+
+    def test_manual_check_is_single_flight_and_offline_status_is_retryable(self):
+        self.app, _ = make_app(None)
+        with patch.object(bridge_app.threading, 'Thread') as thread:
+            self.app._request_update_check()
+            self.app._request_update_check()
+        thread.assert_called_once()
+        self.assertTrue(self.app.check_update_btn.instate(['disabled']))
+        self.app._update_check_failed()
+        self.assertFalse(self.app.checking_update)
+        self.assertFalse(self.app.check_update_btn.instate(['disabled']))
+        self.assertIn('Couldn’t check', self.app.release_status.cget('text'))
+
     def test_update_waits_for_running_separation(self):
         self.app, _ = make_app(None)
         self.app._show_update({'version': '9.9.9', 'url': 'https://www.beatmind.io/x.dmg', 'sha256': '0' * 64})

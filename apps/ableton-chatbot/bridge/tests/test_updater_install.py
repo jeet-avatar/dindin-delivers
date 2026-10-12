@@ -76,7 +76,7 @@ class AutomaticUpdateTests(unittest.TestCase):
     def test_installation_immediately_clears_connected_state(self):
         import bridge_app
         app=self.make_app();app.connected=True
-        for name in ('connect_btn','disconnect_btn','sign_out_btn','update_btn','_set_status'):
+        for name in ('connect_btn','disconnect_btn','sign_out_btn','account_frame','release_status','check_update_btn','update_btn','_set_status'):
             setattr(app,name,MagicMock())
         with patch.object(bridge_app.threading,'Thread') as worker:
             bridge_app.BeatMindBridgeApp._install_update(app)

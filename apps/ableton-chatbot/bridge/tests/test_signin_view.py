@@ -12,7 +12,7 @@ class SignInViewTests(unittest.TestCase):
     def make_app(self):
         app = bridge_app.BeatMindBridgeApp.__new__(bridge_app.BeatMindBridgeApp)
         for name in ("password_var", "email_entry", "password_entry", "sign_in_label",
-                     "connect_btn", "disconnect_btn", "sign_out_btn", "_set_status"):
+                     "connect_btn", "disconnect_btn", "sign_out_btn", "account_frame", "_fit_window", "_set_status"):
             setattr(app, name, Mock())
         app.bridge_token = "fixture-token"
         app.updating = False

@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.3.19",
+    "date": "2026-10-12",
+    "notes": [
+      "Disconnect and Sign out have a separate row so both buttons remain visible.",
+      "The installed version and latest-release status stay visible, with a Check again button.",
+      "Update-check failures and installation progress are shown explicitly."
+    ]
+  },
+  {
     "version": "1.3.18",
     "date": "2026-10-12",
     "notes": [

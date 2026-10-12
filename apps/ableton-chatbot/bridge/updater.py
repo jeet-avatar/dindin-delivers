@@ -26,8 +26,8 @@ def version_tuple(text):
     return tuple(int(part) for part in re.findall(r"\d+", str(text))[:3]) or (0,)
 
 
-def check(current_version):
-    """The published release if it is newer than current_version, else None."""
+def latest_release(current_version):
+    """Fetch validated release metadata, including when already up to date."""
     request = Request(LATEST_URL, headers={"User-Agent": f"BeatMind-Bridge/{current_version}"})
     with urlopen(request, timeout=10, context=tls_context()) as response:
         latest = json.loads(response.read())
@@ -36,6 +36,12 @@ def check(current_version):
         raise ValueError("The update description is incomplete.")
     if not latest["url"].startswith("https://www.beatmind.io/"):
         raise ValueError("Updates are only accepted from www.beatmind.io.")
+    return latest
+
+
+def check(current_version):
+    """The published release if it is newer than current_version, else None."""
+    latest = latest_release(current_version)
     return latest if version_tuple(latest["version"]) > version_tuple(current_version) else None
 
 
