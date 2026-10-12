@@ -469,7 +469,7 @@ class BeatMindBridgeApp:
             return
         if self.update_attempted == self.latest['version']:
             return  # A failed automatic attempt stays visible; Retry remains available.
-        if self._separating() or self.busy:
+        if self._separating() or self.busy or (self.bridge and self.bridge.update_is_busy()):
             self.root.after(5000, self._automatic_update)
             return
         self._install_update()
@@ -479,7 +479,7 @@ class BeatMindBridgeApp:
         notes = str(latest.get('notes') or '').strip()
         whats_new = f" What's new: {notes}." if notes else ''
         self.update_label.config(text=f"BeatMind Bridge {latest['version']} is available.{whats_new} "
-                                      "Your Ableton set stays open.", fg=ACCENT)
+                                      "It will install automatically when Bridge is idle. Your Ableton set stays open.", fg=ACCENT)
         self.update_btn.config(state='normal')
         self.update_frame.pack(pady=(14, 0), fill="x", padx=24)
         self._fit_window()

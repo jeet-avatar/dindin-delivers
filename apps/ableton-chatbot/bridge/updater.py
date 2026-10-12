@@ -63,7 +63,8 @@ def install(latest, progress=lambda text: None):
     if target is None:
         raise RuntimeError("Download the new Bridge from beatmind.io; this copy cannot update itself.")
     # A copy launched directly from the read-only installer cannot replace itself.
-    if str(target).startswith('/Volumes/') or '/AppTranslocation/' in str(target):
+    if (str(target).startswith('/Volumes/') or '/AppTranslocation/' in str(target)
+            or not os.access(target.parent, os.W_OK)):
         target = Path.home() / 'Applications' / APP_NAME
         target.parent.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="beatmind-update-"))

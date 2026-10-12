@@ -143,6 +143,8 @@ class AbletonBridge:
         self.ws = None
         self.udp_transport = None
         self.pending_queries: dict[str, PendingQuery] = {}
+        self.active_commands = 0
+        self.last_mutation_at = time.monotonic()
         self.running = False
         self._recv_protocol = None
         self.on_connection = on_connection
@@ -219,7 +221,22 @@ class AbletonBridge:
                 if self.on_connection:
                     self.on_connection(False)
 
+    def update_is_busy(self):
+        """Wait for commands/imports and a quiet period before an automatic restart."""
+        return bool(self.active_commands or self.pending_queries or self.local.jobs or BACKGROUND_TASKS
+                    or time.monotonic() - self.last_mutation_at < 30)
+
     async def _handle_ws_message(self, raw: str):
+        self.active_commands += 1
+        previous_mutation = self.last_mutation_at
+        try:
+            await self._execute_ws_message(raw)
+        finally:
+            self.active_commands -= 1
+            if self.last_mutation_at != previous_mutation:
+                self.last_mutation_at = time.monotonic()
+
+    async def _execute_ws_message(self, raw: str):
         """Handle a command from the backend."""
         try:
             msg = json.loads(raw)
@@ -229,6 +246,10 @@ class AbletonBridge:
 
         msg_type = msg.get("type")
         request_id = msg.get("request_id", "unknown")
+        # Health checks and read-only inspection must not postpone updates forever.
+        read_only = msg_type in {'ping', 'osc_query'} or (msg_type == 'live_set' and msg.get('operation') == 'inspect')
+        if not read_only:
+            self.last_mutation_at = time.monotonic()
 
         if msg_type == "osc_send":
             # Fire-and-forget OSC message (no response expected)

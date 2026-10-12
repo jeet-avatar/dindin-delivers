@@ -35,6 +35,11 @@ class InstallTests(unittest.TestCase):
             target=self.run_install(folder,Path('/Volumes/BeatMind/BeatMind Bridge.app'))
             self.assertEqual(target,Path(folder)/'Applications'/'BeatMind Bridge.app')
             self.assertEqual((target/'version').read_text(),'new')
+    def test_non_writable_app_folder_uses_user_applications(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(updater.os,'access',return_value=False):
+            target=self.run_install(folder,Path('/Applications/BeatMind Bridge.app'))
+            self.assertEqual(target,Path(folder)/'Applications'/'BeatMind Bridge.app')
+            self.assertEqual((target/'version').read_text(),'new')
     def test_failed_swap_restores_previous_app(self):
         with tempfile.TemporaryDirectory() as folder:
             target=Path(folder)/'BeatMind Bridge.app'
@@ -56,7 +61,7 @@ class AutomaticUpdateTests(unittest.TestCase):
         app=object.__new__(bridge_app.BeatMindBridgeApp)
         app.closing=False;app.updating=False;app.busy=False
         app.latest={'version':'1.3.18'};app.update_attempted=None
-        app.root=MagicMock();app._separating=MagicMock(return_value=False)
+        app.bridge=None;app.root=MagicMock();app._separating=MagicMock(return_value=False)
         app._install_update=MagicMock()
         return app
     def test_separation_defers_installation_until_idle(self):
@@ -83,3 +88,32 @@ class AutomaticUpdateTests(unittest.TestCase):
         app._on_connected=MagicMock()
         app._connection_changed(True);app._on_connected.assert_not_called()
         self.assertFalse(app.connected)
+
+class CommandIdleTests(unittest.IsolatedAsyncioTestCase):
+    def make_bridge(self):
+        import bridge
+        connection=bridge.AbletonBridge(server_url='wss://example.invalid/ws',token='fixture')
+        connection.last_mutation_at=0
+        return connection
+    async def test_running_recording_blocks_automatic_update(self):
+        import asyncio
+        from unittest.mock import AsyncMock
+        connection=self.make_bridge();started=asyncio.Event();finish=asyncio.Event()
+        async def recording(raw):
+            started.set();await finish.wait()
+        connection._execute_ws_message=recording
+        task=asyncio.create_task(connection._handle_ws_message('{}'))
+        await started.wait();self.assertTrue(connection.update_is_busy())
+        finish.set();await task;self.assertEqual(connection.active_commands,0)
+    async def test_mutation_defers_update_but_ping_does_not(self):
+        from unittest.mock import AsyncMock
+        connection=self.make_bridge();connection._reply=AsyncMock();connection._send_osc=MagicMock()
+        await connection._handle_ws_message('{"type":"ping"}')
+        self.assertFalse(connection.update_is_busy())
+        await connection._handle_ws_message('{"type":"osc_send","address":"/live/test"}')
+        self.assertTrue(connection.update_is_busy())
+    async def test_background_import_blocks_update(self):
+        import bridge
+        connection=self.make_bridge()
+        with patch.object(bridge,'BACKGROUND_TASKS',{object()}):
+            self.assertTrue(connection.update_is_busy())
