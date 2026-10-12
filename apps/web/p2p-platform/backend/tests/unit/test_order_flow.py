@@ -384,8 +384,12 @@ class TestOrderCreation:
     """Test order creation endpoint"""
 
     @pytest.mark.asyncio
-    async def test_create_order_success(self, mock_db_session, mock_vendor, mock_menu_item, mock_customer):
+    async def test_create_order_success(self, monkeypatch, mock_db_session, mock_vendor, mock_menu_item, mock_customer):
         """Test successful order creation"""
+        # Food delivery is gated behind DELIVERY_ENABLED (order_flow.py:1221-1223) — current
+        # insurance only covers rideshare. This test exercises order-creation logic itself,
+        # not that gate, so it enables delivery for its own scope.
+        monkeypatch.setenv("DELIVERY_ENABLED", "true")
         # Create a simple menu item with real values (not MagicMock)
         class SimpleMenuItem:
             id = 1
@@ -440,8 +444,9 @@ class TestOrderCreation:
         mock_db_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_order_vendor_not_found(self, mock_db_session, mock_customer):
+    async def test_create_order_vendor_not_found(self, monkeypatch, mock_db_session, mock_customer):
         """Test order creation with non-existent vendor"""
+        monkeypatch.setenv("DELIVERY_ENABLED", "true")
         mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
         order_data = CreateOrderRequest(
@@ -460,8 +465,9 @@ class TestOrderCreation:
         assert "not found" in str(exc_info.value.detail).lower()
 
     @pytest.mark.asyncio
-    async def test_create_order_vendor_not_approved(self, mock_db_session, mock_vendor, mock_customer):
+    async def test_create_order_vendor_not_approved(self, monkeypatch, mock_db_session, mock_vendor, mock_customer):
         """Test order creation with non-approved vendor"""
+        monkeypatch.setenv("DELIVERY_ENABLED", "true")
         mock_vendor.onboarding_status = MagicMock()
         mock_vendor.onboarding_status.value = "pending"
         mock_db_session.query.return_value.filter.return_value.first.return_value = mock_vendor
@@ -482,8 +488,9 @@ class TestOrderCreation:
         assert "not accepting orders" in str(exc_info.value.detail).lower()
 
     @pytest.mark.asyncio
-    async def test_create_order_with_items_not_in_menu(self, mock_db_session, mock_vendor, mock_customer):
+    async def test_create_order_with_items_not_in_menu(self, monkeypatch, mock_db_session, mock_vendor, mock_customer):
         """Test order creation with items not in menu (uses provided data)"""
+        monkeypatch.setenv("DELIVERY_ENABLED", "true")
         mock_vendor.onboarding_status = MagicMock()
         mock_vendor.onboarding_status.value = "approved"
 

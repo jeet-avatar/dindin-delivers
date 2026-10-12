@@ -16703,8 +16703,12 @@ from checkr_service import router as checkr_router
 app.include_router(checkr_router)
 
 # Founding Member program ("Founding 10,000 per state") — $100 lifetime platform-fee lock
-from founding_members import router as founding_router
-app.include_router(founding_router)
+# TEMPORARILY DISABLED: founding_members.py is uncommitted/unverified — its own header
+# comment says it must be verified end-to-end in Stripe TEST mode before it's allowed to
+# take a real $100 from anyone. Re-enable once that verification happens and the file
+# (and its tests) are committed.
+# from founding_members import router as founding_router
+# app.include_router(founding_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create
