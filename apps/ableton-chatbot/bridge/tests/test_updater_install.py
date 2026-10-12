@@ -49,3 +49,37 @@ class InstallTests(unittest.TestCase):
             self.run_install(folder,target)
             self.assertEqual((target/'version').read_text(),'new')
             self.assertEqual((target.with_name(target.name+'.old')/'version').read_text(),'old')
+
+class AutomaticUpdateTests(unittest.TestCase):
+    def make_app(self):
+        import bridge_app
+        app=object.__new__(bridge_app.BeatMindBridgeApp)
+        app.closing=False;app.updating=False;app.busy=False
+        app.latest={'version':'1.3.18'};app.update_attempted=None
+        app.root=MagicMock();app._separating=MagicMock(return_value=False)
+        app._install_update=MagicMock()
+        return app
+    def test_separation_defers_installation_until_idle(self):
+        app=self.make_app();app._separating.return_value=True
+        app._automatic_update();app._install_update.assert_not_called()
+        app.root.after.assert_called_once_with(5000,app._automatic_update)
+        app._separating.return_value=False;app._automatic_update()
+        app._install_update.assert_called_once()
+    def test_failed_automatic_attempt_does_not_loop(self):
+        app=self.make_app();app.update_attempted='1.3.18'
+        app._automatic_update();app._install_update.assert_not_called()
+    def test_installation_immediately_clears_connected_state(self):
+        import bridge_app
+        app=self.make_app();app.connected=True
+        for name in ('connect_btn','disconnect_btn','sign_out_btn','update_btn','_set_status'):
+            setattr(app,name,MagicMock())
+        with patch.object(bridge_app.threading,'Thread') as worker:
+            bridge_app.BeatMindBridgeApp._install_update(app)
+        self.assertFalse(app.connected);self.assertTrue(app.updating)
+        self.assertIn('Updating Bridge',app._set_status.call_args.args[0])
+        worker.assert_called_once()
+    def test_late_connection_callback_cannot_restore_connected_while_updating(self):
+        app=self.make_app();app.updating=True;app.connected=False
+        app._on_connected=MagicMock()
+        app._connection_changed(True);app._on_connected.assert_not_called()
+        self.assertFalse(app.connected)

@@ -15,6 +15,7 @@ class SignInViewTests(unittest.TestCase):
                      "connect_btn", "disconnect_btn", "sign_out_btn", "_set_status"):
             setattr(app, name, Mock())
         app.bridge_token = "fixture-token"
+        app.updating = False
         return app
 
     def test_connected_replaces_empty_password_with_signed_in_message(self):
