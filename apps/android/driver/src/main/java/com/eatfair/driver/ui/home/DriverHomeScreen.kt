@@ -1,5 +1,8 @@
 package com.eatfair.driver.ui.home
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,18 +17,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.eatfair.driver.ui.theme.DollorDriverColors
+import com.eatfair.shared.model.rideshare.RideRequestForBidding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriverHomeScreen(
     navController: NavHostController,
-    driverName: String? = null
+    driverName: String? = null,
+    viewModel: DriverHomeViewModel = hiltViewModel()
 ) {
-    var isOnline by remember { mutableStateOf(true) }
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    // Surface server messages / errors (e.g. "Background check not passed...").
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearError()
+        }
+    }
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearMessage()
+        }
+    }
+
+    val isOnline = uiState.isOnline
 
     LazyColumn(
         modifier = Modifier
@@ -56,11 +80,18 @@ fun DriverHomeScreen(
                     )
                 }
 
-                // Online/Offline Toggle
+                // Online/Offline Toggle (real: PUT /api/auth/driver/online)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (uiState.isToggling) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = DollorDriverColors.Blue
+                        )
+                    }
                     Text(
                         text = if (isOnline) "Online" else "Offline",
                         style = MaterialTheme.typography.bodyMedium.copy(
@@ -70,7 +101,8 @@ fun DriverHomeScreen(
                     )
                     Switch(
                         checked = isOnline,
-                        onCheckedChange = { isOnline = it },
+                        onCheckedChange = { target -> viewModel.setOnline(target) },
+                        enabled = !uiState.isToggling,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = DollorDriverColors.White,
                             checkedTrackColor = DollorDriverColors.Green,
@@ -140,21 +172,21 @@ fun DriverHomeScreen(
                 StatCard(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.AttachMoney,
-                    value = "$127.50",
+                    value = "$" + String.format("%.2f", uiState.todayEarnings),
                     label = "Earnings",
                     color = DollorDriverColors.Green
                 )
                 StatCard(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.DirectionsCar,
-                    value = "8",
+                    value = uiState.todayRides.toString(),
                     label = "Rides",
                     color = DollorDriverColors.Blue
                 )
                 StatCard(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.AccessTime,
-                    value = "4.2h",
+                    value = String.format("%.1fh", uiState.todayHours),
                     label = "Online",
                     color = DollorDriverColors.Orange
                 )
@@ -182,28 +214,57 @@ fun DriverHomeScreen(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Map,
                     title = "Navigate",
-                    onClick = { /* TODO */ }
+                    onClick = {
+                        val ride = uiState.activeRide
+                        if (ride != null) {
+                            val label = Uri.encode(ride.pickup.address)
+                            val uri = Uri.parse(
+                                "geo:${ride.pickup.latitude},${ride.pickup.longitude}?q=" +
+                                    "${ride.pickup.latitude},${ride.pickup.longitude}($label)"
+                            )
+                            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                                setPackage("com.google.android.apps.maps")
+                            }
+                            if (intent.resolveActivity(context.packageManager) != null) {
+                                context.startActivity(intent)
+                            } else {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                            }
+                        } else {
+                            Toast.makeText(context, "No active ride to navigate", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 )
                 QuickActionCard(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.History,
                     title = "History",
-                    onClick = { /* TODO */ }
+                    onClick = { navController.navigate("earnings") }
                 )
                 QuickActionCard(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Support,
                     title = "Support",
-                    onClick = { /* TODO */ }
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                            data = Uri.parse("mailto:support@dollor.ai")
+                            putExtra(Intent.EXTRA_SUBJECT, "Dollor Driver Support")
+                        }
+                        if (intent.resolveActivity(context.packageManager) != null) {
+                            context.startActivity(intent)
+                        } else {
+                            Toast.makeText(context, "support@dollor.ai", Toast.LENGTH_LONG).show()
+                        }
+                    }
                 )
             }
         }
 
-        // Active Ride (placeholder)
+        // Active Ride
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Recent Activity",
+                text = if (uiState.activeRide != null) "Active Ride" else "Recent Activity",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold
                 ),
@@ -212,37 +273,158 @@ fun DriverHomeScreen(
         }
 
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DollorDriverColors.White)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+            val ride = uiState.activeRide
+            if (ride != null) {
+                ActiveRideCard(
+                    ride = ride,
+                    isActionInProgress = uiState.isRideActionInProgress,
+                    onArrived = { viewModel.markArrived() },
+                    onStart = { viewModel.startRide() },
+                    onComplete = { viewModel.completeRide() }
+                )
+            } else {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = DollorDriverColors.White)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.DirectionsCar,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = DollorDriverColors.Gray300
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "No recent rides",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = DollorDriverColors.Gray500
-                    )
-                    Text(
-                        text = "Complete rides to see them here",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = DollorDriverColors.Gray400
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DirectionsCar,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = DollorDriverColors.Gray300
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No active ride",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = DollorDriverColors.Gray500
+                        )
+                        Text(
+                            text = if (isOnline) "You'll see your matched ride here" else "Go online to receive requests",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = DollorDriverColors.Gray400
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ActiveRideCard(
+    ride: RideRequestForBidding,
+    isActionInProgress: Boolean,
+    onArrived: () -> Unit,
+    onStart: () -> Unit,
+    onComplete: () -> Unit
+) {
+    val status = ride.status ?: ""
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = DollorDriverColors.White)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.TripOrigin,
+                    contentDescription = null,
+                    tint = DollorDriverColors.Blue,
+                    modifier = Modifier.size(20.dp)
+                )
+                Column {
+                    Text("Pickup", style = MaterialTheme.typography.bodySmall, color = DollorDriverColors.Gray500)
+                    Text(
+                        ride.pickup.address,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = DollorDriverColors.Gray900
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = DollorDriverColors.Orange,
+                    modifier = Modifier.size(20.dp)
+                )
+                Column {
+                    Text("Dropoff", style = MaterialTheme.typography.bodySmall, color = DollorDriverColors.Gray500)
+                    Text(
+                        ride.dropoff.address,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = DollorDriverColors.Gray900
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Status-driven actions. MATCHED -> arrived then start; IN_PROGRESS -> complete.
+            when (status.lowercase()) {
+                "in_progress" -> {
+                    Button(
+                        onClick = onComplete,
+                        enabled = !isActionInProgress,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = DollorDriverColors.Green)
+                    ) { ActionButtonContent(isActionInProgress, "Complete Ride") }
+                }
+                else -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onArrived,
+                            enabled = !isActionInProgress,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("Arrived") }
+                        Button(
+                            onClick = onStart,
+                            enabled = !isActionInProgress,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = DollorDriverColors.Blue)
+                        ) { ActionButtonContent(isActionInProgress, "Start Ride") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionButtonContent(loading: Boolean, label: String) {
+    if (loading) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(20.dp),
+            color = DollorDriverColors.White,
+            strokeWidth = 2.dp
+        )
+    } else {
+        Text(label, fontWeight = FontWeight.Bold)
     }
 }
 

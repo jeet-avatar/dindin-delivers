@@ -39,14 +39,8 @@ import com.eatfair.app.ui.auth.LoginScreen
 import com.eatfair.app.ui.auth.RegisterScreen
 import com.eatfair.app.ui.auth.ResetCodeEntryScreen
 import com.eatfair.app.ui.auth.LegalAcceptanceScreen
-import com.eatfair.app.ui.cart.CartScreen
-import com.eatfair.app.ui.cart.CartViewModel
-import com.eatfair.app.ui.home.HomeScreen
-import com.eatfair.app.ui.home.HomeViewModel
 import com.eatfair.app.ui.notification.NotificationScreen
 import com.eatfair.app.ui.notification.NotificationViewModel
-import com.eatfair.app.ui.order.MyOrdersScreen
-import com.eatfair.app.ui.order.OrderTrackingScreen
 import com.eatfair.app.ui.profile.EditProfileScreen
 import com.eatfair.app.ui.profile.PrivacyPolicyScreen
 import com.eatfair.app.ui.profile.ProfileScreen
@@ -55,17 +49,9 @@ import com.eatfair.app.ui.profile.SettingsScreen
 import com.eatfair.app.ui.profile.TermsConditionsScreen
 import com.eatfair.shared.data.repository.DollorRepository
 import com.eatfair.app.ui.refer.ReferAndEarnScreen
-import com.eatfair.app.ui.restaurant.RestaurantListScreen
-import com.eatfair.app.ui.restaurant.RestaurantScreen
-import com.eatfair.app.ui.restaurant.RestaurantViewModel
 import com.eatfair.app.ui.rideshare.RideRequestScreen
-import com.eatfair.app.ui.search.SearchScreen
-import com.eatfair.app.ui.search.SearchViewModel
 import com.eatfair.app.ui.help.HelpSupportScreen
-import com.eatfair.app.ui.order.OrderSuccessScreen
-import com.eatfair.app.ui.order.OrderSuccessData
 import com.eatfair.app.ui.main.MainScreen
-import com.eatfair.app.ui.deals.DealsScreen
 
 @Composable
 fun NavigationGraph(
@@ -77,9 +63,7 @@ fun NavigationGraph(
     val authViewModel: AuthViewModel = hiltViewModel()
     val authState = authViewModel.authState.collectAsState().value
 
-    val cartViewModel: CartViewModel = hiltViewModel()
     val profileViewModel: ProfileViewModel = hiltViewModel()
-    val homeViewModel: HomeViewModel = hiltViewModel()
 
     val navController = rememberNavController()
 
@@ -139,36 +123,13 @@ fun NavigationGraph(
 
         authGraph(navController, authViewModel)
 
-        // Main Screen with Bottom Navigation (5 tabs: Home, Search, Deals, Orders, Profile)
+        // Main Screen with Bottom Navigation (rideshare-only: Ride + Profile)
         composable(route = Screen.Main.route) {
-            val searchViewModel: SearchViewModel = hiltViewModel()
-
             MainScreen(
-                homeViewModel = homeViewModel,
-                cartViewModel = cartViewModel,
-                searchViewModel = searchViewModel,
                 profileViewModel = profileViewModel,
-                onProfileClick = {
-                    navController.navigate(Screen.Profile.route)
-                },
-                onLocationClick = {
-                    navController.navigate(Screen.LocationMap.route)
-                },
-                onRestaurantClick = { restaurant ->
-                    navController.navigate(Screen.RestaurantFlow.createRoute(restaurant.id.toString()))
-                },
-                onViewCartClick = {
-                    navController.navigate(Screen.Cart.route)
-                },
-                onTrackOrderClick = { orderId ->
-                    navController.navigate(Screen.OrderTrackingScreen.createRoute(orderId))
-                },
-                onRideshareClick = {
-                    // Navigate directly to RideRequest - matches iOS RideRequestView
-                    navController.navigate(Screen.RideRequest.route)
-                },
-                onOrderHistoryClick = {
-                    navController.navigate(Screen.MyOrders.route)
+                onRideChatClick = { rideRequestId, driverName ->
+                    // Rideshare-only landing: open driver chat from the embedded ride screen
+                    navController.navigate(Screen.DriverChat.createRoute(rideRequestId, driverName))
                 },
                 onEditProfileClick = {
                     navController.navigate(Screen.EditProfile.route)
@@ -190,9 +151,6 @@ fun NavigationGraph(
                 },
                 onPaymentMethodClick = {
                     navController.navigate(Screen.PaymentMethods.route)
-                },
-                onFavoritesClick = {
-                    navController.navigate(Screen.Favorites.route)
                 },
                 onWhatDriversSeeClick = {
                     navController.navigate(Screen.WhatDriversSee.route)
@@ -219,158 +177,11 @@ fun NavigationGraph(
                 },
                 onLogoutClick = {
                     authViewModel.logout()
-                },
-                onSearchResultClick = { result ->
-                    navController.navigate(Screen.RestaurantFlow.createRoute(result.id.toString()))
-                },
-                onDealRestaurantClick = { restaurantId ->
-                    navController.navigate(Screen.RestaurantFlow.createRoute(restaurantId.toString()))
-                }
-            )
-        }
-
-        composable(route = Screen.Home.route) {
-            HomeScreen(
-                homeViewModel = homeViewModel,
-                cartViewModel = cartViewModel,
-                onProfileClick = {
-                    navController.navigate(Screen.Profile.route)
-                },
-                onLocationClick = {
-                    navController.navigate(Screen.LocationMap.route)
-                },
-                onSearchClick = { navController.navigate(Screen.Search.route) },
-                onCategoryClick = {},
-                onFoodItemClick = {},
-                onRestaurantClick = {
-                    navController.navigate(Screen.RestaurantFlow.createRoute(it.id.toString()))
-                },
-                onViewCartClick = {
-                    navController.navigate(Screen.Cart.route)
-                },
-                onTrackOrderClick = { orderId ->
-                    navController.navigate(Screen.OrderTrackingScreen.createRoute(orderId))
-                },
-                onRideshareClick = {
-                    // Navigate directly to RideRequest - matches iOS RideRequestView
-                    navController.navigate(Screen.RideRequest.route)
-                }
-            )
-        }
-
-        composable(route = Screen.Search.route) {
-            val searchViewModel: SearchViewModel = hiltViewModel()
-
-            SearchScreen(
-                searchViewModel = searchViewModel,
-                onBackClick = { navController.navigateUp() },
-                onRecentSearchClick = { search ->
-                    searchViewModel.searchByTerm(search)
-                },
-                onCuisineClick = { cuisine ->
-                    searchViewModel.searchByTerm(cuisine)
-                },
-                onSearchResultClick = { result ->
-                    navController.navigate(Screen.RestaurantFlow.createRoute(result.id.toString()))
-                }
-            )
-        }
-
-        composable(route = Screen.Cart.route) { backStackEntry ->
-
-            val selectedRestaurant by cartViewModel.cartRestaurant.collectAsState()
-
-            selectedRestaurant?.let { restaurant ->
-                CartScreen(
-                    cartViewModel = cartViewModel,
-                    onBackClick = { navController.navigateUp() },
-                    onAddMoreItems = {
-                        //check if can go back to restaurant screen
-                        navController.navigate(Screen.Restaurant.route) {
-                            popUpTo(Screen.Restaurant.route) {
-                                inclusive = true
-                            }
-                        }
-
-                    },
-                    onPlaceOrderSuccess = { newOrder ->
-                        navController.navigate(Screen.OrderTrackingScreen.createRoute(newOrder.orderId)) {
-                            popUpTo(Screen.Main.route) {
-                                inclusive = false
-                            }
-                        }
-                    },
-                )
-            }
-        }
-
-        composable(Screen.OrderTrackingScreen.route) { backStackEntry ->
-
-            val orderId = backStackEntry.arguments?.getString("orderId")
-
-            OrderTrackingScreen(
-                cartViewModel = cartViewModel,
-                onBackClick = {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Main.route) {
-                            inclusive = true
-                        }
-                    }
-                },
-                onCallPartner = {
-                    // Make phone call
-                },
-                onAddInstructions = {
-                    // Show instruction dialog
-                },
-            )
-        }
-
-        // Order Success Screen - Shown after successful order placement
-        composable(
-            route = Screen.OrderSuccess.route,
-            arguments = listOf(
-                navArgument("orderId") { type = NavType.StringType; defaultValue = "" },
-                navArgument("restaurantName") { type = NavType.StringType; defaultValue = "" },
-                navArgument("totalAmount") { type = NavType.FloatType; defaultValue = 0f },
-                navArgument("itemCount") { type = NavType.IntType; defaultValue = 0 }
-            )
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
-            val restaurantName = backStackEntry.arguments?.getString("restaurantName") ?: ""
-            val totalAmount = backStackEntry.arguments?.getFloat("totalAmount")?.toDouble() ?: 0.0
-            val itemCount = backStackEntry.arguments?.getInt("itemCount") ?: 0
-
-            OrderSuccessScreen(
-                orderData = OrderSuccessData(
-                    orderId = orderId,
-                    restaurantName = restaurantName,
-                    totalAmount = totalAmount,
-                    estimatedDelivery = "25-35 min",
-                    itemCount = itemCount
-                ),
-                onTrackOrder = {
-                    navController.navigate(Screen.OrderTrackingScreen.createRoute(orderId)) {
-                        popUpTo(Screen.Main.route) { inclusive = false }
-                    }
-                },
-                onContinueShopping = {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Main.route) { inclusive = true }
-                    }
-                },
-                onRateExperience = {
-                    // Navigate to rate screen (can be implemented later)
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Main.route) { inclusive = true }
-                    }
                 }
             )
         }
 
         addressGraph(navController)
-
-        restaurantGraph(navController, cartViewModel)
 
         rideshareGraph(navController)
 
@@ -732,14 +543,12 @@ fun NavGraphBuilder.profileGraph(
             ProfileScreen(
                 profileViewModel = profileViewModel,
                 onBackClick = { navController.navigateUp() },
-                onOrderHistoryClick = { navController.navigate(Screen.MyOrders.route) },
                 onEditProfileClick = { navController.navigate(Screen.EditProfile.route) },
                 onNotificationsClick = { navController.navigate(Screen.Notifications.route) },
                 onReferAndEarnClick = { navController.navigate(Screen.ReferAndEarn.route) },
                 onSavedAddressClick = { navController.navigate(Screen.SavedAddressesScreen.route) },
                 onSettingsClick = { navController.navigate(Screen.Settings.route) },
                 onPaymentMethodClick = { navController.navigate(Screen.PaymentMethods.route) },
-                onFavoritesClick = { navController.navigate(Screen.Favorites.route) },
                 onHelpSupportClick = { navController.navigate(Screen.HelpSupport.route) },
                 onWhatDriversSeeClick = { navController.navigate(Screen.WhatDriversSee.route) },
                 onYourPrivacyClick = { navController.navigate(Screen.YourPrivacy.route) },
@@ -751,37 +560,30 @@ fun NavGraphBuilder.profileGraph(
                         onError = { /* Error already shown in ProfileScreen */ }
                     )
                 },
+                onFoundingMemberClick = { navController.navigate(Screen.FoundingMember.route) },
                 onLogoutClick = { authViewModel.logout() }
             )
         }
 
-        composable(route = Screen.MyOrders.route) {
-            MyOrdersScreen(
-                onBackClick = { navController.navigateUp() },
-                onCartClick = { navController.navigate("cart") },
-                onStartOrderingClick = {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Main.route) {
-                            inclusive = true
-                        }
-                    }
-                },
-                onLoginRequired = {
-                    // Token expired - navigate to login screen
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
+        composable(route = Screen.FoundingMember.route) {
+            com.eatfair.app.ui.founding.FoundingMemberScreen(
+                onBackClick = { navController.navigateUp() }
             )
         }
 
         composable(Screen.EditProfile.route) {
+            val profileName by profileViewModel.userNameFlow.collectAsState(initial = "")
+            val profileEmail by profileViewModel.userEmailFlow.collectAsState(initial = "")
             EditProfileScreen(
-//                userName = userViewModel.userName,
-//                userEmail = userViewModel.userEmail,
+                userName = profileName ?: "",
+                userEmail = profileEmail ?: "",
+                // No phone cached locally; leave blank so a save doesn't overwrite with
+                // a placeholder. Backend skips empty name/phone.
+                userPhone = "",
                 onBackClick = { navController.navigateUp() },
-                onSaveClick = { name, email, phone, address ->
-//                    userViewModel.updateProfile(name, email, phone, address)
+                onSaveClick = { name, _, phone, _ ->
+                    // Backend only updates name and phone (PUT /api/customer/{id}/profile)
+                    profileViewModel.updateProfile(name, phone)
                     navController.navigateUp()
                 }
             )
@@ -819,6 +621,7 @@ fun NavGraphBuilder.profileGraph(
 
         // Settings Screen - Required for Google Play Store compliance
         composable(Screen.Settings.route) {
+            val settingsContext = LocalContext.current
             val emailVerificationState by authViewModel.emailVerificationState.collectAsState()
             var isEmailVerified by remember { mutableStateOf(false) }
 
@@ -842,6 +645,22 @@ fun NavGraphBuilder.profileGraph(
                 onPrivacyPolicyClick = { navController.navigate(Screen.PrivacyPolicy.route) },
                 onTermsClick = { navController.navigate(Screen.TermsConditions.route) },
                 onEmailVerificationClick = { navController.navigate(Screen.EmailVerification.route) },
+                onCaliforniaPrivacyClick = {
+                    // Open the public privacy policy page (covers CCPA/CPRA rights)
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(com.eatfair.shared.config.AppConfig.Legal.PRIVACY_POLICY_URL)
+                    )
+                    try {
+                        settingsContext.startActivity(intent)
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        android.widget.Toast.makeText(
+                            settingsContext,
+                            "No browser app found",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                },
                 isEmailVerified = isEmailVerified,
                 onDeleteAccount = { onSuccess, onError ->
                     authViewModel.deleteAccount(onSuccess, onError)
@@ -885,16 +704,6 @@ fun NavGraphBuilder.profileGraph(
             )
         }
 
-        // Favorites Screen
-        composable(Screen.Favorites.route) {
-            com.eatfair.app.ui.favorites.FavoritesScreen(
-                onBackClick = { navController.navigateUp() },
-                onRestaurantClick = { restaurantId ->
-                    navController.navigate(Screen.RestaurantFlow.createRoute(restaurantId.toString()))
-                }
-            )
-        }
-
         // Payment Methods Screen
         composable(Screen.PaymentMethods.route) {
             com.eatfair.app.ui.payment.PaymentMethodsScreen(
@@ -919,59 +728,6 @@ fun NavGraphBuilder.profileGraph(
         composable(Screen.SafetyFeatures.route) {
             com.eatfair.app.ui.privacy.SafetyFeaturesPage(
                 onBackClick = { navController.navigateUp() }
-            )
-        }
-    }
-}
-
-fun NavGraphBuilder.restaurantGraph(
-    navController: NavHostController,
-    cartViewModel: CartViewModel
-) {
-    val restaurantGraphRoute = "restaurant_flow?restaurantId={restaurantId}"
-    navigation(
-        startDestination = Screen.RestaurantList.route,
-        route = restaurantGraphRoute
-    ) {
-
-        composable(route = Screen.RestaurantList.route) { backStackEntry ->
-
-            val parentEntry = remember(backStackEntry) {
-                navController.getBackStackEntry(restaurantGraphRoute)
-            }
-            val restaurantViewModel: RestaurantViewModel = hiltViewModel(parentEntry)
-
-            RestaurantListScreen(
-                restaurantViewModel = restaurantViewModel,
-                onBackClick = { navController.navigateUp() },
-                onRestaurantClick = { restaurant ->
-                    restaurantViewModel.selectRestaurant(restaurant)
-                    navController.navigate(Screen.Restaurant.route)
-                }
-            )
-        }
-
-        composable(
-            route = Screen.Restaurant.route,
-            arguments = listOf(navArgument("restaurantId") {
-                type = NavType.StringType
-                defaultValue = ""
-                nullable = true
-            })
-        ) { backStackEntry ->
-
-            val parentEntry = remember(backStackEntry) {
-                navController.getBackStackEntry(restaurantGraphRoute)
-            }
-            val restaurantViewModel: RestaurantViewModel = hiltViewModel(parentEntry)
-
-            RestaurantScreen(
-                restaurantViewModel = restaurantViewModel,
-                cartViewModel = cartViewModel,
-                onBackClick = { navController.navigateUp() },
-                onViewCart = {
-                    navController.navigate(Screen.Cart.route)
-                }
             )
         }
     }

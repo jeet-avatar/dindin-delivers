@@ -50,7 +50,11 @@ fun EditProfileScreen(
     userAddress: String = "123 Main Street, New York",
     onBackClick: () -> Unit = {},
     onSaveClick: (String, String, String, String) -> Unit = { _, _, _, _ -> },
-    onChangePhotoClick: () -> Unit = {}
+    onChangePhotoClick: () -> Unit = {},
+    // Hidden by default: there is no customer profile-photo upload endpoint on the
+    // backend, so the change-photo control would be a dead button. Enable only once
+    // an upload endpoint exists.
+    showChangePhoto: Boolean = false
 ) {
     var name by remember { mutableStateOf(userName) }
     var email by remember { mutableStateOf(userEmail) }
@@ -95,20 +99,22 @@ fun EditProfileScreen(
                         )
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF8B5CF6))
-                            .clickable(onClick = onChangePhotoClick),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.CameraAlt,
-                            contentDescription = "Change Photo",
-                            modifier = Modifier.size(18.dp),
-                            tint = Color.White
-                        )
+                    if (showChangePhoto) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF8B5CF6))
+                                .clickable(onClick = onChangePhotoClick),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.CameraAlt,
+                                contentDescription = "Change Photo",
+                                modifier = Modifier.size(18.dp),
+                                tint = Color.White
+                            )
+                        }
                     }
                 }
             }

@@ -1,7 +1,9 @@
 package com.eatfair.app.ui.profile
 
 import com.eatfair.shared.data.local.SessionManager
+import com.eatfair.shared.data.repository.DollorRepository
 import android.net.Uri
+import android.util.Log
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,7 +17,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val dollorRepository: DollorRepository
 ) : ViewModel() {
 
     private val _profileImageUri = MutableStateFlow<Uri?>(null)
@@ -30,6 +33,21 @@ class ProfileViewModel @Inject constructor(
                 _profileImageUri.value = uriString?.toUri()
             }
             .launchIn(viewModelScope)
+    }
+
+    /**
+     * Persist profile changes to the backend (name / phone) via
+     * PUT /api/customer/{customerId}/profile, then refresh the locally cached name.
+     */
+    fun updateProfile(name: String, phone: String) {
+        viewModelScope.launch {
+            dollorRepository.updateCustomerProfile(name, phone)
+                .onSuccess {
+                    if (name.isNotBlank()) sessionManager.updateUserName(name)
+                    Log.d("ProfileViewModel", "Profile updated successfully")
+                }
+                .onFailure { Log.w("ProfileViewModel", "Profile update failed: ${it.message}") }
+        }
     }
 
     // Called from the UI when a new image is selected

@@ -63,6 +63,11 @@ fun LoginScreen(
     isLoading: Boolean = false,
     isGoogleLoading: Boolean = false,
     isAppleLoading: Boolean = false,
+    // Hidden by default: Sign in with Apple has no native Android SDK and no Apple
+    // OAuth web flow is wired here, so the button would be dead. The backend customer
+    // apple-auth route is built for the iOS native flow. Enable only once a real
+    // Android Apple OAuth flow exists.
+    showAppleSignIn: Boolean = false,
     errorMessage: String? = null
 ) {
     var email by remember { mutableStateOf("") }
@@ -156,48 +161,50 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             // Social Login Buttons
-            // Apple Sign In Button (Black)
-            Button(
-                onClick = onAppleSignInClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black
-                ),
-                shape = RoundedCornerShape(6.dp),
-                enabled = !isAppleLoading && !isLoading
-            ) {
-                if (isAppleLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Apple Logo (simplified)
-                        Text(
-                            text = "\uF8FF", // Apple logo unicode
-                            fontSize = 18.sp,
+            // Apple Sign In Button (Black) - hidden on Android (no Apple OAuth flow wired)
+            if (showAppleSignIn) {
+                Button(
+                    onClick = onAppleSignInClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(6.dp),
+                    enabled = !isAppleLoading && !isLoading
+                ) {
+                    if (isAppleLoading) {
+                        CircularProgressIndicator(
                             color = Color.White,
-                            fontWeight = FontWeight.Normal
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Continue with Apple",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White
-                        )
+                    } else {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Apple Logo (simplified)
+                            Text(
+                                text = "\uF8FF", // Apple logo unicode
+                                fontSize = 18.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Normal
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Continue with Apple",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
             // Google Sign In Button (White with border)
             OutlinedButton(

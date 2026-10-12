@@ -21,8 +21,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
@@ -37,8 +35,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -74,7 +71,7 @@ fun SettingsScreen(
     onDeleteAccount: (onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
     onAccountDeleted: () -> Unit
 ) {
-    var notificationsEnabled by remember { mutableStateOf(true) }
+    val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
     var deleteError by remember { mutableStateOf<String?>(null) }
@@ -129,33 +126,9 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Preferences Section
-            Text(
-                text = "Preferences",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.Black
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Language
-            SettingsMenuItem(
-                icon = Icons.Default.Language,
-                title = "Language",
-                subtitle = "English",
-                onClick = { }
-            )
-
-            // Notifications Toggle
-            SettingsMenuItemWithSwitch(
-                icon = Icons.Default.Notifications,
-                title = "Push Notifications",
-                checked = notificationsEnabled,
-                onCheckedChange = { notificationsEnabled = it }
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
+            // NOTE: "Language" selector and "Push Notifications" toggle were removed —
+            // neither was backed by any persistence/endpoint, so they were dead controls.
+            // Re-add once a language setting and a notification-preference endpoint exist.
 
             // Account Security Section
             Text(
@@ -222,12 +195,28 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Contact Support
+            // Contact Support - opens the device email client to support@dollor.ai
             SettingsMenuItem(
                 icon = Icons.Default.Email,
                 title = "Contact Support",
                 subtitle = "support@dollor.ai",
-                onClick = { }
+                onClick = {
+                    val emailIntent = android.content.Intent(
+                        android.content.Intent.ACTION_SENDTO,
+                        android.net.Uri.parse("mailto:support@dollor.ai")
+                    ).apply {
+                        putExtra(android.content.Intent.EXTRA_SUBJECT, "Dollor.ai Support Request")
+                    }
+                    try {
+                        context.startActivity(emailIntent)
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "No email app found. Contact support@dollor.ai",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -311,56 +300,6 @@ fun SettingsMenuItem(
                 contentDescription = "Navigate",
                 tint = Color(0xFF999999),
                 modifier = Modifier.size(24.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun SettingsMenuItemWithSwitch(
-    icon: ImageVector,
-    title: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    modifier = Modifier.size(24.dp),
-                    tint = Color(0xFF666666)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    text = title,
-                    fontSize = 15.sp,
-                    color = Color.Black
-                )
-            }
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFF4CAF50),
-                    uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = Color(0xFFE0E0E0)
-                )
             )
         }
     }

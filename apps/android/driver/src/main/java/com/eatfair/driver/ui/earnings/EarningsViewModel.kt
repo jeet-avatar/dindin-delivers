@@ -2,12 +2,13 @@ package com.eatfair.driver.ui.earnings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.eatfair.shared.data.remote.DollorApiService
-import com.eatfair.shared.model.DriverEarningsResponse
+import com.eatfair.shared.data.repository.DollorRepository
+import com.eatfair.shared.model.driver.DriverEarningsResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -15,49 +16,81 @@ data class EarningsUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val earnings: DriverEarningsResponse? = null,
-    val selectedPeriod: String = "week"
+    val selectedPeriod: String = "today",
+    val isRequestingPayout: Boolean = false,
+    val payoutMessage: String? = null
 )
 
+/**
+ * Backs the driver Earnings screen with real data from
+ * GET /api/drivers/{id}/earnings (auth handled by the repository), plus
+ * payout requests via POST /api/drivers/{id}/payouts.
+ */
 @HiltViewModel
 class EarningsViewModel @Inject constructor(
-    private val apiService: DollorApiService
+    private val repository: DollorRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EarningsUiState())
     val uiState: StateFlow<EarningsUiState> = _uiState.asStateFlow()
 
-    // TODO: Get from auth/session manager
-    private var driverId: Int = 1
-    private var authToken: String = ""
-
-    fun setDriverCredentials(driverId: Int, token: String) {
-        this.driverId = driverId
-        this.authToken = "Bearer $token"
+    init {
         loadEarnings()
     }
 
     fun loadEarnings() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-
-            try {
-                val response = apiService.getDriverEarnings(driverId, authToken)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    earnings = response,
-                    error = null
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load earnings"
-                )
-            }
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            repository.getDriverEarningsDetailed(_uiState.value.selectedPeriod)
+                .onSuccess { response ->
+                    _uiState.update { it.copy(isLoading = false, earnings = response, error = null) }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(isLoading = false, error = e.message ?: "Failed to load earnings")
+                    }
+                }
         }
     }
 
+    /** @param period one of "today", "week", "month" */
     fun selectPeriod(period: String) {
-        _uiState.value = _uiState.value.copy(selectedPeriod = period)
-        // Earnings data already contains all periods, just update selected
+        if (period == _uiState.value.selectedPeriod) return
+        _uiState.update { it.copy(selectedPeriod = period) }
+        loadEarnings()
+    }
+
+    fun requestPayout() {
+        val amount = _uiState.value.earnings?.availableBalance ?: 0.0
+        if (amount <= 0.0) {
+            _uiState.update { it.copy(payoutMessage = "No balance available to pay out yet.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRequestingPayout = true, payoutMessage = null) }
+            repository.requestDriverPayout(amount)
+                .onSuccess { resp ->
+                    _uiState.update {
+                        it.copy(
+                            isRequestingPayout = false,
+                            payoutMessage = resp.message ?: "Payout requested"
+                        )
+                    }
+                    loadEarnings()
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(isRequestingPayout = false, payoutMessage = e.message)
+                    }
+                }
+        }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
+    fun clearPayoutMessage() {
+        _uiState.update { it.copy(payoutMessage = null) }
     }
 }

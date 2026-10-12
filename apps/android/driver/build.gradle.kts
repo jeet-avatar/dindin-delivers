@@ -49,7 +49,7 @@ android {
         applicationId = "ai.dollor.driver"
         minSdk = 24
         targetSdk = 35
-        versionCode = 13
+        versionCode = 261008
         versionName = "1.0.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -150,6 +150,9 @@ dependencies {
 
     // Google Sign-In
     implementation(libs.play.services.auth)
+
+    // Stripe (Founding Member payment - reuses the customer app's PaymentSheet flow)
+    implementation(libs.stripe.android)
 
     // Networking for rideshare API
     implementation(libs.okhttp)

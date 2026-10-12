@@ -12,25 +12,6 @@ import retrofit2.http.*
 interface DollorApiService {
 
     // ==========================================
-    // PUBLIC ENDPOINTS (No Auth Required)
-    // ==========================================
-
-    /**
-     * Get list of published/approved restaurants for customer apps
-     * Uses /api/vendors/published endpoint which returns only approved & published restaurants
-     * Platform filter ensures only restaurants published for Android are returned
-     */
-    @GET("vendors/published")
-    suspend fun getRestaurants(
-        @Query("platform") platform: String = "android",
-        @Query("city") city: String? = null,
-        @Query("cuisine") cuisine: String? = null
-    ): RestaurantsListResponse
-
-    @GET("public/restaurants/{id}")
-    suspend fun getRestaurantById(@Path("id") id: Int): RestaurantDetail
-
-    // ==========================================
     // CUSTOMER AUTHENTICATION
     // ==========================================
 
@@ -78,12 +59,15 @@ interface DollorApiService {
 
     /**
      * Update customer profile
-     * Matches iOS: POST /customer/{customerId}/profile
+     * Backend route: PUT /api/customer/{customerId}/profile
+     * Backend reads name/phone as QUERY params (no request body), so this uses
+     * @PUT + @Query to match. Only name and phone are updatable server-side.
      */
-    @POST("customer/{customerId}/profile")
+    @PUT("customer/{customerId}/profile")
     suspend fun updateCustomerProfile(
         @Path("customerId") customerId: Int,
-        @Body request: UpdateCustomerProfileRequest,
+        @Query("name") name: String?,
+        @Query("phone") phone: String?,
         @Header("Authorization") token: String
     ): CustomerProfileResponse
 
@@ -137,106 +121,6 @@ interface DollorApiService {
     ): EmailVerificationStatusResponse
 
     // ==========================================
-    // CUSTOMER ORDERS
-    // ==========================================
-
-    @GET("customer/orders")
-    suspend fun getCustomerOrders(@Header("Authorization") token: String): List<Order>
-
-    @GET("customer/{customerId}/active-orders")
-    suspend fun getActiveOrders(
-        @Path("customerId") customerId: Int,
-        @Header("Authorization") token: String
-    ): ActiveOrdersResponse
-
-    @GET("customer/orders/{orderId}/track")
-    suspend fun trackOrder(
-        @Path("orderId") orderId: Int,
-        @Header("Authorization") token: String
-    ): OrderTrackingResponse
-
-    @POST("orders/create")
-    suspend fun createOrder(
-        @Body request: CreateOrderRequest,
-        @Header("Authorization") token: String
-    ): CreateOrderResponse
-
-    @POST("orders/{orderId}/tip-driver")
-    suspend fun tipDriver(
-        @Path("orderId") orderId: Int,
-        @Body request: TipRequest,
-        @Header("Authorization") token: String
-    ): GenericResponse
-
-    /**
-     * Cancel order - Matches iOS: POST /orders/{orderId}/cancel
-     */
-    @POST("orders/{orderId}/cancel")
-    suspend fun cancelOrder(
-        @Path("orderId") orderId: Int,
-        @Body request: CancelOrderRequest,
-        @Header("Authorization") token: String
-    ): GenericResponse
-
-    /**
-     * Get refund status - Matches iOS: GET /orders/{orderId}/refund-status
-     */
-    @GET("orders/{orderId}/refund-status")
-    suspend fun getRefundStatus(
-        @Path("orderId") orderId: Int,
-        @Header("Authorization") token: String
-    ): RefundStatusResponse
-
-    /**
-     * Get order modification - Matches iOS: GET /orders/{orderId}/modification
-     */
-    @GET("orders/{orderId}/modification")
-    suspend fun getOrderModification(
-        @Path("orderId") orderId: Int,
-        @Header("Authorization") token: String
-    ): OrderModificationResponse
-
-    /**
-     * Respond to order modification - Matches iOS: POST /orders/{orderId}/modification/respond
-     */
-    @POST("orders/{orderId}/modification/respond")
-    suspend fun respondToOrderModification(
-        @Path("orderId") orderId: Int,
-        @Body request: OrderModificationResponseRequest,
-        @Header("Authorization") token: String
-    ): GenericResponse
-
-    /**
-     * Mark items unavailable - Matches iOS: POST /orders/{orderId}/mark-unavailable
-     */
-    @POST("orders/{orderId}/mark-unavailable")
-    suspend fun markItemsUnavailable(
-        @Path("orderId") orderId: Int,
-        @Body request: MarkItemsUnavailableRequest,
-        @Header("Authorization") token: String
-    ): GenericResponse
-
-    @POST("customer/orders/{orderId}/rate-driver")
-    suspend fun rateDriver(
-        @Path("orderId") orderId: Int,
-        @Body request: DriverRatingRequest,
-        @Header("Authorization") token: String
-    ): GenericResponse
-
-    @POST("customer/orders/{orderId}/chat")
-    suspend fun sendOrderChat(
-        @Path("orderId") orderId: Int,
-        @Body request: ChatMessageRequest,
-        @Header("Authorization") token: String
-    ): GenericResponse
-
-    @GET("customer/orders/{orderId}/chat")
-    suspend fun getOrderChat(
-        @Path("orderId") orderId: Int,
-        @Header("Authorization") token: String
-    ): List<ChatMessage>
-
-    // ==========================================
     // CUSTOMER ADDRESSES
     // Aligned with iOS P2PAPIService (Uber/DoorDash pattern)
     // ==========================================
@@ -281,38 +165,6 @@ interface DollorApiService {
         @Path("addressId") addressId: Int,
         @Header("Authorization") token: String
     ): Address
-
-    // ==========================================
-    // CUSTOMER FAVORITES
-    // Aligned with iOS P2PAPIService (Uber/DoorDash pattern)
-    // ==========================================
-
-    @GET("customer/favorites/{customerId}")
-    suspend fun getFavorites(
-        @Path("customerId") customerId: Int,
-        @Header("Authorization") token: String
-    ): List<RestaurantApiResponse>
-
-    @POST("customer/favorites/{customerId}/{vendorId}")
-    suspend fun addFavorite(
-        @Path("customerId") customerId: Int,
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): GenericResponse
-
-    @DELETE("customer/favorites/{customerId}/{vendorId}")
-    suspend fun removeFavorite(
-        @Path("customerId") customerId: Int,
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): GenericResponse
-
-    @GET("customer/favorites/{customerId}/check/{vendorId}")
-    suspend fun checkFavorite(
-        @Path("customerId") customerId: Int,
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): FavoriteCheckResponse
 
     // ==========================================
     // CUSTOMER RIDESHARE
@@ -420,35 +272,6 @@ interface DollorApiService {
     ): PaymentCard
 
     // ==========================================
-    // PROMOTIONS & DEALS (Customer)
-    // Matches iOS P2PAPIService promotions
-    // ==========================================
-
-    /**
-     * Get active promotions for customers
-     * Matches iOS: GET /api/promotions/active
-     */
-    @GET("promotions/active")
-    suspend fun getActivePromotions(): ActivePromotionsResponse
-
-    /**
-     * Get featured deals for homepage
-     * Matches iOS: GET /promotions/featured
-     */
-    @GET("promotions/featured")
-    suspend fun getFeaturedDeals(): FeaturedDealsResponse
-
-    /**
-     * Apply promo code to order
-     * Matches iOS: POST /promotions/apply
-     */
-    @POST("promotions/apply")
-    suspend fun applyPromoCode(
-        @Body request: ApplyPromoCodeRequest,
-        @Header("Authorization") token: String
-    ): ApplyPromoCodeResponse
-
-    // ==========================================
     // DRIVER AUTHENTICATION
     // ==========================================
 
@@ -485,6 +308,27 @@ interface DollorApiService {
      */
     @POST("auth/driver/demo-login")
     suspend fun driverDemoLogin(@Body request: DemoLoginRequest): DriverLoginResponse
+
+    // ==========================================
+    // DRIVER DOCUMENT VERIFICATION (license/insurance photos)
+    // ==========================================
+    // Matches iOS: POST/GET /api/auth/driver/documents (self-service, token-scoped —
+    // NOT the by-id /drivers/{driverId}/documents pair below, which is a different,
+    // Persona-webhook-gated pipeline and leaves drivers_license/insurance flipped
+    // false until a separate admin/webhook step clears them).
+
+    @Multipart
+    @POST("auth/driver/documents")
+    suspend fun uploadDriverDocumentSelf(
+        @Part file: okhttp3.MultipartBody.Part,
+        @Part("document_type") documentType: okhttp3.RequestBody,
+        @Header("Authorization") token: String
+    ): DriverDocumentUploadResponse
+
+    @GET("auth/driver/documents")
+    suspend fun getDriverDocumentsStatusSelf(
+        @Header("Authorization") token: String
+    ): DriverDocumentsStatusResponse
 
     // ==========================================
     // DRIVER PROFILE
@@ -542,42 +386,8 @@ interface DollorApiService {
     ): GenericResponse
 
     // ==========================================
-    // DRIVER DELIVERIES
+    // DRIVER LOCATION
     // ==========================================
-
-    @GET("v2/driver/deliveries/available")
-    suspend fun getAvailableDeliveries(
-        @Header("Authorization") token: String
-    ): List<AvailableDelivery>
-
-    @GET("v2/driver/deliveries")
-    suspend fun getMyDeliveries(
-        @Header("Authorization") token: String
-    ): List<Delivery>
-
-    @GET("erp/driver/{driverId}/deliveries")
-    suspend fun getDriverDeliveries(
-        @Path("driverId") driverId: Int,
-        @Header("Authorization") token: String
-    ): List<Delivery>
-
-    @POST("v2/driver/deliveries/{deliveryId}/accept")
-    suspend fun acceptDelivery(
-        @Path("deliveryId") deliveryId: Int,
-        @Header("Authorization") token: String
-    ): DeliveryActionResponse
-
-    @POST("v2/driver/deliveries/{deliveryId}/pickup")
-    suspend fun markDeliveryPickedUp(
-        @Path("deliveryId") deliveryId: Int,
-        @Header("Authorization") token: String
-    ): DeliveryActionResponse
-
-    @POST("v2/driver/deliveries/{deliveryId}/complete")
-    suspend fun completeDelivery(
-        @Path("deliveryId") deliveryId: Int,
-        @Header("Authorization") token: String
-    ): DeliveryActionResponse
 
     @POST("driver/location")
     suspend fun updateDriverLocation(
@@ -586,82 +396,98 @@ interface DollorApiService {
     ): GenericResponse
 
     // ==========================================
-    // DRIVER DELIVERY DECISION (iOS Parity)
-    // Matches iOS delivery decision flow
+    // DRIVER RIDESHARE (REAL BACKEND - bid_routes.py /api/rides + main_new.py)
+    // These map to the production endpoints the web/iOS driver clients use.
+    // The v2/driver/rides/* methods below are legacy and not backed by the API.
     // ==========================================
 
     /**
-     * Start delivery decision flow
-     * Matches iOS: POST /driver/start-delivery-decision
+     * Go online / offline. Backend gates going online on approval + a passed
+     * background check and returns 403 with a `detail` message otherwise.
+     * PUT /api/auth/driver/online
      */
-    @POST("driver/start-delivery-decision")
-    suspend fun startDeliveryDecision(
-        @Body request: StartDeliveryDecisionRequest,
+    @PUT("auth/driver/online")
+    suspend fun setDriverOnline(
+        @Body request: com.eatfair.shared.model.rideshare.DriverOnlineRequest,
         @Header("Authorization") token: String
-    ): DeliveryDecisionResponse
+    ): com.eatfair.shared.model.rideshare.DriverOnlineResponse
 
     /**
-     * Make delivery decision (accept/reject)
-     * Matches iOS: POST /driver/make-delivery-decision
+     * Available ride requests to bid on.
+     * GET /api/rides/available
      */
-    @POST("driver/make-delivery-decision")
-    suspend fun makeDeliveryDecision(
-        @Body request: MakeDeliveryDecisionRequest,
-        @Header("Authorization") token: String
-    ): DeliveryDecisionResponse
+    @GET("rides/available")
+    suspend fun getAvailableRideRequests(
+        @Header("Authorization") token: String,
+        @Query("latitude") latitude: Double? = null,
+        @Query("longitude") longitude: Double? = null
+    ): com.eatfair.shared.model.rideshare.AvailableRideRequestsResponse
 
     /**
-     * Get delivery decision status
-     * Matches iOS: GET /driver/delivery-decision-status/{id}
+     * Driver's matched/in-progress rides.
+     * GET /api/rides/driver/active
      */
-    @GET("driver/delivery-decision-status/{decisionId}")
-    suspend fun getDeliveryDecisionStatus(
-        @Path("decisionId") decisionId: Int,
+    @GET("rides/driver/active")
+    suspend fun getDriverActiveRideRequests(
         @Header("Authorization") token: String
-    ): DeliveryDecisionStatusResponse
+    ): com.eatfair.shared.model.rideshare.DriverActiveRidesResponse
 
     /**
-     * Get pending delivery orders for driver
-     * Matches iOS: GET /erp/orders/driver/{driverId}/pending
+     * Submit a bid on a ride request (accepting a ride == bidding on it).
+     * POST /api/rides/request/{request_id}/bid
      */
-    @GET("erp/orders/driver/{driverId}/pending")
-    suspend fun getPendingDeliveryOrders(
+    @POST("rides/request/{requestId}/bid")
+    suspend fun submitRideBid(
+        @Path("requestId") requestId: Int,
+        @Body request: com.eatfair.shared.model.rideshare.SubmitRideBidRequest,
+        @Header("Authorization") token: String
+    ): com.eatfair.shared.model.rideshare.SubmitBidResponse
+
+    /** POST /api/rides/request/{id}/arrived */
+    @POST("rides/request/{requestId}/arrived")
+    suspend fun markRideRequestArrived(
+        @Path("requestId") requestId: Int,
+        @Header("Authorization") token: String
+    ): com.eatfair.shared.model.rideshare.RideStatusResponse
+
+    /** POST /api/rides/request/{id}/start */
+    @POST("rides/request/{requestId}/start")
+    suspend fun startRideRequest(
+        @Path("requestId") requestId: Int,
+        @Header("Authorization") token: String
+    ): com.eatfair.shared.model.rideshare.RideStatusResponse
+
+    /** POST /api/rides/request/{id}/complete */
+    @POST("rides/request/{requestId}/complete")
+    suspend fun completeRideRequest(
+        @Path("requestId") requestId: Int,
+        @Header("Authorization") token: String
+    ): com.eatfair.shared.model.rideshare.RideStatusResponse
+
+    /**
+     * Unified driver earnings with period breakdown.
+     * GET /api/drivers/{driver_id}/earnings?period=today|week|month|year
+     */
+    @GET("drivers/{driverId}/earnings")
+    suspend fun getDriverEarningsDetailed(
         @Path("driverId") driverId: Int,
+        @Query("period") period: String,
         @Header("Authorization") token: String
-    ): List<PendingDeliveryOrder>
+    ): com.eatfair.shared.model.driver.DriverEarningsResponse
 
     /**
-     * Mark order as picked up (ERP endpoint)
-     * Matches iOS: POST /erp/orders/{orderId}/picked-up
+     * Request a manual payout via Stripe Connect.
+     * POST /api/drivers/{driver_id}/payouts
      */
-    @POST("erp/orders/{orderId}/picked-up")
-    suspend fun markOrderPickedUp(
-        @Path("orderId") orderId: Int,
+    @POST("drivers/{driverId}/payouts")
+    suspend fun requestDriverPayout(
+        @Path("driverId") driverId: Int,
+        @Body request: com.eatfair.shared.model.driver.CreatePayoutRequest,
         @Header("Authorization") token: String
-    ): OrderActionResponse
-
-    /**
-     * Mark order as delivered (ERP endpoint)
-     * Matches iOS: POST /erp/orders/{orderId}/delivered
-     */
-    @POST("erp/orders/{orderId}/delivered")
-    suspend fun markOrderDelivered(
-        @Path("orderId") orderId: Int,
-        @Header("Authorization") token: String
-    ): OrderActionResponse
-
-    /**
-     * Unassign driver from delivery
-     * Matches iOS: POST /erp/orders/{orderId}/unassign-driver
-     */
-    @POST("erp/orders/{orderId}/unassign-driver")
-    suspend fun cancelDeliveryAssignment(
-        @Path("orderId") orderId: Int,
-        @Header("Authorization") token: String
-    ): GenericResponse
+    ): com.eatfair.shared.model.driver.CreatePayoutResponse
 
     // ==========================================
-    // DRIVER RIDESHARE
+    // DRIVER RIDESHARE (LEGACY v2 - not backed by API, kept for compatibility)
     // ==========================================
 
     @GET("v2/driver/rides/available")
@@ -773,375 +599,6 @@ interface DollorApiService {
     ): DriverBalanceResponse
 
     // ==========================================
-    // VENDOR/RESTAURANT AUTHENTICATION
-    // ==========================================
-
-    @FormUrlEncoded
-    @POST("auth/vendor/login")
-    suspend fun vendorLogin(
-        @Field("username") email: String,
-        @Field("password") password: String
-    ): VendorLoginResponse
-
-    @POST("auth/vendor/register")
-    suspend fun vendorRegister(@Body request: VendorRegisterRequest): VendorLoginResponse
-
-    @POST("auth/vendor/google-auth")
-    suspend fun vendorGoogleAuth(@Body request: GoogleAuthRequest): VendorLoginResponse
-
-    @POST("auth/vendor/apple-auth")
-    suspend fun vendorAppleAuth(@Body request: AppleAuthRequest): VendorLoginResponse
-
-    /**
-     * Demo login for vendor App Store review - server validates demo accounts
-     */
-    @POST("auth/vendor/demo-login")
-    suspend fun vendorDemoLogin(@Body request: DemoLoginRequest): VendorLoginResponse
-
-    /**
-     * Public vendor registration with full form data (matching Web 4-step form)
-     * Used by RegistrationScreen for complete vendor onboarding
-     * Backend: POST /api/vendors/public
-     */
-    @POST("vendors/public")
-    suspend fun vendorPublicRegister(@Body data: Map<String, @JvmSuppressWildcards Any>): VendorRegistrationResponse
-
-    /**
-     * Delete vendor account - required by App Store/Play Store policy
-     * Matches iOS: DELETE /vendors/{vendorId}/delete
-     */
-    @DELETE("vendors/{vendorId}/delete")
-    suspend fun deleteVendorAccount(
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): GenericResponse
-
-    // ==========================================
-    // VENDOR PROFILE & SETTINGS
-    // ==========================================
-
-    /**
-     * Get current vendor profile (uses auth token)
-     * Backend: GET /api/vendor/profile
-     */
-    @GET("vendor/profile")
-    suspend fun getVendorProfile(
-        @Header("Authorization") token: String
-    ): VendorProfileResponse
-
-    /**
-     * Get vendor by ID
-     * Backend: GET /api/vendors/{vendorId}
-     */
-    @GET("vendors/{vendorId}")
-    suspend fun getVendorById(
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): VendorProfileResponse
-
-    /**
-     * Update vendor profile (partial update)
-     * Backend: PATCH /api/vendors/{vendorId}
-     */
-    @PATCH("vendors/{vendorId}")
-    suspend fun updateVendorProfile(
-        @Path("vendorId") vendorId: Int,
-        @Body request: UpdateVendorProfileRequest,
-        @Header("Authorization") token: String
-    ): VendorProfileResponse
-
-    /**
-     * Update vendor operating hours
-     * Backend: PATCH /api/vendors/{vendorId} with operating_hours field
-     */
-    @PATCH("vendors/{vendorId}")
-    suspend fun updateVendorBusinessHours(
-        @Path("vendorId") vendorId: Int,
-        @Body request: UpdateBusinessHoursRequest,
-        @Header("Authorization") token: String
-    ): VendorProfileResponse
-
-    /**
-     * Update vendor notification preferences
-     * Backend: PATCH /api/vendors/{vendorId} with notification_preferences field
-     */
-    @PATCH("vendors/{vendorId}")
-    suspend fun updateVendorNotificationSettings(
-        @Path("vendorId") vendorId: Int,
-        @Body request: UpdateNotificationSettingsRequest,
-        @Header("Authorization") token: String
-    ): VendorProfileResponse
-
-    /**
-     * Update vendor online status
-     * Backend: PATCH /api/vendors/{vendorId} with is_online field
-     */
-    @PATCH("vendors/{vendorId}")
-    suspend fun updateVendorOnlineStatus(
-        @Path("vendorId") vendorId: Int,
-        @Body request: UpdateOnlineStatusRequest,
-        @Header("Authorization") token: String
-    ): VendorProfileResponse
-
-    // ==========================================
-    // VENDOR DOCUMENTS
-    // ==========================================
-
-    /**
-     * Get vendor documents
-     * Backend: GET /api/vendors/{vendorId}/documents
-     */
-    @GET("vendors/{vendorId}/documents")
-    suspend fun getVendorDocuments(
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): VendorDocumentsResponse
-
-    /**
-     * Upload vendor document
-     * Backend: POST /api/vendors/{vendorId}/documents
-     */
-    @Multipart
-    @POST("vendors/{vendorId}/documents")
-    suspend fun uploadVendorDocument(
-        @Path("vendorId") vendorId: Int,
-        @Part file: okhttp3.MultipartBody.Part,
-        @Part("document_type") documentType: okhttp3.RequestBody,
-        @Header("Authorization") token: String
-    ): DocumentUploadResponse
-
-    /**
-     * Delete vendor document
-     * Backend: DELETE /api/vendors/{vendorId}/documents/{documentId}
-     */
-    @DELETE("vendors/{vendorId}/documents/{documentId}")
-    suspend fun deleteVendorDocument(
-        @Path("vendorId") vendorId: Int,
-        @Path("documentId") documentId: Int,
-        @Header("Authorization") token: String
-    ): GenericResponse
-
-    // ==========================================
-    // VENDOR PAYOUTS
-    // ==========================================
-
-    /**
-     * Get vendor payout balance and settings
-     * Backend: GET /api/vendors/{vendorId}/payouts
-     */
-    @GET("vendors/{vendorId}/payouts")
-    suspend fun getVendorPayouts(
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): VendorPayoutsResponse
-
-    /**
-     * Update vendor bank account for payouts
-     * Backend: POST /api/vendors/{vendorId}/bank-account
-     */
-    @POST("vendors/{vendorId}/bank-account")
-    suspend fun updateVendorBankAccount(
-        @Path("vendorId") vendorId: Int,
-        @Body request: VendorBankAccountRequest,
-        @Header("Authorization") token: String
-    ): VendorPayoutsResponse
-
-    // ==========================================
-    // VENDOR ORDERS
-    // ==========================================
-
-    @GET("erp/orders/vendor/{vendorId}")
-    suspend fun getVendorOrders(
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): List<VendorOrder>
-
-    @GET("vendors/{vendorId}/orders")
-    suspend fun getVendorOrdersAlt(
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): List<VendorOrder>
-
-    /**
-     * Update order status - matches iOS and verified backend
-     * Use status values: confirmed, preparing, ready_for_pickup, cancelled
-     */
-    @PATCH("orders/{orderId}/status")
-    suspend fun updateOrderStatus(
-        @Path("orderId") orderId: Int,
-        @Query("status") status: String,
-        @Header("Authorization") token: String
-    ): OrderActionResponse
-
-    /**
-     * Accept order - alias for updateOrderStatus with status=confirmed
-     * Matches verified backend endpoint
-     */
-    @PATCH("orders/{orderId}/status")
-    suspend fun acceptOrder(
-        @Path("orderId") orderId: Int,
-        @Query("status") status: String = "confirmed",
-        @Header("Authorization") token: String
-    ): OrderActionResponse
-
-    /**
-     * Reject order via status update
-     */
-    @PATCH("orders/{orderId}/status")
-    suspend fun rejectOrder(
-        @Path("orderId") orderId: Int,
-        @Query("status") status: String = "cancelled",
-        @Header("Authorization") token: String
-    ): OrderActionResponse
-
-    /**
-     * Mark order ready for pickup
-     * Matches verified backend: PATCH /api/orders/{id}/status?status=ready_for_pickup
-     */
-    @PATCH("orders/{orderId}/status")
-    suspend fun markOrderReady(
-        @Path("orderId") orderId: Int,
-        @Query("status") status: String = "ready_for_pickup",
-        @Header("Authorization") token: String
-    ): OrderActionResponse
-
-    // ==========================================
-    // RESTAURANT ACCEPTANCE FLOW (3-minute window)
-    // ==========================================
-
-    /**
-     * Restaurant accepts an order within 3-minute window
-     * POST /api/erp/orders/{orderId}/restaurant-accept
-     */
-    @POST("erp/orders/{orderId}/restaurant-accept")
-    suspend fun restaurantAcceptOrder(
-        @Path("orderId") orderId: Int,
-        @Header("Authorization") token: String
-    ): OrderActionResponse
-
-    /**
-     * Restaurant declines an order within 3-minute window
-     * POST /api/erp/orders/{orderId}/restaurant-decline
-     */
-    @POST("erp/orders/{orderId}/restaurant-decline")
-    suspend fun restaurantDeclineOrder(
-        @Path("orderId") orderId: Int,
-        @Body reason: Map<String, String>,
-        @Header("Authorization") token: String
-    ): OrderActionResponse
-
-    // ==========================================
-    // DELIVERY DECISION FLOW (3-minute window)
-    // ==========================================
-
-    /**
-     * Restaurant accepts delivery (will self-deliver)
-     * POST /api/erp/orders/{orderId}/restaurant-accept-delivery
-     */
-    @POST("erp/orders/{orderId}/restaurant-accept-delivery")
-    suspend fun restaurantAcceptDelivery(
-        @Path("orderId") orderId: Int,
-        @Header("Authorization") token: String
-    ): OrderActionResponse
-
-    /**
-     * Restaurant declines delivery (send to driver pool)
-     * POST /api/erp/orders/{orderId}/restaurant-decline-delivery
-     */
-    @POST("erp/orders/{orderId}/restaurant-decline-delivery")
-    suspend fun restaurantDeclineDelivery(
-        @Path("orderId") orderId: Int,
-        @Header("Authorization") token: String
-    ): OrderActionResponse
-
-    // ==========================================
-    // VENDOR MENU MANAGEMENT
-    // ==========================================
-
-    @GET("vendors/{vendorId}/menu")
-    suspend fun getVendorMenu(
-        @Path("vendorId") vendorId: Int
-    ): List<MenuItem>
-
-    @GET("vendors/{vendorId}/menu/categories")
-    suspend fun getMenuCategories(
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): MenuCategoriesResponse
-
-    @POST("vendors/{vendorId}/menu")
-    suspend fun addMenuItem(
-        @Path("vendorId") vendorId: Int,
-        @Body item: CreateMenuItemRequest,
-        @Header("Authorization") token: String
-    ): MenuItem
-
-    @PUT("vendors/{vendorId}/menu/{itemId}")
-    suspend fun updateMenuItem(
-        @Path("vendorId") vendorId: Int,
-        @Path("itemId") itemId: Int,
-        @Body updates: UpdateMenuItemRequest,
-        @Header("Authorization") token: String
-    ): MenuItem
-
-    @PATCH("vendors/{vendorId}/menu/{itemId}")
-    suspend fun patchMenuItem(
-        @Path("vendorId") vendorId: Int,
-        @Path("itemId") itemId: Int,
-        @Body updates: Map<String, @JvmSuppressWildcards Any>,
-        @Header("Authorization") token: String
-    ): MenuItem
-
-    @DELETE("vendors/{vendorId}/menu/{itemId}")
-    suspend fun deleteMenuItem(
-        @Path("vendorId") vendorId: Int,
-        @Path("itemId") itemId: Int,
-        @Header("Authorization") token: String
-    ): Response<Unit>
-
-    // ==========================================
-    // VENDOR PROMOTIONS
-    // ==========================================
-
-    @GET("promotions/vendor/{vendorId}")
-    suspend fun getVendorPromotions(
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): PromotionsResponse
-
-    @POST("promotions/create")
-    suspend fun createPromotion(
-        @Query("vendor_id") vendorId: Int,
-        @Body promotion: CreatePromotionRequest,
-        @Header("Authorization") token: String
-    ): Promotion
-
-    @PUT("promotions/{promotionId}")
-    suspend fun updatePromotion(
-        @Path("promotionId") promotionId: Int,
-        @Body updates: Map<String, @JvmSuppressWildcards Any>,
-        @Header("Authorization") token: String
-    ): Promotion
-
-    @DELETE("promotions/{promotionId}")
-    suspend fun deletePromotion(
-        @Path("promotionId") promotionId: Int,
-        @Header("Authorization") token: String
-    ): Response<Unit>
-
-    @GET("promotions/analytics/{vendorId}")
-    suspend fun getPromotionAnalytics(
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): PromotionAnalyticsResponse
-
-    @GET("promotions/suggestions/{vendorId}")
-    suspend fun getPromotionSuggestions(
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): PromotionSuggestionsResponse
-
-    // ==========================================
     // PAYMENTS
     // ==========================================
 
@@ -1152,20 +609,6 @@ interface DollorApiService {
     ): PaymentIntentResponse
 
     // ==========================================
-    // ORDER TRACKING & DRIVER LOCATION
-    // ==========================================
-
-    @GET("erp/orders/{orderId}/full-tracking")
-    suspend fun getFullOrderTracking(
-        @Path("orderId") orderId: Int
-    ): FullOrderTrackingResponse
-
-    @GET("erp/orders/{orderId}/driver-location")
-    suspend fun getDriverLocation(
-        @Path("orderId") orderId: Int
-    ): DriverLocationResponse
-
-    // ==========================================
     // LEGAL & PUBLIC PAGES
     // ==========================================
 
@@ -1174,21 +617,6 @@ interface DollorApiService {
 
     @GET("legal/privacy-policy")
     suspend fun getPrivacyPolicy(): Response<String>
-
-    // ==========================================
-    // AI EMPLOYEES & ANALYTICS
-    // ==========================================
-
-    @GET("erp/analytics/ai-employees")
-    suspend fun getAIEmployeesStats(
-        @Header("Authorization") token: String
-    ): AIEmployeesStatsResponse
-
-    @GET("menu-verification/status/{vendorId}")
-    suspend fun getMenuVerificationStatus(
-        @Path("vendorId") vendorId: Int,
-        @Header("Authorization") token: String
-    ): MenuVerificationStatusResponse
 
     // ==========================================
     // PUSH NOTIFICATIONS
@@ -1203,4 +631,63 @@ interface DollorApiService {
         @Body request: RegisterPushTokenRequest,
         @Header("Authorization") token: String
     ): GenericResponse
+
+    // ==========================================
+    // DRIVER BACKGROUND CHECK (Checkr-Hosted)
+    // ==========================================
+
+    /**
+     * Initiate a Checkr-hosted background check. Returns a hosted `invitation_url`
+     * the driver opens (ACTION_VIEW) to complete ID + criminal + MVR screening.
+     * POST /api/checkr/background-check/initiate
+     */
+    @POST("checkr/background-check/initiate")
+    suspend fun initiateBackgroundCheck(
+        @Body request: CheckrInitiateRequest,
+        @Header("Authorization") token: String
+    ): CheckrInitiateResponse
+
+    /**
+     * Poll the driver's background check status (not_started / pending / clear).
+     * GET /api/checkr/background-check/{driverId}/status
+     */
+    @GET("checkr/background-check/{driverId}/status")
+    suspend fun getBackgroundCheckStatus(
+        @Path("driverId") driverId: Int,
+        @Header("Authorization") token: String
+    ): CheckrStatusResponse
+
+    // ==========================================
+    // FOUNDING MEMBERSHIP (Customer)
+    // ==========================================
+
+    /** GET /api/founding/status */
+    @GET("founding/status")
+    suspend fun getFoundingStatus(
+        @Header("Authorization") token: String
+    ): FoundingStatusResponse
+
+    /** POST /api/founding/join */
+    @POST("founding/join")
+    suspend fun joinFounding(
+        @Body request: FoundingJoinRequest,
+        @Header("Authorization") token: String
+    ): FoundingJoinResponse
+
+    // ==========================================
+    // FOUNDING MEMBERSHIP (Driver)
+    // ==========================================
+
+    /** GET /api/founding/driver/status */
+    @GET("founding/driver/status")
+    suspend fun getDriverFoundingStatus(
+        @Header("Authorization") token: String
+    ): FoundingStatusResponse
+
+    /** POST /api/founding/driver/join */
+    @POST("founding/driver/join")
+    suspend fun joinDriverFounding(
+        @Body request: FoundingJoinRequest,
+        @Header("Authorization") token: String
+    ): FoundingJoinResponse
 }

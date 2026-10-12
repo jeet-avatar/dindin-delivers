@@ -35,11 +35,16 @@ fun LoginScreen(
     loginState: LoginState,
     onLogin: (email: String, password: String) -> Unit,
     onGoogleSignInClick: () -> Unit,
-    onClearError: () -> Unit
+    onClearError: () -> Unit,
+    onForgotPassword: (email: String, onResult: (Boolean, String) -> Unit) -> Unit,
+    rememberedCredentials: Pair<String, String>? = null
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    // Prefills from the last successful login so a driver who lands back on this screen
+    // (logged out, session expired, reinstall) doesn't have to retype credentials.
+    var email by remember { mutableStateOf(rememberedCredentials?.first ?: "") }
+    var password by remember { mutableStateOf(rememberedCredentials?.second ?: "") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showForgotPassword by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
     val isLoading = loginState is LoginState.Loading
@@ -297,7 +302,10 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Forgot Password
-                    TextButton(onClick = { /* TODO: Forgot password */ }) {
+                    TextButton(
+                        onClick = { showForgotPassword = true },
+                        enabled = !isLoading
+                    ) {
                         Text(
                             text = "Forgot Password?",
                             color = DollorDriverColors.Blue,
@@ -307,28 +315,81 @@ fun LoginScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // NOTE: Driver self-registration ("Apply to Drive") has no in-app flow
+            // yet (no driver registration/onboarding screen exists in this module),
+            // so the row is intentionally omitted rather than left as a dead button.
+        }
+    }
 
-            // Register Link
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+    if (showForgotPassword) {
+        ForgotPasswordDialog(
+            initialEmail = email,
+            onDismiss = { showForgotPassword = false },
+            onSubmit = onForgotPassword
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ForgotPasswordDialog(
+    initialEmail: String,
+    onDismiss: () -> Unit,
+    onSubmit: (email: String, onResult: (Boolean, String) -> Unit) -> Unit
+) {
+    var resetEmail by remember { mutableStateOf(initialEmail) }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var resultMessage by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = { if (!isSubmitting) onDismiss() },
+        title = { Text("Reset Password") },
+        text = {
+            Column {
                 Text(
-                    text = "Don't have an account? ",
-                    color = DollorDriverColors.White.copy(alpha = 0.8f),
-                    style = MaterialTheme.typography.bodyMedium
+                    text = "Enter your account email and we'll send reset instructions.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = DollorDriverColors.Gray600
                 )
-                TextButton(onClick = { /* TODO: Register */ }) {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = resetEmail,
+                    onValueChange = { resetEmail = it },
+                    label = { Text("Email") },
+                    singleLine = true,
+                    enabled = !isSubmitting,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                resultMessage?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Apply to Drive",
-                        color = DollorDriverColors.White,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        )
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = DollorDriverColors.Blue
                     )
                 }
             }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !isSubmitting && resetEmail.isNotBlank(),
+                onClick = {
+                    isSubmitting = true
+                    resultMessage = null
+                    onSubmit(resetEmail.trim()) { _, message ->
+                        isSubmitting = false
+                        resultMessage = message
+                    }
+                }
+            ) {
+                Text(if (isSubmitting) "Sending..." else "Send")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onDismiss() }, enabled = !isSubmitting) {
+                Text("Close")
+            }
         }
-    }
+    )
 }

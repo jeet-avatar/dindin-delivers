@@ -1,5 +1,6 @@
 package com.eatfair.driver.ui.orders
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,31 +12,34 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.eatfair.driver.ui.theme.DollorDriverColors
-
-data class RideRequest(
-    val id: String,
-    val pickup: String,
-    val dropoff: String,
-    val distance: String,
-    val estimatedEarnings: String,
-    val customerName: String
-)
+import com.eatfair.shared.model.rideshare.RideRequestForBidding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AvailableOrdersScreen(
-    navController: NavHostController
+    navController: NavHostController,
+    viewModel: AvailableRidesViewModel = hiltViewModel()
 ) {
-    val sampleRides = remember {
-        listOf(
-            RideRequest("1", "800 N Alameda St, LA", "100 Spectrum Center Dr, Irvine", "42 mi", "$79.50", "John D."),
-            RideRequest("2", "123 Main St, Santa Monica", "456 Oak Ave, Pasadena", "28 mi", "$52.00", "Sarah M."),
-            RideRequest("3", "LAX Airport", "Downtown LA", "18 mi", "$35.00", "Mike R.")
-        )
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearError()
+        }
+    }
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearMessage()
+        }
     }
 
     Scaffold(
@@ -43,11 +47,16 @@ fun AvailableOrdersScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Available Orders",
+                        text = "Available Rides",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
                         )
                     )
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.load() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = DollorDriverColors.White,
@@ -56,35 +65,80 @@ fun AvailableOrdersScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(DollorDriverColors.Background),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .background(DollorDriverColors.Background)
         ) {
-            items(sampleRides) { ride ->
-                RideRequestCard(
-                    ride = ride,
-                    onAccept = { /* TODO: Accept ride */ },
-                    onDecline = { /* TODO: Decline ride */ }
-                )
-            }
+            when {
+                uiState.isLoading -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                        color = DollorDriverColors.Blue
+                    )
+                }
 
-            item {
-                Spacer(modifier = Modifier.height(80.dp))
+                uiState.rides.isEmpty() -> {
+                    EmptyRidesState(modifier = Modifier.align(Alignment.Center))
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(uiState.rides, key = { it.id }) { ride ->
+                            RideRequestCard(
+                                ride = ride,
+                                isAccepting = uiState.acceptingId == ride.id,
+                                onAccept = { viewModel.accept(ride) },
+                                onDecline = { viewModel.decline(ride) }
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(80.dp)) }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
+private fun EmptyRidesState(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.DirectionsCar,
+            contentDescription = null,
+            modifier = Modifier.size(48.dp),
+            tint = DollorDriverColors.Gray300
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "No ride requests right now",
+            style = MaterialTheme.typography.bodyLarge,
+            color = DollorDriverColors.Gray500
+        )
+        Text(
+            text = "Make sure you're online. New requests appear here.",
+            style = MaterialTheme.typography.bodySmall,
+            color = DollorDriverColors.Gray400
+        )
+    }
+}
+
+@Composable
 fun RideRequestCard(
-    ride: RideRequest,
+    ride: RideRequestForBidding,
+    isAccepting: Boolean,
     onAccept: () -> Unit,
     onDecline: () -> Unit
 ) {
+    val fare = ride.suggestedPrice
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -95,7 +149,7 @@ fun RideRequestCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header with earnings
+            // Header with customer + fare
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -111,7 +165,7 @@ fun RideRequestCard(
                         tint = DollorDriverColors.Blue
                     )
                     Text(
-                        text = ride.customerName,
+                        text = ride.customerName ?: "Rider",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Medium
                         ),
@@ -119,7 +173,7 @@ fun RideRequestCard(
                     )
                 }
                 Text(
-                    text = ride.estimatedEarnings,
+                    text = if (fare != null) "$" + String.format("%.2f", fare) else "--",
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold
                     ),
@@ -141,13 +195,9 @@ fun RideRequestCard(
                     modifier = Modifier.size(20.dp)
                 )
                 Column {
+                    Text("Pickup", style = MaterialTheme.typography.bodySmall, color = DollorDriverColors.Gray500)
                     Text(
-                        text = "Pickup",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = DollorDriverColors.Gray500
-                    )
-                    Text(
-                        text = ride.pickup,
+                        text = ride.pickup.address,
                         style = MaterialTheme.typography.bodyMedium,
                         color = DollorDriverColors.Gray900
                     )
@@ -168,13 +218,9 @@ fun RideRequestCard(
                     modifier = Modifier.size(20.dp)
                 )
                 Column {
+                    Text("Dropoff", style = MaterialTheme.typography.bodySmall, color = DollorDriverColors.Gray500)
                     Text(
-                        text = "Dropoff",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = DollorDriverColors.Gray500
-                    )
-                    Text(
-                        text = ride.dropoff,
+                        text = ride.dropoff.address,
                         style = MaterialTheme.typography.bodyMedium,
                         color = DollorDriverColors.Gray900
                     )
@@ -183,22 +229,45 @@ fun RideRequestCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Distance
+            // Distances
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Route,
-                    contentDescription = null,
-                    tint = DollorDriverColors.Gray400,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = ride.distance,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = DollorDriverColors.Gray500
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Route,
+                        contentDescription = null,
+                        tint = DollorDriverColors.Gray400,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "Trip ${ride.formattedTripDistance}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = DollorDriverColors.Gray500
+                    )
+                }
+                if (ride.distanceToPickupKm != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.NearMe,
+                            contentDescription = null,
+                            tint = DollorDriverColors.Gray400,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "${ride.formattedPickupDistance} away",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = DollorDriverColors.Gray500
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -210,6 +279,7 @@ fun RideRequestCard(
             ) {
                 OutlinedButton(
                     onClick = onDecline,
+                    enabled = !isAccepting,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
@@ -220,13 +290,22 @@ fun RideRequestCard(
                 }
                 Button(
                     onClick = onAccept,
+                    enabled = !isAccepting && fare != null,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = DollorDriverColors.Blue
                     )
                 ) {
-                    Text("Accept")
+                    if (isAccepting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = DollorDriverColors.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Accept")
+                    }
                 }
             }
         }

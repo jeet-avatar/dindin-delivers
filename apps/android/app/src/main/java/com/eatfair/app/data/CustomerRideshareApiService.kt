@@ -488,6 +488,111 @@ object CustomerRideshareApiService {
         }
     }
 
+    /**
+     * Add a tip for the driver on a completed ride (100% goes to the driver).
+     * Production: POST /api/rides/{ride_id}/tip  body: {"tip_amount": 3.00}
+     * Requires customer auth; backend only accepts tips on COMPLETED rides.
+     */
+    suspend fun tipRide(rideId: Int, tipAmount: Double): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val requestBody = mapOf("tip_amount" to tipAmount)
+
+            Log.d(TAG, "Posting tip $tipAmount for ride $rideId")
+
+            val request = Request.Builder()
+                .url("$BASE_URL/api/rides/$rideId/tip")
+                .post(gson.toJson(requestBody).toRequestBody(jsonMediaType))
+                .addHeader("Content-Type", "application/json")
+                .withCustomerAuth()
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            if (response.isSuccessful) {
+                Log.d(TAG, "Tip posted successfully for ride $rideId")
+                Result.success(Unit)
+            } else {
+                Log.e(TAG, "Failed to post tip: ${response.code} - $responseBody")
+                Result.failure(Exception("Failed to post tip: ${response.code}"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception posting tip", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Rate the driver for a completed ride (1-5 stars + optional tags/comment).
+     * Production: POST /api/rides/{ride_id}/rate
+     *
+     * Note: this client identifies the ride by the ride-request id everywhere
+     * (track / tip / rate all pass rideRequest.id); the backend resolves the
+     * request → ride, matching the tip endpoint's id convention.
+     */
+    suspend fun rateRide(
+        rideId: Int,
+        rating: Int,
+        comment: String?,
+        tags: List<String> = emptyList()
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val requestBody = mutableMapOf<String, Any>("rating" to rating)
+            if (!comment.isNullOrBlank()) requestBody["comment"] = comment
+            if (tags.isNotEmpty()) requestBody["tags"] = tags
+
+            Log.d(TAG, "Rating ride $rideId: $rating stars")
+
+            val request = Request.Builder()
+                .url("$BASE_URL/api/rides/$rideId/rate")
+                .post(gson.toJson(requestBody).toRequestBody(jsonMediaType))
+                .addHeader("Content-Type", "application/json")
+                .withCustomerAuth()
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            if (response.isSuccessful) {
+                Log.d(TAG, "Rating submitted for ride $rideId")
+                Result.success(Unit)
+            } else {
+                Log.e(TAG, "Failed to submit rating: ${response.code} - $responseBody")
+                Result.failure(Exception("Failed to submit rating: ${response.code}"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception submitting rating", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Fetch the itemized receipt for a completed ride request.
+     * Production: GET /api/rides/request/{request_id}/receipt
+     */
+    suspend fun getRideReceipt(rideRequestId: Int): Result<RideReceipt> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$BASE_URL/api/rides/request/$rideRequestId/receipt")
+                .get()
+                .withCustomerAuth()
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            if (response.isSuccessful && responseBody != null) {
+                Result.success(gson.fromJson(responseBody, RideReceipt::class.java))
+            } else {
+                Log.e(TAG, "Failed to get receipt: ${response.code}")
+                Result.failure(Exception("Failed to get receipt: ${response.code}"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception getting receipt", e)
+            Result.failure(e)
+        }
+    }
+
     // ==========================================
     // RIDE TRACKING APIs
     // ==========================================
@@ -783,4 +888,26 @@ data class FareNegotiationResponse(
     val status: String? = null,
     val proposedFare: Double? = null,
     val acceptedFare: Double? = null
+)
+
+/**
+ * Itemized receipt for a completed ride.
+ * GET /api/rides/request/{request_id}/receipt
+ * Fields are nullable so a partial backend payload still parses.
+ */
+data class RideReceipt(
+    @com.google.gson.annotations.SerializedName("ride_number") val rideNumber: String? = null,
+    @com.google.gson.annotations.SerializedName("ride_request_id") val rideRequestId: Int? = null,
+    @com.google.gson.annotations.SerializedName("date") val date: String? = null,
+    @com.google.gson.annotations.SerializedName("completed_at") val completedAt: String? = null,
+    @com.google.gson.annotations.SerializedName("pickup_address") val pickupAddress: String? = null,
+    @com.google.gson.annotations.SerializedName("dropoff_address") val dropoffAddress: String? = null,
+    @com.google.gson.annotations.SerializedName("distance_miles") val distanceMiles: Double? = null,
+    @com.google.gson.annotations.SerializedName("duration_minutes") val durationMinutes: Int? = null,
+    @com.google.gson.annotations.SerializedName("driver_name") val driverName: String? = null,
+    @com.google.gson.annotations.SerializedName("fare") val fare: Double? = null,
+    @com.google.gson.annotations.SerializedName("platform_fee") val platformFee: Double? = null,
+    @com.google.gson.annotations.SerializedName("tip") val tip: Double? = null,
+    @com.google.gson.annotations.SerializedName("total") val total: Double? = null,
+    @com.google.gson.annotations.SerializedName("payment_method") val paymentMethod: String? = null
 )

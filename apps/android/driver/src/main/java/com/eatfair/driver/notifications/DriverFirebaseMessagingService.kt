@@ -6,13 +6,31 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.eatfair.driver.MainActivity
 import com.eatfair.driver.R
+import com.eatfair.shared.data.repository.DollorRepository
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class DriverFirebaseMessagingService : FirebaseMessagingService() {
+
+    @Inject
+    lateinit var repository: DollorRepository
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    companion object {
+        private const val TAG = "DriverFCM"
+    }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
@@ -30,7 +48,19 @@ class DriverFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        // TODO: Send token to backend
+        // Register the FCM token with the backend so ride-request pushes reach
+        // this driver. Mirrors CustomerFirebaseMessagingService.sendTokenToServer.
+        Log.d(TAG, "FCM token refreshed: ${token.take(20)}...")
+        serviceScope.launch {
+            try {
+                repository.registerPushToken(token, "android", "fcm").fold(
+                    onSuccess = { Log.d(TAG, "Driver FCM token registered") },
+                    onFailure = { Log.e(TAG, "Failed to register FCM token: ${it.message}") }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error registering FCM token: ${e.message}")
+            }
+        }
     }
 
     private fun handleDataMessage(data: Map<String, String>) {

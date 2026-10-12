@@ -52,7 +52,7 @@ android {
         applicationId = "ai.dollor.customer"
         minSdk = 24
         targetSdk = 35
-        versionCode = 13
+        versionCode = 261008
         versionName = "1.0.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

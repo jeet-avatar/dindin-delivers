@@ -497,6 +497,80 @@ class RideRequestViewModel @Inject constructor(
         _selectedTipAmount.value = amount
     }
 
+    /**
+     * Post the selected tip to the driver once the ride is completed.
+     * No-op when no tip was selected. 100% of the tip goes to the driver.
+     * Backend: POST /api/rides/{ride_id}/tip (only accepted on COMPLETED rides).
+     *
+     * The ride-request id is used here deliberately: it is the same id the
+     * tracking endpoint uses and the backend resolves it to the underlying ride.
+     * Success/failure is now surfaced to the user (previously silently swallowed).
+     */
+    private fun submitTip() {
+        val tip = _selectedTipAmount.value
+        if (tip <= 0.0) return
+        val rideRequest = _activeRideRequest.value ?: return
+
+        viewModelScope.launch {
+            CustomerRideshareApiService.tipRide(rideRequest.id, tip)
+                .onSuccess {
+                    Log.d(TAG, "Tip of $tip posted for ride ${rideRequest.id}")
+                    showSuccessMessage("Your $${String.format("%.2f", tip)} tip was sent to your driver.")
+                }
+                .onFailure {
+                    Log.w(TAG, "Failed to post tip: ${it.message}")
+                    showErrorMessage("We couldn't send your tip: ${it.message ?: "please try again"}")
+                }
+        }
+    }
+
+    // ==========================================
+    // RATE DRIVER
+    // ==========================================
+
+    private val _ratingSubmitted = MutableStateFlow(false)
+    val ratingSubmitted: StateFlow<Boolean> = _ratingSubmitted.asStateFlow()
+
+    /**
+     * Submit a star rating (+ optional tags/comment) for the completed ride's
+     * driver. Backend: POST /api/rides/{ride_id}/rate.
+     */
+    fun rateDriver(rating: Int, tags: List<String>, comment: String?) {
+        val rideRequest = _activeRideRequest.value ?: return
+        viewModelScope.launch {
+            CustomerRideshareApiService.rateRide(rideRequest.id, rating, comment, tags)
+                .onSuccess {
+                    _ratingSubmitted.value = true
+                    showSuccessMessage("Thanks for rating your driver!")
+                }
+                .onFailure {
+                    showErrorMessage("Couldn't submit rating: ${it.message ?: "please try again"}")
+                }
+        }
+    }
+
+    // ==========================================
+    // RIDE RECEIPT
+    // ==========================================
+
+    private val _rideReceipt = MutableStateFlow<com.eatfair.app.data.RideReceipt?>(null)
+    val rideReceipt: StateFlow<com.eatfair.app.data.RideReceipt?> = _rideReceipt.asStateFlow()
+
+    private val _isLoadingReceipt = MutableStateFlow(false)
+    val isLoadingReceipt: StateFlow<Boolean> = _isLoadingReceipt.asStateFlow()
+
+    /** Load the itemized receipt for the completed ride request. */
+    fun loadReceipt() {
+        val rideRequest = _activeRideRequest.value ?: return
+        viewModelScope.launch {
+            _isLoadingReceipt.value = true
+            CustomerRideshareApiService.getRideReceipt(rideRequest.id)
+                .onSuccess { _rideReceipt.value = it }
+                .onFailure { showErrorMessage("Couldn't load receipt: ${it.message ?: "please try again"}") }
+            _isLoadingReceipt.value = false
+        }
+    }
+
     // ==========================================
     // CREATE RIDE REQUEST
     // ==========================================
@@ -689,6 +763,7 @@ class RideRequestViewModel @Inject constructor(
             "picked_up", "in_progress" -> _currentStep.value = RideStep.RIDE_IN_PROGRESS
             "completed" -> {
                 _currentStep.value = RideStep.COMPLETED
+                submitTip()
                 stopTrackingRide()
             }
         }

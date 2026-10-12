@@ -11,22 +11,17 @@ sealed class Screen(val route: String) {
     object LegalAcceptance : Screen("legal_acceptance")
     object EmailVerification : Screen("email_verification") // Email verification screen
     object Main: Screen("main") // Main screen with bottom navigation
+    // Home/Search/Cart/Restaurant routes are no longer registered in
+    // NavigationGraph (food delivery removed), but are kept because
+    // RideshareNavigationTest.kt still asserts they exist.
     object Home: Screen("home")
     object Search: Screen("search")
-    object Deals: Screen("deals") // Deals tab
-    object Orders: Screen("orders") // Orders tab (renamed from MyOrders for tab)
     object Profile: Screen("profile")
-    object MyOrders: Screen("my_orders")
     object EditProfile: Screen("edit_profile")
+    object FoundingMember: Screen("founding_member")
     object ReferAndEarn: Screen("refer_and_earn")
     object Notifications: Screen("notification")
-    object Favorites: Screen("favorites")
     object PaymentMethods: Screen("payment_methods")
-
-    object RestaurantFlow: Screen("restaurant_flow"){
-        fun createRoute(restaurantId: String) = "restaurant/$restaurantId"
-    }
-    object RestaurantList: Screen("restaurant_list")
 
     object Restaurant: Screen("restaurant/{restaurantId}"){
         fun createRoute(restaurantId: String) = "restaurant/$restaurantId"
@@ -67,10 +62,4 @@ sealed class Screen(val route: String) {
     object WhatDriversSee: Screen("what_drivers_see")
     object YourPrivacy: Screen("your_privacy")
     object SafetyFeatures: Screen("safety_features")
-
-    // Order Success screen
-    object OrderSuccess: Screen("order_success?orderId={orderId}&restaurantName={restaurantName}&totalAmount={totalAmount}&itemCount={itemCount}") {
-        fun createRoute(orderId: String, restaurantName: String, totalAmount: Double, itemCount: Int) =
-            "order_success?orderId=$orderId&restaurantName=$restaurantName&totalAmount=$totalAmount&itemCount=$itemCount"
-    }
 }

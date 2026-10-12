@@ -28,13 +28,13 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -91,7 +91,6 @@ fun ProfileScreen(
     onSavedAddressClick: () -> Unit = {},
     onEditProfileClick: () -> Unit = {},
     onPaymentMethodClick: () -> Unit = {},
-    onFavoritesClick: () -> Unit = {},
     onOrderHistoryClick: () -> Unit = {},
     onNotificationsClick: () -> Unit = {},
     onReferAndEarnClick: () -> Unit = {},
@@ -101,6 +100,7 @@ fun ProfileScreen(
     onYourPrivacyClick: () -> Unit = {},
     onSafetyFeaturesClick: () -> Unit = {},
     onDeleteAccountClick: () -> Unit = {},
+    onFoundingMemberClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {}
 ) {
     val profileImageUri by profileViewModel.profileImageUri.collectAsState()
@@ -214,9 +214,9 @@ fun ProfileScreen(
                 )
                 MenuDivider()
                 ProfileMenuRow(
-                    icon = Icons.Default.Favorite,
-                    title = "Favorites",
-                    onClick = onFavoritesClick
+                    icon = Icons.Default.WorkspacePremium,
+                    title = "Founding Member",
+                    onClick = onFoundingMemberClick
                 )
             }
 

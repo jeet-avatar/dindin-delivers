@@ -43,12 +43,22 @@ class LoginViewModel @Inject constructor(
         }
     }
 
+    /** Last-used email + password, if remembered, to prefill the login form. Empty if none. */
+    fun rememberedCredentials(): Pair<String, String>? {
+        val email = secureStorage.driverEmail
+        val password = secureStorage.driverRememberedPassword
+        return if (!email.isNullOrEmpty() && !password.isNullOrEmpty()) email to password else null
+    }
+
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _loginState.value = LoginState.Loading
 
             repository.driverLogin(email, password)
                 .onSuccess { response ->
+                    // Remember for next time so a driver who does land back on this screen
+                    // (logged out, session expired, reinstall) doesn't have to retype it.
+                    secureStorage.driverRememberedPassword = password
                     if (!secureStorage.hasAcceptedTerms) {
                         _loginState.value = LoginState.NeedsLegalAcceptance
                     } else {
@@ -108,5 +118,22 @@ class LoginViewModel @Inject constructor(
 
     fun clearError() {
         _loginState.value = LoginState.Idle
+    }
+
+    /**
+     * Request a driver password-reset email/code.
+     * Backend: POST /api/auth/driver/forgot-password
+     */
+    fun forgotPassword(email: String, onResult: (success: Boolean, message: String) -> Unit) {
+        viewModelScope.launch {
+            repository.driverForgotPassword(email).fold(
+                onSuccess = {
+                    onResult(true, "If an account exists for $email, reset instructions have been sent.")
+                },
+                onFailure = { e ->
+                    onResult(false, e.message ?: "Could not send reset email. Please try again.")
+                }
+            )
+        }
     }
 }

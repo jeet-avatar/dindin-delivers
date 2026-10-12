@@ -74,6 +74,43 @@ class DollorRepository @Inject constructor(
             Result.failure(Exception("An unexpected error occurred. Please try again."))
         }
     }
+
+    /**
+     * Like [safeApiCall] but surfaces the backend's FastAPI `detail` message on
+     * 4xx errors (e.g. "Background check not passed...") instead of a generic
+     * string. Used for driver rideshare actions where the server message is
+     * actionable for the driver.
+     */
+    private suspend fun <T> safeApiCallWithDetail(
+        apiCall: suspend () -> T
+    ): Result<T> {
+        return try {
+            Result.success(apiCall())
+        } catch (e: TokenExpiredException) {
+            Result.failure(Exception("Session expired. Please login again."))
+        } catch (e: HttpException) {
+            val detail = try {
+                val body = e.response()?.errorBody()?.string()
+                if (!body.isNullOrBlank()) {
+                    org.json.JSONObject(body).optString("detail").ifBlank { null }
+                } else null
+            } catch (ex: Exception) {
+                null
+            }
+            Log.e(TAG, "HTTP ${e.code()}: ${detail ?: e.message()}")
+            Result.failure(Exception(detail ?: "Request failed (${e.code()})"))
+        } catch (e: SocketTimeoutException) {
+            Result.failure(Exception("Request timed out. Please check your connection and try again."))
+        } catch (e: UnknownHostException) {
+            Result.failure(Exception("No internet connection. Please check your network and try again."))
+        } catch (e: IOException) {
+            Result.failure(Exception("Network error. Please check your connection and try again."))
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error: ${e.message}", e)
+            Result.failure(Exception(e.message ?: "An unexpected error occurred. Please try again."))
+        }
+    }
+
     // ==========================================
     // CUSTOMER AUTHENTICATION
     // ==========================================
@@ -197,6 +234,25 @@ class DollorRepository @Inject constructor(
             secureStorage.clearCustomerAuth()
         }
     }
+
+    /**
+     * Update customer profile (name / phone).
+     * Backend route: PUT /api/customer/{customerId}/profile (name & phone as query params).
+     */
+    suspend fun updateCustomerProfile(name: String?, phone: String?): Result<CustomerProfileResponse> =
+        withContext(Dispatchers.IO) {
+            val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
+            val customerId = secureStorage.customerId
+            safeApiCall {
+                apiService.updateCustomerProfile(
+                    customerId = customerId,
+                    name = name?.takeIf { it.isNotBlank() },
+                    phone = phone?.takeIf { it.isNotBlank() },
+                    token = token
+                )
+            }
+        }
 
     // ==========================================
     // EMAIL VERIFICATION
@@ -332,392 +388,6 @@ class DollorRepository @Inject constructor(
     }
 
     // ==========================================
-    // VENDOR AUTHENTICATION
-    // ==========================================
-
-    suspend fun vendorLogin(email: String, password: String): Result<VendorLoginResponse> =
-        withContext(Dispatchers.IO) {
-            safeApiCall {
-                val response = apiService.vendorLogin(email, password)
-                secureStorage.saveVendorAuth(
-                    token = response.accessToken,
-                    id = response.vendorId,
-                    name = response.businessName,
-                    email = response.email
-                )
-                response
-            }
-        }
-
-    fun vendorLogout() {
-        secureStorage.clearVendorAuth()
-    }
-
-    /**
-     * Demo login for vendor App Store review
-     * Server validates demo accounts without password
-     */
-    suspend fun vendorDemoLogin(email: String): Result<VendorLoginResponse> =
-        withContext(Dispatchers.IO) {
-            safeApiCall {
-                val response = apiService.vendorDemoLogin(DemoLoginRequest(email))
-                secureStorage.saveVendorAuth(
-                    token = response.accessToken,
-                    id = response.vendorId,
-                    name = response.businessName,
-                    email = response.email
-                )
-                response
-            }
-        }
-
-    /**
-     * Public vendor registration with full form data (matching Web 4-step form)
-     * Used by RegistrationScreen for complete vendor onboarding
-     * Calls /api/vendors/public endpoint
-     */
-    suspend fun vendorPublicRegister(data: Map<String, Any>): Result<VendorRegistrationResponse> =
-        withContext(Dispatchers.IO) {
-            safeApiCall {
-                apiService.vendorPublicRegister(data)
-            }
-        }
-
-    /**
-     * Delete vendor account - required by App Store/Play Store policy
-     * Matches iOS: P2PAPIService.deleteVendorAccount()
-     */
-    suspend fun deleteVendorAccount(): Result<Unit> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-            ?: return@withContext Result.failure(Exception("Not authenticated"))
-        val vendorId = secureStorage.vendorId
-        safeApiCall {
-            apiService.deleteVendorAccount(vendorId, token)
-            // Clear all auth data after successful deletion
-            secureStorage.clearVendorAuth()
-        }
-    }
-
-    // ==========================================
-    // VENDOR PROFILE & SETTINGS
-    // ==========================================
-
-    /**
-     * Get current vendor profile
-     */
-    suspend fun getVendorProfile(): Result<VendorProfileResponse> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-            ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-        safeApiCall {
-            apiService.getVendorProfile(token)
-        }
-    }
-
-    /**
-     * Get vendor profile by ID
-     */
-    suspend fun getVendorById(vendorId: Int): Result<VendorProfileResponse> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-            ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-        safeApiCall {
-            apiService.getVendorById(vendorId, token)
-        }
-    }
-
-    /**
-     * Update vendor profile
-     */
-    suspend fun updateVendorProfile(request: UpdateVendorProfileRequest): Result<VendorProfileResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-            val vendorId = secureStorage.vendorId
-            safeApiCall {
-                apiService.updateVendorProfile(vendorId, request, token)
-            }
-        }
-
-    /**
-     * Update vendor business hours
-     */
-    suspend fun updateVendorBusinessHours(operatingHours: String, prepTime: Int? = null): Result<VendorProfileResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-            val vendorId = secureStorage.vendorId
-            safeApiCall {
-                apiService.updateVendorBusinessHours(
-                    vendorId,
-                    UpdateBusinessHoursRequest(operatingHours, prepTime),
-                    token
-                )
-            }
-        }
-
-    /**
-     * Update vendor notification settings
-     */
-    suspend fun updateVendorNotificationSettings(preferences: NotificationPreferences): Result<VendorProfileResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-            val vendorId = secureStorage.vendorId
-            safeApiCall {
-                apiService.updateVendorNotificationSettings(
-                    vendorId,
-                    UpdateNotificationSettingsRequest(preferences),
-                    token
-                )
-            }
-        }
-
-    /**
-     * Update vendor online status
-     */
-    suspend fun updateVendorOnlineStatus(isOnline: Boolean): Result<VendorProfileResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-            val vendorId = secureStorage.vendorId
-            safeApiCall {
-                apiService.updateVendorOnlineStatus(
-                    vendorId,
-                    UpdateOnlineStatusRequest(isOnline),
-                    token
-                )
-            }
-        }
-
-    /**
-     * Get vendor documents
-     */
-    suspend fun getVendorDocuments(): Result<VendorDocumentsResponse> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-            ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-        val vendorId = secureStorage.vendorId
-        safeApiCall {
-            apiService.getVendorDocuments(vendorId, token)
-        }
-    }
-
-    /**
-     * Upload vendor document
-     */
-    suspend fun uploadVendorDocument(
-        file: okhttp3.MultipartBody.Part,
-        documentType: String
-    ): Result<DocumentUploadResponse> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-            ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-        val vendorId = secureStorage.vendorId
-        val docTypePart = documentType.toRequestBody("text/plain".toMediaTypeOrNull())
-        safeApiCall {
-            apiService.uploadVendorDocument(vendorId, file, docTypePart, token)
-        }
-    }
-
-    /**
-     * Delete vendor document
-     */
-    suspend fun deleteVendorDocument(documentId: Int): Result<GenericResponse> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-            ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-        val vendorId = secureStorage.vendorId
-        safeApiCall {
-            apiService.deleteVendorDocument(vendorId, documentId, token)
-        }
-    }
-
-    /**
-     * Get vendor payouts info
-     */
-    suspend fun getVendorPayouts(): Result<VendorPayoutsResponse> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-            ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-        val vendorId = secureStorage.vendorId
-        safeApiCall {
-            apiService.getVendorPayouts(vendorId, token)
-        }
-    }
-
-    /**
-     * Update vendor bank account
-     */
-    suspend fun updateVendorBankAccount(request: VendorBankAccountRequest): Result<VendorPayoutsResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-            val vendorId = secureStorage.vendorId
-            safeApiCall {
-                apiService.updateVendorBankAccount(vendorId, request, token)
-            }
-        }
-
-    // ==========================================
-    // PUBLIC ENDPOINTS (No Auth)
-    // ==========================================
-
-    suspend fun getRestaurants(city: String? = null, cuisine: String? = null): Result<List<RestaurantApiResponse>> =
-        withContext(Dispatchers.IO) {
-            safeApiCall {
-                apiService.getRestaurants(platform = "android", city = city, cuisine = cuisine).restaurants
-            }
-        }
-
-    suspend fun getRestaurantById(id: Int): Result<RestaurantDetail> =
-        withContext(Dispatchers.IO) {
-            safeApiCall {
-                apiService.getRestaurantById(id)
-            }
-        }
-
-    suspend fun getVendorMenu(vendorId: Int): Result<List<MenuItem>> =
-        withContext(Dispatchers.IO) {
-            safeApiCall {
-                apiService.getVendorMenu(vendorId)
-            }
-        }
-
-    // ==========================================
-    // VENDOR MENU MANAGEMENT
-    // ==========================================
-
-    suspend fun addMenuItem(vendorId: Int, request: CreateMenuItemRequest): Result<MenuItem> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-
-            // Validate menu item
-            val validation = request.validate()
-            if (!validation.isValid()) {
-                return@withContext Result.failure(
-                    IllegalArgumentException(validation.getErrorsOrNull()?.joinToString(", ") ?: "Invalid menu item")
-                )
-            }
-
-            safeApiCall {
-                apiService.addMenuItem(vendorId, request, token)
-            }
-        }
-
-    suspend fun updateMenuItem(vendorId: Int, itemId: Int, request: UpdateMenuItemRequest): Result<MenuItem> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-            safeApiCall {
-                apiService.updateMenuItem(vendorId, itemId, request, token)
-            }
-        }
-
-    suspend fun patchMenuItem(vendorId: Int, itemId: Int, updates: Map<String, Any>): Result<MenuItem> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-            safeApiCall {
-                apiService.patchMenuItem(vendorId, itemId, updates, token)
-            }
-        }
-
-    suspend fun deleteMenuItem(vendorId: Int, itemId: Int): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-            safeApiCall {
-                val response = apiService.deleteMenuItem(vendorId, itemId, token)
-                if (response.isSuccessful) {
-                    Unit
-                } else {
-                    throw Exception("Failed to delete menu item: ${response.code()}")
-                }
-            }
-        }
-
-    suspend fun getMenuCategories(vendorId: Int): Result<MenuCategoriesResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated as vendor"))
-            safeApiCall {
-                apiService.getMenuCategories(vendorId, token)
-            }
-        }
-
-    // ==========================================
-    // CUSTOMER ORDERS
-    // ==========================================
-
-    suspend fun getCustomerOrders(): Result<List<Order>> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
-            ?: return@withContext Result.failure(Exception("Not authenticated"))
-        safeApiCall {
-            apiService.getCustomerOrders(token)
-        }
-    }
-
-    suspend fun getActiveOrders(): Result<ActiveOrdersResponse> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
-            ?: return@withContext Result.failure(Exception("Not authenticated"))
-        val customerId = secureStorage.customerId
-        safeApiCall {
-            apiService.getActiveOrders(customerId, token)
-        }
-    }
-
-    suspend fun createOrder(request: CreateOrderRequest): Result<CreateOrderResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-
-            // Validate order before submission
-            val validation = request.validate()
-            if (!validation.isValid()) {
-                return@withContext Result.failure(
-                    IllegalArgumentException(validation.getErrorsOrNull()?.joinToString(", ") ?: "Invalid order")
-                )
-            }
-
-            safeApiCall {
-                apiService.createOrder(request, token)
-            }
-        }
-
-    suspend fun trackOrder(orderId: Int): Result<OrderTrackingResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall {
-                apiService.trackOrder(orderId, token)
-            }
-        }
-
-    // ==========================================
-    // ORDER CHAT
-    // ==========================================
-
-    /**
-     * Get chat messages for an order
-     */
-    suspend fun getOrderChat(orderId: Int): Result<List<ChatMessage>> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall {
-                apiService.getOrderChat(orderId, token)
-            }
-        }
-
-    /**
-     * Send a chat message for an order
-     */
-    suspend fun sendOrderChat(orderId: Int, request: ChatMessageRequest): Result<GenericResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall {
-                apiService.sendOrderChat(orderId, request, token)
-            }
-        }
-
-    // ==========================================
     // CUSTOMER ADDRESSES
     // ==========================================
 
@@ -790,38 +460,6 @@ class DollorRepository @Inject constructor(
         }
 
     // ==========================================
-    // CUSTOMER FAVORITES
-    // ==========================================
-
-    suspend fun getFavorites(): Result<List<RestaurantApiResponse>> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
-            ?: return@withContext Result.failure(Exception("Not authenticated"))
-        val customerId = secureStorage.customerId
-        safeApiCall {
-            apiService.getFavorites(customerId, token)
-        }
-    }
-
-    suspend fun addFavorite(vendorId: Int): Result<GenericResponse> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
-            ?: return@withContext Result.failure(Exception("Not authenticated"))
-        val customerId = secureStorage.customerId
-        safeApiCall {
-            apiService.addFavorite(customerId, vendorId, token)
-        }
-    }
-
-    suspend fun removeFavorite(vendorId: Int): Result<GenericResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            val customerId = secureStorage.customerId
-            safeApiCall {
-                apiService.removeFavorite(customerId, vendorId, token)
-            }
-        }
-
-    // ==========================================
     // RIDESHARE - CUSTOMER
     // ==========================================
 
@@ -888,52 +526,8 @@ class DollorRepository @Inject constructor(
     }
 
     // ==========================================
-    // DRIVER DELIVERIES
+    // DRIVER LOCATION
     // ==========================================
-
-    suspend fun getAvailableDeliveries(): Result<List<AvailableDelivery>> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall {
-                apiService.getAvailableDeliveries(token)
-            }
-        }
-
-    suspend fun getMyDeliveries(): Result<List<Delivery>> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
-            ?: return@withContext Result.failure(Exception("Not authenticated"))
-        safeApiCall {
-            apiService.getMyDeliveries(token)
-        }
-    }
-
-    suspend fun acceptDelivery(deliveryId: Int): Result<DeliveryActionResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall {
-                apiService.acceptDelivery(deliveryId, token)
-            }
-        }
-
-    suspend fun markDeliveryPickedUp(deliveryId: Int): Result<DeliveryActionResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall {
-                apiService.markDeliveryPickedUp(deliveryId, token)
-            }
-        }
-
-    suspend fun completeDelivery(deliveryId: Int): Result<DeliveryActionResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall {
-                apiService.completeDelivery(deliveryId, token)
-            }
-        }
 
     suspend fun updateDriverLocation(lat: Double, lng: Double): Result<GenericResponse> =
         withContext(Dispatchers.IO) {
@@ -960,6 +554,155 @@ class DollorRepository @Inject constructor(
         val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
             ?: return@withContext Result.failure(Exception("Not authenticated"))
         safeApiCall { apiService.acceptRide(rideId, token) }
+    }
+
+    // ==========================================
+    // DRIVER DOCUMENT VERIFICATION (license/insurance photos)
+    // ==========================================
+    // Self-service pair matching iOS P2PAPIService.uploadDriverDocument /
+    // getDriverDocumentsStatus — NOT uploadVendorDocument's by-id/vendor cousin above.
+
+    /**
+     * Upload a driver verification document photo (license, insurance, or vehicle
+     * registration). Sets the matching boolean immediately server-side (main_new.py:6683-6690) —
+     * unlike the by-id endpoint, there's no separate webhook/admin review step.
+     */
+    suspend fun uploadDriverDocument(
+        file: okhttp3.MultipartBody.Part,
+        documentType: String
+    ): Result<DriverDocumentUploadResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        val docTypePart = documentType.toRequestBody("text/plain".toMediaTypeOrNull())
+        safeApiCallWithDetail {
+            apiService.uploadDriverDocumentSelf(file, docTypePart, token)
+        }
+    }
+
+    /** Current upload status for license/insurance/background-check, for resuming onboarding. */
+    suspend fun getDriverDocumentsStatus(): Result<DriverDocumentsStatusResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCall { apiService.getDriverDocumentsStatusSelf(token) }
+    }
+
+    // ==========================================
+    // DRIVER RIDESHARE (REAL BACKEND - bid-based)
+    // ==========================================
+
+    /**
+     * Toggle driver online/offline. Returns the resulting online state.
+     * Surfaces the backend's 403 detail (approval / background-check gate).
+     */
+    suspend fun setDriverOnline(isOnline: Boolean): Result<Boolean> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCallWithDetail {
+            apiService.setDriverOnline(
+                com.eatfair.shared.model.rideshare.DriverOnlineRequest(isOnline),
+                token
+            ).isOnline
+        }
+    }
+
+    /** Available ride requests the driver can bid on. */
+    suspend fun getAvailableRideRequests(
+        latitude: Double? = null,
+        longitude: Double? = null
+    ): Result<List<com.eatfair.shared.model.rideshare.RideRequestForBidding>> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCall { apiService.getAvailableRideRequests(token, latitude, longitude).availableRequests }
+    }
+
+    /** Driver's matched / in-progress rides. */
+    suspend fun getDriverActiveRideRequests():
+        Result<List<com.eatfair.shared.model.rideshare.RideRequestForBidding>> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCall { apiService.getDriverActiveRideRequests(token).activeRides }
+    }
+
+    /** Submit a bid (accept a ride by bidding on it). Surfaces backend detail. */
+    suspend fun submitRideBid(
+        requestId: Int,
+        proposedPrice: Double,
+        estimatedArrivalMinutes: Int? = null,
+        message: String? = null
+    ): Result<com.eatfair.shared.model.rideshare.SubmitBidResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        val driverId = secureStorage.driverId
+        safeApiCallWithDetail {
+            apiService.submitRideBid(
+                requestId,
+                com.eatfair.shared.model.rideshare.SubmitRideBidRequest(
+                    driverId = driverId,
+                    proposedPrice = proposedPrice,
+                    estimatedArrivalMinutes = estimatedArrivalMinutes,
+                    message = message
+                ),
+                token
+            )
+        }
+    }
+
+    /** Mark arrived at pickup for an active (matched) ride. */
+    suspend fun markRideRequestArrived(requestId: Int):
+        Result<com.eatfair.shared.model.rideshare.RideStatusResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCallWithDetail { apiService.markRideRequestArrived(requestId, token) }
+    }
+
+    /** Start an active (matched) ride. */
+    suspend fun startRideRequest(requestId: Int):
+        Result<com.eatfair.shared.model.rideshare.RideStatusResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCallWithDetail { apiService.startRideRequest(requestId, token) }
+    }
+
+    /** Complete an in-progress ride. */
+    suspend fun completeRideRequest(requestId: Int):
+        Result<com.eatfair.shared.model.rideshare.RideStatusResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCallWithDetail { apiService.completeRideRequest(requestId, token) }
+    }
+
+    /**
+     * Unified driver earnings with multi-period breakdown.
+     * @param period one of "today", "week", "month", "year"
+     */
+    suspend fun getDriverEarningsDetailed(period: String = "today"):
+        Result<com.eatfair.shared.model.driver.DriverEarningsResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        val driverId = secureStorage.driverId
+        safeApiCall { apiService.getDriverEarningsDetailed(driverId, period, token) }
+    }
+
+    /** Request a payout for the given amount (standard = free, 2-3 days). */
+    suspend fun requestDriverPayout(
+        amount: Double,
+        method: String = "standard"
+    ): Result<com.eatfair.shared.model.driver.CreatePayoutResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        val driverId = secureStorage.driverId
+        safeApiCallWithDetail {
+            apiService.requestDriverPayout(
+                driverId,
+                com.eatfair.shared.model.driver.CreatePayoutRequest(amount = amount, method = method),
+                token
+            )
+        }
+    }
+
+    /** Send a driver password reset email/code. */
+    suspend fun driverForgotPassword(email: String): Result<GenericResponse> = withContext(Dispatchers.IO) {
+        safeApiCall { apiService.driverForgotPassword(PasswordResetRequest(email)) }
     }
 
     suspend fun markRideArrived(rideId: Int): Result<RideActionResponse> =
@@ -1080,121 +823,15 @@ class DollorRepository @Inject constructor(
     }
 
     // ==========================================
-    // VENDOR ORDERS
-    // ==========================================
-
-    suspend fun getVendorOrders(): Result<List<VendorOrder>> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-            ?: return@withContext Result.failure(Exception("Not authenticated"))
-        val vendorId = secureStorage.vendorId
-        safeApiCall { apiService.getVendorOrders(vendorId, token) }
-    }
-
-    /**
-     * Update order status - generic method for any status change
-     * Matches iOS updateOrderStatus and verified production backend
-     */
-    suspend fun updateOrderStatus(orderId: Int, status: String): Result<OrderActionResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall { apiService.updateOrderStatus(orderId, status, token) }
-        }
-
-    suspend fun acceptOrder(orderId: Int): Result<OrderActionResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall { apiService.acceptOrder(orderId, "confirmed", token) }
-        }
-
-    suspend fun rejectOrder(orderId: Int, reason: String): Result<OrderActionResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall { apiService.rejectOrder(orderId, "cancelled", token) }
-        }
-
-    suspend fun markOrderReady(orderId: Int): Result<OrderActionResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall { apiService.markOrderReady(orderId, "ready_for_pickup", token) }
-        }
-
-    // ==========================================
-    // RESTAURANT ACCEPTANCE FLOW (3-minute window)
-    // ==========================================
-
-    /**
-     * Restaurant accepts an order within 3-minute window
-     */
-    suspend fun restaurantAcceptOrder(orderId: Int): Result<OrderActionResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall { apiService.restaurantAcceptOrder(orderId, token) }
-        }
-
-    /**
-     * Restaurant declines an order within 3-minute window
-     */
-    suspend fun restaurantDeclineOrder(orderId: Int, reason: String = "Restaurant unavailable"): Result<OrderActionResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall { apiService.restaurantDeclineOrder(orderId, mapOf("reason" to reason), token) }
-        }
-
-    // ==========================================
-    // DELIVERY DECISION FLOW (3-minute window)
-    // ==========================================
-
-    /**
-     * Restaurant accepts delivery (will self-deliver)
-     */
-    suspend fun restaurantAcceptDelivery(orderId: Int): Result<OrderActionResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall { apiService.restaurantAcceptDelivery(orderId, token) }
-        }
-
-    /**
-     * Restaurant declines delivery (send to driver pool)
-     */
-    suspend fun restaurantDeclineDelivery(orderId: Int): Result<OrderActionResponse> =
-        withContext(Dispatchers.IO) {
-            val token = secureStorage.getAuthHeader(SecureStorage.UserType.VENDOR)
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
-            safeApiCall { apiService.restaurantDeclineDelivery(orderId, token) }
-        }
-
-    /**
-     * Get single order details by ID
-     * Fetches from vendor orders list and filters by order ID
-     */
-    suspend fun getOrderDetails(orderId: Int): Result<VendorOrder> =
-        withContext(Dispatchers.IO) {
-            getVendorOrders().fold(
-                onSuccess = { orders ->
-                    orders.find { it.id == orderId }
-                        ?.let { Result.success(it) }
-                        ?: Result.failure(Exception("Order not found"))
-                },
-                onFailure = { Result.failure(it) }
-            )
-        }
-
-    // ==========================================
     // PAYMENTS
     // ==========================================
 
     suspend fun createPaymentIntent(
         amount: Int,
-        currency: String = "usd"
+        currency: String = "usd",
+        userType: SecureStorage.UserType = SecureStorage.UserType.CUSTOMER
     ): Result<PaymentIntentResponse> = withContext(Dispatchers.IO) {
-        val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
+        val token = secureStorage.getAuthHeader(userType)
             ?: return@withContext Result.failure(Exception("Not authenticated"))
         safeApiCall {
             val request = CreatePaymentIntentRequest(amount, currency)
@@ -1223,6 +860,73 @@ class DollorRepository @Inject constructor(
 
     val vendorName: String?
         get() = secureStorage.vendorName
+
+    // ==========================================
+    // DRIVER BACKGROUND CHECK (Checkr-Hosted)
+    // ==========================================
+
+    /**
+     * Start the Checkr-hosted background check for the logged-in driver.
+     * Surfaces the backend `detail` on 4xx so the compliance screen can show it.
+     */
+    suspend fun initiateBackgroundCheck(): Result<CheckrInitiateResponse> =
+        withContext(Dispatchers.IO) {
+            val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
+            val driverId = secureStorage.driverId
+            safeApiCallWithDetail {
+                apiService.initiateBackgroundCheck(CheckrInitiateRequest(driverId), token)
+            }
+        }
+
+    /** Poll the driver's background check status (not_started / pending / clear). */
+    suspend fun getBackgroundCheckStatus(): Result<CheckrStatusResponse> =
+        withContext(Dispatchers.IO) {
+            val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
+            val driverId = secureStorage.driverId
+            safeApiCall { apiService.getBackgroundCheckStatus(driverId, token) }
+        }
+
+    // ==========================================
+    // FOUNDING MEMBERSHIP ($100 lifetime fee-lock)
+    // ==========================================
+
+    suspend fun getFoundingStatus(): Result<FoundingStatusResponse> =
+        withContext(Dispatchers.IO) {
+            val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
+            safeApiCall { apiService.getFoundingStatus(token) }
+        }
+
+    suspend fun joinFounding(
+        paymentMethodId: String? = null,
+        paymentIntentId: String? = null
+    ): Result<FoundingJoinResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.CUSTOMER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCallWithDetail {
+            apiService.joinFounding(FoundingJoinRequest(paymentMethodId, paymentIntentId), token)
+        }
+    }
+
+    suspend fun getDriverFoundingStatus(): Result<FoundingStatusResponse> =
+        withContext(Dispatchers.IO) {
+            val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
+            safeApiCall { apiService.getDriverFoundingStatus(token) }
+        }
+
+    suspend fun joinDriverFounding(
+        paymentMethodId: String? = null,
+        paymentIntentId: String? = null
+    ): Result<FoundingJoinResponse> = withContext(Dispatchers.IO) {
+        val token = secureStorage.getAuthHeader(SecureStorage.UserType.DRIVER)
+            ?: return@withContext Result.failure(Exception("Not authenticated"))
+        safeApiCallWithDetail {
+            apiService.joinDriverFounding(FoundingJoinRequest(paymentMethodId, paymentIntentId), token)
+        }
+    }
 
     // ==========================================
     // PUSH NOTIFICATIONS

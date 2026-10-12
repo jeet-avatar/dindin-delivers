@@ -83,6 +83,12 @@ class SessionManager @Inject constructor(
         }
     }
 
+    suspend fun updateUserName(name: String) {
+        context.dataStore.edit { preferences ->
+            preferences[USER_NAME] = name
+        }
+    }
+
     suspend fun clearSession() {
         context.dataStore.edit { preferences ->
             preferences.clear() // Clears all auth data

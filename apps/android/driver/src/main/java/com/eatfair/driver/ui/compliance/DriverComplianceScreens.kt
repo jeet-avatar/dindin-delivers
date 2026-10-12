@@ -265,7 +265,9 @@ fun InsuranceDisclosureScreen(
 @Composable
 fun BackgroundCheckConsentScreen(
     onContinue: () -> Unit,
-    onBackClick: (() -> Unit)? = null
+    onBackClick: (() -> Unit)? = null,
+    isInitiating: Boolean = false,
+    statusText: String? = null
 ) {
     var consentGiven by remember { mutableStateOf(false) }
     var understandRights by remember { mutableStateOf(false) }
@@ -446,11 +448,30 @@ fun BackgroundCheckConsentScreen(
             Button(
                 onClick = onContinue,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = consentGiven && understandRights,
+                enabled = consentGiven && understandRights && !isInitiating,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = DollorDriverColors.Blue, disabledContainerColor = DollorDriverColors.Gray300)
             ) {
+                if (isInitiating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = DollorDriverColors.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
                 Text("Authorize Background Check", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            if (!statusText.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = statusText,
+                    fontSize = 13.sp,
+                    color = DollorDriverColors.Gray600,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))

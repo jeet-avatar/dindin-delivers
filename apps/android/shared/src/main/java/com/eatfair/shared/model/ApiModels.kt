@@ -4,83 +4,6 @@ import com.eatfair.shared.validation.*
 import com.google.gson.annotations.SerializedName
 
 // ==========================================
-// RESTAURANT API RESPONSE MODELS
-// (For API deserialization - converted to domain model in RestaurantRepo)
-// ==========================================
-
-data class RestaurantApiResponse(
-    val id: Int,
-    val name: String,
-    val description: String? = null,
-    val address: String? = null,
-    val city: String? = null,
-    val state: String? = null,
-    @SerializedName("zip_code") val zipCode: String? = null,
-    val latitude: Double? = null,
-    val longitude: Double? = null,
-    val phone: String? = null,
-    val email: String? = null,
-    @SerializedName("cuisine_type") val cuisineType: String? = null,
-    val rating: Double = 0.0,
-    @SerializedName("review_count") val reviewCount: Int = 0,
-    @SerializedName("is_open") val isOpen: Boolean = true,
-    @SerializedName("is_active") val isActive: Boolean = true,
-    @SerializedName("image_url") val imageUrl: String? = null,
-    @SerializedName("delivery_time") val deliveryTime: String? = null,
-    @SerializedName("minimum_order") val minimumOrder: Double? = null,
-    val tags: List<String>? = null
-)
-
-/**
- * Wrapper response for /api/erp/restaurants endpoint
- */
-data class RestaurantsListResponse(
-    val restaurants: List<RestaurantApiResponse>,
-    val total: Int? = null,
-    val message: String? = null
-)
-
-data class RestaurantDetail(
-    val id: Int,
-    val name: String,
-    val description: String? = null,
-    val address: String? = null,
-    val city: String? = null,
-    val state: String? = null,
-    @SerializedName("zip_code") val zipCode: String? = null,
-    val latitude: Double? = null,
-    val longitude: Double? = null,
-    val phone: String? = null,
-    @SerializedName("cuisine_type") val cuisineType: String? = null,
-    val rating: Double = 0.0,
-    @SerializedName("is_open") val isOpen: Boolean = true,
-    @SerializedName("image_url") val imageUrl: String? = null,
-    val menu: List<MenuItem>? = null,
-    @SerializedName("business_hours") val businessHours: Map<String, String>? = null
-)
-
-data class MenuItem(
-    val id: Int,
-    @SerializedName("vendor_id") val vendorId: Int? = null,
-    val name: String,
-    val description: String? = null,
-    val price: Double,
-    val category: String? = null,
-    @SerializedName("image_url") val imageUrl: String? = null,
-    @SerializedName("is_available") val isAvailable: Boolean = true,
-    @SerializedName("in_stock") val inStock: Boolean = true,
-    @SerializedName("is_vegetarian") val isVegetarian: Boolean = false,
-    @SerializedName("is_vegan") val isVegan: Boolean = false,
-    @SerializedName("is_gluten_free") val isGlutenFree: Boolean = false,
-    @SerializedName("spice_level") val spiceLevel: Int? = null,
-    @SerializedName("prep_time_minutes") val prepTimeMinutes: Int? = null
-)
-
-data class MenuCategoriesResponse(
-    val categories: List<String>
-)
-
-// ==========================================
 // AUTHENTICATION MODELS
 // ==========================================
 
@@ -187,282 +110,9 @@ data class DriverGoogleAuthRequest(
     val name: String
 )
 
-data class VendorLoginResponse(
-    @SerializedName("access_token") val accessToken: String,
-    @SerializedName("token_type") val tokenType: String = "bearer",
-    @SerializedName("vendor_id") val vendorId: Int,
-    @SerializedName("business_name") val businessName: String? = null,
-    val email: String? = null
-)
-
-/**
- * Response from /api/vendors/public registration endpoint
- * Matches iOS P2PVendorRegistrationResponse
- */
-data class VendorRegistrationResponse(
-    val id: Int,
-    @SerializedName("vendor_id") val vendorId: Int,
-    @SerializedName("restaurant_name") val restaurantName: String,
-    @SerializedName("contact_email") val contactEmail: String,
-    val status: String,
-    val message: String? = null
-)
-
-data class VendorRegisterRequest(
-    val email: String,
-    val password: String,
-    @SerializedName("business_name") val businessName: String,
-    @SerializedName("full_name") val fullName: String,
-    val phone: String,
-    val address: String,
-    val city: String,
-    val state: String,
-    @SerializedName("zip_code") val zipCode: String
-)
-
-// ==========================================
-// VENDOR PROFILE & SETTINGS MODELS
-// ==========================================
-
-/**
- * Vendor profile response from backend
- */
-data class VendorProfileResponse(
-    val id: Int,
-    @SerializedName("vendor_id") val vendorId: String? = null,
-    @SerializedName("company_name") val companyName: String? = null,
-    @SerializedName("restaurant_name") val restaurantName: String? = null,
-    @SerializedName("cuisine_type") val cuisineType: String? = null,
-    val description: String? = null,
-    @SerializedName("contact_name") val contactName: String? = null,
-    @SerializedName("contact_email") val contactEmail: String? = null,
-    @SerializedName("contact_phone") val contactPhone: String? = null,
-    @SerializedName("phone_number") val phoneNumber: String? = null,
-    val street: String? = null,
-    val city: String? = null,
-    val state: String? = null,
-    @SerializedName("zip_code") val zipCode: String? = null,
-    val country: String? = null,
-    val latitude: Double? = null,
-    val longitude: Double? = null,
-    @SerializedName("operating_hours") val operatingHours: String? = null,
-    @SerializedName("average_prep_time") val averagePrepTime: Int? = null,
-    @SerializedName("delivery_available") val deliveryAvailable: Boolean = true,
-    @SerializedName("pickup_available") val pickupAvailable: Boolean = true,
-    @SerializedName("seating_capacity") val seatingCapacity: Int? = null,
-    @SerializedName("onboarding_status") val onboardingStatus: String? = null,
-    @SerializedName("notification_preferences") val notificationPreferences: NotificationPreferences? = null,
-    @SerializedName("created_at") val createdAt: String? = null,
-    @SerializedName("w9_form") val w9Form: Boolean = false,
-    val insurance: Boolean = false,
-    @SerializedName("health_permit") val healthPermit: Boolean = false,
-    @SerializedName("food_license") val foodLicense: Boolean = false,
-    @SerializedName("compliance_certs") val complianceCerts: Boolean = false,
-    @SerializedName("is_online") val isOnline: Boolean? = false
-)
-
-/**
- * Notification preferences stored as JSON in vendor profile
- */
-data class NotificationPreferences(
-    @SerializedName("new_orders") val newOrders: Boolean = true,
-    @SerializedName("order_updates") val orderUpdates: Boolean = true,
-    @SerializedName("driver_assigned") val driverAssigned: Boolean = true,
-    @SerializedName("low_stock_alerts") val lowStockAlerts: Boolean = true,
-    @SerializedName("reviews") val reviews: Boolean = true,
-    @SerializedName("weekly_report") val weeklyReport: Boolean = true,
-    @SerializedName("promotions") val promotions: Boolean = false,
-    @SerializedName("sound_enabled") val soundEnabled: Boolean = true,
-    @SerializedName("vibration_enabled") val vibrationEnabled: Boolean = true
-)
-
-/**
- * Request to update vendor profile
- */
-data class UpdateVendorProfileRequest(
-    @SerializedName("restaurant_name") val restaurantName: String? = null,
-    @SerializedName("cuisine_type") val cuisineType: String? = null,
-    val description: String? = null,
-    @SerializedName("contact_name") val contactName: String? = null,
-    @SerializedName("contact_email") val contactEmail: String? = null,
-    @SerializedName("contact_phone") val contactPhone: String? = null,
-    @SerializedName("street_address") val streetAddress: String? = null,
-    val city: String? = null,
-    val state: String? = null,
-    @SerializedName("zip_code") val zipCode: String? = null,
-    @SerializedName("average_prep_time") val averagePrepTime: Int? = null,
-    @SerializedName("delivery_available") val deliveryAvailable: Boolean? = null,
-    @SerializedName("pickup_available") val pickupAvailable: Boolean? = null
-)
-
-/**
- * Request to update business hours
- * Operating hours stored as JSON string: {"monday": {"open": "09:00", "close": "21:00", "is_open": true}, ...}
- */
-data class UpdateBusinessHoursRequest(
-    @SerializedName("operating_hours") val operatingHours: String,
-    @SerializedName("average_prep_time") val averagePrepTime: Int? = null
-)
-
-/**
- * Business hours for a single day
- */
-data class DayHours(
-    val open: String = "10:00",
-    val close: String = "22:00",
-    @SerializedName("is_open") val isOpen: Boolean = true
-)
-
-/**
- * Request to update notification settings
- */
-data class UpdateNotificationSettingsRequest(
-    @SerializedName("notification_preferences") val notificationPreferences: NotificationPreferences
-)
-
-/**
- * Update vendor online status request
- */
-data class UpdateOnlineStatusRequest(
-    @SerializedName("is_online") val isOnline: Boolean
-)
-
-/**
- * Vendor documents response
- */
-data class VendorDocumentsResponse(
-    val documents: List<VendorDocument>,
-    val count: Int
-)
-
-/**
- * Single vendor document
- */
-data class VendorDocument(
-    val id: Int,
-    @SerializedName("document_type") val documentType: String,
-    @SerializedName("file_name") val fileName: String? = null,
-    @SerializedName("file_url") val fileUrl: String? = null,
-    @SerializedName("upload_date") val uploadDate: String? = null,
-    @SerializedName("expiry_date") val expiryDate: String? = null,
-    val status: String = "pending", // pending, approved, rejected
-    @SerializedName("admin_notes") val adminNotes: String? = null
-)
-
-/**
- * Vendor payouts response
- */
-data class VendorPayoutsResponse(
-    @SerializedName("available_balance") val availableBalance: Double = 0.0,
-    @SerializedName("pending_balance") val pendingBalance: Double = 0.0,
-    @SerializedName("total_earnings") val totalEarnings: Double = 0.0,
-    @SerializedName("this_month_earnings") val thisMonthEarnings: Double = 0.0,
-    @SerializedName("platform_fee_rate") val platformFeeRate: Double = 1.0, // $1 flat fee
-    @SerializedName("bank_account") val bankAccount: VendorBankAccount? = null,
-    @SerializedName("payout_history") val payoutHistory: List<VendorPayout>? = null
-)
-
-/**
- * Vendor bank account details
- */
-data class VendorBankAccount(
-    @SerializedName("account_holder_name") val accountHolderName: String? = null,
-    @SerializedName("routing_number_last4") val routingNumberLast4: String? = null,
-    @SerializedName("account_number_last4") val accountNumberLast4: String? = null,
-    @SerializedName("account_type") val accountType: String = "checking", // checking, savings
-    @SerializedName("bank_name") val bankName: String? = null,
-    @SerializedName("is_verified") val isVerified: Boolean = false
-)
-
-/**
- * Request to update vendor bank account
- */
-data class VendorBankAccountRequest(
-    @SerializedName("account_holder_name") val accountHolderName: String,
-    @SerializedName("routing_number") val routingNumber: String,
-    @SerializedName("account_number") val accountNumber: String,
-    @SerializedName("account_type") val accountType: String = "checking"
-)
-
-/**
- * Single payout record
- */
-data class VendorPayout(
-    val id: Int,
-    val amount: Double,
-    val status: String, // pending, processing, completed, failed
-    @SerializedName("initiated_at") val initiatedAt: String? = null,
-    @SerializedName("completed_at") val completedAt: String? = null,
-    @SerializedName("failure_reason") val failureReason: String? = null
-)
-
 // ==========================================
 // ORDER MODELS
 // ==========================================
-
-data class Order(
-    val id: Int,
-    @SerializedName("order_number") val orderNumber: String? = null,
-    @SerializedName("customer_id") val customerId: Int,
-    @SerializedName("customer_name") val customerName: String? = null,
-    @SerializedName("customer_email") val customerEmail: String? = null,
-    @SerializedName("customer_phone") val customerPhone: String? = null,
-    @SerializedName("vendor_id") val vendorId: Int,
-    @SerializedName("driver_id") val driverId: Int? = null,
-    @SerializedName("driver_name") val driverName: String? = null,
-    val status: String,
-    @SerializedName("payment_status") val paymentStatus: String? = null,
-    val subtotal: Double,
-    @SerializedName("tax_amount") val taxAmount: Double? = null,
-    @SerializedName("delivery_fee") val deliveryFee: Double? = null,
-    val tip: Double? = null,
-    @SerializedName("platform_fee") val platformFee: Double? = null,
-    @SerializedName("total_amount") val totalAmount: Double? = null,
-    @SerializedName("delivery_address") val deliveryAddress: String? = null,
-    @SerializedName("delivery_instructions") val deliveryInstructions: String? = null,
-    val items: List<OrderItem>? = null,
-    @SerializedName("restaurant_name") val restaurantName: String? = null,
-    @SerializedName("created_at") val createdAt: String? = null,
-    @SerializedName("confirmed_at") val confirmedAt: String? = null,
-    @SerializedName("preparing_at") val preparingAt: String? = null,
-    @SerializedName("delivered_at") val deliveredAt: String? = null,
-    @SerializedName("dispatched_at") val dispatchedAt: String? = null,
-    @SerializedName("cancelled_at") val cancelledAt: String? = null,
-    @SerializedName("sent_to_restaurant_at") val sentToRestaurantAt: String? = null,
-    @SerializedName("restaurant_accepted_at") val restaurantAcceptedAt: String? = null,
-    @SerializedName("restaurant_declined_at") val restaurantDeclinedAt: String? = null,
-    @SerializedName("restaurant_decline_reason") val restaurantDeclineReason: String? = null,
-    @SerializedName("restaurant_timeout_at") val restaurantTimeoutAt: String? = null,
-    @SerializedName("ready_for_pickup_at") val readyForPickupAt: String? = null
-)
-
-data class OrderItem(
-    val id: Int,
-    @SerializedName("menu_item_id") val menuItemId: Int,
-    val name: String,
-    val quantity: Int,
-    val price: Double,
-    @SerializedName("special_instructions") val specialInstructions: String? = null
-)
-
-data class ActiveOrdersResponse(
-    @SerializedName("active_orders") val activeOrders: List<Order>,
-    val count: Int
-)
-
-data class OrderTrackingResponse(
-    @SerializedName("order_id") val orderId: Int,
-    val status: String,
-    @SerializedName("status_history") val statusHistory: List<StatusHistoryItem>? = null,
-    @SerializedName("estimated_delivery") val estimatedDelivery: String? = null,
-    val driver: DriverInfo? = null
-)
-
-data class StatusHistoryItem(
-    val status: String,
-    val timestamp: String,
-    val message: String? = null
-)
 
 data class DriverInfo(
     val id: Int,
@@ -474,71 +124,6 @@ data class DriverInfo(
     val rating: Double? = null,
     val latitude: Double? = null,
     val longitude: Double? = null
-)
-
-/**
- * Delivery address dictionary matching backend schema
- * Aligned with iOS/Webapp format
- */
-data class DeliveryAddressDict(
-    val street: String,
-    val city: String,
-    val state: String,
-    val zip: String
-)
-
-/**
- * Create order request matching backend schema
- * Aligned with iOS (CartViewModel.swift) and Webapp (Checkout.tsx)
- */
-data class CreateOrderRequest(
-    @SerializedName("customer_name") val customerName: String,
-    @SerializedName("customer_email") val customerEmail: String,
-    @SerializedName("customer_phone") val customerPhone: String,
-    @SerializedName("vendor_id") val vendorId: Int,
-    val items: List<OrderItemRequest>,
-    @SerializedName("delivery_address") val deliveryAddress: DeliveryAddressDict,
-    @SerializedName("delivery_instructions") val deliveryInstructions: String? = null,
-    val tip: Double? = null
-) {
-    fun validate(): ValidationResult = validate {
-        validate(customerName.isNotBlank(), "Customer name cannot be empty")
-        validate(customerEmail.isNotBlank(), "Customer email cannot be empty")
-        validate(vendorId > 0, "Invalid vendor ID")
-        validate(items.isNotEmpty(), "Order must contain at least one item")
-        validate(items.all { it.validate().isValid() }, "One or more order items are invalid")
-        validate(deliveryAddress.street.isNotBlank(), "Street address cannot be empty")
-        validate(deliveryAddress.city.isNotBlank(), "City cannot be empty")
-        validate(deliveryAddress.state.isNotBlank(), "State cannot be empty")
-        validate(deliveryAddress.zip.isNotBlank(), "ZIP code cannot be empty")
-        tip?.let { validate(it.isValidPrice(), "Tip amount must be non-negative") }
-    }
-}
-
-data class OrderItemRequest(
-    @SerializedName("menu_item_id") val menuItemId: Int,
-    val quantity: Int,
-    @SerializedName("special_instructions") val specialInstructions: String? = null
-) {
-    fun validate(): ValidationResult = validate {
-        validate(menuItemId > 0, "Invalid menu item ID")
-        validate(quantity.isValidQuantity(), "Quantity must be at least 1")
-        validate(quantity <= 99, "Quantity cannot exceed 99")
-        specialInstructions?.let {
-            validate(it.hasMaxLength(500), "Special instructions cannot exceed 500 characters")
-        }
-    }
-}
-
-data class CreateOrderResponse(
-    @SerializedName("order_id") val orderId: Int,
-    val status: String,
-    val total: Double,
-    val message: String? = null
-)
-
-data class TipRequest(
-    val amount: Double
 )
 
 // ==========================================
@@ -821,6 +406,38 @@ data class DocumentUploadResponse(
     val message: String? = null
 )
 
+// Response shapes for the self-service /api/auth/driver/documents pair (matches iOS
+// P2PAPIService.uploadDriverDocument / getDriverDocumentsStatus — main_new.py:6646,6700).
+// Deliberately separate from DocumentUploadResponse/DriverDocumentsResponse above, which
+// describe the different by-id/Persona-gated endpoint.
+data class DriverDocumentUploadResponse(
+    val success: Boolean,
+    val message: String? = null,
+    @SerializedName("file_path") val filePath: String? = null,
+    @SerializedName("document_type") val documentType: String? = null
+)
+
+data class DriverDocumentsStatusResponse(
+    val documents: DriverDocumentsStatus
+)
+
+data class DriverDocumentsStatus(
+    @SerializedName("drivers_license") val driversLicense: DriverDocumentTypeStatus,
+    val insurance: DriverDocumentTypeStatus,
+    @SerializedName("background_check") val backgroundCheck: DriverBackgroundCheckTypeStatus
+)
+
+data class DriverDocumentTypeStatus(
+    val uploaded: Boolean,
+    val url: String? = null,
+    val expiry: String? = null
+)
+
+data class DriverBackgroundCheckTypeStatus(
+    val completed: Boolean,
+    val date: String? = null
+)
+
 data class DriverStatusResponse(
     @SerializedName("driver_id") val driverId: Int,
     @SerializedName("is_online") val isOnline: Boolean,
@@ -840,27 +457,12 @@ data class DriverLocationRequest(
     val speed: Double? = null
 )
 
-data class DriverLocationResponse(
-    val latitude: Double,
-    val longitude: Double,
-    val heading: Double? = null,
-    @SerializedName("updated_at") val updatedAt: String? = null
-)
-
 // ==========================================
 // DELIVERY MODELS
 // ==========================================
-
-data class AvailableDelivery(
-    @SerializedName("order_id") val orderId: Int,
-    @SerializedName("restaurant_name") val restaurantName: String,
-    @SerializedName("restaurant_address") val restaurantAddress: String,
-    @SerializedName("delivery_address") val deliveryAddress: String,
-    val earnings: Double,
-    val distance: Double,
-    @SerializedName("estimated_time") val estimatedTime: String? = null,
-    @SerializedName("item_count") val itemCount: Int? = null
-)
+// AvailableDelivery/DeliveryActionResponse (v2/driver/deliveries food endpoints)
+// removed. `Delivery` itself is kept below: DriverDashboardResponse.activeDelivery
+// still references it even though nothing populates that field anymore.
 
 data class Delivery(
     val id: Int,
@@ -874,13 +476,6 @@ data class Delivery(
     val tip: Double? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("completed_at") val completedAt: String? = null
-)
-
-data class DeliveryActionResponse(
-    val success: Boolean,
-    val order: Order? = null,
-    val status: String? = null,
-    val message: String? = null
 )
 
 // ==========================================
@@ -941,142 +536,6 @@ data class DriverBalanceResponse(
 )
 
 // ==========================================
-// VENDOR ORDER MODELS
-// ==========================================
-
-data class VendorOrder(
-    val id: Int,
-    @SerializedName("order_number") val orderNumber: String? = null,
-    @SerializedName("customer_id") val customerId: Int,
-    @SerializedName("customer_name") val customerName: String? = null,
-    @SerializedName("customer_phone") val customerPhone: String? = null,
-    val status: String,
-    @SerializedName("total_amount") val totalAmount: Double,
-    @SerializedName("platform_fee") val platformFee: Double? = null,
-    val items: List<OrderItem>? = null,
-    @SerializedName("special_instructions") val specialInstructions: String? = null,
-    @SerializedName("created_at") val createdAt: String? = null,
-    @SerializedName("delivery_address") val deliveryAddress: String? = null
-)
-
-data class OrderActionResponse(
-    val success: Boolean,
-    val status: String? = null,
-    @SerializedName("prep_time") val prepTime: Int? = null,
-    @SerializedName("driver_notified") val driverNotified: Boolean? = null,
-    @SerializedName("refund_initiated") val refundInitiated: Boolean? = null,
-    val message: String? = null
-)
-
-data class RejectOrderRequest(
-    val reason: String
-)
-
-// ==========================================
-// MENU MANAGEMENT MODELS
-// ==========================================
-
-data class CreateMenuItemRequest(
-    val name: String,
-    val description: String? = null,
-    val price: Double,
-    val category: String? = null,
-    @SerializedName("image_url") val imageUrl: String? = null,
-    @SerializedName("is_vegetarian") val isVegetarian: Boolean = false,
-    @SerializedName("is_vegan") val isVegan: Boolean = false,
-    @SerializedName("is_gluten_free") val isGlutenFree: Boolean = false,
-    @SerializedName("spice_level") val spiceLevel: Int? = null,
-    @SerializedName("prep_time_minutes") val prepTimeMinutes: Int? = null
-) {
-    fun validate(): ValidationResult = validate {
-        validate(name.isNotBlank(), "Menu item name cannot be empty")
-        validate(name.hasMinLength(2), "Menu item name must be at least 2 characters")
-        validate(name.hasMaxLength(100), "Menu item name cannot exceed 100 characters")
-        validate(price.isValidPrice(), "Price must be non-negative")
-        validate(price <= 9999.99, "Price cannot exceed $9,999.99")
-        description?.let {
-            validate(it.hasMaxLength(1000), "Description cannot exceed 1000 characters")
-        }
-        spiceLevel?.let {
-            validate(it in 0..5, "Spice level must be between 0 and 5")
-        }
-        prepTimeMinutes?.let {
-            validate(it > 0, "Prep time must be positive")
-            validate(it <= 480, "Prep time cannot exceed 8 hours (480 minutes)")
-        }
-    }
-}
-
-data class UpdateMenuItemRequest(
-    val name: String? = null,
-    val description: String? = null,
-    val price: Double? = null,
-    val category: String? = null,
-    @SerializedName("image_url") val imageUrl: String? = null,
-    @SerializedName("is_available") val isAvailable: Boolean? = null,
-    @SerializedName("in_stock") val inStock: Boolean? = null
-)
-
-// ==========================================
-// PROMOTION MODELS
-// ==========================================
-
-data class Promotion(
-    val id: Int,
-    @SerializedName("vendor_id") val vendorId: Int,
-    val name: String,
-    val description: String? = null,
-    @SerializedName("discount_type") val discountType: String,
-    @SerializedName("discount_value") val discountValue: Double,
-    @SerializedName("minimum_order") val minimumOrder: Double? = null,
-    @SerializedName("max_discount") val maxDiscount: Double? = null,
-    @SerializedName("promo_code") val promoCode: String? = null,
-    @SerializedName("start_date") val startDate: String? = null,
-    @SerializedName("end_date") val endDate: String? = null,
-    @SerializedName("is_active") val isActive: Boolean = true,
-    @SerializedName("usage_count") val usageCount: Int = 0,
-    @SerializedName("max_usage") val maxUsage: Int? = null
-)
-
-data class PromotionsResponse(
-    val promotions: List<Promotion>
-)
-
-data class CreatePromotionRequest(
-    val name: String,
-    val description: String? = null,
-    @SerializedName("discount_type") val discountType: String,
-    @SerializedName("discount_value") val discountValue: Double,
-    @SerializedName("minimum_order") val minimumOrder: Double? = null,
-    @SerializedName("promo_code") val promoCode: String? = null,
-    @SerializedName("start_date") val startDate: String? = null,
-    @SerializedName("end_date") val endDate: String? = null,
-    @SerializedName("max_usage") val maxUsage: Int? = null
-)
-
-data class PromotionAnalyticsResponse(
-    @SerializedName("vendor_id") val vendorId: Int,
-    @SerializedName("total_promotions") val totalPromotions: Int,
-    @SerializedName("active_promotions") val activePromotions: Int,
-    @SerializedName("total_redemptions") val totalRedemptions: Int,
-    @SerializedName("total_savings") val totalSavings: Double,
-    @SerializedName("top_promotions") val topPromotions: List<Promotion>? = null
-)
-
-data class PromotionSuggestionsResponse(
-    val suggestions: List<PromotionSuggestion>
-)
-
-data class PromotionSuggestion(
-    val type: String,
-    val name: String,
-    val description: String,
-    @SerializedName("discount_type") val discountType: String,
-    @SerializedName("discount_value") val discountValue: Double,
-    @SerializedName("expected_impact") val expectedImpact: String? = null
-)
-
-// ==========================================
 // PAYMENT MODELS
 // ==========================================
 
@@ -1092,67 +551,6 @@ data class PaymentIntentResponse(
     @SerializedName("paymentIntent") val paymentIntent: String? = null,
     @SerializedName("ephemeralKey") val ephemeralKey: String? = null,
     val customer: String? = null
-)
-
-// ==========================================
-// TRACKING MODELS
-// ==========================================
-
-data class FullOrderTrackingResponse(
-    @SerializedName("order_id") val orderId: Int,
-    val status: String,
-    val restaurant: RestaurantInfo,
-    val driver: DriverInfo? = null,
-    @SerializedName("delivery_location") val deliveryLocation: LocationInfo,
-    @SerializedName("estimated_delivery") val estimatedDelivery: String? = null,
-    @SerializedName("status_updates") val statusUpdates: List<StatusUpdate>? = null
-)
-
-data class RestaurantInfo(
-    val id: Int,
-    val name: String,
-    val address: String,
-    val latitude: Double? = null,
-    val longitude: Double? = null
-)
-
-data class LocationInfo(
-    val address: String,
-    val latitude: Double,
-    val longitude: Double
-)
-
-data class StatusUpdate(
-    val status: String,
-    val timestamp: String,
-    val message: String? = null
-)
-
-// ==========================================
-// AI & ANALYTICS MODELS
-// ==========================================
-
-data class AIEmployeesStatsResponse(
-    @SerializedName("total_ai_employees") val totalAIEmployees: Int,
-    @SerializedName("active_tasks") val activeTasks: Int,
-    @SerializedName("tasks_completed_today") val tasksCompletedToday: Int,
-    val employees: List<AIEmployee>? = null
-)
-
-data class AIEmployee(
-    val id: String,
-    val name: String,
-    val role: String,
-    val status: String,
-    @SerializedName("tasks_completed") val tasksCompleted: Int
-)
-
-data class MenuVerificationStatusResponse(
-    @SerializedName("vendor_id") val vendorId: Int,
-    @SerializedName("is_verified") val isVerified: Boolean,
-    @SerializedName("items_verified") val itemsVerified: Int,
-    @SerializedName("items_pending") val itemsPending: Int,
-    @SerializedName("last_verified") val lastVerified: String? = null
 )
 
 // ==========================================
@@ -1203,21 +601,6 @@ data class ErrorResponse(
 // Aligned with iOS (Uber/DoorDash pattern)
 // ==========================================
 
-data class DriverRatingRequest(
-    val rating: Int,  // 1-5
-    val comment: String? = null,
-    @SerializedName("on_time") val onTime: Boolean? = null,
-    val friendly: Boolean? = null,
-    @SerializedName("followed_instructions") val followedInstructions: Boolean? = null
-) {
-    fun validate(): ValidationResult = validate {
-        validate(rating.isValidRating(), "Rating must be between 1 and 5")
-        comment?.let {
-            validate(it.hasMaxLength(500), "Comment cannot exceed 500 characters")
-        }
-    }
-}
-
 data class ChatMessageRequest(
     val message: String,
     @SerializedName("sender_type") val senderType: String = "customer"  // customer, driver, restaurant
@@ -1231,102 +614,6 @@ data class ChatMessage(
     @SerializedName("sender_name") val senderName: String? = null,
     val message: String,
     @SerializedName("created_at") val createdAt: String
-)
-
-data class FavoriteCheckResponse(
-    @SerializedName("is_favorite") val isFavorite: Boolean
-)
-
-// ==========================================
-// ORDER MODIFICATION MODELS
-// Aligned with iOS (Uber/DoorDash pattern)
-// ==========================================
-
-data class OrderModification(
-    @SerializedName("modification_number") val modificationNumber: String,
-    @SerializedName("order_id") val orderId: Int,
-    @SerializedName("unavailable_items") val unavailableItems: List<UnavailableItem>,
-    @SerializedName("unavailable_count") val unavailableCount: Int,
-    @SerializedName("available_items") val availableItems: List<ModifiedOrderItem>,
-    @SerializedName("available_count") val availableCount: Int,
-    @SerializedName("original_total") val originalTotal: Double,
-    @SerializedName("new_total") val newTotal: Double,
-    @SerializedName("partial_refund_amount") val partialRefundAmount: Double,
-    @SerializedName("time_remaining_seconds") val timeRemainingSeconds: Int,
-    @SerializedName("expires_at") val expiresAt: String,
-    @SerializedName("is_expired") val isExpired: Boolean = false,
-    @SerializedName("restaurant_name") val restaurantName: String? = null
-)
-
-data class UnavailableItem(
-    @SerializedName("menu_item_id") val menuItemId: Int,
-    val name: String,
-    val quantity: Int,
-    val price: Double,
-    val reason: String? = null
-)
-
-data class ModifiedOrderItem(
-    @SerializedName("menu_item_id") val menuItemId: Int,
-    val name: String,
-    val quantity: Int,
-    val price: Double
-)
-
-data class OrderModificationResponse(
-    val response: String  // "accept" or "reject"
-)
-
-// ==========================================
-// MENU CUSTOMIZATION MODELS
-// Aligned with iOS (Uber/DoorDash pattern)
-// ==========================================
-
-data class MenuItemCustomization(
-    val id: String,
-    val name: String,  // "Size", "Toppings", "Extras"
-    val type: String,  // "single" or "multiple"
-    val required: Boolean = false,
-    @SerializedName("min_selections") val minSelections: Int? = null,
-    @SerializedName("max_selections") val maxSelections: Int? = null,
-    val options: List<CustomizationOption>
-)
-
-data class CustomizationOption(
-    val id: String,
-    val name: String,
-    val price: Double = 0.0,
-    @SerializedName("is_default") val isDefault: Boolean = false,
-    @SerializedName("is_available") val isAvailable: Boolean = true
-)
-
-data class SelectedCustomization(
-    val id: String,
-    @SerializedName("customization_name") val customizationName: String,
-    @SerializedName("selected_options") val selectedOptions: List<String>,
-    @SerializedName("additional_price") val additionalPrice: Double = 0.0
-)
-
-// Extended MenuItem with customizations
-data class MenuItemWithCustomizations(
-    val id: Int,
-    @SerializedName("vendor_id") val vendorId: Int? = null,
-    val name: String,
-    val description: String? = null,
-    val price: Double,
-    val category: String? = null,
-    @SerializedName("image_url") val imageUrl: String? = null,
-    @SerializedName("is_available") val isAvailable: Boolean = true,
-    @SerializedName("in_stock") val inStock: Boolean = true,
-    @SerializedName("is_vegetarian") val isVegetarian: Boolean = false,
-    @SerializedName("is_vegan") val isVegan: Boolean = false,
-    @SerializedName("is_gluten_free") val isGlutenFree: Boolean = false,
-    @SerializedName("spice_level") val spiceLevel: Int? = null,
-    @SerializedName("prep_time_minutes") val prepTimeMinutes: Int? = null,
-    val calories: Int? = null,
-    val allergens: List<String>? = null,
-    @SerializedName("dietary_tags") val dietaryTags: List<String>? = null,
-    val customizations: List<MenuItemCustomization>? = null
 )
 
 // ==========================================
@@ -1387,45 +674,6 @@ data class CustomerProfileResponse(
     val phone: String?,
     @SerializedName("profile_image_url") val profileImageUrl: String?,
     @SerializedName("created_at") val createdAt: String?
-)
-
-/**
- * Cancel order request
- * Matches iOS: POST /orders/{orderId}/cancel
- * Fields aligned with iOS for cross-platform parity
- */
-data class CancelOrderRequest(
-    val reason: String? = null,
-    @SerializedName("reason_details") val reasonDetails: String? = null
-)
-
-/**
- * Refund status response
- * Matches iOS: GET /orders/{orderId}/refund-status
- */
-data class RefundStatusResponse(
-    @SerializedName("order_id") val orderId: Int,
-    @SerializedName("refund_status") val refundStatus: String,
-    @SerializedName("refund_amount") val refundAmount: Double?,
-    @SerializedName("refund_date") val refundDate: String?,
-    val message: String?
-)
-
-/**
- * Order modification response request
- * Matches iOS: POST /orders/{orderId}/modification/respond
- */
-data class OrderModificationResponseRequest(
-    val response: String  // "accept" or "reject"
-)
-
-/**
- * Mark items unavailable request
- * Matches iOS: POST /orders/{orderId}/mark-unavailable
- */
-data class MarkItemsUnavailableRequest(
-    @SerializedName("item_ids") val itemIds: List<Int>,
-    val reason: String? = null
 )
 
 // ==========================================
@@ -1493,140 +741,71 @@ data class AddCardRequest(
 )
 
 // ==========================================
-// PROMOTIONS & DEALS MODELS
-// Matches iOS P2PAPIService promotions
+// CHECKR BACKGROUND CHECK MODELS (Driver)
+// Checkr-Hosted flow: backend creates the invitation and returns a hosted URL
+// the driver opens to complete ID + criminal + MVR screening.
+// Backend: POST /api/checkr/background-check/initiate
+//          GET  /api/checkr/background-check/{driverId}/status
 // ==========================================
 
-/**
- * Active promotions for customers
- * Matches iOS: GET /api/promotions/active
- */
-data class ActivePromotionsResponse(
-    val promotions: List<CustomerPromotion>
-)
-
-/**
- * Customer-facing promotion
- */
-data class CustomerPromotion(
-    val id: Int,
-    @SerializedName("promo_code") val promoCode: String?,
-    val name: String,
-    val description: String?,
-    @SerializedName("discount_type") val discountType: String,  // "percentage", "fixed"
-    @SerializedName("discount_value") val discountValue: Double,
-    @SerializedName("minimum_order") val minimumOrder: Double?,
-    @SerializedName("max_discount") val maxDiscount: Double?,
-    @SerializedName("valid_until") val validUntil: String?,
-    @SerializedName("restaurant_name") val restaurantName: String?,
-    @SerializedName("restaurant_id") val restaurantId: Int?
-)
-
-/**
- * Featured deals for homepage
- * Matches iOS: GET /promotions/featured
- */
-data class FeaturedDealsResponse(
-    val deals: List<FeaturedDeal>
-)
-
-data class FeaturedDeal(
-    val id: Int,
-    val title: String,
-    val description: String?,
-    @SerializedName("image_url") val imageUrl: String?,
-    @SerializedName("discount_text") val discountText: String,
-    @SerializedName("restaurant_id") val restaurantId: Int?,
-    @SerializedName("restaurant_name") val restaurantName: String?,
-    @SerializedName("valid_until") val validUntil: String?
-)
-
-/**
- * Apply promo code request
- * Matches iOS: POST /promotions/apply
- */
-data class ApplyPromoCodeRequest(
-    @SerializedName("promo_code") val promoCode: String,
-    @SerializedName("order_subtotal") val orderSubtotal: Double,
-    @SerializedName("vendor_id") val vendorId: Int? = null
-)
-
-/**
- * Apply promo code response
- */
-data class ApplyPromoCodeResponse(
-    @SerializedName("is_valid") val isValid: Boolean,
-    val discount: Double?,
-    @SerializedName("discount_type") val discountType: String?,
-    @SerializedName("new_total") val newTotal: Double?,
-    val message: String?,
-    @SerializedName("promo_details") val promoDetails: CustomerPromotion?
-)
-
-// ==========================================
-// DRIVER DELIVERY DECISION MODELS
-// Matches iOS delivery decision flow
-// ==========================================
-
-/**
- * Start delivery decision request
- * Matches iOS: POST /driver/start-delivery-decision
- */
-data class StartDeliveryDecisionRequest(
-    @SerializedName("order_id") val orderId: Int,
+data class CheckrInitiateRequest(
     @SerializedName("driver_id") val driverId: Int
 )
 
-/**
- * Make delivery decision request
- * Matches iOS: POST /driver/make-delivery-decision
- */
-data class MakeDeliveryDecisionRequest(
-    @SerializedName("decision_id") val decisionId: Int,
-    val decision: String,  // "accept" or "reject"
-    val reason: String? = null
+data class CheckrInitiateResponse(
+    val success: Boolean = true,
+    @SerializedName("invitation_url") val invitationUrl: String? = null,
+    @SerializedName("candidate_id") val candidateId: String? = null,
+    @SerializedName("report_id") val reportId: String? = null,
+    val status: String? = null,
+    val message: String? = null,
+    val error: String? = null
 )
 
-/**
- * Delivery decision response
- */
-data class DeliveryDecisionResponse(
-    @SerializedName("decision_id") val decisionId: Int,
-    @SerializedName("order_id") val orderId: Int,
-    val status: String,
-    @SerializedName("expires_at") val expiresAt: String?,
-    val message: String?
+data class CheckrStatusResponse(
+    @SerializedName("driver_id") val driverId: Int? = null,
+    val status: String? = null,  // not_started | pending | clear | consider | suspended
+    @SerializedName("background_check_status") val backgroundCheckStatus: String? = null,
+    @SerializedName("invitation_url") val invitationUrl: String? = null,
+    @SerializedName("completed_at") val completedAt: String? = null,
+    val message: String? = null
+) {
+    /** Normalized status, falling back across the field names the backend may use. */
+    val effectiveStatus: String
+        get() = (status ?: backgroundCheckStatus ?: "not_started").lowercase()
+
+    val isClear: Boolean get() = effectiveStatus == "clear" || effectiveStatus == "complete" || effectiveStatus == "passed"
+    val isPending: Boolean get() = effectiveStatus == "pending" || effectiveStatus == "in_progress"
+}
+
+// ==========================================
+// FOUNDING MEMBERSHIP MODELS (Customer + Driver)
+// $100 lifetime fee-lock membership.
+// Backend: GET /api/founding(/driver)/status, POST /api/founding(/driver)/join
+// ==========================================
+
+data class FoundingStatusResponse(
+    val eligible: Boolean = false,
+    @SerializedName("is_member") val isMember: Boolean = false,
+    @SerializedName("slots_total") val slotsTotal: Int? = null,
+    @SerializedName("slots_remaining") val slotsRemaining: Int? = null,
+    @SerializedName("slots_claimed") val slotsClaimed: Int? = null,
+    @SerializedName("membership_fee") val membershipFee: Double? = null,
+    @SerializedName("fee_lock") val feeLock: String? = null,
+    @SerializedName("member_number") val memberNumber: Int? = null,
+    @SerializedName("is_demo") val isDemo: Boolean = false,
+    val message: String? = null
 )
 
-/**
- * Delivery decision status response
- * Matches iOS: GET /driver/delivery-decision-status/{id}
- */
-data class DeliveryDecisionStatusResponse(
-    @SerializedName("decision_id") val decisionId: Int,
-    @SerializedName("order_id") val orderId: Int,
-    val status: String,  // "pending", "accepted", "rejected", "expired"
-    @SerializedName("decided_at") val decidedAt: String?,
-    @SerializedName("is_expired") val isExpired: Boolean
+data class FoundingJoinRequest(
+    @SerializedName("payment_method_id") val paymentMethodId: String? = null,
+    @SerializedName("payment_intent_id") val paymentIntentId: String? = null
 )
 
-/**
- * Pending delivery order for driver
- * Matches iOS: GET /erp/orders/driver/{driverId}/pending
- */
-data class PendingDeliveryOrder(
-    @SerializedName("order_id") val orderId: Int,
-    @SerializedName("restaurant_name") val restaurantName: String,
-    @SerializedName("restaurant_address") val restaurantAddress: String,
-    @SerializedName("restaurant_lat") val restaurantLat: Double?,
-    @SerializedName("restaurant_lng") val restaurantLng: Double?,
-    @SerializedName("delivery_address") val deliveryAddress: String,
-    @SerializedName("delivery_lat") val deliveryLat: Double?,
-    @SerializedName("delivery_lng") val deliveryLng: Double?,
-    @SerializedName("item_count") val itemCount: Int,
-    @SerializedName("order_total") val orderTotal: Double,
-    @SerializedName("estimated_earnings") val estimatedEarnings: Double,
-    @SerializedName("estimated_distance_miles") val estimatedDistanceMiles: Double?,
-    @SerializedName("estimated_time_minutes") val estimatedTimeMinutes: Int?,
-    @SerializedName("created_at") val createdAt: String
+data class FoundingJoinResponse(
+    val success: Boolean = false,
+    @SerializedName("is_member") val isMember: Boolean = false,
+    @SerializedName("member_number") val memberNumber: Int? = null,
+    val message: String? = null,
+    val error: String? = null
 )

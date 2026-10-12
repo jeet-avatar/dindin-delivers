@@ -23,5 +23,4 @@ dependencyResolutionManagement {
 rootProject.name = "EatFair"
 include(":app")
 include(":shared")
-include(":partner")
 include(":driver")

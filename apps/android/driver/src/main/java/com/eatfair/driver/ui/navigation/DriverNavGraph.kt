@@ -5,6 +5,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
@@ -23,9 +24,13 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -164,7 +169,11 @@ fun DriverNavGraph(
                         Toast.makeText(context, "Google Sign-In coming soon!", Toast.LENGTH_SHORT).show()
                     }
                 },
-                onClearError = { loginViewModel.clearError() }
+                onClearError = { loginViewModel.clearError() },
+                onForgotPassword = { email, onResult ->
+                    loginViewModel.forgotPassword(email, onResult)
+                },
+                rememberedCredentials = remember { loginViewModel.rememberedCredentials() }
             )
         }
 
@@ -177,9 +186,8 @@ fun DriverNavGraph(
             )
         }
 
-        // These onboarding steps are shown linearly after legal acceptance
-        // For now, skip straight to COMPLETED since the compliance screens
-        // are first-time onboarding only (tracked separately)
+        // These onboarding steps are driven inside DriverMainOrCompliance below
+        // (reached via the COMPLETED branch), not as top-level steps.
         OnboardingStep.INSURANCE_DISCLOSURE,
         OnboardingStep.BACKGROUND_CHECK,
         OnboardingStep.VEHICLE_REQUIREMENTS,
@@ -188,41 +196,173 @@ fun DriverNavGraph(
         }
 
         OnboardingStep.COMPLETED -> {
-            // Main app with bottom navigation
-            Scaffold(
-                bottomBar = {
-                    DriverBottomNavigation(navController = navController)
-                }
-            ) { innerPadding ->
-                NavHost(
+            // New / unverified drivers go through compliance + the Checkr
+            // background check first; verified (or already-pending) drivers go
+            // straight to the main app.
+            DriverMainOrCompliance(
+                navController = navController,
+                loginViewModel = loginViewModel
+            )
+        }
+    }
+}
+
+/**
+ * Gates the main driver app behind document verification + compliance + background-check
+ * onboarding. Mirrors iOS's DriverOnboardingView step order (license -> insurance -> vehicle
+ * -> background check -> pending): a driver can't reach the main app without both the license
+ * and insurance photos uploaded (main_new.py:3566-3589's online-gate requires them), on top of
+ * the existing compliance/background-check requirements below.
+ *
+ * - Already-cleared or already-pending drivers with both documents uploaded see the main app
+ *   immediately.
+ * - New (not_started) drivers walk License photo -> Insurance photo -> Insurance disclosure ->
+ *   Background Check -> Vehicle -> Contractor. The Background Check step calls the Checkr
+ *   initiate endpoint and opens the hosted invitation URL; status is polled to reflect
+ *   pending/clear.
+ */
+@Composable
+private fun DriverMainOrCompliance(
+    navController: NavHostController,
+    loginViewModel: LoginViewModel,
+    complianceViewModel: com.eatfair.driver.ui.compliance.DriverComplianceViewModel = hiltViewModel(),
+    documentViewModel: com.eatfair.driver.ui.compliance.DriverDocumentViewModel = hiltViewModel()
+) {
+    val context = LocalContext.current
+    val compliance by complianceViewModel.uiState.collectAsState()
+    val documents by documentViewModel.uiState.collectAsState()
+
+    var complianceDone by rememberSaveable { mutableStateOf(false) }
+    // 0 license, 1 insurance, 2 insurance disclosure, 3 bg check, 4 vehicle, 5 contractor
+    var step by rememberSaveable { mutableStateOf(0) }
+
+    // Open the Checkr hosted invitation URL once initiate returns it, then advance.
+    LaunchedEffect(compliance.invitationUrl) {
+        val url = compliance.invitationUrl
+        if (url != null) {
+            try {
+                context.startActivity(
+                    android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                )
+            } catch (e: Exception) {
+                Log.e("DriverNavGraph", "Failed to open background check URL: ${e.message}")
+            }
+            complianceViewModel.onInvitationOpened()
+            if (step == 3) step = 4
+        }
+    }
+
+    val documentsReady = documents.licenseUploaded && documents.insuranceUploaded
+    val showMainApp = documentsReady && (compliance.isClear || compliance.isPending || complianceDone)
+
+    when {
+        !showMainApp && (compliance.isLoadingStatus || documents.isLoadingStatus) -> {
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                androidx.compose.material3.CircularProgressIndicator()
+            }
+        }
+
+        !showMainApp -> {
+            when (step) {
+                0 -> com.eatfair.driver.ui.compliance.DriverDocumentCaptureScreen(
+                    title = "Driver's License",
+                    subtitle = "A clear photo of the front of your license",
+                    requirementBullets = listOf(
+                        "Valid, unexpired driver's license",
+                        "All four corners visible",
+                        "Text and photo clearly readable"
+                    ),
+                    documentType = "drivers_license",
+                    isUploaded = documents.licenseUploaded,
+                    isUploading = documents.uploadingType == "drivers_license",
+                    error = documents.error,
+                    onPicked = { uri -> documentViewModel.upload(context, uri, "drivers_license") },
+                    onContinue = { step = 1 }
+                )
+                1 -> com.eatfair.driver.ui.compliance.DriverDocumentCaptureScreen(
+                    title = "Proof of Insurance",
+                    subtitle = "A clear photo of your insurance card",
+                    requirementBullets = listOf(
+                        "Current, unexpired insurance card",
+                        "Your name and policy number visible"
+                    ),
+                    documentType = "insurance",
+                    isUploaded = documents.insuranceUploaded,
+                    isUploading = documents.uploadingType == "insurance",
+                    error = documents.error,
+                    onPicked = { uri -> documentViewModel.upload(context, uri, "insurance") },
+                    onContinue = { step = 2 },
+                    onBackClick = { step = 0 }
+                )
+                2 -> InsuranceDisclosureScreen(onContinue = { step = 3 }, onBackClick = { step = 1 })
+                3 -> BackgroundCheckConsentScreen(
+                    onContinue = { complianceViewModel.initiateBackgroundCheck() },
+                    onBackClick = { step = 2 },
+                    isInitiating = compliance.isInitiating,
+                    statusText = when {
+                        compliance.error != null -> compliance.error
+                        compliance.isPending -> "Background check in progress. You can finish setup now; you'll be able to go online once it clears."
+                        else -> "You'll be taken to our screening partner to verify your identity, driving record and criminal history."
+                    }
+                )
+                4 -> VehicleRequirementsScreen(onContinue = { step = 5 }, onBackClick = { step = 3 })
+                else -> IndependentContractorAgreementScreen(
+                    onAccept = { complianceDone = true },
+                    onBackClick = { step = 4 }
+                )
+            }
+        }
+
+        else -> DriverMainApp(navController = navController, loginViewModel = loginViewModel)
+    }
+}
+
+@Composable
+private fun DriverMainApp(
+    navController: NavHostController,
+    loginViewModel: LoginViewModel
+) {
+    Scaffold(
+        bottomBar = {
+            DriverBottomNavigation(navController = navController)
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = DriverScreen.Home.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(DriverScreen.Home.route) {
+                DriverHomeScreen(
                     navController = navController,
-                    startDestination = DriverScreen.Home.route,
-                    modifier = Modifier.padding(innerPadding)
-                ) {
-                    composable(DriverScreen.Home.route) {
-                        DriverHomeScreen(
-                            navController = navController,
-                            driverName = loginViewModel.secureStorage.driverName
-                        )
-                    }
-                    composable(DriverScreen.Orders.route) {
-                        AvailableOrdersScreen(navController = navController)
-                    }
-                    composable(DriverScreen.Earnings.route) {
-                        EarningsScreen(navController = navController)
-                    }
-                    composable(DriverScreen.Profile.route) {
-                        ProfileScreen(
-                            driverName = loginViewModel.secureStorage.driverName ?: "Driver",
-                            driverEmail = loginViewModel.secureStorage.driverEmail ?: "",
-                            driverPhone = loginViewModel.secureStorage.driverPhone ?: "",
-                            onLogout = { loginViewModel.logout() },
-                            onDeleteAccount = { onSuccess, onError ->
-                                loginViewModel.deleteAccount(onSuccess, onError)
-                            }
-                        )
-                    }
-                }
+                    driverName = loginViewModel.secureStorage.driverName
+                )
+            }
+            composable(DriverScreen.Orders.route) {
+                AvailableOrdersScreen(navController = navController)
+            }
+            composable(DriverScreen.Earnings.route) {
+                EarningsScreen(navController = navController)
+            }
+            composable(DriverScreen.Profile.route) {
+                ProfileScreen(
+                    driverName = loginViewModel.secureStorage.driverName ?: "Driver",
+                    driverEmail = loginViewModel.secureStorage.driverEmail ?: "",
+                    driverPhone = loginViewModel.secureStorage.driverPhone ?: "",
+                    onLogout = { loginViewModel.logout() },
+                    onDeleteAccount = { onSuccess, onError ->
+                        loginViewModel.deleteAccount(onSuccess, onError)
+                    },
+                    navController = navController
+                )
+            }
+            composable("founding") {
+                com.eatfair.driver.ui.founding.FoundingMemberScreen(
+                    onBackClick = { navController.navigateUp() }
+                )
             }
         }
     }

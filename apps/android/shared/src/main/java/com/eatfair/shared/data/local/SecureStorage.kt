@@ -59,6 +59,26 @@ class SecureStorage @Inject constructor(
             }
         }
 
+    /**
+     * Optional refresh token. Populated when the backend returns one (e.g. from
+     * POST /auth/customer/refresh); used by TokenRefreshInterceptor on 401.
+     */
+    var customerRefreshToken: String?
+        get() = readLock.lock().let {
+            try {
+                sharedPreferences.getString(KEY_CUSTOMER_REFRESH_TOKEN, null)
+            } finally {
+                readLock.unlock()
+            }
+        }
+        set(value) = writeLock.lock().let {
+            try {
+                sharedPreferences.edit().putString(KEY_CUSTOMER_REFRESH_TOKEN, value).apply()
+            } finally {
+                writeLock.unlock()
+            }
+        }
+
     var customerId: Int
         get() = readLock.lock().let {
             try {
@@ -137,6 +157,7 @@ class SecureStorage @Inject constructor(
         try {
             sharedPreferences.edit()
                 .remove(KEY_CUSTOMER_TOKEN)
+                .remove(KEY_CUSTOMER_REFRESH_TOKEN)
                 .remove(KEY_CUSTOMER_ID)
                 .remove(KEY_CUSTOMER_NAME)
                 .remove(KEY_CUSTOMER_EMAIL)
@@ -209,6 +230,30 @@ class SecureStorage @Inject constructor(
         set(value) = writeLock.lock().let {
             try {
                 sharedPreferences.edit().putString(KEY_DRIVER_EMAIL, value).apply()
+            } finally {
+                writeLock.unlock()
+            }
+        }
+
+    /**
+     * Remembered driver login password, so the LoginScreen can prefill it for a driver
+     * returning to that screen (logged out, session expired, reinstall) instead of making
+     * them retype it — mirrors iOS's KeychainHelper usage in DriverLoginView. Stored in the
+     * same EncryptedSharedPreferences (AES256-GCM) as the auth token, so it's at the same
+     * security level as everything else in this class. Paired with [driverEmail] to know
+     * whose password it is.
+     */
+    var driverRememberedPassword: String?
+        get() = readLock.lock().let {
+            try {
+                sharedPreferences.getString(KEY_DRIVER_REMEMBERED_PASSWORD, null)
+            } finally {
+                readLock.unlock()
+            }
+        }
+        set(value) = writeLock.lock().let {
+            try {
+                sharedPreferences.edit().putString(KEY_DRIVER_REMEMBERED_PASSWORD, value).apply()
             } finally {
                 writeLock.unlock()
             }
@@ -498,6 +543,7 @@ class SecureStorage @Inject constructor(
     companion object {
         // Customer keys
         private const val KEY_CUSTOMER_TOKEN = "customer_token"
+        private const val KEY_CUSTOMER_REFRESH_TOKEN = "customer_refresh_token"
         private const val KEY_CUSTOMER_ID = "customer_id"
         private const val KEY_CUSTOMER_NAME = "customer_name"
         private const val KEY_CUSTOMER_EMAIL = "customer_email"
@@ -509,6 +555,7 @@ class SecureStorage @Inject constructor(
         private const val KEY_DRIVER_EMAIL = "driver_email"
         private const val KEY_DRIVER_PHONE = "driver_phone"
         private const val KEY_DRIVER_VEHICLE = "driver_vehicle"
+        private const val KEY_DRIVER_REMEMBERED_PASSWORD = "driver_remembered_password"
 
         // Vendor keys
         private const val KEY_VENDOR_TOKEN = "vendor_token"

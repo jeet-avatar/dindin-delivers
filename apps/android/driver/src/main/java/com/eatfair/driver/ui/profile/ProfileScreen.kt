@@ -17,9 +17,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
+import com.eatfair.driver.ui.earnings.EarningsViewModel
 import com.eatfair.driver.ui.theme.DollorDriverColors
 
 /**
@@ -40,7 +47,9 @@ fun ProfileScreen(
     driverEmail: String,
     driverPhone: String,
     onLogout: () -> Unit,
-    onDeleteAccount: (onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
+    onDeleteAccount: (onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
+    navController: NavHostController,
+    earningsViewModel: EarningsViewModel = hiltViewModel()
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
@@ -48,8 +57,24 @@ fun ProfileScreen(
     var isDeleting by remember { mutableStateOf(false) }
     var deleteError by remember { mutableStateOf<String?>(null) }
 
+    val context = LocalContext.current
+    val earningsState by earningsViewModel.uiState.collectAsState()
+    val earnings = earningsState.earnings
+
     val displayName = driverName.ifBlank { "Driver" }
     val initial = displayName.first().uppercase()
+
+    fun openSupportEmail() {
+        val intent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:support@dollor.ai")
+            putExtra(Intent.EXTRA_SUBJECT, "Dollor Driver Support")
+        }
+        if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(intent)
+        } else {
+            Toast.makeText(context, "support@dollor.ai", Toast.LENGTH_LONG).show()
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -159,19 +184,19 @@ fun ProfileScreen(
                 EarningsSummaryCard(
                     modifier = Modifier.weight(1f),
                     label = "Today",
-                    value = "$0.00",
+                    value = "$" + String.format("%.2f", earnings?.today?.grossEarnings ?: 0.0),
                     color = DollorDriverColors.Green
                 )
                 EarningsSummaryCard(
                     modifier = Modifier.weight(1f),
                     label = "This Week",
-                    value = "$0.00",
+                    value = "$" + String.format("%.2f", earnings?.thisWeek?.grossEarnings ?: 0.0),
                     color = DollorDriverColors.Blue
                 )
                 EarningsSummaryCard(
                     modifier = Modifier.weight(1f),
-                    label = "Total",
-                    value = "$0.00",
+                    label = "This Month",
+                    value = "$" + String.format("%.2f", earnings?.thisMonth?.grossEarnings ?: 0.0),
                     color = DollorDriverColors.Orange
                 )
             }
@@ -197,34 +222,29 @@ fun ProfileScreen(
                 colors = CardDefaults.cardColors(containerColor = DollorDriverColors.White)
             ) {
                 Column {
+                    // Earnings History -> Earnings tab (exists). Vehicle Information
+                    // and Documents screens don't exist in the driver app yet, so
+                    // those rows are intentionally omitted rather than left dead.
                     ProfileMenuItem(
                         icon = Icons.Outlined.AttachMoney,
                         title = "Earnings History",
                         subtitle = "View detailed earnings",
-                        onClick = { /* TODO */ }
+                        onClick = { navController.navigate("earnings") }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     ProfileMenuItem(
-                        icon = Icons.Outlined.DirectionsCar,
-                        title = "Vehicle Information",
-                        subtitle = "Manage your vehicle",
-                        onClick = { /* TODO */ }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                    ProfileMenuItem(
-                        icon = Icons.Outlined.Description,
-                        title = "Documents",
-                        subtitle = "License, insurance, registration",
-                        onClick = { /* TODO */ }
+                        icon = Icons.Outlined.WorkspacePremium,
+                        title = "Founding Member",
+                        subtitle = "Lock in your rate for life - $100",
+                        onClick = { navController.navigate("founding") }
                     )
                 }
             }
         }
 
-        // Settings Section
+        // Support Section
         item {
             Text(
-                text = "SETTINGS",
+                text = "SUPPORT",
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
@@ -241,25 +261,14 @@ fun ProfileScreen(
                 colors = CardDefaults.cardColors(containerColor = DollorDriverColors.White)
             ) {
                 Column {
-                    ProfileMenuItem(
-                        icon = Icons.Outlined.Settings,
-                        title = "Settings",
-                        subtitle = "App preferences",
-                        onClick = { /* TODO */ }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                    ProfileMenuItem(
-                        icon = Icons.Outlined.Notifications,
-                        title = "Notifications",
-                        subtitle = "Manage alerts",
-                        onClick = { /* TODO */ }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    // Settings and Notifications screens don't exist yet in the
+                    // driver app, so those rows are omitted. Help & Support opens
+                    // a support email, a destination that does exist.
                     ProfileMenuItem(
                         icon = Icons.Outlined.Help,
                         title = "Help & Support",
-                        subtitle = "FAQs and contact",
-                        onClick = { /* TODO */ }
+                        subtitle = "Contact support@dollor.ai",
+                        onClick = { openSupportEmail() }
                     )
                 }
             }

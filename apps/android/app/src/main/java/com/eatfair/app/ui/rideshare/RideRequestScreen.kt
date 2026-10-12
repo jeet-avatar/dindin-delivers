@@ -83,6 +83,10 @@ fun RideRequestScreen(
     var showDropoffSearch by remember { mutableStateOf(false) }
     var showNegotiateSheet by remember { mutableStateOf(false) }
     var selectedTip by remember { mutableStateOf(0.0) }
+    var showRating by remember { mutableStateOf(false) }
+    var showReceipt by remember { mutableStateOf(false) }
+    val rideReceipt by viewModel.rideReceipt.collectAsState()
+    val isLoadingReceipt by viewModel.isLoadingReceipt.collectAsState()
 
     // Location permission
     val locationPermission = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -231,7 +235,13 @@ fun RideRequestScreen(
                         suggestedPrice = suggestedPrice,
                         platformFee = platformFee,
                         selectedTip = selectedTip,
-                        onTipSelected = { selectedTip = it },
+                        onTipSelected = {
+                            selectedTip = it
+                            // Persist to the ViewModel so the tip can be posted to the
+                            // driver after the ride completes (local state isn't visible
+                            // to the ViewModel's submitTip()).
+                            viewModel.setTipAmount(it)
+                        },
                         onPickupClick = { showPickupSearch = true },
                         onDropoffClick = { showDropoffSearch = true },
                         onRequestRide = {
@@ -284,6 +294,11 @@ fun RideRequestScreen(
                 RideRequestViewModel.RideStep.COMPLETED -> {
                     RideCompletedSheet(
                         selectedBid = selectedBid,
+                        onRateDriver = { showRating = true },
+                        onViewReceipt = {
+                            viewModel.loadReceipt()
+                            showReceipt = true
+                        },
                         onDone = {
                             viewModel.resetRide()
                             onBackClick()
@@ -291,6 +306,32 @@ fun RideRequestScreen(
                     )
                 }
             }
+        }
+
+        // Rate-your-driver overlay (ride-complete → rate → POST /rides/{id}/rate)
+        if (showRating) {
+            val driverName = rideTracking?.driver?.name ?: selectedBid?.driverName ?: "your driver"
+            com.eatfair.app.ui.rating.RateDriverScreen(
+                driverName = driverName,
+                driverPhoto = rideTracking?.driver?.photoUrl ?: selectedBid?.driverPhotoUrl,
+                orderId = (rideTracking?.rideRequestId ?: selectedBid?.id ?: 0).toString(),
+                onBackClick = { showRating = false },
+                onSubmitRating = { rating, tags, comment, _ ->
+                    // Tip is collected during the ride and posted on completion, so
+                    // only the rating/tags/comment are submitted here.
+                    viewModel.rateDriver(rating, tags, comment)
+                    showRating = false
+                }
+            )
+        }
+
+        // Itemized receipt overlay
+        if (showReceipt) {
+            RideReceiptScreen(
+                receipt = rideReceipt,
+                isLoading = isLoadingReceipt,
+                onClose = { showReceipt = false }
+            )
         }
     }
 
@@ -1168,6 +1209,9 @@ fun RideStatusSheet(
     onChatClick: () -> Unit,
     onCancelRide: () -> Unit
 ) {
+    val context = LocalContext.current
+    val driverPhone = rideTracking?.driver?.phone
+
     val statusText = when (currentStep) {
         RideRequestViewModel.RideStep.MATCHED -> "Driver matched!"
         RideRequestViewModel.RideStep.DRIVER_EN_ROUTE -> "Driver is on the way"
@@ -1308,12 +1352,21 @@ fun RideStatusSheet(
                     )
                 }
 
-                IconButton(onClick = { /* Call driver */ }) {
-                    Icon(
-                        Icons.Default.Phone,
-                        contentDescription = "Call",
-                        tint = DollorTheme.Brand.green
-                    )
+                // Only show the Call button when we actually have the driver's phone.
+                if (!driverPhone.isNullOrBlank()) {
+                    IconButton(onClick = {
+                        val dialIntent = android.content.Intent(
+                            android.content.Intent.ACTION_DIAL,
+                            android.net.Uri.parse("tel:$driverPhone")
+                        )
+                        context.startActivity(dialIntent)
+                    }) {
+                        Icon(
+                            Icons.Default.Phone,
+                            contentDescription = "Call",
+                            tint = DollorTheme.Brand.green
+                        )
+                    }
                 }
             }
         }
@@ -1339,6 +1392,8 @@ fun RideStatusSheet(
 @Composable
 fun RideCompletedSheet(
     selectedBid: DriverBidForCustomer?,
+    onRateDriver: () -> Unit = {},
+    onViewReceipt: () -> Unit = {},
     onDone: () -> Unit
 ) {
     Column(
@@ -1375,15 +1430,41 @@ fun RideCompletedSheet(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Rate your driver (primary post-ride action)
         Button(
-            onClick = onDone,
+            onClick = onRateDriver,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = DollorTheme.Brand.green)
         ) {
-            Text("Done", fontWeight = FontWeight.SemiBold)
+            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Rate your driver", fontWeight = FontWeight.SemiBold)
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedButton(
+            onClick = onViewReceipt,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Default.Receipt, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("View receipt", fontWeight = FontWeight.SemiBold)
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        TextButton(
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Done", color = Color.Gray)
         }
     }
 }
