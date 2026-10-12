@@ -23,6 +23,7 @@ import os
 import json
 import logging
 import secrets
+import hmac
 from dotenv import load_dotenv
 
 # Configure logging
@@ -360,10 +361,12 @@ async def admin_auth_middleware(request: Request, call_next):
             content={"detail": "Admin access required"}
         )
 
-    # Auth method 2: ADMIN_SECRET_KEY query param (for ops/migration endpoints)
-    secret_key = request.query_params.get("secret_key")
+    # Auth method 2: ADMIN_SECRET_KEY via X-Admin-Secret header (for ops/migration endpoints).
+    # Header-only (never a query param — query strings leak into access logs / history) and
+    # fail-closed: an unset ADMIN_SECRET_KEY authorizes no one. Constant-time compare.
+    secret_key = request.headers.get("x-admin-secret")
     expected_key = os.getenv("ADMIN_SECRET_KEY")
-    if expected_key and secret_key and secret_key == expected_key:
+    if expected_key and secret_key and hmac.compare_digest(secret_key, expected_key):
         logger.warning(
             f"ADMIN_SECRET_KEY used for admin access (bypasses JWT) "
             f"from IP={request.client.host} path={request.url.path}"
@@ -521,6 +524,9 @@ _PUBLIC_PATTERN_PATHS = [
     (_re.compile(r"^/api/onboarding/upload-menu/.*$"), {"POST"}),
     # ERP restaurant detail (public browsing, only published/approved vendors)
     (_re.compile(r"^/api/erp/restaurants/\d+$"), {"GET"}),
+    # Checkr background-check webhook (POST only) — HMAC signature-verified in the handler
+    # (verify_webhook_signature fails closed when CHECKR_WEBHOOK_SECRET is unset).
+    (_re.compile(r"^/api/checkr/webhook$"), {"POST"}),
 ]
 
 
@@ -559,7 +565,17 @@ async def require_auth_middleware(request: Request, call_next):
 
     try:
         token = auth_header[7:]
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        _payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # G3: honor the jti blacklist (logout/revocation) the same way the
+        # auth_utils.require_* dependencies do, so a revoked token can't slip past
+        # this safety-net middleware onto an endpoint that only relies on it.
+        _jti = _payload.get("jti")
+        if _jti and is_token_blacklisted(_jti):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Token has been revoked"},
+                headers={"WWW-Authenticate": "Bearer"}
+            )
     except (JWTError, Exception):
         return JSONResponse(
             status_code=401,
@@ -670,9 +686,16 @@ def _validate_password(password: str) -> None:
 
 
 def _require_admin_secret(secret_key: Optional[str] = None):
-    """Verify ADMIN_SECRET_KEY for demo/admin endpoints"""
+    """Verify ADMIN_SECRET_KEY for demo/admin endpoints.
+
+    FAILS CLOSED: if ADMIN_SECRET_KEY is not configured on the server, no caller can be
+    authorized, so access is denied (previously an unset key silently allowed everyone).
+    Uses hmac.compare_digest for a constant-time comparison.
+    """
     expected = os.getenv("ADMIN_SECRET_KEY")
-    if expected and (not secret_key or secret_key != expected):
+    if not expected:
+        raise HTTPException(status_code=403, detail="Admin secret key not configured")
+    if not secret_key or not hmac.compare_digest(secret_key, expected):
         raise HTTPException(status_code=403, detail="Admin secret key required")
 
 # Health Check Endpoint
@@ -1096,8 +1119,21 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError("CRITICAL: JWT_SECRET_KEY environment variable is required for security")
+# Enforce a minimum key length. HS256 security depends on secret entropy; a short secret
+# is brute-forceable. Require >= 32 bytes (256 bits) to match the signing algorithm strength.
+# Enforced only in PRODUCTION — CI/test and local dev use a short throwaway secret and must
+# still be able to import the app. Production's real secret is 64 bytes.
+if (os.getenv("ENVIRONMENT", "").lower() == "production"
+        and os.getenv("TESTING", "").lower() not in ("true", "1", "yes")
+        and len(SECRET_KEY.encode("utf-8")) < 32):
+    raise RuntimeError(
+        "CRITICAL: JWT_SECRET_KEY must be at least 32 bytes (256 bits) in production. "
+        f"Current length is {len(SECRET_KEY.encode('utf-8'))} bytes."
+    )
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 43200  # 30 days - mobile apps need long-lived sessions
+# Access tokens live 24h; the mobile apps refresh via /api/auth/{role}/refresh.
+# (Was 30d — a stolen long-lived token was too valuable.)
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
 # Pydantic Models
 class UserCreate(BaseModel):
@@ -2330,9 +2366,9 @@ def vendor_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
 # Customer Demo Login - for App Store review testing (Android calls POST /api/customer/demo-login)
 @app.post("/api/auth/customer/demo-login")
 @app.post("/api/customer/demo-login")   # kept for Android backward compat
-def customer_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db), secret_key: Optional[str] = Query(None)):
+def customer_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db), x_admin_secret: Optional[str] = Header(None)):
     """Demo login for customer - creates or finds demo customer account for App Store review"""
-    _require_admin_secret(secret_key)
+    _require_admin_secret(x_admin_secret)
 
     hint = request.email_hint or request.email or ""
     print(f"Customer demo login attempt with hint: {hint}")
@@ -2380,9 +2416,9 @@ def customer_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(g
 
 # Driver Demo Login - for App Store review testing (Android calls POST /api/auth/driver/demo-login)
 @app.post("/api/auth/driver/demo-login")
-def driver_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db), secret_key: Optional[str] = Query(None)):
+def driver_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get_db), x_admin_secret: Optional[str] = Header(None)):
     """Demo login for driver - creates or finds demo driver account for App Store review"""
-    _require_admin_secret(secret_key)
+    _require_admin_secret(x_admin_secret)
 
     hint = request.email_hint or request.email or ""
     print(f"Driver demo login attempt with hint: {hint}")
@@ -3550,6 +3586,14 @@ def set_driver_online(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=detail
+            )
+
+        # TNC gate (CPUC 13-09-045): explicit Checkr background-check requirement,
+        # independent of status, so no approval path can bypass driver vetting.
+        if not driver.background_check:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Background check not passed. You cannot go online until your background check clears."
             )
 
     driver.is_online = online_status
@@ -5175,11 +5219,48 @@ def post_driver_status(
     if driver.id != driver_id:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    # TNC gate (CPUC 13-09-045): a driver may only go ONLINE if approved AND the
+    # Checkr background check has passed. Prevents this route from bypassing vetting.
+    if is_online:
+        from models import DriverStatus
+        status_val = driver.status.value if hasattr(driver.status, "value") else str(driver.status)
+        approved_states = (DriverStatus.APPROVED.value, DriverStatus.ACTIVE.value, DriverStatus.ONLINE.value)
+        if status_val not in approved_states:
+            raise HTTPException(status_code=403, detail="Driver not approved. Complete verification and background check before going online.")
+        if not driver.background_check:
+            raise HTTPException(status_code=403, detail="Background check not passed. You cannot go online until your background check clears.")
+
     driver.is_online = is_online
     driver.updated_at = datetime.utcnow()
 
     if is_online:
         driver.last_online_at = datetime.utcnow()
+        # Insurance: Period 1 START — driver is now available (mirrors PUT /api/auth/driver/online).
+        # Non-blocking: an insurance logging failure must never stop a driver from going online.
+        try:
+            import uuid as _uuid
+            from insurance.events import log_insurance_event
+            _session_id = str(_uuid.uuid4())
+            driver.insurance_session_id = _session_id
+            log_insurance_event(
+                db=db, driver_id=driver.id, trip_type="available",
+                trip_id=None, session_id=_session_id, period=1,
+                event_type="period_start",
+            )
+        except Exception as e:
+            logging.warning(f"Insurance event (android online) failed: {e}")
+    else:
+        # Insurance: Period 1 END — driver going offline.
+        try:
+            from insurance.events import log_insurance_event, get_or_create_session_id
+            _session_id = get_or_create_session_id(db, driver.id)
+            log_insurance_event(
+                db=db, driver_id=driver.id, trip_type="available",
+                trip_id=None, session_id=_session_id, period=1,
+                event_type="period_end",
+            )
+        except Exception as e:
+            logging.warning(f"Insurance event (android offline) failed: {e}")
 
     db.commit()
     db.refresh(driver)
@@ -6172,6 +6253,12 @@ async def complete_ride_and_pay_driver(
 
     Used after customer payment is captured.
     """
+    # G2 fix: DEPRECATED duplicate payout path. The canonical completion + driver payout is
+    # POST /api/rides/request/{id}/complete (bid_routes.py). This legacy endpoint used different
+    # payout math (+tip, no Access-for-All deduction) and a separate Stripe idempotency key, so
+    # if it ever fired alongside the canonical path the driver would be PAID TWICE. No app calls
+    # it (verified across web/iOS/Android). Disabled to eliminate the double-pay risk.
+    raise HTTPException(status_code=410, detail="Deprecated endpoint. Use POST /api/rides/request/{id}/complete.")
     check_rate_limit(request, payment_limiter, "payment", identifier=str(_auth_driver.id))
     import stripe
     import os
@@ -6601,6 +6688,12 @@ async def upload_driver_document(
         driver.insurance_url = url_path
 
     db.commit()
+
+    # License/insurance may be the last of the three gates (license, insurance,
+    # background check) to complete — e.g. if the background check already
+    # cleared before this upload. See maybe_auto_approve_driver's docstring.
+    from checkr_service import maybe_auto_approve_driver
+    maybe_auto_approve_driver(driver, db)
 
     return {
         "success": True,
@@ -14535,8 +14628,10 @@ async def persona_webhook(
                 print(f"Driver {driver_id} documents VERIFIED via Persona")
 
                 # Check if driver can be auto-approved (all required docs verified)
+                # TNC gate (CPUC 13-09-045): a passed Checkr background check is REQUIRED
+                # for approval — not just license + insurance.
                 was_pending = driver.status == DriverStatus.PENDING.value or driver.status == "pending"
-                if driver.drivers_license and driver.insurance:
+                if driver.drivers_license and driver.insurance and driver.background_check:
                     from models import DriverStatus
                     if was_pending:
                         driver.status = DriverStatus.APPROVED.value
@@ -16602,6 +16697,14 @@ app.include_router(insurance_router)
 # TNC Compliance (CPUC) — background checks, DMV, inspections, zero-tolerance, reporting
 from tnc_compliance import router as tnc_compliance_router
 app.include_router(tnc_compliance_router)
+
+# Checkr-Hosted background checks (provider named in Zietra's CPUC TNC permit)
+from checkr_service import router as checkr_router
+app.include_router(checkr_router)
+
+# Founding Member program ("Founding 10,000 per state") — $100 lifetime platform-fee lock
+from founding_members import router as founding_router
+app.include_router(founding_router)
 
 # ==================== ANDROID ORDER ALIASES ====================
 # Android uses /api/orders/create while ERP uses /api/erp/orders/create
@@ -20243,6 +20346,29 @@ def unregister_push_token(
 
 
 # ==================== IN-APP NOTIFICATION ENDPOINTS ====================
+
+@app.post("/api/feedback")
+async def submit_feedback(request: Request):
+    """Customer bug report / feedback. Reliably logged (captured in server logs) + best-effort
+    email to support — fixes the prior silent-loss where the button faked success against a 404."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    ftype = str(body.get("type", "feedback"))[:50]
+    desc = str(body.get("description", ""))[:5000]
+    cust = body.get("customer_id")
+    appv = str(body.get("app_version", ""))[:50]
+    logging.warning(f"[FEEDBACK] type={ftype} customer={cust} app_version={appv} :: {desc}")
+    try:
+        from email_service import send_email
+        send_email(to_email="support@dollor.ai",
+                   subject=f"[{ftype}] Dollor feedback (customer {cust})",
+                   body=f"App version: {appv}\nCustomer: {cust}\nType: {ftype}\n\n{desc}")
+    except Exception as _e:
+        logging.info(f"[FEEDBACK] email not sent (non-blocking): {_e}")
+    return {"success": True, "message": "Feedback received"}
+
 
 @app.get("/api/customer/notifications")
 def get_customer_notifications(
