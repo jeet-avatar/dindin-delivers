@@ -361,6 +361,7 @@ class MixMindProxyTests(ProxyCase):
         other = security.create_mixmind_token(subscriber("mixmind")["id"])
         self.assertEqual(self.post(body(), token=other).status_code, 200)  # Per user, not global.
 
+    @patch.dict(os.environ, {"MIXMIND_AI_CAP_USD": "10"})
     def test_fair_use_cap_logs_until_enforced(self):
         ai_usage.record(self.member["id"], "mixmind", "bedrock", "us.anthropic.claude-opus-5",
                         {"input_tokens": 0, "output_tokens": 400_000})  # $10 at $25/MTok.

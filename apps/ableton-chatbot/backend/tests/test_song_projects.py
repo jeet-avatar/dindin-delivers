@@ -68,13 +68,13 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
                 await main.update_song_project(self.id, main.SongProjectRequest(title='Busy'), self.user)
         self.assertEqual(error.exception.status_code, 409)
 
-    async def test_new_song_forces_discussion_even_when_client_requests_production(self):
+    async def test_new_song_explicit_discussion_blocks_music_tools(self):
         tool = SimpleNamespace(type='tool_use', name='create_midi_track', id='write', input={'index': -1})
         client = SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(side_effect=[
             SimpleNamespace(stop_reason='tool_use', content=[tool]),
             SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text='Reference or idea?')]),
         ])))
-        req = main.ChatRequest(message='Make a kick', session_id=self.id, planning_only=False)
+        req = main.ChatRequest(message='Make a kick', session_id=self.id, planning_only=True)
         with patch.object(main, 'claude_client', client), patch.object(main, '_execute_tool', AsyncMock()) as execute:
             session, bridge = main.prepare_chat(req, self.user)
             result = await main.produce_chat(req, session, bridge)
@@ -90,7 +90,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         main.bridges['test'] = bridge
         return bridge
 
-    async def test_raw_first_message_cannot_bypass_song_setup(self):
+    async def test_raw_first_discussion_message_keeps_song_setup(self):
         for session_id in (None, 'old-client-new-session'):
             with self.subTest(session_id=session_id):
                 tool = SimpleNamespace(type='tool_use', name='set_track_name', id='rename', input={'track': 0, 'name': 'Bass'})
@@ -100,7 +100,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
                 ])))
                 bridge = self.bridge()
                 with patch.object(main, 'claude_client', client), patch.object(main, '_execute_tool', AsyncMock()) as execute:
-                    stream = await main.chat_stream(main.ChatRequest(message='Build a deep house groove with warm bass', session_id=session_id), self.user)
+                    stream = await main.chat_stream(main.ChatRequest(message='Build a deep house groove with warm bass', session_id=session_id, planning_only=True), self.user)
                     events = [json.loads(chunk) async for chunk in stream.body_iterator]
                 execute.assert_not_awaited()
                 bridge.local_operation.assert_not_awaited()
@@ -141,12 +141,12 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(error.exception.status_code, 409)
         self.assertIn('Your Mac is locked.', error.exception.detail)
 
-    async def test_direct_producer_initializes_new_session_under_lease(self):
+    async def test_direct_producer_initializes_idea_session_under_lease(self):
         session = main.ChatSession('direct-new', 42)
         with patch.object(main, '_run_claude_loop', AsyncMock(return_value=('Reference or idea?', []))):
             await main.produce_chat(main.ChatRequest(message='New song'), session, None)
-        self.assertTrue(session.planning_only)
-        self.assertIsNone(session.project['starting_point'])
+        self.assertFalse(session.planning_only)
+        self.assertEqual(session.project['starting_point'], 'idea')
 
     async def test_confirmation_only_inspects_and_never_sends_music(self):
         bridge = self.bridge()
