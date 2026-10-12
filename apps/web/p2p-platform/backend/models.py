@@ -770,6 +770,8 @@ class Driver(Base):
     insurance = Column(Boolean, default=False)
     insurance_url = Column(String(500))
     insurance_expiry = Column(DateTime)
+    vehicle_registration = Column(Boolean, default=False)
+    vehicle_registration_url = Column(String(500))
     background_check = Column(Boolean, default=False)
     background_check_date = Column(DateTime)
 

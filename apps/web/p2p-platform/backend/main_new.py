@@ -889,6 +889,9 @@ async def run_migrations(request: Request, secret_key: str = Query(...), db: Ses
         # TNC-12: Driver accessibility capability
         ("accessibility_capable", "BOOLEAN DEFAULT FALSE"),
         ("accessibility_features", "TEXT"),
+        # Vehicle registration document (was accepted by the upload endpoint but never persisted)
+        ("vehicle_registration", "BOOLEAN DEFAULT FALSE"),
+        ("vehicle_registration_url", "VARCHAR(500)"),
     ]
 
     for col_name, col_type in driver_columns:
@@ -6691,6 +6694,9 @@ async def upload_driver_document(
     elif document_type == 'insurance':
         driver.insurance = True
         driver.insurance_url = url_path
+    elif document_type == 'vehicle_registration':
+        driver.vehicle_registration = True
+        driver.vehicle_registration_url = url_path
 
     db.commit()
 
@@ -6723,6 +6729,10 @@ def get_driver_documents(driver: Driver = Depends(require_driver), db: Session =
                 "uploaded": driver.insurance,
                 "url": driver.insurance_url,
                 "expiry": driver.insurance_expiry.isoformat() if driver.insurance_expiry else None
+            },
+            "vehicle_registration": {
+                "uploaded": driver.vehicle_registration,
+                "url": driver.vehicle_registration_url
             },
             "background_check": {
                 "completed": driver.background_check,
