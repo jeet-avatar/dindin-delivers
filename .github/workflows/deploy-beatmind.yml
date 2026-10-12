@@ -12,6 +12,11 @@ on:
       - 'apps/ableton-chatbot/**'
       - '.github/workflows/deploy-beatmind.yml'
   workflow_dispatch:
+    inputs:
+      validate_only:
+        description: Run regression checks without publishing
+        type: boolean
+        default: false
 
 env:
   AWS_REGION: us-east-1
@@ -58,15 +63,23 @@ jobs:
         working-directory: apps/ableton-chatbot/frontend
         env:
           NEXT_PUBLIC_API_URL: https://api.beatmind.io
+          NEXT_PUBLIC_RELEASE_COMMIT: ${{ github.sha }}
         run: |
           npm ci
           node --test tests/*.test.cjs
           npm run build
 
+      - name: Save verified frontend export
+        uses: actions/upload-artifact@v4
+        with:
+          name: beatmind-frontend-${{ github.sha }}
+          path: apps/ableton-chatbot/frontend/out/
+          retention-days: 14
+
   deploy-backend:
     name: Deploy Backend to ECS
     needs: [test]
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && inputs.validate_only != true
     runs-on: ubuntu-latest
     outputs:
       task_definition: ${{ steps.register-task-def.outputs.task_def_arn }}
