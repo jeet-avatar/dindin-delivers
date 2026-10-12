@@ -90,7 +90,8 @@ class CatalogCase(unittest.TestCase):
         self.list = self.stack.enter_context(patch.object(catalog.stripe.Price, "list", side_effect=price_list(fake_prices())))
         self.stack.enter_context(patch.dict(os.environ, {"BEATMIND_PACKS": "", "BEATMIND_INCLUDED_TRACKS": "",
                                                         "BILLING_ENFORCED": "", "MIXMIND_SALES_ENABLED": "false",
-                                                        "AI_FAIR_USE_ENFORCED": "false", "JWT_SECRET": "test-secret"}))
+                                                        "AI_FAIR_USE_ENFORCED": "false", "AI_FAIR_USE_USD_STUDIO": "30",
+                                                        "JWT_SECRET": "test-secret"}))
         catalog.clear()
         self.addCleanup(catalog.clear)
 
@@ -836,6 +837,14 @@ class RenewalTermsTests(unittest.TestCase):
 
 class FairUseTests(unittest.TestCase):
     HAIKU = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+    def setUp(self):
+        # Test budget boundaries explicitly, independently of production defaults.
+        limits = patch.dict(os.environ, {"AI_FAIR_USE_USD_STARTER": "8", "AI_FAIR_USE_USD_PRO": "15",
+                                         "AI_FAIR_USE_USD_STUDIO": "30", "TRIAL_AI_USD": "2",
+                                         "TRIAL_CHAT_MESSAGES": "50"})
+        limits.start()
+        self.addCleanup(limits.stop)
 
     def test_haiku_estimate_uses_published_rates_with_cache_multipliers(self):
         usd, basis = ai_usage.estimate("bedrock", self.HAIKU, {"input_tokens": 1_000_000, "output_tokens": 1_000_000,

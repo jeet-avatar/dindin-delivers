@@ -39,7 +39,7 @@ PLAN_DEFAULTS = {'starter': 'fast', 'pro': 'fast', 'studio': 'fast', 'trial': 'f
 
 def available_models(plan_tier):
     """Model tier keys this plan can use, ordered fast → pro → ultra."""
-    plan_tier = plan_tier or 'starter'
+    plan_tier = 'starter' if not plan_tier or plan_tier == 'trial' else plan_tier
     return [key for key, spec in TIERS.items() if plan_tier in spec['plans']]
 
 
@@ -53,7 +53,7 @@ def resolve(model_tier, plan_tier, provider=None):
         model_tier = DEFAULT_TIER
 
     spec = TIERS[model_tier]
-    plan_tier = plan_tier or 'starter'
+    plan_tier = 'starter' if not plan_tier or plan_tier == 'trial' else plan_tier
     if plan_tier not in spec['plans']:
         allowed = ', '.join(TIERS[k]['label'] for k in available_models(plan_tier))
         raise HTTPException(403, f"{spec['label']} requires a plan upgrade. Your plan includes: {allowed}.")
