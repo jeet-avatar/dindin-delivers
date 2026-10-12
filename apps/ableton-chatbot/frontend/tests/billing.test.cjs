@@ -17,7 +17,7 @@ assert.equal(billing.hasPaidPlan({ source: 'legacy' }), true, 'subscribers from 
 assert.equal(billing.hasPaidPlan({ source: 'trial' }), false);
 assert.equal(billing.hasPaidPlan(null), false);
 
-assert.equal(billing.planName({ plan: 'pro_mixmind' }), 'Pro + MixMind');
+assert.equal(billing.planName({ plan: 'pro_mixmind' }), 'MixMind Studio');
 assert.equal(billing.planName({ plan: 'trial' }), 'Free trial');
 assert.equal(billing.planName({ plan: null }), 'No plan');
 
@@ -65,7 +65,7 @@ assert.equal(billing.planIntentQuery(null), '');
 assert.equal(billing.withoutPlanIntent('?plan=pro&interval=year&subscribed=1'), '?subscribed=1');
 assert.equal(billing.withoutPlanIntent('?upgrade=mixmind'), '');
 assert.equal(billing.planIntentNote({ plan: 'pro_mixmind', interval: 'month' }),
-  "You picked Pro + MixMind. You'll start on the free 7-day BeatMind trial (no card). Start Pro + MixMind whenever you're ready — MixMind unlocks once a plan that includes it starts.");
+  "You picked MixMind Studio. You'll start on the free 7-day BeatMind trial (no card). Start MixMind Studio whenever you're ready — MixMind unlocks once a plan that includes it starts.");
 // The ids the public pricing page links to are exactly the ids the dashboard accepts.
 const pricing = require('../src/lib/pricing.ts');
 assert.deepEqual([...pricing.PLANS.map(p => p.id), pricing.MIXMIND_PRICE.id, ...pricing.MIXMIND_COMBOS.map(c => c.id)].sort(),
