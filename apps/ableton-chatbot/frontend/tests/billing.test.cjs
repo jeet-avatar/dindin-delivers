@@ -75,3 +75,21 @@ assert.match(picked, /You picked MixMind\./);
 assert.match(picked, /aria-checked="true"[^>]*>Yearly/);
 
 console.log('billing helpers ok');
+
+for (const [source, tier, references, hq] of [
+  ['subscription', 'starter', false, false], ['legacy', 'starter', false, false],
+  ['subscription', 'pro', true, false], ['subscription', 'studio', true, true],
+  ['comp', 'studio', true, true], ['trial', 'trial', true, false],
+  ['none', 'studio', false, false], ['subscription', 'mixmind', false, false],
+]) {
+  assert.equal(billing.hasReferenceAccess({ source, tier }), references);
+  assert.equal(billing.hasCloudHQAccess({ source, tier }), hq);
+}
+const ReferenceUpgrade = require('../src/components/ReferenceUpgrade.tsx').default;
+for (const hq of [false, true]) {
+  const locked = renderToStaticMarkup(React.createElement(ReferenceUpgrade, { hq, onUpgrade() {} }));
+  assert.match(locked, /aria-disabled="true"/);
+  assert.match(locked, /type="file" disabled=""/);
+  assert.match(locked, hq ? /Upgrade to Studio/ : /Upgrade for reference tracks/);
+  assert.equal((locked.match(/disabled=""/g) || []).length, 2, 'production controls locked; upgrade enabled');
+}

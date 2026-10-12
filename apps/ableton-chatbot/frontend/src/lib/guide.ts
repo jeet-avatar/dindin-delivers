@@ -121,7 +121,7 @@ export const LIMITS: string[] = [
 ];
 
 export const REFERENCE_STEPS: string[] = [
-  "Add a reference track under References in the dashboard. On a Mac, high-quality separation runs on your computer through the Bridge and saves stems to ~/Music/BeatMind Stems/. Cloud HQ separation (paid plans) runs on BeatMind's cloud GPU instead.",
+  "Add a reference track under References in the dashboard. On a Mac, high-quality separation runs on your computer through the Bridge and saves stems to ~/Music/BeatMind Stems/. Cloud HQ separation (Studio only) runs on BeatMind's cloud GPU instead.",
   "Each separation uses one track from your allowance.",
   "Stems: play each stem and mark it Use as reference, Exclude from my track or Separation needs work, then save your review. Stems are estimates and can have bleed; they aren't the artist's studio files.",
   "Timing: check the BPM, meter and proposed sections, adjust them, then confirm the timing map.",

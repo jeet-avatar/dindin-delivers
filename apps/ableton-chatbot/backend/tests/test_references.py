@@ -17,7 +17,7 @@ from security import DoSProtectionMiddleware, _rate_store
 def user(x_user: str | None = Header(default=None)):
     if not x_user:
         raise HTTPException(401)
-    return {'id': int(x_user)}
+    return {'id': int(x_user), 'subscription_status': 'active', 'plan_tier': 'studio', 'plan': 'studio', 'included_tracks': 80, 'included_cloud': 20}
 
 
 class ReferenceTests(unittest.TestCase):

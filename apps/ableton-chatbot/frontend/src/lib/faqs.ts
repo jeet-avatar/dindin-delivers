@@ -36,11 +36,11 @@ export const BEATMIND_FAQS: Faq[] = [
   },
   {
     q: "How much does BeatMind cost?",
-    a: "Starter is $39.99/month ($399.99/year): 10 songs and 10 stem separations a month. Pro is $69.99/month ($699.99/year): 25 songs and 30 stem separations, 5 of them on Cloud HQ. Studio is $99.99/month ($999.99/year): 50 songs, 80 stem separations (20 on Cloud HQ), all AI models and MixMind. DJs can get MixMind alone for $19.99/month, or bundled with BeatMind: MixMind Pro (BeatMind Starter + MixMind) is $29.99/month and MixMind Studio (BeatMind Pro + MixMind) is $49.99/month. Every BeatMind plan starts with a 7-day free trial: 3 songs and 3 stem separations, no credit card.",
+    a: "Starter is $39.99/month ($399.99/year): 10 songs a month; reference tracks require Pro or Studio. Pro is $69.99/month ($699.99/year): 25 songs and 30 local stem separations. Studio is $99.99/month ($999.99/year): 50 songs, 80 stem separations (20 on Cloud HQ), all AI models and MixMind. DJs can get MixMind alone for $19.99/month, or bundled with BeatMind: MixMind Pro (BeatMind Starter + MixMind) is $29.99/month and MixMind Studio (BeatMind Pro + MixMind) is $49.99/month. Every BeatMind plan starts with a 7-day free trial: 3 songs and 3 stem separations, no credit card.",
   },
   {
     q: "What's included in the free trial?",
-    a: "The 7-day free trial needs no credit card. It includes 3 songs, 3 stem separations on your own Mac, and limited AI (about 50 messages). It covers BeatMind only; MixMind isn't part of the trial. Cloud HQ separations and packs need a paid plan. If you start a plan during the trial, the trial ends and your plan begins straight away.",
+    a: "The 7-day free trial needs no credit card. It includes 3 songs, 3 stem separations on your own Mac, and limited AI (about 50 messages). It covers BeatMind only; MixMind isn't part of the trial. Cloud HQ requires Studio; reference packs require Pro or Studio. If you start a plan during the trial, the trial ends and your plan begins straight away.",
   },
   {
     q: "Will I be charged after the trial?",
@@ -48,11 +48,11 @@ export const BEATMIND_FAQS: Faq[] = [
   },
   {
     q: "What counts as a stem separation?",
-    a: "A stem separation splits one reference track into stems (drums, bass, vocals and the rest). Each separation, on your Mac or on Cloud HQ, uses one from your monthly allowance: Starter 10, Pro 30, Studio 80. Songs are counted separately: each new song you make with the AI producer uses one of your monthly songs (10, 25 or 50).",
+    a: "A stem separation splits one reference track into stems (drums, bass, vocals and the rest). Each separation, on your Mac or on Cloud HQ, uses one from your monthly allowance: Pro 30, Studio 80. Starter users upgrade to use references. Songs are counted separately: each new song you make with the AI producer uses one of your monthly songs (10, 25 or 50).",
   },
   {
     q: "What are Cloud HQ separations?",
-    a: "Cloud HQ runs high-quality stem separation on our cloud GPU instead of your computer, for Macs that can't run it locally or when you want it faster. It needs a paid plan (it isn't part of the free trial). Pro includes 5 a month and Studio 20; each one also counts toward your monthly stem separations. Cloud HQ packs are 10 for $7.99 or 50 for $34.99.",
+    a: "Cloud HQ runs high-quality stem separation on our cloud GPU instead of your computer, for Macs that can't run it locally or when you want it faster. It requires Studio (it isn't part of the free trial). Studio includes 20 a month; each one also counts toward your monthly stem separations. Cloud HQ packs are 10 for $7.99 or 50 for $34.99.",
   },
   {
     q: "Do unused separations roll over?",

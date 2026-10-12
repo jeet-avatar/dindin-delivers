@@ -19,6 +19,7 @@ import SpeakButton from "@/components/SpeakButton";
 import MicButton from "@/components/MicButton";
 import References from "@/components/References";
 import ChatComparisons from "@/components/ChatComparisons";
+import ReferenceUpgrade from "@/components/ReferenceUpgrade";
 import PlanPicker from "@/components/PlanPicker";
 import SubscriptionControls from "@/components/SubscriptionControls";
 import BridgeLaunch from "@/components/BridgeLaunch";
@@ -33,7 +34,7 @@ import { restoreChatIndex, unmatchedServerChats, type ChatEntry } from "@/lib/ch
 import { acceptedSound, type MusicChoice } from "@/lib/music-workflow";
 import {
   AI_FAIR_USE_LABELS, PLAN_MODEL_ACCESS, MODEL_TIER_LABELS, MIXMIND_AI_LABEL,
-  daysLeft, hasMixMindAccess, hasPaidPlan, openBillingPortal, parsePlanIntent, planIntentQuery, planName, useUsage, withoutPlanIntent,
+  daysLeft, hasMixMindAccess, hasPaidPlan, hasReferenceAccess, hasCloudHQAccess, openBillingPortal, parsePlanIntent, planIntentQuery, planName, useUsage, withoutPlanIntent,
   type ModelTier, type PlanIntent,
 } from "@/lib/billing";
 
@@ -983,13 +984,14 @@ export default function DashboardPage() {
         )}
         {project && (
           <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
-            <button type="button" disabled={loading || projectBusy || !historyReady}
+            <button type="button" disabled={loading || projectBusy || !historyReady || !hasReferenceAccess(usage?.plan)}
               onClick={() => { void chooseStart("reference"); }}
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 border disabled:opacity-40"
               style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
               Upload reference
             </button>
+            {usage && !hasReferenceAccess(usage.plan) && <button type="button" onClick={() => setNav("references")} className="underline">Upgrade for references</button>}
             {referenceId && project.starting_point === "reference" && (
               <button type="button" onClick={() => setNav("references")}
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 border disabled:opacity-40"
@@ -1300,6 +1302,7 @@ export default function DashboardPage() {
             <button key={id} onClick={() => setNav(id)} title={label} aria-label={label}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left"
               style={{
+                opacity: id === "references" && usage && !hasReferenceAccess(usage.plan) ? 0.45 : 1,
                 background: nav === id ? "var(--bg-primary)" : "transparent",
                 color: nav === id ? "var(--text-primary)" : "var(--text-secondary)",
               }}
@@ -1423,7 +1426,7 @@ export default function DashboardPage() {
           {nav === "beatmind"  && renderBeatMind()}
           {nav === "mixmind"   && renderMixMind()}
           {nav === "downloads" && renderDownloads()}
-          {nav === "references" && <References key={chatId} selectedId={referenceId} guided={Boolean(project)} onTemplateApproved={() => void ableton.open()} onOpenChat={() => setNav("beatmind")} bridgeConnected={bridgeConnected} bridgeLiveSet={bridgeLiveSet} abletonSet={abletonSet}
+          {nav === "references" && (!usage ? <p className="p-6" role="status">Checking reference access...</p> : !hasReferenceAccess(usage.plan) ? <div className="p-6"><ReferenceUpgrade onUpgrade={() => void openBilling()} /></div> : <References cloudHQAllowed={hasCloudHQAccess(usage.plan)} onUpgrade={() => void openBilling()} key={chatId} selectedId={referenceId} guided={Boolean(project)} onTemplateApproved={() => void ableton.open()} onOpenChat={() => setNav("beatmind")} bridgeConnected={bridgeConnected} bridgeLiveSet={bridgeLiveSet} abletonSet={abletonSet}
             onSelect={async id => {
               if (!project) { setReferenceId(id); return; }
               setProjectBusy(true);
@@ -1435,7 +1438,7 @@ export default function DashboardPage() {
             void sendMessage(template
               ? "Let's choose the first sound for my reference-inspired track."
               : "Let's talk about what I like in this reference and what I'd change.", undefined, id, !template);
-          }} />}
+          }} />)}
           {nav === "recordings" && <section className="p-4 sm:p-6 min-w-0">
             <h2 className="text-lg font-semibold">Saved recordings</h2>
             {recordings.error && <p role="alert" className="text-sm text-red-300">{recordings.error}</p>}

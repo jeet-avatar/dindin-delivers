@@ -34,9 +34,9 @@ function features(option: PlanOption): string[] {
       list.push(`${tierInfo.songs} songs / month`);
       list.push(`$${tierInfo.cap}/mo AI budget`);
     }
-    list.push(`${option.included_tracks} stem separations / month`);
+    list.push(option.tier === "starter" ? "Reference tracks: upgrade to Pro or Studio" : `${option.included_tracks} stem separations / month`);
   }
-  if (option.included_cloud > 0) list.push(`${option.included_cloud} of them on Cloud HQ (GPU)`);
+  if (option.tier === "studio" && option.included_cloud > 0) list.push(`${option.included_cloud} of them on Cloud HQ (GPU)`);
   if (option.mixmind) list.push(`MixMind for Mac · ${MIXMIND_AI_LABEL}`);
   return list;
 }

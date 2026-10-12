@@ -172,7 +172,7 @@ class AllowanceTests(CatalogCase):
             with self.subTest(plan=plan):
                 summary = billing.summary(subscriber(plan)["id"])
                 self.assertEqual((summary["plan"]["source"], summary["plan"]["tier"]), ("subscription", plan))
-                self.assertEqual((summary["included_per_month"], summary["included_cloud_per_month"]), (tracks, cloud))
+                self.assertEqual((summary["included_per_month"], summary["included_cloud_per_month"]), (tracks, cloud if plan == "studio" else 0))
 
     def test_legacy_subscribers_are_starter_with_the_env_fallback(self):
         legacy = new_user("active")
@@ -283,7 +283,7 @@ class AllowanceTests(CatalogCase):
         self.assertEqual(billing.summary(user["id"])["allowance_left"], 10)
 
     def test_cloud_uses_the_monthly_cloud_allowance_then_cloud_credits(self):
-        user = subscriber("pro")
+        user = subscriber("studio", included_cloud=5)
         cloud_refs = [ref() for _ in range(5)]
         for reference in cloud_refs:
             billing.charge(user["id"], reference, "cloud")
@@ -540,8 +540,16 @@ class CheckoutTests(CatalogCase):
                           "available": True})
         self.assertNotIn("price_id", studio)
 
+    def test_reference_pack_checkout_respects_feature_access(self):
+        for plan, pack_id in [('starter', 'tracks_10'), ('pro', 'cloud_10')]:
+            with self.subTest(plan=plan, pack=pack_id):
+                response = self.client.post(f'/api/stripe/packs/{pack_id}/checkout', headers=auth(subscriber(plan)))
+                self.assertEqual(response.status_code, 403, response.text)
+        self.create.assert_not_called()
+        self.customer.assert_not_called()
+
     def test_pack_checkout_creates_a_customer_once_and_opens_the_portal(self):
-        user = subscriber("pro")  # A paid plan without a Stripe Customer on file yet (e.g. a legacy row).
+        user = subscriber("studio")  # A paid plan without a Stripe Customer on file yet (e.g. a legacy row).
         response = self.client.post("/api/stripe/packs/tracks_25/checkout", headers=auth(user))
         self.assertEqual(response.status_code, 200, response.text)
         params = self.create.call_args.kwargs
@@ -674,7 +682,7 @@ class WebhookTests(WebhookCase):
         stored = get_user_by_id(user["id"])
         self.assertLessEqual(stored["trial_ends_at"], datetime.now(timezone.utc).isoformat())
         summary = billing.summary(user["id"])
-        self.assertEqual((summary["plan"]["source"], summary["allowance_left"], summary["cloud_allowance_left"]), ("subscription", 30, 5))
+        self.assertEqual((summary["plan"]["source"], summary["allowance_left"], summary["cloud_allowance_left"]), ("subscription", 30, 0))
 
     def test_subscription_checkout_stores_the_plan_from_stripe(self):
         user = new_user(trial_days=5)
@@ -1059,13 +1067,10 @@ class LegacyAccountTests(WebhookCase):
         self.assertEqual(self.retrieve.call_args.kwargs["api_key"], "sk_legacy")
         self.assertEqual(modify.call_args.kwargs["api_key"], "sk_legacy")
 
-    def test_founding_subscribers_buy_packs_as_guests_on_the_primary_account(self):
+    def test_founding_starter_subscribers_upgrade_before_buying_reference_packs(self):
         user = self.founder()
-        self.assertEqual(self.client.post("/api/stripe/packs/tracks_10/checkout", headers=auth(user)).status_code, 200)
-        params = self.create.call_args.kwargs
-        self.assertEqual(params["customer_email"], user["email"])
-        self.assertNotIn("customer", params)
-        self.assertNotIn("api_key", params)
+        self.assertEqual(self.client.post("/api/stripe/packs/tracks_10/checkout", headers=auth(user)).status_code, 403)
+        self.create.assert_not_called()
         self.customer.assert_not_called()
         self.assertEqual(get_user_by_id(user["id"])["stripe_customer_id"], user["stripe_customer_id"])
 

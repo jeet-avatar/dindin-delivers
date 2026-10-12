@@ -583,6 +583,9 @@ async def create_song_project(user: dict = Depends(get_current_user)):
 
 @app.patch('/api/chats/{session_id}/project')
 async def update_song_project(session_id: str, req: SongProjectRequest, user: dict = Depends(get_current_user)):
+    if req.starting_point == 'reference' or req.reference_id:
+        import billing
+        billing.require_reference_access(user)
     with chat_store.acquire(user['id'], session_id):
         session, saved = saved_project(user['id'], session_id)
         if req.title is not None:
@@ -648,6 +651,8 @@ def prepare_chat(req: ChatRequest, user: dict):
     elif not session.messages and not session.project:
         session.project = song_projects.new_project()
     reference_id = req.reference_id if 'reference_id' in req.model_fields_set else getattr(session, 'reference_id', None)
+    if reference_id:
+        billing.require_reference_access(user)
     reference_note = song_projects.reference_note(reference_id, user['id'])
     session.reference_id = reference_id
     session.reference_note = reference_note

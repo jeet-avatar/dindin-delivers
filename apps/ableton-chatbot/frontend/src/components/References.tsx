@@ -8,6 +8,7 @@ import { queued } from "@/lib/fetch-queue";
 import { audioStems, reviewStems, stemLabel } from "@/lib/stems";
 import { backgroundPollingAllowed } from "@/lib/background-polling";
 import { uploadReference, UploadConfirmationError, type UploadProgress } from "@/lib/reference-upload";
+import ReferenceUpgrade from "./ReferenceUpgrade";
 import ReferenceStatus from "./ReferenceStatus";
 import ReferenceListening from "./ReferenceListening";
 import { listeningFinished, type ListeningData } from "@/lib/reference-listening";
@@ -177,7 +178,8 @@ function StemPicker({ id, stems, cue, importing, disabled, bridgeConnected, live
   </div>;
 }
 
-export default function References({ onUse, chatBusy, selectedId, onSelect, guided = false, onTemplateApproved, onOpenChat, bridgeConnected, bridgeLiveSet, abletonSet }: {
+export default function References({ onUse, chatBusy, selectedId, onSelect, guided = false, onTemplateApproved, onOpenChat, bridgeConnected, bridgeLiveSet, abletonSet, cloudHQAllowed = false, onUpgrade }: {
+  cloudHQAllowed?: boolean; onUpgrade?: () => void;
   onUse: (id: string, template?: boolean) => void; chatBusy: boolean;
   selectedId?: string | null; onSelect?: (id: string | null) => Promise<void>; guided?: boolean;
   onTemplateApproved?: () => void; onOpenChat?: () => void; bridgeConnected?: boolean; bridgeLiveSet?: string | null; abletonSet?: React.ReactNode;
@@ -420,7 +422,8 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     <LocalSeparation available={localAvailable} disabled={busy || chatBusy} onStarted={async reference => {
       setObservedJobId(reference.id); await refresh(); await select(reference.id);
     }} />
-    {cloudAvailable && <div className="space-y-3 border-b border-neutral-700 pb-5">
+    {!cloudHQAllowed && onUpgrade && <ReferenceUpgrade hq onUpgrade={onUpgrade} />}
+    {cloudHQAllowed && cloudAvailable && <div className="space-y-3 border-b border-neutral-700 pb-5">
       <h3 className="text-sm font-medium">{localAvailable ? "Or upload and separate on BeatMind GPU (faster)" : "Upload and separate on BeatMind GPU (pay as you go)"}</h3>
       <p className="text-sm text-neutral-400">{localAvailable ? "Faster than local separation. Your file is uploaded, separated on a GPU, then deleted." : "Highest quality with detailed drums. BeatMind deletes the uploaded file after separation."}</p>
       <label className="block text-sm">Audio file <span className="text-neutral-400">{limits ? `(${Math.floor(limits.maxBytes / (1024 * 1024))} MB, ${limits.minSeconds} seconds to ${limits.maxSeconds / 60} minutes)` : "(Checking upload limits...)"}</span>

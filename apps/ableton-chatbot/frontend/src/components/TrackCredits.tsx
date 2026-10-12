@@ -53,7 +53,7 @@ export default function TrackCredits({ refreshKey }: { refreshKey?: unknown }) {
       <span><strong>{usage.cloud_credits}</strong> purchased Cloud HQ separations</span>
     </div>}
     <p className="text-xs text-neutral-400">{trial
-      ? "Your free trial separates tracks on your own Mac with the BeatMind Bridge. Cloud HQ separations and packs come with a paid plan."
+      ? "Your free trial separates tracks on your own Mac with the BeatMind Bridge. Cloud HQ requires Studio; reference packs require Pro or Studio."
       : "Each separation uses one track, from this month's plan first, then purchased tracks. A cloud separation also uses one Cloud HQ separation. Failed separations are refunded. Purchased tracks don't expire and are used while you have a paid plan."}</p>
 
     {paid

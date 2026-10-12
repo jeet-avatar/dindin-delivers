@@ -46,7 +46,7 @@ export const PLANS: Plan[] = [
       "Fast mode AI (Haiku 4.5)",
       "10 songs / month · 30 AI rounds per song",
       "$25/mo AI budget",
-      "10 stem separations / month on your Mac",
+      "Reference tracks: upgrade to Pro or Studio",
       "BeatMind Bridge for Mac (Apple Silicon, macOS 15+)",
     ],
     highlight: false,
@@ -58,13 +58,13 @@ export const PLANS: Plan[] = [
     monthly: 69.99,
     yearly: 699.99,
     includedTracks: 30,
-    includedCloud: 5,
+    includedCloud: 0,
     features: [
       "Fast + Pro mode AI (Haiku + Sonnet)",
       "25 songs / month · 30 AI rounds per song",
       "$45/mo AI budget",
       "30 stem separations / month",
-      "5 of them can run on Cloud HQ (GPU)",
+      "Cloud HQ: upgrade to Studio",
     ],
     highlight: true,
     available: true,
@@ -97,7 +97,7 @@ export const ANNUAL_DISCOUNT_LABEL = "2 months free";
 export const TRACK_DEFINITION =
   "Each song includes up to 30 AI rounds. Need more? Buy extra rounds from within a song ($1.99 for 10 rounds, $3.99 for 25 rounds).";
 export const CLOUD_HQ_DEFINITION =
-  "Cloud HQ separations run on our cloud GPU, for computers that can't run high-quality separation locally. They need a paid plan, and each one also counts toward your monthly stem separations.";
+  "Cloud HQ separations run on our cloud GPU, for computers that can't run high-quality separation locally. They require Studio, and each one also counts toward your monthly stem separations.";
 
 export const TRACK_PACKS: Pack[] = [
   { quantity: 10, price: 1.99 },
@@ -168,7 +168,7 @@ export const MIXMIND_TIERS: MixMindTier[] = [
     yearly: 499.99,
     features: [
       "Everything in MixMind, plus:",
-      "BeatMind Pro for Ableton: 25 songs and 30 stem separations (5 on Cloud HQ) / month",
+      "BeatMind Pro for Ableton: 25 songs and 30 local stem separations / month",
     ],
     highlight: false,
     available: MIXMIND_ON_SALE,

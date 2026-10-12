@@ -122,6 +122,22 @@ def allowance(user):
     return {**none, 'status': user.get('subscription_status')}
 
 
+def reference_features(plan):
+    """Feature access is independent of balances and metering overrides."""
+    paid = plan.get('source') in {'subscription', 'legacy', 'comp'}
+    tier = plan.get('tier')
+    return {'references': plan.get('source') == 'trial' or (paid and tier in {'pro', 'studio'}),
+            'cloud_hq': paid and tier == 'studio'}
+
+
+def require_reference_access(user, cloud=False):
+    from fastapi import HTTPException
+    features = reference_features(allowance(user))
+    if not features['cloud_hq' if cloud else 'references']:
+        raise HTTPException(403, 'Cloud HQ requires Studio. Upgrade your plan to use it.' if cloud else
+                            'Reference tracks require Pro or Studio. Upgrade your plan to use them.')
+
+
 def init(conn):
     conn.execute(f"""
         CREATE TABLE IF NOT EXISTS credit_ledger (
@@ -204,11 +220,11 @@ def summary(user_id):
         recent = conn.execute("""SELECT reference_id, mode, source, cloud, cloud_source, status, created_at FROM separations
                                  WHERE user_id=? ORDER BY id DESC LIMIT 20""", (user_id,)).fetchall()
         tracks_used, cloud_used = _used(conn, user_id, 'track', plan), _used(conn, user_id, 'cloud', plan)
-        return {'enforced': is_enforced, 'plan': plan,
+        return {'enforced': is_enforced, 'plan': plan, 'features': reference_features(plan),
                 'included_per_month': plan['included_tracks'], 'tracks_used': tracks_used,
                 'allowance_left': max(0, plan['included_tracks'] - tracks_used),
-                'included_cloud_per_month': plan['included_cloud'], 'cloud_used': cloud_used,
-                'cloud_allowance_left': max(0, plan['included_cloud'] - cloud_used),
+                'included_cloud_per_month': plan['included_cloud'] if reference_features(plan)['cloud_hq'] else 0, 'cloud_used': cloud_used,
+                'cloud_allowance_left': max(0, plan['included_cloud'] - cloud_used) if reference_features(plan)['cloud_hq'] else 0,
                 'track_credits': _balance(conn, user_id, 'track'), 'cloud_credits': _balance(conn, user_id, 'cloud'),
                 'separations': [dict(row) for row in recent]}
 

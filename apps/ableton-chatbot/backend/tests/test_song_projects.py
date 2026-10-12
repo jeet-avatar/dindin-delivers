@@ -26,7 +26,7 @@ class SongProjectTests(unittest.IsolatedAsyncioTestCase):
         main.bridges.clear()
         self.addCleanup(main.sessions.clear)
         self.addCleanup(main.bridges.clear)
-        self.user = {'id': 42}
+        self.user = {'id': 42, 'subscription_status': 'active', 'plan_tier': 'studio', 'plan': 'studio', 'included_tracks': 80}
         self.song = await main.create_song_project(self.user)
         self.id = self.song['sessionId']
 

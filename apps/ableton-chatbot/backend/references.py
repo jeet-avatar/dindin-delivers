@@ -468,6 +468,9 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
     async def guard(request: Request, user=Depends(get_user)):
         # Local separation runs on the user's computer and never takes the server processing lease.
         last = request.url.path.rstrip('/').rsplit('/', 1)[-1]
+        # Keep saved files readable/deletable after a downgrade, but gate every production operation.
+        if request.method == 'POST' and last not in {'listen-cancel', 'local-cancel'}:
+            billing.require_reference_access(user, cloud=last in {'cloud', 'cloud-start'})
         if request.method not in {'POST', 'DELETE'} or last in ('listen-cancel', 'local', 'local-open', 'local-cancel', 'cloud', 'cloud-start', 'import-to-ableton'):
             yield
             return
@@ -520,7 +523,8 @@ def router_for(get_user, require_subscription, bridge_for=lambda user_id, capabi
         return {'references': sorted(items, key=lambda i: i['created_at'], reverse=True),
                 'processing': {'busy': processing_busy()},
                 'local_separation': {'available': bool(bridge_for(user['id'], LOCAL_CAPABILITY))},
-                'cloud_separation': {'available': cloud_separation.available()},
+                'features': billing.reference_features(billing.allowance(user)),
+                'cloud_separation': {'available': cloud_separation.available() and billing.reference_features(billing.allowance(user))['cloud_hq']},
                 'audio_listening': audio_listener.capability(), 'sound_comparison': sound_comparison.capability(), **capability()}
 
     @router.get('/{reference_id}/comparisons')

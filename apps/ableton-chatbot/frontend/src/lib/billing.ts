@@ -44,6 +44,7 @@ export type ModelTier = "fast" | "pro" | "ultra";
 
 export interface Usage {
   enforced: boolean;
+  features?: { references: boolean; cloud_hq: boolean };
   plan: PlanState;
   included_per_month: number;
   tracks_used: number;
@@ -115,6 +116,14 @@ export function planName(plan: PlanState | null | undefined): string {
 /** A paid plan (not the free trial): active, trialing on Stripe, or past due within its grace period. */
 export function hasPaidPlan(plan: PlanState | null | undefined): boolean {
   return plan?.source === "subscription" || plan?.source === "legacy" || plan?.source === "comp";
+}
+
+export function hasReferenceAccess(plan: PlanState | null | undefined): boolean {
+  return plan?.source === "trial" || (hasPaidPlan(plan) && ["pro", "studio"].includes(plan?.tier || ""));
+}
+
+export function hasCloudHQAccess(plan: PlanState | null | undefined): boolean {
+  return hasPaidPlan(plan) && plan?.tier === "studio";
 }
 
 /** A plan chosen on the public site, carried through signup/login to the dashboard plan picker. */

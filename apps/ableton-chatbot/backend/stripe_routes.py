@@ -113,7 +113,7 @@ async def plans():
     """The plan picker's catalog. MixMind plans stay listed as unavailable until MixMind sales open."""
     items = await asyncio.to_thread(catalog.public_plans)
     # Songs per month is enforced here, not in Stripe metadata; send it so every picker shows the real cap.
-    items = [{**p, "songs_per_month": billing.songs_limit(p["tier"]) if p.get("tier") in billing.SONGS_PER_MONTH else 0}
+    items = [{**p, "included_cloud": p['included_cloud'] if p.get('tier') == 'studio' else 0, "songs_per_month": billing.songs_limit(p["tier"]) if p.get("tier") in billing.SONGS_PER_MONTH else 0}
              for p in items]
     round_packs = billing.round_pack_options()
     return {"plans": items, "trial_days": 7,
@@ -234,12 +234,12 @@ async def usage(request: Request):
     model_labels = {k: model_access.TIERS[k]['label'] for k in models}
     songs_used = billing.songs_this_month(user["id"])
     songs_max = billing.songs_limit(plan_tier)
-    return {**summary, "packs": [p for p in packs if p["price"]],
+    return {**summary, "packs": [p for p in packs if p["price"] and summary['features']['references'] and (p['kind'] != 'cloud' or summary['features']['cloud_hq'])],
             "songs_this_month": songs_used, "songs_limit": songs_max,
             "plan_price": {"amount": entry["amount"], "currency": entry["currency"]} if entry else None,
             "renewal_terms": catalog.renewal_terms(entry) if entry else None,
             "subscribed": is_subscribed(user), "mixmind_access": mixmind_access(user),
-            "packs_require_plan": True, "can_buy_packs": subscription_access(user),
+            "packs_require_plan": True, "can_buy_packs": subscription_access(user) and summary["features"]["references"],
             "billing_account": bool(user.get("stripe_customer_id")),
             "ai_usage": ai_usage.status(user["id"], summary["plan"]),
             "model_access": models, "model_labels": model_labels}
@@ -256,6 +256,7 @@ async def buy_pack(pack_id: str, request: Request):
         raise HTTPException(500, "Payment system not configured")
     if not subscription_access(user):
         raise HTTPException(402, "Packs top up a paid plan.")
+    billing.require_reference_access(user, cloud=item['kind'] == 'cloud')
     metadata = {"user_id": str(user["id"]), "app": APP, "pack_id": item["id"],
                 "kind": item["kind"], "credits": str(item["credits"])}
     try:
