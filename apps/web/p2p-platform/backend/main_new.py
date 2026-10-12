@@ -3094,16 +3094,20 @@ def driver_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         check_rate_limit(request, email_auth_rate_limiter, "driver_login_email", identifier=form_data.username.lower())
         _check_login_lockout(form_data.username.lower())
 
-    # Find user with DRIVER role first
+    # Find user with DRIVER role first. Email lookup is case-insensitive — Postgres
+    # `=` is case-sensitive by default, so a driver who registered as
+    # "Jeet@x.com" but types "jeet@x.com" at login (or vice versa) would
+    # otherwise get a false "incorrect email or password".
+    login_email = form_data.username.strip()
     user = db.query(User).filter(
-        User.email == form_data.username,
+        func.lower(User.email) == login_email.lower(),
         User.role == UserRole.DRIVER
     ).first()
 
     if not user:
         # Also check for users with any role who have a linked driver account
         # (Google Sign-In creates users with role=user but links a driver_id)
-        any_user = db.query(User).filter(User.email == form_data.username).first()
+        any_user = db.query(User).filter(func.lower(User.email) == login_email.lower()).first()
         if any_user and any_user.driver_id:
             user = any_user
         elif any_user:
@@ -3226,8 +3230,9 @@ def driver_register(http_request: Request, request: DriverRegisterRequest, db: S
                     detail="Invalid date_of_birth format. Use YYYY-MM-DD."
                 )
 
-        # Check if email already exists
-        existing_user = db.query(User).filter(User.email == request.email).first()
+        # Check if email already exists. Case-insensitive so "Jeet@x.com" and
+        # "jeet@x.com" are treated as the same account on both sides of this check.
+        existing_user = db.query(User).filter(func.lower(User.email) == request.email.lower()).first()
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -3235,7 +3240,7 @@ def driver_register(http_request: Request, request: DriverRegisterRequest, db: S
             )
 
         # Check if driver email already exists
-        existing_driver = db.query(Driver).filter(Driver.email == request.email).first()
+        existing_driver = db.query(Driver).filter(func.lower(Driver.email) == request.email.lower()).first()
         if existing_driver:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -226,6 +226,79 @@ class TestDriverAuthentication:
         # May return profile, not found, or require re-auth
         assert response.status_code in [200, 401, 404]
 
+    def test_driver_login_case_insensitive_email(self, client: TestClient, db_session):
+        """Regression test: login must succeed regardless of email casing.
+
+        Previously the login lookup used an exact (case-sensitive) `User.email ==`
+        comparison, so a driver who registered as "Case@Test.com" but typed
+        "case@test.com" (or vice versa) at login got a false "incorrect email
+        or password" even with the right credentials.
+        """
+        from models import User, Driver, DriverStatus, UserRole
+        from main_new import get_password_hash
+        import uuid
+
+        stored_email = "CaseSensitive.Test@Example.com"
+        driver = Driver(
+            driver_id=f"drv_{uuid.uuid4().hex[:8]}",
+            email=stored_email,
+            password_hash=get_password_hash("DriverPassword123!"),
+            first_name="Case",
+            last_name="Test",
+            phone="+14155559999",
+            status=DriverStatus.APPROVED,
+        )
+        db_session.add(driver)
+        db_session.commit()
+        db_session.refresh(driver)
+
+        user = User(
+            email=stored_email,
+            password_hash=driver.password_hash,
+            full_name="Case Test",
+            role=UserRole.DRIVER,
+            driver_id=driver.id,
+        )
+        db_session.add(user)
+        db_session.commit()
+
+        # Log in with a DIFFERENT casing than what was stored.
+        response = client.post("/api/auth/driver/login", data={
+            "username": "casesensitive.test@example.com",
+            "password": "DriverPassword123!",
+        })
+        assert response.status_code == 200, (
+            f"Case-insensitive login should succeed, got {response.status_code}: {response.text}"
+        )
+        assert "access_token" in response.json()
+
+    def test_driver_register_duplicate_email_different_case(self, client: TestClient, db_session):
+        """Regression test: registering with different casing of an existing
+        email must still be rejected as a duplicate (previously the exact-match
+        check would miss this, allowing two accounts for the same real email).
+        """
+        from models import User, UserRole
+        from main_new import get_password_hash
+
+        existing_email = "Duplicate.Check@Example.com"
+        db_session.add(User(
+            email=existing_email,
+            password_hash=get_password_hash("Password123!"),
+            full_name="Existing User",
+            role=UserRole.DRIVER,
+        ))
+        db_session.commit()
+
+        response = client.post("/api/auth/driver/register", json={
+            "email": "duplicate.check@example.com",  # same email, different case
+            "password": "NewPassword123!",
+            "name": "New Driver",
+            "phone": "+14155557778",
+        })
+        assert response.status_code in [400, 409, 422], (
+            f"Differently-cased duplicate email should be rejected, got {response.status_code}"
+        )
+
 
 class TestVendorAuthentication:
     """Tests for vendor authentication endpoints"""
