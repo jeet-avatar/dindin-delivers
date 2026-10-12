@@ -3,6 +3,11 @@ BeatMind Bridge — macOS/Windows GUI app.
 Double-click to launch. Connects to your BeatMind account and controls Ableton Live.
 """
 
+# Frozen audio workers must exit through multiprocessing's handler before GUI imports.
+if __name__ == '__main__':
+    import multiprocessing
+    multiprocessing.freeze_support()
+
 import asyncio
 import json
 import os

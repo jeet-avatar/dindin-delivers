@@ -61,8 +61,10 @@ with wave.open(str(work / 'tone.wav'), 'wb') as out:
     out.writeframes(b''.join(struct.pack('<hh', *(int(8000 * math.sin(2 * math.pi * f * i / 44100)) for f in (110, 220)))
                              for i in range(44100 * 8)))
 (work / 'meta.json').write_text(json.dumps({'id': 'check', 'name': 'tone.wav', 'source_file': str(work / 'tone.wav')}))
-subprocess.run([str(app / 'Contents/MacOS/BeatMind Bridge'), '--separate', str(work)], check=True, timeout=1800,
+worker = subprocess.run([str(app / 'Contents/MacOS/BeatMind Bridge'), '--separate', str(work)], check=True, timeout=1800, capture_output=True, text=True,
                env={'DEMUCS_MODEL': 'htdemucs', 'DEMUCS_DEVICE': 'cpu', 'BEATMIND_DECODER': 'afconvert', 'HOME': str(Path.home())})
+print(worker.stdout, worker.stderr)
+assert 'Starting Ableton Chat Bridge' not in worker.stdout + worker.stderr, 'Audio worker unexpectedly started the Bridge UI'
 report = json.loads((work / 'report.json').read_text())
 assert report['stem_health']['checks_passed'], report['stem_health']
 print('Packaged separation check passed:', [s['name'] for s in report['stems']])

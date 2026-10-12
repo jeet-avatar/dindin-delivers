@@ -4,7 +4,8 @@
     "date": "2026-10-11",
     "notes": [
       "A successful sign-in shows an explicit confirmation instead of an empty password field.",
-      "The website detects Bridge connections promptly without waiting for Ableton set inspection."
+      "The website detects Bridge connections promptly without waiting for Ableton set inspection.",
+      "Audio-processing background workers no longer launch an extra Bridge window."
     ]
   },
   {
