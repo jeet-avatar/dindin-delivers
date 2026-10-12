@@ -25,6 +25,7 @@ from execution import BAD_STATUSES, MAX_PRODUCTION_ROUNDS, execute_verified
 from ai_provider import create_client, failure_message, model_name, provider_name
 from automation import AUTOMATION_TOOLS, execute_automation, note_density
 from production import create_plan, get_plan, link_audition, review_part, replace_audition
+from producer_reply import preview_reply
 from session_context import matching_recordings, context_note
 from model_history import bounded_history
 import ai_usage
@@ -859,7 +860,7 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     bridge_note += '\n' + getattr(session, 'project_note', '')
     planning_only = getattr(session, 'planning_only', False)
     if planning_only:
-        bridge_note += "\nThis turn is discussion only. Ask one next question. Do not play, audition, change music or create a production plan; only read-only discovery is available."
+        bridge_note += "\nThis turn is discussion only. Recommend the best next step and explain why, with up to two concrete alternatives grounded in discovered sources and the current project. Ask one focused question only when necessary. Do not play, audition, change music or create a production plan; only read-only discovery is available."
     if bridge and session.project and not session.project.get('live_set'):
         bridge_note += "\nNEW SONG: The user started a fresh song project. Ignore any existing tracks or clips in Ableton — they belong to a previous song. Start from scratch: set tempo, create new tracks, and build new sounds. Do not reference or continue previous work."
     if bridge and (not session.project or session.project.get('live_set')):
@@ -903,8 +904,10 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
         if response.stop_reason == "end_turn" or not tool_uses:
             answer = "".join(continued_text) + "\n".join(text_parts)
             if not answer.strip():
-                answer = ("I finished checking the set but did not produce an answer. Nothing was changed. "
-                          "Please ask again, or ask for one part of the plan at a time.")
+                answer = ("No producer explanation was returned. Review Production details for completed or failed actions "
+                          "before continuing; inspect the current set before repeating any changes."
+                          if tool_calls_log else
+                          "I did not produce an answer and no Ableton actions were run. Please try the request again.")
             return answer, tool_calls_log
 
         messages.append({"role": "assistant", "content": response.content})
@@ -991,27 +994,9 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
 
         if any(action['result'].get('comparison') for action in tool_calls_log):
             return 'The saved sounds have been compared. Play A and B below at matched RMS levels. These measurements are not a match percentage. Which difference would you like to refine?', tool_calls_log
-        failed = [action for action in tool_calls_log if action['result'].get('status') in {'failed', 'partial'}
-                  and not str(action['result'].get('summary', '')).startswith('Skipped after')]
-        caveat = (f" Note: {len(failed)} step{'s' if len(failed) != 1 else ''} did not complete "
-                  f"({', '.join(sorted({action['tool'].replace('_', ' ') for action in failed}))}); see Production details."
-                  if failed else "")
-        if audition_ready and any(action['result'].get('recording', {}).get('kind') == 'scene' for action in tool_calls_log):
-            return ("Your full-mix preview is ready." + caveat + " Listen to the whole scene together, then accept it or "
-                    "request a change to the balance."), tool_calls_log
-        if audition_ready:
-            revised = any(action.get('result', {}).get('recording', {}).get('supersedes') for action in tool_calls_log)
-            if revised:
-                added = [a["input"]["effect_uri"].split("/")[-1] for a in tool_calls_log
-                         if a["tool"] == "load_effect" and a["result"].get("status") == "verified"]
-                for a in tool_calls_log:  # a device added and then removed in the same turn is not "added"
-                    if a["tool"] == "delete_device" and a["result"].get("status") == "verified" and a["input"]["expected_name"] in added:
-                        added.remove(a["input"]["expected_name"])
-                effects = f" Effects added this time: {', '.join(added)}." if added else ""
-                return ("Your updated preview is ready." + effects + caveat + " The earlier recording and its decision remain saved. "
-                        "Compare before and after, then accept it or request a change."), tool_calls_log
-            return ("Your first preview of this part is ready." + caveat + " Listen, then accept the sound or request a change. "
-                    "Nothing else will be built until you choose the next step."), tool_calls_log
+        preview_summary = preview_reply(tool_calls_log)
+        if preview_summary:
+            return preview_summary, tool_calls_log
         if any(action["tool"] in {"audition_part", "audition_scene"} for action in tool_calls_log):
             return "The part remains in Ableton, but its audition did not pass verification. No recording is ready for approval. Review the audition details before retrying; do not recreate the track or notes.", tool_calls_log
 
@@ -1314,11 +1299,11 @@ async def email_unsubscribe(token: str = ""):
 
 
 @app.get("/api/bridge/status")
-async def bridge_status(user: dict = Depends(get_current_user)):
+async def bridge_status(user: dict = Depends(get_current_user), include_live_set: bool = True):
     mine = [b for b in bridges.values() if b.user_id == user["id"]]
     result = {"bridge_connected": bool(mine), "bridge_version": getattr(mine[0], "version", "") if mine else None,
               "live_set": None, "live_set_issue": None}
-    if mine:
+    if mine and include_live_set:
         try:
             live = await mine[0].local_operation('live_set', {'operation': 'inspect'}, timeout=6)
             if live.get('status') in ('observed', 'verified') and live.get('title'):

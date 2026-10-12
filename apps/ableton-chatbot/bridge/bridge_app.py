@@ -162,14 +162,18 @@ class BeatMindBridgeApp:
         # Password
         tk.Label(form, text="Password", font=self.font_small, bg=BG_CARD, fg=TEXT,
                  anchor="w").pack(fill="x", pady=(0, 4))
+        password_frame = tk.Frame(form, bg=BG_CARD)
+        password_frame.pack(fill="x")
         self.password_var = tk.StringVar()
-        pw_entry = tk.Entry(form, textvariable=self.password_var, font=self.font_body,
+        pw_entry = tk.Entry(password_frame, textvariable=self.password_var, font=self.font_body,
                             bg=BG_INPUT, fg=TEXT, insertbackground=TEXT, **ENTRY_DISABLED,
                             show="*", relief="flat", highlightthickness=1,
                             highlightbackground=BORDER, highlightcolor=ACCENT)
         pw_entry.pack(fill="x", ipady=6, pady=(0, 4))
         self.password_entry = pw_entry
         pw_entry.bind('<Return>', lambda event: self._connect())
+        self.sign_in_label = tk.Label(password_frame, text="Signed in — no password needed",
+                                      font=self.font_small, bg=BG_CARD, fg=SUCCESS, anchor="w")
 
         # Remember checkbox
         self.remember_var = tk.BooleanVar(value=config.get("remember", True))
@@ -378,6 +382,8 @@ class BeatMindBridgeApp:
         self.password_var.set('')
         self.email_entry.config(state='disabled')
         self.password_entry.config(state='disabled')
+        self.password_entry.pack_forget()
+        self.sign_in_label.pack(fill='x', ipady=6, pady=(0, 4))
         self.connect_btn.config(state="normal", text=START_LABEL)
         self.disconnect_btn.pack(side='right', padx=(8, 0))
         self.sign_out_btn.pack(side='right', padx=(8, 0))
@@ -401,6 +407,8 @@ class BeatMindBridgeApp:
         self.loop = None
         self.email_entry.config(state='normal')
         self.password_entry.config(state='normal')
+        self.sign_in_label.pack_forget()
+        self.password_entry.pack(fill='x', ipady=6, pady=(0, 4))
         self.disconnect_btn.pack_forget()
         self.sign_out_btn.pack_forget()
         self.connect_btn.config(state="normal", text=START_LABEL)

@@ -75,6 +75,27 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(session.messages[-1]["content"][0]["is_error"])
         self.assertEqual([call.args[0]["type"] for call in emit.await_args_list], ["action_started", "action_completed", "action_started", "action_completed"])
 
+    async def test_empty_model_reply_does_not_deny_completed_changes(self):
+        session = main.ChatSession("empty-reply", 1)
+        self.client.messages.create.side_effect = [response(tool("set_tempo")), response()]
+        with patch.object(main, "_execute_tool", AsyncMock(return_value={"status": "verified", "steps": []})):
+            text, actions = await main._run_claude_loop(session, None)
+        self.assertEqual(actions[0]["result"]["status"], "verified")
+        self.assertNotIn("Nothing was changed", text)
+        self.assertIn("before repeating any changes", text)
+
+    async def test_captured_preview_returns_part_specific_explanation(self):
+        session = main.ChatSession("preview-reply", 1)
+        recording = {"id": "preview", "track": 2, "scene": 0, "track_name": "Bass"}
+        self.client.messages.create.return_value = response(tool("audition_part"))
+        with patch.object(main, "_execute_tool", AsyncMock(return_value={"status": "verified", "recording": recording})), \
+                patch.object(main, "link_audition", return_value=None), \
+                patch.object(main, "attach_evidence", return_value=recording):
+            text, _ = await main._run_claude_loop(session, None)
+        self.assertIn("Bass: part preview", text)
+        self.assertIn("tone, groove or effects", text)
+        self.client.messages.create.assert_awaited_once()
+
     async def test_unverified_action_stops_dependent_batch_without_retry(self):
         session = main.ChatSession("unverified", 1)
         self.client.messages.create.side_effect = [

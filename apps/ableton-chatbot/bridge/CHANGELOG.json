@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.3.17",
+    "date": "2026-10-11",
+    "notes": [
+      "A successful sign-in shows an explicit confirmation instead of an empty password field.",
+      "The website detects Bridge connections promptly without waiting for Ableton set inspection."
+    ]
+  },
+  {
     "version": "1.3.16",
     "date": "2026-10-11",
     "notes": [
@@ -24,7 +32,7 @@
     ]
   },
   {
-    "version": "1.3.12 – 1.3.13",
+    "version": "1.3.12 \u2013 1.3.13",
     "date": "2026-10-10",
     "notes": [
       "Check for updates is always visible and shows whether you're up to date.",
@@ -32,10 +40,10 @@
     ]
   },
   {
-    "version": "1.3.7 – 1.3.11",
-    "date": "2026-10-09 – 2026-10-10",
+    "version": "1.3.7 \u2013 1.3.11",
+    "date": "2026-10-09 \u2013 2026-10-10",
     "notes": [
-      "Cloud-separated stems download to Music › BeatMind Stems and land in Ableton.",
+      "Cloud-separated stems download to Music \u203a BeatMind Stems and land in Ableton.",
       "Use stems places cloud stems in your Live set automatically.",
       "Recorded vocals can be imported into Ableton automatically."
     ]
@@ -54,7 +62,7 @@
     "commit": "150c157b",
     "notes": [
       "Smooth entrances (fade-ins and builds) are now recorded as real Arrangement automation, not just played live.",
-      "Replacing part of an Arrangement is safer — it no longer overwrites automation it shouldn't.",
+      "Replacing part of an Arrangement is safer \u2014 it no longer overwrites automation it shouldn't.",
       "Transition previews can run longer, so you can hear more before committing to a change."
     ]
   },
@@ -76,12 +84,12 @@
     ]
   },
   {
-    "version": "1.2.0 – 1.3.2",
-    "date": "2026-09-27 – 2026-09-28",
+    "version": "1.2.0 \u2013 1.3.2",
+    "date": "2026-09-27 \u2013 2026-09-28",
     "notes": [
-      "Bridge now stays signed in across launches and reconnects automatically after a dropped connection or a brief BeatMind outage — no more re-entering your password every time.",
+      "Bridge now stays signed in across launches and reconnects automatically after a dropped connection or a brief BeatMind outage \u2014 no more re-entering your password every time.",
       "Updates install with one click from inside the app; your open Ableton set is never touched.",
-      "BeatMind can now ride clip and mixer automation — volume, pan and sends — directly in your set.",
+      "BeatMind can now ride clip and mixer automation \u2014 volume, pan and sends \u2014 directly in your set.",
       "Added kick-to-bass sidechaining and more arrangement-building rules.",
       "Added per-part effect chains, an engineering mix check, and a master limiter.",
       "Added full-mix scene previews and recording a song straight into the Arrangement."
