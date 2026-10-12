@@ -274,7 +274,7 @@ export default function DashboardPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModelTier>("fast");
   const remoteChats = unmatchedServerChats(chats, serverChats, sessionId);
-  const { status: bridgeStatus, liveSet: bridgeLiveSet, liveSetIssue, refresh: refreshBridge } = useBridgeStatus(user?.id);
+  const { status: bridgeStatus, version: bridgeVersion, liveSet: bridgeLiveSet, liveSetIssue, refresh: refreshBridge } = useBridgeStatus(user?.id);
   const bridgeConnected = bridgeStatus === "connected";
   const referenceInAbleton = Boolean(referenceId && project?.starting_point === "reference" && project.live_set);
   const ableton = useAbletonLaunch(bridgeStatus, user?.id);
@@ -1384,7 +1384,7 @@ export default function DashboardPage() {
         </header>
         <UpdateBanner />
         <div className="shrink-0 border-b px-3 sm:px-6" style={{ borderColor: "var(--border)" }}>
-          <BridgeLaunch status={bridgeStatus} onRetry={refreshBridge} ableton={ableton} />
+          <BridgeLaunch status={bridgeStatus} version={bridgeVersion} onRetry={refreshBridge} ableton={ableton} />
         </div>
         {nav === "beatmind" && <div className="flex flex-wrap items-center gap-2 px-3 sm:px-6 py-3 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
           <button type="button" className="sm:hidden h-10 px-2 text-sm" onClick={() => setHistoryOpen(true)}>Saved songs</button>

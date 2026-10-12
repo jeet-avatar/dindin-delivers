@@ -8,6 +8,7 @@ import { queued } from "@/lib/fetch-queue";
 import { audioStems, reviewStems, stemLabel } from "@/lib/stems";
 import { backgroundPollingAllowed } from "@/lib/background-polling";
 import { uploadReference, UploadConfirmationError, type UploadProgress } from "@/lib/reference-upload";
+import ReferenceFilePicker from "./ReferenceFilePicker";
 import ReferenceUpgrade from "./ReferenceUpgrade";
 import ReferenceStatus from "./ReferenceStatus";
 import ReferenceListening from "./ReferenceListening";
@@ -426,16 +427,15 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
     {cloudHQAllowed && cloudAvailable && <div className="space-y-3 border-b border-neutral-700 pb-5">
       <h3 className="text-sm font-medium">{localAvailable ? "Or upload and separate on BeatMind GPU (faster)" : "Upload and separate on BeatMind GPU (pay as you go)"}</h3>
       <p className="text-sm text-neutral-400">{localAvailable ? "Faster than local separation. Your file is uploaded, separated on a GPU, then deleted." : "Highest quality with detailed drums. BeatMind deletes the uploaded file after separation."}</p>
-      <label className="block text-sm">Audio file <span className="text-neutral-400">{limits ? `(${Math.floor(limits.maxBytes / (1024 * 1024))} MB, ${limits.minSeconds} seconds to ${limits.maxSeconds / 60} minutes)` : "(Checking upload limits...)"}</span>
-        <input ref={fileInput} type="file" aria-label="Reference audio file" accept=".wav,.aif,.aiff,.mp3,.m4a,.flac,.ogg"
-          disabled={!available || !limits || busy || chatBusy} onChange={e => void chooseFile(e.target.files?.[0] || null)}
-          className="block mt-2 w-full min-w-0 rounded border border-neutral-600 bg-neutral-900 p-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-emerald-700 file:px-4 file:py-3 file:font-medium file:text-white disabled:opacity-40" />
-      </label>
+      <div className="block text-sm">Audio file <span className="text-neutral-400">{limits ? `(${Math.floor(limits.maxBytes / (1024 * 1024))} MB, ${limits.minSeconds} seconds to ${limits.maxSeconds / 60} minutes)` : "(Checking upload limits...)"}</span>
+        <ReferenceFilePicker inputRef={fileInput} name={file?.name || item?.name}
+          disabled={!available || !limits || busy || chatBusy} onChange={next => void chooseFile(next)} />
+      </div>
       {file && <p role="status" className="text-sm break-words">Selected file: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB). {transfer ? "Upload in progress." : uploadUnconfirmed ? "Upload result unknown. Check saved references before choosing the file again." : uploadedReference ? "Uploaded; not attached to this song yet." : "Not uploaded yet."}</p>}
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={rights} disabled={busy || chatBusy} onChange={e => setRights(e.target.checked)} className="mt-1" />
         I have permission to upload and analyze this audio.</label>
       <button type="button" onClick={upload} disabled={!available || !file || !rights || !uploadReady || !limits || file.size > limits.maxBytes || busy || chatBusy || uploadUnconfirmed || (processingBusy && !cloudAvailable && !uploadedReference)}
-        className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{transfer ? transfer.sent ? "Confirming upload..." : "Uploading..." : busy ? "Saving selection..." : uploadedReference ? "Attach uploaded reference" : processingBusy ? "Waiting for processing" : "Upload and analyze"}</button>
+        className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{item && !file ? "Reference selected" : transfer ? transfer.sent ? "Confirming upload..." : "Uploading..." : busy ? "Saving selection..." : uploadedReference ? "Attach uploaded reference" : processingBusy ? "Waiting for processing" : "Upload and analyze"}</button>
     </div>}
     {guided && <button type="button" aria-expanded={showSaved} aria-controls="saved-reference-library"
       onClick={() => setShowSaved(value => !value)} className="text-sm underline">

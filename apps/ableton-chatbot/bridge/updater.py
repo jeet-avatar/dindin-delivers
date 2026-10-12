@@ -1,4 +1,4 @@
-"""Check for and install Bridge updates, only when the user chooses to.
+"""Check for and install Bridge updates, automatically when idle.
 
 The download must match the published SHA-256 and carry Zietra's notarized Developer ID signature.
 Installing replaces the app bundle and relaunches it; Ableton and its open set are never touched.
@@ -62,6 +62,10 @@ def install(latest, progress=lambda text: None):
     target = running_app()
     if target is None:
         raise RuntimeError("Download the new Bridge from beatmind.io; this copy cannot update itself.")
+    # A copy launched directly from the read-only installer cannot replace itself.
+    if str(target).startswith('/Volumes/') or '/AppTranslocation/' in str(target):
+        target = Path.home() / 'Applications' / APP_NAME
+        target.parent.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="beatmind-update-"))
     mount = work / "mount"
     try:
@@ -87,8 +91,15 @@ def install(latest, progress=lambda text: None):
         _verify(staged)
         previous = target.with_name(target.name + ".old")
         shutil.rmtree(previous, ignore_errors=True)
-        target.rename(previous)
-        staged.rename(target)
+        had_previous = target.exists()
+        if had_previous:
+            target.rename(previous)
+        try:
+            staged.rename(target)
+        except Exception:
+            if had_previous:
+                previous.rename(target)
+            raise
         return target
     finally:
         if mount.exists():
@@ -98,7 +109,7 @@ def install(latest, progress=lambda text: None):
 
 def relaunch(app):
     """Start the updated app once this process has exited."""
-    subprocess.Popen(["/bin/sh", "-c", f'sleep 2; /usr/bin/open -n "{app}"'], start_new_session=True)
+    subprocess.Popen(["/bin/sh", "-c", 'sleep 2; /usr/bin/open -n "$1"', "beatmind-update", str(app)], start_new_session=True)
 
 
 def clean_previous():

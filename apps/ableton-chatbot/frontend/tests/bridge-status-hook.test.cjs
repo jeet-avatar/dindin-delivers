@@ -7,6 +7,7 @@ const ts = require('typescript');
 
 const slots = [], effects = [], timers = new Map();
 let cursor = 0, dirty = false, now = 0, nextTimer = 0, output;
+let installedVersion = '1.3.16';
 let account = 7, visible = true, allowed = true, connected = false;
 const calls = [], details = [];
 const react = {
@@ -42,7 +43,7 @@ function timer(fn, delay, repeat = false) {
 const response = data => ({ status: 200, json: async () => data });
 async function apiFetch(url, options) {
   calls.push(url);
-  if (url.includes('include_live_set=false')) return response({ bridge_connected: connected });
+  if (url.includes('include_live_set=false')) return response({ bridge_connected: connected, bridge_version: connected ? installedVersion : null });
   return new Promise((resolve, reject) => {
     details.push({ resolve, reject, signal: options.signal });
     options.signal.addEventListener('abort', () => reject(new Error('Aborted')), { once: true });
@@ -89,6 +90,7 @@ async function main() {
   connected = true;
   await advance(1000);
   assert.equal(output.status, 'connected', 'Connection appears at the next one-second check');
+  assert.equal(output.version, '1.3.16', 'Show the running version reported by the Bridge');
   assert.equal(details.length, 1);
   assert.equal(output.liveSet, null, 'Connection badge does not wait for Ableton inspection');
   details[0].resolve(response({ bridge_connected: true, live_set: 'Song A' }));
@@ -97,8 +99,12 @@ async function main() {
 
   window.dispatch('focus'); await flush();
   assert.equal(details.length, 2);
+  installedVersion = '1.3.17';
+  window.dispatch('focus'); await flush();
+  assert.equal(output.version, '1.3.17', 'Confirm the updated version after reconnect/check');
   connected = false;
   await advance(5000);
+  assert.equal(output.version, null, 'Disconnected Bridges never retain update confirmation');
   assert.equal(output.status, 'disconnected', 'A slow detail request must not block disconnection detection');
   assert.equal(details[1].signal.aborted, true);
   details[1].resolve(response({ bridge_connected: true, live_set: 'Stale set' }));

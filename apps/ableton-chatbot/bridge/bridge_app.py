@@ -85,6 +85,8 @@ class BeatMindBridgeApp:
         self.closing = False
         self.bridge_token = None
         self.latest = None
+        self.updating = False
+        self.update_attempted = None
         config = load_config()
 
         # ── Fonts ──
@@ -373,6 +375,8 @@ class BeatMindBridgeApp:
                 self._post(self._on_disconnected, message)
 
     def _connection_changed(self, connected):
+        if self.updating:
+            return
         if connected:
             self._on_connected()
         elif self.bridge and self.bridge.running:
@@ -406,6 +410,11 @@ class BeatMindBridgeApp:
             self._on_disconnected()
 
     def _on_disconnected(self, message='Disconnected'):
+        if self.updating:
+            self.connected = False
+            self.bridge = None
+            self.loop = None
+            return
         self.connected = False
         self.busy = False
         self.bridge = None
@@ -453,6 +462,17 @@ class BeatMindBridgeApp:
             return  # Offline or bad metadata: try again at the next check.
         if latest:
             self._post(self._show_update, latest)
+            self._post(self._automatic_update)
+
+    def _automatic_update(self):
+        if self.closing or self.updating or not self.latest:
+            return
+        if self.update_attempted == self.latest['version']:
+            return  # A failed automatic attempt stays visible; Retry remains available.
+        if self._separating() or self.busy:
+            self.root.after(5000, self._automatic_update)
+            return
+        self._install_update()
 
     def _show_update(self, latest):
         self.latest = latest
@@ -475,11 +495,19 @@ class BeatMindBridgeApp:
         return bool(self.bridge and self.bridge.local.jobs)
 
     def _install_update(self):
-        if not self.latest:
+        if not self.latest or self.updating:
             return
         if self._separating():
             self.update_label.config(text="A track is separating. Install when it finishes.", fg=TEXT_DIM)
             return
+        self.updating = True
+        self.update_attempted = self.latest['version']
+        self.connected = False
+        self.busy = True
+        self._set_status('Updating Bridge — reconnecting after installation...', ACCENT)
+        self.connect_btn.config(state='disabled', text='Updating...')
+        self.disconnect_btn.pack_forget()
+        self.sign_out_btn.pack_forget()
         self.update_btn.config(state='disabled')
         threading.Thread(target=self._download_update, args=(self.latest,), daemon=True).start()
 
@@ -487,6 +515,9 @@ class BeatMindBridgeApp:
         def progress(text):
             self._post(self.update_label.config, {"text": text, "fg": TEXT_DIM})
         try:
+            # Close the real websocket before installation, so the website also disconnects.
+            if self.bridge and self.loop and self.loop.is_running():
+                asyncio.run_coroutine_threadsafe(self.bridge.stop(), self.loop).result(timeout=15)
             app = updater.install(latest, progress)
         except Exception as error:
             self._post(self._update_failed, str(error) or "The update could not be installed.")
@@ -494,8 +525,10 @@ class BeatMindBridgeApp:
         self._post(self._restart_into, app)
 
     def _update_failed(self, message):
+        self.updating = False
+        self._on_disconnected('Update failed. Your previous version is still installed. Press Start to reconnect.')
         self.update_label.config(text=message, fg=ERROR)
-        self.update_btn.config(state='normal')
+        self.update_btn.config(state='normal', text='Retry update')
 
     def _restart_into(self, app):
         """Relaunch the new Bridge. It signs back in on its own; Ableton is not touched."""

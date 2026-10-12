@@ -6,7 +6,7 @@ import { backgroundPollingAllowed } from "./background-polling";
 import { bridgeStatusFromResponse, type BridgeStatus } from "./bridge-status";
 
 export function useBridgeStatus(userId: number | undefined) {
-  const [snapshot, setSnapshot] = useState<{ userId?: number; status: BridgeStatus; liveSet?: string | null; liveSetIssue?: string | null }>({ status: "checking" });
+  const [snapshot, setSnapshot] = useState<{ userId?: number; status: BridgeStatus; version?: string | null; liveSet?: string | null; liveSetIssue?: string | null }>({ status: "checking" });
   const checkRef = useRef<(() => void) | null>(null);
   const refresh = useCallback(() => checkRef.current?.(), []);
 
@@ -34,6 +34,7 @@ export function useBridgeStatus(userId: number | undefined) {
         const data = await response.json().catch(() => null) as Record<string, unknown> | null;
         currentStatus = bridgeStatusFromResponse(response.status, data);
         if (active) setSnapshot(previous => ({ userId, status: currentStatus,
+          version: currentStatus === "connected" && typeof data?.bridge_version === "string" ? data.bridge_version : null,
           liveSet: currentStatus === "connected" && previous.userId === userId ? previous.liveSet : null,
           liveSetIssue: currentStatus === "connected" && previous.userId === userId ? previous.liveSetIssue : null }));
       } catch {
@@ -111,5 +112,5 @@ export function useBridgeStatus(userId: number | undefined) {
 
   const match = snapshot.userId === userId;
   return { status: match ? snapshot.status : "checking" as BridgeStatus, liveSet: match ? snapshot.liveSet : null,
-    liveSetIssue: match ? snapshot.liveSetIssue : null, refresh };
+    liveSetIssue: match ? snapshot.liveSetIssue : null, version: match ? snapshot.version : null, refresh };
 }

@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { BoltIcon, AlertTriangleIcon, CheckIcon, RefreshIcon } from "./Icons";
 import { bridgeStatusLabel, type BridgeStatus } from "@/lib/bridge-status";
+import { bridgeVersionMessage } from "@/lib/bridge-version";
 import { ExternalLink, X } from "lucide-react";
 
-export default function BridgeLaunch({ status, onRetry, ableton }: { status: BridgeStatus; onRetry: () => void;
+export default function BridgeLaunch({ status, version, onRetry, ableton }: { status: BridgeStatus; version?: string | null; onRetry: () => void;
   ableton?: { open: () => Promise<boolean>; busy: boolean; waiting: boolean; message: string; failed: boolean; cancel: () => void };
 }) {
   const [state, setState] = useState<"idle" | "requested" | "waiting">("idle");
@@ -15,6 +16,22 @@ export default function BridgeLaunch({ status, onRetry, ableton }: { status: Bri
     return () => clearTimeout(timer);
   }, [state]);
   useEffect(() => { if (status !== "disconnected") setState("idle"); }, [status]);
+  const [latest, setLatest] = useState<string | null>(null);
+  const [versionCheckFailed, setVersionCheckFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setVersionCheckFailed(false);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    void fetch("/bridge/latest.json", { signal: controller.signal, cache: "no-store" }).then(async response => {
+      if (!response.ok) throw new Error("Latest release unavailable");
+      const release = await response.json();
+      if (typeof release.version !== "string") throw new Error("Release version missing");
+      if (!controller.signal.aborted) setLatest(release.version);
+    }).catch(() => { if (active) setVersionCheckFailed(true); })
+      .finally(() => clearTimeout(timeout));
+    return () => { active = false; controller.abort(); clearTimeout(timeout); };
+  }, [version]);
   const disconnected = status === "disconnected";
   const color = status === "connected" ? "var(--success)" : status === "checking" ? "var(--text-secondary)" : "var(--warning)";
   return <section aria-label="Bridge connection" className="min-w-0 shrink-0 flex flex-wrap items-center gap-x-4 gap-y-2 py-2">
@@ -22,6 +39,9 @@ export default function BridgeLaunch({ status, onRetry, ableton }: { status: Bri
       <p role="status" className="min-w-0 text-sm break-words">{disconnected && state === "requested" ? "Open request sent. Waiting for the bridge to connect..." : bridgeStatusLabel[status]}</p>
       <button onClick={onRetry} title="Check bridge connection" aria-label="Check bridge connection" className="shrink-0 rounded p-2"><RefreshIcon size={16} /></button>
     </div>
+    {status === "connected" && <p role="status" aria-label="Installed Bridge version" className="basis-full text-xs break-words" style={{ color: "var(--text-secondary)" }}>
+      {versionCheckFailed && version ? `Running Bridge ${version}. Latest release could not be checked; update is not yet confirmed.` : bridgeVersionMessage(version, latest)}
+    </p>}
     {status === "signed-out" && <a href="/login" className="text-sm underline">Sign in</a>}
     <div className="flex flex-wrap items-center gap-3">
       <a href="beatmind-bridge://open" onClick={() => { setState("requested"); onRetry(); }} aria-label="Open BeatMind Bridge" title="Open BeatMind Bridge"

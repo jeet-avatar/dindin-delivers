@@ -93,3 +93,18 @@ for (const hq of [false, true]) {
   assert.match(locked, hq ? /Upgrade to Studio/ : /Upgrade for reference tracks/);
   assert.equal((locked.match(/disabled=""/g) || []).length, 2, 'production controls locked; upgrade enabled');
 }
+
+const ReferenceFilePicker = require('../src/components/ReferenceFilePicker.tsx').default;
+for (const name of [null, 'My reference.wav']) {
+  const picker = renderToStaticMarkup(React.createElement(ReferenceFilePicker, { name, inputRef: { current: null }, disabled: false, onChange() {} }));
+  assert.match(picker, /aria-label="Selected reference file"/);
+  assert.ok(picker.includes(name || 'No file selected'));
+  assert.ok(picker.includes(name ? 'Change file' : 'Choose file'));
+}
+const { bridgeVersionMessage } = require('../src/lib/bridge-version.ts');
+assert.match(bridgeVersionMessage(null, '1.3.17'), /Waiting for the Bridge/);
+assert.match(bridgeVersionMessage('1.3.17', null), /Checking/);
+assert.match(bridgeVersionMessage('1.3.17', '1.3.17'), /Latest version confirmed/);
+assert.match(bridgeVersionMessage('1.3.16', '1.3.17'), /still needed/);
+assert.match(bridgeVersionMessage('1.3.9', '1.3.17'), /still needed/);
+assert.match(bridgeVersionMessage('1.3.18', '1.3.17'), /Newer than published/);
