@@ -112,6 +112,15 @@ const server = http.createServer((req, res) => {
       await dialog.getByText('Connect a Bridge with approved-remix import support.', { exact: false }).waitFor();
       assert.equal(await dialog.getByRole('button', { name: 'Send approved remix to Ableton', exact: true }).count(), 0);
       await page.screenshot({ path: `/tmp/beatmind-automatic-preview-${width}.png` });
+      if (width === 390) {
+        await dialog.getByRole('button', { name: 'Play remix preview', exact: true }).click();
+        const older = await dialog.getByRole('combobox').locator('option').last().getAttribute('value');
+        await dialog.getByRole('combobox').selectOption(older);
+        await page.waitForFunction(() => {
+          const audio = document.querySelector('audio[aria-label="Remix preview"]');
+          return audio && audio.paused && !audio.getAttribute('src');
+        });
+      }
       await dialog.getByRole('button', { name: 'Close', exact: true }).click();
       await page.reload(); await references().click();
       await page.getByRole('button', { name: 'Automatic Remix', exact: true }).click();

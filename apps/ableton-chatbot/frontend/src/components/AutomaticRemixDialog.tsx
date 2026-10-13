@@ -30,6 +30,7 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat }
 }) {
   const base = `/api/references/${reference.id}/automatic-remixes`;
   const dialog = useRef<HTMLDialogElement>(null), player = useRef<HTMLAudioElement>(null);
+  const activePlayer = useRef<HTMLAudioElement | null>(null);
   const sending = useRef(false), audioRequest = useRef<AbortController | null>(null), objectUrl = useRef("");
   const [setup, setSetup] = useState<Setup | null>(null), [job, setJob] = useState<Job | null>(null);
   const [title, setTitle] = useState(`${reference.name.replace(/\.[^.]+$/, "")} automatic remix`.slice(0, 70));
@@ -43,7 +44,7 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat }
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialog.current?.showModal();
-    return () => { audioRequest.current?.abort(); if (objectUrl.current) URL.revokeObjectURL(objectUrl.current); if (opener?.isConnected) opener.focus(); };
+    return () => { audioRequest.current?.abort(); activePlayer.current?.pause(); if (objectUrl.current) URL.revokeObjectURL(objectUrl.current); if (opener?.isConnected) opener.focus(); };
   }, []);
   useEffect(() => {
     let active = true;
@@ -76,6 +77,10 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat }
     return () => { active = false; clearInterval(timer); };
   }, [base, job?.id, job?.status, job?.placement?.status]);
   useEffect(() => {
+    if (activePlayer.current) {
+      activePlayer.current.pause(); activePlayer.current.removeAttribute("src"); activePlayer.current.load();
+      activePlayer.current = null;
+    }
     audioRequest.current?.abort(); if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
     objectUrl.current = ""; setAudio(""); setHeard(false); setDestination(null);
   }, [job?.id]);
@@ -120,7 +125,7 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat }
       } else {
         if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
         objectUrl.current = url; setAudio(url);
-        if (player.current) { player.current.src = url; await player.current.play().catch(() => setError("Preview loaded. Press Play to listen.")); }
+        if (player.current) { activePlayer.current = player.current; player.current.src = url; await player.current.play().catch(() => setError("Preview loaded. Press Play to listen.")); }
       }
     } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Audio loading failed."); else setError("Audio loading stopped. The saved preview is unchanged."); }
     finally { clearTimeout(timeout); audioRequest.current = null; sending.current = false; setBusy(false); }
@@ -132,6 +137,14 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat }
     try { setJob(await json(`${base}/${job.id}/review`, { method: "POST", body: JSON.stringify({
       mix_sha256: job.result.files.mix.sha256, accepted, heard }) })); }
     catch (e) { setError(e instanceof Error ? e.message : "Review was not saved."); }
+    finally { sending.current = false; setBusy(false); }
+  }
+  async function selectPreview(id: string) {
+    if (sending.current) return;
+    sending.current = true; setBusy(true); setError("");
+    activePlayer.current?.pause();
+    try { setJob(await json(`${base}/${id}`)); }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not load the saved preview."); }
     finally { sending.current = false; setBusy(false); }
   }
   function move(index: number, direction: number) {
@@ -162,7 +175,7 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat }
         {!setup && !error && <p role="status">Checking saved stems and timing...</p>}
         {setup?.reason && <p role="status" className="text-sm text-amber-200">{setup.reason}</p>}
         {setup && setup.jobs.length > 0 && <label className="block space-y-1 text-sm"><span>Saved previews</span>
-          <select className={field} value={job?.id || ""} disabled={busy} onChange={e => { const found = setup.jobs.find(j => j.id === e.target.value); if (found) void json(`${base}/${found.id}`).then(setJob).catch(e => setError(e.message)); }}>
+          <select className={field} value={job?.id || ""} disabled={busy} onChange={e => { const found = setup.jobs.find(j => j.id === e.target.value); if (found) void selectPreview(found.id); }}>
             <option value="" disabled>New remix choices</option>{setup.jobs.map(j => <option key={j.id} value={j.id}>{j.title} / {j.id.slice(0, 6)}</option>)}
           </select></label>}
         {job ? <section aria-label="Automatic remix result" className="space-y-3">
@@ -173,7 +186,7 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat }
             <p className="text-sm">{Math.round(job.result.duration_seconds)}s / {job.result.lufs} LUFS / true peak {job.result.true_peak_dbtp} dBTP</p>
             <button type="button" className={icon} aria-label="Play remix preview" title="Play remix preview" disabled={busy} onClick={() => void load()}><Play size={17} /></button>
             <audio ref={player} controls preload="none" hidden={!audio} className="w-full min-w-0" aria-label="Remix preview"
-              onTimeUpdate={e => { if (!e.currentTarget.paused && e.currentTarget.currentTime >= 1) setHeard(true); }}
+              onTimeUpdate={e => { if (objectUrl.current && e.currentTarget.currentSrc === objectUrl.current && !e.currentTarget.paused && e.currentTarget.currentTime >= 1) setHeard(true); }}
               onPlay={e => document.querySelectorAll("audio").forEach(a => { if (a !== e.currentTarget) a.pause(); })}
               onError={() => { setHeard(false); setError("This preview could not be played. Reload the audio before approving."); }} />
             <div className="flex flex-wrap gap-3">

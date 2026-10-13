@@ -69,6 +69,19 @@ class RemixRenderTests(unittest.TestCase):
         frequency = np.fft.rfftfreq(len(audio), 1 / rate)[np.abs(np.fft.rfft(audio[:, 0])).argmax()]
         self.assertAlmostEqual(frequency, 220, delta=2)
 
+    def test_all_seven_detailed_stems_share_the_output_frame_map(self):
+        names = ['kick', 'snare', 'toms', 'cymbals', 'bass', 'vocals', 'other']
+        t = np.arange(remix.RATE * 8) / remix.RATE
+        for index, name in enumerate(names):
+            audio = .02 * np.sin(2 * np.pi * (110 + index * 40) * t)
+            sf.write(self.source / f'{name}.wav', np.column_stack([audio, audio]), remix.RATE, subtype='PCM_24')
+        recipe = self.recipe(bpm=132, segments=[{'section': i, 'levels': {name: 0 for name in names}} for i in [1, 0]])
+        plan = remix.compile_recipe(recipe, self.timing, names)
+        result = remix.render(self.source, self.output, plan)
+        audio = [sf.read(self.output / f'{name}.wav')[0] for name in names]
+        self.assertTrue(all(len(stem) == result['frames'] for stem in audio))
+        np.testing.assert_allclose(sum(audio), sf.read(self.output / 'mix.wav')[0], atol=1e-6)
+
     def test_recipe_rejects_stale_timing_unknown_stems_invalid_levels_and_duration(self):
         for recipe in [self.recipe().model_copy(update={'timing_revision': 2}), self.recipe(bpm=180),
                        self.recipe(segments=[{'section': 4, 'levels': {'bass': 0}}]),

@@ -263,7 +263,7 @@ def router_for(get_user, create_project, bridge_for=lambda user_id, capability: 
                 data.update(review='accepted' if req.accepted else 'changes_requested',
                             reviewed_at=datetime.now(timezone.utc).isoformat())
                 save(target / 'job.json', data)
-                return public(data)
+                return {**public(data), 'placement': reference_imports.status(target)}
         except Busy:
             raise HTTPException(409, 'This preview is busy. Wait for the current operation.')
 

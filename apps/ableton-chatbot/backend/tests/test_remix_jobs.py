@@ -163,6 +163,8 @@ class RemixJobTests(unittest.TestCase):
                 self.assertEqual(client.post(endpoint + '/import', json={**intent, 'retry': retry}).json()['status'], 'verified')
             self.assertEqual(client.post(endpoint + '/import', json={**intent, 'set_id': 'c' * 32}).status_code, 409)
             self.assertEqual(client.get(endpoint, headers={'x-user': '2'}).status_code, 404)
+            review = client.post(endpoint + '/review', json={'mix_sha256': intent['mix_sha256'], 'accepted': True, 'heard': True})
+            self.assertEqual(review.json()['placement']['status'], 'verified')
         self.assertEqual(bridge.local_operation.await_count, 1)
         self.assertEqual(reference_imports.status(target)['status'], 'verified')
         sent = bridge.local_operation.call_args.args[1]
