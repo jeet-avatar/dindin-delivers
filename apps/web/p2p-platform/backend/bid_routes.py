@@ -1434,9 +1434,13 @@ async def submit_bid(request_id: int, data: SubmitBidInput, request: Request, dr
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    # KYC gate: driver must be identity-verified before submitting bids
+    # KYC gate: driver must be identity-verified before submitting bids.
+    # "verified"/documents_verified come from the older Persona-based pipeline;
+    # "passed" is what checkr_service.py actually sets on a clear Checkr report
+    # (the flow this app's onboarding uses) — without it, every Checkr-approved
+    # driver was silently blocked here despite being fully APPROVED and online.
     kyc_verified = (
-        getattr(driver, 'verification_status', None) == "verified" or
+        getattr(driver, 'verification_status', None) in ("verified", "passed") or
         getattr(driver, 'documents_verified', False)
     )
     if not kyc_verified:

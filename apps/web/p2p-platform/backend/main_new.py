@@ -290,12 +290,14 @@ async def bot_blocklist_middleware(request: Request, call_next):
         ua_lower = ua.lower()
         for prefix in _BAD_USER_AGENT_PREFIXES:
             if ua.startswith(prefix) or ua_lower.startswith(prefix.lower()):
+                logger.warning(f"bot_blocklist_middleware: blocked UA prefix '{prefix}' for {request.method} {path} (UA: {ua})")
                 return JSONResponse(
                     status_code=403,
                     content={"detail": "Automated access not permitted. See /robots.txt"},
                 )
         for substr in _BAD_USER_AGENT_SUBSTRINGS:
             if substr.lower() in ua_lower:
+                logger.warning(f"bot_blocklist_middleware: blocked UA substring '{substr}' for {request.method} {path} (UA: {ua})")
                 return JSONResponse(
                     status_code=403,
                     content={"detail": "Automated access not permitted. See /robots.txt"},
@@ -557,6 +559,11 @@ async def require_auth_middleware(request: Request, call_next):
     # All other paths: require valid JWT Bearer token
     auth_header = request.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
+        # --no-access-log is set on uvicorn and this middleware previously never
+        # logged its own rejections, so a 401 here was completely invisible in
+        # CloudWatch — made debugging a silent client-side "unable to submit"
+        # failure impossible to distinguish from a request that never arrived.
+        logger.warning(f"require_auth_middleware: missing Bearer token for {method} {path}")
         return JSONResponse(
             status_code=401,
             content={"detail": "Authentication required"},
@@ -571,12 +578,14 @@ async def require_auth_middleware(request: Request, call_next):
         # this safety-net middleware onto an endpoint that only relies on it.
         _jti = _payload.get("jti")
         if _jti and is_token_blacklisted(_jti):
+            logger.warning(f"require_auth_middleware: revoked token (jti={_jti}) for {method} {path}")
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Token has been revoked"},
                 headers={"WWW-Authenticate": "Bearer"}
             )
-    except (JWTError, Exception):
+    except (JWTError, Exception) as e:
+        logger.warning(f"require_auth_middleware: invalid/expired token for {method} {path}: {e}")
         return JSONResponse(
             status_code=401,
             content={"detail": "Invalid or expired token"},
