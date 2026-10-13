@@ -32,6 +32,7 @@ export interface ProductionAction {
   result?: {
     recording?: { id: string };
     comparison?: { id: string; reference_id: string };
+    remix_draft?: { id: string; changes: string[] };
     status?: string;
     section_brief?: { name: string; sound: string; bars: number; source_mode: string; pack_name?: string; scene_candidates: number[] };
     summary?: string;

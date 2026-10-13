@@ -3,7 +3,7 @@
 import { streamHealth } from "@/lib/stream-health";
 import { appendInstruction, nextInstructions, outboxKey, readQueue, settleInstructions } from "@/lib/chat-outbox";
 import { useChatOutbox } from "@/lib/use-chat-outbox";
-import { Trash2, SlidersHorizontal, Plus, Paperclip, WandSparkles, History } from "lucide-react";
+import { Trash2, Paperclip, WandSparkles } from "lucide-react";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -739,6 +739,11 @@ export default function DashboardPage() {
                   setInput(prompt); inputRef.current?.focus();
                 }} />}
                 <ReviewMessage text={msg.content} actions={msg.toolCalls || []} ids={recordingIdsByMessage[i]} recordings={recordings.items} />
+                {msg.toolCalls?.some(action => action.result?.remix_draft) &&
+                  <button type="button" disabled={loading || !historyReady} onClick={() => setRemixOpen(true)}
+                    className="mt-3 inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:opacity-40" style={{ borderColor: "var(--border)" }}>
+                    <WandSparkles size={16} />Review remix changes
+                  </button>}
                 {i === messages.length - 1 && !!msg.choices?.length && <div className="mt-3 flex flex-wrap gap-2">
                   {msg.choices.map(choice => <button key={choice.label} type="button" disabled={loading || !historyReady}
                     onClick={() => void sendRef.current(choice.message, undefined, undefined, true)}
@@ -993,11 +998,11 @@ export default function DashboardPage() {
       {/* Bridge offline banner */}
 
       <ChatTimeline followKey={conversationFollowKey}>
-        {project?.remix && <details className="border-b pb-3 text-sm" style={{ borderColor: "var(--border)" }}>
-          <summary className="cursor-pointer font-medium">{project.remix.automatic_preview_id ? "Saved automatic remix" : "Saved remix plan"}</summary>
+        {project?.remix && <section aria-label="Saved remix plan" className="border-b pb-3 text-sm" style={{ borderColor: "var(--border)" }}>
+          <p className="font-medium">{project.remix.automatic_preview_id ? "Saved automatic remix" : "Saved remix plan"}</p>
           <p className="mt-2 break-words">{project.remix.source_name} / {project.remix.style} / {project.remix.target_bpm} BPM</p>
-          <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>Chat discusses your remix. Open Automatic Remix to render, listen or revise; it does not place audio in Ableton from chat.</p>
-        </details>}
+          <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>Chat changes are saved as drafts. Audio remains unchanged until you confirm and render.</p>
+        </section>}
         {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
         {loading && streamNotice && <p role="status" className="text-xs text-amber-300">{streamNotice}</p>}
         {project?.mode !== "remix" && !referenceInAbleton && (messages.length === 0 || (project && !project.starting_point)) && (
@@ -1038,10 +1043,7 @@ export default function DashboardPage() {
       </ChatTimeline>
 
       <div className="px-3 sm:px-6 py-3 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
-        {project && <details className="relative mb-2">
-          <summary className="inline-flex cursor-pointer items-center gap-2 text-xs" title="Reference tools and suggested commands"><Paperclip size={16} />Reference tools</summary>
-          <div className="absolute bottom-full left-0 z-30 mb-2 max-h-[40dvh] w-full overflow-y-auto rounded-lg border p-3 shadow-lg"
-            style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
+        <div className="max-h-[18dvh] overflow-y-auto">
         {referenceInAbleton && !input && (
           <div className="mb-3">
             <p className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
@@ -1087,8 +1089,7 @@ export default function DashboardPage() {
             )}
           </div>
         )}
-          </div>
-        </details>}
+        </div>
         {!!outbox.queue.items.length && <details aria-label="Saved instructions" className="mb-2 text-sm" open={outbox.queue.paused || undefined}>
           <summary className="cursor-pointer">{outbox.queue.paused ? "Saved instructions paused" : "Saved instructions"} ({outbox.queue.items.length})</summary>
           <ol className="max-h-40 overflow-y-auto">
@@ -1115,7 +1116,7 @@ export default function DashboardPage() {
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); saveInstruction(); } }}
             placeholder={referenceInAbleton ? "Tell BeatMind what to build, e.g. a drum groove like the reference" : "Message BeatMind..."}
             rows={2}
-            className="flex-1 min-w-0 resize-none rounded-lg px-4 py-3 text-sm outline-none"
+            className="flex-1 min-w-0 resize-none rounded-lg px-4 py-3 text-base leading-relaxed outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
           />
           <MicButton value={input} onChange={setInput} onError={setMicError} />
@@ -1381,7 +1382,7 @@ export default function DashboardPage() {
       {songSetup !== null && sessionId && <NewSongDialog sessionId={sessionId} onCancel={() => setSongSetup(null)}
         onReady={updated => { setProject(updated); setSongSetup(null); }} />}
       {remixOpen && project?.remix && referenceId && <AutomaticRemixDialog
-        reference={{ id: referenceId, name: project.remix.source_name }} initialJobId={project.remix.automatic_preview_id}
+        reference={{ id: referenceId, name: project.remix.source_name }} initialJobId={project.remix.automatic_preview_id} chatSessionId={sessionId}
         onCancel={() => setRemixOpen(false)} onOpenChat={result => { setRemixOpen(false); openRemix(result); }} />}
       {planReason !== null && <PlanPicker reason={planReason || undefined} inTrial={trialActive} intent={planIntent}
         onClose={() => { setPlanReason(null); setPlanIntent(null); }} />}
@@ -1484,11 +1485,12 @@ export default function DashboardPage() {
           </button>
         </header>
         <UpdateBanner />
-        {nav !== "beatmind" && <div className="shrink-0 border-b px-3 sm:px-6" style={{ borderColor: "var(--border)" }}>
+        <div className={nav === "beatmind" ? "shrink-0 max-h-[35dvh] overflow-y-auto" : "shrink-0"}>
+        <div className="shrink-0 border-b px-3 sm:px-6" style={{ borderColor: "var(--border)" }}>
           <BridgeLaunch status={bridgeStatus} version={bridgeVersion} onRetry={refreshBridge} ableton={ableton} />
-        </div>}
-        {nav === "beatmind" && <div className="flex flex-wrap items-center gap-2 px-3 sm:px-6 py-2 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
-          <button type="button" className="sm:hidden h-10 w-10 flex items-center justify-center" aria-label="Saved songs" title="Saved songs" onClick={() => setHistoryOpen(true)}><History size={18} /></button>
+        </div>
+        {nav === "beatmind" && <div className="flex flex-wrap items-center gap-2 px-3 sm:px-6 py-3 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
+          <button type="button" className="sm:hidden h-10 px-2 text-sm" onClick={() => setHistoryOpen(true)}>Saved songs</button>
           {project ? <input key={`${chatId}-${project.title}`} aria-label="Song name" defaultValue={project.title} maxLength={70}
             disabled={!historyReady || loading || projectBusy} onBlur={async event => {
               const title = event.target.value.trim();
@@ -1496,20 +1498,13 @@ export default function DashboardPage() {
               setProjectBusy(true);
               try { await updateProject({ title }); } catch (error) { setHistoryError(error instanceof Error ? error.message : "Name could not be saved."); }
               finally { setProjectBusy(false); }
-            }} className="min-w-0 flex-1 w-20 h-10 bg-transparent border-b px-1 text-sm" style={{ borderColor: "var(--border)" }} /> :
+            }} className="order-first basis-full sm:order-none sm:basis-auto min-w-0 flex-1 w-32 h-10 bg-transparent border-b px-1 text-sm" style={{ borderColor: "var(--border)" }} /> :
             <p className="min-w-0 flex-1 text-sm break-words">{chats.find(chat => chat.id === chatId)?.title || "New song"}</p>}
           <button type="button" onClick={() => void newSong()} disabled={!historyReady || loading || projectBusy}
-            aria-label="New song" title="New song" className="h-10 w-10 shrink-0 rounded flex items-center justify-center disabled:opacity-40"
-            style={{ background: "var(--accent)", color: "var(--on-accent)" }}><Plus size={18} /></button>
-          <details className="relative">
-            <summary aria-label="Song settings" title="Song settings, Bridge and Ableton" className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded border" style={{ borderColor: "var(--border)" }}>
-              <SlidersHorizontal size={18} />
-            </summary>
-            <div className="absolute right-0 top-full z-40 mt-2 w-[min(22rem,calc(100vw-5.5rem))] max-h-[60dvh] overflow-y-auto rounded-lg border p-4 shadow-lg space-y-4"
-              style={{ background: "var(--bg-primary)", borderColor: "var(--border)" }}>
-              <BridgeLaunch status={bridgeStatus} version={bridgeVersion} onRetry={refreshBridge} ableton={ableton} />
-              <div className="flex flex-wrap gap-2 text-xs" aria-label="Ableton set">{abletonSet}</div>
-          {project && <div className="flex flex-wrap items-center gap-3 text-xs">
+            className="h-10 px-3 shrink-0 rounded text-sm font-medium disabled:opacity-40"
+            style={{ background: "var(--accent)", color: "var(--on-accent)" }}>New song</button>
+          <div className="w-full flex flex-wrap items-center gap-3 text-xs" aria-label="Ableton set">{abletonSet}</div>
+          {project && <div className="w-full flex flex-wrap items-center gap-3 text-xs">
             {usage?.model_access && usage.model_access.length > 1 ? (
               <select aria-label="AI model" value={selectedModel} onChange={e => setSelectedModel(e.target.value as ModelTier)}
                 className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium appearance-none cursor-pointer"
@@ -1523,15 +1518,11 @@ export default function DashboardPage() {
             )}
 
             {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
-          </div>}
-            </div>
-          </details>
-          <div className="basis-full flex flex-wrap items-center justify-between gap-2 text-xs">
-            <span role="status" style={{ color: bridgeConnected ? "var(--success-text)" : "var(--text-secondary)" }}>{bridgeStatusLabel[bridgeStatus]}</span>
             {project?.remix && <button type="button" disabled={loading || projectBusy} onClick={() => setRemixOpen(true)}
               className="inline-flex items-center gap-1.5 disabled:opacity-50"><WandSparkles size={14} />Open Automatic Remix</button>}
-          </div>
+          </div>}
         </div>}
+        </div>
 
         {/* Content area */}
         <div className={`flex-1 min-h-0 flex flex-col ${nav === "beatmind" ? "overflow-hidden" : "overflow-y-auto"}`}>

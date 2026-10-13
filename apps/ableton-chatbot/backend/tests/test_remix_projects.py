@@ -93,6 +93,15 @@ class RemixProjectTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(error.exception.status_code, 400)
         self.assertFalse((self.directory / 'source-use').exists())
 
+    async def test_first_preview_of_existing_manual_plan_does_not_consume_another_song(self):
+        original = await self.create()
+        before = billing.songs_this_month(42)
+        request = remix_projects.RemixRequest(**{**self.payload, 'request_id': uuid.uuid4().hex})
+        result = await main.save_automatic_remix_project(request, self.user, original['sessionId'])
+        self.assertEqual(result['sessionId'], original['sessionId'])
+        self.assertEqual(billing.songs_this_month(42), before)
+        self.assertEqual(result['project']['remix']['automatic_preview_id'], request.request_id)
+
     async def test_each_available_stem_needs_a_valid_choice_and_one_retained_layer(self):
         for layers in ({'bass': 'retain'}, {**self.payload['layers'], 'kick': 'retain'},
                        {name: 'replace' for name in self.payload['layers']}):

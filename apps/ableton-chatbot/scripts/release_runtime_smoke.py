@@ -12,6 +12,7 @@ import soundfile as sf
 import chat_store
 import references
 import remix_render
+import remix_assets
 from reference_worker import analyze
 from sound_comparison import ComparisonRequest, render_comparison, capability
 
@@ -60,6 +61,31 @@ def main():
         assert sr == 44100 and len(mixed) == plan['frames']
         assert np.max(np.abs(mixed - summed)) < 1e-6
         assert rendered['true_peak_dbtp'] <= -1
+        sample_id = 'b' * 32
+        asset = reference / 'remix-samples' / sample_id
+        asset.mkdir(parents=True)
+        sf.write(asset / 'audio.wav', np.column_stack((bass[:rate], bass[:rate])), rate, subtype='FLOAT')
+        references.write_json(asset / 'sample.json', {'id': sample_id, 'name': 'Synthetic bass.wav',
+            'sha256': remix_assets.sha256(asset / 'audio.wav')})
+        creative = root / 'creative-remix'
+        creative.mkdir()
+        edited = recipe.model_dump()
+        edited['segments'][0]['parts'] = [{'id': 'part_bass', 'name': 'Sampled bass', 'sample_id': sample_id,
+            'root_note': 45, 'gain_db': -6, 'loop_beats': 4, 'replaces': 'bass',
+            'notes': [{'beat': beat, 'duration_beats': .5, 'note': 57, 'velocity': 100} for beat in range(4)],
+            'effects': [{'kind': 'delay', 'beats': .75, 'mix': .15}, {'kind': 'reverb', 'mix': .1}]}]
+        edited['segments'][0]['effects'] = {'drums': [{'kind': 'highpass', 'frequency_hz': 30},
+            {'kind': 'eq', 'frequency_hz': 200, 'gain_db': -3}, {'kind': 'compressor'},
+            {'kind': 'lowpass', 'frequency_hz': 16000}]}
+        creative_plan = remix_render.compile_recipe(remix_render.Recipe(**edited), timing,
+            ['drums', 'bass', 'other'], remix_assets.catalog(reference))
+        creative_result = remix_render.render(reference, creative, creative_plan)
+        creative_mix, _ = sf.read(creative / 'mix.wav')
+        assert len(creative_mix) == plan['frames'] and creative_result['true_peak_dbtp'] <= -1
+        assert np.max(np.abs(sf.read(creative / 'part_bass.wav')[0])) > .01
+        assert np.max(np.abs(sf.read(creative / 'bass.wav')[0])) == 0
+        np.testing.assert_allclose(sum(sf.read(creative / f'{name}.wav')[0] for name in creative_result['stems']),
+                                   creative_mix, atol=1e-6)
         chat_store.ROOT = root / 'chats'
         session = SimpleNamespace(user_id=123, session_id='smoke',
                                   messages=[{'role': 'user', 'content': 'Inspect only'}],
@@ -70,6 +96,7 @@ def main():
         print(json.dumps({'runtime': 'passed', 'cached_separation': True,
                           'aligned_stems': 4, 'non_silent_comparison_previews': 2,
                           'automatic_remix_tempo_and_alignment': True,
+                          'sampled_instrument_replacement_and_six_effects': True,
                           'owner_scoped_chat_storage': True}), flush=True)
 
 

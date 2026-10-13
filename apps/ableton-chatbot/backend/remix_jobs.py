@@ -24,10 +24,12 @@ import reference_timing
 import references
 import remix_projects
 import remix_render
+import remix_assets
 import stems
 
 TASKS = set()
 IMPORT_UNAVAILABLE = 'Ableton import is not enabled in this release. Your approved preview and aligned stems remain available.'
+SAMPLED_IMPORT_UNAVAILABLE = 'Automatic import of new sampled-instrument layers requires a newer Bridge integration. Download the approved aligned stems for now.'
 
 
 def import_enabled():
@@ -39,6 +41,7 @@ class RenderRequest(BaseModel):
     request_id: str = Field(pattern=r'^[a-f0-9]{32}$')
     title: str = Field(min_length=1, max_length=70)
     session_id: str | None = Field(default=None, pattern=r'^remix_[a-f0-9]{32}$')
+    draft_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
     recipe: remix_render.Recipe
     source_use: references.SourceUse
 
@@ -199,7 +202,7 @@ def router_for(get_user, create_project, bridge_for=lambda user_id, capability: 
         target = job_directory(directory, req.request_id)
         if (target / 'job.json').exists():
             previous = read(target)
-            if previous['request'] != req.model_dump():
+            if RenderRequest.model_validate(previous['request']).model_dump() != req.model_dump():
                 raise HTTPException(409, 'This render identifier belongs to different choices. No new render was started.')
             return public(previous)
         leases = []
@@ -208,7 +211,13 @@ def router_for(get_user, create_project, bridge_for=lambda user_id, capability: 
             leases.append(references.operation_lease())
             leases.append(reference_imports.lease(directory))
             timing, names = preflight(directory, item)
-            plan = remix_render.compile_recipe(req.recipe, timing, names)
+            plan = remix_render.compile_recipe(req.recipe, timing, names, remix_assets.catalog(directory))
+            if req.draft_id:
+                import remix_chat
+                if not req.session_id:
+                    raise HTTPException(422, 'A chat revision must remain in its existing song.')
+                leases.append(remix_chat.draft_lock(user['id'], req.session_id))
+                remix_chat.validate_render(user['id'], req.session_id, reference_id, req.draft_id, req.title, req.recipe)
             if len(list((directory / 'automatic-remixes').glob('*/job.json'))) >= 5:
                 raise HTTPException(429, 'This reference has reached its five-render limit. Saved previews remain available.')
             project = await create_project(remix_projects.RemixRequest(
@@ -222,6 +231,10 @@ def router_for(get_user, create_project, bridge_for=lambda user_id, capability: 
                     'status': 'rendering', 'stage': 'Starting preview render', 'request': req.model_dump(),
                     'created_at': datetime.now(timezone.utc).isoformat(), 'plan': plan, 'project': project}
             save(target / 'job.json', data)
+            if req.draft_id:
+                path = remix_chat.path_for(user['id'], req.session_id)
+                draft = json.loads(path.read_text())
+                save(path, {**draft, 'status': 'rendered', 'render_id': req.request_id})
             task = asyncio.create_task(run(target, leases))
             TASKS.add(task)
             task.add_done_callback(TASKS.discard)
@@ -283,9 +296,11 @@ def router_for(get_user, create_project, bridge_for=lambda user_id, capability: 
 
     @router.get('/{job_id}/import-target')
     async def import_target(reference_id: str, job_id: str, user=Depends(get_user)):
-        approved(reference_id, job_id, user['id'])
+        _, _, data = approved(reference_id, job_id, user['id'])
         if not import_enabled():
             return {'ready': False, 'reason': IMPORT_UNAVAILABLE}
+        if any(name.startswith('part_') for name in data['result']['stems']):
+            return {'ready': False, 'reason': SAMPLED_IMPORT_UNAVAILABLE}
         bridge = bridge_for(user['id'], 'remix_preview_import_v1')
         if not bridge:
             return {'ready': False, 'reason': 'Connect a Bridge with approved-remix import support. Your preview is saved; no music was changed.'}
@@ -300,6 +315,8 @@ def router_for(get_user, create_project, bridge_for=lambda user_id, capability: 
         directory, target, data = approved(reference_id, job_id, user['id'])
         if not import_enabled():
             raise HTTPException(409, IMPORT_UNAVAILABLE)
+        if any(name.startswith('part_') for name in data['result']['stems']):
+            raise HTTPException(409, SAMPLED_IMPORT_UNAVAILABLE)
         if req.mix_sha256 != data['result']['files']['mix']['sha256']:
             raise HTTPException(409, 'The approved preview changed. No import was sent.')
         intent = req.model_dump(exclude={'retry'})

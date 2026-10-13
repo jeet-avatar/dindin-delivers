@@ -302,6 +302,8 @@ class DoSProtectionMiddleware(BaseHTTPMiddleware):
         max_body = self.MAX_BODY_BYTES
         if request.method == "POST" and request.url.path == "/api/references":
             max_body = MAX_REFERENCE_BYTES
+        elif request.method == "POST" and re.fullmatch(r'/api/references/[a-f0-9]{32}/remix-samples', request.url.path):
+            max_body = 12 * 1024 * 1024
         elif request.method == "POST" and request.url.path == MIXMIND_AI_PATH:
             max_body = MIXMIND_AI_MAX_BODY_BYTES
         try:

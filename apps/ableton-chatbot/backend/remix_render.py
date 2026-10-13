@@ -1,7 +1,7 @@
 """Deterministic stem-arrangement preview. Never edits source files or Ableton.
 
 All stems share one multichannel time-stretch pass and one sample-based timeline.
-This is an arrangement remix, not generated instrumentation or recovered effects.
+Optional sampled instruments and native effects never recover original effects.
 """
 
 from contextlib import ExitStack
@@ -15,6 +15,7 @@ import subprocess
 from pydantic import BaseModel, ConfigDict, Field
 
 import mastering
+import remix_audio
 
 RATE = 44100
 BLOCK = 65536
@@ -25,6 +26,8 @@ class Segment(BaseModel):
     section: int = Field(ge=0, le=31)
     repeats: int = Field(default=1, ge=1, le=4)
     levels: dict[str, float] = Field(min_length=1, max_length=8)
+    parts: list[remix_audio.Part] = Field(default_factory=list, max_length=4)
+    effects: dict[str, remix_audio.Chain] = Field(default_factory=dict, max_length=8)
 
 
 class Recipe(BaseModel):
@@ -35,7 +38,9 @@ class Recipe(BaseModel):
     segments: list[Segment] = Field(min_length=1, max_length=32)
 
 
-def compile_recipe(recipe, timing, names):
+def compile_recipe(recipe, timing, names, catalog=None):
+    if len(recipe.model_dump_json().encode()) > 48000:
+        raise ValueError('This recipe is too large for a reliable chat revision. Simplify repeated patterns or effects.')
     if (timing.get('status') != 'confirmed' or recipe.analysis_id != timing['analysis_id']
             or recipe.timing_revision != timing['revision']):
         raise ValueError('Confirm the current tempo and section timing in the Timing tab first.')
@@ -59,14 +64,18 @@ def compile_recipe(recipe, timing, names):
         for _ in range(segment.repeats):
             rows.append({'name': boundary['name'], 'source_start_frame': first,
                          'source_end_frame': last, 'start_frame': cursor,
-                         'end_frame': cursor + length, 'levels': segment.levels})
+                         'end_frame': cursor + length, 'levels': segment.levels,
+                         'parts': [part.model_dump() for part in segment.parts],
+                         'effects': {name: [effect.model_dump() for effect in chain] for name, chain in segment.effects.items()}})
             cursor += length
     if not 5 * RATE <= cursor <= 600 * RATE:
         raise ValueError('Choose an arrangement between 5 seconds and 10 minutes.')
+    parts, identities = remix_audio.compile_layers(recipe, names, catalog or {}, rows)
+    selected = [name for name in names if any(name in row['levels'] for row in rows)]
     return {'sample_rate': RATE, 'frames': cursor, 'duration_seconds': cursor / RATE,
             'numerator': timing.get('numerator', 4), 'denominator': timing.get('denominator', 4),
             'source_bpm': timing['bpm'], 'target_bpm': recipe.target_bpm, 'tempo_ratio': ratio,
-            'stems': [name for name in names if any(name in row['levels'] for row in rows)],
+            'stems': selected + parts, 'source_stems': selected, 'sample_sha256': identities,
             'sections': rows, 'pitch_shift_semitones': 0}
 
 
@@ -87,7 +96,8 @@ def render(source, output, plan, progress=lambda stage: None):
     import soundfile as sf
 
     source, output = Path(source), Path(output)
-    names = plan['stems']
+    names = plan.get('source_stems', plan['stems'])
+    creative = any(row.get('parts') or row.get('effects') for row in plan['sections'])
     paths = [source / (name + '.wav') for name in names]
     identities = {name: digest(path) for name, path in zip(names, paths)}
     infos = [sf.info(path) for path in paths]
@@ -99,7 +109,7 @@ def render(source, output, plan, progress=lambda stage: None):
     expected = round(first.duration / plan['tempo_ratio'] * RATE)
     if any(row['source_end_frame'] > expected for row in plan['sections']):
         raise ValueError('The timing map extends beyond the source stems.')
-    estimated = first.frames * len(names) * 8 + expected * len(names) * 8 + plan['frames'] * (len(names) + 1) * 16
+    estimated = first.frames * len(names) * 8 + expected * len(names) * 8 + plan['frames'] * (len(plan['stems']) + 1) * 32
     if shutil.disk_usage(output).free < estimated + 512 * 1024 ** 2:
         raise ValueError('Not enough temporary storage for a safe remix preview. Try a shorter arrangement.')
     with ExitStack() as stack:
@@ -150,8 +160,12 @@ def render(source, output, plan, progress=lambda stage: None):
                     energy += float(np.sum(combined ** 2))
                     writer.write(samples)
                     mix.write(combined)
-                if 10 * math.log10(max(energy / (length * 2), 1e-20)) < -60:
+                if not creative and 10 * math.log10(max(energy / (length * 2), 1e-20)) < -60:
                     raise ValueError(f"{row['name']} is silent or too quiet with the selected layers. Change its stem choices.")
+        if creative:
+            progress('Rendering sampled instruments and effects')
+            arranged, raw_mix = remix_audio.process(source, scratch, arranged, plan)
+            names = plan['stems']
         progress('Measuring mix and preparing preview')
         lufs, true_peak = mastering.loudness(raw_mix)
         if not all(math.isfinite(value) for value in (lufs, true_peak)):
@@ -176,7 +190,7 @@ def render(source, output, plan, progress=lambda stage: None):
         measured_lufs, measured_peak = mastering.loudness(output / 'mix.wav')
         if not math.isfinite(measured_peak) or measured_peak > -1:
             raise ValueError('The final preview did not pass true-peak verification.')
-        if any(digest(path) != identities[name] for name, path in zip(names, paths)):
+        if any(digest(path) != identities[name] for name, path in zip(plan.get('source_stems', names), paths)):
             raise ValueError('A source stem changed during rendering. This preview cannot be approved.')
         files = {}
         for name in ['mix', *names]:
@@ -187,7 +201,9 @@ def render(source, output, plan, progress=lambda stage: None):
             files[name] = {'sha256': digest(path), 'frames': info.frames, 'bytes': path.stat().st_size}
         return {**plan, 'files': files, 'source_sha256': identities, 'gain_db': gain_db,
                 'lufs': measured_lufs, 'true_peak_dbtp': measured_peak,
-                'limitations': ['This rearranges existing stems; it does not generate replacement instruments or recover original effects.',
+                'limitations': ['New instrument parts use your uploaded samples, not Mac-only VSTs or Ableton devices. Original effects are not recovered.',
+                               'Sample transposition changes playback speed; notes end at their gate or sample end. No automatic sustain looping.',
+                               'Effect tails reset and fade at section boundaries to preserve the approved duration.',
                                'Time-stretching and estimated separation can create audible artifacts. Listen before approving.',
                                'Section edits use 5 ms boundary fades without moving the confirmed timeline.',
                                'Measured checks are not proof of musical quality or legal clearance.']}

@@ -7,9 +7,14 @@ import { queued } from "@/lib/fetch-queue";
 import { backgroundPollingAllowed } from "@/lib/background-polling";
 import { stemLabel } from "@/lib/stems";
 import type { RemixCreated } from "./RemixDialog";
+import RemixSamples from "./RemixSamples";
 
-type Segment = { section: number; repeats: number; levels: Record<string, number> };
+type Effect = { kind: string; [key: string]: string | number };
+type Part = { id: string; name: string; sample_id: string; root_note: number; gain_db: number; loop_beats: number;
+  replaces: string | null; notes: { beat: number; duration_beats: number; note: number; velocity: number }[]; effects: Effect[] };
+type Segment = { section: number; repeats: number; levels: Record<string, number>; parts?: Part[]; effects?: Record<string, Effect[]> };
 type Recipe = { analysis_id: string; timing_revision: number; target_bpm: number; segments: Segment[] };
+type ChatDraft = { id: string; title: string; recipe: Recipe; changes: string[]; duration_seconds: number };
 type Job = { id: string; title: string; status: string; stage: string; review?: string; recipe: Recipe; project: RemixCreated;
   placement?: { status: string; summary?: string };
   result?: { duration_seconds: number; lufs: number; true_peak_dbtp: number; files: { mix: { sha256: string } }; limitations: string[] } };
@@ -25,9 +30,10 @@ async function json(path: string, init?: RequestInit) {
   return result;
 }
 
-export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, initialJobId }: {
+export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, initialJobId, chatSessionId }: {
   reference: { id: string; name: string }; onCancel: () => void; onOpenChat: (result: RemixCreated) => void;
   initialJobId?: string;
+  chatSessionId?: string | null;
 }) {
   const base = `/api/references/${reference.id}/automatic-remixes`;
   const dialog = useRef<HTMLDialogElement>(null), player = useRef<HTMLAudioElement>(null);
@@ -41,6 +47,9 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, 
   const [audio, setAudio] = useState(""), [heard, setHeard] = useState(false);
   const [destination, setDestination] = useState<{ ready: boolean; set_id?: string; title?: string; reason?: string } | null>(null);
   const [revisionSession, setRevisionSession] = useState<string | null>(null);
+  const [chatDraft, setChatDraft] = useState<ChatDraft | null>(null);
+  const [chatChecked, setChatChecked] = useState(!chatSessionId);
+  const [rendersRemaining, setRendersRemaining] = useState<number | null>(null);
   const importing = job?.placement?.status === "importing";
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -49,7 +58,7 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, 
   }, []);
   useEffect(() => {
     let active = true;
-    void json(base).then((result: Setup) => {
+    void json(base).then(async (result: Setup) => {
       if (!active) return;
       setSetup(result);
       if (result.timing) {
@@ -57,15 +66,32 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, 
         setSegments(result.timing.sections.map((_, section) => ({ section, repeats: 1,
           levels: Object.fromEntries(result.stems.map(name => [name, 0])) })));
       }
-      if (initialJobId || result.jobs.length) {
-        const latest = initialJobId ? result.jobs.find(item => item.id === initialJobId) : result.jobs[0];
+      let selectedId = initialJobId;
+      const savedPreview = initialJobId ? result.jobs.find(item => item.id === initialJobId) : undefined;
+      if (savedPreview) { setJob(savedPreview); setTitle(savedPreview.title); }
+      if (chatSessionId) {
+        const current = await json(`/api/chats/${encodeURIComponent(chatSessionId)}/remix-edit-state`);
+        if (!active) return;
+        setChatChecked(true); setRendersRemaining(current.renders_remaining);
+        setRevisionSession(chatSessionId);
+        selectedId = current.base_preview_id || undefined;
+        if (current.draft) {
+          const draft: ChatDraft = current.draft;
+          setJob(null); setChatDraft(draft); setTitle(draft.title); setBpm(draft.recipe.target_bpm); setSegments(draft.recipe.segments);
+          return;
+        }
+        if (current.stale_draft) setError("The saved chat changes are out of date. Ask BeatMind to review them against the current remix.");
+        setTitle(current.title); setBpm(current.recipe.target_bpm); setSegments(current.recipe.segments);
+      }
+      if (selectedId || (!chatSessionId && result.jobs.length)) {
+        const latest = selectedId ? result.jobs.find(item => item.id === selectedId) : result.jobs[0];
         if (!latest) { setError("This song's saved preview was not found. No other preview was selected."); return; }
         setJob(latest); setTitle(latest.title);
         setBpm(latest.recipe.target_bpm); setSegments(latest.recipe.segments);
       }
     }).catch(e => { if (active) setError(e.message); });
     return () => { active = false; };
-  }, [base, initialJobId]);
+  }, [base, initialJobId, chatSessionId]);
   useEffect(() => {
     if (!job || (job.status !== "rendering" && job.placement?.status !== "importing")) return;
     let active = true, pending = false;
@@ -89,18 +115,19 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, 
   }, [job?.id]);
 
   async function render() {
-    if (sending.current || !setup?.timing || !rights) return;
+    if (sending.current || !setup?.timing || !rights || !chatChecked) return;
     sending.current = true; setBusy(true); setError("");
     try {
       const intent = { title: title.trim(), session_id: revisionSession, recipe: { analysis_id: setup.timing.analysis_id,
         timing_revision: setup.timing.revision, target_bpm: bpm, segments }, source_use: { rights_confirmed: true, intended_use: use } };
-      const key = `beatmind_automatic_remix_${reference.id}`, fingerprint = JSON.stringify(intent);
+      const draftIntent = chatDraft ? { ...intent, draft_id: chatDraft.id } : intent;
+      const key = `beatmind_automatic_remix_${reference.id}`, fingerprint = JSON.stringify(draftIntent);
       let prior: { fingerprint?: string; id?: string } = {};
       try { prior = JSON.parse(sessionStorage.getItem(key) || "{}"); } catch { /* Replace invalid retry state. */ }
       const request_id = prior?.fingerprint === fingerprint && /^[a-f0-9]{32}$/.test(prior.id || "") ? prior.id! : crypto.randomUUID().replaceAll("-", "");
       sessionStorage.setItem(key, JSON.stringify({ id: request_id, fingerprint }));
-      const result = await json(base, { method: "POST", body: JSON.stringify({ ...intent, request_id }) });
-      setJob(result); setSetup(old => old ? { ...old, jobs: [result, ...old.jobs.filter(j => j.id !== result.id)] } : old);
+      const result = await json(base, { method: "POST", body: JSON.stringify({ ...draftIntent, request_id }) });
+      setChatDraft(null); setJob(result); setSetup(old => old ? { ...old, jobs: [result, ...old.jobs.filter(j => j.id !== result.id)] } : old);
     } catch (e) { setError(e instanceof Error ? e.message : "Render request failed. Reopen to check saved progress before retrying."); }
     finally { sending.current = false; setBusy(false); }
   }
@@ -146,14 +173,14 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, 
     if (sending.current) return;
     sending.current = true; setBusy(true); setError("");
     activePlayer.current?.pause();
-    try { setJob(await json(`${base}/${id}`)); }
+    try { setJob(await json(`${base}/${id}`)); setChatDraft(null); }
     catch (e) { setError(e instanceof Error ? e.message : "Could not load the saved preview."); }
     finally { sending.current = false; setBusy(false); }
   }
   function move(index: number, direction: number) {
     setSegments(old => { const next = [...old]; [next[index], next[index + direction]] = [next[index + direction], next[index]]; return next; });
   }
-  function revise() { setRevisionSession(job?.project.sessionId || null); if (job) { setTitle(job.title); setBpm(job.recipe.target_bpm); setSegments(job.recipe.segments); }
+  function revise() { setChatDraft(null); setRevisionSession(job?.project.sessionId || null); if (job) { setTitle(job.title); setBpm(job.recipe.target_bpm); setSegments(job.recipe.segments); }
     setJob(null); setRights(false); setError(""); sessionStorage.removeItem(`beatmind_automatic_remix_${reference.id}`); }
   async function place(checkOnly: boolean) {
     if (!job?.result || sending.current) return;
@@ -174,9 +201,16 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, 
       <div className="min-h-0 space-y-4 overflow-y-auto p-5">
         <h3 id="automatic-remix-title" className="flex items-center gap-2 text-base font-semibold"><WandSparkles size={18} />Automatic Remix</h3>
         <p className="break-words text-sm text-neutral-300">{reference.name}</p>
-        <p className="text-sm text-amber-200">Stem arrangement remix: section order, repeats, tempo and levels. No new instruments or recovered original effects. Nothing changes in Ableton before approval.</p>
+        <p className="text-sm text-amber-200">Remix preview with sampled instruments and effects. Original audio stays unchanged. Mac-only plugins and recovered original effects are not included.</p>
+        <RemixSamples referenceId={reference.id} />
         {!setup && !error && <p role="status">Checking saved stems and timing...</p>}
         {setup?.reason && <p role="status" className="text-sm text-amber-200">{setup.reason}</p>}
+        {chatDraft && <section aria-label="Proposed remix changes" className="space-y-2 border-b border-neutral-700 pb-3">
+          <h4 className="font-medium">Your requested changes</h4>
+          <ul className="list-disc space-y-2 pl-5 text-sm">{chatDraft.changes.map((line, index) => <li className="break-words" key={index}>{line}</li>)}</ul>
+          <p className="text-sm">New preview: {Math.round(chatDraft.duration_seconds)} seconds. Existing audio is unchanged.</p>
+        </section>}
+        {rendersRemaining === 0 && <p role="status" className="text-amber-200 text-sm">This reference has reached its five-render limit. Saved previews remain available.</p>}
         {setup && setup.jobs.length > 0 && <label className="block space-y-1 text-sm"><span>Saved previews</span>
           <select className={field} value={job?.id || ""} disabled={busy} onChange={e => { const found = setup.jobs.find(j => j.id === e.target.value); if (found) void selectPreview(found.id); }}>
             <option value="" disabled>New remix choices</option>{setup.jobs.map(j => <option key={j.id} value={j.id}>{j.title} / {j.id.slice(0, 6)}</option>)}
@@ -213,7 +247,8 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, 
             <details className="text-xs text-neutral-400"><summary>Audio limitations</summary><ul className="list-disc space-y-1 pl-4">{job.result.limitations.map(line => <li key={line}>{line}</li>)}</ul></details>
           </>}
           {job.status !== "rendering" && <button type="button" disabled={busy || importing || !setup?.available} onClick={revise} className="text-sm underline">Revise choices and render a new preview</button>}
-        </section> : setup?.available && setup.timing && <fieldset disabled={busy} className="space-y-4">
+        </section> : setup?.available && setup.timing && <fieldset disabled={busy || !chatChecked} className="space-y-4">
+          <fieldset disabled={!!chatDraft} className="space-y-4">
           <label className="block space-y-1 text-sm"><span>Remix name</span><input className={field} required maxLength={70} value={title} onChange={e => setTitle(e.target.value)} /></label>
           <label className="block space-y-1 text-sm"><span>Target BPM</span><input className={field} type="number" required min={Math.max(20, setup.timing.bpm * .8)} max={Math.min(300, setup.timing.bpm * 1.25)} step="any" value={bpm} onChange={e => setBpm(Number(e.target.value))} /></label>
           <div className="space-y-4">{segments.map((row, index) => <div key={index} className="space-y-3 border-b border-neutral-700 pb-4">
@@ -229,15 +264,25 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, 
               <button type="button" className={icon} title="Remove section" aria-label={`Remove section ${index + 1}`} disabled={segments.length === 1} onClick={() => setSegments(old => old.filter((_, i) => i !== index))}><Trash2 size={16} /></button>
             </div>
             {setup.stems.map(name => <div key={name} className="grid grid-cols-[minmax(0,1fr)_6rem] items-center gap-2 text-sm">
-              <label className="flex min-w-0 items-center gap-2"><input type="checkbox" checked={name in row.levels} aria-label={`Section ${index + 1} ${stemLabel(name)}`} onChange={e => setSegments(old => old.map((r, i) => {
-                if (i !== index) return r; const levels = { ...r.levels }; if (e.target.checked) levels[name] = 0; else delete levels[name]; return { ...r, levels };
-              }))} /><span className="break-words">{stemLabel(name)}</span></label>
-              <label className="flex items-center gap-1"><input className={field} aria-label={`Section ${index + 1} ${stemLabel(name)} dB`} type="number" min={-24} max={0} step={1} disabled={!(name in row.levels)} value={row.levels[name] ?? 0} onChange={e => setSegments(old => old.map((r, i) => i === index ? { ...r, levels: { ...r.levels, [name]: Number(e.target.value) } } : r))} />dB</label>
+              <label className="flex min-w-0 items-center gap-2"><input type="checkbox" checked={name in row.levels} disabled={row.parts?.some(part => part.replaces === name)} aria-label={`Section ${index + 1} ${stemLabel(name)}`} onChange={e => setSegments(old => old.map((r, i) => {
+                if (i !== index) return r; const levels = { ...r.levels }, effects = { ...r.effects };
+                if (e.target.checked) levels[name] = 0; else { delete levels[name]; delete effects[name]; }
+                return { ...r, levels, ...(r.effects ? { effects } : {}) };
+              }))} /><span className="break-words">{stemLabel(name)}{row.parts?.some(part => part.replaces === name) ? " (replaced)" : ""}</span></label>
+              <label className="flex items-center gap-1"><input className={field} aria-label={`Section ${index + 1} ${stemLabel(name)} dB`} type="number" min={-24} max={0} step={1} disabled={!(name in row.levels) || row.parts?.some(part => part.replaces === name)} value={row.levels[name] ?? 0} onChange={e => setSegments(old => old.map((r, i) => i === index ? { ...r, levels: { ...r.levels, [name]: Number(e.target.value) } } : r))} />dB</label>
             </div>)}
+            {!!row.parts?.length && <ul className="space-y-2 text-sm">{row.parts.map(part => <li key={part.id} className="break-words">
+              <strong>{part.name}</strong> / {part.replaces ? `Replaces ${stemLabel(part.replaces)}` : "Added instrument"} / {part.gain_db} dB
+              <span className="block text-xs text-neutral-400">{part.notes.length} notes / {part.loop_beats}-beat pattern / root MIDI {part.root_note}
+                {part.effects.length ? ` / ${part.effects.map(effect => effect.kind).join(", ")}` : ""}</span>
+            </li>)}</ul>}
+            {!!Object.keys(row.effects || {}).length && <ul className="space-y-1 text-sm">{Object.entries(row.effects || {}).map(([name, chain]) =>
+              <li key={name}>{stemLabel(name)}: {chain.map(effect => effect.kind).join(", ")}</li>)}</ul>}
           </div>)}</div>
+          </fieldset>
           <fieldset className="space-y-2 text-sm"><legend>Intended use</legend>{[["private", "Private project only"], ["publication", "Publication or distribution"]].map(([value, label]) =>
             <label key={value} className="flex items-center gap-2"><input type="radio" name="automatic-use" checked={use === value} onChange={() => { setUse(value); setRights(false); }} />{label}</label>)}</fieldset>
-          <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={rights} onChange={e => setRights(e.target.checked)} /><span>I have the rights needed to reuse this recording and composition for the selected use.</span></label>
+          <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={rights} onChange={e => setRights(e.target.checked)} /><span>I have the rights needed to reuse all selected recordings, samples and compositions for the selected use.</span></label>
         </fieldset>}
       </div>
       <div className="shrink-0 space-y-3 border-t border-neutral-700 bg-neutral-950 p-4">
@@ -245,7 +290,7 @@ export default function AutomaticRemixDialog({ reference, onCancel, onOpenChat, 
         {!job && setup?.available && <p className="text-xs text-neutral-400">{revisionSession ? "Revision of this saved remix; no extra song credit." : "One song credit for this new remix; revisions stay with it."} Up to five renders per reference. Rights are your confirmation, not verified legal clearance.</p>}
         <div className="flex flex-wrap justify-end gap-3">
           <button type="button" disabled={busy} className="rounded border border-neutral-600 px-3 py-2 text-sm disabled:opacity-40" onClick={onCancel}>Close</button>
-          {!job && <button type="submit" disabled={busy || !setup?.available || !rights || !segments.length || segments.some(r => !Object.keys(r.levels).length)} className="inline-flex items-center gap-2 rounded bg-emerald-700 px-3 py-2 text-sm disabled:opacity-40"><WandSparkles size={16} />{busy ? "Starting..." : "Render preview"}</button>}
+          {!job && <button type="submit" disabled={busy || !chatChecked || rendersRemaining === 0 || !setup?.available || !rights || !segments.length || segments.some(r => !Object.keys(r.levels).length)} className="inline-flex items-center gap-2 rounded bg-emerald-700 px-3 py-2 text-sm disabled:opacity-40"><WandSparkles size={16} />{busy ? "Starting..." : chatDraft ? "Confirm changes and render" : "Render preview"}</button>}
         </div>
       </div>
     </form>

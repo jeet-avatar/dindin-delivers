@@ -39,6 +39,8 @@ import chat_store
 import song_projects
 import remix_projects
 import remix_jobs
+import remix_chat
+import remix_assets
 import arrangement_plan
 import chat_tools
 from sections import SECTION_TOOL, get_brief, set_brief, source_error
@@ -204,7 +206,7 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Reference-Name", "X-Rights-Confirmed"],
+    allow_headers=["Authorization", "Content-Type", "X-Reference-Name", "X-Rights-Confirmed", "X-Sample-Name"],
 )
 
 
@@ -670,8 +672,7 @@ async def save_automatic_remix_project(req, user, session_id=None):
     with chat_store.acquire(user['id'], session_id):
         session, saved = saved_project(user['id'], session_id)
         remix = (session.project or {}).get('remix') or {}
-        if (session.reference_id != req.reference_id or (not remix.get('automatic_preview_id')
-                and session_id != 'remix_' + req.request_id)):
+        if session.reference_id != req.reference_id or not remix or session.project.get('mode') != 'remix':
             raise HTTPException(409, 'Revisions must stay with their existing automatic remix and source reference.')
         _, _, plan = remix_projects.plan(req, user['id'])
         session.project.update(title=req.title, remix={**plan, 'automatic_preview_id': req.request_id})
@@ -920,7 +921,7 @@ DISCUSSION_TOOLS = {
         'list_browser', 'inspect_track', 'list_sample_packs',
         'search_pack_samples', 'inspect_pack_sample',
     }
-} | {'list_reference_sounds', 'set_song_title', 'get_reference_drum_pattern'}
+} | {'list_reference_sounds', 'set_song_title', 'get_reference_drum_pattern'} | remix_chat.NAMES
 
 
 def _build_system(bridge_note: str) -> list[dict]:
@@ -932,7 +933,7 @@ def _supports_staged_arrangement(bridge) -> bool:
 
 
 def _build_tools(bridge=None) -> list[dict]:
-    tools = [dict(t) for t in ABLETON_TOOLS] + [dict(t) for t in chat_tools.TOOLS] + [dict(SECTION_TOOL)]
+    tools = [dict(t) for t in ABLETON_TOOLS] + [dict(t) for t in chat_tools.TOOLS + remix_chat.TOOLS] + [dict(SECTION_TOOL)]
     if not _supports_staged_arrangement(bridge):
         tools = [tool for tool in tools if tool['name'] not in arrangement_plan.NAMES]
     tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
@@ -957,7 +958,7 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
         bridge_note += "\nThis turn is discussion only. Recommend the best next step and explain why, with up to two concrete alternatives grounded in discovered sources and the current project. Ask one focused question only when necessary. Do not play, audition, change music or create a production plan; only read-only discovery is available."
         if (session.project or {}).get('remix'):
             bridge_note += "\nAbleton was not automatically inspected for this remix discussion. Use the saved source and remix state; do not claim current Ableton state is verified."
-            bridge_note += "\nThis remix chat's read-only restriction is a product workflow boundary, NOT a Bridge connection or permissions problem. Reconnecting or granting permissions will not enable music writes here. Correct any earlier message that blamed the Bridge. For render, playback, approval and revision, direct the user to Open Automatic Remix. Do not present planned actions as completed or promise automatic instrument/FX creation that the renderer does not support."
+            bridge_note += "\nThe restriction on direct audio/Ableton writes is NOT a Bridge connection or permissions problem. Correct earlier messages that blamed the Bridge. EXCEPTION to discussion-only: when the user requests a remix edit, use get_remix_edit_state then propose_remix_changes to save a validated recipe draft. Do not merely describe how to edit it manually. Preserve all choices the user did not request to change. Uploaded sampled instruments, sample replacement and native effects are supported as listed in the edit state; inspect actual samples and source stems first. Ask for sample upload or tonal root note when missing. Never invent installed plugins, sample IDs or isolated drums. The user confirms the exact changes and renders via Review remix changes / Open Automatic Remix; no audio changes before that confirmation. Discard pending changes only when explicitly asked. Unsupported requests must be explained, not substituted with level changes or claimed complete. If ambiguous, ask one focused question. Never claim a draft is rendered or approved."
     if bridge and session.project and not session.project.get('live_set'):
         bridge_note += "\nUNLINKED SONG: Confirm which Live Set belongs to this song before music changes. Existing clips may be the user's current work: never ignore, replace or delete them, and never start a new set to continue an existing song. Use the Choose Live Set workflow."
     if bridge and (not session.project or session.project.get('live_set')):
@@ -982,7 +983,9 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
             model=chat_model,
             max_tokens=MAX_OUTPUT_TOKENS,
             system=_build_system(bridge_note),
-            tools=[tool for tool in _build_tools(bridge) if not planning_only or tool['name'] in DISCUSSION_TOOLS],
+            tools=[tool for tool in _build_tools(bridge)
+                   if (not planning_only or tool['name'] in DISCUSSION_TOOLS)
+                   and (tool['name'] not in remix_chat.NAMES or (session.project or {}).get('mode') == 'remix')],
             messages=bounded_history(messages),
         ), timeout=MODEL_STEP_TIMEOUT_SECONDS)
         ai_usage.record(session.user_id, 'chat', provider_name(), chat_model, ai_usage.anthropic_tokens(response), usage_request)
@@ -1035,6 +1038,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                         result = {"status": "verified", "summary": f"Song titled '{title}'.", "steps": []}
                     else:
                         result = {"status": "failed", "summary": "Title must not be empty.", "steps": []}
+                elif tu.name in remix_chat.NAMES and not blocked and not audition_ready:
+                    result = remix_chat.execute(tu.name, tu.input, session.user_id, session.session_id)
                 elif tu.name in chat_tools.NAMES and not blocked and not audition_ready:
                     result = await chat_tools.execute(tu.name, tu.input, session.user_id)
                     if tu.name == "generate_voice" and bridge and result.get("status") == "verified" and result.get("recording"):
@@ -1096,6 +1101,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                                      "content": "Execution interrupted; state may have changed. Inspect Ableton before making further changes."})
             messages.append({"role": "user", "content": tool_results})
 
+        if any(action['result'].get('remix_draft') for action in tool_calls_log):
+            return 'Your remix changes are saved for review. Open Review remix changes to confirm and render a new preview. Existing audio is unchanged.', tool_calls_log
         if any(action['result'].get('comparison') for action in tool_calls_log):
             return 'The saved sounds have been compared. Play A and B below at matched RMS levels. These measurements are not a match percentage. Which difference would you like to refine?', tool_calls_log
         preview_summary = preview_reply(tool_calls_log)
@@ -1425,6 +1432,8 @@ def bridge_for(user_id, capability):
 
 app.include_router(references.router_for(get_current_user, require_subscription, bridge_for))
 app.include_router(remix_jobs.router_for(get_current_user, save_automatic_remix_project, bridge_for))
+app.include_router(remix_chat.router_for(get_current_user))
+app.include_router(remix_assets.router_for(get_current_user))
 
 
 @app.get("/api/references/{reference_id}/stem-download/{stem}")
