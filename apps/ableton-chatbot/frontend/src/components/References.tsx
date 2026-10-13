@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { Shuffle } from "lucide-react";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
@@ -23,6 +24,7 @@ import { uploadToCloud } from "@/lib/cloud-upload";
 import ReferenceWorkflow from "./ReferenceWorkflow";
 import { DeleteReferenceDialog } from "./DeleteReferenceDialog";
 import SourceUseDialog, { type SourceUse } from "./SourceUseDialog";
+import RemixDialog, { type RemixCreated } from "./RemixDialog";
 import { importOperation, finishImport } from "@/lib/reference-import";
 
 type Report = {
@@ -181,9 +183,10 @@ function StemPicker({ id, stems, cue, importing, disabled, bridgeConnected, live
   </div>;
 }
 
-export default function References({ onUse, chatBusy, selectedId, onSelect, guided = false, onTemplateApproved, onOpenChat, bridgeConnected, bridgeLiveSet, abletonSet, cloudHQAllowed = false, onUpgrade }: {
+export default function References({ onUse, onRemix, chatBusy, selectedId, onSelect, guided = false, onTemplateApproved, onOpenChat, bridgeConnected, bridgeLiveSet, abletonSet, cloudHQAllowed = false, onUpgrade }: {
   cloudHQAllowed?: boolean; onUpgrade?: () => void;
   onUse: (id: string, template?: boolean) => void; chatBusy: boolean;
+  onRemix?: (result: RemixCreated) => void;
   selectedId?: string | null; onSelect?: (id: string | null) => Promise<void>; guided?: boolean;
   onTemplateApproved?: () => void; onOpenChat?: () => void; bridgeConnected?: boolean; bridgeLiveSet?: string | null; abletonSet?: React.ReactNode;
 }) {
@@ -204,6 +207,7 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
   const [importNotice, setImportNotice] = useState("");
   const importGeneration = useRef(0);
   const [pendingImport, setPendingImport] = useState<{ id: string; name: string; stems?: string[] } | null>(null);
+  const [remixSource, setRemixSource] = useState<Reference | null>(null);
   const [rights, setRights] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -499,6 +503,11 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
               <div><span className="text-neutral-400">Key </span><span>{item.report.key_candidates.map(k => k.key).join(" / ") || "—"}</span></div>
               <div><span className="text-neutral-400">Duration </span><span>{time(item.report.duration_seconds)}</span></div>
             </dl>
+            <button type="button" disabled={chatBusy || busy || importing || !onRemix}
+              onClick={() => setRemixSource(item)}
+              className="inline-flex items-center gap-2 rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
+              <Shuffle size={17} aria-hidden="true" />Remix this reference
+            </button>
             {item.storage === "local" && <LocalStemActions key={`ready-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh}
               disabled={chatBusy || busy || importing} onImport={() => setPendingImport({ id: item.id, name: item.name })} />}
             {item.storage !== "local" && <StemPicker key={item.id} id={item.id} stems={reviewStems(item.report)} cue={cue}
@@ -553,6 +562,10 @@ export default function References({ onUse, chatBusy, selectedId, onSelect, guid
         </button>
       </div>}
     </div>
+    {remixSource && onRemix && <RemixDialog key={remixSource.id}
+      reference={{ id: remixSource.id, name: remixSource.name, bpm: remixSource.report?.tempo.bpm ?? null }}
+      stems={reviewStems(remixSource.report)} onCancel={() => setRemixSource(null)}
+      onCreated={result => { onRemix(result); setRemixSource(null); }} />}
     {pendingImport && <SourceUseDialog key={pendingImport.id} name={pendingImport.name} onCancel={() => setPendingImport(null)}
       onConfirm={consent => { const request = pendingImport; setPendingImport(null); void importToAbleton(request.id, consent, request.stems); }} />}
     {pendingDelete && <DeleteReferenceDialog name={pendingDelete.name} local={pendingDelete.storage === "local"} busy={deleting}

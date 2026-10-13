@@ -358,6 +358,16 @@ def record_song(user_id, session_id):
         conn.execute("INSERT INTO song_usage (user_id, session_id) VALUES (?, ?)", (user_id, session_id))
 
 
+def ensure_song_usage(user, session_id):
+    """Caller holds the account's _song_creation lease; retries consume one song."""
+    with db() as conn:
+        if conn.execute("SELECT 1 FROM song_usage WHERE user_id=? AND session_id=?",
+                        (user['id'], session_id)).fetchone():
+            return
+        enforce_song_limit(user)
+        conn.execute("INSERT INTO song_usage (user_id, session_id) VALUES (?, ?)", (user['id'], session_id))
+
+
 def enforce_song_limit(user):
     if _exempt(user['id']):
         return

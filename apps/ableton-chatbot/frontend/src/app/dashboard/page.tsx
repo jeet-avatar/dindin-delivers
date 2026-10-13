@@ -21,6 +21,7 @@ import NewSongDialog from "@/components/NewSongDialog";
 import SpeakButton from "@/components/SpeakButton";
 import MicButton from "@/components/MicButton";
 import References from "@/components/References";
+import type { RemixCreated, RemixProject } from "@/components/RemixDialog";
 import ChatComparisons from "@/components/ChatComparisons";
 import ReferenceUpgrade from "@/components/ReferenceUpgrade";
 import PlanPicker from "@/components/PlanPicker";
@@ -140,6 +141,7 @@ interface SavedChat {
 interface SongProject {
   title: string; starting_point: "reference" | "idea" | null;
   live_set: { title: string; choice: string } | null;
+  mode?: "remix"; remix?: RemixProject["remix"];
 }
 
 function writeChat(userId: number, id: string, snapshot: SavedChat): ChatEntry[] {
@@ -450,6 +452,19 @@ export default function DashboardPage() {
     try { await createProject(true); if (prompt) setInput(prompt); }
     catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not start a new song."); }
     finally { setProjectBusy(false); }
+  }
+
+  function openRemix(result: RemixCreated) {
+    if (!user || loading) throw new Error("Wait for the current request to finish before opening the saved remix.");
+    writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: false });
+    const id = `server-${result.sessionId}`;
+    const draft = "Review my saved remix plan. Ask me about the retained source layers and replacement sounds one step at a time. Do not change Ableton.";
+    const snapshot: SavedChat = { messages: [], sessionId: result.sessionId, input: draft,
+      project: result.project, referenceId: result.referenceId };
+    setChats(writeChat(user.id, id, snapshot));
+    document.querySelectorAll("audio").forEach(audio => audio.pause());
+    setChatId(id); setSessionId(result.sessionId); setMessages([]); setInput(draft);
+    setProject(result.project); setReferenceId(result.referenceId); setHistoryError(""); setHistoryOpen(false); setNav("beatmind");
   }
 
   async function updateProject(change: { title?: string; starting_point?: "reference" | "idea"; reference_id?: string | null }) {
@@ -968,7 +983,7 @@ export default function DashboardPage() {
       <ChatTimeline followKey={conversationFollowKey}>
         {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
         {loading && streamNotice && <p role="status" className="text-xs text-amber-300">{streamNotice}</p>}
-        {!referenceInAbleton && (messages.length === 0 || (project && !project.starting_point)) && (
+        {project?.mode !== "remix" && !referenceInAbleton && (messages.length === 0 || (project && !project.starting_point)) && (
           <div className="flex flex-col items-center justify-center py-8 gap-6 text-center">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "var(--bg-secondary)", color: "var(--accent)" }}>
               <WaveIcon size={28} />
@@ -1483,6 +1498,11 @@ export default function DashboardPage() {
 
         {/* Content area */}
         <div className="flex-1 overflow-y-auto flex flex-col">
+          {nav === "beatmind" && project?.remix && <section aria-label="Saved remix plan" className="space-y-1 border-b border-neutral-700 px-4 py-3 text-sm">
+            <p className="font-medium">Remix plan saved</p>
+            <p className="break-words">{project.remix.source_name} / {project.remix.style} / {project.remix.target_bpm} BPM</p>
+            <p className="text-amber-200">Planning only. Automatic remix production and export are not available yet.</p>
+          </section>}
           {nav === "dashboard" && renderDashboard()}
           {nav === "beatmind"  && renderBeatMind()}
           {nav === "mixmind"   && renderMixMind()}
@@ -1493,7 +1513,7 @@ export default function DashboardPage() {
               setProjectBusy(true);
               try { await updateProject({ starting_point: "reference", reference_id: id }); }
               finally { setProjectBusy(false); }
-            }} chatBusy={loading || projectBusy || !historyReady} onUse={(id, template) => {
+            }} onRemix={openRemix} chatBusy={loading || projectBusy || !historyReady} onUse={(id, template) => {
             setReferenceId(id);
             setNav("beatmind");
             void sendMessage(template

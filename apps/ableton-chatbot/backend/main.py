@@ -37,6 +37,7 @@ import catalog
 import references
 import chat_store
 import song_projects
+import remix_projects
 import arrangement_plan
 import chat_tools
 from sections import SECTION_TOOL, get_brief, set_brief, source_error
@@ -598,12 +599,12 @@ class SongProjectRequest(BaseModel):
 async def create_song_project(user: dict = Depends(get_current_user)):
     rate_limit(f"new-song:{user['id']}", max_requests=20, window_seconds=60)
     import billing
-    billing.enforce_song_limit(user)
     session = ChatSession(str(uuid.uuid4()), user['id'])
     session.project = song_projects.new_project()
-    with chat_store.acquire(user['id'], session.session_id):
+    with chat_store.acquire(user['id'], '_song_creation'), chat_store.acquire(user['id'], session.session_id):
+        billing.enforce_song_limit(user)
         chat_store.save(session, 'complete')
-    billing.record_song(user['id'], session.session_id)
+        billing.record_song(user['id'], session.session_id)
     return {'sessionId': session.session_id, 'messages': [], 'referenceId': None, 'project': session.project}
 
 
@@ -614,6 +615,8 @@ async def update_song_project(session_id: str, req: SongProjectRequest, user: di
         billing.require_reference_access(user)
     with chat_store.acquire(user['id'], session_id):
         session, saved = saved_project(user['id'], session_id)
+        if session.project.get('remix') and ({'starting_point', 'reference_id'} & req.model_fields_set):
+            raise HTTPException(409, 'Keep this remix bound to its source. Start a new song to use a different reference or idea.')
         if req.title is not None:
             if not req.title.strip():
                 raise HTTPException(422, 'Give your song a name.')
@@ -629,6 +632,34 @@ async def update_song_project(session_id: str, req: SongProjectRequest, user: di
             session.reference_id = req.reference_id
         chat_store.save(session, saved['status'])
         return {'project': session.project, 'referenceId': session.reference_id}
+
+
+@app.post('/api/chats/remix')
+async def create_remix_project(req: remix_projects.RemixRequest, user: dict = Depends(get_current_user)):
+    import billing
+    billing.require_reference_access(user)
+    rate_limit(f"new-song:{user['id']}", max_requests=20, window_seconds=60)
+    directory, source, plan = remix_projects.plan(req, user['id'])
+    session_id = 'remix_' + req.request_id
+    intent = req.model_dump(exclude={'request_id'})
+    with chat_store.acquire(user['id'], '_song_creation'), chat_store.acquire(user['id'], session_id):
+        saved = chat_store.load(user['id'], session_id)
+        if saved:
+            if (saved.get('project') or {}).get('remix_intent') != intent:
+                raise HTTPException(409, 'This request already saved different remix choices. No new song was created.')
+            billing.ensure_song_usage(user, session_id)
+            return {'sessionId': session_id, 'project': saved['project'], 'referenceId': saved['reference_id']}
+        billing.enforce_song_limit(user)
+        session = ChatSession(session_id, user['id'])
+        session.reference_id = req.reference_id
+        session.project = {**song_projects.new_project(), 'title': req.title,
+                           'starting_point': 'reference', 'mode': 'remix',
+                           'remix': plan, 'remix_intent': intent}
+        references.record_source_use(directory, source, req.source_use, 'remix-plan',
+                                     [name for name, decision in req.layers.items() if decision == 'retain'])
+        chat_store.save(session, 'complete')
+        billing.ensure_song_usage(user, session_id)
+        return {'sessionId': session_id, 'project': session.project, 'referenceId': req.reference_id}
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=12000)
@@ -677,9 +708,10 @@ def prepare_chat(req: ChatRequest, user: dict):
     elif not session.messages and not session.project:
         session.project = song_projects.new_project()
     reference_id = req.reference_id if 'reference_id' in req.model_fields_set else getattr(session, 'reference_id', None)
+    remix_projects.ensure_reference(session.project, reference_id)
     if reference_id:
         billing.require_reference_access(user)
-    reference_note = song_projects.reference_note(reference_id, user['id'])
+    reference_note = song_projects.reference_note(reference_id, user['id'], session.project)
     session.reference_id = reference_id
     session.reference_note = reference_note
     session.model_id = model_id
@@ -706,6 +738,7 @@ async def produce_chat(req, session, bridge, emit=None):
             # Older clients can send a first message without POST /api/chats.
             session.project = song_projects.new_project()
         if 'reference_id' in req.model_fields_set:
+            remix_projects.ensure_reference(session.project, req.reference_id)
             session.reference_id = req.reference_id
         reference_id = getattr(session, 'reference_id', None)
         if reference_id and session.project and not session.project.get('starting_point'):
@@ -715,7 +748,7 @@ async def produce_chat(req, session, bridge, emit=None):
             or (session.project.get('starting_point') == 'reference' and not reference_id)
         ):
             session.project['starting_point'] = 'idea'
-        session.reference_note = song_projects.reference_note(reference_id, session.user_id)
+        session.reference_note = song_projects.reference_note(reference_id, session.user_id, session.project)
         session.project_note = song_projects.planning_reason(session.project, reference_id, session.user_id)
         session.planning_only = req.planning_only or bool(session.project_note)
         session.pending_review = False

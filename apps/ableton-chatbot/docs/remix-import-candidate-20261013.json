@@ -11,7 +11,11 @@
     "Interrupted or ambiguous music writes require inspection, not automatic replay",
     "Known preflight failures are distinguished from potentially partial music writes",
     "Reference deletion cannot remove an active or unresolved import's recovery record",
-    "Browser reload displays the saved import outcome without repeating the music write"
+    "Browser reload displays the saved import outcome without repeating the music write",
+    "Visible Remix this reference action opens a planning-only setup with style, tempo, retained/replaced/omitted stems and explicit source-use permission",
+    "Source-bound remix plans persist in separate chats; identical save retries consume one song allowance",
+    "Server-side planning gates prevent remix chats from executing music writes before full audio acceptance",
+    "Save action remains visible while the remix setup form scrolls on desktop and mobile"
   ],
   "validation": {
     "backend_sqlite": "588 passed",
@@ -25,8 +29,16 @@
     "ci_url": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/38378264104",
     "ci_environment": "Bridge window tests run under Xvfb; this is not notarized-installer or real Ableton acceptance"
   },
+  "remix_plan_validation": {
+    "backend_sqlite": "595 passed including 7 remix planning regression tests",
+    "frontend_unit_files": "22 passed",
+    "production_frontend_build": "Passed with NEXT_PUBLIC_API_URL=https://api.beatmind.io",
+    "browser": "1440px and 390px mocked-API checks passed: visible action, consent, stem choices, idempotent save retry, preserved original chat, saved plan reload and no music writes",
+    "import_browser_regression": "Local and cloud imports at 1440px and 390px passed consent, receipt persistence and no replay after reload checks",
+    "limits": "Browser checks use synthetic references and mocked APIs, not real audio execution. No private source audio or exports are committed."
+  },
   "full_release_blockers": [
-    "Reference-bound remix intent and retained/replaced layers are not yet implemented as a complete product flow",
+    "Reference-bound remix planning is implemented; retained/replaced layers do not yet drive audio production",
     "Tempo/warp and pitch changes are not implemented and verified across all imported stems",
     "Arrangement audio-stem replacement is not implemented as a non-destructive, source-identity-checked operation",
     "Ambiguous import outcomes stop safely but still need exact clip/file reconciliation and a user-facing recovery path",

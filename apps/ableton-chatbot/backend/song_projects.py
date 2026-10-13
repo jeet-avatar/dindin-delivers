@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 
 import references
+import remix_projects
 
 
 def new_project():
@@ -12,18 +13,23 @@ def new_project():
             'created_at': datetime.now(timezone.utc).isoformat()}
 
 
-def reference_note(reference_id, user_id):
+def reference_note(reference_id, user_id, project=None):
     if not reference_id:
         return ''
     _, item = references.owned(reference_id, user_id)
     if item['status'] != 'ready':
         return '\nThe selected reference is still processing or failed. Do not claim to have heard it. Ask the user to check Reference review.'
+    if (project or {}).get('remix'):
+        return remix_projects.planning_note(project)
     return references.reference_context(reference_id, user_id)
 
 
 def planning_reason(project, reference_id, user_id):
     if not project:
         return ''
+    if project.get('remix'):
+        remix_projects.ensure_reference(project, reference_id)
+        return remix_projects.planning_note(project)
     if not project.get('starting_point'):
         return 'Ask whether the user wants to upload a reference track for listening or start from their own idea.'
     if project['starting_point'] == 'reference':
