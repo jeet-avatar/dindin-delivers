@@ -119,8 +119,13 @@ async def capture_part(bridge, track, scene, seconds):
 
         async def start():
             await command("/live/clip/fire", [track, scene])
-            if not (await query("/live/clip/get/is_playing", [track, scene]))[-1]:
-                raise RuntimeError("Clip did not start playing.")
+            # Live schedules launch asynchronously. Retry reads, never re-fire the clip.
+            for attempt in range(10):
+                if (await query("/live/clip/get/is_playing", [track, scene]))[-1]:
+                    return
+                if attempt < 9:
+                    await asyncio.sleep(0.2)
+            raise RuntimeError("Clip did not start playing. The existing clip was kept; check Ableton's audio engine and retry its preview.")
 
         metrics, audio_bytes = await record_with_helper(helper, seconds, start)
         if not metrics.get("has_signal"):

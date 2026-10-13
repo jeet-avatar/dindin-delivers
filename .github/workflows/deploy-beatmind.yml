@@ -65,6 +65,8 @@ jobs:
         env:
           PYTHON_DOTENV_DISABLED: '1'
         run: xvfb-run -a python -m pytest tests -q
+      - name: Verify fresh-install separation model download
+        run: python apps/ableton-chatbot/scripts/check_bridge_model.py
       - name: Frontend regression tests and production build
         working-directory: apps/ableton-chatbot/frontend
         env:
@@ -84,6 +86,7 @@ jobs:
           "$RUNNER_TEMP/beatmind-browser/node_modules/.bin/playwright" install --with-deps chromium
           PLAYWRIGHT_MODULE="$RUNNER_TEMP/beatmind-browser/node_modules/playwright" node tests/blog-discovery.browser.cjs
           PLAYWRIGHT_MODULE="$RUNNER_TEMP/beatmind-browser/node_modules/playwright" node tests/remix-chat.browser.cjs
+          PLAYWRIGHT_MODULE="$RUNNER_TEMP/beatmind-browser/node_modules/playwright" node tests/chat-outbox.browser.cjs
           PLAYWRIGHT_MODULE="$RUNNER_TEMP/beatmind-browser/node_modules/playwright" \
             BEATMIND_TEST_PYTHON="$(command -v python)" node tests/automatic-remix.browser.cjs
           PLAYWRIGHT_MODULE="$RUNNER_TEMP/beatmind-browser/node_modules/playwright" \

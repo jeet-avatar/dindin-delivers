@@ -1123,7 +1123,12 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
         if preview_summary:
             return preview_summary, tool_calls_log
         if any(action["tool"] in {"audition_part", "audition_scene", "audition_arrangement_section"} for action in tool_calls_log):
-            return "The part remains in Ableton, but its audition did not pass verification. No recording is ready for approval. Review the audition details before retrying; do not recreate the track or notes.", tool_calls_log
+            failed_preview = next(action for action in reversed(tool_calls_log)
+                                  if action['tool'] in {'audition_part', 'audition_scene', 'audition_arrangement_section'})
+            reason = failed_preview['result'].get('error') or failed_preview['result'].get('summary') or 'Audio could not be verified.'
+            return (f"The sound preview could not be verified: {reason}\n\n"
+                    "No recording is ready for approval. Existing music was not removed. "
+                    "Ask me to inspect the existing part and retry its preview; do not recreate the track or notes."), tool_calls_log
 
     return "Production paused at the action limit. Some requested work may remain; review the action log before continuing.", tool_calls_log
 

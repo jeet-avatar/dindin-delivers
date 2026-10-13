@@ -28,6 +28,11 @@ const failed = settleInstructions(queue, batch.ids, false);
 assert.equal(failed.paused, true);
 assert.ok(failed.items.every(item => item.state === 'uncertain'));
 assert.equal(settleInstructions(queue, batch.ids, true).items.length, 0);
+assert.equal(appendInstruction({ items: [], paused: true }, 'Inspect the existing kick').paused, false,
+  'A new explicit Send must not inherit an invisible pause from a completed request');
+assert.equal(appendInstruction(failed, 'Inspect the existing kick').paused, true,
+  'New input must never release uncertain older requests');
+assert.equal(appendInstruction({ ...emptyQueue(), items: [queue.items[1]], paused: true }, 'Continue').paused, true);
 assert.notEqual(outboxKey(1, 'song-a'), outboxKey(1, 'song-b'));
 assert.notEqual(outboxKey(1, 'song-a'), outboxKey(2, 'song-a'));
 const long = 'a'.repeat(12000);

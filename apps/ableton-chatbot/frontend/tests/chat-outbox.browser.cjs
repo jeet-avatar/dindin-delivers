@@ -23,7 +23,7 @@ const server = http.createServer((req, res) => {
       const user = { id: 987990, email: 'outbox@example.invalid', subscribed: true, subscription_status: 'active', plan_tier: 'pro' };
       const project = { title: 'Outbox QA', starting_point: 'idea', live_set: { title: 'QA fixture', choice: 'current' } };
       const queueKey = 'beatmind_outbox_v1_987990_qa-song';
-      let connected = false, pending = [], calls = [], failNext = false;
+      let connected = false, pending = [], calls = [], failNext = false, actionFailure = false;
       await context.addInitScript(({ user, project, width }) => {
         if (localStorage.getItem('fixture-seeded')) return;
         localStorage.setItem('fixture-seeded', '1');
@@ -44,7 +44,8 @@ const server = http.createServer((req, res) => {
         if (p === '/api/chat/stream') {
           calls.push(req.postDataJSON());
           if (failNext) { failNext = false; return route.abort('failed'); }
-          pending.push(() => route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify({ type: 'complete', response: `Fixture response ${calls.length}`, tool_calls: [] }) + '\n' }));
+          pending.push(() => route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify({ type: 'complete', response: `Fixture response ${calls.length}`,
+            tool_calls: actionFailure ? [{ id: 'audition-failed', tool: 'audition_part', input: {}, result: { status: 'failed', summary: 'Clip did not start playing.' } }] : [] }) + '\n' }));
           return;
         }
         return reply({});
@@ -88,14 +89,28 @@ const server = http.createServer((req, res) => {
       await pending.shift()();
       await page.getByText('Fixture response 2', { exact: true }).waitFor();
       await page.waitForFunction(key => JSON.parse(localStorage.getItem(key)).items.length === 0, queueKey);
+      actionFailure = true;
+      await send('Preview the existing kick');
+      await page.waitForFunction(key => JSON.parse(localStorage.getItem(key)).items[0]?.state === 'sending', queueKey);
+      await pending.shift()();
+      await page.getByText('Fixture response 3', { exact: true }).waitFor();
+      await page.waitForFunction(key => {
+        const q = JSON.parse(localStorage.getItem(key)); return q.items.length === 0 && q.paused;
+      }, queueKey);
+      actionFailure = false;
+      await send('Inspect why the existing kick did not play');
+      await page.waitForFunction(key => JSON.parse(localStorage.getItem(key)).items[0]?.state === 'sending', queueKey);
+      assert.equal(calls.length, 4, 'Explicit new Send must not inherit an invisible empty-queue pause');
+      await pending.shift()();
+      await page.getByText('Fixture response 4', { exact: true }).waitFor();
       failNext = true;
       await send('Add hats, without repeating the kick');
       await page.getByText('Delivery uncertain; inspect chat and Ableton', { exact: true }).waitFor();
-      assert.equal(calls.length, 3);
+      assert.equal(calls.length, 5);
       await page.reload(); await openChat();
       await page.getByText('Delivery uncertain; inspect chat and Ableton', { exact: true }).waitFor();
       await page.waitForTimeout(400);
-      assert.equal(calls.length, 3, 'No automatic replay after lost delivery or reload');
+      assert.equal(calls.length, 5, 'No automatic replay after lost delivery or reload');
       assert.equal(await resume.isDisabled(), true);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       await page.screenshot({ path: `/tmp/beatmind-outbox-${width}.png`, fullPage: true });
@@ -103,7 +118,7 @@ const server = http.createServer((req, res) => {
       await page.evaluate(() => { Storage.prototype.setItem = () => { throw new Error('Quota exceeded'); }; });
       await send('Keep this draft if storage is full');
       assert.equal(await page.locator('#chat-input').inputValue(), 'Keep this draft if storage is full');
-      assert.equal(calls.length, 3);
+      assert.equal(calls.length, 5);
       assert.deepEqual(errors, []);
       console.log(JSON.stringify({ width, bridgeVersion: '1.3.18', offlineSave: 'passed', refresh: 'passed', steeringBatch: 'passed', noReplay: 'passed', storageFailure: 'passed' }));
       await context.close();

@@ -108,6 +108,16 @@ class ChatTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(actions[0]["result"]["status"], "unverified")
         self.assertIn("Skipped", actions[1]["result"]["summary"])
 
+    async def test_failed_preview_explains_the_actual_blocker_without_replaying(self):
+        session = main.ChatSession("failed-preview", 1)
+        self.client.messages.create.return_value = response(tool("audition_part"))
+        with patch.object(main, "_execute_tool", AsyncMock(return_value={"status": "failed", "error": "Clip did not start playing."})) as execute:
+            text, _ = await main._run_claude_loop(session, None)
+        self.assertIn("Clip did not start playing", text)
+        self.assertIn("retry its preview", text)
+        self.assertIn("do not recreate", text)
+        execute.assert_awaited_once()
+
     async def test_cancelled_action_leaves_valid_tool_history(self):
         session = main.ChatSession("s", 1)
         self.client.messages.create.return_value = response(tool("add_notes"), tool("fire_clip", "action-2"))

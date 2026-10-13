@@ -15,6 +15,9 @@ import re
 import shutil
 import sys
 import urllib.request
+from urllib.error import URLError
+
+from bridge_network import tls_context
 
 SUPPORT = Path.home() / 'Library/Application Support/BeatMind'
 MODELS = Path(os.getenv('BEATMIND_MODELS_DIR', str(SUPPORT / 'models')))
@@ -72,8 +75,14 @@ def download_drum_model():
         return target
     MODELS.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix('.part')
-    with urllib.request.urlopen(DRUMSEP_URL, timeout=60) as response, partial.open('wb') as out:
-        shutil.copyfileobj(response, out, 1024 * 1024)
+    try:
+        with urllib.request.urlopen(DRUMSEP_URL, timeout=60, context=tls_context()) as response, partial.open('wb') as out:
+            if 'text/html' in response.headers.get('Content-Type', '').lower():
+                raise RuntimeError('The separation model is unavailable from BeatMind. Your track is unchanged; try again later.')
+            shutil.copyfileobj(response, out, 1024 * 1024)
+    except (URLError, TimeoutError) as error:
+        partial.unlink(missing_ok=True)
+        raise RuntimeError('Could not download the separation model securely. Check your connection and update BeatMind Bridge, then retry. Your track is unchanged.') from error
     if sha256(partial) != DRUMSEP_SHA256:
         partial.unlink(missing_ok=True)
         raise RuntimeError('The downloaded drum model failed its integrity check. Nothing was separated.')
@@ -90,9 +99,15 @@ async def choose_file():
     process = await asyncio.create_subprocess_exec(
         '/usr/bin/osascript', *[arg for line in lines for arg in ('-e', line)],
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    out, _ = await process.communicate()
-    # A cancelled dialog exits non-zero; that is a normal choice, not an error.
-    return Path(out.decode().strip()) if process.returncode == 0 and out.strip() else None
+    out, errors = await process.communicate()
+    if process.returncode:
+        message = errors.decode(errors='replace')
+        if '(-128)' in message:
+            return None
+        if '(-1743)' in message:
+            raise RuntimeError('Allow BeatMind Bridge to control Finder in System Settings > Privacy & Security > Automation, then choose your track again.')
+        raise RuntimeError('The file window could not open. Reopen BeatMind Bridge and choose your track again.')
+    return Path(out.decode().strip()) if out.strip() else None
 
 
 class LocalReferences:
@@ -122,7 +137,10 @@ class LocalReferences:
             return {'status': 'failed', 'error': 'Local separation is not available in this Bridge version.'}
         if self.jobs:
             return {'status': 'busy', 'error': 'Another track is separating on this computer. Wait for it to finish.'}
-        path = await choose()
+        try:
+            path = await choose()
+        except RuntimeError as error:
+            return {'status': 'failed', 'error': str(error)}
         if path is None:
             return {'status': 'cancelled'}
         if path.suffix.lower() not in EXTENSIONS or not path.is_file():

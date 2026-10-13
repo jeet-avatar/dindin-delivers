@@ -16,6 +16,7 @@ WORK=$(mktemp -d "${TMPDIR:-/tmp}/beatmind-build.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 "${PYTHON:-python3}" -m venv "$WORK/venv"
 "$WORK/venv/bin/pip" install -r requirements-build.txt -r requirements-separation.txt
+"$WORK/venv/bin/python" ../scripts/check_bridge_model.py
 # The on-device separation worker is the backend's own reference_worker/separation code.
 "$WORK/venv/bin/pyinstaller" --noconfirm --windowed --onedir \
   --name "BeatMind Bridge" --osx-bundle-identifier com.zietra.beatmind-bridge \

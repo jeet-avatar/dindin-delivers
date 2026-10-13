@@ -13,7 +13,11 @@ async function waitForChoice(id: string): Promise<Started | null> {
   while (Date.now() < deadline) {
     await new Promise(resolve => setTimeout(resolve, 2000));
     const response = await apiFetch("/api/references");
-    if (!response.ok) continue;
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) throw new Error("Sign in again to check your file choice. Do not start another separation yet.");
+      if (response.status === 429) await new Promise(resolve => setTimeout(resolve, 10000));
+      continue;
+    }
     const item = (await response.json()).references.find((reference: Started) => reference.id === id) as Started | undefined;
     if (!item) return null;
     if (item.status !== "choosing") return item;
@@ -54,7 +58,7 @@ export default function LocalSeparation({ available, disabled, onStarted }: {
         onChange={event => setRights(event.target.checked)} className="mt-1" />I have permission to separate and analyze the audio I choose.</label>
       <button type="button" onClick={() => void start()} disabled={disabled || waiting || !rights}
         className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium disabled:opacity-40">{waiting ? "Waiting for your file choice..." : "Choose a track on this computer"}</button>
-      {waiting && <p role="status" className="text-sm text-emerald-200">A file window opened on your computer, where the BeatMind Bridge is running. Choose your track there.</p>}
+      {waiting && <p role="status" className="text-sm text-emerald-200">File choice requested from BeatMind Bridge. Check Finder on the Mac running your Bridge; processing starts after you choose a track.</p>}
     </> : <p role="status" className="text-sm text-amber-200">Open the latest BeatMind Bridge on your Mac to separate tracks there.</p>}
     {message && <p role="status" className="text-sm text-emerald-200">{message}</p>}
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}

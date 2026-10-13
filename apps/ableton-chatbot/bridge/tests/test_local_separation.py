@@ -1,11 +1,14 @@
 import asyncio
+import hashlib
+import io
 import json
 from pathlib import Path
 import sys
 import tempfile
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
+from urllib.error import URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import local_separation  # noqa: E402
@@ -24,6 +27,50 @@ for stage in ('Decoding audio', 'Splitting drums into kick, snare, toms and cymb
     (d / 'progress.json').write_text(json.dumps({'stage': stage})); time.sleep(2.5)
 (d / 'report.json').write_text(json.dumps(%s))
 ''' % json.dumps(REPORT)
+
+
+class ModelDownloadTests(unittest.TestCase):
+    def test_download_uses_bundled_trust_and_validates_file(self):
+        content = b'model fixture'
+        response = io.BytesIO(content)
+        response.headers = {'Content-Type': 'application/octet-stream'}
+        with tempfile.TemporaryDirectory() as temp, \
+                patch.object(local_separation, 'MODELS', Path(temp)), \
+                patch.object(local_separation, 'DRUMSEP_SHA256', hashlib.sha256(content).hexdigest()), \
+                patch.object(local_separation, 'tls_context', return_value='trusted-context'), \
+                patch.object(local_separation.urllib.request, 'urlopen', return_value=response) as fetch:
+            result = local_separation.download_drum_model()
+            self.assertEqual(result.read_bytes(), content)
+            self.assertEqual(fetch.call_args.kwargs['context'], 'trusted-context')
+            self.assertEqual(local_separation.download_drum_model(), result)
+            fetch.assert_called_once()
+
+    def test_website_fallback_is_not_treated_as_a_model(self):
+        response = io.BytesIO(b'<html>fallback</html>')
+        response.headers = {'Content-Type': 'text/html'}
+        with tempfile.TemporaryDirectory() as temp, patch.object(local_separation, 'MODELS', Path(temp)), \
+                patch.object(local_separation.urllib.request, 'urlopen', return_value=response):
+            with self.assertRaisesRegex(RuntimeError, 'model is unavailable'):
+                local_separation.download_drum_model()
+            self.assertFalse((Path(temp) / local_separation.DRUMSEP_FILE).exists())
+
+    def test_secure_download_failure_is_actionable(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(local_separation, 'MODELS', Path(temp)), \
+                patch.object(local_separation.urllib.request, 'urlopen', side_effect=URLError('certificate error')):
+            with self.assertRaisesRegex(RuntimeError, 'download the separation model securely'):
+                local_separation.download_drum_model()
+
+
+class FilePickerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_only_user_cancellation_is_a_cancelled_choice(self):
+        for code, expected in [('-128', None), ('-1743', 'Automation'), ('-2700', 'could not open')]:
+            process = types.SimpleNamespace(returncode=1, communicate=AsyncMock(return_value=(b'', f'error ({code})'.encode())))
+            with patch.object(local_separation.asyncio, 'create_subprocess_exec', AsyncMock(return_value=process)):
+                if expected:
+                    with self.assertRaisesRegex(RuntimeError, expected):
+                        await local_separation.choose_file()
+                else:
+                    self.assertIsNone(await local_separation.choose_file())
 
 
 class LocalSeparationTests(unittest.IsolatedAsyncioTestCase):
@@ -90,6 +137,11 @@ class LocalSeparationTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.wait_for(asyncio.gather(*self.local.jobs.values()), 30)
         self.assertEqual(self.events[-1]['status'], 'failed')
         self.assertIn('worker.log', self.events[-1]['error'])
+
+    async def test_file_picker_failure_is_returned_to_browser(self):
+        result = await self.local.start(REFERENCE_ID, AsyncMock(side_effect=RuntimeError('Allow Finder in Automation')))
+        self.assertEqual(result, {'status': 'failed', 'error': 'Allow Finder in Automation'})
+        self.assertFalse(self.local.jobs)
 
     async def test_results_wait_in_the_outbox_until_reconnected(self):
         delivered, online = [], False

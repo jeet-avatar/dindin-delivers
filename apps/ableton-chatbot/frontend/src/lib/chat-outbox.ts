@@ -41,7 +41,9 @@ export function appendInstruction(queue: InstructionQueue, text: string, remixTa
   if (!text) return queue;
   if (text.length > 12000) throw new Error("This brief exceeds 12,000 characters. Your draft is unchanged; shorten it before sending.");
   if (queue.items.length >= 30) throw new Error("30 instructions are already saved. Review them before adding more.");
-  return { ...queue, items: [...queue.items, { id: crypto.randomUUID(), text,
+  // An explicit new Send may proceed after a completed request emptied the queue.
+  // Pending or uncertain older requests still require an explicit review/resume.
+  return { ...queue, paused: queue.items.length ? queue.paused : false, items: [...queue.items, { id: crypto.randomUUID(), text,
     createdAt: new Date().toISOString(), state: "queued", ...(remixTarget ? { remixTarget } : {}) }] };
 }
 
