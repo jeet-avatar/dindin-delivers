@@ -50,7 +50,7 @@ jobs:
         with:
           node-version: '20'
       - name: Audio comparison test runtime
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg xvfb xauth
       - name: Backend regression tests
         working-directory: apps/ableton-chatbot/backend
         env:
@@ -64,7 +64,7 @@ jobs:
         working-directory: apps/ableton-chatbot/bridge
         env:
           PYTHON_DOTENV_DISABLED: '1'
-        run: python -m pytest tests -q
+        run: xvfb-run -a python -m pytest tests -q
       - name: Frontend regression tests and production build
         working-directory: apps/ableton-chatbot/frontend
         env:
