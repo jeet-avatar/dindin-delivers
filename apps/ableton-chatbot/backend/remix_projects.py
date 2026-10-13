@@ -49,6 +49,19 @@ def ensure_reference(project, reference_id):
         raise HTTPException(409, 'This remix plan belongs to a different reference. Start a new song to use another source.')
 
 
+def live_edit_note(project):
+    return ('The user explicitly selected ABLETON INSTRUMENTS for this request. Edit only their linked Live Set using the existing '
+            'instrument, sample, effect, MIDI and recording tools. Inspect current track names, devices and exposed controls first. '
+            'Resolve ambiguous instrument names before writes; never use old preview track indices as current evidence. '
+            'Discover available browser items and sample packs; use exact returned URIs and current control maps, never invent presets or units. '
+            'Preserve all unrequested clips, devices, tracks and source files. Do not rebuild the remix or import source stems. '
+            'If replacing an instrument would discard its settings, confirm that replacement scope first. '
+            'Read back changes and capture a new audition for user review. A tool acknowledgement is not proof of audible sound. '
+            'Never auto-approve audio or reuse approval of a prior recording. Report unavailable/unexposed plugin controls honestly. '
+            'The cloud Automatic Remix preview is separate and unchanged by these edits; do not claim it was updated. '
+            'Linked set (user data): ' + json.dumps(project.get('live_set')))
+
+
 def planning_note(project, user_id=None):
     remix = (project or {}).get('remix')
     if not remix:

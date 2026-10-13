@@ -254,8 +254,10 @@ export default function DashboardPage() {
   const [referenceId, setReferenceId] = useState<string | null>(null);
   const [projectBusy, setProjectBusy] = useState(false);
   const [remixOpen, setRemixOpen] = useState(false);
+  const [remixEditTarget, setRemixEditTarget] = useState<"preview" | "ableton">("preview");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [chatId, setChatId] = useState("");
+  useEffect(() => { setRemixEditTarget("preview"); }, [chatId]);
   const [chats, setChats] = useState<ChatEntry[]>([]);
   const [serverChats, setServerChats] = useState<ChatEntry[]>([]);
   const [authStatus, setAuthStatus] = useState("Checking sign-in");
@@ -513,7 +515,7 @@ export default function DashboardPage() {
 
   useEffect(() => () => requestRef.current?.abort(), []);
 
-  const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, selectedReference?: string | null, planningOnly = false, queuedIds: string[] = []) => {
+  const sendMessage = useCallback(async (messageOverride?: string, continuationSession?: string, selectedReference?: string | null, planningOnly = false, queuedIds: string[] = [], remixTarget = remixEditTarget) => {
     const text = (messageOverride ?? input).trim();
     if (!text || !historyReady || loading || requestRef.current) return;
     try {
@@ -544,7 +546,7 @@ export default function DashboardPage() {
       submitted = true;
       const res = await apiFetch("/api/chat/stream", {
         method: "POST",
-        body: JSON.stringify({ message: text, session_id: activeSession, reference_id: selectedReference, planning_only: planningOnly, model_tier: selectedModel }),
+        body: JSON.stringify({ message: text, session_id: activeSession, reference_id: selectedReference, planning_only: planningOnly, model_tier: selectedModel, remix_edit_target: remixTarget }),
         signal: controller.signal,
       });
       if (res.status === 402) {
@@ -648,17 +650,18 @@ export default function DashboardPage() {
         }));
       } catch { setHistoryError("Could not save delivery status. Inspect the conversation before sending saved instructions again."); }
     }
-  }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject, selectedModel, outbox.update]);
+  }, [input, historyReady, loading, sessionId, router, refreshBridge, createProject, selectedModel, outbox.update, remixEditTarget]);
 
   function saveInstruction() {
     if (!historyReady || !input.trim()) return;
     try {
-      outbox.update(queue => appendInstruction(queue, input));
+      outbox.update(queue => appendInstruction(queue, input, project?.mode === "remix" ? remixEditTarget : undefined));
       setInput("");
     } catch (error) { setHistoryError(error instanceof Error ? error.message : "Could not save this instruction. Your draft is unchanged."); }
   }
 
-  const canDiscussWithoutBridge = project?.mode === "remix";
+  const activeRemixTarget = outbox.queue.items.length ? outbox.queue.items[0].remixTarget || "preview" : remixEditTarget;
+  const canDiscussWithoutBridge = project?.mode === "remix" && activeRemixTarget === "preview";
   useEffect(() => {
     if (!historyReady || !outbox.ready || loading || projectBusy || requestRef.current || (!bridgeConnected && !canDiscussWithoutBridge) || outbox.queue.paused) return;
     const next = nextInstructions(outbox.queue, canDiscussWithoutBridge ? "remix" : "production");
@@ -666,7 +669,7 @@ export default function DashboardPage() {
     const attempt = `${queueKey}:${next.ids.join(",")}`;
     if (queueAttempt.current === attempt) return;
     queueAttempt.current = attempt;
-    void sendMessage(next.text, undefined, undefined, false, next.ids);
+    void sendMessage(next.text, undefined, undefined, false, next.ids, next.remixTarget || "preview");
   }, [historyReady, outbox.ready, outbox.queue, loading, projectBusy, bridgeConnected, canDiscussWithoutBridge, queueKey, sendMessage]);
 
   // Subscribers manage or change plans in the Stripe portal; everyone else picks a plan.
@@ -1001,7 +1004,9 @@ export default function DashboardPage() {
         {project?.remix && <section aria-label="Saved remix plan" className="border-b pb-3 text-sm" style={{ borderColor: "var(--border)" }}>
           <p className="font-medium">{project.remix.automatic_preview_id ? "Saved automatic remix" : "Saved remix plan"}</p>
           <p className="mt-2 break-words">{project.remix.source_name} / {project.remix.style} / {project.remix.target_bpm} BPM</p>
-          <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>Chat changes are saved as drafts. Audio remains unchanged until you confirm and render.</p>
+          <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>{activeRemixTarget === "preview"
+            ? "Preview changes are saved as drafts. Audio remains unchanged until you confirm and render."
+            : "Editing instruments in your linked Ableton set. The saved remix preview remains unchanged."}</p>
         </section>}
         {historyError && <p role="alert" className="text-xs text-amber-300">{historyError}</p>}
         {loading && streamNotice && <p role="status" className="text-xs text-amber-300">{streamNotice}</p>}
@@ -1096,6 +1101,7 @@ export default function DashboardPage() {
             {outbox.queue.items.map(item => <li key={item.id} className="flex items-start gap-2 py-2">
               <div className="min-w-0 flex-1">
                 <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{item.state === "queued" ? "Not sent" : item.state === "sending" ? "Sending" : "Delivery uncertain; inspect chat and Ableton"}</span>
+                {project?.remix && <span className="ml-2 text-xs" style={{ color: "var(--text-secondary)" }}>{item.remixTarget === "ableton" ? "Ableton instruments" : "Remix preview"}</span>}
                 <p className="whitespace-pre-wrap break-words">{item.text}</p>
               </div>
               <button type="button" aria-label="Remove saved instruction" title="Remove saved instruction" disabled={item.state === "sending"}
@@ -1520,6 +1526,13 @@ export default function DashboardPage() {
             {project.starting_point === "reference" && <button onClick={() => setNav("references")} className="underline">Reference review</button>}
             {project?.remix && <button type="button" disabled={loading || projectBusy} onClick={() => setRemixOpen(true)}
               className="inline-flex items-center gap-1.5 disabled:opacity-50"><WandSparkles size={14} />Open Automatic Remix</button>}
+            {project?.remix && <fieldset aria-label="Remix command target" className="flex flex-wrap items-center gap-3" disabled={loading || projectBusy || !!outbox.queue.items.length}>
+              <label className="inline-flex items-center gap-1.5"><input type="radio" name="remix-target" checked={activeRemixTarget === "preview"}
+                onChange={() => setRemixEditTarget("preview")} />Remix preview</label>
+              <label className="inline-flex items-center gap-1.5" title={!project.live_set ? "Use this set to link your Ableton project first" : !bridgeConnected ? "Connect your Bridge to edit Ableton instruments" : "Edit instruments in the linked Ableton set"}>
+                <input type="radio" name="remix-target" checked={activeRemixTarget === "ableton"} disabled={!project.live_set || !bridgeConnected}
+                  onChange={() => setRemixEditTarget("ableton")} />Ableton instruments</label>
+            </fieldset>}
           </div>}
         </div>}
         </div>

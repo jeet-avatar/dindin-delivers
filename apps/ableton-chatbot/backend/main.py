@@ -684,6 +684,7 @@ class ChatRequest(BaseModel):
     session_id: str | None = Field(default=None, pattern=r'^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$')
     reference_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
     planning_only: bool = False
+    remix_edit_target: str = Field(default='preview', pattern=r'^(preview|ableton)$')
     model_tier: str | None = Field(default=None, pattern=r'^(fast|pro|ultra)$')
 
 
@@ -766,13 +767,23 @@ async def produce_chat(req, session, bridge, emit=None):
             or (session.project.get('starting_point') == 'reference' and not reference_id)
         ):
             session.project['starting_point'] = 'idea'
-        session.reference_note = song_projects.reference_note(reference_id, session.user_id, session.project)
-        session.project_note = song_projects.planning_reason(session.project, reference_id, session.user_id)
+        native_remix = bool((session.project or {}).get('remix') and req.remix_edit_target == 'ableton')
+        session.remix_edit_target = 'ableton' if native_remix else 'preview'
+        if native_remix:
+            if not bridge:
+                raise HTTPException(409, 'Connect your BeatMind Bridge to edit instruments in Ableton. Automatic Remix previews remain available.')
+            if not ((session.project or {}).get('live_set') or {}).get('title'):
+                raise HTTPException(409, 'Choose Use this set to link your Ableton project before editing its instruments. Nothing was changed.')
+            session.reference_note = remix_projects.live_edit_note(session.project)
+            session.project_note = ''
+        else:
+            session.reference_note = song_projects.reference_note(reference_id, session.user_id, session.project)
+            session.project_note = song_projects.planning_reason(session.project, reference_id, session.user_id)
         session.planning_only = req.planning_only or bool(session.project_note)
         session.pending_review = False
         session.current_track_names = []
         session.current_recordings = []
-        if bridge and not (session.planning_only and (session.project or {}).get('remix')):
+        if bridge and not (session.planning_only and (session.project or {}).get('remix') and not native_remix):
             await stack.enter_async_context(bridge.lock)
             if session.project and not session.planning_only:
                 live = await bridge.local_operation('live_set', {'operation': 'inspect'})
@@ -956,7 +967,7 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
     planning_only = getattr(session, 'planning_only', False)
     if planning_only:
         bridge_note += "\nThis turn is discussion only. Recommend the best next step and explain why, with up to two concrete alternatives grounded in discovered sources and the current project. Ask one focused question only when necessary. Do not play, audition, change music or create a production plan; only read-only discovery is available."
-        if (session.project or {}).get('remix'):
+        if (session.project or {}).get('remix') and getattr(session, 'remix_edit_target', 'preview') == 'preview':
             bridge_note += "\nAbleton was not automatically inspected for this remix discussion. Use the saved source and remix state; do not claim current Ableton state is verified."
             bridge_note += "\nThe restriction on direct audio/Ableton writes is NOT a Bridge connection or permissions problem. Correct earlier messages that blamed the Bridge. EXCEPTION to discussion-only: when the user requests a remix edit, use get_remix_edit_state then propose_remix_changes to save a validated recipe draft. Do not merely describe how to edit it manually. Preserve all choices the user did not request to change. Uploaded sampled instruments, sample replacement and native effects are supported as listed in the edit state; inspect actual samples and source stems first. Ask for sample upload or tonal root note when missing. Never invent installed plugins, sample IDs or isolated drums. The user confirms the exact changes and renders via Review remix changes / Open Automatic Remix; no audio changes before that confirmation. Discard pending changes only when explicitly asked. Unsupported requests must be explained, not substituted with level changes or claimed complete. If ambiguous, ask one focused question. Never claim a draft is rendered or approved."
     if bridge and session.project and not session.project.get('live_set'):
@@ -985,7 +996,8 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
             system=_build_system(bridge_note),
             tools=[tool for tool in _build_tools(bridge)
                    if (not planning_only or tool['name'] in DISCUSSION_TOOLS)
-                   and (tool['name'] not in remix_chat.NAMES or (session.project or {}).get('mode') == 'remix')],
+                   and (tool['name'] not in remix_chat.NAMES or ((session.project or {}).get('mode') == 'remix'
+                        and getattr(session, 'remix_edit_target', 'preview') == 'preview'))],
             messages=bounded_history(messages),
         ), timeout=MODEL_STEP_TIMEOUT_SECONDS)
         ai_usage.record(session.user_id, 'chat', provider_name(), chat_model, ai_usage.anthropic_tokens(response), usage_request)
@@ -1027,7 +1039,9 @@ async def _run_claude_loop(session: ChatSession, bridge: BridgeConnection | None
                 if emit:
                     await emit({"type": "action_started", "action": action})
                 constraint = source_error(section_brief, tu.name, tu.input)
-                if planning_only and tu.name not in DISCUSSION_TOOLS:
+                if getattr(session, 'remix_edit_target', 'preview') == 'ableton' and tu.name in remix_chat.NAMES:
+                    result = {"status": "failed", "summary": "This request targets Ableton instruments, not the saved remix preview. No preview choices were changed.", "steps": []}
+                elif planning_only and tu.name not in DISCUSSION_TOOLS:
                     result = {"status": "failed", "summary": "Discussion only: no playback or music changes were authorized. Ask for the user's next choice.", "steps": []}
                 elif tu.name in arrangement_plan.NAMES and not _supports_staged_arrangement(bridge):
                     result = {"status": "failed", "summary": "This Bridge does not support staged Arrangement commands. Nothing was changed. Existing instrument and clip tools remain available.", "steps": []}

@@ -21,7 +21,7 @@ const server = http.createServer((req, res) => {
       const context = await browser.newContext({ viewport: { width, height } });
       const user = { id: 987994, email: 'remix-layout@example.com', name: 'QA', subscribed: true, subscription_status: 'active' };
       const referenceId = 'a'.repeat(32), jobId = 'b'.repeat(32), sessionId = 'remix_' + 'c'.repeat(32);
-      const project = { title: 'My minimal remix', mode: 'remix', starting_point: 'reference', live_set: null,
+      const project = { title: 'My minimal remix', mode: 'remix', starting_point: 'reference', live_set: width > 400 ? { title: 'My remix set' } : null,
         remix: { source_name: 'My reference.wav', style: 'Deep minimal', target_bpm: 124, automatic_preview_id: jobId } };
       const saved = { sessionId, messages: [{ role: 'assistant', content: 'Your preview is saved. What would you like to change?' }],
         input: '', referenceId, project };
@@ -90,9 +90,11 @@ const server = http.createServer((req, res) => {
             jobs: [job('e'.repeat(32)), job(jobId)] });
         }
         if (pathname === '/api/chat/stream') {
+          const native = request.postDataJSON().remix_edit_target === 'ableton';
           const events = [{ type: 'session', session_id: sessionId, project, referenceId },
             { type: 'status', message: 'Reviewing your remix request...' },
             failNext ? { type: 'error', message: 'The AI provider did not finish this step within 90 seconds. No Ableton actions were started.' }
+              : native ? { type: 'complete', response: 'Instrument control read back in your linked Ableton set.', tool_calls: [] }
               : proposeNext ? { type: 'complete', response: 'Your remix changes are saved for review.', tool_calls: [
                 { id: 'draft-action', tool: 'propose_remix_changes', input: {}, result: { status: 'observed',
                   summary: 'Saved for review; no audio changed.', remix_draft: { id: draft.id, changes: draft.changes } } }] }
@@ -167,6 +169,15 @@ const server = http.createServer((req, res) => {
       assert.equal(writes.filter(item => item.pathname.endsWith('/automatic-remixes')).length, 1);
       assert.equal(writes.filter(item => item.pathname === '/api/chat/stream').length, 3);
       await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+      const nativeTarget = page.getByRole('radio', { name: 'Ableton instruments', exact: true });
+      if (width > 400) {
+        await nativeTarget.check();
+        await input.fill('Set my own synth cutoff to 1500 Hz in Ableton.');
+        await page.getByRole('button', { name: 'Send', exact: true }).click();
+        await conversation.getByText('Instrument control read back in your linked Ableton set.', { exact: true }).waitFor();
+        assert.equal(writes.at(-1).body.remix_edit_target, 'ableton');
+        await page.getByRole('radio', { name: 'Remix preview', exact: true }).check();
+      } else assert.equal(await nativeTarget.isDisabled(), true);
       assert.deepEqual(errors, []);
       await context.close();
       console.log(`PASS remix chat ${width}x${height}: original controls, readable composer, recovered replies, exact preview, chat draft, explicit render confirmation, no Ableton writes`);

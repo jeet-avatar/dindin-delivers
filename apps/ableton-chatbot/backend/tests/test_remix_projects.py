@@ -159,6 +159,54 @@ class RemixProjectTests(unittest.IsolatedAsyncioTestCase):
         bridge.local_operation.assert_not_awaited()
         self.assertIn('NOT a Bridge connection or permissions problem', str(client.messages.create.call_args.kwargs['system']))
 
+    async def test_native_instrument_edits_require_connected_linked_matching_set(self):
+        result = await self.create()
+        req = main.ChatRequest(message='Change my synth cutoff', session_id=result['sessionId'], remix_edit_target='ableton')
+        bridge = SimpleNamespace(user_id=42, lock=asyncio.Lock(), capabilities=set(),
+            local_operation=AsyncMock(return_value={'status': 'observed', 'title': 'Different set'}),
+            send_command=AsyncMock(return_value={'status': 'ok', 'args': ['My synth']}))
+        with patch.object(main, '_run_claude_loop', AsyncMock()) as model:
+            session, _ = main.saved_project(self.user['id'], result['sessionId'])
+            for connection in (None, bridge):
+                with self.assertRaises(HTTPException) as error:
+                    await main.produce_chat(req, session, connection)
+                self.assertEqual(error.exception.status_code, 409)
+            session.project['live_set'] = {'title': 'My remix set', 'choice': 'confirm_current'}
+            main.chat_store.save(session, 'complete')
+            with self.assertRaises(HTTPException) as error:
+                await main.produce_chat(req, session, bridge)
+            self.assertIn("isn't the one linked", error.exception.detail)
+            model.assert_not_awaited()
+
+    async def test_explicit_native_target_exposes_existing_instrument_tools_without_changing_preview(self):
+        result = await self.create()
+        session, _ = main.saved_project(self.user['id'], result['sessionId'])
+        session.project['live_set'] = {'title': 'My remix set', 'choice': 'confirm_current'}
+        main.chat_store.save(session, 'complete')
+        preview_before = dict(session.project['remix'])
+        inputs = {'track': 0, 'path': [0], 'map_id': 'a' * 24, 'control': 'Filter Freq', 'value': 1500, 'unit': 'Hz'}
+        tool = SimpleNamespace(type='tool_use', name='set_device_control', id='edit-control', input=inputs)
+        client = SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(side_effect=[
+            SimpleNamespace(stop_reason='tool_use', content=[tool]),
+            SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text='Cutoff read back at 1500 Hz.')]),
+        ])))
+        bridge = SimpleNamespace(user_id=42, lock=asyncio.Lock(), capabilities=set(),
+            local_operation=AsyncMock(return_value={'status': 'observed', 'title': 'My remix set'}),
+            send_command=AsyncMock(return_value={'status': 'ok', 'args': ['My synth']}))
+        req = main.ChatRequest(message='Set my synth cutoff to 1500 Hz', session_id=result['sessionId'], remix_edit_target='ableton')
+        with patch.object(main, 'claude_client', client), patch.object(main, '_execute_tool', AsyncMock(
+                return_value={'status': 'verified', 'summary': 'Cutoff = 1500 Hz', 'steps': []})) as execute:
+            response = await main.produce_chat(req, session, bridge)
+        execute.assert_awaited_once_with('set_device_control', inputs, bridge)
+        self.assertFalse(session.planning_only)
+        self.assertEqual(session.project['remix'], preview_before)
+        self.assertEqual(response['tool_calls'][0]['result']['status'], 'verified')
+        advertised = {tool['name'] for tool in client.messages.create.call_args.kwargs['tools']}
+        self.assertIn('load_instrument', advertised)
+        self.assertIn('set_device_control', advertised)
+        self.assertNotIn('propose_remix_changes', advertised)
+        bridge.local_operation.assert_awaited_once_with('live_set', {'operation': 'inspect'})
+
     async def test_stalled_provider_emits_error_and_preserves_request_without_retry(self):
         result = await self.create()
         cancelled = asyncio.Event()
