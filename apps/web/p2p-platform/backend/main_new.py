@@ -2233,23 +2233,6 @@ def driver_demo_login(request: VendorDemoLoginRequest, db: Session = Depends(get
         "status": driver.status.value if driver and hasattr(driver.status, 'value') else "active"
     }
 
-# Pydantic models for vendor registration
-class VendorRegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-    full_name: Optional[str] = None  # iOS/Android might send 'name' instead
-    name: Optional[str] = None       # Alternative field name
-    restaurant_name: Optional[str] = None
-    business_name: Optional[str] = None  # Alternative for restaurant_name
-
-    def get_name(self) -> str:
-        """Get the owner name (prefers full_name, falls back to name)"""
-        return self.full_name or self.name or ""
-
-    def get_restaurant_name(self) -> str:
-        """Get the restaurant name (prefers restaurant_name, falls back to business_name)"""
-        return self.restaurant_name or self.business_name or ""
-
 class PasswordResetRequest(BaseModel):
     email: EmailStr
 
@@ -2257,15 +2240,6 @@ class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str
 
-# Vendor Registration
-
-# Vendor Google OAuth
-class VendorGoogleAuthRequest(BaseModel):
-    email: Optional[EmailStr] = None
-    name: Optional[str] = None
-    google_id: Optional[str] = None
-    id_token: Optional[str] = None  # Web frontend sends this
-    credential: Optional[str] = None  # Alternative field name
 
 def decode_google_jwt(token: str) -> dict:
     """
@@ -2379,15 +2353,6 @@ def _verify_google_jwt(token: str) -> dict:
     except Exception as e:
         logger.warning(f"Google JWT verification failed: {e}")
         return {}
-
-
-# Vendor Apple OAuth
-class VendorAppleAuthRequest(BaseModel):
-    email: str = ""  # May be empty for returning users (Apple only provides on first sign-in)
-    name: str
-    apple_id: str
-    identity_token: Optional[str] = None  # JWT token containing real email for returning users
-    nonce_hash: Optional[str] = None  # SHA256 hash of nonce sent to Apple (G2: replay protection)
 
 
 # Password Reset Request
@@ -6144,21 +6109,6 @@ def driver_confirm_password_reset(http_request: Request, request: DriverPassword
     return {"success": True, "message": "Password reset successful. You can now login with your new password."}
 
 
-# ============================================================
-# Vendor/Partner Password Reset (matches Android: vendor/password-reset/*)
-# ============================================================
-
-class VendorPasswordResetRequest(BaseModel):
-    email: str
-
-class VendorPasswordResetConfirm(BaseModel):
-    email: str
-    code: str
-    new_password: str
-
-
-
-
 @app.get("/api/customer/profile")
 async def get_customer_profile_v2(customer: Customer = Depends(require_customer)):
     """Get current customer's profile - uses Customer table directly via JWT"""
@@ -8083,26 +8033,21 @@ def get_consolidated_dashboard(
     admin: User = Depends(require_admin),
 ):
     """
-    Get consolidated dashboard metrics for Dollor.ai platform.
-    Includes: Orders, Vendors, Drivers, Revenue, and Support Tickets.
+    Get consolidated dashboard metrics for Dollor.ai platform (rideshare only —
+    food-order and vendor/restaurant metrics removed).
+    Includes: Rides, Drivers, Revenue, and Support Tickets.
     """
-    from models import Order, OrderStatus, Vendor, VendorStatus, Driver, DriverStatus, SupportTicket, TicketStatus
+    from models import RideRequest, RideRequestStatus, Driver, DriverStatus, SupportTicket, TicketStatus
     from datetime import timedelta
 
     now = datetime.utcnow()
     start_date = now - timedelta(days=days_back)
 
-    # Orders Metrics
-    all_orders = db.query(Order).filter(Order.created_at >= start_date).limit(10000).all()
-    pending_orders = len([o for o in all_orders if o.status in [OrderStatus.PENDING_PAYMENT, OrderStatus.CONFIRMED, OrderStatus.PREPARING]])
-    completed_orders = len([o for o in all_orders if o.status == OrderStatus.DELIVERED])
-    total_revenue = sum(o.total_amount or 0 for o in all_orders if o.payment_status == "succeeded")
-    platform_fees = sum(o.platform_fee or 0 for o in all_orders if o.payment_status == "succeeded")
-
-    # Vendor Metrics
-    all_vendors = db.query(Vendor).limit(10000).all()
-    active_vendors = len([v for v in all_vendors if v.onboarding_status == VendorStatus.APPROVED])
-    pending_vendors = len([v for v in all_vendors if v.onboarding_status in [VendorStatus.PENDING, VendorStatus.IN_REVIEW]])
+    # Ride Metrics
+    all_rides = db.query(RideRequest).filter(RideRequest.created_at >= start_date).limit(10000).all()
+    pending_rides = len([r for r in all_rides if r.status in [RideRequestStatus.OPEN, RideRequestStatus.BIDDING, RideRequestStatus.MATCHED, RideRequestStatus.IN_PROGRESS]])
+    completed_rides = len([r for r in all_rides if r.status == RideRequestStatus.COMPLETED])
+    total_revenue = sum(float(r.platform_fee or 0) for r in all_rides if r.status == RideRequestStatus.COMPLETED)
 
     # Driver Metrics
     all_drivers = db.query(Driver).limit(10000).all()
@@ -8120,38 +8065,28 @@ def get_consolidated_dashboard(
 
     return {
         "counts": {
-            "openIpo": len(all_orders),  # Total orders in period
-            "requisition": pending_orders,  # Pending orders
-            "pendingApprovals": pending_vendors,  # Pending vendor approvals
-            "noAction": completed_orders,  # Completed orders
+            "openIpo": len(all_rides),  # Total rides in period
+            "requisition": pending_rides,  # Pending/in-progress rides
+            "pendingApprovals": 0,  # No vendor approvals in rideshare-only mode
+            "noAction": completed_rides,  # Completed rides
             "openBills": active_tickets,  # Active support tickets
             "totalAmount": format_amount(total_revenue),
-            "activeSystems": 4  # Orders, Vendors, Drivers, Tickets
+            "activeSystems": 3  # Rides, Drivers, Tickets
         },
         "financialMetrics": [
             {
-                "id": "orders",
-                "name": "Food Orders",
+                "id": "rides",
+                "name": "Rides",
                 "metrics": {
-                    "Total Orders": len(all_orders),
-                    "Pending": pending_orders,
-                    "Completed": completed_orders,
-                    "Total Revenue": format_amount(total_revenue)
-                }
-            },
-            {
-                "id": "vendors",
-                "name": "Vendors/Restaurants",
-                "metrics": {
-                    "Total Vendors": len(all_vendors),
-                    "Active": active_vendors,
-                    "Pending Approval": pending_vendors,
-                    "Platform Fees": format_amount(platform_fees)
+                    "Total Rides": len(all_rides),
+                    "Pending/In Progress": pending_rides,
+                    "Completed": completed_rides,
+                    "Platform Fee Revenue": format_amount(total_revenue)
                 }
             },
             {
                 "id": "drivers",
-                "name": "Delivery Drivers",
+                "name": "Drivers",
                 "metrics": {
                     "Total Drivers": len(all_drivers),
                     "Active": active_drivers,
@@ -8170,7 +8105,7 @@ def get_consolidated_dashboard(
                 }
             }
         ],
-        "recentActivity": []  # Can be populated with recent order/driver activity
+        "recentActivity": []  # Can be populated with recent ride/driver activity
     }
 
 
@@ -8561,331 +8496,6 @@ def get_coupa_statuses_filter(_user = Depends(require_admin)):
             for status in CoupaPOStatus
         ]
     }
-
-
-# ============================================================================
-# ORDERS API - Admin Portal Order Management
-# ============================================================================
-
-@app.get("/api/orders")
-def get_orders(
-    status: Optional[str] = None,
-    payment_status: Optional[str] = None,
-    vendor_id: Optional[int] = None,
-    limit: int = Query(100, ge=1, le=500),
-    offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth)
-):
-    """
-    Get all orders with optional filtering.
-    Connected to Admin Portal: Orders Management Screen
-    SECURITY: Requires authentication. Non-admin users only see their own orders.
-    """
-    from models import Order, OrderStatus, Vendor
-    import json
-
-    query = db.query(Order)
-
-    # SECURITY: Non-admin users can only see their own orders
-    auth_role = _auth.get("role", "")
-    if auth_role != "admin":
-        auth_email = _auth.get("sub", "")
-        auth_vendor_id = _auth.get("vendor_id")
-        query = query.filter(
-            or_(Order.customer_email == auth_email, Order.vendor_id == auth_vendor_id)
-        )
-
-    # Apply filters
-    if status:
-        try:
-            query = query.filter(Order.status == OrderStatus[status.upper()])
-        except KeyError:
-            pass
-
-    if payment_status:
-        query = query.filter(Order.payment_status == payment_status)
-
-    if vendor_id:
-        query = query.filter(Order.vendor_id == vendor_id)
-
-    # Order by most recent first
-    query = query.order_by(Order.created_at.desc())
-
-    # Get total count
-    total = query.count()
-
-    # Apply pagination
-    orders = query.offset(offset).limit(limit).all()
-
-    # Format response
-    result = []
-    for order in orders:
-        vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
-
-        # Parse items JSON
-        items = []
-        if order.items:
-            try:
-                items = json.loads(order.items) if isinstance(order.items, str) else order.items
-            except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse order items JSON for order {order.id}: {e}")
-                items = []
-
-        result.append({
-            "id": order.id,
-            "order_number": order.order_number,
-            "customer_name": order.customer_name,
-            "customer_email": order.customer_email,
-            "customer_phone": order.customer_phone,
-            "vendor_id": order.vendor_id,
-            "vendor_name": vendor.restaurant_name if vendor else None,
-            "driver_id": order.driver_id,
-            "driver_name": order.driver_name,
-            "items": items,
-            "subtotal": order.subtotal,
-            "tax_amount": order.tax_amount,
-            "delivery_fee": order.delivery_fee,
-            "tip": order.tip,
-            "platform_fee": order.platform_fee,
-            "total_amount": order.total_amount,
-            "status": order.status.value if order.status else "pending_payment",
-            "payment_status": order.payment_status,
-            "stripe_payment_intent_id": order.stripe_payment_intent_id,
-            "invoice_number": order.invoice_number,
-            "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
-            "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
-            "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
-        })
-
-    return result
-
-
-@app.get("/api/orders/{order_id}")
-def get_order(
-    order_id: int,
-    _auth: dict = Depends(require_any_auth),
-    db: Session = Depends(get_db),
-    authorization: str = Header(None)
-):
-    """Get single order by ID - requires authorization and ownership verification."""
-    from models import Order, Vendor
-    import json
-
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-
-    # SECURITY: Verify the requesting user owns this order or is the vendor/driver
-    if authorization:
-        customer = get_current_customer_from_token(authorization, db)
-        if customer:
-            # Customer can only view their own orders
-            if order.customer_email != customer.email:
-                raise HTTPException(status_code=403, detail="Access denied: You can only view your own orders")
-        else:
-            # Try to extract vendor/driver from token
-            try:
-                token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
-                payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-                role = payload.get("role", "").lower()
-
-                if role == "vendor":
-                    vendor_id = payload.get("vendor_id")
-                    if vendor_id and order.vendor_id != vendor_id:
-                        raise HTTPException(status_code=403, detail="Access denied: You can only view orders for your restaurant")
-                elif role == "driver":
-                    driver_id = payload.get("driver_id")
-                    if driver_id and order.driver_id != driver_id:
-                        raise HTTPException(status_code=403, detail="Access denied: You can only view orders assigned to you")
-            except JWTError:
-                raise HTTPException(status_code=401, detail="Invalid authorization token")
-    else:
-        # No authorization provided - deny access
-        raise HTTPException(status_code=401, detail="Authorization required to view order details")
-
-    vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first()
-
-    items = []
-    if order.items:
-        try:
-            items = json.loads(order.items) if isinstance(order.items, str) else order.items
-        except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse order items JSON for order {order.id}: {e}")
-            items = []
-
-    return {
-        "id": order.id,
-        "order_number": order.order_number,
-        "customer_name": order.customer_name,
-        "customer_email": order.customer_email,
-        "customer_phone": order.customer_phone,
-        "vendor_id": order.vendor_id,
-        "vendor_name": vendor.restaurant_name if vendor else None,
-        "driver_id": order.driver_id,
-        "driver_name": order.driver_name,
-        "items": items,
-        "subtotal": order.subtotal,
-        "tax_amount": order.tax_amount,
-        "delivery_fee": order.delivery_fee,
-        "tip": order.tip,
-        "platform_fee": order.platform_fee,
-        "total_amount": order.total_amount,
-        "delivery_address": order.delivery_address,
-        "delivery_instructions": order.delivery_instructions,
-        "status": order.status.value if order.status else "pending_payment",
-        "payment_status": order.payment_status,
-        "stripe_payment_intent_id": order.stripe_payment_intent_id,
-        "invoice_number": order.invoice_number,
-        "created_at": (order.created_at.isoformat() + "Z") if order.created_at else None,
-        "confirmed_at": (order.confirmed_at.isoformat() + "Z") if order.confirmed_at else None,
-        "delivered_at": (order.delivered_at.isoformat() + "Z") if order.delivered_at else None,
-    }
-
-
-class OrderStatusUpdate(BaseModel):
-    status: str
-
-# Valid order status transitions — prevents skipping payment or delivery steps
-_VALID_ORDER_TRANSITIONS = {
-    "PENDING_PAYMENT": {"CONFIRMED", "CANCELLED"},
-    "CONFIRMED": {"PENDING_RESTAURANT", "PREPARING", "CANCELLED"},
-    "PENDING_RESTAURANT": {"PREPARING", "DECLINED_BY_RESTAURANT", "RESTAURANT_TIMEOUT", "CANCELLED"},
-    "DECLINED_BY_RESTAURANT": {"CANCELLED"},
-    "RESTAURANT_TIMEOUT": {"CANCELLED", "PREPARING"},
-    "PREPARING": {"READY_FOR_PICKUP", "CANCELLED"},
-    "READY_FOR_PICKUP": {"PENDING_DELIVERY_DECISION", "OUT_FOR_DELIVERY", "RESTAURANT_WILL_DELIVER"},
-    "PENDING_DELIVERY_DECISION": {"RESTAURANT_WILL_DELIVER", "DELIVERY_DECISION_TIMEOUT", "OUT_FOR_DELIVERY"},
-    "RESTAURANT_WILL_DELIVER": {"OUT_FOR_DELIVERY", "DELIVERED"},
-    "DELIVERY_DECISION_TIMEOUT": {"OUT_FOR_DELIVERY"},
-    "OUT_FOR_DELIVERY": {"DELIVERED", "PENDING_DELIVERY_PROOF", "DELIVERY_FAILED", "READY_FOR_PICKUP"},
-    "PENDING_DELIVERY_PROOF": {"DELIVERED", "DELIVERY_FAILED"},
-    "DELIVERED": set(),  # Terminal state
-    "CANCELLED": set(),  # Terminal state
-    "DELIVERY_FAILED": set(),  # Terminal state
-}
-
-@app.patch("/api/orders/{order_id}/status")
-def update_order_status(
-    order_id: int,
-    status: Optional[str] = None,  # Query param for Android/iOS apps
-    status_update: Optional[OrderStatusUpdate] = None,  # Body for web/integration tests
-    db: Session = Depends(get_db),
-    _auth: dict = Depends(require_any_auth)
-):
-    """Update order status. Accepts status as query param OR in request body."""
-    # Support both query param and body for cross-platform compatibility
-    final_status = status or (status_update.status if status_update else None)
-    if not final_status:
-        raise HTTPException(status_code=400, detail="Status is required (query param or body)")
-    status = final_status
-    from models import Order, OrderStatus
-
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-
-    # SECURITY: Verify current user is a participant in this order
-    auth_role = _auth.get("role", "")
-    if auth_role != "admin":
-        auth_email = _auth.get("sub", "")
-        auth_vendor_id = _auth.get("vendor_id")
-        auth_driver_id = _auth.get("driver_id")
-        is_customer = order.customer_email and order.customer_email == auth_email
-        is_vendor = auth_vendor_id and order.vendor_id == auth_vendor_id
-        is_driver = auth_driver_id and order.driver_id == auth_driver_id
-        if not (is_customer or is_vendor or is_driver):
-            raise HTTPException(status_code=403, detail="You can only update orders you are involved in")
-
-    try:
-        new_status = OrderStatus[status.upper()]
-    except KeyError:
-        raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
-
-    # Enforce valid state transitions
-    current_status_name = order.status.name if order.status else "PENDING_PAYMENT"
-    allowed_transitions = _VALID_ORDER_TRANSITIONS.get(current_status_name, set())
-    if status.upper() not in allowed_transitions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot transition from {current_status_name} to {status.upper()}. Allowed: {', '.join(sorted(allowed_transitions)) or 'none (terminal state)'}"
-        )
-
-    order.status = new_status
-
-    # Update timestamps based on status
-    if status.upper() == "CONFIRMED":
-        order.confirmed_at = datetime.now()
-    elif status.upper() == "DELIVERED":
-        order.delivered_at = datetime.now()
-    elif status.upper() == "PREPARING":
-        order.preparing_at = datetime.now()
-
-    db.commit()
-
-    # GAP-3 FIX: Send push notification when order goes out for delivery
-    if status.upper() == "OUT_FOR_DELIVERY":
-        try:
-            customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
-            vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first() if order.vendor_id else None
-            r_name = vendor.restaurant_name if vendor else "The restaurant"
-            is_self_delivery = getattr(order, 'restaurant_will_deliver', False)
-            if customer:
-                if is_self_delivery:
-                    body_text = f"{r_name} has left to deliver your order."
-                else:
-                    driver_name = getattr(order, 'driver_name', None) or "Your driver"
-                    body_text = f"{driver_name} is on the way with your order from {r_name}."
-                from order_flow import send_push_notification
-                send_push_notification(
-                    user_type="customer",
-                    user_id=customer.id,
-                    title="Out for delivery!",
-                    body=body_text,
-                    data={
-                        "type": "out_for_delivery",
-                        "order_id": str(order.id),
-                        "order_number": order.order_number or str(order.id),
-                        "status": "out_for_delivery"
-                    },
-                    db=db
-                )
-        except Exception as e:
-            import logging
-            logging.error(f"Failed to send out-for-delivery push: {e}")
-
-    # Send status notification emails
-    try:
-        customer_email = order.customer_email
-        customer_name = order.customer_name or "Customer"
-        order_number = order.order_number or str(order.id)
-
-        if customer_email:
-            status_upper = status.upper()
-            if status_upper == "CONFIRMED":
-                # Get vendor info for confirmed order
-                vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first() if order.vendor_id else None
-                restaurant_name = vendor.restaurant_name if vendor else "Restaurant"
-                send_order_confirmation_email(
-                    to_email=customer_email,
-                    customer_name=customer_name,
-                    order_number=order_number,
-                    restaurant_name=restaurant_name,
-                    order_total=float(order.total_amount or 0)
-                )
-            elif status_upper == "READY_FOR_PICKUP":
-                vendor = db.query(Vendor).filter(Vendor.id == order.vendor_id).first() if order.vendor_id else None
-                restaurant_name = vendor.restaurant_name if vendor else "Restaurant"
-                send_order_ready_email(
-                    to_email=customer_email,
-                    customer_name=customer_name,
-                    order_number=order_number,
-                    restaurant_name=restaurant_name
-                )
-    except Exception as e:
-        print(f"Failed to send order status email: {e}")
-
-    return {"message": "Order status updated", "status": order.status.value}
 
 
 # ============================================================================
@@ -9415,333 +9025,6 @@ def update_ticket(ticket_id: str, ticket_data: TicketUpdate, db: Session = Depen
     return {"message": "Ticket updated", "id": ticket.ticket_id}
 
 
-# ============================================================================
-# VENDOR MANAGEMENT ENDPOINTS (ZIP Integration)
-# ============================================================================
-
-class MenuItemCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    price: Optional[float] = 0
-    category: Optional[str] = "General"
-    dietary_info: Optional[List[str]] = []
-
-class VendorCreate(BaseModel):
-    company_name: Optional[str] = None  # Optional - restaurants can use restaurant_name instead
-    tax_id: Optional[str] = None
-    business_type: Optional[str] = None
-    industry: Optional[str] = None
-    website: Optional[str] = None
-    # Restaurant specific
-    restaurant_name: Optional[str] = None
-    cuisine_type: Optional[str] = None
-    operating_hours: Optional[str] = None
-    seating_capacity: Optional[int] = None
-    delivery_available: Optional[bool] = True
-    pickup_available: Optional[bool] = True
-    average_prep_time: Optional[int] = None
-    # Contact
-    contact_name: Optional[str] = None
-    contact_email: Optional[str] = None
-    contact_phone: Optional[str] = None
-    contact_title: Optional[str] = None
-    # Password for login
-    password: Optional[str] = None
-    # Address
-    street: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    zip_code: Optional[str] = None
-    country: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    # Mobile app
-    platform: Optional[str] = None
-    mobile_device_id: Optional[str] = None
-    push_token: Optional[str] = None
-    notes: Optional[str] = None
-    # Menu items from scraping
-    menu_items: Optional[List[MenuItemCreate]] = []
-    scraped_menu_count: Optional[int] = 0
-    website_url: Optional[str] = None
-
-class VendorResponse(BaseModel):
-    id: int
-    vendor_id: Optional[Any] = None  # Can be int, str (VEN-xxx), or UUID - flexible for legacy data
-    company_name: Optional[str] = None
-    tax_id: Optional[str] = None
-    business_type: Optional[str] = None
-    industry: Optional[str] = None
-    website: Optional[str] = None
-    # Restaurant-specific fields
-    restaurant_name: Optional[str] = None
-    cuisine_type: Optional[str] = None
-    operating_hours: Optional[str] = None
-    seating_capacity: Optional[int] = None
-    delivery_available: Optional[bool] = True
-    pickup_available: Optional[bool] = True
-    average_prep_time: Optional[int] = None
-    description: Optional[str] = None
-    # Contact info
-    contact_name: Optional[str] = None
-    contact_email: Optional[str] = None
-    contact_phone: Optional[str] = None
-    contact_title: Optional[str] = None
-    # Address
-    street: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    zip_code: Optional[str] = None
-    country: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    # Onboarding/Status - all optional with defaults for legacy data
-    onboarding_status: Optional[str] = "pending"
-    onboarding_phase: Optional[str] = "not_started"
-    risk_rating: Optional[str] = "medium"
-    performance_score: Optional[int] = 0
-    contract_status: Optional[str] = None
-    zip_status: Optional[str] = None
-    # Document fields
-    w9_form: Optional[bool] = False
-    w9_form_url: Optional[str] = None
-    insurance: Optional[bool] = False
-    insurance_url: Optional[str] = None
-    food_license: Optional[bool] = False
-    food_license_url: Optional[str] = None
-    health_permit: Optional[bool] = False
-    health_permit_url: Optional[str] = None
-    financial_statements: Optional[bool] = False
-    compliance_certs: Optional[bool] = False
-    security_policy: Optional[bool] = False
-    notes: Optional[str] = None
-    created_at: Optional[datetime] = None
-    approved_at: Optional[datetime] = None
-    last_activity: Optional[datetime] = None
-    # Publishing Status (ZIP Dashboard)
-    is_published: Optional[bool] = False
-    published_at: Optional[datetime] = None
-    published_platforms: Optional[str] = None  # JSON: ["ios", "android", "web"]
-    # Delivery Settings
-    delivery_enabled: Optional[bool] = True
-    minimum_order: Optional[float] = 0.0
-    delivery_fee: Optional[float] = 0.0
-    ein_number: Optional[str] = None
-    address: Optional[str] = None
-
-    # iOS App Compatibility Fields (computed from existing data)
-    name: Optional[str] = None  # Maps to restaurant_name or company_name
-    phone: Optional[str] = None  # Maps to contact_phone
-    rating: Optional[float] = 4.5  # Default rating for new restaurants
-    is_open: Optional[bool] = True  # Default to open
-    logo_url: Optional[str] = None  # Restaurant logo
-    banner_url: Optional[str] = None  # Restaurant banner image
-    delivery_time_minutes: Optional[int] = None  # Maps to average_prep_time
-
-    class Config:
-        from_attributes = True
-
-    @classmethod
-    def from_orm_with_computed(cls, vendor):
-        """Create VendorResponse with computed iOS compatibility fields"""
-        data = {
-            "id": vendor.id,
-            "vendor_id": vendor.vendor_id if hasattr(vendor, 'vendor_id') else str(vendor.id),
-            "company_name": vendor.company_name,
-            "restaurant_name": vendor.restaurant_name,
-            "cuisine_type": vendor.cuisine_type,
-            "description": vendor.description,
-            "contact_name": vendor.contact_name,
-            "contact_email": vendor.contact_email,
-            "contact_phone": vendor.contact_phone,
-            "street": vendor.street,
-            "city": vendor.city,
-            "state": vendor.state,
-            "zip_code": vendor.zip_code,
-            "country": vendor.country,
-            "latitude": vendor.latitude,
-            "longitude": vendor.longitude,
-            "delivery_available": vendor.delivery_available,
-            "pickup_available": vendor.pickup_available,
-            "average_prep_time": vendor.average_prep_time,
-            "onboarding_status": vendor.onboarding_status,
-            "is_published": vendor.is_published,
-            "minimum_order": vendor.minimum_order or 0.0,
-            "delivery_fee": vendor.delivery_fee or 0.0,
-            # iOS Compatibility - computed fields
-            "name": vendor.restaurant_name or vendor.company_name or f"Restaurant {vendor.id}",
-            "phone": vendor.contact_phone,
-            "rating": 4.5,  # Default rating
-            "is_open": True,  # Default to open during business hours
-            "logo_url": getattr(vendor, 'logo_url', None),
-            "banner_url": getattr(vendor, 'banner_url', None),
-            "delivery_time_minutes": vendor.average_prep_time or 30,  # Default 30 min
-            "address": f"{vendor.street}, {vendor.city}, {vendor.state} {vendor.zip_code}".strip(", ") if vendor.street else None,
-        }
-        return cls(**data)
-
-
-# Public document upload endpoint for vendor registration (no auth required)
-
-# Get vendor documents status (public - for registration flow)
-
-
-
-
-
-# IMPORTANT: This endpoint must be defined BEFORE /api/vendors/{vendor_id}
-# to prevent "published" from being matched as a vendor_id
-
-
-
-
-
-
-
-
-# ==================== KOT (Kitchen Order Ticket) / POS Integration ====================
-
-class KOTConfigRequest(BaseModel):
-    """Request model for configuring KOT/POS integration"""
-    integration_type: str  # 'square', 'clover', 'toast', 'none'
-    enabled: bool = True
-    api_key: Optional[str] = None
-    api_secret: Optional[str] = None  # For Toast
-    location_id: Optional[str] = None  # Square
-    merchant_id: Optional[str] = None  # Clover
-    restaurant_guid: Optional[str] = None  # Toast
-    auto_print: bool = True
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "integration_type": "square",
-                "enabled": True,
-                "api_key": "sq0atp-XXXXX",
-                "location_id": "LXXXXXXXX",
-                "auto_print": True
-            }
-        }
-
-
-
-
-
-
-
-
-
-
-# ==================== End KOT Integration ====================
-
-
-
-
-class VendorSettingsUpdate(BaseModel):
-    """Pydantic model for vendor settings updates (partial updates)"""
-    restaurant_name: Optional[str] = None
-    cuisine_type: Optional[str] = None
-    contact_name: Optional[str] = None
-    contact_email: Optional[str] = None
-    contact_phone: Optional[str] = None
-    street: Optional[str] = None
-    street_address: Optional[str] = None  # Alias for street
-    city: Optional[str] = None
-    state: Optional[str] = None
-    zip_code: Optional[str] = None
-    country: Optional[str] = None
-    description: Optional[str] = None
-    seating_capacity: Optional[int] = None
-    avg_prep_time: Optional[int] = None
-    average_prep_time: Optional[int] = None  # Alias
-    delivery_available: Optional[bool] = None
-    pickup_available: Optional[bool] = None
-    operating_hours: Optional[str] = None
-    notification_preferences: Optional[dict] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-
-
-
-
-
-
-# Pre-publish checklist for ZIP approval dashboard
-
-
-# Vendor Online/Offline Status (for Restaurant App)
-
-
-# SOC 2 Compliant: Password model for secure request body
-class CreateAccountRequest(BaseModel):
-    password: str
-
-# Create Vendor User Account (Admin endpoint)
-
-
-# Document type mapping for the frontend
-DOCUMENT_TYPE_MAP = {
-    'w9_form': {'label': 'W-9 Tax Form', 'description': 'IRS Form W-9 for tax reporting', 'required': True, 'hasExpiry': False},
-    'business_license': {'label': 'Business License', 'description': 'State or local business operating license', 'required': True, 'hasExpiry': False},
-    'food_handler': {'label': 'Food Handler Certificate', 'description': 'Food safety and handling certification', 'required': True, 'hasExpiry': True},
-    'health_permit': {'label': 'Health Permit', 'description': 'Department of Health operating permit', 'required': True, 'hasExpiry': True},
-    'liability_insurance': {'label': 'Liability Insurance', 'description': 'General liability insurance certificate', 'required': True, 'hasExpiry': True},
-    'menu': {'label': 'Menu', 'description': 'Current menu with prices', 'required': False, 'hasExpiry': False}
-}
-
-# Map vendor model fields to frontend document types
-VENDOR_DOC_FIELD_MAP = {
-    'w9_form': 'w9_form',
-    'liability_insurance': 'insurance',
-    'health_permit': 'health_permit',
-    'food_handler': 'food_license',  # Map food_handler to food_license in DB
-    'business_license': 'compliance_certs',  # Map business_license to compliance_certs in DB
-}
-
-
-
-
-
-
-# ============================================================================
-# ADMIN DOCUMENT REVIEW ENDPOINTS
-# ============================================================================
-
-class AdminDocumentReviewRequest(BaseModel):
-    admin_notes: Optional[str] = None
-
-
-
-
-# ============================================================================
-# ADMIN TEST DATA ENDPOINT (for seeding document status)
-# ============================================================================
-
-class SetDocumentStatusRequest(BaseModel):
-    vendor_id: int
-    food_license: bool = True
-    health_permit: bool = True
-    w9_form: bool = True
-    insurance: bool = True
-    admin_secret: str
-
-
-# ============================================================================
-# VENDOR DOCUMENT PORTAL ENDPOINTS
-# ============================================================================
-
-
-
-# ============================================================================
-# ADMIN MENU REVIEW ENDPOINTS
-# ============================================================================
-
-class AdminMenuReviewRequest(BaseModel):
-    admin_notes: Optional[str] = None
-
-
-
-
 # NOTE: Persona/Onfido/Veriff inquiry-creation endpoints and webhooks
 # (/api/verification/start, /api/verification/{type}/{id}/status,
 # /api/verification/webhook/persona|onfido|veriff) were removed here — those
@@ -9845,76 +9128,6 @@ def submit_manual_review(
     raise HTTPException(status_code=400, detail="Invalid entity type")
 
 
-# ============================================================================
-# RESTAURANT MENU ENDPOINTS (For Mobile App)
-# ============================================================================
-
-class CustomizationOption(BaseModel):
-    """Single option within a customization group"""
-    name: str
-    price: float = 0.0
-    is_default: Optional[bool] = False
-    is_available: Optional[bool] = True
-
-class MenuItemCustomization(BaseModel):
-    """Customization group for a menu item (e.g., Size, Spice Level, Add-ons)"""
-    name: str
-    type: str  # "single" or "multiple"
-    required: bool = False
-    min_selections: Optional[int] = 0
-    max_selections: Optional[int] = 1
-    options: List[CustomizationOption]
-
-class MenuItemCreate(BaseModel):
-    item_name: str
-    description: Optional[str] = None
-    category: str
-    price: float
-    is_available: bool = True
-    is_vegetarian: bool = False
-    is_vegan: bool = False
-    is_gluten_free: bool = False
-    is_spicy: bool = False
-    spice_level: int = 0
-    prep_time: Optional[int] = None
-    calories: Optional[int] = None
-    image_url: Optional[str] = None
-    in_stock: bool = True
-    daily_limit: Optional[int] = None
-    customizations: Optional[List[MenuItemCustomization]] = None
-    is_bestseller: bool = False
-    is_combo: bool = False
-    combo_items: Optional[List[dict]] = None
-    combo_savings: Optional[float] = None
-
-class MenuItemResponse(BaseModel):
-    id: int
-    vendor_id: int
-    item_name: str
-    description: Optional[str]
-    category: str
-    price: float
-    is_available: bool
-    is_vegetarian: bool
-    is_vegan: bool
-    is_gluten_free: bool
-    is_spicy: bool
-    spice_level: int
-    prep_time: Optional[int]
-    calories: Optional[int]
-    image_url: Optional[str]
-    in_stock: bool
-    daily_limit: Optional[int]
-    items_sold_today: int
-    customizations: Optional[List[dict]] = None
-    is_bestseller: bool = False
-    is_combo: bool = False
-    combo_items: Optional[List[dict]] = None
-    combo_savings: Optional[float] = 0.0
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 
@@ -9923,19 +9136,9 @@ class MenuItemResponse(BaseModel):
 
 
 
-# Mobile App Registration
-
-# ============================================================================
-# PUBLIC RESTAURANT LISTING API (For Customer App)
-# ============================================================================
 
 
 
-
-
-# ============================================================================
-# PROMOTIONS API (For Customer App)
-# ============================================================================
 
 
 

@@ -29,10 +29,7 @@ from main_new import (
     InvoiceResponse,
     PaymentCreate,
     PaymentResponse,
-    VendorRegisterRequest,
     PasswordResetRequest,
-    VendorGoogleAuthRequest,
-    VendorAppleAuthRequest,
     generate_invoice_number,
     health_check,
 )
@@ -493,45 +490,9 @@ class TestPaymentModels:
         assert payment.status == "completed"
 
 
-class TestVendorModels:
-    """Test Vendor-related Pydantic models"""
-
-    def test_valid_vendor_register_request(self):
-        """Test valid vendor registration request"""
-        vendor = VendorRegisterRequest(
-            email="restaurant@example.com",
-            password="SecurePass123!",
-            full_name="John Owner",
-            restaurant_name="Best Restaurant"
-        )
-        assert vendor.email == "restaurant@example.com"
-        assert vendor.restaurant_name == "Best Restaurant"
-
-    def test_vendor_register_invalid_email(self):
-        """Test vendor registration with invalid email"""
-        with pytest.raises(ValidationError) as exc_info:
-            VendorRegisterRequest(
-                email="not-an-email",
-                password="password",
-                full_name="John",
-                restaurant_name="Restaurant"
-            )
-        errors = exc_info.value.errors()
-        assert any(error['loc'] == ('email',) for error in errors)
-
-    def test_vendor_register_optional_fields(self):
-        """Test vendor registration with optional fields (full_name, restaurant_name are optional)"""
-        # full_name and restaurant_name are now optional for flexibility with iOS/Android
-        vendor = VendorRegisterRequest(
-            email="test@example.com",
-            password="password"
-        )
-        # Fields should be None when not provided
-        assert vendor.full_name is None
-        assert vendor.restaurant_name is None
-        # Helper methods return empty string for missing fields
-        assert vendor.get_name() == ""
-        assert vendor.get_restaurant_name() == ""
+class TestPasswordResetModels:
+    """Test password reset Pydantic models (vendor-specific registration/auth
+    models were removed along with the rest of the vendor/restaurant system)"""
 
     def test_valid_password_reset_request(self):
         """Test valid password reset request"""
@@ -543,43 +504,6 @@ class TestVendorModels:
         # Note: PasswordResetRequest uses str, not EmailStr, for flexibility
         request = PasswordResetRequest(email="user@example.com")
         assert request.email == "user@example.com"
-
-    def test_valid_vendor_google_auth_request(self):
-        """Test valid vendor Google auth request"""
-        request = VendorGoogleAuthRequest(
-            email="vendor@example.com",
-            name="John Vendor",
-            google_id="google_123456789"
-        )
-        assert request.email == "vendor@example.com"
-        assert request.google_id == "google_123456789"
-
-    def test_vendor_google_auth_invalid_email(self):
-        """Test vendor Google auth with invalid email"""
-        with pytest.raises(ValidationError):
-            VendorGoogleAuthRequest(
-                email="invalid",
-                name="John",
-                google_id="123"
-            )
-
-    def test_valid_vendor_apple_auth_request(self):
-        """Test valid vendor Apple auth request"""
-        request = VendorAppleAuthRequest(
-            email="vendor@example.com",
-            name="John Vendor",
-            apple_id="apple_123456789"
-        )
-        assert request.email == "vendor@example.com"
-        assert request.apple_id == "apple_123456789"
-
-    def test_vendor_apple_auth_missing_fields(self):
-        """Test vendor Apple auth with missing fields"""
-        with pytest.raises(ValidationError):
-            VendorAppleAuthRequest(
-                email="vendor@example.com",
-                name="John"
-            )
 
 
 # ==================== HELPER FUNCTION TESTS ====================
