@@ -1912,6 +1912,17 @@ async def accept_counter_offer(bid_id: int, request: Request, auth_driver: Drive
     except Exception as e:
         logger.error(f"Failed to send push notification to customer: {e}")
 
+    # Send WebSocket update - ride matched (same as respond_to_bid accept path)
+    try:
+        asyncio.create_task(broadcast_ride_matched(
+            ride_request_id=ride_request.id,
+            customer_id=ride_request.customer_id,
+            driver_id=bid.driver_id,
+            match_details=serialize_bid(bid)
+        ))
+    except Exception as e:
+        logger.error(f"WebSocket broadcast error (accept_counter_offer): {e}")
+
     # Send ride matched email to customer
     try:
         customer = db.query(Customer).filter(Customer.id == ride_request.customer_id).first()

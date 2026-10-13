@@ -176,7 +176,7 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
         }
 
         let message: [String: Any] = [
-            "action": "subscribe",
+            "type": "subscribe",
             "topic": topic
         ]
         sendJSON(message)
@@ -193,7 +193,7 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
         }
 
         let message: [String: Any] = [
-            "action": "unsubscribe",
+            "type": "unsubscribe",
             "topic": topic
         ]
         sendJSON(message)
@@ -219,7 +219,7 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
         let topics = topicQueue.sync { _subscribedTopics }
         for topic in topics {
             let message: [String: Any] = [
-                "action": "subscribe",
+                "type": "subscribe",
                 "topic": topic
             ]
             sendJSON(message)
@@ -363,6 +363,14 @@ public class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDe
             DispatchQueue.main.async { self.onChatMessage?(json) }
 
         case "bid_response":
+            DispatchQueue.main.async { self.onBidResponse?(json) }
+
+        case "bid_updated":
+            // Driver counter-offered — treat like a new bid so customer fetches updated bids
+            DispatchQueue.main.async { self.onNewBid?(json) }
+
+        case "ride_matched":
+            // Bid was accepted — notify via both handlers so driver and customer both react
             DispatchQueue.main.async { self.onBidResponse?(json) }
 
         case "payment_update":

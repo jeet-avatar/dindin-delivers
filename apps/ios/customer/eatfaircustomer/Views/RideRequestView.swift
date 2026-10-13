@@ -55,19 +55,7 @@ struct RideRequestView: View {
                 )
             }
 
-            // Fare Estimation Overlay (opaque — prevents reading default values)
-            if viewModel.isEstimatingFare {
-                Theme.lxBg.opacity(0.95)
-                    .ignoresSafeArea()
-                ProgressView("Estimating fare...")
-                    .tint(Theme.lxOrange)
-                    .foregroundColor(Theme.lxText)
-                    .padding()
-                    .background(Theme.lxSurface)
-                    .cornerRadius(12)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.lxHairline, lineWidth: 1))
-                    .shadow(radius: 4)
-            }
+            // Fare estimate loading is shown inline in the button — no blocking overlay
 
             // Ride Request Loading Overlay
             if viewModel.isLoading {
@@ -732,20 +720,29 @@ struct RideBottomSheet: View {
             VStack(spacing: 12) {
                 // Find Driver with Suggested Offer
                 Button(action: { if viewModel.canRequestRide { onRequestRide() } }) {
-                    Text("Find Driver • $\(String(format: "%.2f", viewModel.estimatedFare))")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(
-                            viewModel.canRequestRide
-                            ? AnyView(LinearGradient(colors: [Color(hex: "FF9A3D"), Color(hex: "FF7A1A")],
-                                                     startPoint: .top, endPoint: .bottom))
-                            : AnyView(Color.gray.opacity(0.4))
-                        )
-                        .cornerRadius(14)
-                        .shadow(color: viewModel.canRequestRide ? Color(hex: "FF7A1A").opacity(0.4) : .clear,
-                                radius: 14, y: 6)
+                    HStack(spacing: 8) {
+                        if viewModel.isEstimatingFare {
+                            ProgressView()
+                                .tint(.white)
+                                .scaleEffect(0.85)
+                        }
+                        Text(viewModel.isEstimatingFare
+                             ? "Estimating fare…"
+                             : "Find Driver • $\(String(format: "%.2f", viewModel.estimatedFare))")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        viewModel.canRequestRide
+                        ? AnyView(LinearGradient(colors: [Color(hex: "FF9A3D"), Color(hex: "FF7A1A")],
+                                                 startPoint: .top, endPoint: .bottom))
+                        : AnyView(Color.gray.opacity(0.4))
+                    )
+                    .cornerRadius(14)
+                    .shadow(color: viewModel.canRequestRide ? Color(hex: "FF7A1A").opacity(0.4) : .clear,
+                            radius: 14, y: 6)
                 }
                 .disabled(!viewModel.canRequestRide)
                 .padding(.horizontal, 24)

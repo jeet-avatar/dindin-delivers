@@ -408,35 +408,47 @@ class RideRequestViewModel: ObservableObject {
             return
         }
 
-        // Require a saved payment method before creating the ride request.
-        // Without this, the customer can book but then fail at bid acceptance.
+        // Check for a saved payment method. Only block booking if we definitively know
+        // the customer has none — on any API failure we proceed and let the backend handle it.
         isLoading = true
         p2pService.fetchSavedCards(customerId: customerId) { [weak self] cardsResult in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                let hasCard = (try? cardsResult.get())?.isEmpty == false
-                if !hasCard {
+                switch cardsResult {
+                case .success(let cards) where cards.isEmpty:
+                    // Confirmed no card — ask them to add one first
                     self.isLoading = false
                     self.showPaymentMethodsSheet = true
-                    // Once a card is added, the payment-methods sheet calls retryRequestRide()
-                    return
+                default:
+                    // Has card, or API errored — proceed with booking
+                    self.doRequestRide(customerId: customerId, customerName: customerName,
+                                       customerEmail: customerEmail, customerPhone: customerPhone,
+                                       pickup: pickup, dropoff: dropoff)
                 }
-                self.doRequestRide(customerId: customerId, customerName: customerName,
-                                   customerEmail: customerEmail, customerPhone: customerPhone,
-                                   pickup: pickup, dropoff: dropoff)
             }
         }
     }
 
-    /// Called by the payment sheet after a card is added so booking can proceed.
+    /// Called when the payment sheet is dismissed — retries booking only if a card is now saved.
     func retryRequestRide() {
         showPaymentMethodsSheet = false
         guard let pickup = pickupAddress, let dropoff = dropoffAddress else { return }
         let customerId = UserDefaults.standard.integer(forKey: "p2p_customer_id")
         guard customerId > 0 else { return }
         isLoading = true
-        doRequestRide(customerId: customerId, customerName: "", customerEmail: "", customerPhone: "",
-                      pickup: pickup, dropoff: dropoff)
+        p2pService.fetchSavedCards(customerId: customerId) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                switch result {
+                case .success(let cards) where cards.isEmpty:
+                    self.isLoading = false
+                    self.showErrorMessage("Please add a payment method to book a ride.")
+                default:
+                    self.doRequestRide(customerId: customerId, customerName: "", customerEmail: "", customerPhone: "",
+                                       pickup: pickup, dropoff: dropoff)
+                }
+            }
+        }
     }
 
     private func doRequestRide(customerId: Int, customerName: String, customerEmail: String,
@@ -551,8 +563,7 @@ class RideRequestViewModel: ObservableObject {
                 self.stopBidPolling()
                 return
             }
-            // Skip poll if WebSocket is delivering real-time updates
-            if self.wsManager.isConnected { return }
+            // Always poll as fallback; WebSocket triggers immediate fetches on top of this
             self.fetchIncomingBids(requestId: requestId)
         }
     }
@@ -602,6 +613,7 @@ class RideRequestViewModel: ObservableObject {
 
         wsManager.connect(clientType: "customer", entityId: customerId, token: SecureStorage.shared.customerAccessToken)
         wsManager.subscribe(topic: "ride:\(rideId)")
+        wsManager.subscribe(topic: "customer:\(customerId)")
     }
 
     /// Fetch incoming bids for the current ride request
