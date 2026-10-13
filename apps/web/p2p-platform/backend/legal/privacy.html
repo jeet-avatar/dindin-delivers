@@ -26,125 +26,32 @@
             background: var(--bg);
             padding: 0;
         }
-        .header {
-            background: var(--primary-dark);
-            color: white;
-            padding: 2rem 1rem;
-            text-align: center;
-        }
-        .header h1 {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-            color: var(--primary);
-        }
+        .header { background: var(--primary-dark); color: white; padding: 2rem 1rem; text-align: center; }
+        .header h1 { font-size: 2rem; margin-bottom: 0.5rem; color: var(--primary); }
         .header p { opacity: 0.9; font-size: 0.95rem; }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
-        }
-        .meta {
-            background: var(--bg-alt);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 2rem;
-            font-size: 0.9rem;
-        }
+        .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+        .meta { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 2rem; font-size: 0.9rem; }
         .meta strong { color: var(--primary-dark); }
-        h2 {
-            color: var(--primary-dark);
-            font-size: 1.5rem;
-            margin: 2rem 0 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--primary);
-        }
-        h3 {
-            font-size: 1.1rem;
-            margin: 1.5rem 0 0.75rem;
-            color: var(--text);
-        }
+        h2 { color: var(--primary-dark); font-size: 1.5rem; margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--primary); }
+        h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; color: var(--text); }
         p { margin-bottom: 1rem; }
-        ul, ol {
-            margin: 0.5rem 0 1rem 1.5rem;
-        }
+        ul, ol { margin: 0.5rem 0 1rem 1.5rem; }
         li { margin-bottom: 0.5rem; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-            font-size: 0.9rem;
-        }
-        th, td {
-            border: 1px solid var(--border);
-            padding: 0.75rem;
-            text-align: left;
-        }
-        th {
-            background: var(--bg-alt);
-            font-weight: 600;
-        }
-        .highlight {
-            background: #fef3c7;
-            padding: 1rem;
-            border-radius: 8px;
-            border-left: 4px solid var(--warning);
-            margin: 1rem 0;
-        }
-        .important {
-            background: #fee2e2;
-            padding: 1rem;
-            border-radius: 8px;
-            border-left: 4px solid var(--danger);
-            margin: 1rem 0;
-        }
-        .info-box {
-            background: #dbeafe;
-            padding: 1rem;
-            border-radius: 8px;
-            border-left: 4px solid var(--info);
-            margin: 1rem 0;
-        }
-        .success-box {
-            background: #d1fae5;
-            padding: 1rem;
-            border-radius: 8px;
-            border-left: 4px solid var(--success);
-            margin: 1rem 0;
-        }
-        .platform-disclosure {
-            background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
-            color: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            margin: 1.5rem 0;
-            border: 2px solid var(--primary);
-        }
-        .platform-disclosure h3 {
-            color: var(--primary);
-            margin-top: 0;
-        }
-        .platform-disclosure ul {
-            margin-left: 1.2rem;
-        }
-        .platform-disclosure li {
-            color: #e5e7eb;
-        }
-        .contact-box {
-            background: var(--bg-alt);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 1rem 0;
-        }
-        .footer {
-            text-align: center;
-            padding: 2rem;
-            background: var(--primary-dark);
-            color: white;
-            margin-top: 3rem;
-            font-size: 0.9rem;
-        }
+        table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+        th, td { border: 1px solid var(--border); padding: 0.75rem; text-align: left; }
+        th { background: var(--bg-alt); font-weight: 600; }
+        .highlight { background: #fef3c7; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--warning); margin: 1rem 0; }
+        .important { background: #fee2e2; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--danger); margin: 1rem 0; }
+        .info-box { background: #dbeafe; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--info); margin: 1rem 0; }
+        .success-box { background: #d1fae5; padding: 1rem; border-radius: 8px; border-left: 4px solid var(--success); margin: 1rem 0; }
+        .platform-disclosure { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%); color: white; padding: 1.5rem; border-radius: 12px; margin: 1.5rem 0; border: 2px solid var(--primary); }
+        .platform-disclosure h3 { color: var(--primary); margin-top: 0; }
+        .platform-disclosure ul { margin-left: 1.2rem; }
+        .platform-disclosure li { color: #e5e7eb; }
+        .ca-box { background: #eff6ff; border: 2px solid #2563eb; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; }
+        .ca-box h3 { color: #1d4ed8; margin-top: 0; font-size: 1.2rem; }
+        .contact-box { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1rem 0; }
+        .footer { text-align: center; padding: 2rem; background: var(--primary-dark); color: white; margin-top: 3rem; font-size: 0.9rem; }
         .footer a { color: var(--primary); }
         a { color: var(--info); }
         @media (max-width: 600px) {
@@ -158,301 +65,443 @@
 <body>
     <div class="header">
         <h1>$ Dollor.ai</h1>
-        <p>Privacy Policy - Peer-to-Platform Matchmaking Services</p>
+        <p>Privacy Policy — California Rideshare Platform</p>
     </div>
 
     <div class="container">
         <div class="meta">
-            <strong>Effective Date:</strong> January 28, 2025<br>
-            <strong>Version:</strong> 2.0-US<br>
-            <strong>Jurisdiction:</strong> United States (All 50 States)
+            <strong>Effective Date:</strong> October 13, 2026<br>
+            <strong>Version:</strong> 3.0-CA<br>
+            <strong>Jurisdiction:</strong> State of California, United States<br>
+            <strong>Governing Laws:</strong> California Consumer Privacy Act (CCPA), California Privacy Rights Act (CPRA), CalOPPA, California Shine the Light Law (Civil Code § 1798.83)
         </div>
 
         <div class="platform-disclosure">
             <h3>PRIVACY COMMITMENT</h3>
-            <p>Dollor.ai is committed to protecting your privacy. As a <strong>peer-to-platform matchmaking service</strong>, we collect only the data necessary to facilitate connections between Customers, Restaurant Partners, and Delivery Partners.</p>
-            <p style="margin-top: 1rem; margin-bottom: 0;"><strong>We do NOT sell your personal information to third parties.</strong></p>
+            <p>Dollor.ai is committed to protecting your privacy in accordance with California law. As a California-licensed Transportation Network Company (TNC), we collect data necessary to provide safe, reliable rideshare services.</p>
+            <p style="margin-top: 1rem; margin-bottom: 0;"><strong>We do NOT sell your personal information to third parties. We do NOT share your information for cross-context behavioral advertising.</strong></p>
         </div>
 
-        <h2>1. Introduction</h2>
+        <div class="ca-box">
+            <h3>🏛️ California Residents — Your Rights at a Glance</h3>
+            <p>Under the California Consumer Privacy Act (CCPA) and California Privacy Rights Act (CPRA), you have:</p>
+            <ul>
+                <li><strong>Right to Know</strong> — what personal information we collect and how we use it</li>
+                <li><strong>Right to Delete</strong> — request deletion of your personal information</li>
+                <li><strong>Right to Correct</strong> — fix inaccurate personal information</li>
+                <li><strong>Right to Opt-Out</strong> — opt out of sale or sharing of personal information (we don't sell, but you can still opt out of any future sharing)</li>
+                <li><strong>Right to Limit Use of Sensitive Personal Information</strong> — including precise geolocation collected during trips</li>
+                <li><strong>Right to Non-Discrimination</strong> — we will not penalize you for exercising your privacy rights</li>
+            </ul>
+            <p><strong>To exercise any right:</strong> Email <a href="mailto:privacy@dollor.ai">privacy@dollor.ai</a> or visit Settings → Privacy → Data Requests in the app.</p>
+        </div>
 
-        <p>This Privacy Policy explains how Dollor.ai, Inc. ("Dollor.ai," "we," "us," or "our") collects, uses, shares, and protects your personal information when you use our mobile applications, website, and related services (collectively, the "Platform").</p>
+        <h2>1. About This Privacy Policy</h2>
 
-        <p>By using the Platform, you consent to the practices described in this Privacy Policy. If you do not agree with this policy, please do not use our Platform.</p>
+        <p>This Privacy Policy explains how Dollor.ai, Inc. ("Dollor.ai," "we," "us," or "our") collects, uses, shares, retains, and protects your personal information when you use our mobile applications, website, and related services (the "Platform").</p>
 
-        <h2>2. Information We Collect</h2>
+        <p>This policy applies to:</p>
+        <ul>
+            <li>Riders (customers who request transportation)</li>
+            <li>Driver-Partners (independent contractors who provide transportation)</li>
+            <li>All California residents who interact with the Platform</li>
+        </ul>
 
-        <h3>2.1 Information You Provide</h3>
+        <h2>2. Personal Information We Collect</h2>
+
+        <h3>2.1 Information You Provide Directly</h3>
         <table>
             <tr>
                 <th>Category</th>
                 <th>Examples</th>
-                <th>Purpose</th>
+                <th>Business Purpose</th>
             </tr>
             <tr>
-                <td>Account Information</td>
-                <td>Name, email, phone number, password</td>
+                <td>Identifiers</td>
+                <td>Name, email address, phone number, username</td>
                 <td>Create and manage your account</td>
             </tr>
             <tr>
                 <td>Payment Information</td>
-                <td>Credit card, billing address</td>
-                <td>Process transactions (via Stripe)</td>
+                <td>Credit/debit card details, billing address</td>
+                <td>Process ride payments (handled by Stripe — we do not store full card numbers)</td>
             </tr>
             <tr>
-                <td>Delivery Information</td>
-                <td>Delivery addresses, instructions</td>
-                <td>Facilitate order delivery</td>
+                <td>Profile Information</td>
+                <td>Profile photo, vehicle details (drivers), rating history</td>
+                <td>Enable trust and safety features</td>
             </tr>
             <tr>
-                <td>Business Information (Partners)</td>
-                <td>Restaurant name, menu, hours, licenses</td>
-                <td>List your business on the Platform</td>
+                <td>Driver Verification Documents</td>
+                <td>Driver's license, vehicle registration, insurance certificate</td>
+                <td>Verify driver eligibility per CPUC requirements</td>
             </tr>
             <tr>
-                <td>Driver Information (Delivery Partners)</td>
-                <td>License, vehicle info, insurance</td>
-                <td>Verify eligibility for delivery services</td>
+                <td>Communication Content</td>
+                <td>In-app messages between Riders and Drivers</td>
+                <td>Facilitate trip coordination and safety</td>
             </tr>
         </table>
 
-        <h3>2.2 Information Collected Automatically</h3>
+        <h3>2.2 Sensitive Personal Information (CPRA)</h3>
+        <div class="important">
+            <p>Under the California Privacy Rights Act, the following categories of data we collect are classified as <strong>Sensitive Personal Information</strong>:</p>
+            <ul>
+                <li><strong>Precise Geolocation</strong> — Real-time GPS location collected during trips (Periods 2 and 3) and when the Driver app is active (Period 1). We do not collect continuous background location from Rider devices when no trip is active.</li>
+                <li><strong>Government ID</strong> — Driver's license numbers collected for driver verification</li>
+                <li><strong>Financial Account Information</strong> — Tokenized payment method details (processed by Stripe)</li>
+            </ul>
+            <p><strong>You have the right to limit our use of sensitive personal information</strong> to what is necessary to provide our transportation services. Contact <a href="mailto:privacy@dollor.ai">privacy@dollor.ai</a> to exercise this right.</p>
+        </div>
+
+        <h3>2.3 Information Collected Automatically</h3>
         <table>
             <tr>
                 <th>Category</th>
                 <th>Examples</th>
-                <th>Purpose</th>
+                <th>Business Purpose</th>
+            </tr>
+            <tr>
+                <td>Precise Location (Riders)</td>
+                <td>GPS coordinates at pickup/dropoff; location during active trip</td>
+                <td>Match with nearby drivers; enable trip tracking</td>
+            </tr>
+            <tr>
+                <td>Precise Location (Drivers)</td>
+                <td>Continuous GPS while app is in Period 1, 2, or 3</td>
+                <td>Display driver location to Riders; calculate fares; safety monitoring</td>
             </tr>
             <tr>
                 <td>Device Information</td>
-                <td>Device type, OS, app version</td>
-                <td>Optimize app performance</td>
-            </tr>
-            <tr>
-                <td>Location Data</td>
-                <td>GPS coordinates (with permission)</td>
-                <td>Enable nearby restaurants, delivery tracking</td>
+                <td>Device model, OS version, app version, device identifiers</td>
+                <td>Optimize app performance; fraud prevention</td>
             </tr>
             <tr>
                 <td>Usage Data</td>
-                <td>Features used, search queries, order history</td>
-                <td>Improve services and personalization</td>
+                <td>Features accessed, trip history, in-app actions</td>
+                <td>Improve services; troubleshooting</td>
             </tr>
             <tr>
                 <td>Log Data</td>
-                <td>IP address, access times, error logs</td>
-                <td>Security and troubleshooting</td>
+                <td>IP address, access timestamps, crash logs</td>
+                <td>Security; debugging; fraud prevention</td>
             </tr>
         </table>
 
-        <h3>2.3 Information from Third Parties</h3>
+        <h3>2.4 Information from Third Parties</h3>
         <ul>
-            <li><strong>Social Login:</strong> If you sign in with Google or Apple, we receive your name and email</li>
-            <li><strong>Payment Processors:</strong> Stripe provides transaction confirmations</li>
-            <li><strong>Background Checks:</strong> For Delivery Partners, verification results (pass/fail only)</li>
+            <li><strong>Google / Apple Sign-In:</strong> Name and email address when you use social login</li>
+            <li><strong>Stripe:</strong> Payment confirmation tokens (we do not receive full card numbers)</li>
+            <li><strong>Background Check Provider (Drivers):</strong> Pass/fail result of criminal and DMV background checks per CPUC requirements</li>
         </ul>
 
-        <h2>3. How We Use Your Information</h2>
+        <h2>3. How We Use Your Personal Information</h2>
 
-        <div class="info-box">
-            <p><strong>Core Principle:</strong> We use your information only to provide and improve our matchmaking services.</p>
-        </div>
-
-        <h3>3.1 Primary Uses</h3>
+        <h3>3.1 Service Operations (Primary Business Purpose)</h3>
         <ul>
-            <li><strong>Provide Services:</strong> Process orders, facilitate connections, enable payments</li>
-            <li><strong>Communications:</strong> Order confirmations, delivery updates, support responses</li>
-            <li><strong>Safety & Security:</strong> Fraud prevention, account security, dispute resolution</li>
-            <li><strong>Compliance:</strong> Legal obligations, law enforcement requests</li>
+            <li>Match Riders with available Driver-Partners</li>
+            <li>Calculate fares, process payments, and manage the bidding marketplace</li>
+            <li>Enable real-time trip tracking and navigation</li>
+            <li>Send trip confirmations, receipts, and service communications</li>
+            <li>Provide customer support and resolve disputes</li>
         </ul>
 
-        <h3>3.2 Secondary Uses (With Your Consent)</h3>
+        <h3>3.2 Safety and Security</h3>
         <ul>
-            <li>Marketing communications (you can opt out)</li>
-            <li>Personalized recommendations</li>
-            <li>Surveys and feedback requests</li>
+            <li>Verify driver eligibility and conduct background checks</li>
+            <li>Detect and prevent fraud, abuse, and unsafe behavior</li>
+            <li>Share Rider location with emergency services if SOS is activated</li>
+            <li>Maintain records required by CPUC for TNC compliance</li>
         </ul>
 
-        <h2>4. How We Share Your Information</h2>
+        <h3>3.3 Legal Compliance</h3>
+        <ul>
+            <li>Comply with California CPUC TNC reporting requirements</li>
+            <li>Respond to valid legal requests from California courts or regulators</li>
+            <li>Maintain records as required by California law</li>
+        </ul>
+
+        <h3>3.4 Platform Improvement (Secondary — With Notice)</h3>
+        <ul>
+            <li>Analyze aggregate usage patterns to improve matching algorithms</li>
+            <li>Research to improve safety features</li>
+        </ul>
+
+        <h3>3.5 Marketing (Optional — With Your Consent)</h3>
+        <ul>
+            <li>Promotional offers and service announcements (you may opt out at any time)</li>
+        </ul>
+
+        <h2>4. How We Share Your Personal Information</h2>
 
         <div class="success-box">
-            <p><strong>We do NOT sell your personal information.</strong></p>
+            <p><strong>We do NOT sell your personal information.</strong> We do NOT share your information for cross-context behavioral advertising.</p>
         </div>
 
-        <h3>4.1 Sharing for Service Delivery</h3>
+        <h3>4.1 Sharing to Provide Transportation Services</h3>
         <table>
             <tr>
-                <th>Shared With</th>
+                <th>Recipient</th>
                 <th>Information Shared</th>
                 <th>Purpose</th>
             </tr>
             <tr>
-                <td>Restaurant Partners</td>
-                <td>Name, order details, delivery address</td>
-                <td>Fulfill your order</td>
+                <td>Driver-Partners</td>
+                <td>First name, pickup/dropoff location, ride details, Rider rating</td>
+                <td>Enable Driver-Partner to accept and complete the trip</td>
             </tr>
             <tr>
-                <td>Delivery Partners</td>
-                <td>Name, pickup/delivery locations, contact</td>
-                <td>Complete delivery</td>
+                <td>Riders</td>
+                <td>Driver's first name, vehicle description, license plate, photo, rating, real-time location</td>
+                <td>Enable Rider to identify and track their Driver-Partner</td>
             </tr>
             <tr>
-                <td>Payment Processors (Stripe)</td>
-                <td>Payment details</td>
-                <td>Process transactions</td>
+                <td>Stripe (Payment Processor)</td>
+                <td>Payment details for transaction processing</td>
+                <td>Securely process payments — PCI DSS compliant</td>
             </tr>
             <tr>
-                <td>Cloud Providers (AWS)</td>
-                <td>All data (encrypted)</td>
+                <td>AWS (Cloud Infrastructure)</td>
+                <td>All user data (encrypted at rest and in transit)</td>
                 <td>Host and operate the Platform</td>
+            </tr>
+            <tr>
+                <td>Background Check Provider</td>
+                <td>Driver's name, license, SSN (for verification only)</td>
+                <td>CPUC-required driver eligibility screening</td>
             </tr>
         </table>
 
-        <h3>4.2 Other Sharing Scenarios</h3>
+        <h3>4.2 Other Sharing</h3>
         <ul>
-            <li><strong>Legal Requirements:</strong> When required by law, court order, or government request</li>
-            <li><strong>Safety:</strong> To protect the safety of users or the public</li>
-            <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets</li>
-            <li><strong>With Your Consent:</strong> When you explicitly authorize sharing</li>
+            <li><strong>Legal Requirements:</strong> In response to valid California court orders, subpoenas, or government requests</li>
+            <li><strong>Safety:</strong> To protect the safety of Riders, Drivers, or the public (e.g., sharing location with 911 upon SOS activation)</li>
+            <li><strong>CPUC Reporting:</strong> Aggregate TNC data reported to the California Public Utilities Commission as required by law (no personally identifiable information)</li>
+            <li><strong>Business Transfer:</strong> In connection with a merger or acquisition, subject to the successor's commitment to honor this Privacy Policy</li>
+            <li><strong>With Your Consent:</strong> Any other sharing will only occur with your explicit consent</li>
         </ul>
 
-        <h2>5. Data Security</h2>
+        <h2>5. Location Data — Special Disclosure</h2>
 
-        <p>We implement industry-standard security measures to protect your information:</p>
-
-        <ul>
-            <li><strong>Encryption:</strong> All data transmitted is encrypted using TLS/SSL</li>
-            <li><strong>Secure Storage:</strong> Data at rest is encrypted using AES-256</li>
-            <li><strong>Access Controls:</strong> Limited employee access on a need-to-know basis</li>
-            <li><strong>Payment Security:</strong> PCI DSS compliant payment processing via Stripe</li>
-            <li><strong>Regular Audits:</strong> Security assessments and vulnerability testing</li>
-        </ul>
-
-        <div class="highlight">
-            <p><strong>Note:</strong> No system is 100% secure. We cannot guarantee absolute security, but we continuously work to protect your data.</p>
+        <div class="info-box">
+            <p>Precise geolocation is sensitive personal information under the CPRA. Here is exactly how we collect and use it:</p>
         </div>
 
-        <h2>6. Your Privacy Rights</h2>
+        <table>
+            <tr>
+                <th>User Type</th>
+                <th>When Collected</th>
+                <th>Purpose</th>
+                <th>Retention</th>
+            </tr>
+            <tr>
+                <td>Rider</td>
+                <td>During active trip (Period 2 &amp; 3 only)</td>
+                <td>Enable tracking; share with Driver; calculate route</td>
+                <td>90 days post-trip, then deleted</td>
+            </tr>
+            <tr>
+                <td>Driver</td>
+                <td>While app is active (Periods 1, 2, 3)</td>
+                <td>Display availability to Riders; calculate fare; safety</td>
+                <td>90 days post-trip, then deleted</td>
+            </tr>
+        </table>
 
-        <h3>6.1 All Users</h3>
-        <ul>
-            <li><strong>Access:</strong> Request a copy of your personal data</li>
-            <li><strong>Correction:</strong> Update inaccurate information</li>
-            <li><strong>Deletion:</strong> Request deletion of your account and data</li>
-            <li><strong>Opt-Out:</strong> Unsubscribe from marketing communications</li>
-            <li><strong>Data Portability:</strong> Receive your data in a portable format</li>
-        </ul>
+        <p>We do <strong>not</strong> collect background location from Rider devices when no trip is active. You may revoke location permission at any time through your device Settings, though this will disable core app functionality.</p>
 
-        <h3>6.2 California Residents (CCPA)</h3>
-        <p>California residents have additional rights under the California Consumer Privacy Act:</p>
-        <ul>
-            <li>Right to know what personal information is collected</li>
-            <li>Right to know if personal information is sold or disclosed</li>
-            <li>Right to opt-out of sale of personal information (we do not sell)</li>
-            <li>Right to non-discrimination for exercising privacy rights</li>
-        </ul>
+        <h2>6. California Privacy Rights (CCPA / CPRA)</h2>
 
-        <h3>6.3 How to Exercise Your Rights</h3>
-        <p>To exercise any privacy right, contact us at:</p>
-        <ul>
-            <li><strong>Email:</strong> <a href="mailto:privacy@dollor.ai">privacy@dollor.ai</a></li>
-            <li><strong>In-App:</strong> Settings → Privacy → Data Request</li>
-        </ul>
-        <p>We will respond within 30 days (45 days for complex requests).</p>
+        <div class="ca-box">
+            <h3>🏛️ Your California Privacy Rights — Full Detail</h3>
+
+            <h3>6.1 Right to Know (Cal. Civil Code § 1798.110)</h3>
+            <p>You may request disclosure of:</p>
+            <ul>
+                <li>The categories and specific pieces of personal information we have collected about you</li>
+                <li>The categories of sources from which information was collected</li>
+                <li>The business or commercial purpose for collecting or sharing information</li>
+                <li>The categories of third parties with whom we share information</li>
+            </ul>
+
+            <h3>6.2 Right to Delete (Cal. Civil Code § 1798.105)</h3>
+            <p>You may request deletion of your personal information, subject to legal exceptions (e.g., records required by California law for TNC compliance, fraud prevention).</p>
+
+            <h3>6.3 Right to Correct (Cal. Civil Code § 1798.106 — CPRA)</h3>
+            <p>You may request correction of inaccurate personal information we hold about you.</p>
+
+            <h3>6.4 Right to Opt-Out of Sale / Sharing (Cal. Civil Code § 1798.120)</h3>
+            <p>We do not sell your personal information. We do not share it for cross-context behavioral advertising. You may still submit a "Do Not Sell or Share My Personal Information" request at any time by contacting <a href="mailto:privacy@dollor.ai">privacy@dollor.ai</a>.</p>
+
+            <h3>6.5 Right to Limit Use of Sensitive Personal Information (CPRA)</h3>
+            <p>You may request that we limit our use of your sensitive personal information (precise geolocation, government ID, payment account information) to only what is necessary to provide our transportation services. Note: limiting precise geolocation will impair core ride-matching functionality.</p>
+
+            <h3>6.6 Right to Non-Discrimination (Cal. Civil Code § 1798.125)</h3>
+            <p>We will not deny service, charge different prices, or provide lower quality service because you exercised your California privacy rights.</p>
+
+            <h3>6.7 How to Submit a Request</h3>
+            <ul>
+                <li><strong>Email:</strong> <a href="mailto:privacy@dollor.ai">privacy@dollor.ai</a> (include "California Privacy Request" in subject line)</li>
+                <li><strong>In-App:</strong> Settings → Privacy → Data Requests</li>
+            </ul>
+            <p>We will verify your identity before processing requests. We respond within <strong>45 days</strong> (extendable by 45 additional days with notice).</p>
+        </div>
+
+        <h3>6.8 California Shine the Light (Civil Code § 1798.83)</h3>
+        <p>California residents may request information about disclosure of personal information to third parties for direct marketing purposes. We do not disclose personal information for direct marketing by third parties.</p>
+
+        <h3>6.9 California Online Privacy Protection Act (CalOPPA)</h3>
+        <p>We honor "Do Not Track" signals from browsers for our website. Our mobile app does not track users across third-party apps or websites.</p>
 
         <h2>7. Data Retention</h2>
 
         <table>
             <tr>
-                <th>Data Type</th>
+                <th>Data Category</th>
                 <th>Retention Period</th>
+                <th>Reason</th>
             </tr>
             <tr>
                 <td>Account Information</td>
-                <td>Until account deletion + 30 days</td>
+                <td>Until deletion request + 30 days</td>
+                <td>Account management</td>
             </tr>
             <tr>
-                <td>Order History</td>
-                <td>7 years (tax/legal requirements)</td>
+                <td>Trip Records</td>
+                <td>7 years</td>
+                <td>California TNC regulatory requirements; tax records</td>
             </tr>
             <tr>
                 <td>Payment Records</td>
-                <td>7 years (financial regulations)</td>
+                <td>7 years</td>
+                <td>California financial record requirements</td>
             </tr>
             <tr>
-                <td>Location Data</td>
-                <td>90 days</td>
+                <td>Precise Location (Trip)</td>
+                <td>90 days post-trip</td>
+                <td>Safety investigation; dispute resolution</td>
+            </tr>
+            <tr>
+                <td>Driver Background Check Results</td>
+                <td>Duration of driver engagement + 3 years</td>
+                <td>CPUC TNC compliance</td>
+            </tr>
+            <tr>
+                <td>Safety Incident Records</td>
+                <td>7 years</td>
+                <td>CPUC reporting; legal compliance</td>
             </tr>
             <tr>
                 <td>Support Tickets</td>
                 <td>3 years</td>
+                <td>Service improvement; dispute resolution</td>
             </tr>
             <tr>
                 <td>Marketing Preferences</td>
                 <td>Until changed or account deleted</td>
+                <td>Honor your preferences</td>
             </tr>
         </table>
 
-        <h2>8. Cookies and Tracking</h2>
+        <h2>8. Data Security</h2>
 
-        <h3>8.1 Types of Cookies Used</h3>
         <ul>
-            <li><strong>Essential Cookies:</strong> Required for Platform functionality (login, cart)</li>
-            <li><strong>Analytics Cookies:</strong> Help us understand usage patterns</li>
-            <li><strong>Preference Cookies:</strong> Remember your settings</li>
+            <li><strong>In-Transit Encryption:</strong> All data transmitted over TLS 1.2+</li>
+            <li><strong>At-Rest Encryption:</strong> AES-256 encryption for stored data on AWS</li>
+            <li><strong>Payment Security:</strong> PCI DSS compliant — full card numbers are never stored by Dollor.ai</li>
+            <li><strong>Access Controls:</strong> Role-based access; employee access limited to job function</li>
+            <li><strong>Security Audits:</strong> Regular penetration testing and vulnerability assessments</li>
         </ul>
 
-        <h3>8.2 Managing Cookies</h3>
-        <p>You can control cookies through your browser settings. Note that disabling certain cookies may affect Platform functionality.</p>
-
-        <h2>9. Children's Privacy</h2>
-
-        <div class="important">
-            <p>The Platform is not intended for children under 18 years of age. We do not knowingly collect personal information from children. If you believe we have collected information from a child, please contact us immediately at <a href="mailto:privacy@dollor.ai">privacy@dollor.ai</a>.</p>
+        <div class="highlight">
+            <p><strong>Data Breach Notification:</strong> In the event of a data breach affecting California residents, we will notify affected individuals within 72 hours as required by California Civil Code § 1798.29 and § 1798.82.</p>
         </div>
 
-        <h2>10. International Users</h2>
+        <h2>9. Third-Party Services and SDKs</h2>
 
-        <p>Dollor.ai is based in the United States. If you access the Platform from outside the US, your information will be transferred to and processed in the United States, which may have different data protection laws than your country.</p>
+        <table>
+            <tr>
+                <th>Third Party</th>
+                <th>Purpose</th>
+                <th>Data Shared</th>
+                <th>Privacy Policy</th>
+            </tr>
+            <tr>
+                <td>Google Maps / Places</td>
+                <td>Maps, address autocomplete, routing</td>
+                <td>Location queries (anonymized)</td>
+                <td>policies.google.com/privacy</td>
+            </tr>
+            <tr>
+                <td>Stripe</td>
+                <td>Payment processing</td>
+                <td>Payment method details</td>
+                <td>stripe.com/privacy</td>
+            </tr>
+            <tr>
+                <td>Google Sign-In / Firebase</td>
+                <td>Authentication</td>
+                <td>Name, email (on sign-in)</td>
+                <td>policies.google.com/privacy</td>
+            </tr>
+            <tr>
+                <td>Apple Sign-In</td>
+                <td>Authentication</td>
+                <td>Name, email (on sign-in)</td>
+                <td>apple.com/legal/privacy</td>
+            </tr>
+            <tr>
+                <td>AWS</td>
+                <td>Cloud infrastructure</td>
+                <td>All data (encrypted)</td>
+                <td>aws.amazon.com/privacy</td>
+            </tr>
+        </table>
 
-        <h2>11. Third-Party Links</h2>
+        <h2>10. Children's Privacy</h2>
+        <div class="important">
+            <p>The Platform is not intended for individuals under 18 years of age. We do not knowingly collect personal information from minors. If you believe we have collected information from a minor, contact <a href="mailto:privacy@dollor.ai">privacy@dollor.ai</a> immediately for deletion.</p>
+        </div>
 
-        <p>The Platform may contain links to third-party websites or services. We are not responsible for the privacy practices of these third parties. We encourage you to review their privacy policies.</p>
-
-        <h2>12. Changes to This Policy</h2>
-
-        <p>We may update this Privacy Policy from time to time. We will notify you of material changes by:</p>
+        <h2>11. Changes to This Policy</h2>
+        <p>We may update this Privacy Policy. Material changes will be communicated via:</p>
         <ul>
-            <li>Posting the updated policy on the Platform</li>
-            <li>Sending an email notification</li>
-            <li>Displaying an in-app notice</li>
+            <li>In-app push notification</li>
+            <li>Email to your registered address</li>
+            <li>Prominent notice in the app</li>
         </ul>
-        <p>Your continued use of the Platform after changes constitutes acceptance of the updated policy.</p>
+        <p>We will provide at least 30 days' notice of material changes where practicable. Continued use of the Platform after changes constitutes acceptance.</p>
 
-        <h2>13. Contact Us</h2>
+        <h2>12. Contact Us and Your Privacy Agent</h2>
 
         <div class="contact-box">
             <h3>Dollor.ai, Inc.</h3>
-            <p><strong>Privacy Inquiries:</strong> <a href="mailto:privacy@dollor.ai">privacy@dollor.ai</a></p>
+            <p><strong>Privacy Requests &amp; CCPA/CPRA Inquiries:</strong> <a href="mailto:privacy@dollor.ai">privacy@dollor.ai</a></p>
+            <p><strong>Subject line for California requests:</strong> "California Privacy Request"</p>
             <p><strong>General Support:</strong> <a href="mailto:support@dollor.ai">support@dollor.ai</a></p>
-            <p><strong>Data Protection Officer:</strong> <a href="mailto:dpo@dollor.ai">dpo@dollor.ai</a></p>
+            <p><strong>Response time:</strong> 45 days (extendable to 90 days with notice)</p>
+            <br>
+            <p><strong>California Regulatory Complaints:</strong></p>
+            <p>California Attorney General's Office: <a href="https://oag.ca.gov/privacy/ccpa" target="_blank">oag.ca.gov/privacy/ccpa</a></p>
+            <p>California Public Utilities Commission: 505 Van Ness Ave, San Francisco, CA 94102</p>
         </div>
 
         <div class="platform-disclosure" style="margin-top: 2rem;">
             <h3>PRIVACY SUMMARY</h3>
             <ul>
-                <li>We collect only data necessary for our matchmaking services</li>
-                <li>We do NOT sell your personal information</li>
-                <li>We share data only to fulfill orders and as legally required</li>
-                <li>You can access, correct, or delete your data at any time</li>
-                <li>We use industry-standard security to protect your information</li>
+                <li>We collect only data necessary to provide safe, California-compliant rideshare services</li>
+                <li>We do NOT sell or share your personal information for advertising</li>
+                <li>Precise location (sensitive information under CPRA) is collected only during active trips</li>
+                <li>California residents have full CCPA/CPRA rights — know, delete, correct, opt-out, limit, non-discrimination</li>
+                <li>We use TLS and AES-256 encryption; payment data is handled by Stripe (PCI DSS)</li>
+                <li>Submit privacy requests to <a href="mailto:privacy@dollor.ai" style="color: var(--primary);">privacy@dollor.ai</a></li>
             </ul>
         </div>
     </div>
 
     <div class="footer">
-        <p>&copy; 2025 Dollor.ai, Inc. All rights reserved.</p>
-        <p>Last Updated: January 28, 2025</p>
+        <p>&copy; 2026 Dollor.ai, Inc. All rights reserved.</p>
+        <p>Last Updated: October 13, 2026</p>
         <p><a href="/privacy">Privacy Policy</a> | <a href="/terms">Terms of Service</a> | <a href="/refund">Refund Policy</a></p>
     </div>
 </body>
