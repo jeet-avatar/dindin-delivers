@@ -408,8 +408,39 @@ class RideRequestViewModel: ObservableObject {
             return
         }
 
+        // Require a saved payment method before creating the ride request.
+        // Without this, the customer can book but then fail at bid acceptance.
         isLoading = true
+        p2pService.fetchSavedCards(customerId: customerId) { [weak self] cardsResult in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                let hasCard = (try? cardsResult.get())?.isEmpty == false
+                if !hasCard {
+                    self.isLoading = false
+                    self.showPaymentMethodsSheet = true
+                    // Once a card is added, the payment-methods sheet calls retryRequestRide()
+                    return
+                }
+                self.doRequestRide(customerId: customerId, customerName: customerName,
+                                   customerEmail: customerEmail, customerPhone: customerPhone,
+                                   pickup: pickup, dropoff: dropoff)
+            }
+        }
+    }
 
+    /// Called by the payment sheet after a card is added so booking can proceed.
+    func retryRequestRide() {
+        showPaymentMethodsSheet = false
+        guard let pickup = pickupAddress, let dropoff = dropoffAddress else { return }
+        let customerId = UserDefaults.standard.integer(forKey: "p2p_customer_id")
+        guard customerId > 0 else { return }
+        isLoading = true
+        doRequestRide(customerId: customerId, customerName: "", customerEmail: "", customerPhone: "",
+                      pickup: pickup, dropoff: dropoff)
+    }
+
+    private func doRequestRide(customerId: Int, customerName: String, customerEmail: String,
+                               customerPhone: String, pickup: String, dropoff: String) {
         p2pService.requestRide(
             customerId: customerId,
             pickupAddress: pickup,
@@ -581,9 +612,17 @@ class RideRequestViewModel: ObservableObject {
 
                 switch result {
                 case .success(let response):
-                    let newBids = response.bids.filter { $0.status == "pending" }
+                    // Show bids the customer can act on:
+                    // - "pending" = driver just bid, awaiting customer response
+                    // - "countered" where last_offer_by == "driver" = driver countered back,
+                    //   awaiting customer accept/reject (bid.status goes to "pending" after
+                    //   driver-counter in the current backend, but include countered defensively)
+                    let newBids = response.bids.filter {
+                        $0.status == "pending" ||
+                        ($0.status == "countered" && ($0.last_offer_by ?? "") == "driver")
+                    }
                     if newBids.count != self.incomingBids.count {
-                        logger.info("Received \(newBids.count) incoming bids")
+                        logger.info("Received \(newBids.count) actionable bids")
                     }
                     self.incomingBids = newBids
 
@@ -631,8 +670,12 @@ class RideRequestViewModel: ObservableObject {
     func retryAcceptBidAfterPaymentSetup() {
         showPaymentMethodsSheet = false
         if let bid = bidPendingPaymentSetup {
+            // Sheet was triggered by bid acceptance — retry the accept
             bidPendingPaymentSetup = nil
             performAcceptBid(bid)
+        } else if pickupAddress != nil {
+            // Sheet was triggered by initial booking — retry the ride request
+            retryRequestRide()
         }
     }
 
