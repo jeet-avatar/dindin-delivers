@@ -25,7 +25,7 @@ trap 'rm -rf "$WORK"' EXIT
   --hidden-import mixer_preview --hidden-import sample_library \
   --hidden-import arrangement_audio \
   --hidden-import local_separation --hidden-import stem_import \
-  --hidden-import cloud_stem_import --hidden-import audio_import \
+  --hidden-import cloud_stem_import --hidden-import audio_import --hidden-import remix_import \
   --hidden-import reference_worker --hidden-import separation --hidden-import stems \
   --collect-data demucs --collect-submodules demucs --collect-data librosa \
   --add-data "$PWD/THIRD_PARTY_NOTICES.txt:." \

@@ -219,7 +219,7 @@ class AbletonBridge:
                     "type": "bridge_hello",
                     "version": BRIDGE_VERSION,
                     "ableton_osc": {"host": OSC_HOST, "port": OSC_SEND_PORT},
-                    "capabilities": ["scene_audition_v1", "scene_transition_v1", "scene_transition_v2", "arrangement_record_v1", "arrangement_rides_v1", "arrangement_audition_v1", "staged_arrangement_v1"]
+                    "capabilities": ["scene_audition_v1", "scene_transition_v1", "scene_transition_v2", "arrangement_record_v1", "arrangement_rides_v1", "arrangement_audition_v1", "staged_arrangement_v1", "remix_preview_import_v1"]
                                     + (["local_separation_v1", "selected_stem_import_v1"] if local_separation_available() else []),
                 }))
                 await self.local.flush()
@@ -390,6 +390,20 @@ class AbletonBridge:
                 await self._reply(request_id, await import_stems(self, msg.get("reference_id"), msg.get("stems")))
             else:
                 await self._reply(request_id, await self.local.reveal(msg.get("reference_id")))
+
+        elif msg_type == "remix_preview_import":
+            from remix_import import import_preview
+
+            async def run_remix():
+                result = await import_preview(self, msg)
+                try:
+                    await self._reply(request_id, result)
+                except Exception as error:
+                    log.warning(f"Could not report approved remix import result: {error}")
+
+            task = asyncio.create_task(run_remix())
+            BACKGROUND_TASKS.add(task)
+            task.add_done_callback(BACKGROUND_TASKS.discard)
 
         elif msg_type == "cloud_stem_import":
             from cloud_stem_import import import_cloud_stems

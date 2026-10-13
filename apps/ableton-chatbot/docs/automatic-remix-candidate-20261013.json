@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-13",
+  "status": "candidate_not_published",
+  "user_workflow": "Choose source sections, stem levels and tempo; render actual audio; listen; approve the exact preview; inspect an empty Ableton destination; explicitly import.",
+  "scope": {
+    "supported": ["Retained-stem arrangements", "Section order and repeats", "Per-section layer levels and mutes", "Shared pitch-preserving tempo adjustment from 80% to 125%", "Aligned PCM24 WAV stems and preview", "Saved previews and approval", "Revisions within one charged song"],
+    "not_supported": ["Generated replacement instruments", "Recovered original effects", "Guaranteed artifact-free separation or time stretching", "Local-only source upload without a separate explicit upload", "Verified legal clearance"]
+  },
+  "safety": [
+    "Source files are hashed before and after rendering; original audio and projects are not overwritten",
+    "Owner-scoped previews, source-use attestation and exact mix-hash approval",
+    "Empty Live Set identity checked before downloads and immediately before native placement",
+    "Stem byte counts and SHA-256 checked before placement",
+    "Interrupted or ambiguous imports are not replayed automatically",
+    "Old Bridges without approved-remix capability cannot execute this import",
+    "Private songs and recordings are excluded from code and installer publication"
+  ],
+  "release_gates": {
+    "full_regression_and_browser_checks": "running",
+    "fresh_signed_notarized_installer": "building",
+    "actual_frontend_approval_to_ableton_and_audio_readback": "pending_empty_disposable_set",
+    "production_publication": "held_until_acceptance"
+  }
+}

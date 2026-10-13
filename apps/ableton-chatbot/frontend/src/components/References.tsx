@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { Shuffle } from "lucide-react";
+import { Shuffle, WandSparkles } from "lucide-react";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
@@ -25,6 +25,7 @@ import ReferenceWorkflow from "./ReferenceWorkflow";
 import { DeleteReferenceDialog } from "./DeleteReferenceDialog";
 import SourceUseDialog, { type SourceUse } from "./SourceUseDialog";
 import RemixDialog, { type RemixCreated } from "./RemixDialog";
+import AutomaticRemixDialog from "./AutomaticRemixDialog";
 import { importOperation, finishImport } from "@/lib/reference-import";
 
 type Report = {
@@ -208,6 +209,7 @@ export default function References({ onUse, onRemix, chatBusy, selectedId, onSel
   const importGeneration = useRef(0);
   const [pendingImport, setPendingImport] = useState<{ id: string; name: string; stems?: string[] } | null>(null);
   const [remixSource, setRemixSource] = useState<Reference | null>(null);
+  const [automaticSource, setAutomaticSource] = useState<Reference | null>(null);
   const [rights, setRights] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -503,11 +505,15 @@ export default function References({ onUse, onRemix, chatBusy, selectedId, onSel
               <div><span className="text-neutral-400">Key </span><span>{item.report.key_candidates.map(k => k.key).join(" / ") || "—"}</span></div>
               <div><span className="text-neutral-400">Duration </span><span>{time(item.report.duration_seconds)}</span></div>
             </dl>
-            <button type="button" disabled={chatBusy || busy || importing || !onRemix}
+            <div className="flex flex-wrap gap-3"><button type="button" disabled={chatBusy || busy || importing || !onRemix}
               onClick={() => setRemixSource(item)}
               className="inline-flex items-center gap-2 rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
               <Shuffle size={17} aria-hidden="true" />Remix this reference
             </button>
+            <button type="button" disabled={chatBusy || busy || importing || !onRemix} onClick={() => setAutomaticSource(item)}
+              className="inline-flex items-center gap-2 rounded border border-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
+              <WandSparkles size={17} aria-hidden="true" />Automatic Remix
+            </button></div>
             {item.storage === "local" && <LocalStemActions key={`ready-${item.id}`} id={item.id} folder={item.local_folder} status={item.status} refresh={refresh}
               disabled={chatBusy || busy || importing} onImport={() => setPendingImport({ id: item.id, name: item.name })} />}
             {item.storage !== "local" && <StemPicker key={item.id} id={item.id} stems={reviewStems(item.report)} cue={cue}
@@ -562,6 +568,8 @@ export default function References({ onUse, onRemix, chatBusy, selectedId, onSel
         </button>
       </div>}
     </div>
+    {automaticSource && onRemix && <AutomaticRemixDialog key={automaticSource.id} reference={automaticSource}
+      onCancel={() => setAutomaticSource(null)} onOpenChat={result => { onRemix(result); setAutomaticSource(null); }} />}
     {remixSource && onRemix && <RemixDialog key={remixSource.id}
       reference={{ id: remixSource.id, name: remixSource.name, bpm: remixSource.report?.tempo.bpm ?? null }}
       stems={reviewStems(remixSource.report)} onCancel={() => setRemixSource(null)}

@@ -456,6 +456,10 @@ export default function DashboardPage() {
 
   function openRemix(result: RemixCreated) {
     if (!user || loading) throw new Error("Wait for the current request to finish before opening the saved remix.");
+    if (result.project.remix.automatic_preview_id) {
+      void openServerChat(result.sessionId);
+      return;
+    }
     writeChat(user.id, chatId, { messages, sessionId, input, project, referenceId, running: false });
     const id = `server-${result.sessionId}`;
     const draft = "Review my saved remix plan. Ask me about the retained source layers and replacement sounds one step at a time. Do not change Ableton.";
@@ -1499,9 +1503,11 @@ export default function DashboardPage() {
         {/* Content area */}
         <div className="flex-1 overflow-y-auto flex flex-col">
           {nav === "beatmind" && project?.remix && <section aria-label="Saved remix plan" className="space-y-1 border-b border-neutral-700 px-4 py-3 text-sm">
-            <p className="font-medium">Remix plan saved</p>
+            <p className="font-medium">{project.remix.automatic_preview_id ? "Automatic remix saved" : "Remix plan saved"}</p>
             <p className="break-words">{project.remix.source_name} / {project.remix.style} / {project.remix.target_bpm} BPM</p>
-            <p className="text-amber-200">Planning only. Automatic remix production and export are not available yet.</p>
+            <p className="text-amber-200">{project.remix.automatic_preview_id
+              ? "Review the rendered preview and approve its Ableton destination in References. This chat does not place audio."
+              : "Planning only in this chat. Automatic Remix in References creates a stem-arrangement preview for your approval."}</p>
           </section>}
           {nav === "dashboard" && renderDashboard()}
           {nav === "beatmind"  && renderBeatMind()}

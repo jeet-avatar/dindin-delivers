@@ -38,6 +38,7 @@ import references
 import chat_store
 import song_projects
 import remix_projects
+import remix_jobs
 import arrangement_plan
 import chat_tools
 from sections import SECTION_TOOL, get_brief, set_brief, source_error
@@ -659,6 +660,22 @@ async def create_remix_project(req: remix_projects.RemixRequest, user: dict = De
                                      [name for name, decision in req.layers.items() if decision == 'retain'])
         chat_store.save(session, 'complete')
         billing.ensure_song_usage(user, session_id)
+        return {'sessionId': session_id, 'project': session.project, 'referenceId': req.reference_id}
+
+
+async def save_automatic_remix_project(req, user, session_id=None):
+    if session_id is None:
+        created = await create_remix_project(req, user)
+        session_id = created['sessionId']
+    with chat_store.acquire(user['id'], session_id):
+        session, saved = saved_project(user['id'], session_id)
+        remix = (session.project or {}).get('remix') or {}
+        if (session.reference_id != req.reference_id or (not remix.get('automatic_preview_id')
+                and session_id != 'remix_' + req.request_id)):
+            raise HTTPException(409, 'Revisions must stay with their existing automatic remix and source reference.')
+        _, _, plan = remix_projects.plan(req, user['id'])
+        session.project.update(title=req.title, remix={**plan, 'automatic_preview_id': req.request_id})
+        chat_store.save(session, saved['status'])
         return {'sessionId': session_id, 'project': session.project, 'referenceId': req.reference_id}
 
 class ChatRequest(BaseModel):
@@ -1398,6 +1415,7 @@ def bridge_for(user_id, capability):
 
 
 app.include_router(references.router_for(get_current_user, require_subscription, bridge_for))
+app.include_router(remix_jobs.router_for(get_current_user, save_automatic_remix_project, bridge_for))
 
 
 @app.get("/api/references/{reference_id}/stem-download/{stem}")

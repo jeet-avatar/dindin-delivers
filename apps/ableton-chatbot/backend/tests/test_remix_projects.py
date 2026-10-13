@@ -67,6 +67,22 @@ class RemixProjectTests(unittest.IsolatedAsyncioTestCase):
             await self.create(style='Changed request')
         self.assertEqual(error.exception.status_code, 409)
 
+    async def test_automatic_preview_revisions_share_one_song_credit_and_source(self):
+        before = billing.songs_this_month(42)
+        req = remix_projects.RemixRequest(**self.payload)
+        first = await main.save_automatic_remix_project(req, self.user)
+        revision = req.model_copy(update={'request_id': uuid.uuid4().hex, 'title': 'Revised preview'})
+        revised = await main.save_automatic_remix_project(revision, self.user, first['sessionId'])
+        self.assertEqual(first['sessionId'], revised['sessionId'])
+        self.assertEqual(revised['project']['remix']['automatic_preview_id'], revision.request_id)
+        self.assertEqual(billing.songs_this_month(42), before + 1)
+        with self.assertRaises(HTTPException):
+            await main.save_automatic_remix_project(revision, {**self.user, 'id': 43}, first['sessionId'])
+        with self.assertRaises(HTTPException):
+            await main.save_automatic_remix_project(revision.model_copy(update={'reference_id': 'e' * 32}), self.user, first['sessionId'])
+        with self.assertRaises(HTTPException):
+            await main.save_automatic_remix_project(revision, self.user, self.id)
+
     async def test_foreign_reference_and_missing_permission_are_rejected(self):
         with self.assertRaises(HTTPException) as error:
             await main.create_remix_project(remix_projects.RemixRequest(**self.payload), {**self.user, 'id': 43})

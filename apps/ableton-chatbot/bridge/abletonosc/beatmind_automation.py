@@ -143,6 +143,7 @@ def map_id(device):
 def register(handler, app):
     arrangement_objects = []
     arrangement_song = [None, None]
+    remix_receipts = {}
 
     def object_id(obj):
         # Live can return different Python wrappers for the same Live object.
@@ -822,6 +823,12 @@ def register(handler, app):
         Arrangement clip (only after the user explicitly agreed to replace the Arrangement)."""
         song = handler.song
         action = data["action"]
+        if action in {"remix_target", "remix_import"}:
+            from .beatmind_remix import execute as remix_execute
+            identity = [arrangement_set_id(), str(getattr(song, "file_path", "") or ""),
+                        object_id(song.master_track), *[object_id(track) for track in song.tracks]]
+            destination_id = hashlib.sha256(json.dumps(identity).encode()).hexdigest()[:32]
+            return remix_execute(song, data, destination_id, remix_receipts)
         if action in {"preview_state", "preview_start", "preview_restore"}:
             from .beatmind_arrangement_audio import execute as preview_transport
             return preview_transport(song, data, arrangement_set_id())

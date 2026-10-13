@@ -11,6 +11,7 @@ import soundfile as sf
 
 import chat_store
 import references
+import remix_render
 from reference_worker import analyze
 from sound_comparison import ComparisonRequest, render_comparison, capability
 
@@ -46,6 +47,19 @@ def main():
             audio, sr = sf.read(comparison / f'{side}.wav')
             assert sr == rate and len(audio) == rate * 2
             assert np.max(np.abs(audio)) > 0.01
+        remix = root / 'remix'
+        remix.mkdir()
+        timing = {'status': 'confirmed', 'analysis_id': 'a' * 64, 'revision': 1, 'bpm': 120,
+                  'sections': [{'name': 'Fixture', 'start_seconds': 0, 'end_seconds': 6}]}
+        recipe = remix_render.Recipe(analysis_id='a' * 64, timing_revision=1, target_bpm=125,
+                                    segments=[{'section': 0, 'levels': {'drums': 0, 'bass': -3, 'other': -6}}])
+        plan = remix_render.compile_recipe(recipe, timing, ['drums', 'bass', 'other'])
+        rendered = remix_render.render(reference, remix, plan)
+        mixed, sr = sf.read(remix / 'mix.wav')
+        summed = sum(sf.read(remix / f'{name}.wav')[0] for name in rendered['stems'])
+        assert sr == 44100 and len(mixed) == plan['frames']
+        assert np.max(np.abs(mixed - summed)) < 1e-6
+        assert rendered['true_peak_dbtp'] <= -1
         chat_store.ROOT = root / 'chats'
         session = SimpleNamespace(user_id=123, session_id='smoke',
                                   messages=[{'role': 'user', 'content': 'Inspect only'}],
@@ -55,6 +69,7 @@ def main():
         assert chat_store.load(456, 'smoke') is None
         print(json.dumps({'runtime': 'passed', 'cached_separation': True,
                           'aligned_stems': 4, 'non_silent_comparison_previews': 2,
+                          'automatic_remix_tempo_and_alignment': True,
                           'owner_scoped_chat_storage': True}), flush=True)
 
 

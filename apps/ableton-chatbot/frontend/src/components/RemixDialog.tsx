@@ -7,7 +7,7 @@ import { stemLabel } from "@/lib/stems";
 
 export type RemixProject = {
   title: string; starting_point: "reference"; live_set: null; mode: "remix";
-  remix: { source_name: string; style: string; target_bpm: number; layers: Record<string, string>; execution_status: "unavailable" };
+  remix: { source_name: string; style: string; target_bpm: number; layers: Record<string, string>; execution_status: "unavailable"; automatic_preview_id?: string };
 };
 export type RemixCreated = { sessionId: string; referenceId: string; project: RemixProject };
 const field = "w-full min-w-0 rounded border border-neutral-600 bg-neutral-900 p-2 text-sm text-white";
@@ -63,7 +63,7 @@ export default function RemixDialog({ reference, stems, onCancel, onCreated }: {
       <div className="min-h-0 space-y-4 overflow-y-auto p-5">
       <h3 id="remix-title" className="flex items-center gap-2 text-base font-semibold"><Shuffle size={18} aria-hidden="true" />Plan a remix</h3>
       <p className="break-words text-sm text-neutral-300">Source: {reference.name}</p>
-      <p role="status" className="text-sm text-amber-200">Planning only. Automatic remix production and export are not available yet. This saves a separate song and leaves Ableton unchanged.</p>
+      <p role="status" className="text-sm text-amber-200">This saves a separate remix plan and leaves Ableton unchanged. For a rendered stem-arrangement preview, choose Automatic Remix.</p>
       <fieldset disabled={busy} className="space-y-4">
         <label className="block space-y-1 text-sm"><span>Remix name</span><input autoFocus required maxLength={70} className={field} value={title} onChange={e => setTitle(e.target.value)} /></label>
         <label className="block space-y-1 text-sm"><span>Target style</span><input required maxLength={120} className={field} value={style} onChange={e => setStyle(e.target.value)} /></label>

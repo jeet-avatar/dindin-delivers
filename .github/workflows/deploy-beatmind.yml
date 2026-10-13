@@ -75,6 +75,16 @@ jobs:
           node --test tests/*.test.cjs
           npm run build
 
+      - name: Automatic remix browser and real audio checks
+        working-directory: apps/ableton-chatbot/frontend
+        env:
+          PYTHON_DOTENV_DISABLED: '1'
+        run: |
+          npm install --prefix "$RUNNER_TEMP/beatmind-browser" playwright@1.58.0
+          "$RUNNER_TEMP/beatmind-browser/node_modules/.bin/playwright" install --with-deps chromium
+          PLAYWRIGHT_MODULE="$RUNNER_TEMP/beatmind-browser/node_modules/playwright" \
+            BEATMIND_TEST_PYTHON="$(command -v python)" node tests/automatic-remix.browser.cjs
+
       - name: Save verified frontend export
         uses: actions/upload-artifact@v4
         with:
