@@ -1,6 +1,7 @@
 import asyncio
 import json
 import time
+import threading
 import unittest
 import uuid
 
@@ -20,13 +21,17 @@ class FakeBridge:
         self.calls = []
         self.payloads = []
         self.capabilities = {'selected_stem_import_v1'}
+        self.release = None
 
     async def local_operation(self, operation, payload, timeout=55):
         self.calls.append((operation, timeout))
         self.payloads.append(payload)
         if operation == 'live_set':
             return {'status': 'observed', 'title': 'Untitled'}
-        await asyncio.sleep(0.2)
+        if self.release is not None:
+            await asyncio.to_thread(self.release.wait, 10)
+        else:
+            await asyncio.sleep(0.2)
         return self.result
 
 
@@ -122,19 +127,34 @@ class ImportToAbletonTests(unittest.TestCase):
     def test_concurrent_worker_does_not_repeat_import_or_delete_source(self):
         self.seed()
         bridge = FakeBridge({'status': 'verified'})
+        bridge.release = threading.Event()
         operation_id = uuid.uuid4().hex
         path = '/api/references/' + self.id
         payload = {'source_use': SOURCE_USE, 'operation_id': operation_id}
         with TestClient(self.app(bridge)) as first, TestClient(self.app(bridge)) as second:
-            response = first.post(path + '/import-to-ableton', headers={'x-user': '1'}, json=payload)
-            self.assertEqual(response.status_code, 202)
-            repeated = second.post(path + '/import-to-ableton', headers={'x-user': '1'}, json=payload)
-            self.assertEqual(repeated.json()['operation_id'], operation_id)
-            conflict = second.post(path + '/import-to-ableton', headers={'x-user': '1'}, json={**payload, 'stems': ['bass']})
-            self.assertEqual(conflict.status_code, 409)
-            self.assertEqual(second.delete(path, headers={'x-user': '1'}).status_code, 409)
-            time.sleep(0.3)
+            try:
+                response = first.post(path + '/import-to-ableton', headers={'x-user': '1'}, json=payload)
+                self.assertEqual(response.status_code, 202)
+                repeated = second.post(path + '/import-to-ableton', headers={'x-user': '1'}, json=payload)
+                self.assertEqual(repeated.json()['operation_id'], operation_id)
+                conflict = second.post(path + '/import-to-ableton', headers={'x-user': '1'}, json={**payload, 'stems': ['bass']})
+                self.assertEqual(conflict.status_code, 409)
+                self.assertEqual(second.delete(path, headers={'x-user': '1'}).status_code, 409)
+            finally:
+                bridge.release.set()
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                if first.get(path + '/import-status', headers={'x-user': '1'}).json()['status'] != 'importing':
+                    break
+                time.sleep(0.01)
         self.assertEqual(sum(operation == 'cloud_stem_import' for operation, _ in bridge.calls), 1)
+
+    def test_abandoned_historical_receipt_is_not_reported_as_running(self):
+        directory = self.seed()
+        operation_id = uuid.uuid4().hex
+        reference_imports.save(directory, {'operation_id': operation_id, 'status': 'importing'})
+        previous = reference_imports.previous(directory, operation_id)
+        self.assertEqual(previous['status'], 'needs_inspection')
 
     def test_empty_duplicate_and_invalid_stem_choices_do_not_import_all(self):
         self.seed()

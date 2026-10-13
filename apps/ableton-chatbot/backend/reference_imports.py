@@ -62,7 +62,12 @@ def previous(directory, operation_id):
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text())
+        state = json.loads(path.read_text())
+        if not isinstance(state, dict):
+            raise ValueError('Invalid import receipt')
+        if state.get('status') == 'importing':
+            return {**state, 'status': 'needs_inspection', 'error': INSPECT}
+        return state
     except (ValueError, OSError):
         return {'status': 'needs_inspection', 'error': INSPECT}
 
