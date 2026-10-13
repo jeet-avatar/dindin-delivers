@@ -181,8 +181,10 @@ struct FoundingMemberView: View {
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.lxHairline))
                     .cornerRadius(8)
             } else {
+                #if DEBUG
                 Text("Demo account — no charge will be made.")
                     .font(.caption).foregroundColor(Theme.lxTextSecondary)
+                #endif
             }
 
             Button(action: { model.join(state: selectedState, params: cardParams) }) {

@@ -6,3 +6,4 @@ ENVIRONMENT = Staging
 API_BASE_URL = https:/$()/d34u5ixl0bulv4.cloudfront.net
 WEBSOCKET_URL = wss:/$()/d34u5ixl0bulv4.cloudfront.net
 CDN_URL = https:/$()/d34u5ixl0bulv4.cloudfront.net
+GOOGLE_MAPS_API_KEY = AIzaSyCELfWMuckt-Bbx5tyuiOSS3sYNywxVTXc
