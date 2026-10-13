@@ -123,14 +123,12 @@ CHART_OF_ACCOUNTS = [
     {"code": "1010", "name": "Cash - Bank Account", "type": AccountType.ASSET, "category": AccountCategory.CASH, "normal_balance": "debit"},
     {"code": "1020", "name": "Cash - ACH Pending", "type": AccountType.ASSET, "category": AccountCategory.CASH, "normal_balance": "debit"},
     {"code": "1100", "name": "Accounts Receivable - Customers", "type": AccountType.ASSET, "category": AccountCategory.ACCOUNTS_RECEIVABLE, "normal_balance": "debit"},
-    {"code": "1110", "name": "Accounts Receivable - Restaurants", "type": AccountType.ASSET, "category": AccountCategory.ACCOUNTS_RECEIVABLE, "normal_balance": "debit"},
     {"code": "1200", "name": "Prepaid Expenses", "type": AccountType.ASSET, "category": AccountCategory.PREPAID, "normal_balance": "debit"},
     {"code": "1500", "name": "Equipment", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET, "normal_balance": "debit"},
     {"code": "1510", "name": "Accumulated Depreciation", "type": AccountType.ASSET, "category": AccountCategory.FIXED_ASSET, "normal_balance": "credit"},
 
     # Liabilities (2xxx)
     {"code": "2000", "name": "Accounts Payable - General", "type": AccountType.LIABILITY, "category": AccountCategory.ACCOUNTS_PAYABLE, "normal_balance": "credit"},
-    {"code": "2100", "name": "Accounts Payable - Restaurants", "type": AccountType.LIABILITY, "category": AccountCategory.ACCOUNTS_PAYABLE, "normal_balance": "credit"},
     {"code": "2200", "name": "Accounts Payable - Drivers", "type": AccountType.LIABILITY, "category": AccountCategory.ACCOUNTS_PAYABLE, "normal_balance": "credit"},
     {"code": "2300", "name": "Sales Tax Payable", "type": AccountType.LIABILITY, "category": AccountCategory.ACCRUED_EXPENSE, "normal_balance": "credit"},
     {"code": "2400", "name": "Accrued Expenses", "type": AccountType.LIABILITY, "category": AccountCategory.ACCRUED_EXPENSE, "normal_balance": "credit"},
@@ -143,15 +141,12 @@ CHART_OF_ACCOUNTS = [
     {"code": "3200", "name": "Current Period Earnings", "type": AccountType.EQUITY, "category": AccountCategory.RETAINED_EARNINGS, "normal_balance": "credit"},
 
     # Revenue (4xxx)
-    {"code": "4000", "name": "Platform Fee Revenue - Food Delivery", "type": AccountType.REVENUE, "category": AccountCategory.PLATFORM_REVENUE, "normal_balance": "credit"},
     # Wyoming TNC Revenue by Tier (W.S. 31-20-103 compliant)
     {"code": "4010", "name": "Platform Fee Revenue - WY Tier 1 (<10mi, $1)", "type": AccountType.REVENUE, "category": AccountCategory.PLATFORM_REVENUE, "normal_balance": "credit"},
     {"code": "4011", "name": "Platform Fee Revenue - WY Tier 2 (10-25mi, $2)", "type": AccountType.REVENUE, "category": AccountCategory.PLATFORM_REVENUE, "normal_balance": "credit"},
     {"code": "4012", "name": "Platform Fee Revenue - WY Tier 3 (>25mi, $3)", "type": AccountType.REVENUE, "category": AccountCategory.PLATFORM_REVENUE, "normal_balance": "credit"},
     {"code": "4020", "name": "Platform Fee Revenue - P2P General", "type": AccountType.REVENUE, "category": AccountCategory.PLATFORM_REVENUE, "normal_balance": "credit"},
     {"code": "4021", "name": "Airport Fees - Wyoming (JAC/CYS/CPR)", "type": AccountType.REVENUE, "category": AccountCategory.PLATFORM_REVENUE, "normal_balance": "credit"},
-    {"code": "4100", "name": "Restaurant Commission Revenue", "type": AccountType.REVENUE, "category": AccountCategory.SERVICE_REVENUE, "normal_balance": "credit"},
-    {"code": "4200", "name": "Delivery Fee Revenue", "type": AccountType.REVENUE, "category": AccountCategory.SERVICE_REVENUE, "normal_balance": "credit"},
     {"code": "4300", "name": "Subscription Revenue", "type": AccountType.REVENUE, "category": AccountCategory.SERVICE_REVENUE, "normal_balance": "credit"},
     {"code": "4400", "name": "Advertising Revenue", "type": AccountType.REVENUE, "category": AccountCategory.SERVICE_REVENUE, "normal_balance": "credit"},
     {"code": "4900", "name": "Other Revenue", "type": AccountType.REVENUE, "category": AccountCategory.SERVICE_REVENUE, "normal_balance": "credit"},
@@ -159,7 +154,6 @@ CHART_OF_ACCOUNTS = [
     # Cost of Revenue (5xxx)
     {"code": "5000", "name": "Payment Processing Fees", "type": AccountType.EXPENSE, "category": AccountCategory.COST_OF_REVENUE, "normal_balance": "debit"},
     {"code": "5100", "name": "Driver Payments", "type": AccountType.EXPENSE, "category": AccountCategory.COST_OF_REVENUE, "normal_balance": "debit"},
-    {"code": "5200", "name": "Restaurant Payments", "type": AccountType.EXPENSE, "category": AccountCategory.COST_OF_REVENUE, "normal_balance": "debit"},
     {"code": "5300", "name": "Refunds & Chargebacks", "type": AccountType.EXPENSE, "category": AccountCategory.COST_OF_REVENUE, "normal_balance": "debit"},
     {"code": "5400", "name": "Customer Support Costs", "type": AccountType.EXPENSE, "category": AccountCategory.COST_OF_REVENUE, "normal_balance": "debit"},
 
@@ -337,8 +331,8 @@ async def get_trial_balance(
         result = db.execute(text(query), {"as_of_date": as_of_date})
         accounts = [dict(row._mapping) for row in result]
     except Exception:
-        # Generate from orders if journal entries not available
-        accounts = await _generate_trial_balance_from_orders(db, as_of_date)
+        # Generate from rides if journal entries not available
+        accounts = await _generate_trial_balance_from_rides(db, as_of_date)
 
     # Calculate totals
     total_debits = sum(float(a.get("total_debit", 0) or 0) for a in accounts)
@@ -372,20 +366,21 @@ async def get_trial_balance(
     }
 
 
-async def _generate_trial_balance_from_orders(db: Session, as_of_date: date) -> List[Dict]:
-    """Generate trial balance from orders if journal entries not available."""
+async def _generate_trial_balance_from_rides(db: Session, as_of_date: date) -> List[Dict]:
+    """Generate trial balance from rides if journal entries not available.
+
+    (Rideshare only — this used to read from the food `orders` table.)
+    """
 
     query = """
         SELECT
-            COUNT(*) as order_count,
-            COALESCE(SUM(total), 0) as total_revenue,
+            COUNT(*) as ride_count,
+            COALESCE(SUM(final_price + platform_fee), 0) as total_revenue,
             COALESCE(SUM(platform_fee), 0) as platform_fees,
-            COALESCE(SUM(delivery_fee), 0) as delivery_fees,
-            COALESCE(SUM(tip), 0) as tips,
-            COALESCE(SUM(tax), 0) as taxes,
-            COALESCE(SUM(subtotal), 0) as restaurant_revenue
-        FROM orders
-        WHERE status = 'delivered'
+            COALESCE(SUM(tip_amount), 0) as tips,
+            COALESCE(SUM(driver_payout), 0) as driver_payout_total
+        FROM ride_requests
+        WHERE status IN ('completed', 'COMPLETED')
         AND created_at <= :as_of_date
     """
 
@@ -395,12 +390,11 @@ async def _generate_trial_balance_from_orders(db: Session, as_of_date: date) -> 
 
         if row:
             data = dict(row._mapping)
+            driver_owed = data["driver_payout_total"] + data["tips"]
             return [
                 {"account_code": "1000", "account_name": "Cash - Stripe", "total_debit": data["total_revenue"], "total_credit": 0, "net_balance": data["total_revenue"]},
-                {"account_code": "2100", "account_name": "Accounts Payable - Restaurants", "total_debit": 0, "total_credit": data["restaurant_revenue"], "net_balance": -data["restaurant_revenue"]},
-                {"account_code": "2200", "account_name": "Accounts Payable - Drivers", "total_debit": 0, "total_credit": data["delivery_fees"] + data["tips"], "net_balance": -(data["delivery_fees"] + data["tips"])},
-                {"account_code": "2300", "account_name": "Sales Tax Payable", "total_debit": 0, "total_credit": data["taxes"], "net_balance": -data["taxes"]},
-                {"account_code": "4000", "account_name": "Platform Fee Revenue", "total_debit": 0, "total_credit": data["platform_fees"], "net_balance": -data["platform_fees"]},
+                {"account_code": "2200", "account_name": "Accounts Payable - Drivers", "total_debit": 0, "total_credit": driver_owed, "net_balance": -driver_owed},
+                {"account_code": "4020", "account_name": "Platform Fee Revenue - P2P General", "total_debit": 0, "total_credit": data["platform_fees"], "net_balance": -data["platform_fees"]},
             ]
     except Exception:
         pass
@@ -440,49 +434,23 @@ async def get_income_statement(
         else:  # year
             start_date = end_date.replace(month=1, day=1)
 
-    # Get revenue from orders (consistent with platform-revenue endpoint)
-    revenue_query = """
-        SELECT
-            COUNT(*) as total_orders,
-            COALESCE(SUM(total_amount), 0) as gross_revenue,
-            COALESCE(SUM(platform_fee), 0) as platform_fee_revenue,
-            COALESCE(SUM(delivery_fee), 0) as delivery_fee_revenue,
-            COALESCE(SUM(tip), 0) as tips_collected,
-            COALESCE(SUM(subtotal), 0) as food_sales,
-            COALESCE(SUM(tax), 0) as taxes_collected
-        FROM orders
-        WHERE (status IN ('delivered', 'completed') OR payment_status IN ('paid', 'succeeded'))
-        AND created_at BETWEEN :start_date AND :end_date
-    """
-
     # Get rideshare revenue
+    # NOTE: RideRequest.status is a plain Python Enum column (not str-valued), so
+    # SQLAlchemy's default Enum type stores the member NAME ("COMPLETED"), not the
+    # lowercase .value ("completed") — matching both here since the on-disk casing
+    # depends on how the column was created and hasn't been independently verified.
     rideshare_query = """
         SELECT
             COUNT(*) as total_rides,
-            COALESCE(SUM(fare), 0) as ride_revenue,
+            COALESCE(SUM(final_price), 0) as ride_revenue,
             COALESCE(SUM(platform_fee), 0) as rideshare_platform_fees,
-            COALESCE(SUM(tip), 0) as rideshare_tips
+            COALESCE(SUM(tip_amount), 0) as rideshare_tips
         FROM ride_requests
-        WHERE status = 'completed'
+        WHERE status IN ('completed', 'COMPLETED')
         AND created_at BETWEEN :start_date AND :end_date
     """
 
     params = {"start_date": start_date, "end_date": end_date}
-
-    try:
-        # Food delivery revenue
-        result = db.execute(text(revenue_query), params)
-        food_data = dict(result.fetchone()._mapping)
-    except Exception:
-        food_data = {
-            "total_orders": 0,
-            "gross_revenue": 0,
-            "platform_fee_revenue": 0,
-            "delivery_fee_revenue": 0,
-            "tips_collected": 0,
-            "food_sales": 0,
-            "taxes_collected": 0
-        }
 
     try:
         # Rideshare revenue
@@ -498,42 +466,29 @@ async def get_income_statement(
 
     # Calculate income statement
     # IMPORTANT: As a MATCHMAKING PLATFORM (Agent, not Principal), we only recognize
-    # our platform fees as revenue - NOT pass-through amounts like food costs, delivery fees, or tips
+    # our platform fees as revenue - NOT pass-through amounts like the ride fare or tips
     # See ASC 606 Principal vs Agent guidance
-
-    # Food Delivery: $1 from customer + $1 from restaurant = $2 per order
-    CUSTOMER_FEE = 1.00
-    RESTAURANT_FEE = 1.00
-    food_orders = int(food_data.get("total_orders", 0) or 0)
-    food_platform_revenue = food_orders * (CUSTOMER_FEE + RESTAURANT_FEE)  # $2 per order
 
     # Rideshare: Tiered fees ($1/$2/$3 per side based on fare amount)
     rideshare_platform_revenue = float(ride_data.get("rideshare_platform_fees", 0) or 0)
 
     revenue = {
         "platform_fees": {
-            "food_delivery": {
-                "customer_fees": food_orders * CUSTOMER_FEE,  # $1 per order
-                "restaurant_fees": food_orders * RESTAURANT_FEE,  # $1 per order
-                "total": food_platform_revenue
-            },
             "rideshare": rideshare_platform_revenue,
-            "total": food_platform_revenue + rideshare_platform_revenue
+            "total": rideshare_platform_revenue
         },
-        # NOTE: Delivery fees and tips are NOT our revenue - they flow directly to drivers via Stripe
+        # NOTE: Tips are NOT our revenue - they flow directly to drivers via Stripe
         "pass_through_not_revenue": {
-            "delivery_fees_to_drivers": float(food_data.get("delivery_fee_revenue", 0) or 0),
-            "tips_to_drivers": float(food_data.get("tips_collected", 0) or 0),
-            "food_costs_to_restaurants": float(food_data.get("food_sales", 0) or 0),
-            "note": "These amounts flow directly to drivers/restaurants via Stripe Connect - NOT our revenue"
+            "tips_to_drivers": float(ride_data.get("rideshare_tips", 0) or 0),
+            "note": "Tips flow directly to drivers via Stripe Connect - NOT our revenue"
         },
-        "total_revenue": food_platform_revenue + rideshare_platform_revenue
+        "total_revenue": rideshare_platform_revenue
     }
 
     # Cost of revenue - Only Stripe fees on OUR platform fee portion
-    # We pay ~2.9% + $0.30 on each platform fee transaction, not on the full order amount
+    # We pay ~2.9% + $0.30 on each platform fee transaction, not on the full ride amount
     platform_fee_amount = revenue["total_revenue"]
-    total_transactions = food_orders + int(ride_data.get("total_rides", 0) or 0)
+    total_transactions = int(ride_data.get("total_rides", 0) or 0)
     stripe_fees = round(platform_fee_amount * STRIPE_PERCENTAGE_FEE + (total_transactions * STRIPE_FIXED_FEE), 2)
 
     cost_of_revenue = {
@@ -579,10 +534,9 @@ async def get_income_statement(
             "net_income": round(net_income, 2),
             "net_margin_percent": round((net_income / revenue["total_revenue"] * 100) if revenue["total_revenue"] > 0 else 0, 2),
             "metrics": {
-                "total_orders": int(food_data.get("total_orders", 0) or 0),
                 "total_rides": int(ride_data.get("total_rides", 0) or 0),
-                "average_order_value": round(float(food_data.get("gross_revenue", 0) or 0) / max(int(food_data.get("total_orders", 0) or 1), 1), 2),
-                "revenue_per_order": round(revenue["total_revenue"] / max(int(food_data.get("total_orders", 0) or 1), 1), 2)
+                "average_ride_fare": round(float(ride_data.get("ride_revenue", 0) or 0) / max(int(ride_data.get("total_rides", 0) or 1), 1), 2),
+                "revenue_per_ride": round(revenue["total_revenue"] / max(int(ride_data.get("total_rides", 0) or 1), 1), 2)
             }
         },
         "generated_at": datetime.utcnow().isoformat()
@@ -608,16 +562,17 @@ async def get_balance_sheet(
     if not as_of_date:
         as_of_date = date.today()
 
-    # Get cash position from orders (use same filter as platform-revenue for consistency)
+    # Get cash position from rides (food-order cash position removed — rideshare only)
+    # NOTE: see rideshare_query status-casing comment in get_income_statement above —
+    # matching both cases since the on-disk enum casing hasn't been independently verified.
     cash_query = """
         SELECT
-            COALESCE(SUM(total_amount), 0) as total_collected,
-            COALESCE(SUM(subtotal), 0) as restaurant_portion,
-            COALESCE(SUM(delivery_fee + tip), 0) as driver_portion,
+            COALESCE(SUM(final_price + platform_fee), 0) as total_collected,
+            COALESCE(SUM(driver_payout + tip_amount), 0) as driver_portion,
             COALESCE(SUM(platform_fee), 0) as platform_portion,
-            COUNT(*) as order_count
-        FROM orders
-        WHERE (status IN ('delivered', 'completed') OR payment_status IN ('paid', 'succeeded'))
+            COUNT(*) as ride_count
+        FROM ride_requests
+        WHERE status IN ('completed', 'COMPLETED')
         AND created_at <= :as_of_date
     """
 
@@ -636,7 +591,7 @@ async def get_balance_sheet(
         result = db.execute(text(cash_query), params)
         cash_data = dict(result.fetchone()._mapping)
     except Exception:
-        cash_data = {"total_collected": 0, "restaurant_portion": 0, "driver_portion": 0, "platform_portion": 0}
+        cash_data = {"total_collected": 0, "driver_portion": 0, "platform_portion": 0}
 
     try:
         result = db.execute(text(payables_query), params)
@@ -646,15 +601,14 @@ async def get_balance_sheet(
 
     # Calculate balances
     total_collected = float(cash_data.get("total_collected", 0) or 0)
-    restaurant_owed = float(cash_data.get("restaurant_portion", 0) or 0)
     driver_owed = float(cash_data.get("driver_portion", 0) or 0)
     platform_earned = float(cash_data.get("platform_portion", 0) or 0)
 
     # Build balance sheet
     assets = {
         "current_assets": {
-            "cash_stripe": round(total_collected - restaurant_owed - driver_owed, 2),  # Net cash retained
-            "accounts_receivable": 0,  # Would query unpaid orders
+            "cash_stripe": round(total_collected - driver_owed, 2),  # Net cash retained
+            "accounts_receivable": 0,  # Would query unpaid rides
             "prepaid_expenses": 0,
             "total_current_assets": 0
         },
@@ -668,22 +622,8 @@ async def get_balance_sheet(
     assets["current_assets"]["total_current_assets"] = assets["current_assets"]["cash_stripe"]
     assets["total_assets"] = assets["current_assets"]["total_current_assets"] + assets["fixed_assets"]["total_fixed_assets"]
 
-    # Query actual unpaid restaurant payouts
-    restaurant_unpaid_query = """
-        SELECT COALESCE(SUM(amount), 0) as unpaid
-        FROM vendor_payouts
-        WHERE status = 'pending'
-        AND created_at <= :as_of_date
-    """
-    try:
-        result = db.execute(text(restaurant_unpaid_query), params)
-        restaurant_unpaid = float(result.fetchone()[0] or 0)
-    except Exception:
-        restaurant_unpaid = 0
-
     liabilities = {
         "current_liabilities": {
-            "accounts_payable_restaurants": round(restaurant_unpaid, 2),
             "accounts_payable_drivers": float(payables_data.get("driver_payables", 0) or 0),
             "sales_tax_payable": 0,
             "accrued_expenses": 0,
@@ -695,7 +635,6 @@ async def get_balance_sheet(
         "total_liabilities": 0
     }
     liabilities["current_liabilities"]["total_current_liabilities"] = (
-        liabilities["current_liabilities"]["accounts_payable_restaurants"] +
         liabilities["current_liabilities"]["accounts_payable_drivers"]
     )
     liabilities["total_liabilities"] = liabilities["current_liabilities"]["total_current_liabilities"]
@@ -757,13 +696,12 @@ async def get_cash_flow_statement(
 
     params = {"start_date": start_date, "end_date": end_date}
 
-    # Cash from operations
+    # Cash from operations (rideshare only — food-order cash flow removed)
     inflows_query = """
         SELECT
-            COALESCE(SUM(total), 0) as customer_payments
-        FROM orders
-        WHERE status IN ('delivered', 'completed')
-        AND payment_status = 'paid'
+            COALESCE(SUM(final_price + platform_fee), 0) as customer_payments
+        FROM ride_requests
+        WHERE status IN ('completed', 'COMPLETED')
         AND created_at BETWEEN :start_date AND :end_date
     """
 
@@ -790,14 +728,12 @@ async def get_cash_flow_statement(
     operating_activities = {
         "cash_received_from_customers": round(inflows, 2),
         "cash_paid_to_drivers": round(-outflows, 2),
-        "cash_paid_to_restaurants": round(-inflows * 0.7, 2),  # Estimate 70% to restaurants
         "payment_processing_fees": round(-inflows * 0.029, 2),  # 2.9% Stripe
         "net_cash_from_operations": 0
     }
     operating_activities["net_cash_from_operations"] = round(
         operating_activities["cash_received_from_customers"] +
         operating_activities["cash_paid_to_drivers"] +
-        operating_activities["cash_paid_to_restaurants"] +
         operating_activities["payment_processing_fees"],
         2
     )
@@ -870,9 +806,8 @@ async def get_financial_ratios(
             "return_on_equity": round((net_income / total_equity) * 100, 2)
         },
         "operational": {
-            "revenue_per_order": income.get("metrics", {}).get("revenue_per_order", 0),
-            "average_order_value": income.get("metrics", {}).get("average_order_value", 0),
-            "total_orders": income.get("metrics", {}).get("total_orders", 0),
+            "revenue_per_ride": income.get("metrics", {}).get("revenue_per_ride", 0),
+            "average_ride_fare": income.get("metrics", {}).get("average_ride_fare", 0),
             "total_rides": income.get("metrics", {}).get("total_rides", 0)
         },
         "liquidity": {
@@ -904,9 +839,9 @@ async def get_stripe_reconciliation(
     admin: dict = Depends(verify_admin_token)
 ):
     """
-    Reconcile Stripe payments with orders.
+    Reconcile Stripe payments with rides (rideshare only — food-order reconciliation removed).
 
-    Identifies discrepancies between Stripe records and order records.
+    Identifies discrepancies between Stripe records and ride records.
     """
     if not end_date:
         end_date = date.today()
@@ -915,15 +850,15 @@ async def get_stripe_reconciliation(
 
     params = {"start_date": start_date, "end_date": end_date}
 
-    # Get order totals
+    # Get ride totals
     orders_query = """
         SELECT
             COUNT(*) as order_count,
-            COALESCE(SUM(total), 0) as orders_total,
+            COALESCE(SUM(final_price + platform_fee), 0) as orders_total,
             COUNT(CASE WHEN payment_status = 'paid' THEN 1 END) as paid_count,
             COUNT(CASE WHEN payment_status = 'pending' THEN 1 END) as pending_count,
             COUNT(CASE WHEN payment_status = 'failed' THEN 1 END) as failed_count
-        FROM orders
+        FROM ride_requests
         WHERE created_at BETWEEN :start_date AND :end_date
     """
 

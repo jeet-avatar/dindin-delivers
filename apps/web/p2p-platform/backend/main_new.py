@@ -8899,14 +8899,13 @@ def get_platform_revenue(
     _user = Depends(require_admin),
 ):
     """
-    Get platform revenue statistics.
+    Get platform revenue statistics (rideshare only — food-delivery revenue removed).
     Connected to Admin Portal: Platform Revenue Screen
 
     Revenue Model:
-    - Food Delivery: $1 customer fee + $1 restaurant fee per order
     - Rideshare: $1 (fare ≤$35), $2 ($35-70), $3 (>$70)
     """
-    from models import Order, OrderStatus
+    from models import RideRequest, RideRequestStatus
 
     # Calculate date range
     now = datetime.now()
@@ -8921,62 +8920,7 @@ def get_platform_revenue(
     else:
         start_date = now - timedelta(days=30)
 
-    # Get orders in period
-    orders = db.query(Order).filter(
-        Order.created_at >= start_date,
-        Order.payment_status == "succeeded"
-    ).all()
-
-    # Calculate revenue metrics from ACTUAL database values
-    total_orders = len(orders)
-    total_gmv = sum(o.total_amount or 0 for o in orders)  # Gross Merchandise Value
-    total_customer_fees = sum(o.platform_fee or 0 for o in orders)  # $1 per order from customer (stored in DB)
-    total_delivery_fees = sum(o.delivery_fee or 0 for o in orders)  # Goes to driver
-    total_tips = sum(o.tip or 0 for o in orders)  # Goes to driver
-
-    # Restaurant fee is $1 per completed order (deducted during settlement, not stored in platform_fee column)
-    RESTAURANT_PLATFORM_FEE = 1.00  # $1 flat fee from restaurant
-    completed_orders_count = len([o for o in orders if o.status == OrderStatus.DELIVERED])
-    total_restaurant_fees = completed_orders_count * RESTAURANT_PLATFORM_FEE
-
-    # Total platform fees = customer fees + restaurant fees
-    total_platform_fees = total_customer_fees + total_restaurant_fees
-
-    # Food delivery revenue = $1 from customer + $1 from restaurant = $2 per completed order
-    food_delivery_revenue = total_platform_fees
-
-    # Group by status
-    completed_orders = len([o for o in orders if o.status == OrderStatus.DELIVERED])
-    pending_orders = len([o for o in orders if o.status in [OrderStatus.PENDING_PAYMENT, OrderStatus.CONFIRMED, OrderStatus.PREPARING]])
-    cancelled_orders = len([o for o in orders if o.status == OrderStatus.CANCELLED])
-
-    # Daily breakdown for chart
-    daily_revenue = {}
-    for order in orders:
-        day = order.created_at.strftime("%Y-%m-%d")
-        if day not in daily_revenue:
-            daily_revenue[day] = {"orders": 0, "gmv": 0, "platform_fees": 0}
-        daily_revenue[day]["orders"] += 1
-        daily_revenue[day]["gmv"] += order.total_amount or 0
-        daily_revenue[day]["platform_fees"] += order.platform_fee or 0
-
-    # Sort by date
-    daily_breakdown = [
-        {"date": day_date, **data}
-        for day_date, data in sorted(daily_revenue.items())
-    ]
-
-    # Top vendors by revenue
-    vendor_revenue = {}
-    for order in orders:
-        vid = order.vendor_id
-        if vid not in vendor_revenue:
-            vendor_revenue[vid] = {"orders": 0, "revenue": 0}
-        vendor_revenue[vid]["orders"] += 1
-        vendor_revenue[vid]["revenue"] += order.total_amount or 0
-
     # Query rideshare revenue from ride_requests table
-    from models import RideRequest, RideRequestStatus
     completed_rides = db.query(RideRequest).filter(
         RideRequest.status == RideRequestStatus.COMPLETED,
         RideRequest.created_at >= start_date
@@ -8986,114 +8930,54 @@ def get_platform_revenue(
     tier3 = sum(float(r.platform_fee or 0) for r in completed_rides if float(r.final_price or r.suggested_price or 0) > 70)
     rideshare_total = tier1 + tier2 + tier3
 
+    total_rides = len(completed_rides)
+    total_gmv = sum(float(r.final_price or r.suggested_price or 0) for r in completed_rides)
+    total_tips = sum(float(r.tip_amount or 0) for r in completed_rides)
+
+    # Daily breakdown for chart
+    daily_revenue = {}
+    for ride in completed_rides:
+        day = ride.created_at.strftime("%Y-%m-%d")
+        if day not in daily_revenue:
+            daily_revenue[day] = {"rides": 0, "gmv": 0, "platform_fees": 0}
+        daily_revenue[day]["rides"] += 1
+        daily_revenue[day]["gmv"] += float(ride.final_price or ride.suggested_price or 0)
+        daily_revenue[day]["platform_fees"] += float(ride.platform_fee or 0)
+
+    # Sort by date
+    daily_breakdown = [
+        {"date": day_date, **data}
+        for day_date, data in sorted(daily_revenue.items())
+    ]
+
     return {
         "period": period,
         "start_date": start_date.isoformat(),
         "end_date": now.isoformat(),
         "summary": {
-            "total_orders": total_orders,
-            "completed_orders": completed_orders,
-            "pending_orders": pending_orders,
-            "cancelled_orders": cancelled_orders,
+            "total_rides": total_rides,
             "total_gmv": round(total_gmv, 2),
-            "platform_fees_collected": round(total_platform_fees + rideshare_total, 2),
-            "delivery_fees_collected": round(total_delivery_fees, 2),
+            "platform_fees_collected": round(rideshare_total, 2),
             "tips_collected": round(total_tips, 2),
         },
         "revenue_breakdown": {
-            "food_delivery": {
-                "customer_fees": round(total_customer_fees, 2),  # $1 per order from customer
-                "restaurant_fees": round(total_restaurant_fees, 2),  # $1 per completed order from restaurant
-                "total": round(food_delivery_revenue, 2),  # $2 per completed order
-            },
             "rideshare": {
                 "tier_1_under_35": round(tier1, 2),
                 "tier_2_35_70": round(tier2, 2),
                 "tier_3_over_70": round(tier3, 2),
                 "total": round(rideshare_total, 2),
             },
-            "total_platform_revenue": round(total_platform_fees + rideshare_total, 2),
+            "total_platform_revenue": round(rideshare_total, 2),
         },
         "driver_earnings": {
-            "delivery_fees_to_drivers": round(total_delivery_fees, 2),
             "tips_to_drivers": round(total_tips, 2),
-            "total_to_drivers": round(total_delivery_fees + total_tips, 2),
+            "total_to_drivers": round(total_tips, 2),
         },
         "daily_breakdown": daily_breakdown,
         "pricing_model": {
-            "food_delivery": "$1 customer + $1 restaurant per order",
             "rideshare": "$1 (≤$35), $2 ($35-70), $3 (>$70)",
         }
     }
-
-
-@app.get("/api/accounting/vendor-payouts")
-def get_vendor_payouts_list(
-    vendor_id: Optional[int] = None,
-    status: Optional[str] = None,
-    limit: int = Query(100, ge=1, le=500),
-    offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
-    _user = Depends(require_admin),
-):
-    """
-    Get vendor payout records.
-    Connected to Admin Portal: Vendor Payouts Screen
-    """
-    from models import Order, OrderStatus, Vendor
-
-    # Get completed orders grouped by vendor
-    query = db.query(Order).filter(
-        Order.payment_status == "succeeded",
-        Order.status == OrderStatus.DELIVERED
-    )
-
-    if vendor_id:
-        query = query.filter(Order.vendor_id == vendor_id)
-
-    orders = query.order_by(Order.created_at.desc()).all()
-
-    # Group by vendor
-    vendor_payouts = {}
-    for order in orders:
-        vid = order.vendor_id
-        if vid not in vendor_payouts:
-            vendor = db.query(Vendor).filter(Vendor.id == vid).first()
-            vendor_payouts[vid] = {
-                "vendor_id": vid,
-                "vendor_name": vendor.restaurant_name if vendor else f"Vendor {vid}",
-                "orders": [],
-                "total_sales": 0,
-                "platform_fees": 0,
-                "net_payout": 0,
-            }
-
-        # Calculate net payout (sales - platform fee)
-        platform_fee = order.platform_fee or 1.0  # $1 flat fee
-        net = (order.subtotal or 0) - platform_fee
-
-        vendor_payouts[vid]["orders"].append({
-            "order_id": order.id,
-            "order_number": order.order_number,
-            "amount": order.subtotal,
-            "platform_fee": platform_fee,
-            "net": net,
-            "date": order.delivered_at.isoformat() if order.delivered_at else order.created_at.isoformat(),
-        })
-        vendor_payouts[vid]["total_sales"] += order.subtotal or 0
-        vendor_payouts[vid]["platform_fees"] += platform_fee
-        vendor_payouts[vid]["net_payout"] += net
-
-    # Convert to list and round values
-    result = []
-    for vid, data in vendor_payouts.items():
-        data["total_sales"] = round(data["total_sales"], 2)
-        data["platform_fees"] = round(data["platform_fees"], 2)
-        data["net_payout"] = round(data["net_payout"], 2)
-        data["order_count"] = len(data["orders"])
-        result.append(data)
-
-    return result
 
 
 # ============================================================================
