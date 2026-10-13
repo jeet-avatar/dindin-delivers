@@ -2,22 +2,22 @@
   "date": "2026-10-13",
   "status": "web_backend_live_full_remix_not_released",
   "published": true,
-  "user_confirmation": "Latest request: let the new code get published. Website/backend release authorized; no private reference audio may be published.",
+  "user_confirmation": "User requested code publication and a visible remix button. Website/backend update includes explicitly planning-only remix setup; no private reference audio may be published.",
   "deployment_scope": {
     "components": ["website", "backend"],
     "bridge_installer": "Keep the currently published signed 1.3.19 installer unchanged",
     "staged_arrangement": "Only exposed to Bridges explicitly advertising staged_arrangement_v1; blocked on existing 1.3.19 clients",
-    "full_reference_remix": "Not released or represented as complete; the gates below still apply to the full product workflow"
+    "full_reference_remix": "Planning-only remix setup and separate saved chat are live; automatic audio production/export remain unavailable and server-gated"
   },
   "deployment": {
-    "commit": "ad114ccb6369ee725385426e9e6bacc12d8891c7",
+    "commit": "ff33af3b41cbaa29b9dbeac35fddefae0639a728",
     "branch": "release/beatmind-connection-recovery-20261012",
-    "workflow": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/38373910390",
-    "backend_task": "beatmind-api:135",
-    "backend_digest": "sha256:b43845a288d58936f729089ba16a085ce5c23e6f9143b045cbb3cd127eeea141",
-    "previous_backend_task": "beatmind-api:134",
-    "frontend_backup": "/Users/jeet/beatmind-release-handoffs/web-rights-20261013/previous",
-    "cloudfront_invalidation": "I310H3GY1I7VB7EC6TPPQXBAZC",
+    "workflow": "https://github.com/jeet-avatar/dindin-delivers/actions/runs/38380457080",
+    "backend_task": "beatmind-api:136",
+    "backend_digest": "sha256:6efd6b2def16a03fbeaa2fe8602d91f4a6e92d73f9e29a9ee0a7f0a3cd7e37b5",
+    "previous_backend_task": "beatmind-api:135",
+    "previous_commit": "ad114ccb6369ee725385426e9e6bacc12d8891c7",
+    "cloudfront_invalidation": "I9YCXSR3UQDZHOBA0X04IYXQ1X",
     "cloudfront_status": "Completed",
     "ecs_rollout": "COMPLETED; one running task, none pending",
     "release_identity": "Public release.json matches the deployed website/backend commit and retains Bridge 1.3.19"
@@ -37,18 +37,21 @@
     "Frontend dependencies updated within existing major versions with a PostCSS security override",
     "Explicit per-import source-use confirmation, account/reference-bound receipts and separate local analysis permission",
     "Removed automatic stem imports after separation; rights confirmation resets when intended use changes",
-    "Terms no longer promise ownership of third-party or all AI output; privacy discloses confirmation records"
+    "Terms no longer promise ownership of third-party or all AI output; privacy discloses confirmation records",
+    "Durable import receipts and idempotent retries preserve interrupted outcomes without replaying music writes",
+    "Visible Remix this reference button with source-use confirmation, style, tempo and retained/replaced/omitted layers",
+    "Remix plans create separate source-bound chats; server planning gates block automatic audio execution"
   ],
   "validation": {
-    "backend_sqlite": "581 passed including source-use and old-Bridge compatibility guards; 3 audio library deprecation warnings",
+    "backend_sqlite": "595 passed in CI, 4 warnings",
     "previous_candidate_ci": "d25be7fc: 575 SQLite tests, 570 PostgreSQL tests with 5 dialect-specific skips, 21 frontend test files and production build passed; run 38373302763",
-    "final_candidate_ci": "ad114ccb: 581 SQLite tests, 576 PostgreSQL tests with 5 dialect-specific skips, 21 frontend test files and production build passed",
-    "bridge": "78 passed",
-    "frontend_unit_files": "21 passed",
+    "final_candidate_ci": "ff33af3b: 595 SQLite tests, 590 PostgreSQL tests with 5 dialect-specific skips, 86 Bridge tests, 22 frontend test files and production build passed",
+    "bridge": "86 passed in CI under Xvfb; not installer acceptance",
+    "frontend_unit_files": "22 passed",
     "frontend_build": "passed with Next.js 15.5.27",
     "npm_audit": "zero known vulnerabilities after clean npm ci",
     "source_use_browser": "Local and cloud imports passed at 1440px and 390px: no automatic import, unchecked consent, reset on changed use/cancel, focus restoration, scoped payload and visible server errors",
-    "live_checks": "Public release identity, API health/new consent schemas, Terms/Privacy copy and login input typing passed; deployed consent UI passed at 1440px and 390px using mocked authenticated API responses, not real customer audio",
+    "live_checks": "Public release identity matches ff33af3b; API health ok with two connected Bridges; remix endpoint and required schema present; unauthenticated save rejected with HTTP 401. Deployed remix UI passed at 1440px and 390px using synthetic authenticated API responses, not real customer saves or audio",
     "container_runtime": "Offline non-root test passed: cached separation, four aligned stems, two non-silent comparison previews and owner-scoped chat storage",
     "browser_mocked_api": "Arrangement approval, scoped revision approval and durable outbox passed at 1440px and 390px; screenshots inspected",
     "native_ableton": "Disposable project copy: one drop kick clip revised, 87 other clips unchanged, all section positions verified, actual section audio captured with pending review",
@@ -57,7 +60,7 @@
     "not_proven": ["Frontend-to-model-to-Bridge production flow for the new features", "Rebuilt signed and notarized installer containing these final changes", "Clean-machine first integration setup", "Reference-faithful remix end to end"]
   },
   "release_gates": [
-    "Complete reference-bound remix mode, source authorization and retained/replaced layer state",
+    "Connect the saved source-bound remix plan and retained/replaced layer state to verified audio production",
     "Implement and test tempo/warp alignment and section-local audio-stem replacement without changing original media",
     "Verify durable stem import recovery and actual clip/file identities after interrupted operations",
     "Test the selected reference through the frontend, arrangement, previews, saved project and complete export",
